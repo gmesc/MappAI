@@ -1,6 +1,8 @@
 {
   "name": "mapp-ai",
   "version": "1.0.0",
+  "description": "Mapp.AI - AI-Powered Mind Mapping and Knowledge Graph Tool",
+  "author": "Giacomo Meschini",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
