@@ -2,12 +2,15 @@
   "name": "mapp-ai",
   "version": "1.0.0",
   "description": "Mapp.AI - AI-Powered Mind Mapping and Knowledge Graph Tool",
-  "author": "Giacomo Meschini <giacomo@insegnai.ch>",
+  "author": {
+    "name": "Giacomo Meschini",
+    "email": "giacomo@insegnai.ch"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder -m"
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "com.mappai.generatore",
@@ -26,6 +29,7 @@
         "AppImage",
         "deb"
       ],
+      "maintainer": "Giacomo Meschini <giacomo@insegnai.ch>",
       "category": "Education"
     }
   },
@@ -35,7 +39,6 @@
     "ai",
     "study"
   ],
-  "author": "Antigravity",
   "license": "ISC",
   "devDependencies": {
     "electron": "^30.0.0",
