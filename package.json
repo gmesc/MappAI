@@ -1,0 +1,47 @@
+{
+  "name": "mapp-ai",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder -m"
+  },
+  "build": {
+    "appId": "com.mappai.generatore",
+    "productName": "Mapp.AI",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": "arm64"
+        }
+      ],
+      "category": "public.app-category.education"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education"
+    }
+  },
+  "keywords": [
+    "map",
+    "node",
+    "ai",
+    "study"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "hyphenation.it": "^0.2.1",
+    "hypher": "^0.2.5",
+    "mammoth": "^1.12.0"
+  }
+}

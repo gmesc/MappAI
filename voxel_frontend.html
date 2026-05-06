@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapp.AI - Voxel Art Edition</title>
+  
+  <!-- Font Space Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
+  <!-- InsegnAI Core Styles (Imported logically to maintain voxel theme) -->
+  <link rel="stylesheet" href="../insegnai_sito/style.css">
+
+  <style>
+    /* Specific overrides for Mapp.AI Voxel UI */
+    body {
+      background-color: #f8fafc;
+      margin: 0;
+      overflow-x: hidden;
+      font-family: 'Space Mono', monospace;
+    }
+    .voxel-hero {
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      color: white;
+      padding: 6rem 2rem;
+      text-align: center;
+      position: relative;
+    }
+    .voxel-title {
+      font-size: 3.5rem;
+      font-weight: 700;
+      text-shadow: 4px 4px 0 #3b82f6, -2px -2px 0 #3b82f6, 2px -2px 0 #3b82f6, -2px 2px 0 #3b82f6, 2px 2px 0 #3b82f6;
+      margin-bottom: 1rem;
+    }
+    .voxel-icon-container {
+      margin: 3rem auto;
+      perspective: 1000px;
+    }
+    .voxel-app-icon {
+      width: 300px;
+      height: 300px;
+      border-radius: 20%;
+      border: 6px solid white;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+      transition: transform 0.4s ease-in-out;
+    }
+    .voxel-app-icon:hover {
+      transform: translateY(-15px) rotateX(10deg) rotateY(-10deg) scale(1.05);
+    }
+    .grid-container {
+      padding: 4rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .mappai-feature-card {
+      background: white;
+      border: 4px solid #1e293b;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 8px 8px 0 #1e293b;
+      transition: all 0.2s ease;
+      height: 100%;
+    }
+    .mappai-feature-card:hover {
+      transform: translate(-4px, -4px);
+      box-shadow: 12px 12px 0 #3b82f6;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <a href="#" class="nav-logo" id="nav-logo">
+      <span class="nav-logo-text">Mapp<span class="nav-logo-dot">.</span>AI</span>
+    </a>
+    <ul class="nav-tiles" id="nav-tiles">
+      <li class="nav-tile"><a href="mappatura_tutor.html">Avvia Mappa</a></li>
+      <li class="nav-tile nav-tile-green"><a href="#features">Caratteristiche</a></li>
+      <li class="nav-tile nav-tile-red"><a href="#">Supporto</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <section class="voxel-hero">
+    <div class="voxel-icon-container">
+      <img src="public/voxel_icon.png" alt="Mapp.AI Voxel App Icon" class="voxel-app-icon">
+    </div>
+    <h1 class="voxel-title">Mapp.AI Voxel Edition</h1>
+    <p class="section-subtitle" style="color: #cbd5e1; max-width: 700px; margin: 0 auto;">
+      La potenza di D3.js e dell'intelligenza artificiale, ora unificata sotto l'ecosistema visivo di Insegn.AI.
+      Lead the Loop con uno stile inconfondibile.
+    </p>
+    
+    <div style="margin-top: 3rem; display: flex; gap: 1rem; justify-content: center;">
+      <a href="mappatura_tutor.html" class="btn-voxel btn-voxel-teal" style="font-size: 1.2rem; padding: 1rem 2rem;">Apri Applicazione</a>
+    </div>
+  </section>
+
+  <!-- FEATURE SECTION -->
+  <section class="grid-container" id="features">
+    <div class="diorama-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+      
+      <!-- Card 1 -->
+      <div class="mappai-feature-card">
+        <h3 class="diorama-card-title">Mappe D3.js</h3>
+        <p class="diorama-card-desc" style="margin-bottom: 1rem;">
+          Naviga la complessità con layout radiali interattivi. Esplora nodi gerarchici fino al livello L4 senza perdere il contesto.
+        </p>
+        <span class="diorama-card-tag tag-teal">Grafi Visivi</span>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="mappai-feature-card">
+        <h3 class="diorama-card-title">Gemini AI Tutor</h3>
+        <p class="diorama-card-desc" style="margin-bottom: 1rem;">
+          Un assistente intelligente sempre pronto ad approfondire ogni concetto. Chiedi e ottieni spiegazioni immediate sui disturbi dell'apprendimento.
+        </p>
+        <span class="diorama-card-tag tag-pink">Intelligenza</span>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="mappai-feature-card">
+        <h3 class="diorama-card-title">Design Isometrico</h3>
+        <p class="diorama-card-desc" style="margin-bottom: 1rem;">
+          Adottiamo l'estetica voxel art in stile Insegn.AI per rendere l'esperienza utente moderna, tangibile e ludica.
+        </p>
+        <span class="diorama-card-tag tag-grey">Interfaccia</span>
+      </div>
+
+    </div>
+  </section>
+
+</body>
+</html>

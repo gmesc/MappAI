@@ -1,0 +1,140 @@
+const it_translations = {
+    // General
+    landing_subtitle: "Visualizzatore di conoscenza",
+    btn_config_ai: "Configura AI",
+    btn_app_guide: "Guida App",
+    btn_active_study: "Studio Attivo",
+    recent_projects: "Progetti Recenti",
+    new_map_btn: "Genera Nuova Mappa",
+    save_folder: "Cartella Salvataggi",
+    import_json: "Importa JSON",
+    ext_ai_guide: "Guida AI Esterna",
+    sidebar_subtitle: "Visualizzatore di conoscenza",
+    tab_structure: "Struttura",
+    tab_notes: "Appunti",
+    tab_study: "Studio",
+    
+    // Setup Steps
+    step1: "Carica le tue Fonti",
+    step1_desc: "Carica il tuo materiale da diverse fonti:",
+    step2: "Oggetto dello Studio",
+    step2_mindmap: "Mappa Mentale",
+    step2_kg: "Knowledge Graph",
+    step2_root_label: "Oggetto dello Studio (Nodo Centrale):",
+    step3: "Guida l'AI (Focus)",
+    step3_l1_title: "Rami Principali (Livello 1)",
+    step3_l1_desc: "Definisci i rami principali per organizzare lo studio:",
+    step3_add_l1: "Aggiungi Nodo L1",
+    step3_auto_l1: "Genera altri nodi L1 in automatico",
+    step3_focus_label: "Focus specifico (Opzionale):",
+    step3_focus_placeholder: "Su cosa deve concentrarsi Gemini?",
+    step4: "Modello e Lingua",
+    step5: "Stile Visualizzazione",
+    step_density_title: "Densità Diramazioni (L4 e L5)",
+    step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
+    
+    // Placeholders
+    placeholder_root: "Esempio: Dante Alighieri, Fisica Quantistica...",
+    placeholder_focus: "Focalizzati sulla vita, sulle opere, o su un concetto specifico...",
+    placeholder_keywords: "Inserisci keyword separate da virgola...",
+    
+    // Loading
+    loading_processing: "Mapp.AI sta elaborando...",
+    loading_sources: "Interpretazione delle fonti con Gemini",
+    
+    // Modals - AI Config
+    modal_config_title: "Configurazione AI",
+    btn_save_config: "Salva Configurazione",
+    
+    // Modals - App Guide
+    modal_guide_title: "Come usare Mapp.AI",
+    guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
+    guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.",
+    guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
+    guide_step2_desc: "Puoi caricare materiale da diverse fonti: PDF, URL Web, YouTube o Testo Libero.",
+    guide_step3_title: "🎯 Passo 3 — Scegli il tipo di Mappa",
+    guide_step3_desc: "Mappa Mentale: Struttura gerarchica (L0→L5) perfetta per lo studio. Knowledge Graph: Rete di relazioni tra concetti, ideale per visualizzare connessioni trasversali.",
+    guide_step4_title: "✍️ Passo 4 — Personalizza e Guida l'AI",
+    guide_step4_desc: "Inserisci il nome del Nodo Centrale. Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus specifico e regolare la densità delle diramazioni.",
+    guide_step5_title: "🗺️ Passo 5 — Interagisci con la Mappa",
+    guide_step5_desc: "Doppio click su un nodo per leggere/modificare note. Scroll per lo zoom. Drag per spostare. Click destro per menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
+    guide_step6_title: "💾 Passo 6 — Salva e Riprendi",
+    guide_step6_desc: "Le mappe vengono salvate automaticamente nella cartella 'Salvataggi Mapp.AI' in Documenti. Puoi importare/esportare file JSON. I progetti recenti appaiono nella barra della landing page.",
+    guide_notes_title: "📓 Raccoglitore Appunti",
+    guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
+    guide_footer: "Mapp.AI salva tutto localmente sul tuo Mac. I tuoi dati non lasciano mai il dispositivo.",
+    
+    // Modals - Active Study (Tutorial)
+    modal_study_title: "Metodo di Studio Attivo",
+    study_intro: "Mapp.AI non è solo un generatore di schemi: è un **ambiente di apprendimento attivo**. La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.",
+    study_sr_title: "🔁 Ripasso Dilazionato (Spaced Repetition)",
+    study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). Mapp.AI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
+    study_ar_title: "🧠 Active Recall (Richiamo Attivo)",
+    study_ar_desc: "Non rileggere passivamente: **chiudi gli appunti** e prova a riscrivere cosa ricordi. Fai doppio click su un nodo della mappa, svuota il contenuto e riscrivi con parole tue. Recuperare dalla memoria è 2-3x più efficace della rilettura.",
+    study_feynman_title: "👨‍🏫 Metodo Feynman",
+    study_feynman_desc: "Spiega ogni concetto **come se lo stessi insegnando a un bambino di 10 anni**. Se non riesci a farlo senza intoppi, hai trovato il tuo punto debole. Usa i nodi della mappa per riscrivere le spiegazioni finché non diventano chiare.",
+    study_interleaving_title: "🔀 Interleaving (Studio Alternato)",
+    study_interleaving_desc: "Alterna argomenti diversi nella stessa sessione di studio invece di dedicarti a uno solo. Il cervello impara a **distinguere e collegare** i concetti. Usa il Knowledge Graph per visualizzare i legami trasversali!",
+    study_elaboration_title: "❓ Interrogazione Elaborativa",
+    study_elaboration_desc: "Per ogni nodo della mappa chiediti: **'Perché funziona così?'** e **'Come si collega al resto?'**. Questo livello di auto-interrogazione trasforma la lettura passiva in comprensione profonda.",
+    study_local_files_title: "📂 Collegamento File Locali",
+    study_local_files_desc: "Hai approfondimenti sul computer? Trascina file o clicca sul nodo per collegare documenti locali (PDF, immagini, testo). I nodi con file collegati mostrano l'icona database per un accesso istantaneo.",
+    study_footer: "I nodi modificati ricevono icone speciali: (testo), (immagini), (link) e (file locali). Più personalizzi, più lo studio diventa efficace!",
+    
+    // Map View UI
+    back_to_home: "Torna alla Home",
+    floating_actions: "Azioni Rapide",
+    a11y_tools: "Strumenti Compensativi",
+    a11y_invert: "Inverti Colori",
+    a11y_low_contrast: "Riduci Contrasti",
+    a11y_high_contrast: "Contrasti Elevati",
+    a11y_grayscale: "Scala di Grigi",
+    
+    // Floating Toolbar
+    toolbar_center: "Centra",
+    toolbar_reorder: "Riordina",
+    toolbar_layout: "Layout",
+    toolbar_pin: "Pin",
+    toolbar_attraction: "Attr.",
+    toolbar_dist: "Distanza",
+    toolbar_text: "Testo",
+    toolbar_path: "Path",
+    toolbar_photo: "Foto",
+    
+    // Sidebar Panels
+    sidebar_no_node: "Nessun nodo selezionato",
+    sidebar_no_node_desc: "Usa il tasto Sinistro per studiare, tasto Destro per gestire lo stato di apprendimento e i contenuti.",
+    sidebar_macro_areas: "Macro-Aree",
+    sidebar_generate_hint: "Genera una mappa per visualizzare la struttura.",
+    sidebar_empty_notes: "Nessun appunto raccolto. Inizia a studiare!",
+    
+    // Context Menu
+    ctx_edit: "Modifica Contenuto",
+    ctx_add_child: "Aggiungi Nodo Figlio",
+    ctx_expand: "Espandi con AI",
+    ctx_quiz: "Avvia Quiz",
+    ctx_flashcard: "Visualizza Flashcard",
+    ctx_delete: "Elimina Nodo",
+    ctx_connect: "Collega a...",
+    
+    // Projects Bar
+    show_projects: "Mostra Progetti",
+    hide_projects: "Nascondi Progetti",
+    empty_projects_msg: "Nessun progetto salvato. Crea una nuova mappa per iniziare.",
+    
+    // Toasts & Alerts
+    toast_lang_it: "Lingua: Italiano",
+    toast_lang_en: "Language: English",
+    alert_error_title: "Errore",
+    alert_ok_btn: "Ho capito",
+    confirm_title: "Conferma",
+    confirm_proceed: "Procedi",
+    confirm_cancel: "Annulla",
+    
+    // Merge Modal
+    merge_title: "Unisci Mappa",
+    merge_subtitle: "Stai per aggiungere una nuova mappa alla vista corrente.",
+    merge_ai_correlations: "🤖 Correlazioni AI",
+    merge_ai_desc: "L'AI cercherà possibili correlazioni tra i nodi delle due mappe e creerà link tratteggiati che potrai validare o rimuovere.",
+    merge_auto_save: "La mappa corrente verrà **salvata automaticamente** prima dell'operazione."
+};

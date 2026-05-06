@@ -1,0 +1,1950 @@
+{
+  "rootNodeLabel": "Microbiota Umano",
+  "mode": "mindmap",
+  "nodes": [
+    {
+      "id": "ROOT",
+      "label": "Microbiota Umano",
+      "content": "Il microbiota umano è l’insieme dei microrganismi che convivono in simbiosi con il nostro organismo. Situato prevalentemente nell'intestino, questo complesso ecosistema svolge funzioni vitali per il metabolismo, il sistema immunitario e il mantenimento della salute generale.",
+      "desc": "Il microbiota umano è l’insieme dei microrganismi che convivono in simbiosi con il nostro organismo. Situato prevalentemente nell'intestino, questo complesso ecosistema svolge funzioni vitali per il metabolismo, il sistema immunitario e il mantenimento della salute generale.",
+      "level": 0,
+      "studyStatus": null,
+      "chunks": [],
+      "x": -3.1207883887867194,
+      "y": 2.084266974048835
+    },
+    {
+      "id": "L1_0",
+      "label": "Composizione e Tassonomia",
+      "content": "Panoramica sulla varietà tassonomica e strutturale del microbiota umano.",
+      "desc": "Panoramica sulla varietà tassonomica e strutturale del microbiota umano.",
+      "level": 1,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [],
+      "x": 220.74969413012738,
+      "y": -30.826907027511314,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1",
+      "label": "Funzioni Fisiologiche e Metabolismo",
+      "content": "Il microbiota intestinale svolge un ruolo cruciale nel mantenimento dell'omeostasi umana, partecipando attivamente alla digestione di nutrienti complessi, alla sintesi di vitamine essenziali e alla modulazione del sistema immunitario, garantendo così una barriera protettiva contro i patogeni e influenzando profondamente il metabolismo energetico e la salute sistemica dell'ospite.",
+      "desc": "Il microbiota intestinale svolge un ruolo cruciale nel mantenimento dell'omeostasi umana, partecipando attivamente alla digestione di nutrienti complessi, alla sintesi di vitamine essenziali e alla modulazione del sistema immunitario, garantendo così una barriera protettiva contro i patogeni e influenzando profondamente il metabolismo energetico e la salute sistemica dell'ospite.",
+      "level": 1,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [],
+      "x": -55.10677668913555,
+      "y": 227.584921124144,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2",
+      "label": "Localizzazione e Distretti Corporei",
+      "content": "Distribuzione geografica dei microrganismi nel corpo umano.",
+      "desc": "Distribuzione geografica dei microrganismi nel corpo umano.",
+      "level": 1,
+      "group": 4,
+      "studyStatus": null,
+      "chunks": [],
+      "x": 9.111534153352755,
+      "y": -230.86018764808614,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3",
+      "label": "Relazione con la Salute e Patologie",
+      "content": "Il microbiota influenza profondamente la salute umana regolando il sistema immunitario, il metabolismo e le funzioni neurologiche. Uno squilibrio microbico, o disbiosi, è associato a patologie croniche, infiammatorie e metaboliche, rendendo la simbiosi essenziale per il benessere globale dell'organismo.",
+      "desc": "Il microbiota influenza profondamente la salute umana regolando il sistema immunitario, il metabolismo e le funzioni neurologiche. Uno squilibrio microbico, o disbiosi, è associato a patologie croniche, infiammatorie e metaboliche, rendendo la simbiosi essenziale per il benessere globale dell'organismo.",
+      "level": 1,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [],
+      "x": -230.80835798870208,
+      "y": -28.230784327146303,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L2_BACT",
+      "label": "Dominio Bacteria",
+      "content": "I batteri costituiscono la componente predominante del microbiota umano.",
+      "desc": "Il dominio Bacteria rappresenta la stragrande maggioranza della biomassa microbica associata all'essere umano. Questi organismi procarioti sono caratterizzati da una straordinaria diversità metabolica e strutturale, adattandosi a nicchie ecologiche specifiche che vanno dalla superficie acida della pelle all'ambiente anaerobico dell'intestino crasso. La classificazione tassonomica dei batteri umani si basa su una gerarchia che parte dai phyla principali, come Firmicutes, Bacteroidetes, Actinobacteria e Proteobacteria, che insieme costituiscono oltre il 90% della popolazione batterica intestinale. Ogni phylum porta con sé un set unico di capacità metaboliche; ad esempio, i Bacteroidetes sono esperti nella degradazione di polisaccaridi complessi, mentre molti Firmicutes sono responsabili della produzione di acidi grassi a catena corta (SCFA) come il butirrato, fondamentale per la salute dei colonociti. La presenza e l'abbondanza relativa di questi gruppi batterici sono indicatori critici della salute dell'ospite. Alterazioni in questa composizione, note come disbiosi, sono state collegate a numerose patologie, tra cui l'obesità, il diabete di tipo 2 e le malattie infiammatorie intestinali. La ricerca moderna si sta spostando dalla semplice identificazione tassonomica alla metagenomica funzionale, cercando di capire non solo quali batteri siano presenti, ma quali geni attivi possiedano. Tuttavia, la tassonomia rimane il pilastro fondamentale per mappare la biodiversità e per sviluppare interventi terapeutici mirati, come i probiotici di nuova generazione o il trapianto di microbiota fecale, che mirano a ripristinare un equilibrio batterico ottimale.",
+      "level": 2,
+      "group": 2,
+      "studyStatus": null,
+      "chunks": [
+        "I batteri sono i componenti più numerosi del microbiota umano, con una prevalenza di phyla come Firmicutes e Bacteroidetes.",
+        "Wikipedia: Microbiota umano - La maggior parte dei batteri appartiene ai phyla Actinobacteria, Bacteroidetes, Firmicutes e Proteobacteria."
+      ],
+      "x": 422.44993087749583,
+      "y": -13.167193100779999,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L2_ARCH",
+      "label": "Dominio Archaea",
+      "content": "Archei: microrganismi unicellulari distinti dai batteri per genetica.",
+      "desc": "Sebbene meno numerosi dei batteri, gli archei rappresentano una componente essenziale e funzionalmente distinta del microbiota umano, in particolare nell'intestino e sulla pelle. Gli archei sono organismi unicellulari procarioti che, pur somigliando morfologicamente ai batteri, possiedono percorsi biochimici e sequenze genetiche più simili agli eucarioti. Nel contesto umano, il gruppo più studiato è quello degli archei metanogeni, come Methanobrevibacter smithii, che risiede nel colon. Questi organismi svolgono un ruolo ecologico cruciale attraverso la metanogenesi: utilizzano l'idrogeno e l'anidride carbonica prodotti dalla fermentazione batterica per produrre metano. Questo processo non solo riduce il volume dei gas intestinali, ma aumenta anche l'efficienza della fermentazione batterica rimuovendo i prodotti finali che potrebbero inibirla. Oltre all'intestino, archei del phylum Thaumarchaeota sono stati identificati sulla pelle umana, dove sembrano coinvolti nel metabolismo dell'ammoniaca, contribuendo potenzialmente alla regolazione del pH cutaneo e alla protezione contro i patogeni. Nonostante la loro importanza, gli archei sono stati a lungo trascurati a causa della difficoltà di coltura e della necessità di primer specifici per il sequenziamento. La loro inclusione nei modelli di salute umana sta rivelando connessioni inaspettate con il metabolismo energetico e le malattie metaboliche. La comprensione della tassonomia degli archei umani è quindi fondamentale per una visione olistica del microbiota, spostando l'attenzione oltre il solo dominio batterico per includere questi antichi e vitali partner simbiotici.",
+      "level": 2,
+      "group": 2,
+      "studyStatus": null,
+      "chunks": [
+        "Gli archei, in particolare i metanogeni, sono componenti stabili del microbiota intestinale umano.",
+        "Wikipedia: Microbiota umano - Methanobrevibacter smithii è l'archeo più comune nell'intestino umano."
+      ],
+      "x": 328.8851167414601,
+      "y": -176.77704963822163,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L2_EUKA",
+      "label": "Dominio Eukarya (Miceti)",
+      "content": "Il micobioma comprende funghi e lieviti presenti nel corpo.",
+      "desc": "Il micobioma, ovvero la componente fungina del microbiota umano, rappresenta una frazione numericamente piccola (circa lo 0,1% delle cellule totali) ma biologicamente significativa dell'ecosistema microbico. I funghi eucarioti, come i lieviti del genere Candida, Saccharomyces e Malassezia, abitano diverse aree del corpo, tra cui la pelle, il tratto gastrointestinale e le mucose vaginali. La tassonomia del micobioma è caratterizzata da una grande variabilità interindividuale e da una forte influenza ambientale. Sulla pelle, il genere Malassezia domina la composizione fungina, giocando un ruolo sia nella salute cutanea che in condizioni patologiche come la dermatite seborroica. Nell'intestino, generi come Candida e Saccharomyces convivono con la flora batterica, partecipando a complessi scambi metabolici. Sebbene spesso considerati commensali innocui, i funghi possono diventare patogeni opportunisti in condizioni di immunodepressione o a seguito di trattamenti antibiotici prolungati che eliminano i loro competitori batterici. La ricerca recente ha evidenziato come il micobioma interagisca attivamente con il sistema immunitario dell'ospite attraverso recettori specifici come la dectina-1, influenzando la suscettibilità a malattie infiammatorie come il morbo di Crohn. La sfida principale nello studio tassonomico dei funghi risiede nella loro classificazione complessa e nella necessità di database di riferimento più completi. Tuttavia, l'integrazione dei dati sul micobioma nelle analisi del microbiota globale è essenziale per comprendere le dinamiche di comunità e per sviluppare approcci terapeutici che tengano conto di tutte le componenti del regno biologico presenti nell'uomo.",
+      "level": 2,
+      "group": 2,
+      "studyStatus": null,
+      "chunks": [
+        "Il micobioma umano è composto da funghi e lieviti che interagiscono con i batteri e l'ospite.",
+        "Wikipedia: Microbiota umano - I generi Candida e Saccharomyces sono comuni nel tratto gastrointestinale."
+      ],
+      "x": 371.52112605309077,
+      "y": 94.00147073758967,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L2_VIRO",
+      "label": "Viroma Umano",
+      "content": "Insieme dei virus, inclusi i batteriofagi, nel corpo umano.",
+      "desc": "Il viroma umano è la componente più numerosa e meno conosciuta del microbiota, comprendendo virus che infettano le cellule umane, virus derivanti dal cibo e, soprattutto, batteriofagi (virus che infettano i batteri). Si stima che il numero di particelle virali superi di almeno dieci volte quello delle cellule batteriche. La tassonomia del viroma è estremamente complessa a causa dell'elevato tasso di mutazione virale e della mancanza di un marcatore genetico universale come il 16S rRNA batterico. I batteriofagi giocano un ruolo ecologico fondamentale come regolatori delle popolazioni batteriche attraverso il ciclo litico (che porta alla morte del batterio) o il ciclo lisogenico (dove il DNA virale si integra nel genoma batterico). Questa interazione 'predatore-preda' mantiene la diversità batterica e facilita il trasferimento genetico orizzontale, permettendo ai batteri di acquisire nuove funzioni, come la resistenza agli antibiotici o nuove capacità metaboliche. Oltre ai fagi, il viroma include virus eucariotici che possono persistere in modo asintomatico, come gli herpesvirus, o influenzare la risposta immunitaria dell'ospite. La composizione del viroma è altamente specifica per l'individuo e rimane relativamente stabile nel tempo, suggerendo una co-evoluzione profonda con l'ospite. Lo studio del viroma sta aprendo nuove frontiere nella medicina personalizzata, con il potenziale utilizzo della fagoterapia per combattere infezioni batteriche multiresistenti, offrendo un'alternativa mirata agli antibiotici tradizionali che spesso causano danni collaterali alla composizione del microbiota sano.",
+      "level": 2,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Il viroma umano comprende virus che infettano sia le cellule umane che i batteri (batteriofagi).",
+        "Wikipedia: Microbiota umano - I batteriofagi sono i componenti più abbondanti del viroma intestinale."
+      ],
+      "x": 333.94712934353777,
+      "y": 2.8701936398183405,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L2_DIVR",
+      "label": "Diversità Regionale",
+      "content": "Variazione della composizione microbica nei diversi distretti corporei.",
+      "desc": "La composizione e la tassonomia del microbiota non sono uniformi in tutto il corpo, ma variano drasticamente a seconda del distretto anatomico considerato. Ogni area del corpo umano — pelle, bocca, intestino, apparato urogenitale e vie respiratorie — offre condizioni ambientali uniche in termini di pH, umidità, disponibilità di nutrienti e tensione di ossigeno, che selezionano comunità microbiche specifiche. Ad esempio, la pelle è un ambiente secco, acido e povero di nutrienti, dominato da Actinobacteria (come Propionibacterium) e Staphylococcus, adattati a sopravvivere in queste condizioni ostili. Al contrario, il cavo orale è un ambiente umido e ricco di nutrienti, che ospita una delle comunità più diverse, con oltre 700 specie identificate, tra cui Streptococcus e Neisseria. L'intestino crasso, essendo un ambiente anaerobico e ricco di residui alimentari, favorisce la crescita di batteri fermentanti obbligati come Bacteroides e Clostridium. Anche all'interno dello stesso distretto, come l'intestino, esistono gradienti longitudinali e trasversali: la composizione del microbiota del tenue differisce significativamente da quella del colon, e i microbi associati alla mucosa sono diversi da quelli presenti nel lume intestinale. Questa specializzazione regionale è fondamentale per le funzioni locali: il microbiota vaginale, dominato da Lactobacillus, mantiene un pH acido protettivo, mentre il microbiota polmonare, un tempo ritenuto sterile, gioca un ruolo nella modulazione immunitaria respiratoria. Comprendere questa diversità regionale è cruciale per diagnosticare e trattare malattie sito-specifiche e per evitare generalizzazioni errate sulla salute del microbiota.",
+      "level": 2,
+      "group": 2,
+      "studyStatus": null,
+      "chunks": [
+        "La composizione del microbiota varia significativamente tra i diversi siti del corpo umano.",
+        "Wikipedia: Microbiota umano - Ogni distretto corporeo possiede una firma microbica unica e caratteristica."
+      ],
+      "x": 326.2993790721079,
+      "y": -86.81902571956306,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L3_FIRM",
+      "label": "Phylum Firmicutes",
+      "content": "Phylum batterico predominante coinvolto nel metabolismo energetico.",
+      "desc": "Il phylum Firmicutes rappresenta uno dei due gruppi batterici dominanti nel microbiota intestinale umano, comprendendo oltre 200 generi, tra cui Lactobacillus, Clostridium, Enterococcus e Ruminococcus. La maggior parte dei membri di questo phylum è Gram-positiva e molti sono in grado di produrre endospore, una caratteristica che conferisce loro una notevole resistenza ambientale. Dal punto di vista funzionale, i Firmicutes sono essenziali per la fermentazione dei carboidrati complessi non digeribili dall'ospite, portando alla produzione di acidi grassi a catena corta (SCFA) come acetato, propionato e, soprattutto, butirrato. Il butirrato è la principale fonte di energia per le cellule del colon e possiede proprietà antinfiammatorie e antitumorali. Un aspetto ampiamente discusso nella letteratura scientifica è il rapporto Firmicutes/Bacteroidetes (rapporto F/B), spesso citato come biomarcatore per l'obesità e la salute metabolica. Studi pionieristici hanno suggerito che un aumento della proporzione di Firmicutes sia associato a una maggiore capacità di estrazione energetica dalla dieta, contribuendo all'accumulo di grasso corporeo. Tuttavia, la tassonomia dei Firmicutes è estremamente vasta e include sia simbionti benefici che potenziali patogeni, rendendo necessaria un'analisi a livello di genere o specie per comprenderne appieno l'impatto. La loro presenza è influenzata drasticamente dalla dieta: regimi ricchi di fibre favoriscono la crescita di specie fermentanti, mentre diete ricche di grassi e zuccheri possono alterarne l'equilibrio, portando a stati di infiammazione sistemica di basso grado.",
+      "level": 3,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "I Firmicutes sono uno dei phyla più abbondanti nell'intestino umano e sono coinvolti nella produzione di butirrato.",
+        "Wikipedia: Microbiota umano - Il phylum Firmicutes comprende batteri come Clostridium e Lactobacillus."
+      ],
+      "x": 567.6092661529963,
+      "y": -145.1330330304835,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L3_BACTO",
+      "label": "Phylum Bacteroidetes",
+      "content": "Batteri Gram-negativi specializzati nella degradazione dei polisaccaridi.",
+      "desc": "Il phylum Bacteroidetes costituisce l'altra grande colonna portante del microbiota intestinale umano. Questi batteri Gram-negativi, anaerobi non sporigeni, sono particolarmente abbondanti nel colon, dove svolgono il ruolo di 'degradatori primari' di polisaccaridi complessi, come le fibre vegetali e le mucine prodotte dall'ospite. Grazie a un vasto repertorio di enzimi codificati nei loro sistemi di utilizzo dei polisaccaridi (PUL), i Bacteroidetes scompongono molecole che l'uomo non potrebbe digerire autonomamente, rendendo disponibili nutrienti e segnali metabolici. Il genere più rappresentativo è Bacteroides, che può costituire fino al 30% della popolazione batterica totale dell'intestino. Oltre alla funzione digestiva, i Bacteroidetes sono fondamentali per lo sviluppo del sistema immunitario neonatale; ad esempio, Bacteroides fragilis produce una molecola chiamata PSA (Polisaccaride A) che promuove la differenziazione delle cellule T regolatorie, prevenendo risposte immunitarie eccessive. La tassonomia di questo phylum è sensibile ai cambiamenti dietetici a lungo termine: il genere Prevotella è tipicamente associato a diete ricche di carboidrati e fibre (comuni nelle popolazioni rurali), mentre il genere Bacteroides prevale in diete ricche di proteine e grassi animali (tipiche delle popolazioni occidentali). Questa distinzione ha portato alla definizione di 'enterotipi', modelli di composizione microbica che riflettono le abitudini alimentari e lo stile di vita. Un'alterazione della presenza di Bacteroidetes è stata collegata a diverse condizioni patologiche, sottolineando il loro ruolo critico nel mantenimento dell'equilibrio ecologico intestinale.",
+      "level": 3,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "I Bacteroidetes sono fondamentali per la degradazione di carboidrati complessi e fibre alimentari.",
+        "Wikipedia: Microbiota umano - I Bacteroidetes includono generi come Bacteroides e Prevotella."
+      ],
+      "x": 560.271489514648,
+      "y": 112.81030894354868,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L3_ACTI",
+      "label": "Phylum Actinobacteria",
+      "content": "Batteri Gram-positivi, inclusi i benefici Bifidobatteri.",
+      "desc": "Il phylum Actinobacteria, sebbene meno abbondante rispetto a Firmicutes e Bacteroidetes nell'adulto, gioca un ruolo di vitale importanza, specialmente nelle prime fasi della vita. Questo gruppo comprende batteri Gram-positivi con un alto contenuto di G+C nel DNA. Il genere più celebre all'interno di questo phylum è Bifidobacterium, che domina quasi esclusivamente il microbiota dei neonati allattati al seno. I bifidobatteri sono tra i primi colonizzatori dell'intestino e sono essenziali per la digestione degli oligosaccaridi del latte umano (HMO), che l'infante non può digerire. Questa attività non solo nutre il bambino, ma acidifica l'ambiente intestinale producendo acido lattico e acetato, inibendo così la crescita di patogeni come Escherichia coli e Salmonella. Con l'avanzare dell'età e l'introduzione di cibi solidi, la percentuale di Actinobacteria diminuisce, ma rimane una componente chiave per la stabilità della barriera intestinale e la modulazione immunitaria. Oltre all'intestino, gli Actinobacteria sono i principali abitanti della pelle umana, con il genere Cutibacterium (precedentemente Propionibacterium) che risiede nei follicoli piliferi e nelle ghiandole sebacee. Qui, degradano i lipidi del sebo producendo acidi grassi liberi che mantengono il pH cutaneo basso, fornendo una difesa chimica contro i microbi invasori. La tassonomia degli Actinobacteria è quindi un esempio perfetto di come un singolo phylum possa svolgere ruoli protettivi cruciali in distretti corporei completamente diversi, influenzando la salute umana dalla nascita alla vecchiaia.",
+      "level": 3,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Gli Actinobacteria includono i Bifidobatteri, essenziali per la salute dei neonati.",
+        "Wikipedia: Microbiota umano - Il genere Bifidobacterium appartiene al phylum Actinobacteria."
+      ],
+      "x": 581.8612937218159,
+      "y": 17.42426119208278,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L3_METH",
+      "label": "Methanobrevibacter smithii",
+      "content": "Il principale archeo metanogeno dell'intestino umano.",
+      "desc": "Methanobrevibacter smithii è l'archeo più abbondante e significativo del microbiota intestinale umano, rappresentando spesso fino al 10% della comunità microbica totale in alcuni individui. Tassonomicamente appartiene al phylum Euryarchaeota ed è un organismo anaerobio obbligato. La sua funzione principale è la metanogenesi, un processo metabolico unico che utilizza l'idrogeno (H2) e l'anidride carbonica (CO2) — sottoprodotti della fermentazione batterica — per produrre metano (CH4). Questo ruolo di 'spazzino dell'idrogeno' è ecologicamente critico: l'accumulo di idrogeno gassoso nell'intestino inibirebbe i processi di fermentazione batterica a causa del feedback negativo termodinamico. Rimuovendo l'idrogeno, M. smithii permette ai batteri fermentanti (come i Bacteroidetes) di operare in modo più efficiente, portando a una maggiore estrazione di energia dai nutrienti. Per questo motivo, la presenza di M. smithii è stata studiata in relazione all'obesità; alcuni studi suggeriscono che una sua maggiore abbondanza possa favorire l'accumulo di peso aumentando l'efficienza calorica della dieta. Tuttavia, la sua assenza o riduzione è stata notata in pazienti con malattie infiammatorie intestinali, suggerendo un ruolo complesso nella stabilità dell'ecosistema. La rilevazione di M. smithii avviene spesso tramite il 'breath test' al metano, poiché il gas prodotto viene assorbito nel sangue ed espirato dai polmoni. La comprensione della sua tassonomia e del suo metabolismo offre spunti unici sull'interazione tra domini diversi (Bacteria e Archaea) all'interno del corpo umano, dimostrando che la salute intestinale dipende da una rete di cooperazione inter-dominio.",
+      "level": 3,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Methanobrevibacter smithii è l'archeo dominante che produce metano nell'intestino.",
+        "Wikipedia: Microbiota umano - M. smithii ricicla l'idrogeno prodotto dai batteri per formare metano."
+      ],
+      "x": 447.1509508101534,
+      "y": -263.3245635027913,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L3_CAND",
+      "label": "Genere Candida",
+      "content": "Lievito commensale e patogeno opportunista del micobioma.",
+      "desc": "Il genere Candida rappresenta uno dei componenti più comuni e rilevanti del micobioma umano (la componente fungina del microbiota). Tassonomicamente classificato come un lievito ascomicete, Candida vive come commensale sulle mucose orali, vaginali e nel tratto gastrointestinale della maggior parte degli individui sani. La specie più nota è Candida albicans, ma il genere comprende anche altre specie clinicamente rilevanti come C. glabrata, C. tropicalis e C. parapsilosis. In condizioni di equilibrio omeostatico, la crescita di Candida è tenuta sotto controllo dal sistema immunitario dell'ospite e dalla competizione con i batteri residenti (come i Lattobacilli che producono acido lattico). Tuttavia, quando questo equilibrio viene alterato — ad esempio a causa di una terapia antibiotica che elimina la flora batterica competitrice, o in caso di immunodepressione — Candida può subire una transizione morfologica da lievito a ifa (forma filamentosa), diventando un patogeno opportunista capace di invadere i tessuti e causare infezioni note come candidosi. Oltre al suo ruolo patologico, studi recenti suggeriscono che Candida partecipi attivamente alle dinamiche del microbiota intestinale, influenzando la ricolonizzazione batterica dopo un trattamento antibiotico. La sua presenza è anche associata a una complessa interazione con il sistema immunitario innato, dove il riconoscimento dei componenti della sua parete cellulare (come i beta-glucani) aiuta a 'allenare' le risposte immunitarie. La tassonomia di Candida è quindi un punto focale per comprendere il delicato confine tra commensalismo e patogenicità all'interno dell'ecosistema umano.",
+      "level": 3,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Candida albicans è un fungo commensale che può diventare patogeno in caso di disbiosi.",
+        "Wikipedia: Microbiota umano - Il genere Candida è un componente comune del micobioma intestinale e vaginale."
+      ],
+      "x": 506.8628926442922,
+      "y": 254.96074597215448,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L4_LACTO",
+      "label": "Genere Lactobacillus",
+      "content": "Batteri lattici fondamentali per l'equilibrio mucosale e probiotici.",
+      "desc": "Il genere Lactobacillus appartiene al phylum Firmicutes, ordine Lactobacillales, ed è uno dei gruppi batterici più studiati e benefici per la salute umana. Questi batteri sono caratterizzati dalla capacità di convertire il lattosio e altri zuccheri in acido lattico attraverso la fermentazione lattica. Questa produzione di acido è fondamentale per mantenere un ambiente a basso pH, che agisce come una barriera naturale contro la crescita di microrganismi patogeni, specialmente nel tratto vaginale e gastrointestinale. Tassonomicamente, il genere è estremamente eterogeneo, comprendendo specie con diverse applicazioni industriali e cliniche. Oltre alla protezione contro i patogeni, i lattobacilli interagiscono direttamente con il sistema immunitario dell'ospite, promuovendo la produzione di citochine antinfiammatorie e rafforzando le giunzioni serrate dell'epitelio intestinale (la cosiddetta 'barriera intestinale'). Molte specie di Lactobacillus sono classificate come probiotici, definiti dall'OMS come 'microrganismi vivi che, somministrati in quantità adeguate, conferiscono un beneficio alla salute dell'ospite'. Storicamente, l'interesse per questi batteri risale ai lavori di Élie Metchnikoff, che ipotizzò che il consumo di latte fermentato contenente lattobacilli fosse la chiave della longevità dei contadini bulgari. Oggi, la ricerca genomica ha permesso di identificare ceppi specifici con proprietà terapeutiche mirate, dalla riduzione dei sintomi della sindrome dell'intestino irritabile (IBS) alla prevenzione delle infezioni urogenitali ricorrenti. La loro tassonomia è stata recentemente revisionata (2020) per riflettere meglio la loro diversità genetica, suddividendo l'originale genere Lactobacillus in 25 nuovi generi, sebbene il termine rimanga di uso comune nel linguaggio clinico e commerciale.",
+      "level": 4,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "I lattobacilli producono acido lattico, inibendo la crescita di batteri nocivi.",
+        "Wikipedia: Microbiota umano - Il genere Lactobacillus è predominante nel microbiota vaginale sano."
+      ],
+      "x": 719.9747673028261,
+      "y": -269.1126004402871,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L4_CLOS",
+      "label": "Genere Clostridium",
+      "content": "Vasto genere di batteri anaerobi, dai simbionti ai patogeni.",
+      "desc": "Il genere Clostridium, appartenente al phylum Firmicutes, è uno dei raggruppamenti tassonomici più vasti e complessi del microbiota umano. Si tratta di batteri Gram-positivi, anaerobi obbligati, capaci di formare spore altamente resistenti. All'interno di questo genere coesistono microrganismi con ruoli diametralmente opposti. Da un lato, troviamo specie simbionti fondamentali come quelle appartenenti ai cluster IV e XIVa (ad esempio Faecalibacterium prausnitzii, tecnicamente riclassificato ma storicamente legato), che sono i principali produttori di butirrato nell'intestino. Questi 'Clostridia benefici' svolgono un ruolo cruciale nel mantenimento della tolleranza immunitaria, inducendo l'espansione delle cellule T regolatorie (Treg) che prevengono allergie e malattie autoimmuni. Dall'altro lato, il genere include patogeni temibili come Clostridium difficile (ora Clostridioides difficile), responsabile di gravi coliti pseudomembranose a seguito di terapie antibiotiche che distruggono la flora protettiva. Altre specie note includono C. botulinum e C. tetani, sebbene queste non facciano parte del microbiota normale ma siano agenti di malattie esogene. La tassonomia dei Clostridia è in continua evoluzione; molte specie sono state spostate in nuovi generi e famiglie grazie alle analisi filogenetiche moderne. La sfida per la medicina moderna è favorire la crescita dei Clostridia produttori di butirrato mentre si sopprime la proliferazione di specie patogene. Il trapianto di microbiota fecale (FMT) è diventato la terapia d'elezione proprio per ripristinare l'equilibrio dei Clostridia in pazienti con infezioni ricorrenti da C. difficile, dimostrando l'importanza vitale di questo genere per l'omeostasi intestinale.",
+      "level": 4,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Il genere Clostridium comprende sia specie benefiche produttrici di butirrato che patogeni come C. difficile.",
+        "Wikipedia: Microbiota umano - Molti membri della classe Clostridia sono essenziali per la fermentazione delle fibre."
+      ],
+      "x": 693.1129179313288,
+      "y": -171.20530145622493,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L4_BACTER",
+      "label": "Genere Bacteroides",
+      "content": "Genere chiave per la digestione dei carboidrati complessi.",
+      "desc": "Bacteroides è il genere più rappresentativo del phylum Bacteroidetes e costituisce una parte massiccia del microbiota intestinale negli individui che seguono una dieta occidentale. Questi batteri sono anaerobi non sporigeni e possiedono uno dei genomi più ricchi di enzimi per la degradazione dei carboidrati (CAZymes) conosciuti in natura. La loro capacità di passare rapidamente da una fonte di carbonio all'altra (ad esempio, dalle fibre alimentari alle mucine intestinali quando il cibo scarseggia) li rende estremamente resilienti e stabili all'interno dell'ecosistema intestinale. Tassonomicamente, specie come Bacteroides thetaiotaomicron sono modelli di studio per la simbiosi ospite-microbo; questo batterio non solo aiuta la digestione, ma segnala attivamente all'ospite di produrre determinati zuccheri sulla superficie intestinale per nutrirlo, in uno scambio mutualistico perfetto. Un altro membro cruciale è Bacteroides fragilis, noto per le sue proprietà immunomodulanti mediate dal Polisaccaride A (PSA), che aiuta a bilanciare le risposte immunitarie Th1 e Th2. Tuttavia, i Bacteroidetes sono batteri 'opportunisti': se riescono a fuggire dall'intestino (ad esempio a causa di una perforazione), possono causare gravi ascessi addominali e batteriemie, essendo spesso resistenti a molti antibiotici comuni. La loro abbondanza relativa è un indicatore chiave dell'enterotipo di un individuo. La ricerca attuale sta esplorando come manipolare la presenza di Bacteroides attraverso la dieta per migliorare la risposta immunitaria e metabolica, confermando il loro ruolo di 'ingegneri dell'ecosistema' intestinale.",
+      "level": 4,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Bacteroides è un genere dominante nel colon, specializzato nella scomposizione di zuccheri complessi.",
+        "Wikipedia: Microbiota umano - Bacteroides thetaiotaomicron è uno dei batteri più studiati per la sua capacità metabolica."
+      ],
+      "x": 716.963782222045,
+      "y": 233.31249074431713,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L4_BIFID",
+      "label": "Genere Bifidobacterium",
+      "content": "Batteri benefici dominanti nel microbiota dei neonati.",
+      "desc": "Il genere Bifidobacterium, appartenente al phylum Actinobacteria, è sinonimo di salute intestinale fin dai primi istanti di vita. Questi batteri Gram-positivi, anaerobi e spesso di forma biforcuta (da cui il nome), sono i principali colonizzatori del tratto gastrointestinale del neonato, arrivando a costituire fino al 90% del microbiota totale nei bambini allattati al seno. La loro tassonomia comprende specie come B. infantis, B. breve e B. longum, ognuna dotata di meccanismi specializzati per fermentare gli oligosaccaridi del latte umano (HMO). Questo processo non solo fornisce energia al batterio e all'ospite, ma produce acidi organici che abbassano il pH intestinale, creando un ambiente ostile per patogeni come gli Enterobatteri. Nell'adulto, la loro abbondanza diminuisce ma rimangono componenti essenziali per la modulazione del sistema immunitario e la produzione di vitamine, come la vitamina K e diverse vitamine del gruppo B. I bifidobatteri sono ampiamente utilizzati come probiotici nell'industria alimentare e farmaceutica per la loro provata capacità di migliorare la regolarità intestinale, ridurre l'infiammazione e potenziare le difese immunitarie. Studi recenti hanno anche evidenziato un possibile ruolo dei bifidobatteri nell'asse intestino-cervello, suggerendo che alcuni ceppi possano influenzare l'umore e ridurre lo stress attraverso la produzione di neurotrasmettitori o la modulazione del nervo vago. La conservazione di una popolazione sana di Bifidobacterium è quindi un obiettivo primario per la prevenzione di disturbi gastrointestinali e sistemici lungo tutto l'arco della vita.",
+      "level": 4,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "I Bifidobatteri sono fondamentali per la protezione del neonato e la digestione del latte materno.",
+        "Wikipedia: Microbiota umano - Bifidobacterium è un genere chiave del phylum Actinobacteria."
+      ],
+      "x": 764.5314164423194,
+      "y": 54.04148545573684,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L4_SACCH",
+      "label": "Genere Saccharomyces",
+      "content": "Lieviti benefici utilizzati anche come probiotici (es. S. boulardii).",
+      "desc": "Saccharomyces è un genere di funghi unicellulari (lieviti) appartenente alla famiglia Saccharomycetaceae. Sebbene sia universalmente noto per il ruolo di Saccharomyces cerevisiae nella panificazione e nella produzione di birra, questo genere è anche un componente transitorio ma significativo del micobioma umano. All'interno della tassonomia di Saccharomyces, la specie Saccharomyces boulardii occupa un posto di rilievo in ambito medico. Scoperto nel 1923 dallo scienziato francese Henri Boulard durante un'epidemia di colera nel Sud-est asiatico, questo lievito è l'unico fungo attualmente utilizzato come probiotico nell'uomo. A differenza dei probiotici batterici, S. boulardii è naturalmente resistente agli antibiotici, il che lo rende ideale per la prevenzione e il trattamento della diarrea associata agli antibiotici (AAD). Il suo meccanismo d'azione è multiforme: secerne proteasi che inattivano le tossine prodotte da Clostridium difficile, stimola la produzione di anticorpi IgA secretori nella mucosa intestinale e ha un effetto trofico sull'epitelio, favorendo la riparazione dei tessuti danneggiati. Sebbene non colonizzi permanentemente l'intestino umano, la sua presenza temporanea modula positivamente l'intero ecosistema microbico, riducendo l'infiammazione e competendo con specie di Candida per i siti di adesione. La tassonomia di Saccharomyces nel corpo umano riflette l'interazione tra microrganismi introdotti con la dieta e la salute dell'ospite, rappresentando un ponte fondamentale tra biotecnologia alimentare e terapia medica.",
+      "level": 4,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Saccharomyces boulardii è un lievito probiotico usato per trattare la diarrea da antibiotici.",
+        "Wikipedia: Microbiota umano - I lieviti come Saccharomyces sono parte integrante del micobioma intestinale."
+      ],
+      "x": 617.2559189519876,
+      "y": 351.67667139784356,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L5_LACID",
+      "label": "Lactobacillus acidophilus",
+      "content": "Specie probiotica chiave per la salute intestinale e vaginale.",
+      "desc": "Lactobacillus acidophilus è forse la specie più emblematica e studiata del genere Lactobacillus. Tassonomicamente, è un batterio Gram-positivo, omofermentante (produce quasi esclusivamente acido lattico), che risiede naturalmente nel tratto gastrointestinale, nella cavità orale e nella vagina umana. La sua capacità di sopravvivere all'acidità gastrica e ai sali biliari lo rende un abitante stabile e un candidato ideale per l'integrazione probiotica. A livello vaginale, L. acidophilus gioca un ruolo di 'custode': fermentando il glicogeno rilasciato dalle cellule epiteliali, produce acido lattico che mantiene il pH intorno a 4.5, un valore che inibisce la crescita di patogeni responsabili di vaginosi batteriche e candidosi. Inoltre, produce perossido d'idrogeno (H2O2) e batteriocine, sostanze antimicrobiche naturali che eliminano i competitori nocivi. Nell'intestino, L. acidophilus contribuisce alla digestione del lattosio, producendo l'enzima lattasi, e aiuta a modulare la risposta immunitaria intestinale riducendo la permeabilità della barriera mucosa. Studi clinici hanno dimostrato la sua efficacia nel ridurre i sintomi della diarrea del viaggiatore e nel migliorare la tolleranza ai trattamenti per l'eradicazione di Helicobacter pylori. La sua presenza è considerata un indicatore di un microbiota sano e bilanciato. Grazie al sequenziamento del suo intero genoma, i ricercatori hanno identificato i geni responsabili della sua adesione alle cellule umane, permettendo lo sviluppo di ceppi sempre più efficaci per la salute umana.",
+      "level": 5,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "L. acidophilus è fondamentale per mantenere il pH acido nelle mucose.",
+        "Wikipedia: Microbiota umano - Lactobacillus acidophilus è ampiamente utilizzato come integratore probiotico."
+      ],
+      "x": 826.555215143,
+      "y": -349.93405610000804,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L5_LRHAM",
+      "label": "Lactobacillus rhamnosus",
+      "content": "Ceppo LGG: uno dei probiotici più documentati al mondo.",
+      "desc": "Lactobacillus rhamnosus, in particolare il ceppo GG (LGG), è uno dei microrganismi più rigorosamente testati nella scienza medica. Originariamente isolato dal tratto intestinale di un essere umano sano dai professori Sherwood Gorbach e Barry Goldin nel 1983 (da cui la sigla GG), questo batterio ha rivoluzionato il concetto di probiotico. Tassonomicamente distinto per la sua capacità di adattarsi a diversi ambienti, L. rhamnosus possiede caratteristiche uniche, come la presenza di pili (appendici proteiche) sulla sua superficie che gli permettono di aderire tenacemente alla mucosa intestinale, prolungando la sua permanenza e i suoi effetti benefici. È ampiamente utilizzato per prevenire e trattare vari tipi di diarrea, comprese quelle virali nei bambini (come da Rotavirus) e quelle associate all'uso di antibiotici. Oltre alla salute digestiva, la ricerca ha esplorato il suo potenziale nella prevenzione delle malattie atopiche, come l'eczema e le allergie nei neonati, se somministrato alle madri durante la gravidanza e l'allattamento. Recenti studi di neurobiologia hanno suggerito che L. rhamnosus possa influenzare i livelli di recettori per il GABA nel cervello attraverso il nervo vago, aprendo la strada all'uso di 'psicobiotici' per il trattamento di ansia e depressione. La sua versatilità e sicurezza lo rendono un pilastro della batterioterapia moderna, dimostrando come una singola specie possa avere impatti sistemici sulla salute umana.",
+      "level": 5,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Lactobacillus rhamnosus GG è noto per la sua forte adesione alla mucosa intestinale.",
+        "Wikipedia: Microbiota umano - L. rhamnosus è utilizzato per la prevenzione delle allergie e della diarrea."
+      ],
+      "x": 850.9885557959881,
+      "y": -290.7647715786054,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L5_BLONG",
+      "label": "Bifidobacterium longum",
+      "content": "Simbionte umano versatile che persiste dall'infanzia all'età adulta.",
+      "desc": "Bifidobacterium longum è una delle specie più comuni e versatili del genere Bifidobacterium, presente sia nel microbiota dei neonati che in quello degli adulti. Tassonomicamente, si suddivide in tre sottospecie: longum, infantis e suis. La sottospecie infantis è celebre per la sua straordinaria capacità di metabolizzare gli oligosaccaridi del latte materno (HMO), rendendola un elemento chiave per la salute del neonato. B. longum agisce come un potente immunomodulatore; è in grado di sopprimere le risposte immunitarie di tipo Th2, spesso associate ad allergie, e di promuovere un ambiente antinfiammatorio nell'intestino. La sua presenza è associata alla produzione di acidi grassi a catena corta e alla sintesi di vitamine essenziali come i folati. Negli adulti, B. longum aiuta a mantenere l'integrità della barriera intestinale e a competere con i patogeni per le risorse e i siti di legame. È stato anche studiato per le sue proprietà antiossidanti e per la capacità di legare e neutralizzare tossine alimentari e metalli pesanti. La stabilità di B. longum nel tempo lo rende un componente 'core' del microbiota umano, e la sua riduzione è spesso osservata in condizioni di invecchiamento precoce o in presenza di malattie croniche degenerative. L'integrazione con ceppi specifici di B. longum ha mostrato benefici clinici nella riduzione dei sintomi della colite ulcerosa e nel miglioramento della funzione cognitiva negli anziani, confermando il suo ruolo di alleato vitale per tutta la vita.",
+      "level": 5,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Bifidobacterium longum è tra i primi batteri a colonizzare l'intestino dei neonati.",
+        "Wikipedia: Microbiota umano - B. longum aiuta a stabilizzare la barriera intestinale e a modulare l'immunità."
+      ],
+      "x": 897.5484547230135,
+      "y": 39.256485383928684,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L5_BBREV",
+      "label": "Bifidobacterium breve",
+      "content": "Specie chiave per la protezione contro le infezioni intestinali.",
+      "desc": "Bifidobacterium breve è una specie batterica Gram-positiva che svolge un ruolo protettivo fondamentale, specialmente nei neonati prematuri e nei bambini piccoli. Tassonomicamente, si distingue per la sua capacità di fermentare una vasta gamma di carboidrati, inclusi gli zuccheri presenti nel latte materno e alcune fibre vegetali. La sua funzione principale è la creazione di un ambiente intestinale protettivo attraverso la produzione di acido lattico e acetato, che abbassano il pH e inibiscono la proliferazione di batteri patogeni come Escherichia coli e Clostridium. B. breve è stato oggetto di numerosi studi clinici che ne hanno dimostrato l'efficacia nel ridurre l'incidenza di enterocolite necrotizzante (NEC) nei neonati sottopeso, una condizione potenzialmente letale. Oltre ai benefici intestinali, B. breve ha mostrato effetti positivi sulla salute della pelle, riducendo i danni causati dai raggi UV e migliorando l'idratazione cutanea attraverso la modulazione sistemica del sistema immunitario. In ambito pediatrico, è spesso utilizzato in combinazione con altri bifidobatteri e lattobacilli per trattare le coliche infantili e le dermatiti atopiche. La sua capacità di interagire con le cellule dendritiche intestinali promuove lo sviluppo di una tolleranza immunitaria sana, prevenendo reazioni eccessive a antigeni alimentari comuni. La tassonomia di B. breve lo colloca quindi come un difensore di prima linea, essenziale per stabilire un microbiota sano durante le fasi più critiche dello sviluppo umano.",
+      "level": 5,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Bifidobacterium breve è utilizzato per prevenire l'enterocolite necrotizzante nei neonati.",
+        "Wikipedia: Microbiota umano - B. breve è un componente comune del microbiota infantile."
+      ],
+      "x": 891.4368628629767,
+      "y": 102.97901910681935,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L5_BFRAG",
+      "label": "Bacteroides fragilis",
+      "content": "Simbionte immunomodulante con potenziale patogeno opportunista.",
+      "desc": "Bacteroides fragilis è una specie di estremo interesse tassonomico e clinico all'interno del phylum Bacteroidetes. Sebbene rappresenti solo una piccola percentuale dei Bacteroides totali nell'intestino, il suo impatto sulla salute dell'ospite è sproporzionatamente grande. B. fragilis è noto per la produzione del Polisaccaride A (PSA), una molecola complessa che viene presentata alle cellule del sistema immunitario. Il PSA attiva i linfociti T regolatorie, che producono interleuchina-10 (IL-10), una citochina fondamentale per spegnere l'infiammazione e mantenere l'omeostasi immunitaria. Senza questa interazione, il sistema immunitario potrebbe attaccare erroneamente i tessuti dell'ospite o i microbi benefici, portando a malattie autoimmuni o infiammatorie. Tuttavia, la tassonomia di B. fragilis include anche ceppi enterotossigeni (ETBF) che producono una tossina (BFT) associata a diarrea e, potenzialmente, al cancro del colon-retto attraverso l'induzione di infiammazione cronica e danni al DNA. Inoltre, al di fuori dell'ambiente intestinale, B. fragilis è il principale responsabile di infezioni anaerobiche post-chirurgiche e ascessi, grazie alla sua capsula polisaccaridica che lo protegge dalla fagocitosi e alla sua resistenza a molti antibiotici (come la penicillina). Questa dualità — simbionte essenziale per l'educazione immunitaria e patogeno opportunista pericoloso — rende B. fragilis uno degli organismi più affascinanti e complessi del microbiota umano, esemplificando come il contesto ecologico determini la natura della relazione tra ospite e microbo.",
+      "level": 5,
+      "group": 2,
+      "studyStatus": "none",
+      "chunks": [
+        "Bacteroides fragilis produce il Polisaccaride A, essenziale per la tolleranza immunitaria.",
+        "Wikipedia: Microbiota umano - B. fragilis può agire sia come simbionte che come patogeno opportunista."
+      ],
+      "x": 842.9249061685539,
+      "y": 302.1530390174996,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_MET_CARB",
+      "label": "Metabolismo dei Carboidrati",
+      "content": "Scomposizione di polisaccaridi complessi indigeribili per l'uomo.",
+      "desc": "Il metabolismo dei carboidrati da parte del microbiota intestinale rappresenta una delle funzioni biochimiche più vitali per l'organismo umano, poiché colma una lacuna enzimatica fondamentale del nostro genoma. Mentre il corpo umano produce un numero limitato di enzimi per la degradazione dei carboidrati, principalmente focalizzati su amidi semplici e zuccheri, il microbiota possiede un vasto arsenale di enzimi attivi sui carboidrati, noti come CAZymes. Questi enzimi permettono la scomposizione di polisaccaridi complessi derivanti dalle pareti cellulari dei vegetali, come la cellulosa, le emicellulose, le pectine e gli amidi resistenti, che altrimenti transiterebbero indigeriti attraverso il tratto gastrointestinale. Questo processo non è solo una questione di smaltimento dei rifiuti alimentari, ma una sofisticata operazione di recupero energetico. Attraverso percorsi metabolici complessi, i batteri convertono questi zuccheri in monosaccaridi e successivamente in metaboliti secondari che possono essere assorbiti dall'ospite. La diversità delle specie batteriche coinvolte, tra cui spiccano i generi Bacteroides e Bifidobacterium, assicura che quasi ogni tipo di legame glicosidico possa essere scisso. Oltre alla produzione di energia, questo metabolismo influenza la composizione stessa della comunità microbica, poiché i sottoprodotti di una specie possono servire da nutrimento per un'altra, in un fenomeno noto come cross-feeding. Inoltre, l'efficienza di questo metabolismo ha implicazioni dirette sulla salute metabolica dell'ospite, influenzando l'estrazione calorica dalla dieta e potenzialmente contribuendo a condizioni come l'obesità o il diabete di tipo 2 se l'equilibrio viene alterato. La ricerca scientifica ha dimostrato che una dieta ricca di fibre diversificate promuove una maggiore varietà di questi enzimi microbici, migliorando la resilienza dell'intero ecosistema intestinale e garantendo una produzione costante di metaboliti benefici per la mucosa del colon e per la salute sistemica generale.",
+      "level": 2,
+      "group": 3,
+      "studyStatus": null,
+      "chunks": [
+        "Il microbiota intestinale umano è in grado di fermentare i carboidrati complessi che sfuggono alla digestione nell'intestino tenue."
+      ],
+      "x": -171.15169303368776,
+      "y": 346.97591266144184,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_SIN_VIT",
+      "label": "Sintesi di Vitamine",
+      "content": "Produzione endogena di micronutrienti essenziali per l'ospite.",
+      "desc": "La sintesi di vitamine da parte del microbiota intestinale è un esempio lampante di mutualismo biologico, dove i batteri forniscono nutrienti essenziali che l'uomo non è in grado di produrre autonomamente o di ottenere in quantità sufficiente esclusivamente dalla dieta. I microrganismi intestinali, in particolare quelli residenti nel colon, sono capaci di sintetizzare una vasta gamma di vitamine idrosolubili del gruppo B e la vitamina K liposolubile. Tra le vitamine del gruppo B prodotte figurano la biotina (B7), l'acido folico (B9), la riboflavina (B2), la niacina (B3), l'acido pantotenico (B5), la piridossina (B6) e la cobalamina (B12). Queste molecole sono cofattori enzimatici indispensabili per innumerevoli reazioni metaboliche, tra cui la sintesi del DNA, il metabolismo degli aminoacidi e la produzione di energia cellulare. La vitamina K, prodotta principalmente sotto forma di menachinoni (vitamina K2) da specie come Escherichia coli e Bacteroides fragilis, è fondamentale per i processi di coagulazione del sangue e per la salute delle ossa, intervenendo nella carbossilazione di proteine specifiche. Sebbene la maggior parte dell'assorbimento dei nutrienti avvenga nell'intestino tenue, una quota significativa di queste vitamine prodotte nel colon può essere assorbita dalla mucosa intestinale e contribuire al pool vitaminico sistemico. Questo contributo diventa vitale in situazioni di carenza alimentare o durante periodi di aumentato fabbisogno. Tuttavia, l'uso prolungato di antibiotici ad ampio spettro può decimare le popolazioni batteriche responsabili di questa sintesi, portando a stati di ipovitaminosi che possono manifestarsi con disturbi della coagulazione o alterazioni neurologiche. Pertanto, il mantenimento di un microbiota sano e diversificato è una strategia preventiva fondamentale per assicurare un apporto costante di questi micronutrienti, evidenziando come la nostra salute nutrizionale dipenda strettamente dall'attività metabolica dei nostri simbionti microscopici.",
+      "level": 2,
+      "group": 3,
+      "studyStatus": null,
+      "chunks": [
+        "I batteri intestinali sintetizzano vitamine come la vitamina K e diverse vitamine del gruppo B."
+      ],
+      "x": 89.15891159598699,
+      "y": 366.4210223886278,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_MOD_IMM",
+      "label": "Modulazione Immunitaria",
+      "content": "Addestramento e regolazione del sistema immunitario dell'ospite.",
+      "desc": "La modulazione immunitaria operata dal microbiota rappresenta una delle interazioni più complesse e affascinanti della biologia umana. Fin dalla nascita, il contatto tra i microrganismi e le superfici mucosali dell'ospite avvia un processo di 'educazione' del sistema immunitario, fondamentale per lo sviluppo di una risposta immunitaria equilibrata e funzionale. Il microbiota intestinale interagisce costantemente con il tessuto linfoide associato all'intestino (GALT), che contiene la più grande concentrazione di cellule immunitarie del corpo. Attraverso il rilascio di molecole segnale e componenti strutturali come il lipopolisaccaride (LPS) o i peptidoglicani, i batteri stimolano la maturazione delle cellule dendritiche, dei linfociti T e dei linfociti B. Un ruolo cruciale è svolto dalla capacità del microbiota di indurre la differenziazione dei linfociti T regolatori (Treg), che sono responsabili del mantenimento della tolleranza immunologica e della prevenzione di risposte infiammatorie eccessive contro antigeni innocui o contro i tessuti stessi dell'organismo. Questo equilibrio è essenziale per evitare l'insorgenza di allergie, asma e malattie autoimmuni. Inoltre, il microbiota stimola la produzione di immunoglobuline A secretorie (sIgA), che formano una prima linea di difesa sulle mucose, impedendo l'adesione di patogeni. La presenza di un microbiota diversificato garantisce che il sistema immunitario rimanga in uno stato di 'allerta vigile', capace di rispondere prontamente alle infezioni ma evitando l'infiammazione cronica di basso grado. Alterazioni in questo dialogo, note come disbiosi, sono state collegate a una vasta gamma di patologie immunomediate, suggerendo che la salute del nostro sistema immunitario sia indissolubilmente legata alla composizione e all'attività dei nostri microbi residenti. La comprensione di questi meccanismi apre la strada a terapie immunomodulanti basate sull'uso di probiotici specifici per trattare o prevenire malattie sistemiche.",
+      "level": 2,
+      "group": 3,
+      "studyStatus": null,
+      "chunks": [
+        "Il microbiota svolge un ruolo essenziale nello sviluppo del sistema immunitario intestinale."
+      ],
+      "x": -87.93619876087351,
+      "y": 381.2448812253019,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_MET_LIP",
+      "label": "Metabolismo dei Lipidi",
+      "content": "Regolazione dei grassi e trasformazione degli acidi biliari.",
+      "desc": "Il microbiota intestinale esercita un'influenza profonda sul metabolismo dei lipidi dell'ospite, agendo sia direttamente sulla digestione dei grassi alimentari sia indirettamente attraverso la modulazione dei segnali endocrini e metabolici. Una delle funzioni più significative in questo ambito è la trasformazione degli acidi biliari. Gli acidi biliari primari, sintetizzati nel fegato dal colesterolo e secreti nel duodeno per facilitare l'emulsione dei grassi, vengono trasformati dal microbiota in acidi biliari secondari attraverso processi di deconiugazione e deidrossilazione. Questi acidi biliari secondari non sono solo prodotti di scarto, ma agiscono come potenti molecole di segnalazione che attivano recettori nucleari come il recettore farnesoide X (FXR) e recettori di membrana come TGR5. L'attivazione di questi percorsi regola l'omeostasi del colesterolo, la sensibilità all'insulina e il dispendio energetico. Inoltre, il microbiota influenza l'assorbimento degli acidi grassi a catena lunga e la formazione dei chilomicroni nelle cellule intestinali. Alcuni ceppi batterici sono in grado di produrre acido linoleico coniugato (CLA), che ha dimostrato avere proprietà antiobesità e antinfiammatorie. Al contrario, un microbiota squilibrato può favorire l'assorbimento eccessivo di calorie dai grassi o produrre metaboliti come la trimetilammina (TMA), che viene poi convertita nel fegato in trimetilammina-N-ossido (TMAO), una molecola fortemente associata all'aterosclerosi e alle malattie cardiovascolari. La capacità del microbiota di influenzare l'accumulo di grasso corporeo è stata dimostrata da studi di trapianto fecale, dove il fenotipo di obesità può essere trasferito attraverso i microbi. Pertanto, il microbiota agisce come un regolatore centrale del metabolismo lipidico, influenzando non solo la salute intestinale ma anche il rischio di sviluppare sindrome metabolica, steatosi epatica non alcolica e patologie del cuore.",
+      "level": 2,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota influenza il metabolismo lipidico e la trasformazione degli acidi biliari."
+      ],
+      "x": -239.873715222343,
+      "y": 288.86335813167676,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_PRO_PAT",
+      "label": "Protezione contro i Patogeni",
+      "content": "Effetto barriera e competizione contro microrganismi dannosi.",
+      "desc": "La funzione protettiva del microbiota, spesso definita 'resistenza alla colonizzazione', è uno dei meccanismi di difesa più efficaci del corpo umano contro le infezioni enteriche. I microrganismi commensali occupano fisicamente le nicchie ecologiche disponibili sulla mucosa intestinale, creando una barriera densa che impedisce ai patogeni esogeni, come Salmonella, Shigella o Clostridioides difficile, di aderire alle cellule dell'ospite e di proliferare. Questa protezione non è solo passiva, ma si attua attraverso diverse strategie attive. In primo luogo, il microbiota compete ferocemente per i nutrienti disponibili; i batteri residenti sono estremamente efficienti nell'utilizzare le fonti di carbonio e azoto, lasciando scarse risorse per i nuovi arrivati potenzialmente pericolosi. In secondo luogo, molti batteri intestinali producono sostanze antimicrobiche specifiche, chiamate batteriocine, che inibiscono direttamente la crescita di specie concorrenti. Inoltre, i prodotti del metabolismo batterico, come gli acidi grassi a catena corta (SCFA), abbassano il pH del lume intestinale, creando un ambiente acido che è ostile alla sopravvivenza di molti patogeni. Il microbiota stimola anche l'ospite a produrre peptidi antimicrobici endogeni e a rinforzare le giunzioni serrate tra le cellule epiteliali, migliorando l'integrità della barriera intestinale. Quando questa comunità microbica viene alterata, ad esempio a causa di una terapia antibiotica, la resistenza alla colonizzazione diminuisce drasticamente, aprendo la porta a infezioni opportunistiche che possono essere gravi o addirittura letali. La conservazione di un microbiota sano è quindi essenziale per la biosicurezza dell'organismo, agendo come un sistema immunitario 'esterno' che previene l'insediamento di malattie infettive prima ancora che possano innescare una risposta immunitaria sistemica.",
+      "level": 2,
+      "group": 3,
+      "studyStatus": null,
+      "chunks": [
+        "Il microbiota funge da barriera contro la colonizzazione da parte di batteri patogeni."
+      ],
+      "x": 1.805137889917778,
+      "y": 388.0761184478933,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_FER_FIB",
+      "label": "Fermentazione delle Fibre",
+      "content": "Processo anaerobico di degradazione dei polisaccaridi vegetali.",
+      "desc": "La fermentazione delle fibre alimentari è il processo centrale attraverso il quale il microbiota intestinale estrae energia e produce metaboliti benefici dai residui vegetali indigeribili. Questo processo avviene principalmente nel colon, un ambiente anaerobico ideale per la crescita di batteri fermentativi. Le fibre, che includono cellulosa, emicellulosa, pectine, gomme e amidi resistenti, arrivano quasi intatte nel grosso intestino perché gli enzimi digestivi umani non possiedono la specificità chimica per rompere i loro legami glicosidici. Qui, una vasta gamma di specie batteriche, tra cui i generi Ruminococcus, Roseburia e Faecalibacterium, utilizza complessi multienzimatici per idrolizzare queste catene polimeriche in zuccheri semplici. Questi zuccheri vengono poi fermentati attraverso diverse vie metaboliche, portando alla formazione di gas (come anidride carbonica, idrogeno e metano) e, soprattutto, di acidi grassi a catena corta (SCFA). L'efficienza della fermentazione dipende dalla composizione del microbiota e dal tipo di fibra consumata. Ad esempio, le fibre solubili come l'inulina sono fermentate rapidamente, mentre le fibre insolubili come la lignina sono più resistenti. Questo processo non solo fornisce circa il 5-10% del fabbisogno energetico giornaliero dell'uomo, ma regola anche il transito intestinale e la massa fecale. Inoltre, la fermentazione mantiene un ambiente redox favorevole e previene l'accumulo di metaboliti tossici derivanti dalla putrefazione delle proteine. Una dieta povera di fibre porta a una riduzione della diversità microbica e a una minore produzione di SCFA, compromettendo la salute della mucosa e aumentando il rischio di malattie infiammatorie e neoplastiche del colon. La fermentazione è quindi l'anello di congiunzione tra nutrizione vegetale e salute metabolica umana.",
+      "level": 3,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "La fermentazione batterica delle fibre produce metaboliti essenziali per la salute del colon."
+      ],
+      "x": -262.6268928279204,
+      "y": 510.6216745184874,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_VIT_B",
+      "label": "Complesso Vitaminico B",
+      "content": "Sintesi di cofattori enzimatici per il metabolismo cellulare.",
+      "desc": "Le vitamine del gruppo B sintetizzate dal microbiota intestinale svolgono ruoli fondamentali come coenzimi in una miriade di reazioni biochimiche essenziali per la vita. Sebbene l'uomo ottenga la maggior parte di queste vitamine dalla dieta, la produzione microbica endogena rappresenta una fonte supplementare critica, specialmente in condizioni di malassorbimento o dieta sbilanciata. La vitamina B12 (cobalamina), ad esempio, è prodotta esclusivamente da batteri e archei; nel microbiota umano, specie come Pseudomonas e Klebsiella sono coinvolte nella sua sintesi. La B12 è cruciale per la formazione dei globuli rossi e per il corretto funzionamento del sistema nervoso. L'acido folico (B9), sintetizzato da Bifidobacterium e Lactobacillus, è indispensabile per la sintesi e la riparazione del DNA, rendendolo vitale per la divisione cellulare. La biotina (B7) è un cofattore per le carbossilasi coinvolte nel metabolismo degli acidi grassi e della gluconeogenesi. La riboflavina (B2) e la niacina (B3) sono precursori di FAD e NAD, molecole chiave nel trasporto degli elettroni e nella produzione di ATP. La produzione di queste vitamine avviene nel lume intestinale e il loro assorbimento è facilitato da trasportatori specifici presenti sulla superficie delle cellule epiteliali del colon. È interessante notare che diverse specie batteriche possono cooperare nella sintesi vitaminica: alcune specie producono precursori che altre utilizzano per completare la sintesi della vitamina finale. Questo network metabolico sottolinea l'importanza della biodiversità microbica. Una carenza di queste vitamine di origine microbica, spesso causata da disbiosi indotta da antibiotici, può contribuire a stanchezza cronica, dermatiti, disturbi digestivi e anemia. Pertanto, il microbiota funge da 'fabbrica chimica' interna che assicura la disponibilit�� costante di questi micronutrienti vitali per l'ospite.",
+      "level": 3,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota contribuisce significativamente al pool di vitamine del gruppo B nell'uomo."
+      ],
+      "x": 196.02451858709216,
+      "y": 539.6573049064353,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_SVI_GALT",
+      "label": "Sviluppo del GALT",
+      "content": "Maturazione del tessuto linfoide associato all'intestino.",
+      "desc": "Il tessuto linfoide associato all'intestino (GALT) rappresenta la più vasta stazione del sistema immunitario umano, e il suo sviluppo e la sua maturazione dipendono strettamente dalla stimolazione microbica. Il GALT comprende le placche di Peyer, i follicoli linfatici isolati, i linfociti intraepiteliali e le cellule della lamina propria. Alla nascita, il GALT è rudimentale e privo di centri germinativi attivi; è solo con la colonizzazione batterica che queste strutture iniziano a espandersi e a diventare funzionali. I segnali derivanti dal microbiota, come i pattern molecolari associati ai microbi (MAMP), interagiscono con i recettori di riconoscimento del pattern (PRR) sulle cellule immunitarie e sull'epitelio intestinale. Questa interazione induce il reclutamento di cellule B e T e promuove la formazione di centri germinativi dove avviene lo switch di classe delle immunoglobuline verso la produzione di IgA. Le IgA secretorie sono fondamentali per mantenere l'omeostasi, poiché rivestono i batteri commensali impedendo loro di penetrare nella mucosa, un processo noto come 'confinamento immunitario'. Senza il microbiota, come osservato nei modelli animali 'germ-free', il GALT rimane ipoplasico, con bassi livelli di IgA e una ridotta capacità di rispondere ai patogeni. Inoltre, il microbiota influenza la composizione delle popolazioni di cellule T, promuovendo un equilibrio tra cellule Th1, Th2, Th17 e cellule T regolatrici. Questo addestramento precoce è critico per lo sviluppo della tolleranza orale, ovvero la capacità del sistema immunitario di non reagire contro le proteine alimentari. Una corretta maturazione del GALT mediata dal microbiota è quindi la base per una salute immunitaria duratura, proteggendo l'individuo non solo dalle infezioni intestinali ma anche da disordini immunitari sistemici.",
+      "level": 3,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "L'interazione tra microbiota e GALT è fondamentale per la maturazione immunitaria."
+      ],
+      "x": -118.34645187980999,
+      "y": 563.8738439221759,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_SAL_BIL",
+      "label": "Trasformazione Sali Biliari",
+      "content": "Conversione di acidi biliari primari in secondari.",
+      "desc": "La trasformazione dei sali biliari è una funzione metabolica chiave del microbiota che ha ripercussioni sistemiche sulla digestione dei grassi e sulla segnalazione metabolica. Gli acidi biliari primari, come l'acido colico e l'acido chenodesossicolico, vengono sintetizzati nel fegato a partire dal colesterolo e coniugati con aminoacidi come la glicina o la taurina per aumentarne la solubilità. Dopo essere stati secreti nella bile e aver partecipato alla digestione dei lipidi nell'intestino tenue, circa il 95% di essi viene riassorbito tramite il circolo enteroepatico. Il restante 5% raggiunge il colon, dove il microbiota interviene attivamente. I batteri dotati dell'enzima bile sale idrolasi (BSH), come specie di Bacteroides, Clostridium e Lactobacillus, deconiugano gli acidi biliari, rimuovendo l'aminoacido. Successivamente, altri batteri effettuano la 7-alfa-deidrossilazione, convertendo gli acidi biliari primari in acidi biliari secondari, come l'acido desossicolico (DCA) e l'acido litocolico (LCA). Questi acidi biliari secondari hanno proprietà chimiche e biologiche diverse dai loro precursori. Essi agiscono come ligandi per recettori nucleari (FXR) e recettori accoppiati a proteine G (TGR5), influenzando il metabolismo del glucosio, dei lipidi e l'omeostasi energetica. Tuttavia, un eccesso di acidi biliari secondari, in particolare il DCA, è stato associato a effetti citotossici e pro-infiammatori sulla mucosa del colon, potendo contribuire alla carcinogenesi. L'equilibrio tra le diverse specie batteriche determina quindi il profilo degli acidi biliari circolanti, influenzando direttamente il rischio di calcoli biliari, obesità e malattie metaboliche. La modulazione del microbiota per alterare il pool di acidi biliari rappresenta una promettente frontiera terapeutica per il trattamento delle disfunzioni metaboliche croniche.",
+      "level": 3,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota trasforma gli acidi biliari primari in secondari, influenzando il metabolismo."
+      ],
+      "x": -388.78823034931725,
+      "y": 418.04217677210204,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_COM_NUT",
+      "label": "Competizione Nutrizionale",
+      "content": "Sottrazione di nutrienti ai patogeni per inibirne la crescita.",
+      "desc": "La competizione nutrizionale è uno dei pilastri della resistenza alla colonizzazione fornita dal microbiota intestinale. In un ecosistema densamente popolato come l'intestino umano, le risorse nutritive sono limitate e la capacità di acquisirle rapidamente è determinante per la sopravvivenza di qualsiasi specie microbica. I batteri commensali si sono evoluti per essere estremamente efficienti nell'utilizzare le fonti di carbonio, azoto e micronutrienti presenti nel lume intestinale. Ad esempio, molte specie di Bacteroides possiedono sistemi di trasporto altamente specializzati per catturare vari tipi di polisaccaridi. Quando un batterio patogeno tenta di insediarsi, trova una scarsità di nutrienti essenziali che ne limita drasticamente la capacità di replicazione. Un esempio critico riguarda il ferro, un micronutriente vitale per quasi tutti i microrganismi. I batteri commensali producono molecole chiamate siderofori che sequestrano il ferro con altissima affinità, rendendolo indisponibile per i patogeni. Inoltre, il microbiota consuma l'ossigeno residuo e produce metaboliti che alterano la disponibilità di nutrienti specifici necessari per la virulenza di alcuni patogeni. Questa 'guerra metabolica' assicura che, in condizioni di eubiosi, i patogeni rimangano in numeri così bassi da non poter causare malattia. Tuttavia, quando la dieta cambia drasticamente o quando gli antibiotici eliminano ampie fette della popolazione commensale, si creano delle 'nicchie vuote' ricche di nutrienti. I patogeni opportunisti possono allora sfruttare queste risorse per crescere in modo esplosivo, portando a infezioni sintomatiche. La competizione nutrizionale non è quindi solo un fenomeno ecologico, ma una strategia di difesa immunitaria passiva che protegge l'ospite mantenendo la stabilità dell'ecosistema intestinale.",
+      "level": 3,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "La competizione per i nutrienti tra commensali e patogeni previene le infezioni."
+      ],
+      "x": 40.26067525392617,
+      "y": 574.5249650061199,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_PRO_SCFA",
+      "label": "Produzione di SCFA",
+      "content": "Sintesi di acetato, propionato e butirrato dalla fermentazione.",
+      "desc": "La produzione di acidi grassi a catena corta (SCFA) è il risultato finale più significativo della fermentazione microbica dei carboidrati complessi. Gli SCFA principali sono l'acetato, il propionato e il butirrato, prodotti in un rapporto approssimativo di 60:20:20 nel colon sano. Queste molecole non sono solo sottoprodotti metabolici, ma fungono da mediatori cruciali tra il microbiota e l'ospite. L'acetato è lo SCFA più abbondante, entra nel circolo sistemico e viene utilizzato come substrato per la lipogenesi e la sintesi del colesterolo nel fegato, oltre a influenzare il senso di sazietà a livello centrale. Il propionato viene trasportato al fegato dove funge da precursore per la gluconeogenesi e può inibire la sintesi del colesterolo. Il butirrato, sebbene prodotto in quantità minori, è forse il più importante per la salute locale: è la fonte di energia preferita per i colonociti (le cellule epiteliali del colon) e svolge un ruolo fondamentale nella regolazione dell'espressione genica attraverso l'inibizione delle istone deacetilasi (HDAC). Gli SCFA agiscono anche come ligandi per i recettori accoppiati a proteine G (GPR41 e GPR43), influenzando il rilascio di ormoni intestinali come il peptide simile al glucagone-1 (GLP-1) e il peptide YY (PYY), che regolano l'appetito e il metabolismo del glucosio. Inoltre, gli SCFA hanno potenti effetti anti-infiammatori, promuovendo la differenziazione delle cellule T regolatrici e riducendo la produzione di citochine pro-infiammatorie. Una produzione adeguata di SCFA è associata a un ridotto rischio di obesità, diabete, malattie infiammatorie intestinali e cancro del colon. La loro presenza è un indicatore chiave di un microbiota funzionale e di una dieta equilibrata ricca di fibre prebiotiche.",
+      "level": 4,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Gli acidi grassi a catena corta (SCFA) sono prodotti dalla fermentazione batterica."
+      ],
+      "x": -346.1971442729223,
+      "y": 671.2819761453325,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_SIN_K",
+      "label": "Sintesi Vitamina K",
+      "content": "Produzione di menachinoni essenziali per la coagulazione.",
+      "desc": "La sintesi della vitamina K da parte del microbiota intestinale rappresenta un contributo nutrizionale fondamentale, integrando la vitamina K1 (fillochinone) ottenuta dai vegetali a foglia verde. I batteri intestinali sintetizzano una serie di forme di vitamina K2, note come menachinoni (MK-n), che differiscono per la lunghezza della catena laterale isoprenoide. Specie appartenenti ai generi Bacteroides, Eubacterium e Escherichia sono tra i principali produttori di questi composti nel colon umano. La vitamina K è un cofattore essenziale per l'enzima gamma-glutammil carbossilasi, che modifica specifici residui di acido glutammico in proteine bersaglio, permettendo loro di legare il calcio. Questo processo è vitale per l'attivazione dei fattori della coagulazione II (protrombina), VII, IX e X nel fegato. Senza una sufficiente disponibilità di vitamina K, il sangue non può coagulare correttamente, portando a rischi di emorragie. Oltre alla coagulazione, la vitamina K2 prodotta dai batteri gioca un ruolo cruciale nella salute ossea, attivando l'osteocalcina, e nella salute cardiovascolare, attivando la proteina Gla della matrice (MGP), che previene la calcificazione delle arterie. Sebbene si ritenesse in passato che l'assorbimento di vitamina K nel colon fosse limitato, studi recenti confermano che i menachinoni microbici contribuiscono significativamente alle riserve sistemiche, specialmente quando l'apporto dietetico di K1 è scarso. La distruzione del microbiota intestinale tramite antibiotici può ridurre drasticamente i livelli di vitamina K, rendendo i pazienti più suscettibili a complicanze emorragiche, specialmente se assumono farmaci anticoagulanti come il warfarin. Pertanto, la simbiosi con i batteri produttori di vitamina K è un pilastro della nostra fisiologia ematologica e vascolare.",
+      "level": 4,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "La vitamina K2 è prodotta dai batteri intestinali e assorbita nel colon."
+      ],
+      "x": 288.641313504879,
+      "y": 698.8928057917568,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_CEL_TREG",
+      "label": "Cellule T-reg",
+      "content": "Induzione di linfociti T regolatori per la tolleranza.",
+      "desc": "L'induzione delle cellule T regolatrici (Treg) è uno dei meccanismi principali attraverso cui il microbiota mantiene l'omeostasi immunitaria e previene l'infiammazione eccessiva. Le cellule Treg sono una sottopopolazione di linfociti T specializzata nel sopprimere le risposte immunitarie, garantendo che il sistema immunitario non attacchi i tessuti propri dell'organismo o reagisca in modo sproporzionato a stimoli innocui come il cibo o i batteri commensali. Il microbiota intestinale, in particolare specie appartenenti ai cluster IV e XIVa dei Clostridia e il Bacteroides fragilis, rilascia molecole specifiche che promuovono la differenziazione delle cellule T naive in cellule Treg nel GALT. Ad esempio, il butirrato prodotto dalla fermentazione agisce come inibitore delle istone deacetilasi, favorendo l'acetilazione del locus Foxp3, il fattore di trascrizione principale delle cellule Treg, aumentandone l'espressione. Un altro esempio è il polisaccaride A (PSA) di Bacteroides fragilis, che interagisce direttamente con i recettori Toll-like sulle cellule dendritiche per indurre un fenotipo tollerogenico. Queste cellule Treg indotte dal microbiota non rimangono confinate all'intestino, ma possono circolare nel sistema linfatico e influenzare la tolleranza immunitaria in tutto il corpo. Una carenza di stimolazione microbica per la produzione di Treg è stata collegata all'aumento delle malattie allergiche e autoimmuni nelle società industrializzate, secondo l'ipotesi dell'igiene. Ripristinare questa funzione attraverso l'uso di probiotici o interventi dietetici rappresenta una strategia promettente per il trattamento di patologie come la colite ulcerosa, il morbo di Crohn e persino allergie sistemiche, evidenziando il ruolo del microbiota come 'regista' della tolleranza immunitaria.",
+      "level": 4,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota promuove la differenziazione delle cellule T regolatrici (Treg)."
+      ],
+      "x": -149.07510007543974,
+      "y": 741.4481156166688,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_REG_COL",
+      "label": "Regolazione Colesterolo",
+      "content": "Impatto del microbiota sui livelli di colesterolo sistemico.",
+      "desc": "Il microbiota intestinale gioca un ruolo determinante nella regolazione dei livelli di colesterolo nell'ospite attraverso molteplici meccanismi interconnessi. Il primo meccanismo è legato alla trasformazione degli acidi biliari: deconiugando e trasformando gli acidi biliari primari in secondari, i batteri influenzano il riassorbimento di queste molecole nel circolo enteroepatico. Poiché il colesterolo è il precursore degli acidi biliari, una minore efficienza nel riassorbimento costringe il fegato a sintetizzare nuovi acidi biliari partendo dal colesterolo ematico, abbassandone così i livelli circolanti. Alcuni batteri, come quelli del genere Lactobacillus e Bifidobacterium, possiedono l'enzima bile sale idrolasi (BSH) che facilita questo processo. Un secondo meccanismo riguarda l'incorporazione diretta del colesterolo nelle membrane cellulari batteriche o la sua conversione in coprostanolo, uno sterolo non assorbibile che viene eliminato con le feci. Inoltre, gli acidi grassi a catena corta (SCFA) prodotti dalla fermentazione delle fibre influenzano la sintesi endogena del colesterolo. Mentre l'acetato può fungere da substrato per la lipogenesi, il propionato ha dimostrato di inibire l'enzima HMG-CoA reduttasi nel fegato, che è il target principale dei farmaci statine. Infine, il microbiota modula l'espressione di trasportatori intestinali del colesterolo, come la proteina NPC1L1. Uno squilibrio del microbiota (disbiosi) può quindi contribuire all'ipercolesterolemia e aumentare il rischio di aterosclerosi. Al contrario, l'assunzione di prebiotici e probiotici specifici può favorire un profilo microbico che promuove l'escrezione del colesterolo e ne riduce la sintesi, offrendo un approccio naturale e complementare alla gestione della salute cardiovascolare e metabolica.",
+      "level": 4,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota contribuisce alla regolazione dei livelli di colesterolo plasmatico."
+      ],
+      "x": -516.9591544354962,
+      "y": 548.4683781941498,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_BAT_CINE",
+      "label": "Batteriocine",
+      "content": "Peptidi antimicrobici prodotti dai batteri commensali.",
+      "desc": "Le batteriocine sono peptidi o proteine sintetizzati dai batteri intestinali che possiedono un'attività antimicrobica specifica contro altri microrganismi, spesso strettamente correlati al produttore. Queste molecole rappresentano un'arma fondamentale nella competizione ecologica all'interno del microbiota e costituiscono una parte essenziale della funzione protettiva contro i patogeni. Le batteriocine agiscono principalmente creando pori nella membrana citoplasmatica dei batteri bersaglio, portando alla perdita di potenziale di membrana e alla morte cellulare, oppure interferendo con la sintesi della parete cellulare o degli acidi nucleici. Esistono diverse classi di batteriocine, tra cui i lantibiotici (come la nisina) e le batteriocine non contenenti lantanina. Molti ceppi di Lactobacillus e Bifidobacterium, comunemente usati come probiotici, producono batteriocine che inibiscono la crescita di patogeni alimentari e clinici come Listeria monocytogenes, Staphylococcus aureus e specie di Clostridium. La produzione di batteriocine nel lume intestinale permette ai batteri commensali di mantenere la propria nicchia ecologica e di prevenire l'invasione da parte di specie estranee. Oltre all'azione diretta, le batteriocine possono agire come molecole di segnalazione che modulano la composizione della comunità microbica globale. Dal punto di vista terapeutico, le batteriocine sono oggetto di intenso studio come potenziali alternative agli antibiotici tradizionali, poiché hanno spesso uno spettro d'azione mirato che non danneggia l'intero microbiota e presentano un basso rischio di indurre resistenze diffuse. La loro presenza naturale nell'intestino è un esempio di come l'evoluzione abbia dotato il nostro microbiota di strumenti sofisticati per l'autodifesa e per la protezione dell'ospite, garantendo la stabilità e la resilienza dell'ecosistema intestinale contro le minacce esterne.",
+      "level": 4,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "I batteri intestinali producono batteriocine per inibire i competitori patogeni."
+      ],
+      "x": 69.17125970799128,
+      "y": 753.426742613387,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_ACI_BUT",
+      "label": "Acido Butirrico",
+      "content": "Principale fonte energetica per le cellule del colon.",
+      "desc": "L'acido butirrico, o butirrato, è uno degli acidi grassi a catena corta più studiati e rilevanti per la salute umana. Prodotto principalmente dalla fermentazione di fibre alimentari da parte di batteri come Faecalibacterium prausnitzii ed Eubacterium rectale, il butirrato svolge funzioni vitali sia a livello locale che sistemico. Per i colonociti, le cellule che rivestono il grosso intestino, il butirrato rappresenta la fonte di energia primaria, fornendo fino al 70% del loro fabbisogno energetico totale attraverso l'ossidazione mitocondriale. Questa fornitura di energia è essenziale per mantenere l'integrità della barriera intestinale e per prevenire l'atrofia della mucosa. Oltre alla sua funzione nutritiva, il butirrato è un potente regolatore epigenetico; agisce come inibitore delle istone deacetilasi (HDAC), influenzando l'espressione di geni coinvolti nella proliferazione cellulare, nell'apoptosi e nel differenziamento. Questa attività è particolarmente importante nella prevenzione del cancro del colon, poiché il butirrato può indurre l'apoptosi nelle cellule cancerose (effetto noto come 'paradosso del butirrato'). A livello immunologico, il butirrato promuove un ambiente anti-infiammatorio stimolando la produzione di citochine come l'IL-10 e favorendo l'espansione delle cellule T regolatrici. Inoltre, il butirrato migliora la funzione di barriera aumentando l'espressione delle proteine delle giunzioni serrate (tight junctions), riducendo così la permeabilità intestinale o 'leaky gut'. Studi recenti suggeriscono che il butirrato possa anche influenzare l'asse intestino-cervello, avendo effetti neuroprotettivi e modulando il comportamento. Una carenza di butirrato è spesso associata a malattie infiammatorie intestinali (IBD) e disbiosi, rendendo la sua produzione un obiettivo chiave per gli interventi nutrizionali e probiotici volti a migliorare la salute gastrointestinale e sistemica.",
+      "level": 5,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il butirrato è fondamentale per il metabolismo dei colonociti e la salute intestinale."
+      ],
+      "x": -410.98142261733744,
+      "y": 796.7582372639765,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_COA_SAN",
+      "label": "Coagulazione Sangue",
+      "content": "Ruolo della vitamina K microbica nell'emostasi.",
+      "desc": "Il ruolo del microbiota nella coagulazione del sangue è mediato quasi interamente dalla sua capacità di sintetizzare la vitamina K2 (menachinoni). La coagulazione è un processo fisiologico complesso che previene l'eccessiva perdita di sangue in seguito a lesioni vascolari, attivando una cascata di enzimi che porta alla formazione di un tappo di fibrina. Molti dei fattori chiave di questa cascata, tra cui la protrombina (Fattore II) e i fattori VII, IX e X, sono proteine che richiedono una modifica post-traduzionale chiamata gamma-carbossilazione per diventare biologicamente attive. Questa modifica permette a queste proteine di legare gli ioni calcio e di ancorarsi alle membrane fosfolipidiche delle piastrine, un passaggio essenziale per la loro funzione. La vitamina K agisce come cofattore indispensabile per l'enzima che esegue questa carbossilazione. Mentre la vitamina K1 di origine vegetale è la fonte principale, i menachinoni prodotti dai batteri intestinali come Bacteroides e Escherichia coli forniscono una riserva cruciale, specialmente durante periodi di digiuno o di scarso apporto di verdure. L'importanza di questo contributo microbico è evidenziata nei neonati, che hanno un intestino sterile e bassi livelli di vitamina K, rendendoli a rischio di malattia emorragica del neonato se non ricevono una profilassi alla nascita. Negli adulti, la distruzione del microbiota a causa di terapie antibiotiche prolungate può portare a un allungamento del tempo di protrombina e a un aumento del rischio di sanguinamento. Inoltre, la vitamina K2 microbica sembra avere un ruolo superiore alla K1 nella prevenzione delle calcificazioni vascolari, proteggendo l'integrità del sistema circolatorio. Pertanto, la salute del nostro sistema emostatico è intrinsecamente legata all'attività biosintetica dei microrganismi che popolano il nostro intestino.",
+      "level": 5,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "La vitamina K batterica è essenziale per l'attivazione dei fattori della coagulazione."
+      ],
+      "x": 348.74980308606047,
+      "y": 825.9186227487983,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_TOLL_IMM",
+      "label": "Tolleranza Immunitaria",
+      "content": "Prevenzione di allergie e autoimmunità tramite il microbiota.",
+      "desc": "La tolleranza immunitaria è lo stato di mancata risposta del sistema immunitario verso antigeni che potrebbero potenzialmente innescare una reazione, come le proteine alimentari, i batteri commensali e i tessuti propri dell'organismo. Il microbiota intestinale è il principale istruttore di questa tolleranza. Attraverso un dialogo costante con le cellule immunitarie dell'intestino, i microbi inviano segnali che promuovono un ambiente 'tollerogenico'. Uno dei meccanismi chiave è l'induzione delle cellule T regolatrici (Treg) periferiche, che sopprimono attivamente le risposte infiammatorie mediate dalle cellule Th1, Th2 e Th17. Molecole come il butirrato e il polisaccaride A (PSA) di Bacteroides fragilis sono fondamentali in questo processo. La tolleranza immunitaria impedisce lo sviluppo di allergie alimentari, dove il sistema immunitario reagisce erroneamente a proteine innocue, e di malattie autoimmuni, dove l'attacco è rivolto verso il 'self'. Inoltre, il microbiota aiuta a stabilire la tolleranza verso se stesso, un fenomeno noto come omeostasi simbiotica, dove il sistema immunitario tollera la presenza di miliardi di batteri nel lume intestinale pur rimanendo pronto a colpire i patogeni. Questo equilibrio è estremamente delicato; una disbiosi precoce, causata ad esempio da un parto cesareo o dall'uso eccessivo di antibiotici nell'infanzia, può compromettere lo sviluppo della tolleranza, aumentando il rischio di asma, eczema e diabete di tipo 1. La ricerca suggerisce che l'esposizione a una vasta diversità microbica sia necessaria per 'calibrare' correttamente il sistema immunitario. Pertanto, il microbiota non solo ci protegge dai nemici esterni, ma ci insegna anche a convivere pacificamente con l'ambiente e con noi stessi, agendo come un mediatore essenziale della pace immunologica.",
+      "level": 5,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota istruisce il sistema immunitario alla tolleranza verso antigeni innocui."
+      ],
+      "x": -176.0598052964777,
+      "y": 879.6167880378583,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_RIS_CAR",
+      "label": "Rischio Cardiovascolare",
+      "content": "Legame tra metaboliti microbici e salute del cuore.",
+      "desc": "Il legame tra microbiota intestinale e rischio cardiovascolare è un campo di ricerca emergente che ha rivelato come i microbi possano influenzare la salute del cuore e dei vasi attraverso la produzione di metaboliti specifici. Uno dei metaboliti più studiati è la trimetilammina (TMA), prodotta da alcuni batteri intestinali a partire da precursori alimentari come la colina, la fosfatidilcolina e la carnitina, abbondanti nella carne rossa, nelle uova e nei latticini. Una volta prodotta, la TMA viene assorbita e trasportata al fegato, dove l'enzima flavina-monoossigenasi 3 (FMO3) la converte in trimetilammina-N-ossido (TMAO). Alti livelli di TMAO nel sangue sono stati fortemente associati a un aumento del rischio di aterosclerosi, infarto del miocardio e ictus, poiché la TMAO favorisce l'accumulo di colesterolo nei macrofagi e la formazione di placche nelle arterie. D'altra parte, il microbiota può avere effetti protettivi sul cuore attraverso la produzione di acidi grassi a catena corta (SCFA) come il propionato, che può ridurre la pressione arteriosa e l'infiammazione vascolare. Inoltre, la capacità del microbiota di metabolizzare gli acidi biliari influenza i livelli sistemici di colesterolo, un noto fattore di rischio cardiovascolare. La disbiosi intestinale, caratterizzata da una perdita di diversità e da un aumento di batteri pro-infiammatori, è stata collegata all'ipertensione e all'insufficienza cardiaca. Pertanto, il microbiota agisce come un modulatore metabolico che può sia promuovere che prevenire le malattie cardiovascolari a seconda della sua composizione e della dieta dell'ospite. Interventi mirati a ridurre la produzione di TMAO o ad aumentare quella di SCFA, attraverso cambiamenti dietetici o probiotici, rappresentano nuove frontiere per la prevenzione e il trattamento delle patologie cardiovascolari, sottolineando l'importanza dell'asse intestino-cuore.",
+      "level": 5,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Metaboliti microbici come la TMAO sono legati al rischio di aterosclerosi."
+      ],
+      "x": -614.3537781177441,
+      "y": 650.7731633059973,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_1_ANT_MIC",
+      "label": "Antimicrobici Naturali",
+      "content": "Sostanze prodotte dal microbiota per eliminare i patogeni.",
+      "desc": "La produzione di antimicrobici naturali è una delle strategie più dirette ed efficaci con cui il microbiota intestinale protegge l'ospite dalle infezioni. Oltre alle batteriocine, che sono peptidi mirati, i batteri commensali producono una varietà di altre sostanze che inibiscono la crescita di microrganismi concorrenti e patogeni. Tra queste, gli acidi organici come l'acido lattico e gli acidi grassi a catena corta (SCFA) giocano un ruolo primario; abbassando il pH dell'ambiente intestinale, rendono il lume ostile a molti patogeni sensibili all'acidità, come le Enterobacteriaceae. Alcuni batteri producono anche perossido d'idrogeno (H2O2), che ha un forte potere ossidante e può danneggiare le membrane cellulari dei patogeni. Un altro esempio affascinante è la produzione di metaboliti secondari come i derivati dell'indolo, che possono interferire con i sistemi di quorum sensing dei batteri patogeni, impedendo loro di coordinare l'espressione dei geni di virulenza. Inoltre, il microbiota può modificare sostanze prodotte dall'ospite per renderle antimicrobiche; ad esempio, la conversione degli acidi biliari primari in secondari crea molecole che hanno una spiccata attività inibitoria contro Clostridioides difficile. Questa produzione endogena di 'antibiotici naturali' assicura che l'intestino rimanga un ambiente controllato dove solo le specie simbionti possono prosperare. La perdita di questi antimicrobici naturali a causa della disbiosi è uno dei motivi principali per cui i pazienti diventano suscettibili a infezioni ospedaliere resistenti. La valorizzazione di queste sostanze attraverso lo sviluppo di 'farma-biotici' rappresenta una strategia innovativa per combattere l'antibiotico-resistenza, sfruttando le armi chimiche che il nostro microbiota ha perfezionato in milioni di anni di evoluzione.",
+      "level": 5,
+      "group": 3,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota produce acidi organici e altre sostanze per inibire i patogeni."
+      ],
+      "x": 85.106650151479,
+      "y": 893.1515066539492,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_DIGERENTE",
+      "label": "Apparato Digerente",
+      "content": "Il principale serbatoio microbico dell'organismo umano.",
+      "desc": "L'apparato digerente rappresenta il distretto corporeo con la maggiore abbondanza e diversità di microrganismi, contenendo circa il 70% del microbiota totale. Questo ecosistema inizia dal cavo orale e si estende fino al retto, subendo variazioni drastiche lungo il percorso. Nello stomaco, la densità è bassa (10^1-10^3 cellule/ml) a causa del pH acido che funge da barriera chimica. Procedendo verso l'intestino tenue, la concentrazione aumenta gradualmente, per poi esplodere nell'intestino crasso, dove si raggiungono concentrazioni di 10^11-10^12 cellule per grammo di contenuto intestinale. Qui, il microbiota svolge funzioni metaboliche essenziali, come la fermentazione di fibre vegetali non digeribili dall'uomo, la sintesi di vitamine (K e gruppo B) e la modulazione del sistema immunitario associato alle mucose (GALT). La composizione è dominata dai phyla Firmicutes e Bacteroidetes, il cui rapporto è spesso studiato in relazione a condizioni come l'obesità e il diabete. La stabilità di questo distretto è garantita da una complessa rete di interazioni trofiche, dove i prodotti di scarto di una specie diventano il nutrimento per un'altra, creando un equilibrio omeostatico che protegge l'ospite dalla colonizzazione di patogeni esogeni attraverso il meccanismo dell'esclusione competitiva.",
+      "level": 2,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "L'intestino è il sito di maggiore colonizzazione microbica.",
+        "Wikipedia: Microbiota umano - Apparato digerente."
+      ],
+      "x": 106.74858150061564,
+      "y": -368.05500502120617,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_PELLE",
+      "label": "Superficie Cutanea",
+      "content": "Ecosistema microbico della barriera esterna del corpo.",
+      "desc": "La pelle è l'organo più esteso del corpo umano e funge da interfaccia primaria con l'ambiente esterno. Il microbiota cutaneo è estremamente eterogeneo e la sua composizione dipende fortemente dalle caratteristiche fisico-chimiche della zona specifica, che può essere classificata come grassa (sebacea), umida o secca. Le aree sebacee, come il viso e il torace, sono dominate da specie lipofile come il Cutibacterium acnes, che utilizza il sebo come fonte di energia. Le aree umide, come le ascelle o le pieghe del gomito, favoriscono la crescita di Staphylococcus e Corynebacterium. Le aree secche, come gli avambracci, presentano la maggiore diversità di specie. Oltre ai batteri, la pelle ospita funghi (come Malassezia), virus e acari (come Demodex). Questo microbiota svolge un ruolo cruciale nella difesa immunitaria, producendo peptidi antimicrobici e mantenendo un pH acido (circa 5.5) che inibisce la crescita di microrganismi patogeni come lo Staphylococcus aureus. Alterazioni di questo equilibrio, note come disbiosi cutanea, sono associate a patologie comuni come l'acne, la dermatite atopica e la psoriasi. La ricerca ha dimostrato che il microbiota cutaneo è influenzato da fattori esterni come l'igiene personale, l'abbigliamento e l'esposizione ambientale, ma mantiene una stabilità temporale notevole in ogni individuo.",
+      "level": 2,
+      "group": 4,
+      "studyStatus": null,
+      "chunks": [
+        "La pelle presenta nicchie ecologiche diverse: sebacee, umide e secche.",
+        "Wikipedia: Microbiota umano - Microbiota cutaneo."
+      ],
+      "x": -152.8231827181185,
+      "y": -339.91289112840013,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_ORALE",
+      "label": "Cavo Orale",
+      "content": "Comunità microbiche della bocca e dei denti.",
+      "desc": "Il cavo orale ospita una delle comunità microbiche più complesse e studiate del corpo umano, con oltre 700 specie identificate. Questo distretto offre diverse superfici di colonizzazione: i tessuti molli della mucosa, la lingua e le superfici dure dei denti. Quest'ultime sono uniche perché non subiscono il turnover cellulare, permettendo la formazione di biofilm complessi noti come placca batterica. La saliva gioca un ruolo fondamentale nel mantenere l'omeostasi, fornendo nutrienti, enzimi e anticorpi (IgA) che regolano la crescita microbica. I generi più rappresentati includono Streptococcus, Neisseria, Veillonella e Prevotella. Il microbiota orale è coinvolto non solo nella salute della bocca, ma ha implicazioni sistemiche; ad esempio, batteri parodontopatogeni come Porphyromonas gingivalis sono stati collegati a malattie cardiovascolari e diabete. La transizione da uno stato di salute a uno di malattia (come carie o parodontite) è spesso guidata da cambiamenti ambientali, come l'eccessivo consumo di zuccheri che favorisce la crescita di batteri acidofili e acidogeni. Questi microrganismi abbassano il pH locale, causando la demineralizzazione dello smalto dentale. La complessità del microbiota orale risiede anche nella sua capacità di resistere alle forze di taglio meccaniche e al lavaggio salivare grazie a sofisticati meccanismi di adesione molecolare.",
+      "level": 2,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Il cavo orale contiene centinaia di specie batteriche organizzate in biofilm.",
+        "Wikipedia: Microbiota umano - Microbiota orale."
+      ],
+      "x": 18.738464996062632,
+      "y": -386.86122773723235,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_UROGENITALE",
+      "label": "Apparato Urogenitale",
+      "content": "Microbiota delle vie urinarie e dell'area genitale.",
+      "desc": "L'apparato urogenitale, in particolare quello femminile, ospita una comunità microbica specializzata che svolge un ruolo protettivo vitale. Il microbiota vaginale è caratterizzato, in condizioni di salute, da una bassa diversità e dalla dominanza assoluta del genere Lactobacillus. Questi batteri fermentano il glicogeno rilasciato dalle cellule epiteliali vaginali (sotto l'influenza degli estrogeni) producendo acido lattico. Questo processo mantiene il pH vaginale tra 3.8 e 4.5, un ambiente ostile per la maggior parte dei patogeni, inclusi quelli responsabili di vaginosi batteriche e infezioni sessualmente trasmissibili. Oltre all'acido lattico, i lattobacilli producono perossido d'idrogeno e batteriocine che inibiscono ulteriormente i competitori. Anche l'apparato urinario, a lungo considerato sterile, possiede un proprio microbiota (urobioma), sebbene a concentrazioni molto più basse, che potrebbe influenzare la suscettibilità alle infezioni urinarie e ad altre condizioni urologiche. Negli uomini, il microbiota del tratto urinario e del solco prepuziale è meno studiato ma altrettanto rilevante per la salute riproduttiva. Squilibri nel microbiota urogenitale possono essere causati da cambiamenti ormonali (menopausa, gravidanza), uso di antibiotici o pratiche igieniche inadeguate, portando a un aumento del rischio di infezioni ascendenti che possono colpire la vescica o, in gravidanza, influenzare la salute del feto.",
+      "level": 2,
+      "group": 4,
+      "studyStatus": null,
+      "chunks": [
+        "Il microbiota vaginale è dominato dai lattobacilli che mantengono il pH acido.",
+        "Wikipedia: Microbiota umano - Microbiota vaginale."
+      ],
+      "x": 185.00649321113139,
+      "y": -323.606872871329,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_RESPIRATORIO",
+      "label": "Apparato Respiratorio",
+      "content": "Microrganismi delle vie aeree superiori e inferiori.",
+      "desc": "L'apparato respiratorio è costantemente esposto a microrganismi provenienti dall'aria inalata e dal cavo orale. Si divide classicamente in vie aeree superiori (naso, faringe) e inferiori (trachea, bronchi, polmoni). Il microbiota delle vie aeree superiori è denso e simile a quello cutaneo o orale, con una prevalenza di Staphylococcus, Streptococcus e Corynebacterium. Le cavità nasali, in particolare, fungono da serbatoio per potenziali patogeni come lo Staphylococcus aureus, che vive in equilibrio con specie commensali. Per molto tempo si è creduto che i polmoni fossero sterili in condizioni di salute, ma tecniche di sequenziamento avanzate hanno dimostrato la presenza di un microbiota polmonare a bassa densità, derivante principalmente dalla microaspirazione di contenuti orali. Questo microbiota polmonare è dinamico e riflette un equilibrio tra l'ingresso di microbi, la loro rimozione tramite la clearance mucociliare e la crescita locale influenzata dalle condizioni dell'ospite. In patologie croniche come la fibrosi cistica o la BPCO (Broncopneumopatia Cronica Ostruttiva), questo equilibrio si rompe, portando alla dominanza di specie patogene come Pseudomonas aeruginosa. Il microbiota respiratorio interagisce strettamente con il sistema immunitario polmonare, contribuendo a regolare l'infiammazione e la risposta alle infezioni virali, come l'influenza, evidenziando l'importanza di una comunità microbica sana per la funzione respiratoria globale.",
+      "level": 2,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Le vie aeree non sono sterili e ospitano comunità microbiche specifiche.",
+        "Wikipedia: Microbiota umano - Microbiota respiratorio."
+      ],
+      "x": -70.68860311915522,
+      "y": -376.71059106587285,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_DIG_COLON",
+      "label": "Intestino Crasso",
+      "content": "Sito di massima densità batterica nell'organismo.",
+      "desc": "L'intestino crasso, o colon, rappresenta l'apice della colonizzazione microbica nel corpo umano. In questo distretto, le condizioni sono ideali per la crescita batterica: il transito è lento, il pH è vicino alla neutralità e vi è un'abbondanza di substrati fermentabili. La comunità è composta quasi esclusivamente da batteri anaerobi obbligati, poiché l'ossigeno è praticamente assente. Questi microrganismi formano una rete metabolica incredibilmente complessa che trasforma i carboidrati complessi (come l'amido resistente e le pectine) in acidi grassi a catena corta (SCFA), principalmente acetato, propionato e butirrato. Il butirrato, in particolare, è la fonte di energia primaria per i colonociti (le cellule della mucosa intestinale) e possiede proprietà anti-infiammatorie e anti-tumorali. Oltre ai batteri, il colon ospita archei metanogeni (come Methanobrevibacter smithii), che aiutano a rimuovere l'idrogeno prodotto durante la fermentazione, ottimizzando l'efficienza energetica. La barriera mucosa del colon è doppia: uno strato interno denso e quasi privo di batteri e uno strato esterno lasso dove risiede il microbiota. Questa separazione è vitale per prevenire una risposta immunitaria eccessiva contro i simbionti. La composizione del microbiota del colon è influenzata drasticamente dalla dieta: un elevato consumo di fibre promuove la diversità, mentre una dieta ricca di grassi e zuccheri raffinati può portare a una riduzione delle specie benefiche e a un aumento della permeabilità intestinale.",
+      "level": 3,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Il colon ospita la più alta concentrazione di batteri del corpo.",
+        "Wikipedia: Microbiota umano - Intestino crasso."
+      ],
+      "x": 192.61854021058403,
+      "y": -538.1169140319091,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_PEL_SEB",
+      "label": "Ghiandole Sebacee",
+      "content": "Nicchia ecologica ricca di lipidi sulla pelle.",
+      "desc": "Le ghiandole sebacee costituiscono una nicchia ecologica specializzata all'interno del distretto cutaneo, localizzate principalmente sul viso, sul cuoio capelluto e sulla parte superiore del tronco. Queste ghiandole secernono sebo, una miscela complessa di trigliceridi, cere e squalene, che funge da principale fonte di nutrimento per un gruppo ristretto di microrganismi lipofili. Il protagonista assoluto di questo ambiente è il Cutibacterium acnes (precedentemente noto come Propionibacterium acnes), un batterio anaerobio facoltativo che prospera nelle profondità del follicolo pilosebaceo. C. acnes produce enzimi lipasi che idrolizzano i trigliceridi del sebo in acidi grassi liberi, i quali contribuiscono a mantenere il pH acido della pelle, proteggendola da altri microbi meno tolleranti. Tuttavia, un'eccessiva produzione di sebo o un'ostruzione del follicolo possono portare a una proliferazione incontrollata di questo batterio, scatenando processi infiammatori tipici dell'acne vulgaris. Oltre ai batteri, le zone sebacee sono colonizzate dal fungo Malassezia, implicato in condizioni come la dermatite seborroica e la forfora. L'equilibrio tra queste specie e la risposta immunitaria dell'ospite è delicatissimo. La ricerca genomica ha rivelato che esistono diversi ceppi di C. acnes, alcuni associati alla salute della pelle e altri alla patogenesi, suggerendo che non sia la semplice presenza del batterio, ma l'equilibrio tra i suoi ceppi a determinare lo stato di salute cutanea.",
+      "level": 3,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Le aree sebacee sono dominate da Cutibacterium e Malassezia.",
+        "Wikipedia: Microbiota umano - Ghiandole sebacee."
+      ],
+      "x": -274.02985306676493,
+      "y": -497.972852519143,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_ORA_BIOFILM",
+      "label": "Biofilm Dentale",
+      "content": "Struttura organizzata di microbi sulle superfici dentali.",
+      "desc": "Il biofilm dentale, comunemente noto come placca batterica, è un esempio classico di comunità microbica altamente organizzata e strutturata. A differenza delle mucose, i denti offrono una superficie dura e non desquamante che permette ai batteri di aderire e costruire una matrice extracellulare protettiva composta da esopolisaccaridi, proteine e DNA. La formazione del biofilm inizia con l'adesione di colonizzatori primari, principalmente streptococchi (come S. sanguinis), alle proteine salivari depositate sullo smalto. Questi pionieri modificano l'ambiente, permettendo l'adesione di colonizzatori secondari più esigenti e spesso più patogeni, come Fusobacterium nucleatum, che funge da 'ponte' tra diverse specie. All'interno del biofilm si creano gradienti di ossigeno e nutrienti: gli strati superficiali sono aerobici, mentre quelli profondi, vicino alla gengiva, diventano anaerobici, favorendo specie proteolitiche responsabili della parodontite. La comunicazione tra i batteri avviene tramite il 'quorum sensing', un sistema di segnali chimici che coordina l'espressione genica della comunità, rendendola molto più resistente agli agenti antimicrobici e alle difese immunitarie rispetto ai batteri in forma isolata. La rimozione meccanica tramite lo spazzolamento è l'unico modo efficace per controllare questo biofilm, poiché la sua maturazione incontrollata porta inevitabilmente a uno squilibrio ecologico che favorisce la carie e le malattie gengivali.",
+      "level": 3,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "La placca è un biofilm batterico che aderisce alle superfici dentali.",
+        "Wikipedia: Microbiota umano - Biofilm orale."
+      ],
+      "x": 38.09874119661109,
+      "y": -571.1562340565705,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_URO_VAG",
+      "label": "Ecosistema Vaginale",
+      "content": "Ambiente protettivo dominato dalla produzione di acido.",
+      "desc": "L'ecosistema vaginale è un esempio unico di simbiosi dove la salute dell'ospite dipende quasi esclusivamente dalla dominanza di un singolo genere batterico: Lactobacillus. In una donna in età fertile, i livelli di estrogeni promuovono l'accumulo di glicogeno nelle cellule dell'epitelio vaginale. Quando queste cellule si sfaldano, il glicogeno viene degradato (direttamente o indirettamente) dai lattobacilli in acido lattico. Questo meccanismo di acidificazione è fondamentale per prevenire la colonizzazione da parte di batteri fecali o patogeni opportunisti come Gardnerella vaginalis o Candida albicans. Esistono diversi 'tipi di stato comunitario' (CST) vaginali; alcuni sono dominati da L. crispatus (associato alla massima stabilità), altri da L. iners, L. jensenii o L. gasseri. Oltre alla produzione di acido, questi batteri mantengono l'integrità della barriera mucosa e modulano la risposta immunitaria locale, prevenendo infiammazioni che potrebbero facilitare la trasmissione di virus come l'HIV. Durante la menopausa, il calo degli estrogeni riduce la disponibilità di glicogeno, portando a una diminuzione dei lattobacilli e a un innalzamento del pH, il che spiega la maggiore suscettibilità delle donne in post-menopausa alle infezioni urinarie e vaginali. La comprensione di questo ecosistema ha portato allo sviluppo di probiotici vaginali specifici per ripristinare l'equilibrio dopo trattamenti antibiotici.",
+      "level": 3,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Il microbiota vaginale sano è caratterizzato dalla dominanza di Lactobacillus.",
+        "Wikipedia: Microbiota umano - Microbiota vaginale."
+      ],
+      "x": 333.70328767989827,
+      "y": -460.9400118949619,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_RES_FARINGE",
+      "label": "Mucosa Nasofaringea",
+      "content": "Punto di controllo per l'ingresso di patogeni respiratori.",
+      "desc": "La mucosa della nasofaringe rappresenta una zona di transizione critica tra l'ambiente esterno e le vie respiratorie profonde. Questo distretto è costantemente bombardato da particelle inalate e funge da filtro biologico. Il microbiota nasofaringeo è caratterizzato da una miscela di batteri commensali che competono attivamente con potenziali patogeni per lo spazio e i nutrienti. Tra i generi più comuni troviamo Corynebacterium, Dolosigranulum e Moraxella. La presenza di specie come Dolosigranulum pigrum è stata associata alla salute respiratoria nei bambini, poiché sembra inibire la colonizzazione da parte di Streptococcus pneumoniae, il principale agente della polmonite batterica. La nasofaringe è anche il sito dove risiedono abitualmente, in modo asintomatico, microrganismi come Neisseria meningitidis e Haemophilus influenzae; lo stato di 'portatore sano' dipende proprio dall'equilibrio tra questi batteri e il resto del microbiota. Fattori come il fumo di sigaretta, l'inquinamento atmosferico e l'uso di antibiotici possono alterare drasticamente questa comunità, riducendo la diversità e favorendo la crescita eccessiva di specie infiammatorie. Inoltre, esiste un asse naso-polmone, dove il microbiota nasale influenza per microaspirazione la composizione delle comunità microbiche polmonari, rendendo la salute della nasofaringe un prerequisito essenziale per la protezione dell'intero albero respiratorio.",
+      "level": 3,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "La nasofaringe ospita una flora batterica che previene le infezioni.",
+        "Wikipedia: Microbiota umano - Microbiota nasofaringeo."
+      ],
+      "x": -122.18033670866618,
+      "y": -557.9050712343932,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_DIG_INT_BACT",
+      "label": "Bacteroidetes",
+      "content": "Phylum batterico dominante specializzato nella degradazione di fibre.",
+      "desc": "I Bacteroidetes rappresentano uno dei due phyla batterici predominanti nel microbiota intestinale umano, insieme ai Firmicutes. Questi batteri sono anaerobi obbligati, non sporigeni e gram-negativi. La loro funzione principale è la degradazione di polimeri organici complessi, in particolare i polisaccaridi vegetali che gli enzimi umani non sono in grado di scindere. All'interno di questo phylum, il genere Bacteroides è il più abbondante e possiede un arsenale enzimatico vastissimo, codificato in regioni genomiche chiamate 'PUL' (Polysaccharide Utilization Loci). Questi enzimi permettono loro di adattarsi rapidamente a cambiamenti nella dieta dell'ospite, passando dalla degradazione di fibre alimentari a quella delle mucine (le glicoproteine del muco intestinale) quando i nutrienti esterni scarseggiano. Oltre al metabolismo dei carboidrati, i Bacteroidetes sono coinvolti nella sintesi di molecole segnale che influenzano lo sviluppo del sistema immunitario. Ad esempio, Bacteroides fragilis produce una molecola chiamata Polisaccaride A (PSA) che promuove l'espansione delle cellule T regolatorie, aiutando a mantenere la tolleranza immunitaria e a prevenire malattie autoimmuni. Un'alterazione della proporzione di Bacteroidetes rispetto ai Firmicutes è stata osservata in numerose condizioni cliniche, suggerendo che questi batteri siano indicatori chiave della salute metabolica. La loro capacità di produrre propionato, un acido grasso a catena corta, contribuisce inoltre alla regolazione del senso di sazietà e al metabolismo del glucosio nel fegato.",
+      "level": 4,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "I Bacteroidetes sono fondamentali per la digestione dei carboidrati complessi.",
+        "Wikipedia: Microbiota umano - Bacteroidetes."
+      ],
+      "x": 268.3432426293855,
+      "y": -703.0698048664397,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_PEL_SEB_CUTI",
+      "label": "Cutibacterium acnes",
+      "content": "Batterio chiave delle zone sebacee e dell'acne.",
+      "desc": "Cutibacterium acnes è un bacillo Gram-positivo, anaerobio ma aerotollerante, che risiede tipicamente nelle profondità dei follicoli piliferi e delle ghiandole sebacee. Sebbene sia universalmente noto per il suo ruolo nell'acne, C. acnes è in realtà un componente fondamentale del microbiota cutaneo sano. La sua capacità di sopravvivere in un ambiente povero di ossigeno e ricco di lipidi lo rende il colonizzatore perfetto per il sebo. Questo batterio produce diverse lipasi, proteasi e ialuronidasi che degradano i componenti del sebo e della matrice extracellulare cutanea. In condizioni normali, i prodotti di questa degradazione, come gli acidi grassi liberi, aiutano a mantenere il pH acido della pelle, esercitando un effetto protettivo contro patogeni come lo Streptococcus pyogenes. Tuttavia, quando il follicolo si ostruisce (formando un comedone), l'ambiente diventa ancora più anaerobico, favorendo una crescita eccessiva di C. acnes. Questo porta alla produzione di fattori chemiotattici che richiamano i globuli bianchi, scatenando l'infiammazione tipica delle papule e pustole acneiche. Studi recenti di metagenomica hanno dimostrato che esistono diversi ceppi (ribotipi) di C. acnes: alcuni sono associati quasi esclusivamente alla pelle sana, mentre altri sono fortemente correlati all'acne grave. Questa scoperta sta aprendo la strada a terapie innovative basate sull'uso di probiotici cutanei o batteriofagi specifici per eliminare solo i ceppi patogeni senza alterare l'intero ecosistema cutaneo.",
+      "level": 4,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Cutibacterium acnes è il principale abitante dei follicoli sebacei.",
+        "Wikipedia: Microbiota umano - Cutibacterium acnes."
+      ],
+      "x": -375.3621020801048,
+      "y": -651.4295608547651,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_ORA_BIO_MUTANS",
+      "label": "Streptococcus mutans",
+      "content": "Principale batterio responsabile della carie dentale.",
+      "desc": "Streptococcus mutans è un cocco Gram-positivo, anaerobio facoltativo, riconosciuto come il principale agente eziologico della carie dentale nell'uomo. La sua pericolosità deriva da tre caratteristiche biologiche fondamentali: la capacità di aderire tenacemente allo smalto dentale, la produzione di esopolisaccaridi (glucani) e la tolleranza agli acidi. S. mutans utilizza l'enzima glucansucrasi per convertire il saccarosio della dieta in glucani insolubili, che formano una matrice appiccicosa che intrappola altri batteri e protegge la comunità dai meccanismi di pulizia della bocca. Una volta stabilito nel biofilm, S. mutans fermenta i carboidrati producendo acido lattico come sottoprodotto metabolico. Questo acido abbassa il pH all'interno della placca al di sotto del valore critico di 5.5, causando la dissoluzione dei cristalli di idrossiapatite dello smalto. A differenza di molti altri batteri orali, S. mutans è acidofilo, il che significa che non solo sopravvive in ambienti acidi, ma continua a produrre acido anche quando il pH è molto basso, creando un circolo vizioso che porta alla cavitazione del dente. La prevenzione della carie si basa sulla riduzione del substrato (zuccheri), sulla rimozione meccanica del biofilm e sull'uso del fluoro, che rende lo smalto più resistente all'attacco acido e inibisce parzialmente il metabolismo batterico. La ricerca sta anche esplorando vaccini e strategie di sostituzione batterica per eliminare S. mutans dalla nicchia orale.",
+      "level": 4,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Streptococcus mutans trasforma gli zuccheri in acidi che danneggiano i denti.",
+        "Wikipedia: Microbiota umano - Streptococcus mutans."
+      ],
+      "x": 54.59826291404113,
+      "y": -750.8918908345967,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_URO_VAG_CRISP",
+      "label": "Lactobacillus crispatus",
+      "content": "Specie sentinella per la salute dell'ambiente vaginale.",
+      "desc": "Lactobacillus crispatus è considerato uno dei biomarcatori più affidabili di un microbiota vaginale sano e resiliente. Questa specie è particolarmente efficace nel proteggere l'ospite grazie alla sua massiccia produzione di acido lattico (isomero D ed L) e di perossido d'idrogeno (H2O2). L'acido lattico mantiene il pH vaginale estremamente basso, inibendo la crescita di quasi tutti i microrganismi patogeni, inclusi quelli responsabili delle infezioni a trasmissione sessuale (STI) come la clamidia e la gonorrea. L. crispatus produce anche batteriocine, piccoli peptidi antimicrobici che bersagliano specificamente i competitori batterici. La dominanza di L. crispatus è associata a un basso livello di citochine infiammatorie nella mucosa vaginale, il che riduce il rischio di parto pretermine nelle donne in gravidanza. Al contrario, la sua sostituzione con specie come L. iners o con una flora mista anaerobica (vaginosi batterica) aumenta significativamente la vulnerabilità alle infezioni. Studi di ecologia microbica indicano che L. crispatus ha un genoma relativamente grande per un lattobacillo, il che gli conferisce una maggiore flessibilità metabolica e una migliore capacità di adesione alle cellule epiteliali. Il mantenimento di questa specie è influenzato da fattori genetici dell'ospite, dal comportamento sessuale e dall'uso di contraccettivi. La ricerca attuale si concentra sull'uso di L. crispatus come probiotico di 'nuova generazione' per il trattamento delle vaginosi ricorrenti, con l'obiettivo di ristabilire una barriera biologica duratura.",
+      "level": 4,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "L. crispatus è associato a un microbiota vaginale stabile e protettivo.",
+        "Wikipedia: Microbiota umano - Lactobacillus."
+      ],
+      "x": 465.4968985255715,
+      "y": -590.709461427229,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_RES_FAR_STAPH",
+      "label": "Staphylococcus epidermidis",
+      "content": "Commensale protettivo delle vie aeree e della pelle.",
+      "desc": "Staphylococcus epidermidis è un batterio Gram-positivo, coagulasi-negativo, che rappresenta uno dei componenti più onnipresenti del microbiota umano, colonizzando pelle, naso e faringe. Sebbene sia spesso visto come un patogeno opportunista in ambito ospedaliero (legato ai cateteri), nel suo habitat naturale svolge un ruolo protettivo cruciale. S. epidermidis partecipa attivamente all'esclusione competitiva di patogeni più pericolosi come lo Staphylococcus aureus. Lo fa attraverso la produzione di enzimi come la serina proteasi Esp, che inibisce la formazione di biofilm da parte di S. aureus e ne impedisce la colonizzazione nasale. Inoltre, S. epidermidis stimola i cheratinociti a produrre peptidi antimicrobici (AMP) e modula la risposta immunitaria innata, aiutando il sistema immunitario a distinguere tra microbi innocui e minacce reali. Questo batterio è un esempio perfetto di come la funzione di un microrganismo dipenda dal contesto: sulla pelle sana è un guardiano della barriera, ma se penetra nel flusso sanguigno attraverso ferite o dispositivi medici, può causare infezioni difficili da trattare a causa della sua capacità di formare biofilm resistenti agli antibiotici. La sua presenza nella nasofaringe è considerata un segno di equilibrio ecologico, contribuendo a mantenere un ambiente ostile per i patogeni respiratori primari. La ricerca sta studiando come favorire la crescita di ceppi benefici di S. epidermidis per prevenire le infezioni da S. aureus resistente alla meticillina (MRSA).",
+      "level": 4,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "S. epidermidis compete con S. aureus per la nicchia nasale.",
+        "Wikipedia: Microbiota umano - Staphylococcus epidermidis."
+      ],
+      "x": -165.70946767610027,
+      "y": -734.04849052573,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_DIG_INT_BAC_SCFA",
+      "label": "Acidi Grassi a Catena Corta",
+      "content": "Metaboliti chiave prodotti dalla fermentazione batterica.",
+      "desc": "Gli acidi grassi a catena corta (SCFA), principalmente acetato, propionato e butirrato, sono i prodotti finali della fermentazione dei carboidrati non digeribili da parte del microbiota del colon, in particolare dai phyla Bacteroidetes e Firmicutes. Queste molecole non sono semplici scarti, ma fungono da mediatori fondamentali nella comunicazione tra il microbiota e l'ospite. Il butirrato è la fonte energetica preferita per le cellule dell'epitelio intestinale, promuovendo la loro proliferazione e mantenendo l'integrità della barriera mucosa (riducendo la cosiddetta 'leaky gut'). Il propionato viene trasportato al fegato dove partecipa alla gluconeogenesi e sembra avere un ruolo nella regolazione del colesterolo. L'acetato, il più abbondante, entra nella circolazione sistemica e raggiunge tessuti periferici, influenzando il metabolismo dei grassi e la regolazione dell'appetito a livello ipotalamico. Oltre alle funzioni metaboliche, gli SCFA hanno potenti effetti immunomodulatori: agiscono legandosi a recettori specifici (GPR41, GPR43) sulle cellule immunitarie, promuovendo la differenziazione delle cellule T regolatorie e riducendo la produzione di citochine pro-infiammatorie. Questo legame tra dieta, microbiota e SCFA spiega perché una dieta povera di fibre sia associata a un aumento del rischio di malattie infiammatorie intestinali, obesità e persino disturbi neuropsichiatrici. La produzione di SCFA contribuisce anche ad abbassare leggermente il pH del colon, inibendo la crescita di patogeni sensibili all'acido come le Enterobacteriaceae.",
+      "level": 5,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "Gli SCFA sono prodotti dalla fermentazione delle fibre alimentari.",
+        "Wikipedia: Microbiota umano - Metabolismo microbico."
+      ],
+      "x": 322.11697489175947,
+      "y": -833.4901978407173,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_PEL_SEB_CUT_INF",
+      "label": "Infiammazione Cutanea",
+      "content": "Risposta immunitaria scatenata dalla disbiosi del follicolo.",
+      "desc": "L'infiammazione cutanea nel contesto del microbiota sebaceo è un processo complesso che vede come protagonista il Cutibacterium acnes. Quando l'equilibrio della nicchia follicolare si rompe, C. acnes attiva diversi percorsi pro-infiammatori. Il batterio interagisce con i recettori Toll-like (specialmente TLR2) presenti sulla superficie dei cheratinociti e dei macrofagi cutanei. Questa interazione scatena la produzione di citochine infiammatorie come l'interleuchina-8 (IL-8), che agisce come un potente segnale di richiamo per i neutrofili. Una volta giunti nel sito, i neutrofili rilasciano enzimi idrolitici e specie reattive dell'ossigeno nel tentativo di eliminare i batteri, ma finiscono per danneggiare la parete del follicolo pilifero. La rottura del follicolo riversa il contenuto (sebo, batteri e detriti cellulari) nel derma circostante, amplificando drasticamente la risposta infiammatoria e portando alla formazione di noduli e cisti. Inoltre, C. acnes stimola la formazione dell'inflammasoma NLRP3, un complesso proteico intracellulare che promuove la maturazione dell'interleuchina-1 beta, un mediatore chiave dell'infiammazione sistemica e locale. È importante notare che non tutti i ceppi di C. acnes inducono la stessa risposta: i ceppi associati all'acne possiedono fattori di virulenza specifici, come proteine di adesione e varianti di lipasi più aggressive, che mancano nei ceppi commensali sani. Questo spiega perché alcune persone, pur avendo alti livelli di C. acnes, non sviluppano mai l'acne, evidenziando l'importanza della genetica batterica nell'infiammazione.",
+      "level": 5,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "L'infiammazione nell'acne è mediata dall'attivazione dei recettori TLR2.",
+        "Wikipedia: Microbiota umano - Acne e infiammazione."
+      ],
+      "x": -448.813305738909,
+      "y": -772.2580337089809,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_ORA_BIO_MUT_ACID",
+      "label": "Demineralizzazione Smalto",
+      "content": "Processo chimico di erosione dentale causato da acidi.",
+      "desc": "La demineralizzazione dello smalto è il processo fisico-chimico alla base della carie dentale, guidato dal metabolismo acido del microbiota orale, in particolare di Streptococcus mutans. Lo smalto dentale è composto per il 96% da idrossiapatite, un minerale di fosfato di calcio cristallino. In condizioni normali, la saliva mantiene un pH intorno a 7 e fornisce ioni calcio e fosfato che favoriscono la rimineralizzazione continua dello smalto. Tuttavia, dopo l'ingestione di zuccheri fermentabili, i batteri del biofilm producono acidi organici (lattico, acetico, propionico) che rimangono intrappolati nella matrice della placca. Quando il pH scende sotto il 'punto critico' di 5.5, gli ioni idrogeno reagiscono con i cristalli di idrossiapatite, dissolvendoli e rilasciando calcio e fosfato nell'ambiente circostante. Se questi episodi di acidità sono frequenti e prolungati (a causa di spuntini zuccherati continui o scarsa igiene), la rimineralizzazione salivare non riesce a compensare la perdita di minerale. Questo porta inizialmente alla formazione di una 'macchia bianca' (lesione sub-superficiale), che è ancora reversibile. Se il processo continua, la struttura cristallina collassa, formando una cavità irreversibile che può estendersi alla dentina e alla polpa dentale. Il ruolo del microbiota è quindi quello di un reattore biochimico che trasforma l'energia chimica degli zuccheri in un attacco acido localizzato, dimostrando come la carie sia una malattia ecologica mediata dalla dieta.",
+      "level": 5,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "L'acido prodotto dai batteri dissolve l'idrossiapatite dello smalto.",
+        "Wikipedia: Microbiota umano - Carie dentale."
+      ],
+      "x": 65.2072775873554,
+      "y": -891.411739223905,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_URO_VAG_LAC_PROT",
+      "label": "Barriera Antimicrobica",
+      "content": "Meccanismi di difesa biochimica del microbiota vaginale.",
+      "desc": "La barriera antimicrobica creata dai lattobacilli nell'ecosistema vaginale è uno dei sistemi di difesa più eleganti del corpo umano. Questa protezione non si limita al semplice abbassamento del pH tramite l'acido lattico, ma include una serie di armi biochimiche sofisticate. Molti lattobacilli, come L. crispatus e L. gasseri, producono perossido d'idrogeno (H2O2), che è tossico per molti batteri anaerobi che mancano dell'enzima catalasi (come quelli associati alla vaginosi batterica). Inoltre, secernono batteriocine, che sono piccoli peptidi che creano pori nelle membrane dei batteri competitori, causandone la morte. Un altro meccanismo fondamentale è l'interferenza con l'adesione: i lattobacilli competono attivamente per i recettori sulle cellule epiteliali vaginali, impedendo fisicamente ai patogeni di attaccarsi e colonizzare la mucosa. Producono anche biosurfattanti che rendono la superficie cellulare meno ospitale per i microbi estranei. Oltre all'azione diretta, il microbiota vaginale sano modula il sistema immunitario dell'ospite, inducendo la produzione di citochine anti-infiammatorie e mantenendo l'integrità delle giunzioni serrate tra le cellule epiteliali. Questo impedisce ai patogeni e alle loro tossine di penetrare nei tessuti profondi. La rottura di questa barriera, spesso definita disbiosi vaginale, non solo causa sintomi locali fastidiosi, ma è un fattore di rischio accertato per l'acquisizione di malattie virali e per complicazioni ostetriche, rendendo la preservazione di questa barriera microbica una priorità per la salute femminile.",
+      "level": 5,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "I lattobacilli proteggono la vagina tramite acido lattico e batteriocine.",
+        "Wikipedia: Microbiota umano - Difese vaginali."
+      ],
+      "x": 558.7744198190487,
+      "y": -696.7153173025048,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_2_RES_FAR_STA_COMP",
+      "label": "Esclusione Competitiva",
+      "content": "Lotta per la sopravvivenza tra microbi commensali e patogeni.",
+      "desc": "L'esclusione competitiva è il principio ecologico secondo cui due specie che competono per le stesse risorse limitate non possono coesistere stabilmente; nel microbiota nasofaringeo, questo meccanismo è la prima linea di difesa contro le infezioni. I batteri commensali, come Staphylococcus epidermidis e Corynebacterium spp., occupano fisicamente i siti di legame sulle cellule della mucosa, rendendoli indisponibili per i patogeni in arrivo come lo Streptococcus pneumoniae o lo Staphylococcus aureus. Oltre all'occupazione fisica, i commensali competono per i nutrienti, come il ferro, che è essenziale per la crescita batterica ma presente in quantità limitatissime nell'ospite. Alcuni batteri producono siderofori, molecole che sequestrano il ferro con altissima affinità, 'affamando' i competitori. Un altro aspetto dell'esclusione competitiva è la produzione di sostanze inibitorie dirette; ad esempio, alcuni ceppi di S. epidermidis producono la proteasi Esp che distrugge i biofilm di S. aureus, mentre i Corynebacterium possono produrre acidi grassi che inibiscono la crescita di altri batteri. Questo equilibrio dinamico assicura che, anche se un patogeno viene inalato, non riesca a stabilire una popolazione sufficientemente grande da causare malattia. La comprensione di queste interazioni sta portando alla nascita della 'batterioterapia nasale', dove ceppi selezionati di batteri commensali vengono somministrati per eliminare i portatori sani di ceppi batterici resistenti agli antibiotici, sfruttando la competizione naturale invece dei farmaci tradizionali.",
+      "level": 5,
+      "group": 4,
+      "studyStatus": "none",
+      "chunks": [
+        "L'esclusione competitiva impedisce ai patogeni di colonizzare le mucose.",
+        "Wikipedia: Microbiota umano - Esclusione competitiva."
+      ],
+      "x": -198.27096584677219,
+      "y": -871.2870829551212,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_EUBIOSI_DISBIOSI",
+      "label": "Eubiosi e Disbiosi",
+      "content": "Stato di equilibrio o squilibrio della flora batterica intestinale.",
+      "desc": "L'eubiosi rappresenta lo stato di equilibrio fisiologico ottimale del microbiota umano, in cui le diverse popolazioni microbiche convivono in una relazione di mutualismo con l'ospite. In questa condizione, il microbiota svolge funzioni essenziali come la sintesi di vitamine, la fermentazione delle fibre alimentari e la protezione contro i patogeni. Tuttavia, quando questo equilibrio viene alterato da fattori esterni come una dieta squilibrata, l'uso eccessivo di antibiotici, lo stress cronico o l'esposizione a tossine ambientali, si verifica una condizione nota come disbiosi. La disbiosi non è semplicemente la presenza di batteri 'cattivi', ma piuttosto una perdita di diversità microbica e un'alterazione delle proporzioni tra i diversi phyla. Ad esempio, una riduzione significativa dei Firmicutes produttori di butirrato o un aumento eccessivo dei Proteobacteria pro-infiammatori può innescare una cascata di eventi negativi. Questi cambiamenti influenzano l'integrità della barriera intestinale, portando a una maggiore permeabilità e permettendo il passaggio di frammenti batterici nel circolo sanguigno. Questo fenomeno, noto come endotossiemia metabolica, è alla base dell'infiammazione sistemica di basso grado che caratterizza molte malattie moderne. La ricerca scientifica ha dimostrato che la disbiosi è associata a una vasta gamma di disturbi, che vanno dalle malattie gastrointestinali a quelle metaboliche, neurologiche e autoimmuni. Ripristinare l'eubiosi attraverso interventi dietetici, probiotici o trapianto di microbiota fecale è diventato un obiettivo primario della medicina moderna, sottolineando come la salute dell'ospite sia indissolubilmente legata alla salute della sua comunità microbica interna. La comprensione dei meccanismi molecolari che regolano questo equilibrio è fondamentale per lo sviluppo di terapie personalizzate mirate a modulare il microbiota per prevenire e trattare le patologie umane.",
+      "level": 2,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La disbiosi è una condizione di squilibrio microbico."
+      ],
+      "x": -385.9719852701627,
+      "y": -44.1238966882704,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_MICI",
+      "label": "Malattie Infiammatorie Croniche Intestinali",
+      "content": "Patologie infiammatorie croniche come Crohn e Colite Ulcerosa.",
+      "desc": "Le Malattie Infiammatorie Croniche Intestinali (MICI), che comprendono principalmente il morbo di Crohn e la colite ulcerosa, rappresentano uno degli esempi più chiari di come l'interazione tra il microbiota e l'ospite possa deviare verso un percorso patologico. In questi pazienti, si osserva costantemente una riduzione della complessità dell'ecosistema microbico, con una perdita di specie protettive appartenenti ai generi Faecalibacterium e Roseburia. Queste specie sono fondamentali perché producono butirrato, un acido grasso a catena corta che funge da fonte energetica primaria per i colonociti e possiede spiccate proprietà antinfiammatorie. Parallelamente, si riscontra un aumento di batteri potenzialmente patogeni, come le Enterobacteriaceae, che possono aderire alla mucosa intestinale e scatenare una risposta immunitaria aberrante. La patogenesi delle MICI coinvolge una complessa interazione tra predisposizione genetica (ad esempio mutazioni nel gene NOD2), fattori ambientali e una risposta immunitaria eccessiva contro i componenti del microbiota commensale. Il sistema immunitario, non riuscendo più a distinguere tra batteri benefici e minacce, attacca la mucosa intestinale, portando a ulcerazioni, dolore cronico e malassorbimento. La ricerca attuale si sta concentrando sull'uso di terapie mirate a ripristinare il microbiota sano, come il trapianto di microbiota fecale (FMT) o l'uso di probiotici di nuova generazione, per indurre la remissione della malattia. Comprendere il ruolo del microbiota nelle MICI non solo aiuta a spiegare l'eziologia di queste condizioni debilitanti, ma apre anche la strada a nuove strategie diagnostiche basate sul profilo microbico del paziente, permettendo un approccio terapeutico più personalizzato e potenzialmente più efficace rispetto alle terapie immunosoppressive tradizionali che spesso presentano gravi effetti collaterali a lungo termine.",
+      "level": 2,
+      "group": 5,
+      "studyStatus": null,
+      "chunks": [
+        "Wikipedia: Microbiota umano - Le malattie infiammatorie croniche intestinali sono associate a una ridotta diversità del microbiota."
+      ],
+      "x": -311.8154158330118,
+      "y": -205.68891094334612,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_METABOLISMO",
+      "label": "Sindrome Metabolica e Obesità",
+      "content": "Correlazione tra microbiota, obesità e diabete di tipo 2.",
+      "desc": "La relazione tra il microbiota intestinale e la sindrome metabolica, che include obesità, diabete di tipo 2 e ipertensione, è diventata un'area di ricerca intensiva negli ultimi decenni. Studi pionieristici hanno dimostrato che il microbiota degli individui obesi differisce significativamente da quello degli individui normopeso, spesso presentando un rapporto Firmicutes/Bacteroidetes alterato. Questi microrganismi non sono semplici spettatori, ma influenzano attivamente il bilancio energetico dell'ospite attraverso diversi meccanismi. Uno dei principali è la capacità di fermentare carboidrati non digeribili, producendo acidi grassi a catena corta (SCFA) che possono essere assorbiti e utilizzati come fonte di energia supplementare. Inoltre, il microbiota regola l'espressione di geni coinvolti nel metabolismo dei grassi e nella sensibilità all'insulina. Una condizione di disbiosi può portare a un aumento della permeabilità intestinale, permettendo ai lipopolisaccaridi (LPS) della parete cellulare dei batteri Gram-negativi di entrare nel circolo sanguigno. Questo innesca un'infiammazione sistemica cronica di basso grado, che è un fattore chiave nello sviluppo dell'insulino-resistenza e delle complicanze cardiovascolari. La modulazione del microbiota attraverso la dieta, l'esercizio fisico e l'integrazione di prebiotici e probiotici si è dimostrata promettente nel migliorare i parametri metabolici. Ad esempio, il batterio Akkermansia muciniphila è stato identificato come un potenziale biomarcatore di salute metabolica, poiché la sua abbondanza è inversamente correlata all'obesità e al diabete. La comprensione di come i sottoprodotti del metabolismo batterico influenzino i segnali ormonali dell'ospite, come la grelina e la leptina, offre nuove prospettive per il trattamento dell'obesità non solo come un problema di calorie, ma come un disordine dell'ecosistema interno che richiede un riequilibrio biologico profondo e duraturo.",
+      "level": 2,
+      "group": 5,
+      "studyStatus": null,
+      "chunks": [
+        "Wikipedia: Microbiota umano - Esiste una correlazione tra microbiota intestinale e obesità."
+      ],
+      "x": -382.1984210960677,
+      "y": 45.79282723556062,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_ASSE_CERVELLO",
+      "label": "Asse Intestino-Cervello",
+      "content": "Comunicazione bidirezionale tra sistema nervoso e microbiota.",
+      "desc": "L'asse intestino-cervello rappresenta un sistema di comunicazione bidirezionale estremamente complesso che collega il sistema nervoso centrale con il sistema nervoso enterico e il microbiota intestinale. Questa interazione avviene attraverso diverse vie, tra cui quella nervosa (nervo vago), endocrina (cortisolo) e immunitaria (citochine). Il microbiota intestinale gioca un ruolo fondamentale in questa comunicazione producendo o modulando la sintesi di neurotrasmettitori essenziali come la serotonina, la dopamina e il GABA. Si stima che oltre il 90% della serotonina corporea sia prodotta nell'intestino, influenzata direttamente dalla presenza di specifici ceppi batterici. Alterazioni nella composizione del microbiota sono state collegate a una varietà di disturbi neuropsichiatrici, tra cui ansia, depressione, autismo e malattie neurodegenerative come il Parkinson e l'Alzheimer. Ad esempio, studi su modelli animali 'germ-free' (privi di microbi) hanno mostrato risposte allo stress alterate e deficit cognitivi, che possono essere parzialmente corretti mediante la ricolonizzazione con specifici batteri probiotici, spesso definiti 'psicobiotici'. Il microbiota influenza anche la maturazione della barriera emato-encefalica e la funzione delle cellule della microglia, le sentinelle immunitarie del cervello. L'infiammazione intestinale derivante dalla disbiosi può tradursi in neuroinfiammazione, contribuendo al declino cognitivo. Questa frontiera della neuroscienza suggerisce che la salute mentale non dipenda solo dal cervello, ma sia profondamente radicata nello stato del nostro intestino. La possibilità di trattare disturbi psichiatrici attraverso la modulazione del microbiota apre scenari rivoluzionari nella medicina, spostando l'attenzione verso approcci olistici che considerano l'essere umano come un 'olobionte', un'entità composta sia da cellule umane che microbiche in costante dialogo biochimico e funzionale.",
+      "level": 2,
+      "group": 5,
+      "studyStatus": null,
+      "chunks": [
+        "Wikipedia: Microbiota umano - L'asse intestino-cervello collega il sistema nervoso centrale con il microbiota."
+      ],
+      "x": -361.72695853448965,
+      "y": -130.79298061543494,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_AUTOIMMUNITA",
+      "label": "Malattie Autoimmuni e Allergie",
+      "content": "Ruolo del microbiota nello sviluppo di malattie autoimmuni.",
+      "desc": "Il ruolo del microbiota nello sviluppo e nella progressione delle malattie autoimmuni e delle allergie è legato alla sua funzione cruciale nell'educazione del sistema immunitario durante i primi anni di vita. Secondo l'ipotesi dell'igiene, un ambiente eccessivamente sterile e una ridotta esposizione a una varietà di microrganismi commensali possono portare a un sistema immunitario immaturo o ipereattivo, incapace di distinguere correttamente tra self e non-self o tra minacce reali e sostanze innocue. Il microbiota intestinale interagisce costantemente con il tessuto linfatico associato all'intestino (GALT), promuovendo lo sviluppo di cellule T regolatorie (Treg), che sono fondamentali per mantenere la tolleranza immunologica e prevenire risposte autoimmuni. Quando l'equilibrio microbico è compromesso, si può verificare uno sbilanciamento verso cellule T effettrici pro-infiammatorie (come Th17), che possono migrare dall'intestino ad altri tessuti, scatenando attacchi autoimmuni in organi distanti. Malattie come il diabete di tipo 1, l'artrite reumatoide e la sclerosi multipla sono state associate a profili di microbiota alterati. Un meccanismo proposto è la mimicria molecolare, in cui peptidi batterici simili a proteine umane inducono il sistema immunitario ad attaccare i propri tessuti. Inoltre, la produzione di metaboliti microbici come il butirrato è essenziale per mantenere l'integrità della barriera intestinale; una barriera compromessa permette l'ingresso di antigeni che possono scatenare reazioni allergiche sistemiche. La comprensione di questi meccanismi sta portando allo sviluppo di strategie di prevenzione basate sull'esposizione precoce a microbi benefici e sull'uso di probiotici specifici per modulare la risposta immunitaria, offrendo nuove speranze per contrastare l'epidemia crescente di malattie autoimmuni e allergiche nelle società industrializzate.",
+      "level": 2,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il microbiota intestinale è fondamentale per lo sviluppo del sistema immunitario."
+      ],
+      "x": -350.5168187046631,
+      "y": 130.03616186530456,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_OMEOSTASI",
+      "label": "Omeostasi Microbica",
+      "content": "Equilibrio dinamico e resilienza delle comunità batteriche intestinali.",
+      "desc": "L'omeostasi microbica è lo stato di equilibrio dinamico che caratterizza un microbiota sano, dove la resilienza e la stabilità delle comunità batteriche permettono di resistere a perturbazioni esterne. Questo equilibrio non è statico, ma fluttua in risposta a dieta, ritmo circadiano e invecchiamento, mantenendosi però entro limiti fisiologici che garantiscono il benessere dell'ospite. Un aspetto fondamentale dell'omeostasi è la resistenza alla colonizzazione, ovvero la capacità dei microbi residenti di impedire l'insediamento di patogeni esogeni attraverso la competizione per i nutrienti, l'occupazione delle nicchie ecologiche e la produzione di sostanze antimicrobiche come le batteriocine. L'omeostasi è mantenuta da una complessa rete di segnali chimici tra i microbi (quorum sensing) e tra i microbi e le cellule dell'ospite. Quando l'omeostasi viene preservata, il microbiota contribuisce attivamente alla digestione, alla produzione di vitamine essenziali (come la vitamina K e il gruppo B) e alla modulazione del sistema immunitario, mantenendolo in uno stato di allerta tollerante. La perdita di questa omeostasi segna l'inizio della disbiosi, un processo che può essere silenzioso per anni prima di manifestarsi come patologia conclamata. La ricerca scientifica mira a identificare i core microbiomes, ovvero i gruppi di batteri essenziali che devono essere presenti per garantire l'omeostasi in diverse popolazioni umane. Tecniche avanzate di sequenziamento metagenomico permettono oggi di monitorare questo equilibrio con precisione senza precedenti, offrendo la possibilità di intervenire preventivamente quando i primi segni di squilibrio appaiono, molto prima che i sintomi clinici si sviluppino, trasformando così la medicina reattiva in una medicina preventiva e predittiva basata sull'ecologia microbica interna.",
+      "level": 3,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - L'equilibrio del microbiota è fondamentale per la salute."
+      ],
+      "x": -570.6854559093614,
+      "y": -56.35733191715152,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_CROHN",
+      "label": "Morbo di Crohn",
+      "content": "Infiammazione transmurale cronica legata a squilibri del microbiota.",
+      "desc": "Il morbo di Crohn è una malattia infiammatoria cronica dell'intestino che può colpire qualsiasi parte del tratto gastrointestinale, dalla bocca all'ano, sebbene interessi più comunemente l'ileo terminale e il colon. La relazione con il microbiota è centrale: i pazienti affetti da Crohn mostrano una drastica riduzione della diversità batterica e una particolare carenza di Faecalibacterium prausnitzii, un batterio noto per le sue proprietà antinfiammatorie. In questa patologia, l'infiammazione è transmurale, il che significa che può interessare tutti gli strati della parete intestinale, portando a complicazioni come stenosi, fistole e ascessi. Si ritiene che una risposta immunitaria inappropriata contro i batteri intestinali in individui geneticamente predisposti sia la causa scatenante. Difetti nelle barriere mucose e nei meccanismi di autofagia cellulare permettono ai batteri di penetrare nei tessuti profondi, dove scatenano una reazione granulomatosa persistente. Il microbiota dei pazienti con Crohn è spesso arricchito di ceppi di Escherichia coli aderenti e invasivi (AIEC), che sono in grado di sopravvivere all'interno dei macrofagi, alimentando ulteriormente l'infiammazione. La gestione del morbo di Crohn sta evolvendo verso approcci che includono la modulazione del microbiota, come la nutrizione enterale esclusiva, che ha dimostrato di poter indurre la remissione alterando la composizione batterica intestinale. La comprensione del ruolo del microbiota nel Crohn non solo fornisce indizi sulla sua eziologia ancora parzialmente misteriosa, ma offre anche nuovi biomarcatori per monitorare l'attività della malattia e la risposta alla terapia, superando i limiti delle biopsie invasive e aprendo la strada a trattamenti più mirati che mirano a ricostruire un ecosistema intestinale sano e protettivo.",
+      "level": 3,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il morbo di Crohn è associato ad alterazioni del microbiota."
+      ],
+      "x": -449.63766419280086,
+      "y": -349.4020560759743,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_INSULINO_RES",
+      "label": "Insulino-resistenza",
+      "content": "Ridotta sensibilità all'insulina mediata da metaboliti batterici infiammatori.",
+      "desc": "L'insulino-resistenza è una condizione in cui le cellule dell'organismo rispondono in modo meno efficace all'ormone insulina, portando a livelli elevati di glucosio nel sangue e rappresentando il precursore principale del diabete di tipo 2. Il microbiota intestinale gioca un ruolo determinante in questo processo attraverso la produzione di metaboliti che influenzano le vie di segnalazione dell'insulina. In particolare, una dieta ricca di grassi e povera di fibre altera il microbiota, riducendo i batteri che producono butirrato e aumentando quelli che rilasciano lipopolisaccaridi (LPS). Gli LPS, entrando nel circolo ematico a causa di una barriera intestinale indebolita, si legano ai recettori TLR4 sulle cellule immunitarie e sui tessuti metabolici, innescando un'infiammazione cronica. Questa infiammazione interferisce con il recettore dell'insulina, bloccando la sua capacità di trasportare il glucosio all'interno delle cellule. Inoltre, il microbiota influenza la produzione di acidi biliari secondari, che agiscono come molecole di segnalazione attraverso il recettore TGR5 e il recettore farnesoide X (FXR), regolando il metabolismo del glucosio e dei lipidi. Studi hanno dimostrato che il trapianto di microbiota da donatori sani a pazienti con sindrome metabolica può migliorare temporaneamente la sensibilità all'insulina, confermando il nesso causale tra composizione microbica e controllo glicemico. La ricerca si sta ora focalizzando sull'identificazione di specifici ceppi batterici, come Akkermansia muciniphila, che sembrano proteggere contro l'insulino-resistenza migliorando l'integrità della mucosa e riducendo l'infiammazione sistemica. Questi sviluppi suggeriscono che la gestione del diabete e dell'obesità deve necessariamente passare attraverso la cura del microbiota intestinale, integrando la terapia farmacologica tradizionale con interventi mirati a ripristinare un profilo metabolico microbico favorevole.",
+      "level": 3,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il microbiota influenza il metabolismo del glucosio."
+      ],
+      "x": -563.7529263560343,
+      "y": 99.64221861842583,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_NEUROTRASMETTITORI",
+      "label": "Neurotrasmettitori Intestinali",
+      "content": "Sintesi di molecole segnale prodotte dai batteri intestinali.",
+      "desc": "Il microbiota intestinale è una vera e propria fabbrica chimica capace di produrre e modulare una vasta gamma di neurotrasmettitori che influenzano non solo il sistema nervoso enterico, ma anche il cervello. Batteri come Lactobacillus e Bifidobacterium sono in grado di sintetizzare l'acido gamma-amminobutirrico (GABA), il principale neurotrasmettitore inibitorio del sistema nervoso centrale, fondamentale per la regolazione dell'ansia e dello stress. Altri ceppi, come Escherichia, Bacillus e Saccharomyces, producono noradrenalina e dopamina, mentre i generi Candida, Streptococcus e Enterococcus sono coinvolti nella produzione di serotonina. È sorprendente notare che circa il 95% della serotonina totale del corpo è localizzata nell'intestino, dove regola la motilità, la secrezione e la percezione del dolore viscerale. Il microbiota influenza la disponibilità di triptofano, il precursore della serotonina, deviando il suo metabolismo verso la via della kynurenina o verso la sintesi di serotonina stessa. Questo equilibrio è cruciale: un eccesso di kynurenina è associato a disturbi depressivi e neurodegenerativi. I neurotrasmettitori prodotti dai batteri possono agire localmente sulle fibre del nervo vago o entrare nel circolo sanguigno, influenzando indirettamente le funzioni cerebrali. Questa connessione biochimica spiega perché molti disturbi gastrointestinali siano accompagnati da sintomi psichiatrici e viceversa. La comprensione di come il microbiota manipoli la chimica del cervello attraverso i neurotrasmettitori ha dato origine alla psichiatria microbica, un campo che esplora l'uso di probiotici e interventi dietetici per trattare disturbi dell'umore e del comportamento, offrendo un'alternativa o un complemento ai farmaci psicotropi tradizionali, con il vantaggio di agire alla radice della comunicazione intestino-cervello.",
+      "level": 3,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Molti neurotrasmettitori sono prodotti nell'intestino."
+      ],
+      "x": -533.4419071355516,
+      "y": -208.64683781526642,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_SCLEROSI",
+      "label": "Sclerosi Multipla",
+      "content": "Malattia demielinizzante influenzata dall'attivazione immunitaria intestinale.",
+      "desc": "La sclerosi multipla (SM) è una malattia autoimmune cronica del sistema nervoso centrale caratterizzata dalla demielinizzazione delle fibre nervose. Recentemente, il microbiota intestinale è emerso come un attore chiave nella patogenesi della SM, influenzando l'attivazione delle cellule immunitarie che attaccano la mielina. Studi comparativi hanno rivelato che i pazienti con SM presentano una disbiosi intestinale specifica, con un aumento di generi come Methanobrevibacter e Akkermansia (in contesti pro-infiammatori) e una riduzione di batteri benefici come Butyricicmonas. Il microbiota sembra educare i linfociti T nell'intestino; in condizioni di disbiosi, si favorisce la differenziazione dei linfociti Th17, che sono noti per la loro capacità di attraversare la barriera emato-encefalica e scatenare l'infiammazione nel cervello. Al contrario, un microbiota sano promuove la formazione di cellule T regolatorie (Treg) che sopprimono l'autoimmunità. Esperimenti di trapianto di microbiota da pazienti con SM a topi hanno dimostrato che questi ultimi sviluppano una forma più grave di encefalomielite autoimmune, confermando che il microbiota può guidare la risposta immunitaria patologica. Un altro meccanismo ipotizzato è la produzione di metaboliti microbici che possono influenzare direttamente la salute dei neuroni e delle cellule della glia. Ad esempio, gli acidi grassi a catena corta prodotti dalla fermentazione batterica hanno dimostrato effetti neuroprotettivi e possono favorire la rimielinizzazione. La ricerca sulla SM si sta quindi spostando verso terapie combinate che includono la modulazione del microbiota per ridurre lo stato infiammatorio sistemico e potenziare i meccanismi di tolleranza immunitaria, rappresentando una nuova frontiera nella lotta contro questa malattia invalidante e complessa.",
+      "level": 3,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il microbiota può influenzare malattie neurodegenerative."
+      ],
+      "x": -514.3949268290795,
+      "y": 245.15484754997644,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_DIVERSITA",
+      "label": "Diversità Microbica",
+      "content": "Ricchezza e uniformità delle specie batteriche nell'intestino.",
+      "desc": "La diversità microbica è considerata uno dei principali indicatori di salute e resilienza del microbiota intestinale. Essa si divide in due componenti principali: la ricchezza (il numero totale di specie diverse presenti) e l'uniformità (la distribuzione dell'abbondanza relativa tra queste specie). Un ecosistema microbico altamente diversificato è più stabile perché possiede una maggiore ridondanza funzionale, ovvero diverse specie possono svolgere le stesse funzioni biochimiche essenziali. Ciò significa che se una specie viene eliminata (ad esempio da un antibiotico), altre possono subentrare, mantenendo l'omeostasi del sistema. Al contrario, una bassa diversità è spesso associata a stati patologici, come l'obesità, le malattie infiammatorie intestinali e le allergie. La perdita di diversità rende il microbiota più vulnerabile alla colonizzazione da parte di patogeni opportunisti e riduce la sua capacità di produrre metaboliti benefici come gli acidi grassi a catena corta. Fattori come la dieta occidentale (ricca di grassi e zuccheri e povera di fibre), l'urbanizzazione, l'uso eccessivo di disinfettanti e farmaci hanno drasticamente ridotto la diversità microbica nelle popolazioni moderne rispetto alle società pre-industriali o tribali. Questo declino della biodiversità interna è correlato all'aumento delle cosiddette malattie della civiltà. La misurazione della diversità microbica attraverso il sequenziamento del gene 16S rRNA permette ai ricercatori di quantificare lo stato di salute dell'intestino. Strategie per aumentare la diversità includono il consumo di una vasta gamma di alimenti vegetali, l'assunzione di cibi fermentati e la riduzione dell'uso non necessario di antibiotici. Preservare la biodiversità del nostro microbiota non è solo una questione di salute individuale, ma una sfida ecologica che riflette il nostro rapporto con l'ambiente esterno e la natura.",
+      "level": 4,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La biodiversità microbica è un segno di salute intestinale."
+      ],
+      "x": -751.2986263235207,
+      "y": -66.38344699715074,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_PERMEABILITA",
+      "label": "Permeabilità Intestinale",
+      "content": "Integrità della barriera mucosa e delle giunzioni serrate.",
+      "desc": "La permeabilità intestinale, spesso associata al concetto di barriera intestinale, si riferisce alla capacità della mucosa intestinale di regolare il passaggio di sostanze dal lume intestinale al resto del corpo. In condizioni fisiologiche, la barriera è selettiva: permette l'assorbimento di nutrienti e acqua mentre impedisce l'ingresso di tossine, patogeni e frammenti batterici. Questa funzione è garantita dalle tight junctions (giunzioni serrate), complessi proteici che sigillano lo spazio tra le cellule epiteliali. Il microbiota intestinale è fondamentale per il mantenimento di questa barriera; batteri benefici producono metaboliti come il butirrato che forniscono energia alle cellule epiteliali e stimolano la produzione di muco protettivo. Tuttavia, in presenza di disbiosi, la produzione di muco diminuisce e le giunzioni serrate possono allentarsi, portando a una condizione di iperpermeabilità intestinale. Questo permette a molecole potenzialmente dannose, come i lipopolisaccaridi (LPS) batterici, di filtrare nel circolo sanguigno, innescando una risposta immunitaria sistemica. La permeabilità intestinale aumentata è stata collegata a numerose patologie, tra cui il morbo di Crohn, la celiachia, il diabete di tipo 1 e persino disturbi del sistema nervoso centrale. Fattori che contribuiscono all'aumento della permeabilità includono una dieta povera di fibre, l'alcol, lo stress cronico e l'uso di farmaci antinfiammatori non steroidei (FANS). Ripristinare l'integrità della barriera intestinale è un obiettivo terapeutico cruciale, che può essere perseguito attraverso l'uso di probiotici specifici, prebiotici e nutrienti come la glutammina. La comprensione della dinamica della barriera intestinale ha rivoluzionato il modo in cui vediamo il legame tra salute digestiva e malattie sistemiche, ponendo l'intestino al centro della difesa immunitaria dell'organismo.",
+      "level": 4,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La barriera intestinale protegge l'organismo dai patogeni."
+      ],
+      "x": -585.6165303954382,
+      "y": -472.3161800803831,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_INFIAMMAZIONE",
+      "label": "Infiammazione di Basso Grado",
+      "content": "Stato infiammatorio cronico silente causato da endotossiemia metabolica.",
+      "desc": "L'infiammazione sistemica di basso grado, nota anche come meta-infiammazione, è uno stato infiammatorio cronico e persistente che non presenta i segni classici dell'infiammazione acuta (come dolore o calore), ma che danneggia silenziosamente i tessuti nel tempo. Questa condizione è un fattore comune a molte malattie croniche moderne, tra cui l'obesità, il diabete di tipo 2, le malattie cardiovascolari e la steatosi epatica non alcolica. Il microbiota intestinale è uno dei principali motori di questa infiammazione. Quando l'equilibrio microbico è alterato, si verifica un aumento della produzione di molecole pro-infiammatorie e una riduzione di quelle antinfiammatorie. Il meccanismo chiave è l'endotossiemia metabolica, ovvero il passaggio di lipopolisaccaridi (LPS) dai batteri Gram-negativi dell'intestino al sangue attraverso una barriera mucosa compromessa. Una volta in circolo, gli LPS attivano i recettori Toll-like (TLR4) sulle cellule immunitarie, come i macrofagi, inducendo il rilascio di citochine infiammatorie come il TNF-alfa e l'interleuchina-6. Queste citochine interferiscono con il metabolismo cellulare, ad esempio bloccando la segnalazione dell'insulina nei muscoli e nel fegato. L'infiammazione di basso grado è alimentata anche da una dieta ipercalorica, che altera la composizione del microbiota favorendo specie che promuovono l'infiammazione. Al contrario, un microbiota sano produce acidi grassi a catena corta che hanno un effetto antinfiammatorio sistemico, stabilizzando il sistema immunitario. La gestione dell'infiammazione di basso grado richiede un approccio multidisciplinare che includa cambiamenti dietetici volti a nutrire i batteri benefici, attività fisica e, potenzialmente, l'uso di integratori mirati. Identificare e trattare questa infiammazione silente attraverso la modulazione del microbiota rappresenta una delle sfide più importanti della medicina contemporanea per prevenire le malattie croniche legate all'invecchiamento e allo stile di vita.",
+      "level": 4,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - L'infiammazione cronica è legata alla disbiosi intestinale."
+      ],
+      "x": -739.5786829054027,
+      "y": 145.75331632992297,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_SEROTONINA",
+      "label": "Produzione di Serotonina",
+      "content": "Sintesi intestinale del neurotrasmettitore regolata da batteri specifici.",
+      "desc": "La produzione di serotonina nell'intestino è un processo affascinante che illustra profondamente l'interconnessione tra microbiota e fisiologia umana. Sebbene la serotonina sia famosa come neurotrasmettitore cerebrale che regola l'umore, circa il 90-95% di essa viene sintetizzata nelle cellule enterocromaffini della mucosa intestinale. Il microbiota intestinale esercita un controllo diretto su questa sintesi. Alcuni batteri, come quelli appartenenti ai generi Corynebacterium, Streptococcus e Enterococcus, possiedono enzimi capaci di convertire il triptofano alimentare direttamente in serotonina. Altri microbi influenzano la produzione stimolando le cellule enterocromaffini attraverso i loro metaboliti, come gli acidi grassi a catena corta (SCFA). La serotonina intestinale svolge ruoli critici: regola la motilità gastrointestinale (peristalsi), la secrezione di fluidi e la segnalazione del dolore viscerale. Tuttavia, la sua influenza si estende oltre l'intestino. Sebbene la serotonina intestinale non possa attraversare direttamente la barriera emato-encefalica, i suoi precursori e i segnali nervosi che essa innesca attraverso il nervo vago comunicano costantemente con il cervello. Uno squilibrio nella produzione di serotonina intestinale è associato a disturbi come la sindrome dell'intestino irritabile (IBS), dove i pazienti possono presentare livelli alterati che causano diarrea o stipsi. Inoltre, poiché il microbiota compete per il triptofano, una disbiosi può ridurre la disponibilità di questo amminoacido per la sintesi di serotonina nel cervello, contribuendo a stati di ansia e depressione. La ricerca sta esplorando come l'uso di psicobiotici possa ottimizzare la produzione di serotonina per migliorare sia la salute digestiva che quella mentale. Questo legame biochimico sottolinea come le nostre emozioni e il nostro benessere psicologico siano letteralmente alimentati dall'attività metabolica dei microrganismi che ospitiamo nel nostro apparato digerente.",
+      "level": 4,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La serotonina è prodotta in gran parte nell'intestino."
+      ],
+      "x": -701.7217682484023,
+      "y": -276.1261082586773,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_IMMUNITA_ADATT",
+      "label": "Risposta Immunitaria Adattativa",
+      "content": "Educazione dei linfociti T e B da parte del microbiota.",
+      "desc": "La risposta immunitaria adattativa è la componente del sistema immunitario che fornisce una difesa specifica e duratura contro i patogeni, ed è profondamente influenzata dal microbiota intestinale. Il microbiota funge da istruttore per le cellule immunitarie, in particolare per i linfociti T e B, che risiedono in gran numero nel tessuto linfatico associato all'intestino (GALT). Attraverso l'esposizione costante ad antigeni microbici innocui, il sistema immunitario impara a mantenere uno stato di tolleranza, evitando reazioni eccessive contro il cibo o i tessuti propri dell'organismo. Un ruolo cruciale è svolto dalle cellule T regolatorie (Treg), la cui differenziazione è stimolata da metaboliti batterici come il butirrato. Queste cellule sono essenziali per spegnere l'infiammazione e prevenire l'autoimmunità. In una condizione di disbiosi, questo processo educativo viene compromesso, portando a uno sbilanciamento verso linfociti T effettori pro-infiammatori, come i Th1 e Th17, che possono causare danni tissutali cronici. Inoltre, il microbiota influenza la produzione di immunoglobuline A (IgA) secretorie, che sono la prima linea di difesa sulle superfici mucose, impedendo l'adesione dei patogeni. La capacità del microbiota di modulare la risposta adattativa ha implicazioni che vanno ben oltre l'intestino, influenzando l'efficacia dei vaccini e la risposta alle immunoterapie contro il cancro. Ad esempio, la presenza di specifici batteri intestinali è stata correlata a una migliore risposta ai farmaci inibitori dei checkpoint immunitari nei pazienti oncologici. La comprensione di come i segnali microbici modellino il repertorio dei linfociti offre opportunità senza precedenti per manipolare il sistema immunitario a fini terapeutici, sia per potenziare le difese contro le infezioni e i tumori, sia per calmare le risposte aberranti nelle malattie autoimmuni e nelle allergie.",
+      "level": 4,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il microbiota modula la risposta immunitaria adattativa."
+      ],
+      "x": -670.2055692661901,
+      "y": 344.1607618116671,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_SHANNON",
+      "label": "Indice di Shannon",
+      "content": "Parametro statistico per misurare la complessità dell'ecosistema microbico.",
+      "desc": "L'indice di Shannon (o indice di Shannon-Wiener) è uno degli strumenti statistici più utilizzati in ecologia e microbiologia per misurare la diversità delle specie all'interno di una comunità, come il microbiota intestinale. A differenza della semplice ricchezza di specie, che conta solo il numero di tipi diversi di batteri presenti, l'indice di Shannon tiene conto sia della ricchezza che dell'uniformità (evenness). L'uniformità indica quanto siano simili le abbondanze relative delle diverse specie: se un ecosistema è dominato da una sola specie, l'indice di Shannon sarà basso, anche se sono presenti molte altre specie in numeri esigui. Un valore elevato dell'indice indica un microbiota sano, complesso e bilanciato, dove molte specie diverse coesistono in proporzioni armoniose. Nella ricerca clinica, l'indice di Shannon viene calcolato analizzando i dati ottenuti dal sequenziamento del DNA microbico (metagenomica). Molti studi hanno dimostrato che un basso indice di Shannon è un biomarcatore di disbiosi ed è associato a una moltitudine di condizioni patologiche, tra cui le malattie infiammatorie intestinali, il diabete di tipo 2 e la suscettibilità alle infezioni da Clostridioides difficile. Al contrario, una dieta ricca di fibre vegetali e uno stile di vita attivo sono correlati a un aumento di questo indice. L'uso di questo parametro permette ai medici e ai ricercatori di valutare oggettivamente l'impatto di interventi terapeutici, come l'assunzione di probiotici o cambiamenti dietetici, sulla struttura globale della comunità microbica. Comprendere l'indice di Shannon significa guardare al microbiota non come a una lista di batteri, ma come a un sistema ecologico dinamico dove la diversità è sinonimo di stabilità e salute. È un concetto fondamentale per la medicina personalizzata, poiché permette di monitorare nel tempo la biodiversità interna di un individuo e di intervenire per preservarla.",
+      "level": 5,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La diversità alfa è spesso misurata tramite l'indice di Shannon."
+      ],
+      "x": -891.9934274341856,
+      "y": -76.41822829931007,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_LEAKY_GUT",
+      "label": "Sindrome del Leaky Gut",
+      "content": "Condizione di iperpermeabilità intestinale con passaggio di tossine.",
+      "desc": "La sindrome del Leaky Gut, o permeabilità intestinale aumentata, è una condizione in cui le pareti dell'intestino perdono la loro funzione di barriera selettiva, permettendo a sostanze indesiderate di passare nel flusso sanguigno. Sebbene il termine sia talvolta usato in modo improprio nella medicina non convenzionale, il fenomeno biologico sottostante è ampiamente riconosciuto dalla scienza medica come un fattore critico in molte patologie. La barriera intestinale è composta da un singolo strato di cellule epiteliali unite da proteine chiamate giunzioni serrate. Quando queste giunzioni vengono danneggiate da fattori come disbiosi, tossine alimentari, alcol o infiammazione cronica, si creano dei varchi. Attraverso questi varchi, frammenti di pareti cellulari batteriche (LPS), proteine alimentari non completamente digerite e patogeni possono entrare nella sottomucosa e nei vasi sanguigni. Questo scatena una risposta immunitaria immediata, poiché il corpo identifica queste sostanze come invasori estranei. Il risultato è un'infiammazione sistemica che può manifestarsi con sintomi vari: dalla stanchezza cronica e nebbia cerebrale a problemi cutanei e dolori articolari. Il Leaky Gut è strettamente legato alle malattie autoimmuni, poiché l'esposizione costante del sistema immunitario ad antigeni estranei può portare a una perdita di tolleranza verso i propri tessuti. La riparazione del Leaky Gut richiede un approccio olistico: eliminare i fattori scatenanti (come cibi pro-infiammatori), nutrire il microbiota con prebiotici per stimolare la produzione di muco e butirrato, e fornire nutrienti specifici come lo zinco e la L-glutammina che aiutano la rigenerazione delle cellule intestinali. La salute della barriera intestinale è quindi il pilastro fondamentale su cui poggia la prevenzione di gran parte delle malattie infiammatorie e immunitarie moderne.",
+      "level": 5,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - L'integrità della mucosa intestinale è vitale per prevenire l'infiammazione."
+      ],
+      "x": -694.1213680339794,
+      "y": -562.8856147949297,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_LPS",
+      "label": "Lipopolisaccaridi Batterici",
+      "content": "Endotossine pro-infiammatorie rilasciate dai batteri Gram-negativi.",
+      "desc": "I lipopolisaccaridi (LPS), noti anche come endotossine, sono grandi molecole costituite da un lipide e un polisaccaride che formano la membrana esterna dei batteri Gram-negativi. Nel contesto del microbiota umano, gli LPS rappresentano un potente segnale pro-infiammatorio. Finché i batteri rimangono nel lume intestinale e la barriera mucosa è integra, gli LPS non causano danni. Tuttavia, in condizioni di disbiosi o di barriera intestinale compromessa (Leaky Gut), gli LPS possono attraversare l'epitelio e passare nella circolazione sistemica, un fenomeno chiamato endotossiemia metabolica. Una volta nel sangue, gli LPS vengono riconosciuti dal sistema immunitario innato tramite la proteina di legame all'LPS (LBP) e il recettore TLR4, presente sulla superficie di macrofagi e altre cellule immunitarie. Questa attivazione innesca una cascata di segnali che porta alla produzione di citochine infiammatorie come l'interleuchina-1 (IL-1) e il fattore di necrosi tumorale (TNF). L'infiammazione cronica di basso grado indotta dagli LPS è un meccanismo chiave nello sviluppo dell'insulino-resistenza, poiché le citochine prodotte interferiscono con la via di segnalazione dell'insulina nei tessuti periferici. Inoltre, gli LPS possono influenzare il metabolismo dei grassi nel fegato, contribuendo alla steatosi epatica. Studi hanno dimostrato che una dieta ricca di grassi saturi facilita il trasporto degli LPS attraverso la mucosa intestinale tramite i chilomicroni, spiegando il legame tra alimentazione scorretta e infiammazione. La riduzione dei livelli circolanti di LPS attraverso la modulazione del microbiota (ad esempio aumentando i batteri Gram-positivi benefici o migliorando l'integrità della barriera) è una strategia terapeutica promettente per il trattamento della sindrome metabolica e delle complicanze cardiovascolari associate, evidenziando come molecole batteriche microscopiche possano avere un impatto macroscopico sulla salute umana.",
+      "level": 5,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - I lipopolisaccaridi batterici possono innescare risposte infiammatorie."
+      ],
+      "x": -877.554994125022,
+      "y": 176.39260464088326,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_UMORE",
+      "label": "Regolazione dell'Umore",
+      "content": "Influenza del microbiota sullo stato emotivo e psicologico.",
+      "desc": "La regolazione dell'umore attraverso il microbiota intestinale è uno degli aspetti più sorprendenti dell'asse intestino-cervello. Questo legame suggerisce che la composizione dei batteri nel nostro intestino possa influenzare direttamente come ci sentiamo, la nostra resistenza allo stress e la nostra propensione all'ansia o alla depressione. Il meccanismo principale avviene attraverso la modulazione dei neurotrasmettitori e dei loro precursori. Ad esempio, il microbiota regola la disponibilità di triptofano, l'amminoacido essenziale necessario per sintetizzare la serotonina, spesso chiamata l'ormone della felicità. Se il microbiota è in uno stato di disbiosi, il triptofano può essere deviato verso la produzione di sostanze neurotossiche come l'acido quinolinico, invece che verso la serotonina, contribuendo a stati depressivi. Inoltre, alcuni batteri producono acidi grassi a catena corta (SCFA) come il butirrato, che hanno proprietà epigenetiche: possono influenzare l'espressione di geni nel cervello legati alla plasticità neuronale e alla produzione del fattore neurotrofico derivato dal cervello (BDNF), fondamentale per la salute dei neuroni e l'apprendimento. Il microbiota comunica anche con il cervello tramite il nervo vago; segnali biochimici prodotti nell'intestino possono viaggiare rapidamente verso i centri emotivi del cervello come l'amigdala e l'ippocampo. Studi clinici hanno dimostrato che l'assunzione di specifici ceppi probiotici (psicobiotici) può ridurre i livelli di cortisolo (l'ormone dello stress) e migliorare i punteggi nei test dell'umore in soggetti sani e in pazienti con depressione lieve. Questo approccio dal basso verso l'alto alla salute mentale riconosce che il cervello non è un organo isolato, ma fa parte di un sistema integrato dove l'ecologia intestinale gioca un ruolo determinante nel definire il nostro stato emotivo quotidiano e la nostra salute psichica a lungo termine.",
+      "level": 5,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - Il microbiota intestinale influenza il comportamento e l'umore."
+      ],
+      "x": -833.2256922721593,
+      "y": -326.92611530863627,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "L1_3_MIMICRIA",
+      "label": "Mimicria Molecolare",
+      "content": "Somiglianza tra antigeni batterici e umani che causa autoimmunità.",
+      "desc": "La mimicria molecolare è un meccanismo biologico attraverso il quale il microbiota intestinale può innescare o esacerbare malattie autoimmuni. Questo fenomeno si verifica quando le sequenze proteiche (epitopi) di alcuni microrganismi sono strutturalmente simili alle proteine prodotte dall'ospite umano. In un individuo sano, il sistema immunitario è addestrato a tollerare i microbi commensali. Tuttavia, in presenza di una predisposizione genetica o di un evento scatenante come un'infezione o una forte disbiosi, il sistema immunitario può attivarsi contro un particolare antigene batterico. A causa della somiglianza strutturale, gli anticorpi o i linfociti T generati per combattere il microbo iniziano erroneamente ad attaccare anche le cellule dell'ospite che presentano proteine simili. Un esempio classico riguarda la sclerosi multipla, dove alcuni frammenti di batteri intestinali mimano la struttura della proteina basica della mielina; l'attacco immunitario si sposta quindi dall'intestino al sistema nervoso centrale, causando la distruzione della guaina mielinica. Un altro esempio è l'artrite reumatoide, dove la presenza di batteri come Prevotella copri è stata associata a risposte immunitarie che cross-reagiscono con i tessuti articolari. La mimicria molecolare spiega perché alcune malattie autoimmuni sembrano insorgere dopo alterazioni del microbiota o infezioni intestinali apparentemente non correlate. La comprensione di questi sosia molecolari è fondamentale per lo sviluppo di nuove terapie che mirano a indurre una tolleranza specifica verso questi antigeni o a eliminare selettivamente i ceppi batterici che portano i segnali confondenti. Questo campo di ricerca sottolinea la complessità del dialogo tra il nostro sistema immunitario e il mondo microbico, dove un errore di identificazione molecolare può trasformare i nostri alleati interni in involontari istigatori di malattie croniche e debilitanti.",
+      "level": 5,
+      "group": 5,
+      "studyStatus": "none",
+      "chunks": [
+        "Wikipedia: Microbiota umano - La mimicria molecolare è un meccanismo proposto per l'autoimmunità."
+      ],
+      "x": -793.2710953383,
+      "y": 414.5554497328812,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_001",
+      "label": "Batteri",
+      "content": "Organismi unicellulari procarioti che costituiscono la componente principale e più numerosa del microbiota umano.",
+      "desc": "Organismi unicellulari procarioti che costituiscono la componente principale e più numerosa del microbiota umano.",
+      "image": "",
+      "level": 1,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 155.37319697395196,
+      "y": 119.26887125252378,
+      "fx": 155.37319697395196,
+      "fy": 119.26887125252378
+    },
+    {
+      "id": "BCT_002",
+      "label": "Morfologia Batterica",
+      "content": "Classificazione dei batteri in base alla forma: cocchi (sferici), bacilli (a bastoncino), vibrioni (a virgola) e spirilli (a spirale).",
+      "level": 2,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 250.28302880199442,
+      "y": 213.590683224151,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_003",
+      "label": "Parete Cellulare",
+      "content": "Struttura rigida esterna composta da peptidoglicano che protegge la cellula e ne determina la forma.",
+      "level": 2,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 249.91387165995053,
+      "y": 303.5651090575959,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_004",
+      "label": "Colorazione di Gram",
+      "content": "Tecnica di laboratory che divide i batteri in Gram-positivi e Gram-negativi in base alla composizione della loro parete cellulare.",
+      "level": 3,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 335.6090375996628,
+      "y": 414.73407496518706,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_005",
+      "label": "Metabolismo Batterico",
+      "content": "Capacità dei batteri di ottenere energia tramite processi aerobi (con ossigeno) o anaerobi (senza ossigeno), fondamentale per la sopravvivenza in diverse nicchie del corpo umano.",
+      "level": 2,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 290.46760280568543,
+      "y": 133.05440979613246,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_006",
+      "label": "Riproduzione per Scissione Binaria",
+      "content": "Processo di riproduzione asessuata in cui una cellula madre si divide in due cellule figlie geneticamente identiche.",
+      "level": 2,
+      "group": 6,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": 172.16225734808896,
+      "y": 258.3140363526369,
+      "fx": null,
+      "fy": null
+    },
+    {
+      "id": "BCT_007",
+      "label": "Interazioni Simbiotiche",
+      "content": "Rapporti tra batteri e ospite umano che possono essere di tipo commensale, mutualistico o patogeno.",
+      "level": 1,
+      "group": 1,
+      "chunks": [
+        "https://it.wikipedia.org/wiki/Bacteria... (Fonte Context AI)"
+      ],
+      "x": -138.19174414417148,
+      "y": 71.41444372946549,
+      "fx": null,
+      "fy": null
+    }
+  ],
+  "links": [
+    {
+      "source": "ROOT",
+      "target": "L1_0",
+      "rel": "include"
+    },
+    {
+      "source": "ROOT",
+      "target": "L1_1",
+      "rel": "include"
+    },
+    {
+      "source": "ROOT",
+      "target": "L1_2",
+      "rel": "include"
+    },
+    {
+      "source": "ROOT",
+      "target": "L1_3",
+      "rel": "include"
+    },
+    {
+      "source": "L1_0",
+      "target": "L2_BACT",
+      "rel": "include il dominio"
+    },
+    {
+      "source": "L1_0",
+      "target": "L2_ARCH",
+      "rel": "include il dominio"
+    },
+    {
+      "source": "L1_0",
+      "target": "L2_EUKA",
+      "rel": "include il dominio"
+    },
+    {
+      "source": "L1_0",
+      "target": "L2_VIRO",
+      "rel": "comprende la componente"
+    },
+    {
+      "source": "L1_0",
+      "target": "L2_DIVR",
+      "rel": "si manifesta come"
+    },
+    {
+      "source": "L2_BACT",
+      "target": "L3_FIRM",
+      "rel": "si suddivide nel phylum"
+    },
+    {
+      "source": "L2_BACT",
+      "target": "L3_BACTO",
+      "rel": "si suddivide nel phylum"
+    },
+    {
+      "source": "L2_BACT",
+      "target": "L3_ACTI",
+      "rel": "si suddivide nel phylum"
+    },
+    {
+      "source": "L2_ARCH",
+      "target": "L3_METH",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L2_EUKA",
+      "target": "L3_CAND",
+      "rel": "include il genere"
+    },
+    {
+      "source": "L3_FIRM",
+      "target": "L4_LACTO",
+      "rel": "comprende il genere"
+    },
+    {
+      "source": "L3_FIRM",
+      "target": "L4_CLOS",
+      "rel": "comprende il genere"
+    },
+    {
+      "source": "L3_BACTO",
+      "target": "L4_BACTER",
+      "rel": "comprende il genere"
+    },
+    {
+      "source": "L3_ACTI",
+      "target": "L4_BIFID",
+      "rel": "comprende il genere"
+    },
+    {
+      "source": "L3_CAND",
+      "target": "L4_SACCH",
+      "rel": "è correlato al genere"
+    },
+    {
+      "source": "L4_LACTO",
+      "target": "L5_LACID",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L4_LACTO",
+      "target": "L5_LRHAM",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L4_BIFID",
+      "target": "L5_BLONG",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L4_BIFID",
+      "target": "L5_BBREV",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L4_BACTER",
+      "target": "L5_BFRAG",
+      "rel": "include la specie"
+    },
+    {
+      "source": "L1_1",
+      "target": "L1_1_MET_CARB",
+      "rel": "include"
+    },
+    {
+      "source": "L1_1",
+      "target": "L1_1_SIN_VIT",
+      "rel": "comprende"
+    },
+    {
+      "source": "L1_1",
+      "target": "L1_1_MOD_IMM",
+      "rel": "permette"
+    },
+    {
+      "source": "L1_1",
+      "target": "L1_1_MET_LIP",
+      "rel": "regola"
+    },
+    {
+      "source": "L1_1",
+      "target": "L1_1_PRO_PAT",
+      "rel": "garantisce"
+    },
+    {
+      "source": "L1_1_MET_CARB",
+      "target": "L1_1_FER_FIB",
+      "rel": "si attua tramite"
+    },
+    {
+      "source": "L1_1_SIN_VIT",
+      "target": "L1_1_VIT_B",
+      "rel": "riguarda"
+    },
+    {
+      "source": "L1_1_MOD_IMM",
+      "target": "L1_1_SVI_GALT",
+      "rel": "favorisce"
+    },
+    {
+      "source": "L1_1_MET_LIP",
+      "target": "L1_1_SAL_BIL",
+      "rel": "coinvolge"
+    },
+    {
+      "source": "L1_1_PRO_PAT",
+      "target": "L1_1_COM_NUT",
+      "rel": "utilizza"
+    },
+    {
+      "source": "L1_1_FER_FIB",
+      "target": "L1_1_PRO_SCFA",
+      "rel": "porta a"
+    },
+    {
+      "source": "L1_1_VIT_B",
+      "target": "L1_1_SIN_K",
+      "rel": "si associa a"
+    },
+    {
+      "source": "L1_1_SVI_GALT",
+      "target": "L1_1_CEL_TREG",
+      "rel": "induce"
+    },
+    {
+      "source": "L1_1_SAL_BIL",
+      "target": "L1_1_REG_COL",
+      "rel": "influenza"
+    },
+    {
+      "source": "L1_1_COM_NUT",
+      "target": "L1_1_BAT_CINE",
+      "rel": "si integra con"
+    },
+    {
+      "source": "L1_1_PRO_SCFA",
+      "target": "L1_1_ACI_BUT",
+      "rel": "include"
+    },
+    {
+      "source": "L1_1_SIN_K",
+      "target": "L1_1_COA_SAN",
+      "rel": "è essenziale per"
+    },
+    {
+      "source": "L1_1_CEL_TREG",
+      "target": "L1_1_TOLL_IMM",
+      "rel": "determina"
+    },
+    {
+      "source": "L1_1_REG_COL",
+      "target": "L1_1_RIS_CAR",
+      "rel": "modula"
+    },
+    {
+      "source": "L1_1_BAT_CINE",
+      "target": "L1_1_ANT_MIC",
+      "rel": "fa parte di"
+    },
+    {
+      "source": "L1_2",
+      "target": "L1_2_DIGERENTE",
+      "rel": "include"
+    },
+    {
+      "source": "L1_2",
+      "target": "L1_2_PELLE",
+      "rel": "include"
+    },
+    {
+      "source": "L1_2",
+      "target": "L1_2_ORALE",
+      "rel": "include"
+    },
+    {
+      "source": "L1_2",
+      "target": "L1_2_UROGENITALE",
+      "rel": "include"
+    },
+    {
+      "source": "L1_2",
+      "target": "L1_2_RESPIRATORIO",
+      "rel": "include"
+    },
+    {
+      "source": "L1_2_DIGERENTE",
+      "target": "L1_2_DIG_COLON",
+      "rel": "si suddivide in"
+    },
+    {
+      "source": "L1_2_PELLE",
+      "target": "L1_2_PEL_SEB",
+      "rel": "comprende nicchie come"
+    },
+    {
+      "source": "L1_2_ORALE",
+      "target": "L1_2_ORA_BIOFILM",
+      "rel": "ospita formazioni di"
+    },
+    {
+      "source": "L1_2_UROGENITALE",
+      "target": "L1_2_URO_VAG",
+      "rel": "si localizza nell'"
+    },
+    {
+      "source": "L1_2_RESPIRATORIO",
+      "target": "L1_2_RES_FARINGE",
+      "rel": "include la zona della"
+    },
+    {
+      "source": "L1_2_DIG_COLON",
+      "target": "L1_2_DIG_INT_BACT",
+      "rel": "è popolato da"
+    },
+    {
+      "source": "L1_2_PEL_SEB",
+      "target": "L1_2_PEL_SEB_CUTI",
+      "rel": "è dominata da"
+    },
+    {
+      "source": "L1_2_ORA_BIOFILM",
+      "target": "L1_2_ORA_BIO_MUTANS",
+      "rel": "contiene il patogeno"
+    },
+    {
+      "source": "L1_2_URO_VAG",
+      "target": "L1_2_URO_VAG_CRISP",
+      "rel": "è protetto da"
+    },
+    {
+      "source": "L1_2_RES_FARINGE",
+      "target": "L1_2_RES_FAR_STAPH",
+      "rel": "ospita il commensale"
+    },
+    {
+      "source": "L1_2_DIG_INT_BACT",
+      "target": "L1_2_DIG_INT_BAC_SCFA",
+      "rel": "produce metaboliti come"
+    },
+    {
+      "source": "L1_2_PEL_SEB_CUTI",
+      "target": "L1_2_PEL_SEB_CUT_INF",
+      "rel": "può causare"
+    },
+    {
+      "source": "L1_2_ORA_BIO_MUTANS",
+      "target": "L1_2_ORA_BIO_MUT_ACID",
+      "rel": "determina la"
+    },
+    {
+      "source": "L1_2_URO_VAG_CRISP",
+      "target": "L1_2_URO_VAG_LAC_PROT",
+      "rel": "costituisce una"
+    },
+    {
+      "source": "L1_2_RES_FAR_STAPH",
+      "target": "L1_2_RES_FAR_STA_COMP",
+      "rel": "agisce tramite"
+    },
+    {
+      "source": "L1_3",
+      "target": "L1_3_EUBIOSI_DISBIOSI",
+      "rel": "dipende dallo stato di"
+    },
+    {
+      "source": "L1_3",
+      "target": "L1_3_MICI",
+      "rel": "causa"
+    },
+    {
+      "source": "L1_3",
+      "target": "L1_3_METABOLISMO",
+      "rel": "influenza la"
+    },
+    {
+      "source": "L1_3",
+      "target": "L1_3_ASSE_CERVELLO",
+      "rel": "comunica tramite"
+    },
+    {
+      "source": "L1_3",
+      "target": "L1_3_AUTOIMMUNITA",
+      "rel": "previene o scatena"
+    },
+    {
+      "source": "L1_3_EUBIOSI_DISBIOSI",
+      "target": "L1_3_OMEOSTASI",
+      "rel": "include il concetto di"
+    },
+    {
+      "source": "L1_3_MICI",
+      "target": "L1_3_CROHN",
+      "rel": "comprende il"
+    },
+    {
+      "source": "L1_3_METABOLISMO",
+      "target": "L1_3_INSULINO_RES",
+      "rel": "porta a"
+    },
+    {
+      "source": "L1_3_ASSE_CERVELLO",
+      "target": "L1_3_NEUROTRASMETTITORI",
+      "rel": "utilizza i"
+    },
+    {
+      "source": "L1_3_AUTOIMMUNITA",
+      "target": "L1_3_SCLEROSI",
+      "rel": "è legata alla"
+    },
+    {
+      "source": "L1_3_OMEOSTASI",
+      "target": "L1_3_DIVERSITA",
+      "rel": "richiede elevata"
+    },
+    {
+      "source": "L1_3_CROHN",
+      "target": "L1_3_PERMEABILITA",
+      "rel": "altera la"
+    },
+    {
+      "source": "L1_3_INSULINO_RES",
+      "target": "L1_3_INFIAMMAZIONE",
+      "rel": "è alimentata da"
+    },
+    {
+      "source": "L1_3_NEUROTRASMETTITORI",
+      "target": "L1_3_SEROTONINA",
+      "rel": "include la"
+    },
+    {
+      "source": "L1_3_SCLEROSI",
+      "target": "L1_3_IMMUNITA_ADATT",
+      "rel": "coinvolge la"
+    },
+    {
+      "source": "L1_3_DIVERSITA",
+      "target": "L1_3_SHANNON",
+      "rel": "è misurata da"
+    },
+    {
+      "source": "L1_3_PERMEABILITA",
+      "target": "L1_3_LEAKY_GUT",
+      "rel": "porta alla"
+    },
+    {
+      "source": "L1_3_INFIAMMAZIONE",
+      "target": "L1_3_LPS",
+      "rel": "è innescata da"
+    },
+    {
+      "source": "L1_3_SEROTONINA",
+      "target": "L1_3_UMORE",
+      "rel": "regola l'"
+    },
+    {
+      "source": "L1_3_IMMUNITA_ADATT",
+      "target": "L1_3_MIMICRIA",
+      "rel": "può subire"
+    },
+    {
+      "source": "ROOT",
+      "target": "BCT_001",
+      "rel": "composto_da"
+    },
+    {
+      "source": "BCT_001",
+      "target": "BCT_002",
+      "rel": "classificato_per"
+    },
+    {
+      "source": "BCT_001",
+      "target": "BCT_003",
+      "rel": "caratterizzato_da"
+    },
+    {
+      "source": "BCT_003",
+      "target": "BCT_004",
+      "rel": "analizzata_tramite"
+    },
+    {
+      "source": "BCT_001",
+      "target": "BCT_005",
+      "rel": "definito_da"
+    },
+    {
+      "source": "BCT_001",
+      "target": "BCT_006",
+      "rel": "si_moltiplica_per"
+    },
+    {
+      "source": "ROOT",
+      "target": "BCT_007",
+      "rel": "caratterizzato_da"
+    }
+  ]
+}
