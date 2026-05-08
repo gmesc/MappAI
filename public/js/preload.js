@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
     getPathForFile: (file) => webUtils.getPathForFile(file),
     parseDocx: (filePath) => ipcRenderer.invoke('parse-docx', filePath),
-    pickFile: () => ipcRenderer.invoke('pick-file')
+    pickFile: () => ipcRenderer.invoke('pick-file'),
+    getMachineId: () => ipcRenderer.invoke('get-machine-id')
 });

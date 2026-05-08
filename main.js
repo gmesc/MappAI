@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const mammoth = require('mammoth');
+const os = require('os');
+const crypto = require('crypto');
 
 let mainWindow;
 
@@ -232,4 +234,22 @@ ipcMain.handle('parse-docx', async (event, filePath) => {
     } catch (err) {
         throw new Error("Errore parsing DOCX: " + err.message);
     }
+});
+
+// IPC Handler to get Machine ID for offline algorithmic lock
+ipcMain.handle('get-machine-id', () => {
+    const interfaces = os.networkInterfaces();
+    let macAddress = '';
+    for (let key in interfaces) {
+        for (let net of interfaces[key]) {
+            if (!net.internal && net.mac && net.mac !== '00:00:00:00:00:00') {
+                macAddress = net.mac;
+                break;
+            }
+        }
+        if (macAddress) break;
+    }
+    const cpu = os.cpus()[0] ? os.cpus()[0].model : 'UNKNOWN-CPU';
+    const rawId = macAddress + '-' + cpu;
+    return crypto.createHash('sha256').update(rawId).digest('hex').substring(0, 10).toUpperCase();
 });

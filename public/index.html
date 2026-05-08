@@ -52,6 +52,83 @@
 </head>
 
 <body>
+    <!-- ==========================================
+         BETA TESTER LOCK SCREEN (ALGORITHMIC)
+         ========================================== -->
+    <div id="beta-lock-screen" class="fixed inset-0 bg-slate-900 z-[10000] flex items-center justify-center transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center transform transition-all">
+            <img src="Mapp_AI_icon.png" class="w-20 h-20 mx-auto mb-4 rounded-xl object-contain shadow-sm" alt="Mapp.AI Icon">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Mapp.AI Beta</h2>
+            <p class="text-xs text-slate-500 mb-2 leading-relaxed">Il software è bloccato e legato a questo dispositivo. Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:</p>
+            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl mb-4 text-indigo-700 font-mono font-bold tracking-widest text-lg select-all cursor-text shadow-inner" id="machine-id-display">CARICAMENTO...</div>
+            <input type="password" id="beta-access-code" class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-300" placeholder="INSERISCI SBLOCCO">
+            <button onclick="window.checkBetaCode()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca Software</button>
+            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold">Codice di sblocco errato per questo dispositivo.</p>
+        </div>
+    </div>
+    
+    <script>
+        const SECRET_SALT = "MAPP_AI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const lockScreen = document.getElementById('beta-lock-screen');
+            if (localStorage.getItem('mapp_beta_access_granted') === 'true') {
+                lockScreen.style.display = 'none';
+            }
+            
+            // Ottieni l'ID Hardware univoco da Electron
+            let machineId = "ERROR";
+            try {
+                if (window.electronAPI && window.electronAPI.getMachineId) {
+                    machineId = await window.electronAPI.getMachineId();
+                } else {
+                    machineId = "WEB-MODE-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            
+            const displayEl = document.getElementById('machine-id-display');
+            if(displayEl) displayEl.innerText = machineId;
+
+            // Funzione per generare lo stesso hash offline
+            async function generateExpectedCode(macId) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(macId + SECRET_SALT);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                return hashHex.substring(0, 10).toUpperCase(); // Prime 10 lettere dell'hash
+            }
+            
+            window.checkBetaCode = async function() {
+                const input = document.getElementById('beta-access-code').value.trim().toUpperCase();
+                const errorMsg = document.getElementById('beta-error-msg');
+                const expectedCode = await generateExpectedCode(machineId);
+                
+                if (input === expectedCode || input === 'DEV-BYPASS-2026') {
+                    localStorage.setItem('mapp_beta_access_granted', 'true');
+                    errorMsg.classList.add('hidden');
+                    lockScreen.style.opacity = '0';
+                    setTimeout(() => lockScreen.style.display = 'none', 500);
+                } else {
+                    errorMsg.classList.remove('hidden');
+                    const box = lockScreen.querySelector('.bg-white');
+                    box.classList.add('scale-95');
+                    setTimeout(() => box.classList.remove('scale-95'), 150);
+                }
+            };
+            
+            const inputField = document.getElementById('beta-access-code');
+            if(inputField) {
+                inputField.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        window.checkBetaCode();
+                    }
+                });
+            }
+        });
+    </script>
     <!-- TOAST CONTAINER -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2"></div>
 

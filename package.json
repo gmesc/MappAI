@@ -13,8 +13,9 @@
     "dist": "electron-builder"
   },
   "build": {
+    "asar": true,
     "appId": "com.mappai.generatore",
-    "productName": "Mapp.AI",
+    "productName": "MappAI",
     "mac": {
       "target": [
         {
