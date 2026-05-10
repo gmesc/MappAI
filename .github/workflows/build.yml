@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - global
   workflow_dispatch:
 
 jobs:
@@ -12,10 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         include:
           - os: windows-latest
             platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
 
     steps:
       - name: Check out git repository
@@ -38,16 +43,10 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
-          path: dist/*.exe
-          if-no-files-found: ignore
-
-      - name: Upload Mac/Linux Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: installers-${{ matrix.os }}
+          name: installers-${{ matrix.platform }}
           path: |
+            dist/*.exe
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
-          if-no-files-found: ignore
+          if-no-files-found: error
