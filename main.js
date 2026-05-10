@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const axios = require('axios');
+const cheerio = require('cheerio');
 const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
@@ -12,7 +14,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        title: "Mapp.AI",
+        title: "MappAI",
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -41,6 +43,13 @@ app.on('window-all-closed', () => {
 
 // IPC handler for proxying Gemini requests
 ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
+    const statusPath = path.join(__dirname, '.gemini_status.json');
+    const updateStatus = (data) => {
+        try { fs.writeFileSync(statusPath, JSON.stringify({ ...data, timestamp: Date.now() })); } catch(e) {}
+    };
+
+    updateStatus({ state: 'started', model: model || 'gemini-2.0-flash', message: 'Richiesta inviata a Google...' });
+
     return new Promise((resolve, reject) => {
         const modelName = model || "gemini-2.0-flash";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -51,25 +60,32 @@ ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
                 'Content-Type': 'application/json'
             }
         }, (res) => {
+            updateStatus({ state: 'processing', model: modelName, message: 'Ricezione dati in corso...', statusCode: res.statusCode });
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
+                        updateStatus({ state: 'completed' });
                         resolve(JSON.parse(data));
                     } catch(e) {
+                        updateStatus({ state: 'error', message: 'Errore parsing JSON' });
                         reject(new Error("Errore parsing API Response JSON"));
                     }
                 } else {
+                    updateStatus({ state: 'error', message: `Errore Server ${res.statusCode}` });
                     reject(new Error(`Errore Server ${res.statusCode}: ${data}`));
                 }
             });
         });
 
-        req.on('error', (e) => reject(e));
+        req.on('error', (e) => {
+            updateStatus({ state: 'error', message: e.message });
+            reject(e);
+        });
         
-        // Timeout for huge payloads
         req.setTimeout(300000, () => {
+             updateStatus({ state: 'timeout' });
              req.abort();
              reject(new Error("Timeout server Google"));
         });
@@ -122,7 +138,7 @@ ipcMain.handle('list-models', async (event, { apiKey }) => {
 ipcMain.handle('save-map-json', async (event, mapData) => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi Mapp.AI');
+        const saveDir = path.join(docPath, 'Salvataggi MappAI');
         
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
@@ -143,23 +159,28 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
 });
 
 // IPC Handler to save chat transcripts
-ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent }) => {
+ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath }) => {
     try {
-        const docPath = app.getPath('documents');
-        const chatDir = path.join(docPath, 'Salvataggi Mapp.AI', 'chat con il tutor');
+        let chatDir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            chatDir = path.join(vaultPath, 'Chat');
+        } else {
+            const docPath = app.getPath('documents');
+            chatDir = path.join(docPath, 'Salvataggi MappAI', 'chat con il tutor');
+        }
+
         if (!fs.existsSync(chatDir)) {
             fs.mkdirSync(chatDir, { recursive: true });
         }
 
-        const dateStr = new Date().toLocaleDateString('it-IT').replace(/\//g, '-');
-        const cleanProj = (projectName || 'progetto').replace(/[^a-z0-9]/gi, '_');
-        const cleanTarget = (targetName || 'tutor').replace(/[^a-z0-9]/gi, '_');
-        
-        const fileName = `${cleanProj}_${cleanTarget}_${dateStr}.txt`;
+        const now = new Date();
+        const dateStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+        const fileName = `${projectName}_${targetName}_${dateStr}.txt`.replace(/\s+/g, '_');
         const filePath = path.join(chatDir, fileName);
 
+        const header = `RIFERIMENTO MAPPA: ${projectName}\nDOCUMENTO: ${targetName}\nDATA: ${dateStr}\n------------------------------------------\n\n`;
         // Append or write
-        fs.appendFileSync(filePath, textContent + '\n\n', 'utf-8');
+        fs.appendFileSync(filePath, header + textContent + '\n\n', 'utf-8');
         return { success: true, path: filePath };
     } catch (err) {
         return { success: false, error: err.message };
@@ -193,11 +214,11 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         }));
         fs.writeFileSync(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2), 'utf-8');
 
-        // 3. Save Nodes directory
+        // 3. Save Nodes & Allegati directory
         const nodesDir = path.join(folderPath, 'Nodi');
-        if (!fs.existsSync(nodesDir)) {
-            fs.mkdirSync(nodesDir, { recursive: true });
-        }
+        const allegatiDir = path.join(folderPath, 'Allegati');
+        if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
+        if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
 
         // 4. Save each node as a Markdown file
         (mapData.nodes || []).forEach(node => {
@@ -210,15 +231,50 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             frontmatter += `level: ${node.level}\n`;
             frontmatter += `group: ${node.group || 0}\n`;
             if (node.parent) frontmatter += `parent: "${node.parent}"\n`;
+            
+            // Handle Images
+            const nodeImages = node.images || (node.image ? [node.image] : []);
+            const vaultImageRefs = [];
+            
+            nodeImages.forEach((img, idx) => {
+                if (img.startsWith('http')) {
+                    vaultImageRefs.push(img); // Keep web URLs
+                } else if (fs.existsSync(img)) {
+                    // Local file: copy to Allegati
+                    const ext = path.extname(img) || '.jpg';
+                    const newFileName = `${node.id}_${idx}${ext}`;
+                    const destPath = path.join(allegatiDir, newFileName);
+                    try {
+                        fs.copyFileSync(img, destPath);
+                        vaultImageRefs.push(`../Allegati/${newFileName}`);
+                    } catch(e) {
+                        vaultImageRefs.push(img); // Fallback to original path if copy fails
+                    }
+                } else {
+                    vaultImageRefs.push(img);
+                }
+            });
+
+            if (vaultImageRefs.length > 0) {
+                frontmatter += `images: ${JSON.stringify(vaultImageRefs)}\n`;
+            }
             frontmatter += '---\n\n';
 
             let content = `# ${node.label}\n\n`;
+            
+            // Add images to content
+            vaultImageRefs.forEach(ref => {
+                content += `![[${ref}]]\n\n`;
+            });
+
             content += node.desc || "";
             
             if (node.chunks && node.chunks.length > 0) {
                 content += "\n\n## Fonti\n";
                 node.chunks.forEach(c => {
-                    content += `- [${c.title || 'Senza titolo'} | ${c.source || 'Sorgente'}]: ${c.text}\n`;
+                    const cTitle = typeof c === 'string' ? 'Estratto' : (c.title || 'Estratto');
+                    const cText = typeof c === 'string' ? c : (c.text || '');
+                    content += `- [${cTitle}]: ${cText}\n`;
                 });
             }
 
@@ -278,9 +334,15 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                         if (k === 'level') node.level = parseInt(cleanV);
                         if (k === 'group') node.group = parseInt(cleanV);
                         if (k === 'parent') node.parent = cleanV;
+                        if (k === 'images') {
+                            try { node.images = JSON.parse(v); } catch(e) {}
+                        }
                     });
 
-                    const body = parts.slice(2).join('---').trim();
+                    // Remove embedded images from description text since they are in node.images
+                    let body = parts.slice(2).join('---').trim();
+                    body = body.replace(/!\[\[.*?\]\]\n\n/g, '');
+                    
                     const fontiPart = body.split('## Fonti');
                     if (fontiPart.length > 1) {
                         node.desc = fontiPart[0].replace(/^# .*\n\n/, '').trim();
@@ -298,13 +360,14 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 }
             });
         }
-        return { success: true, mapData };
+        return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };
     }
 });
 
 ipcMain.handle('pick-folder', async () => {
+    const { dialog } = require('electron');
     const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openDirectory', 'createDirectory'],
         title: 'Seleziona la cartella del Vault (Second Brain)'
@@ -425,4 +488,30 @@ ipcMain.handle('get-machine-id', () => {
     const cpu = os.cpus()[0] ? os.cpus()[0].model : 'UNKNOWN-CPU';
     const rawId = macAddress + '-' + cpu;
     return crypto.createHash('sha256').update(rawId).digest('hex').substring(0, 10).toUpperCase();
+});
+// IPC Handler to fetch and scrape URL content
+ipcMain.handle('fetch-url', async (event, url) => {
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            timeout: 10000
+        });
+        const $ = cheerio.load(response.data);
+        
+        // Remove scripts and styles
+        $('script, style, nav, footer, header, aside').remove();
+        
+        let text = '';
+        if (url.includes('wikipedia.org')) {
+            text = $('#mw-content-text p').text();
+        } else {
+            text = $('body').text();
+        }
+        
+        return { success: true, text: text.replace(/\s+/g, ' ').trim().substring(0, 50000) };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 });

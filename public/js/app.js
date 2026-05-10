@@ -782,7 +782,8 @@ let appState = {
         links: [],
         sourcesDict: {},
         customColors: {}
-    }
+    },
+    activeVaultPath: null
 };
 
 window.getSystemKey = function () {
@@ -1033,7 +1034,22 @@ window.startGeneration = async function () {
             if (val) { textParts.push("[FONTE TESTO]:\n" + val); hasSources = true; }
         } else if (src.type === 'url') {
             var urlVal = el.value.trim();
-            if (urlVal) { textParts.push("[FONTE URL]: " + urlVal); hasSources = true; }
+            if (urlVal) {
+                window.showLoadingOverlay(true, "Download contenuti dal Web...");
+                try {
+                    const res = await window.electronAPI.fetchUrl(urlVal);
+                    if (res.success) {
+                        textParts.push(`[FONTE WEB ${urlVal}]:\n` + res.text);
+                        hasSources = true;
+                    } else {
+                        throw new Error(res.error);
+                    }
+                } catch (e) {
+                    window.showToast("Errore caricamento URL: " + e.message, "error");
+                    window.showLoadingOverlay(false);
+                    return;
+                }
+            }
         } else if (src.type === 'youtube') {
             var ytVal = el.value.trim();
             if (ytVal) { textParts.push("[FONTE YOUTUBE]: " + ytVal); hasSources = true; }
@@ -2078,10 +2094,48 @@ function handleBackgroundClick() {
    UI.JS - Interfaccia Utente e Sidebar
    ========================================== */
 
+let loadingInterval = null;
+let loadingSeconds = 0;
+const sotaStatusMessages = [
+    "Gemini sta leggendo i tuoi documenti...",
+    "Analisi semantica profonda...",
+    "Estrazione concetti chiave...",
+    "Costruzione relazioni topologiche...",
+    "Ottimizzazione del Knowledge Graph...",
+    "Mappatura nessi logici complessi...",
+    "Rifinitura descrizioni enciclopediche...",
+    "Ancora un attimo, sto collegando i puntini..."
+];
+
 window.showLoadingOverlay = function (show, text) {
     const el = document.getElementById('loading-overlay');
-    if (text) document.getElementById('loading-desc').textContent = text;
-    show ? el.classList.add('visible') : el.classList.remove('visible');
+    const desc = document.getElementById('loading-desc');
+    const title = document.getElementById('loading-title');
+
+    if (show) {
+        el.classList.add('visible');
+        if (text) desc.textContent = text;
+        
+        if (!loadingInterval) {
+            loadingSeconds = 0;
+            let msgIdx = 0;
+            loadingInterval = setInterval(() => {
+                loadingSeconds++;
+                if (loadingSeconds % 4 === 0) {
+                    msgIdx = (msgIdx + 1) % sotaStatusMessages.length;
+                    desc.textContent = sotaStatusMessages[msgIdx];
+                }
+                title.textContent = `Mapp.AI sta lavorando... (${loadingSeconds}s)`;
+            }, 1000);
+        }
+    } else {
+        el.classList.remove('visible');
+        if (loadingInterval) {
+            clearInterval(loadingInterval);
+            loadingInterval = null;
+        }
+        if (title) title.textContent = "Mapp.AI sta lavorando...";
+    }
 }
 
 window.switchToMapLayout = function () {
@@ -2754,6 +2808,7 @@ window.saveMapVault = async function () {
         
         window.showLoadingOverlay(false);
         if (saveRes.success) {
+            appState.activeVaultPath = result.folderPath;
             window.showToast("Vault salvato con successo!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
@@ -2776,16 +2831,14 @@ window.loadMapVault = async function () {
         
         window.showLoadingOverlay(false);
         if (loadRes.success) {
-            // Reset app state
-            appState.db = loadRes.mapData;
-            appState.extractionMode = loadRes.mapData.extractionMode || 'mindmap';
-            appState.rootNodeLabel = loadRes.mapData.rootNodeLabel || '';
+            appState.activeVaultPath = result.folderPath;
+            appState.extractionMode = loadRes.data.extractionMode;
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.db = loadRes.data.db;
             
-            // Reset simulation
-            simulation = null;
             window.switchToMapLayout();
-            initD3Visualization();
-            window.showToast("Vault caricato correttamente", "success");
+            setTimeout(() => { initD3Visualization(); }, 200);
+            window.showToast("Vault caricato con successo!", "success");
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }
@@ -4122,7 +4175,8 @@ window.saveTutorChatTranscript = async function(targetName, role, text) {
         await window.electronAPI.saveChatTranscript({
             projectName: projectName,
             targetName: targetName,
-            textContent: contentToSave
+            textContent: contentToSave,
+            vaultPath: appState.activeVaultPath
         });
     } catch(e) {
         console.error("Errore salvataggio transcript:", e);
