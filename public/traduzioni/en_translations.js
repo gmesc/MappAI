@@ -145,5 +145,17 @@ const en_translations = {
     merge_subtitle: "You are about to add a new map to the current view.",
     merge_ai_correlations: "🤖 AI Correlations",
     merge_ai_desc: "AI will look for possible correlations between the nodes of the two maps and create dashed links that you can validate or remove.",
-    merge_auto_save: "The current map will be **automatically saved** before the operation."
+    merge_auto_save: "The current map will be **automatically saved** before the operation.",
+
+    // Profile & Vault Manager
+    btn_who_are_you: "Who are you",
+    btn_new_project: "New Project",
+    btn_open_vault: "Open Vault",
+    sub_vault_manager: "Second Brain Management",
+    profile_title: "Student Profile",
+    profile_system: "School System",
+    vault_manager_title: "Explore your Vaults",
+    vault_manager_subtitle: "Second Brain Knowledge Management",
+    last_saved: "Last saved",
+    student: "Student"
 };

@@ -783,7 +783,13 @@ let appState = {
         sourcesDict: {},
         customColors: {}
     },
-    activeVaultPath: null
+    activeVaultPath: null,
+    userProfile: {
+        nickname: "",
+        age: "",
+        grade: "",
+        system: "Ticino"
+    }
 };
 
 window.getSystemKey = function () {
@@ -1734,6 +1740,11 @@ function renderGraph() {
                 }
             });
 
+            // Tutor Icon (if chat history exists)
+            if (tutorState.nodes[d.id] && tutorState.nodes[d.id].history.length > 0) {
+                icons.push(`<i data-lucide="brain" class="w-3 h-3 text-indigo-600 ${outlineClass}"></i>`);
+            }
+
             if (d.hasFile && vis.file !== false) icons.push(`<i data-lucide="database" class="w-3 h-3 text-slate-800 ${outlineClass}"></i>`);
 
             if (icons.length === 0) return "";
@@ -2485,10 +2496,15 @@ window.openSourceModal = function (nodeId) {
         html += `
         <div class="mt-8 border-t border-slate-200 pt-6">
             <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
-                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition">
+                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
                     <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
                 </label>
-                <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                <div class="flex items-center gap-3">
+                    <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                </div>
             </div>
             <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
                 <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
@@ -2802,7 +2818,9 @@ window.saveMapVault = async function () {
                 extractionMode: appState.extractionMode,
                 rootNodeLabel: appState.rootNodeLabel,
                 nodes: appState.db.nodes,
-                links: appState.db.links
+                links: appState.db.links,
+                userProfile: appState.userProfile,
+                tutorState: tutorState
             }
         });
         
@@ -2834,7 +2852,21 @@ window.loadMapVault = async function () {
             appState.activeVaultPath = result.folderPath;
             appState.extractionMode = loadRes.data.extractionMode;
             appState.rootNodeLabel = loadRes.data.rootNodeLabel;
-            appState.db = loadRes.data.db;
+            appState.db = {
+                nodes: loadRes.data.nodes || [],
+                links: loadRes.data.links || [],
+                sourcesDict: {}
+            };
+
+            appState.db.nodes.forEach(n => {
+                if (n.chunks && n.chunks.length > 0) {
+                    appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                        title: c.title || "Fonte",
+                        source: c.source || "Documento",
+                        text: c.text || c
+                    }));
+                }
+            });
             
             window.switchToMapLayout();
             setTimeout(() => { initD3Visualization(); }, 200);
@@ -4187,7 +4219,11 @@ window.resetSidebarTutor = function() {
     tutorState.sidebar.history = [];
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
     if (chatHistory) {
-        const firstMsg = "Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?";
+        const lang = appState.language || 'it';
+        const firstMsg = lang === 'it' ? 
+            "Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?" :
+            "Hi! I'm your global AI Tutor. How can I help you study this map?";
+            
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
@@ -4195,7 +4231,7 @@ window.resetSidebarTutor = function() {
             </div>
         `;
         window.safeCreateIcons();
-        window.saveTutorChatTranscript("sidebar", "model", "--- NUOVA SESSIONE GLOBALE ---\n" + firstMsg);
+        window.saveTutorChatTranscript("sidebar", "model", (lang === 'it' ? "--- NUOVA SESSIONE GLOBALE ---\n" : "--- NEW GLOBAL SESSION ---\n") + firstMsg);
     }
 }
 
@@ -4208,7 +4244,7 @@ window.sendSidebarTutorMessage = async function() {
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
     
     chatHistory.innerHTML += `
-        <div class="bg-slate-800 text-white p-3 rounded-lg text-sm rounded-tr-none border border-slate-700 self-end shadow-sm max-w-[90%]">
+        <div class="bg-emerald-500 text-black p-3 rounded-lg text-sm rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
         </div>
     `;
@@ -4279,6 +4315,20 @@ window.sendSidebarTutorMessage = async function() {
     }
 }
 
+window.resetNodeTutor = function() {
+    if (!editTarget) return;
+    delete tutorState.nodes[editTarget.id];
+    
+    // UI Update
+    document.getElementById('node-tutor-start').classList.remove('hidden');
+    document.getElementById('node-tutor-chat-area').classList.add('hidden');
+    document.getElementById('node-tutor-chat-area').classList.remove('flex');
+    document.getElementById('node-tutor-chat-history').innerHTML = '';
+    
+    window.showToast("Chat del nodo resettata.", "success");
+    initD3Visualization(); // Update icons on graph
+}
+
 window.startNodeTutor = function() {
     if (!editTarget) return;
     
@@ -4297,7 +4347,11 @@ window.startNodeTutor = function() {
             history: []
         };
         
-        const firstMsg = "Sei in fase di studio o di ragionamento?";
+        const lang = appState.language || 'it';
+        const firstMsg = lang === 'it' ? 
+            "Sei in fase di studio o di ragionamento?" :
+            "Are you in the study or reasoning phase?";
+            
         let safeRawTextForBtn = firstMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
@@ -4312,7 +4366,7 @@ window.startNodeTutor = function() {
             parts: [{ text: firstMsg }]
         });
         
-        window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "model", `--- NUOVA SESSIONE NODO ---\n${firstMsg}`);
+        window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "model", (lang === 'it' ? "--- NUOVA SESSIONE NODO ---\n" : "--- NEW NODE SESSION ---\n") + firstMsg);
     } else {
         // Render existing persistent chat history
         chatHistory.innerHTML = '';
@@ -4324,8 +4378,9 @@ window.startNodeTutor = function() {
             if (msg.role === 'user') {
                 // remove context injection from rendering if present
                 let visibleText = text;
-                if (text.includes("L'utente dice:")) {
-                    visibleText = text.split("L'utente dice:")[1].trim();
+                const splitKey = appState.language === 'en' ? "The user says:" : "L'utente dice:";
+                if (text.includes(splitKey)) {
+                    visibleText = text.split(splitKey)[1].trim();
                 }
                 chatHistory.innerHTML += `
                     <div class="bg-slate-800 text-white p-3 rounded-lg text-xs rounded-tr-none border border-slate-700 self-end shadow-sm max-w-[90%]">
@@ -4356,7 +4411,7 @@ window.sendNodeTutorMessage = async function() {
     const chatHistory = document.getElementById('node-tutor-chat-history');
     
     chatHistory.innerHTML += `
-        <div class="bg-slate-800 text-white p-3 rounded-lg text-xs rounded-tr-none border border-slate-700 self-end shadow-sm max-w-[90%]">
+        <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
         </div>
     `;
@@ -4409,30 +4464,56 @@ window.sendNodeTutorMessage = async function() {
         }
     }
     
-    let instruction = "Sei un Tutor Socratico. Rispondi in italiano usando formattazione HTML (<strong>,<p>,<ul>). ";
-    if (currentNodeState.phase === 'studio') {
-        if (currentNodeState.turns <= 3) {
-            instruction += "L'utente è in fase di STUDIO. Accogli le sue domande, adatta la complessità per costruire le basi.";
-        } else {
-            instruction += "L'utente è in fase di STUDIO (Turno > 3). SWITCH SOCRATICO: poni domande mirate per sollecitarlo a rielaborare autonomamente ciò che ha appreso.";
+    const lang = appState.language || 'it';
+    let instruction = "";
+
+    if (lang === 'it') {
+        instruction = "Sei un Tutor Socratico. Rispondi in italiano usando formattazione HTML (<strong>,<p>,<ul>). REGOLA FONDAMENTALE: Sii ESTREMAMENTE conciso e colloquiale. Fai al massimo UNA domanda alla volta. NON dare risposte lunghe e non elencare tutto il contesto in una volta sola. ";
+        
+        if (appState.userProfile && appState.userProfile.nickname) {
+            instruction += ` L'utente è ${appState.userProfile.nickname}, ha ${appState.userProfile.age} anni, frequenta la classe ${appState.userProfile.grade} nel sistema: ${appState.userProfile.system}. Adatta rigorosamente la complessità didattica, il vocabolario e le domande a questo profilo cognitivo e curriculare. `;
         }
-    } else {
-        if (currentNodeState.turns <= 3) {
-            instruction += "L'utente è in fase di RAGIONAMENTO. Prendi tu l'iniziativa: fai domande per valutare il suo grado di comprensione e metacomprensione sull'argomento.";
+
+        instruction += " Il tuo obiettivo primario è mantenere lo studente in uno stato di FLOW (sfida ottimale). Se l'utente manifesta difficoltà, stress o fatica nel rispondere, riduci drasticamente la difficoltà, evita nuove domande, offri esempi chiarificatori e rendi la conversazione più leggera e rassicurante. ";
+
+        if (currentNodeState.phase === 'studio') {
+            instruction += currentNodeState.turns <= 3 ? 
+                "L'utente è in fase di STUDIO. Accogli la sua interazione con 1-2 frasi incoraggianti, e fagli una sola domanda facile per testare le basi." :
+                "L'utente è in fase di STUDIO (Turno > 3). SWITCH SOCRATICO: poni UNA domanda mirata per sollecitarlo a rielaborare autonomamente.";
         } else {
-            instruction += "L'utente è in fase di RAGIONAMENTO (Turno > 3). Formula un feedback oggettivo e costruttivo (non sicofantico). Proponi piste di ragionamento o punti di vista alternativi per rinforzare l'apprendimento.";
+            instruction += currentNodeState.turns <= 3 ?
+                "L'utente è in fase di RAGIONAMENTO. Prendi l'iniziativa: fagli UNA singola domanda di ragionamento per valutare la sua comprensione." :
+                "L'utente è in fase di RAGIONAMENTO (Turno > 3). Formula un breve feedback oggettivo. Proponi UNA singola pista di ragionamento alternativa.";
         }
-    }
-    
-    if (!isKG) {
-        instruction += " Mappa Mentale: Fai riferimento alla macro-area del nodo.";
+        
+        instruction += !isKG ? " (Se utile, fai un breve cenno alla macro-area del nodo)." : " (Se utile, suggerisci brevemente un nesso verso un super-hub).";
     } else {
-        instruction += " Knowledge Graph: Proponi nessi logici verso i super-hub e permetti esplorazioni trasversali.";
+        // English Prompt
+        instruction = "You are a Socratic Tutor. Respond in English using HTML formatting (<strong>,<p>,<ul>). FUNDAMENTAL RULE: Be EXTREMELY concise and conversational. Ask at most ONE question at a time. DO NOT give long answers and do not list all the context at once. ";
+
+        if (appState.userProfile && appState.userProfile.nickname) {
+            instruction += ` The user is ${appState.userProfile.nickname}, ${appState.userProfile.age} years old, attending grade ${appState.userProfile.grade}. Strictly adapt the pedagogical complexity, vocabulary, and questions to this cognitive and curricular profile. `;
+        }
+
+        instruction += " Your primary goal is to keep the student in a state of FLOW (optimal challenge). If the user shows difficulty, stress, or fatigue in answering, drastically reduce the difficulty, avoid new questions, offer clarifying examples, and make the conversation lighter and more reassuring. ";
+
+        if (currentNodeState.phase === 'studio') {
+            instruction += currentNodeState.turns <= 3 ? 
+                "The user is in the STUDY phase. Welcome their interaction with 1-2 encouraging sentences, and ask only one easy question to test the basics." :
+                "The user is in the STUDY phase (Turn > 3). SOCRATIC SWITCH: ask ONE targeted question to prompt them to re-elaborate independently.";
+        } else {
+            instruction += currentNodeState.turns <= 3 ?
+                "The user is in the REASONING phase. Take the initiative: ask them ONE single reasoning question to assess their understanding." :
+                "The user is in the REASONING phase (Turn > 3). Formulate brief objective feedback. Propose ONE single alternative reasoning path.";
+        }
+
+        instruction += !isKG ? " (If useful, make a brief reference to the macro-area of the node)." : " (If useful, briefly suggest a connection to a super-hub).";
     }
     
     let apiQuery = customQuery;
     if (currentNodeState.turns === 1) {
-        apiQuery = `${contextStr}\n\nL'utente dice: ${customQuery}`;
+        const prefix = appState.language === 'en' ? "The user says:" : "L'utente dice:";
+        apiQuery = `${contextStr}\n\n${prefix} ${customQuery}`;
     }
     
     currentNodeState.history.push({ role: "user", parts: [{ text: apiQuery }] });
@@ -4465,7 +4546,7 @@ window.sendNodeTutorMessage = async function() {
         
         window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "user", customQuery);
         window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "model", resultHTML);
-        
+        initD3Visualization();
     } catch (e) {
         console.error(e);
         document.getElementById(loaderId).remove();
@@ -5197,16 +5278,24 @@ document.addEventListener('click', (e) => {
 });
 
 let currentLineHeightIdx = 0;
-const lineHeights = [1.5, 2.0, 3.0];
+const lineHeights = [1.5, 2.0, 2.5];
 
 window.cycleLineHeight = function () {
     currentLineHeightIdx = (currentLineHeightIdx + 1) % lineHeights.length;
     const lh = lineHeights[currentLineHeightIdx];
-    document.getElementById('btn-line-height').innerHTML = `<i data-lucide="move-vertical" class="w-3 h-3"></i> INTERLINEA x${lh.toFixed(1)}`;
-    const body = document.getElementById('source-modal-body');
-    if (body) {
-        body.style.lineHeight = lh;
-    }
+    const btn = document.getElementById('btn-line-height');
+    if (btn) btn.innerHTML = `<i data-lucide="move-vertical" class="w-3 h-3"></i> INTERLINEA x${lh.toFixed(1)}`;
+    
+    // Applica a tutto il contenuto leggibile con forza !important
+    const containers = document.querySelectorAll('.markdown-body, .note-text, #source-modal-body, .ai-result-content, .rich-desc');
+    containers.forEach(c => {
+        c.style.setProperty('line-height', lh, 'important');
+        // Forza anche sui paragrafi e liste figli che potrebbero avere regole specifiche nel CSS
+        const children = c.querySelectorAll('p, li, span, div');
+        children.forEach(child => {
+            child.style.setProperty('line-height', lh, 'important');
+        });
+    });
     window.safeCreateIcons();
 };
 
@@ -5709,3 +5798,197 @@ window.closeContextualAIModal = function () {
 
 window.ctxExpansionSourceType = 'text';
 window.ctxExpansionPDFFile = null;
+
+/* ==========================================
+   USER PROFILE & VAULT MANAGER (SOTA)
+   ========================================== */
+
+window.showUserProfileModal = function() {
+    const modal = document.getElementById('user-profile-modal');
+    const box = document.getElementById('user-profile-box');
+    
+    // Fill fields
+    document.getElementById('up-nickname').value = appState.userProfile.nickname || "";
+    document.getElementById('up-age').value = appState.userProfile.age || "";
+    document.getElementById('up-grade').value = appState.userProfile.grade || "";
+    document.getElementById('up-system').value = appState.userProfile.system || "Ticino";
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+    }, 10);
+    window.safeCreateIcons();
+};
+
+window.closeUserProfileModal = function() {
+    const modal = document.getElementById('user-profile-modal');
+    const box = document.getElementById('user-profile-box');
+    modal.classList.add('opacity-0');
+    box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+};
+
+window.saveUserProfile = function() {
+    appState.userProfile.nickname = document.getElementById('up-nickname').value.trim();
+    appState.userProfile.age = document.getElementById('up-age').value.trim();
+    appState.userProfile.grade = document.getElementById('up-grade').value.trim();
+    appState.userProfile.system = document.getElementById('up-system').value;
+
+    localStorage.setItem('mapp_user_profile', JSON.stringify(appState.userProfile));
+    window.showToast("Profilo salvato correttamente!", "success");
+    window.closeUserProfileModal();
+};
+
+window.resetUserProfile = function() {
+    window.showPrompt("Verifica Reset", "", (val) => {
+        if (val.toLowerCase().trim() === "elimina il mio profilo") {
+            appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
+            localStorage.removeItem('mapp_user_profile');
+            window.showToast("Profilo eliminato.", "success");
+            window.closeUserProfileModal();
+        } else {
+            window.showToast("Stringa errata. Reset annullato.");
+        }
+    }, "Scrivi esattamente 'elimina il mio profilo' per confermare:");
+};
+
+// Vault Manager
+window.showVaultManager = async function() {
+    const modal = document.getElementById('vault-manager-modal');
+    const box = document.getElementById('vault-manager-box');
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+    }, 10);
+    window.safeCreateIcons();
+    
+    await window.loadVaultList();
+};
+
+window.closeVaultManager = function() {
+    const modal = document.getElementById('vault-manager-modal');
+    const box = document.getElementById('vault-manager-box');
+    modal.classList.add('opacity-0');
+    box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+};
+
+window.loadVaultList = async function() {
+    const container = document.getElementById('vault-list-container');
+    container.innerHTML = '<div class="flex items-center justify-center p-20 text-slate-300"><i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i></div>';
+    window.safeCreateIcons();
+
+    try {
+        const vaults = await window.electronAPI.getAllVaults();
+        container.innerHTML = "";
+        
+        if (!vaults || vaults.length === 0) {
+            container.innerHTML = `<div class="text-center p-10 text-slate-400 font-bold uppercase tracking-widest text-xs">${window.getTranslation('empty_projects_msg')}</div>`;
+            return;
+        }
+
+        vaults.forEach(v => {
+            const card = document.createElement('div');
+            card.className = "bg-white border border-slate-100 p-4 rounded-2xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group shadow-sm flex justify-between items-center";
+            
+            let userBadge = "";
+            if (v.nickname) {
+                userBadge = `<span class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase">${v.nickname} (${v.age || '?'})</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all">
+                        <i data-lucide="folder" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-slate-800 text-sm leading-none">${v.rootNodeLabel || v.folderName}</span>
+                            ${userBadge}
+                        </div>
+                        <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">${v.folderName} • ${new Date(v.lastUpdated).toLocaleDateString()}</span>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-all"></i>
+            `;
+            
+            card.onclick = () => {
+                window.closeVaultManager();
+                window.directLoadVault(v.fullPath);
+            };
+            container.appendChild(card);
+        });
+        window.safeCreateIcons();
+    } catch (err) {
+        container.innerHTML = `<div class="text-red-500 p-4 text-center text-xs">Errore nel caricamento: ${err.message}</div>`;
+    }
+};
+
+window.directLoadVault = async function(folderPath) {
+    window.showLoadingOverlay(true, "Caricamento Vault...");
+    try {
+        const loadRes = await window.electronAPI.loadVault(folderPath);
+        window.showLoadingOverlay(false);
+        if (loadRes.success) {
+            appState.activeVaultPath = folderPath;
+            appState.extractionMode = loadRes.data.extractionMode;
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.db = {
+                nodes: loadRes.data.nodes || [],
+                links: loadRes.data.links || [],
+                sourcesDict: {}
+            };
+            
+            if (loadRes.data.userProfile) {
+                appState.userProfile = loadRes.data.userProfile;
+            }
+            
+            // Ripristina lo stato delle chat se presente
+            if (loadRes.data.tutorState) {
+                tutorState = loadRes.data.tutorState;
+            }
+
+            // Ricostruisci sourcesDict
+            appState.db.nodes.forEach(n => {
+                if (n.chunks && n.chunks.length > 0) {
+                    appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                        title: c.title || "Fonte",
+                        source: c.source || "Documento",
+                        text: c.text || c
+                    }));
+                }
+            });
+
+            window.switchToMapLayout();
+            setTimeout(() => { initD3Visualization(); }, 200);
+            window.showToast("Vault caricato con successo!", "success");
+        } else {
+            window.showAlert("Errore Caricamento", loadRes.error);
+        }
+    } catch (e) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore", e.message);
+    }
+};
+
+// Initialization
+(function initProfile() {
+    const saved = localStorage.getItem('mapp_user_profile');
+    if (saved) {
+        try {
+            appState.userProfile = JSON.parse(saved);
+        } catch(e) {}
+    }
+})();
+

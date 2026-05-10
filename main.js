@@ -178,9 +178,11 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
         const fileName = `${projectName}_${targetName}_${dateStr}.txt`.replace(/\s+/g, '_');
         const filePath = path.join(chatDir, fileName);
 
+        const exists = fs.existsSync(filePath);
         const header = `RIFERIMENTO MAPPA: ${projectName}\nDOCUMENTO: ${targetName}\nDATA: ${dateStr}\n------------------------------------------\n\n`;
-        // Append or write
-        fs.appendFileSync(filePath, header + textContent + '\n\n', 'utf-8');
+        
+        // Append textContent, add header ONLY if new file
+        fs.appendFileSync(filePath, (exists ? "" : header) + textContent + '\n\n', 'utf-8');
         return { success: true, path: filePath };
     } catch (err) {
         return { success: false, error: err.message };
@@ -201,9 +203,13 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const indexData = {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
+            userProfile: mapData.userProfile,
             lastUpdated: new Date().toISOString()
         };
-        const indexYaml = Object.entries(indexData).map(([k,v]) => `${k}: ${v}`).join('\n');
+        const indexYaml = Object.entries(indexData).map(([k,v]) => {
+            if (typeof v === 'object' && v !== null) return `${k}: ${JSON.stringify(v)}`;
+            return `${k}: ${v}`;
+        }).join('\n');
         fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
 
         // 2. Save Links (Relationship index)
@@ -280,6 +286,11 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
 
             fs.writeFileSync(path.join(nodesDir, fileName), frontmatter + content, 'utf-8');
         });
+        
+        // 5. Save Tutor Chat State
+        if (mapData.tutorState) {
+            fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
+        }
 
         return { success: true, path: folderPath };
     } catch (err) {
@@ -303,8 +314,17 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
             const indexContent = fs.readFileSync(indexPath, 'utf-8');
             indexContent.split('\n').forEach(line => {
                 if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
-                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.split(':')[1].trim();
+                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
+                if (line.startsWith('userProfile:')) {
+                    try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
+                }
             });
+        }
+
+        // Load Tutor State
+        const tutorPath = path.join(folderPath, 'chat_state.json');
+        if (fs.existsSync(tutorPath)) {
+            mapData.tutorState = JSON.parse(fs.readFileSync(tutorPath, 'utf-8'));
         }
 
         // Load links.json
@@ -363,6 +383,47 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('get-all-vaults', async () => {
+    try {
+        const docPath = app.getPath('documents');
+        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        if (!fs.existsSync(saveDir)) return [];
+
+        const folders = fs.readdirSync(saveDir).filter(f => {
+            return fs.statSync(path.join(saveDir, f)).isDirectory();
+        });
+
+        const vaults = [];
+        folders.forEach(f => {
+            const vaultPath = path.join(saveDir, f);
+            const indexPath = path.join(vaultPath, 'index.yaml');
+            if (fs.existsSync(indexPath)) {
+                const vaultInfo = { folderName: f, fullPath: vaultPath };
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                indexContent.split('\n').forEach(line => {
+                    if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                    if (line.startsWith('rootNodeLabel:')) vaultInfo.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith('lastUpdated:')) vaultInfo.lastUpdated = line.split('lastUpdated:')[1].trim();
+                    if (line.startsWith('userProfile:')) {
+                        try { 
+                            const profile = JSON.parse(line.substring(line.indexOf(':') + 1).trim());
+                            vaultInfo.nickname = profile.nickname;
+                            vaultInfo.age = profile.age;
+                        } catch(e) {}
+                    }
+                });
+                vaults.push(vaultInfo);
+            }
+        });
+
+        // Sort by lastUpdated desc
+        return vaults.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
+    } catch (err) {
+        console.error("Errore get-all-vaults:", err);
+        return [];
     }
 });
 
