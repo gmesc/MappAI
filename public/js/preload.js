@@ -9,5 +9,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPathForFile: (file) => webUtils.getPathForFile(file),
     parseDocx: (filePath) => ipcRenderer.invoke('parse-docx', filePath),
     pickFile: () => ipcRenderer.invoke('pick-file'),
-    getMachineId: () => ipcRenderer.invoke('get-machine-id')
+    getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+    saveChatTranscript: (data) => ipcRenderer.invoke('save-chat-transcript', data),
+    saveVault: (data) => ipcRenderer.invoke('save-vault', data),
+    loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
+    pickFolder: () => ipcRenderer.invoke('pick-folder')
 });

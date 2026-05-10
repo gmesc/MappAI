@@ -1,11 +1,12 @@
 const it_translations = {
     // General
     landing_subtitle: "Visualizzatore di conoscenza",
-    btn_config_ai: "Configura AI",
+    btn_setup: "Setup",
     btn_app_guide: "Guida App",
     btn_active_study: "Studio Attivo",
     recent_projects: "Progetti Recenti",
     new_map_btn: "Genera Nuova Mappa",
+    btn_blank_canvas_label: "Crea Canvas Vuoto (Manuale)",
     save_folder: "Cartella Salvataggi",
     import_json: "Importa JSON",
     ext_ai_guide: "Guida AI Esterna",
@@ -13,7 +14,7 @@ const it_translations = {
     tab_structure: "Struttura",
     tab_notes: "Appunti",
     tab_study: "Studio",
-    
+
     // Setup Steps
     step1: "Carica le tue Fonti",
     step1_desc: "Carica il tuo materiale da diverse fonti:",
@@ -32,27 +33,35 @@ const it_translations = {
     step5: "Stile Visualizzazione",
     step_density_title: "Densità Diramazioni (L4 e L5)",
     step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
-    
+
     // Placeholders
     placeholder_root: "Esempio: Dante Alighieri, Fisica Quantistica...",
     placeholder_focus: "Focalizzati sulla vita, sulle opere, o su un concetto specifico...",
     placeholder_keywords: "Inserisci keyword separate da virgola...",
-    
+
     // Loading
     loading_processing: "Mapp.AI sta elaborando...",
     loading_sources: "Interpretazione delle fonti con Gemini",
-    
+
     // Modals - AI Config
     modal_config_title: "Configurazione AI",
     btn_save_config: "Salva Configurazione",
-    
+    api_key_label: "API Key (Google AI Studio)",
+    api_key_desc: "La chiave verrà salvata localmente.",
+    api_key_how: "Come ottenerla?",
+    ai_model_label: "Modello AI",
+    refresh_models: "Aggiorna Modelli",
+    pricing_free: "<strong>🆓 Gratuito:</strong> Fino a 15 req/min e 1.500/giorno. Ottimo per iniziare.",
+    pricing_paid: "<strong>💰 A pagamento:</strong> Nessun limite. Costo tipico per mappa/KG: <strong>5–10 cent €/CHF</strong>.",
+    pricing_note: "Inserisci la API Key e clicca 'Aggiorna Modelli' per vedere tutti i modelli disponibili con costi e formati supportati.",
+
     // Modals - App Guide
     modal_guide_title: "Come usare Mapp.AI",
     guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
     guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.",
     guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
     guide_step2_desc: "Puoi caricare materiale da diverse fonti: PDF, URL Web, YouTube o Testo Libero.",
-    guide_step3_title: "🎯 Passo 3 — Scegli il tipo di Mappa",
+    guide_step3_title: "🎯 Passo 3 — Scegli la Struttura",
     guide_step3_desc: "Mappa Mentale: Struttura gerarchica (L0→L5) perfetta per lo studio. Knowledge Graph: Rete di relazioni tra concetti, ideale per visualizzare connessioni trasversali.",
     guide_step4_title: "✍️ Passo 4 — Personalizza e Guida l'AI",
     guide_step4_desc: "Inserisci il nome del Nodo Centrale. Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus specifico e regolare la densità delle diramazioni.",
@@ -63,10 +72,10 @@ const it_translations = {
     guide_notes_title: "📓 Raccoglitore Appunti",
     guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
     guide_footer: "Mapp.AI salva tutto localmente sul tuo Mac. I tuoi dati non lasciano mai il dispositivo.",
-    
+
     // Modals - Active Study (Tutorial)
     modal_study_title: "Metodo di Studio Attivo",
-    study_intro: "Mapp.AI non è solo un generatore di schemi: è un **ambiente di apprendimento attivo**. La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.",
+    study_intro: "MappAI non è solo un generatore di schemi: è un **ambiente di apprendimento attivo**. La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.",
     study_sr_title: "🔁 Ripasso Dilazionato (Spaced Repetition)",
     study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). Mapp.AI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
     study_ar_title: "🧠 Active Recall (Richiamo Attivo)",
@@ -80,7 +89,7 @@ const it_translations = {
     study_local_files_title: "📂 Collegamento File Locali",
     study_local_files_desc: "Hai approfondimenti sul computer? Trascina file o clicca sul nodo per collegare documenti locali (PDF, immagini, testo). I nodi con file collegati mostrano l'icona database per un accesso istantaneo.",
     study_footer: "I nodi modificati ricevono icone speciali: (testo), (immagini), (link) e (file locali). Più personalizzi, più lo studio diventa efficace!",
-    
+
     // Map View UI
     back_to_home: "Torna alla Home",
     floating_actions: "Azioni Rapide",
@@ -89,7 +98,7 @@ const it_translations = {
     a11y_low_contrast: "Riduci Contrasti",
     a11y_high_contrast: "Contrasti Elevati",
     a11y_grayscale: "Scala di Grigi",
-    
+
     // Floating Toolbar
     toolbar_center: "Centra",
     toolbar_reorder: "Riordina",
@@ -100,14 +109,14 @@ const it_translations = {
     toolbar_text: "Testo",
     toolbar_path: "Path",
     toolbar_photo: "Foto",
-    
+
     // Sidebar Panels
     sidebar_no_node: "Nessun nodo selezionato",
     sidebar_no_node_desc: "Usa il tasto Sinistro per studiare, tasto Destro per gestire lo stato di apprendimento e i contenuti.",
     sidebar_macro_areas: "Macro-Aree",
     sidebar_generate_hint: "Genera una mappa per visualizzare la struttura.",
     sidebar_empty_notes: "Nessun appunto raccolto. Inizia a studiare!",
-    
+
     // Context Menu
     ctx_edit: "Modifica Contenuto",
     ctx_add_child: "Aggiungi Nodo Figlio",
@@ -116,12 +125,12 @@ const it_translations = {
     ctx_flashcard: "Visualizza Flashcard",
     ctx_delete: "Elimina Nodo",
     ctx_connect: "Collega a...",
-    
+
     // Projects Bar
     show_projects: "Mostra Progetti",
     hide_projects: "Nascondi Progetti",
     empty_projects_msg: "Nessun progetto salvato. Crea una nuova mappa per iniziare.",
-    
+
     // Toasts & Alerts
     toast_lang_it: "Lingua: Italiano",
     toast_lang_en: "Language: English",
@@ -130,7 +139,7 @@ const it_translations = {
     confirm_title: "Conferma",
     confirm_proceed: "Procedi",
     confirm_cancel: "Annulla",
-    
+
     // Merge Modal
     merge_title: "Unisci Mappa",
     merge_subtitle: "Stai per aggiungere una nuova mappa alla vista corrente.",

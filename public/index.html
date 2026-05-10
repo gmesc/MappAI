@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapp.AI — Generatore AI di Mappe Mentali</title>
+    <title>MappAI — Generatore AI di mappe e grafici di conoscenza</title>
 
     <!-- Google Fonts: Space Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,18 +55,35 @@
     <!-- ==========================================
          BETA TESTER LOCK SCREEN (ALGORITHMIC)
          ========================================== -->
-    <div id="beta-lock-screen" class="fixed inset-0 bg-slate-900 z-[10000] flex items-center justify-center transition-opacity duration-500">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center transform transition-all">
-            <img src="Mapp_AI_icon.png" class="w-20 h-20 mx-auto mb-4 rounded-xl object-contain shadow-sm" alt="Mapp.AI Icon">
-            <h2 class="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Mapp.AI Beta</h2>
-            <p class="text-xs text-slate-500 mb-2 leading-relaxed">Il software è bloccato e legato a questo dispositivo. Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:</p>
-            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl mb-4 text-indigo-700 font-mono font-bold tracking-widest text-lg select-all cursor-text shadow-inner" id="machine-id-display">CARICAMENTO...</div>
-            <input type="password" id="beta-access-code" class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-300" placeholder="INSERISCI SBLOCCO">
-            <button onclick="window.checkBetaCode()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca Software</button>
-            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold">Codice di sblocco errato per questo dispositivo.</p>
+    <div id="beta-lock-screen"
+        class="fixed inset-0 bg-slate-900 z-[10000] flex items-center justify-center transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center transform transition-all"
+            id="beta-lock-box">
+            <img src="MappAI_icon.png" class="w-20 h-20 mx-auto mb-4 rounded-xl object-contain shadow-sm"
+                alt="MappAI Icon">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 tracking-tight">MappAI</h2>
+            <p class="text-xs text-slate-500 mb-2 leading-relaxed">Il software è bloccato e legato a questo dispositivo.
+                Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:</p>
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <div class="flex-grow bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-indigo-700 font-mono font-bold tracking-widest text-lg select-all cursor-text shadow-inner"
+                    id="machine-id-display">CARICAMENTO...</div>
+                <button onclick="window.copyMachineId()"
+                    class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors shadow-sm"
+                    title="Copia ID">
+                    <i data-lucide="copy" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <input type="password" id="beta-access-code"
+                class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-300"
+                placeholder="INSERISCI SBLOCCO">
+            <button onclick="window.checkBetaCode()"
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca
+                Software</button>
+            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold">Codice di sblocco errato per
+                questo dispositivo.</p>
         </div>
     </div>
-    
+
     <script>
         const SECRET_SALT = "MAPP_AI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
 
@@ -75,7 +92,7 @@
             if (localStorage.getItem('mapp_beta_access_granted') === 'true') {
                 lockScreen.style.display = 'none';
             }
-            
+
             // Ottieni l'ID Hardware univoco da Electron
             let machineId = "ERROR";
             try {
@@ -87,9 +104,9 @@
             } catch (e) {
                 console.error(e);
             }
-            
+
             const displayEl = document.getElementById('machine-id-display');
-            if(displayEl) displayEl.innerText = machineId;
+            if (displayEl) displayEl.innerText = machineId;
 
             // Funzione per generare lo stesso hash offline
             async function generateExpectedCode(macId) {
@@ -100,12 +117,12 @@
                 const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
                 return hashHex.substring(0, 10).toUpperCase(); // Prime 10 lettere dell'hash
             }
-            
-            window.checkBetaCode = async function() {
+
+            window.checkBetaCode = async function () {
                 const input = document.getElementById('beta-access-code').value.trim().toUpperCase();
                 const errorMsg = document.getElementById('beta-error-msg');
                 const expectedCode = await generateExpectedCode(machineId);
-                
+
                 if (input === expectedCode || input === 'DEV-BYPASS-2026') {
                     localStorage.setItem('mapp_beta_access_granted', 'true');
                     errorMsg.classList.add('hidden');
@@ -118,9 +135,9 @@
                     setTimeout(() => box.classList.remove('scale-95'), 150);
                 }
             };
-            
+
             const inputField = document.getElementById('beta-access-code');
-            if(inputField) {
+            if (inputField) {
                 inputField.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') {
                         window.checkBetaCode();
@@ -128,6 +145,15 @@
                 });
             }
         });
+        window.copyMachineId = function () {
+            const id = document.getElementById('machine-id-display').innerText;
+            navigator.clipboard.writeText(id);
+            const btn = event.currentTarget;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+            window.safeCreateIcons();
+            setTimeout(() => { btn.innerHTML = originalIcon; window.safeCreateIcons(); }, 2000);
+        };
     </script>
     <!-- TOAST CONTAINER -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2"></div>
@@ -137,7 +163,7 @@
 
     <!-- Modale Alert Personalizzato per gli Errori Critici -->
     <div id="alert-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200"
             id="alert-box">
             <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
@@ -162,41 +188,176 @@
         <div class="landing-pattern"></div>
         <div class="landing-glow"></div>
 
+        <!-- Insegnai.ch Drawer -->
+        <div id="insegnai-drawer"
+            class="fixed top-1/2 -translate-y-1/2 left-0 z-[100] flex items-center transition-transform duration-300 -translate-x-[288px]">
+            <div
+                class="bg-white/95 backdrop-blur-md shadow-2xl border-y border-r border-indigo-200/60 rounded-r-2xl p-6 w-72 flex flex-col pointer-events-auto">
+                <h2 class="text-lg font-black text-indigo-900 mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-info text-indigo-500">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 16v-4" />
+                        <path d="M12 8h.01" />
+                    </svg> Giacomo Meschini
+                </h2>
+                <div class="text-[13px] text-slate-600 leading-relaxed space-y-3">
+                    <p>
+                        Lavoro nel settore educativo e sono un appassionato di tecnologia.
+                    </p>
+                    <p>
+                        Ho creato <strong>MappAI</strong> come strumento di studio assistito e multimodale.
+                    </p>
+                    <p>
+                        Tra i miei progetti c'è il portale <strong>insegnai.ch</strong>, dedicato a promuovere i temi
+                        dell'<em>AI literacy</em> e <em>fluency</em>.
+                    </p>
+                    <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
+                        <a href="https://insegnai.ch" target="_blank"
+                            class="flex items-center gap-3 text-slate-500 hover:text-indigo-600 font-bold transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-globe">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                                <path d="M2 12h20" />
+                            </svg> insegnai.ch
+                        </a>
+                        <a href="mailto:giacomo@insegnai.ch"
+                            class="flex items-center gap-3 text-slate-500 hover:text-indigo-600 font-bold transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-mail">
+                                <rect width="20" height="16" x="2" y="4" rx="2" />
+                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                            </svg> giacomo@insegnai.ch
+                        </a>
+                        <a href="https://www.instagram.com/insegnai.ch/" target="_blank"
+                            class="flex items-center gap-3 text-slate-500 hover:text-pink-600 font-bold transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-instagram">
+                                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                                <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                            </svg>
+                            Instagram
+                        </a>
+                        <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
+                            class="flex items-center gap-3 text-slate-500 hover:text-blue-600 font-bold transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-facebook">
+                                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                            </svg>
+                            Facebook
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!-- Linguetta (Tab) -->
+            <div
+                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto transform scale-[0.9] origin-left">
+                <button onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[288px]')"
+                    class="text-white hover:bg-indigo-700 transition-colors px-3 py-3 rounded-tr-2xl font-bold tracking-widest text-[0.95rem]"
+                    style="writing-mode: vertical-rl; text-orientation: mixed;">
+                    insegnai.ch
+                </button>
+                <div class="flex flex-col items-center gap-3 pb-4 pt-2 px-3 border-t border-indigo-500/50">
+                    <a href="https://www.instagram.com/insegnai.ch/" target="_blank"
+                        class="text-white/70 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-instagram">
+                            <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                        </svg>
+                    </a>
+                    <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
+                        class="text-white/70 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-facebook">
+                            <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <div class="glass-card w-full max-w-3xl p-8 relative z-10 animate-fade-in mt-8">
 
             <!-- Header Landing Page -->
-            <div class="flex flex-col md:flex-row justify-between items-start mb-8 border-b border-indigo-200/60 pb-6 gap-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-slate-800 flex items-center gap-3 tracking-tight">
-                        <img src="Mapp_AI_icon.png" class="w-10 h-10 object-contain rounded-2xl" alt="Mapp.AI Icon">
-                        Mapp.AI
-                    </h1>
-                    <p class="text-slate-500 text-sm mt-1 ml-11">Visualizzatore di conoscenza</p>
+            <div
+                class="flex flex-col md:flex-row justify-between items-start mb-8 border-b border-indigo-200/60 pb-6 gap-4">
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-4">
+                        <img src="MappAI_icon.png"
+                            class="w-[80px] h-[80px] -ml-[10px] object-contain rounded-2xl shrink-0" alt="MappAI Icon">
+                        <div class="flex flex-col justify-center">
+                            <h1 class="text-[45px] leading-none font-black text-slate-800 tracking-tight">MappAI</h1>
+                            <p id="landing-subtitle" class="text-slate-500 text-sm font-medium tracking-wide mt-2">
+                                Visualizzatore di conoscenza</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex flex-col items-start md:items-end gap-3 w-full md:w-auto">
                     <div class="flex flex-row justify-start md:justify-end items-center gap-2 whitespace-nowrap">
                         <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
                             class="w-auto px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
-                            <i data-lucide="settings" class="w-4 h-4"></i> Configura AI
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-settings">
+                                <path
+                                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg> <span id="btn-setup-label">Setup</span>
                         </button>
                         <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
                             class="w-auto px-4 py-2 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
-                            <i data-lucide="book-open" class="w-4 h-4"></i> Guida App
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-book-open">
+                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                            </svg> <span id="btn-app-guide-label">Guida</span>
                         </button>
                         <button type="button" onclick="window.showAppTutorial()" id="btn-app-tutorial"
                             class="w-auto px-4 py-2 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
-                            <i data-lucide="lightbulb" class="w-4 h-4"></i> Studio Attivo
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-lightbulb">
+                                <path
+                                    d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A5 5 0 0 0 8 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" />
+                                <path d="M9 18h6" />
+                                <path d="M10 22h4" />
+                            </svg> <span id="btn-app-tutorial-label">Studio</span>
                         </button>
                     </div>
-                    <div class="landing-font-toggle font-toggle-wrapper mt-1" onclick="window.toggleDyslexicFont()">
-                        <span class="font-toggle-label active-label" id="label-space-mono-landing">Space Mono</span>
-                        <div class="font-toggle-track" id="font-track-landing">
-                            <div class="font-toggle-knob"></div>
-                        </div>
-                        <span class="font-toggle-label" id="label-dyslexic-landing">OpenDyslexic</span>
+
+            </div>
+
+            <!-- QUICK ACTIONS SOTA -->
+            <div class="flex gap-4 mb-10 max-w-2xl mx-auto">
+                <button onclick="window.startEmptyMap()"
+                    class="flex-1 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl hover:bg-indigo-100 transition-all text-left group">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="plus" class="w-6 h-6"></i>
                     </div>
-                </div>
+                    <span class="block font-black text-indigo-900 text-sm">Nuovo Progetto</span>
+                    <span class="block text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Mappa Vuota</span>
+                </button>
+                <button onclick="window.loadMapVault()"
+                    class="flex-1 p-4 bg-white border border-slate-200 rounded-2xl hover:border-indigo-300 hover:bg-indigo-50/30 transition-all text-left group">
+                    <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-3 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all">
+                        <i data-lucide="folder-open" class="w-6 h-6"></i>
+                    </div>
+                    <span class="block font-black text-slate-900 text-sm">Apri Vault</span>
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Markdown Second Brain</span>
+                </button>
             </div>
 
             <!-- Form di Setup -->
@@ -207,32 +368,70 @@
                 <div class="space-y-3 pb-2 border-b border-indigo-200/40">
                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
                         <span class="step-badge bg-blue-500">1</span>
-                        Carica le tue Fonti
+                        <span id="label-step1">Carica le tue Fonti</span>
                     </label>
 
                     <div class="ml-10 flex flex-wrap gap-3 mb-4">
                         <div class="source-type-btn" onclick="window.addSource('url')">
-                            <i data-lucide="link" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-link">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
                             <span class="text-sm font-bold">URL Web</span>
                         </div>
                         <div class="source-type-btn" onclick="window.addSource('youtube')">
-                            <i data-lucide="play-square" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-play-square">
+                                <rect width="18" height="18" x="3" y="3" rx="2" />
+                                <path d="m10 9 5 3-5 3z" />
+                            </svg>
                             <span class="text-sm font-bold">YouTube</span>
                         </div>
                         <div class="source-type-btn" onclick="window.addSource('audio')">
-                            <i data-lucide="mic" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-mic">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <line x1="12" x2="12" y1="19" y2="22" />
+                            </svg>
                             <span class="text-sm font-bold">Audio</span>
                         </div>
                         <div class="source-type-btn" onclick="window.addSource('video')">
-                            <i data-lucide="video" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-video">
+                                <path d="m22 8-6 4 6 4V8Z" />
+                                <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+                            </svg>
                             <span class="text-sm font-bold">Video</span>
                         </div>
                         <div class="source-type-btn" onclick="window.addSource('doc')">
-                            <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-file-spreadsheet">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                <polyline points="14.5 2 14.5 7.5 20 7.5" />
+                                <path d="M8 13h2" />
+                                <path d="M14 13h2" />
+                                <path d="M8 17h2" />
+                                <path d="M14 17h2" />
+                                <path d="M10 13v4" />
+                                <path d="M16 13v4" />
+                            </svg>
                             <span class="text-sm font-bold">Documenti</span>
                         </div>
                         <div class="source-type-btn" onclick="window.addSource('text')">
-                            <i data-lucide="type" class="w-6 h-6"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-type">
+                                <polyline points="4 7 4 4 20 4 20 7" />
+                                <line x1="9" x2="15" y1="20" y2="20" />
+                                <line x1="12" x2="12" y1="4" y2="20" />
+                            </svg>
                             <span class="text-sm font-bold">Testo</span>
                         </div>
                     </div>
@@ -246,29 +445,46 @@
                 <div class="space-y-3 pb-2 border-b border-indigo-200/40">
                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
                         <span class="step-badge bg-green-500">2</span>
-                        Cosa desideri generare?
+                        <span id="label-step2">Cosa desideri generare?</span>
                     </label>
                     <div class="flex flex-col gap-4 ml-10">
                         <div class="flex flex-wrap gap-4">
                             <div class="mode-btn active" id="mode-mindmap" onclick="window.setMode('mindmap')">
-                                <i data-lucide="git-merge" class="w-5 h-5 mb-1"></i>
-                                <span class="font-bold">Mappa Mentale</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-git-merge mb-1">
+                                    <circle cx="18" cy="18" r="3" />
+                                    <circle cx="6" cy="6" r="3" />
+                                    <path d="M6 9v12" />
+                                    <path d="M18 15V9a9 9 0 0 0-9-9" />
+                                </svg>
+                                <span class="font-bold" id="label-mode-mindmap">Mappa Mentale</span>
                             </div>
                             <div class="mode-btn" id="mode-kg" onclick="window.setMode('kg')">
-                                <i data-lucide="network" class="w-5 h-5 mb-1"></i>
-                                <span class="font-bold">Knowledge Graph</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-network mb-1">
+                                    <rect x="16" y="16" width="6" height="6" rx="1" />
+                                    <rect x="2" y="16" width="6" height="6" rx="1" />
+                                    <rect x="9" y="2" width="6" height="6" rx="1" />
+                                    <path d="M5 16v-6c0-1 1-2 2-2h10c1 0 2 1 2 2v6" />
+                                    <path d="M12 8v3" />
+                                    <path d="M12 14v2" />
+                                </svg>
+                                <span class="font-bold" id="label-mode-kg">Knowledge Graph</span>
                             </div>
                         </div>
-                        
+
                         <!-- Root Node (Visibile solo per Mappe Mentali) -->
                         <div id="step-root-container" class="space-y-2 mt-2 transition-all duration-300">
-                            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello Studio (Nodo Centrale):</p>
+                            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello
+                                Studio (Nodo Centrale):</p>
                             <input type="text" id="root-node-name" class="landing-input w-full max-w-sm"
                                 placeholder="Es. Rivoluzione Francese, Fotosintesi...">
                         </div>
                     </div>
                     <input type="hidden" id="extraction-mode" value="mindmap">
-                </div>                  <!-- STEP 3: Rami Principali / Super-Hubs -->
+                </div> <!-- STEP 3: Rami Principali / Super-Hubs -->
                 <div class="space-y-3">
                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
                         <span class="step-badge bg-orange-500">3</span>
@@ -277,7 +493,8 @@
 
                     <div id="input-l1-container"
                         class="ml-10 space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
-                        <p class="text-xs text-slate-500 italic mb-2" id="step-l1-desc">Definisci i rami principali per organizzare lo studio:</p>
+                        <p class="text-xs text-slate-500 italic mb-2" id="step-l1-desc">Definisci i rami principali per
+                            organizzare lo studio:</p>
                         <div id="l1-inputs-container" class="space-y-2">
                             <!-- Inseriti automaticamente dai documenti o manualmente -->
                             <div class="flex gap-2 items-center l1-input-row">
@@ -290,7 +507,8 @@
                         </div>
                         <button type="button" onclick="window.addL1Input()"
                             class="text-xs font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 mt-2">
-                            <i data-lucide="plus-circle" class="w-4 h-4"></i> <span id="btn-add-l1-text">Aggiungi Nodo L1</span>
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> <span id="btn-add-l1-text">Aggiungi Nodo
+                                L1</span>
                         </button>
                         <label
                             class="flex items-center gap-3 cursor-pointer mt-4 group pt-3 border-t border-indigo-200/40">
@@ -301,13 +519,15 @@
                                 </div>
                             </div>
                             <span
-                                class="text-[11px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors" id="label-auto-l1">Genera
+                                class="text-[11px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors"
+                                id="label-auto-l1">Genera
                                 altri nodi L1 in automatico</span>
                         </label>
                     </div>
 
                     <div class="ml-10 mt-4 space-y-2 border-t border-indigo-200/40 pt-4">
-                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Focus specifico (Opzionale):</p>
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Focus specifico
+                            (Opzionale):</p>
                         <textarea id="focus-input" class="landing-input min-h-[60px]"
                             placeholder="Su cosa deve concentrarsi Gemini?"></textarea>
                     </div>
@@ -317,7 +537,7 @@
                 <div id="step-density-container" class="space-y-3 transition-all duration-300">
                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
                         <span class="step-badge bg-yellow-500">4</span>
-                        Densità Diramazioni (L4 e L5)
+                        <span id="label-step4">Densità Diramazioni (L4 e L5)</span>
                     </label>
                     <p class="text-xs text-slate-500 ml-10 mb-3">I rami L1-L2-L3 verranno generati sempre. Scegli
                         quanti rami generare nei livelli più profondi (0 = si ferma a L3).</p>
@@ -339,28 +559,47 @@
                 <!-- Pulsante Generate -->
                 <div class="pt-8 border-t border-indigo-200/40 flex flex-col gap-4">
                     <button type="submit" id="generate-btn" class="generate-btn w-full">
-                        <i data-lucide="sparkles" class="w-5 h-5"></i>
-                        Genera Nuova Mappa
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-sparkles">
+                            <path
+                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                            <path d="M5 3v4" />
+                            <path d="M19 17v4" />
+                            <path d="M3 5h4" />
+                            <path d="M17 19h4" />
+                        </svg>
+                        <span id="btn-generate-label">Genera Nuova Mappa</span>
                     </button>
-                    <button type="button" onclick="window.createBlankCanvas()" class="w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm">
-                        <i data-lucide="square-dashed-bottom" class="w-5 h-5"></i>
-                        Oppure crea Canvas Vuoto (Manuale)
+                    <button type="button" onclick="window.createBlankCanvas()"
+                        class="w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-square-dashed-bottom">
+                            <path d="M5 21a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2" />
+                            <path d="M9 21h1" />
+                            <path d="M14 21h1" />
+                        </svg>
+                        <span id="btn-blank-canvas-label">Oppure crea Canvas Vuoto (Manuale)</span>
                     </button>
 
                     <div class="flex flex-wrap items-center justify-between gap-4 py-2">
                         <button type="button" onclick="window.openSaveFolder()"
                             class="text-xs font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-2 transition-colors">
-                            <i data-lucide="folder-open" class="w-4 h-4"></i> Cartella Salvataggi
+                            <i data-lucide="folder-open" class="w-4 h-4"></i> <span id="label-save-folder">Cartella
+                                Salvataggi</span>
                         </button>
 
                         <div class="flex gap-2">
                             <button type="button" onclick="window.openExternalJSONInstructions()"
                                 class="py-2 px-4 bg-indigo-50 border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2">
-                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Guida AI Esterna
+                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> <span id="label-ext-guide">Guida AI
+                                    Esterna</span>
                             </button>
                             <label for="landing-import"
                                 class="py-2 px-4 bg-white border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-sm">
-                                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Importa JSON
+                                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> <span
+                                    id="label-import-json">Importa JSON</span>
                             </label>
                             <input type="file" id="landing-import" accept=".json" class="hidden"
                                 onchange="window.importGraph(event)">
@@ -374,592 +613,643 @@
     </div>
 
     <!-- Storico Progetti — Barra fissa in fondo -->
-    <div class="fixed bottom-0 left-0 right-0 z-20 bg-white/85 backdrop-blur-lg border-t border-indigo-200/50 shadow-[0_-4px_20px_rgba(99,102,241,0.06)] transition-all duration-300"
-        id="projects-bar">
-        <button onclick="window.toggleProjectsBar()"
-            class="absolute -top-10 right-6 bg-white/90 backdrop-blur-md border border-indigo-100 p-2 rounded-t-xl shadow-sm hover:text-indigo-600 transition group flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            <i id="toggle-bar-icon" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
-            <span id="toggle-bar-text">Nascondi Progetti</span>
-        </button>
-        <div class="max-w-5xl mx-auto px-6 py-4" id="projects-bar-content">
-            <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider">
-                <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> Progetti Recenti
-            </h3>
-            <div id="recent-projects-container" class="flex gap-3 overflow-x-auto pb-1">
-                <p class="text-xs text-slate-400 italic">Nessun progetto salvato. Crea una nuova mappa per iniziare.
-                </p>
+    <div class="fixed bottom-0 left-0 right-0 z-20 transition-all duration-300" id="projects-bar">
+        <!-- Contenitore Unificato -->
+        <div class="relative w-full bg-white shadow-[0_-10px_30px_rgba(99,102,241,0.08)]">
+            <!-- Pulsante "fuso" con la struttura -->
+            <button onclick="window.toggleProjectsBar()"
+                class="absolute bottom-full mb-[-1px] right-6 bg-white border-t border-l border-r border-indigo-100 px-4 py-2 rounded-t-2xl flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-indigo-500 shadow-[-5px_-5px_15px_rgba(99,102,241,0.02)] transition-colors hover:text-indigo-700 z-10">
+                <i id="toggle-bar-icon" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+                <span id="toggle-bar-text">Nascondi Progetti</span>
+            </button>
+
+            <!-- Contenuto a tutta larghezza -->
+            <div class="max-w-full px-0 py-4 border-t border-indigo-100" id="projects-bar-content">
+                <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider ml-8">
+                    <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> Progetti Recenti
+                </h3>
+                <div id="recent-projects-container" class="flex gap-3 overflow-x-auto pb-1 px-8">
+                    <p class="text-xs text-slate-400 italic">Nessun progetto salvato. Crea una nuova mappa per iniziare.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
 
 
-    <!-- ==========================================
+        <!-- ==========================================
          MAPPA MENTALE (D3.js View)
          ========================================== -->
-    <div id="map-view" class="flex flex-col md:flex-row h-screen relative overflow-hidden">
+        <div id="map-view" class="flex flex-col md:flex-row h-screen relative overflow-hidden">
 
-        <!-- Sidebar -->
-        <aside id="sidebar"
-            class="w-full md:w-[38%] lg:w-[29%] bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out">
-            <!-- Header -->
-            <div
-                class="p-5 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-3 shrink-0">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                            <img src="Mapp_AI_icon.png" class="w-10 h-10 object-contain rounded-lg" alt="Mapp.AI Icon">
-                            Mapp.AI
-                        </h1>
-                        <p class="text-slate-500 text-xs mt-1 font-mono uppercase tracking-wider" id="sidebar-subtitle">Visualizzatore di conoscenza</p>
-                    </div>
-                </div>
-
-                <!-- Font Toggle Sidebar -->
-                <div class="sidebar-font-toggle font-toggle-wrapper self-end mt-2"
-                    onclick="window.toggleDyslexicFont()">
-                    <span class="font-toggle-label active-label" id="label-space-mono-sidebar">Space Mono</span>
-                    <div class="font-toggle-track" id="font-track-sidebar">
-                        <div class="font-toggle-knob"></div>
-                    </div>
-                    <span class="font-toggle-label" id="label-dyslexic-sidebar">OpenDyslexic</span>
-                </div>
-            </div>
-
-            <!-- TAB NAVIGATION -->
-            <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
-                <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
-                    class="flex-[1.2] py-4 text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-2.5 border-b-2 border-indigo-500 text-indigo-600 transition-all">
-                    <i data-lucide="git-branch" class="w-3.5 h-3.5"></i> Indice
-                </button>
-                <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
-                    class="flex-[1.2] py-4 text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">
-                    <i data-lucide="sticky-note" class="w-3.5 h-3.5"></i> Note
-                </button>
-                <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
-                    class="flex-[1.2] py-4 text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">
-                    <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Studio
-                </button>
-                <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
-                    class="w-16 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all shrink-0">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                </button>
-            </div>
-
-            <!-- ═══ TAB: STRUTTURA ═══ -->
-            <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
-                
-                <div id="tree-view-container" class="p-4 space-y-1"></div>
-
-                <!-- Node Details (shown when a node is selected) -->
-                <div class="p-5" id="node-details">
-                    <div class="text-center text-slate-400 mt-8 animate-pulse">
-                        <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
-                        <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
-                        <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per gestire lo stato di apprendimento e i contenuti.</p>
-                    </div>
-                </div>
-
-                <!-- Tree View (macro-areas / super-hubs) -->
-                <div class="px-5 pb-4 border-t border-slate-200/60">
-                    <h3 class="text-[10px] uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
-                        <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
-                        <span id="tree-view-title">Macro-aree</span>
-                    </h3>
-                    <div id="macro-areas-container" class="space-y-1">
-                        <p class="text-[10px] text-slate-400 italic">Genera una mappa per visualizzare la struttura.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ═══ TAB: FINDER ═══ -->
-            <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex flex-col">
-                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
-                    <div class="relative">
-                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
-                        <input type="text" id="super-finder-input" placeholder="Super ricerca universale..." 
-                               class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
-                               oninput="window.performSuperSearch(this.value)">
-                        <button id="super-finder-clear" onclick="window.clearSuperFinder()" class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
-                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-                    <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in etichette, descrizioni, citazioni e fonti esterne.</p>
-                </div>
-
-                <div id="super-finder-results" class="p-2 space-y-4">
-                    <div class="flex flex-col items-center justify-center py-20 text-slate-300">
-                        <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
-                        <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
-                    </div>
-                </div>
-            </div>
-
-
-
-            <!-- ═══ TAB: NOTE ═══ -->
-            <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
-                <div class="px-5 pt-4 pb-2">
-                    <h3
-                        class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                        <i data-lucide="book-open" class="w-3.5 h-3.5"></i> Raccoglitore Appunti
-                    </h3>
-                </div>
-                <div id="user-notes-container" class="space-y-3 px-5 pb-5">
-                    <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente. Modifica i
-                        nodi con doppio click per aggiungere appunti e immagini.</p>
-                </div>
-            </div>
-
-            <!-- ═══ TAB: STUDIO ═══ -->
-            <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
-                <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
-                    <!-- Pomodoro Timer -->
-                    <div
-                        class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="timer" class="text-rose-500 w-5 h-5"></i>
-                            <span id="pomodoro-time"
-                                class="font-bold text-slate-800 text-xl font-mono tracking-wider">25:00</span>
-                        </div>
-                        <div class="flex gap-1.5">
-                            <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                class="px-3 py-1.5 bg-rose-50 text-rose-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
-                            <button onclick="window.resetPomodoro()"
-                                class="p-1.5 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
-                                title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+            <!-- Sidebar -->
+            <aside id="sidebar"
+                class="w-full md:w-[38%] lg:w-[29%] bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out">
+                <!-- Header -->
+                <div class="p-5 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-3 shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                                <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg"
+                                    alt="Mapp.AI Icon">
+                                MappAI
+                            </h1>
+                            <p class="text-slate-500 text-xs mt-1 font-mono uppercase tracking-wider"
+                                id="sidebar-subtitle">
+                                Visualizzatore di conoscenza</p>
                         </div>
                     </div>
-                    <!-- Statistiche Progresso -->
-                    <div>
-                        <div class="flex justify-between items-center mb-1.5">
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Progresso
-                                Mappa</span>
-                            <span id="study-progress-text"
-                                class="text-[10px] font-black text-indigo-600 px-1.5 py-0.5 bg-indigo-100 rounded">0%</span>
-                        </div>
-                        <div class="w-full bg-slate-200 rounded-full h-2 mb-2 shadow-inner overflow-hidden">
-                            <div id="study-progress-bar"
-                                class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
-                            </div>
-                        </div>
-                        <div class="flex justify-between text-[10px] font-bold">
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-1.5">
-                                <span id="stats-done" class="text-emerald-500 text-sm">0</span><span
-                                    class="text-slate-400 text-[8px] uppercase">Fatti</span>
-                            </div>
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-1.5">
-                                <span id="stats-review" class="text-amber-500 text-sm">0</span><span
-                                    class="text-slate-400 text-[8px] uppercase">Ripasso</span>
-                            </div>
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-1.5">
-                                <span id="stats-todo" class="text-red-400 text-sm">0</span><span
-                                    class="text-slate-400 text-[8px] uppercase">Sospesi</span>
-                            </div>
+
+
+                </div>
+
+                <!-- TAB NAVIGATION -->
+                <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
+                    <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
+                        title="Indice">
+                        <i data-lucide="git-branch" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Note">
+                        <i data-lucide="sticky-note" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Studio">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Finder">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Tutor AI">
+                        <i data-lucide="bot" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- ═══ TAB: STRUTTURA ═══ -->
+                <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
+
+                    <div id="tree-view-container" class="p-4 space-y-1"></div>
+
+                    <!-- Node Details (shown when a node is selected) -->
+                    <div class="p-5" id="node-details">
+                        <div class="text-center text-slate-400 mt-8 animate-pulse">
+                            <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
+                            <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
+                            <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per
+                                gestire lo stato di apprendimento e i contenuti.</p>
                         </div>
                     </div>
-                    <!-- Azioni Studio -->
-                    <div class="space-y-3">
-                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Investimento
-                                    Studio (AI Cost)</span>
-                                <span id="total-cost-display"
-                                    class="text-[10px] font-bold text-indigo-600">$0.0000</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[9px] text-slate-400">
-                                <span>Token Totali:</span>
-                                <span id="total-tokens-display" class="font-mono">0</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[9px] text-slate-400 mt-0.5">
-                                <span>Modello Usato:</span>
-                                <span id="used-model-display" class="font-mono font-bold text-slate-500">-</span>
-                            </div>
-                        </div>
 
-                        <button onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-2.5 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-xs font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="brain-circuit" class="w-4 h-4"></i> Genera Flashcard Mappa
-                        </button>
-                        <button onclick="window.generateGlobalQuiz()"
-                            class="w-full py-2.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="help-circle" class="w-4 h-4"></i> Genera Quiz Mappa
-                        </button>
-                        <button onclick="window.showAppTutorial()"
-                            class="w-full py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="lightbulb" class="w-4 h-4"></i> Metodo Studio Attivo
-                        </button>
-                    </div>
-
-                    <!-- Set Flashcard Generati -->
-                    <div class="mt-4 border-t border-slate-200 pt-4">
-                        <h3 class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                            <i data-lucide="layers" class="w-3.5 h-3.5"></i> I tuoi Set di Studio
+                    <!-- Tree View (macro-areas / super-hubs) -->
+                    <div class="px-5 pb-4 border-t border-slate-200/60">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
+                            <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
+                            <span id="tree-view-title">Macro-aree</span>
                         </h3>
-                        <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o quiz per visualizzarli qui.</p>
+                        <div id="macro-areas-container" class="space-y-1">
+                            <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
+                            </p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-        </aside>
+                <!-- ═══ TAB: FINDER ═══ -->
+                <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
+                            <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
+                                class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
+                                oninput="window.performSuperSearch(this.value)">
+                            <button id="super-finder-clear" onclick="window.clearSuperFinder()"
+                                class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
+                            etichette,
+                            descrizioni, citazioni e fonti esterne.</p>
+                    </div>
 
-        <!-- Main Content -->
-        <main id="main-content"
-            class="w-full md:w-2/3 lg:w-3/4 h-2/3 md:h-screen relative overflow-hidden transition-all duration-600 ease-in-out bg-slate-50">
+                    <div id="super-finder-results" class="p-2 space-y-4">
+                        <div class="flex flex-col items-center justify-center py-20 text-slate-300">
+                            <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
+                            <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Sidebar Toggle (Top Left) -->
-            <div class="absolute top-6 left-6 z-[40]">
-                <button onclick="window.toggleSidebar()"
-                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
-                    title="Nascondi/Mostra Sidebar">
-                    <i data-lucide="panel-left-close" id="sidebar-toggle-icon" class="w-6 h-6"></i>
-                </button>
-            </div>
+                <!-- ═══ TAB: TUTOR AI ═══ -->
+                <div id="sidebar-panel-tutor" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3
+                                class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
+                            </h3>
+                            <button onclick="window.resetSidebarTutor()" class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
+                    </div>
+                    
+                    <!-- Chat History -->
+                    <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
+                        <!-- Initial message -->
+                        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
+                            <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
+                        </div>
+                    </div>
 
-            <!-- QUICK ACTIONS MENU (Bottom Left) -->
-            <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
-                <!-- Popover Menu -->
-                <div id="floating-actions-menu"
-                    class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
-                    <button onclick="window.exportNotesMarkdown()"
-                        class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
-                        title="Esporta Appunti MD">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> Esporta Appunti
+                    <!-- Input Area -->
+                    <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
+                                class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
+                            <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
+                                class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                                <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- ═══ TAB: NOTE ═══ -->
+                <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
+                    <div class="px-5 pt-5 pb-2">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
+                            <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
+                        </h3>
+                    </div>
+                    <div id="user-notes-container" class="space-y-3 px-5 pb-5">
+                        <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                            Modifica i
+                            nodi con doppio click per aggiungere appunti e immagini.</p>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: STUDIO ═══ -->
+                <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
+                    <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
+                        <!-- Pomodoro Timer -->
+                        <div
+                            class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+                                <span id="pomodoro-time"
+                                    class="font-bold text-slate-800 text-2xl font-mono tracking-wider">25:00</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="pomodoro-btn" onclick="window.togglePomodoro()"
+                                    class="px-4 py-2 bg-rose-50 text-rose-600 text-xs uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
+                                <button onclick="window.resetPomodoro()"
+                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
+                                    title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <!-- Statistiche Progresso -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
+                                    Mappa</span>
+                                <span id="study-progress-text"
+                                    class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
+                                <div id="study-progress-bar"
+                                    class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-xs font-bold">
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
+                                    <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Fatti</span>
+                                </div>
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
+                                    <span id="stats-review" class="text-amber-500 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Ripasso</span>
+                                </div>
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
+                                    <span id="stats-todo" class="text-red-400 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Sospesi</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Azioni Studio -->
+                        <div class="space-y-3 mt-2">
+                            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span
+                                        class="text-xs uppercase font-bold text-slate-400 tracking-widest">Investimento
+                                        Studio (AI Cost)</span>
+                                    <span id="total-cost-display"
+                                        class="text-xs font-bold text-indigo-600">$0.0000</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500">
+                                    <span>Token Totali:</span>
+                                    <span id="total-tokens-display" class="font-mono">0</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
+                                    <span>Modello Usato:</span>
+                                    <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
+                                </div>
+                            </div>
+
+                            <button onclick="window.generateGlobalFlashcards()"
+                                class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
+                            </button>
+                            <button onclick="window.generateGlobalQuiz()"
+                                class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
+                            </button>
+                            <button onclick="window.showAppTutorial()"
+                                class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="lightbulb" class="w-5 h-5"></i> Metodo Studio Attivo
+                            </button>
+                        </div>
+
+                        <!-- Set Flashcard Generati -->
+                        <div class="mt-4 border-t border-slate-200 pt-5">
+                            <h3
+                                class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                                <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
+                            </h3>
+                            <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
+                                    quiz
+                                    per visualizzarli qui.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- Main Content -->
+            <main id="main-content"
+                class="w-full md:w-2/3 lg:w-3/4 h-2/3 md:h-screen relative overflow-hidden transition-all duration-600 ease-in-out bg-slate-50">
+
+                <!-- Sidebar Toggle (Top Left) -->
+                <div class="absolute top-6 left-6 z-[40]">
+                    <button onclick="window.toggleSidebar()"
+                        class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                        title="Nascondi/Mostra Sidebar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            id="sidebar-toggle-icon" class="w-6 h-6">
+                            <rect width="18" height="18" x="3" y="3" rx="2" />
+                            <path d="M9 3v18" />
+                            <path d="m16 15-3-3 3-3" />
+                        </svg>
                     </button>
-                    <button onclick="window.exportGraph()"
-                        class="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-all"
-                        title="Salva JSON">
-                        <i data-lucide="download" class="w-4 h-4"></i> Salva Mappa
+                </div>
+
+                <!-- QUICK ACTIONS MENU (Bottom Left) -->
+                <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
+                    <!-- Popover Menu -->
+                    <div id="floating-actions-menu"
+                        class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
+                        <button onclick="window.exportNotesMarkdown()"
+                            class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
+                            title="Esporta Appunti MD">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="w-4 h-4">
+                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                                <path d="M10 9H8" />
+                                <path d="M16 13H8" />
+                                <path d="M16 17H8" />
+                            </svg> Esporta Appunti
+                        </button>
+                        <!-- SOTA: MARKDOWN VAULT ACTIONS -->
+                        <button onclick="window.saveMapVault()"
+                            class="w-full px-4 py-2.5 bg-indigo-600 text-white border border-indigo-500 rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-3 transition-all shadow-sm"
+                            title="Salva come Vault Markdown">
+                            <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
+                        </button>
+                        <button onclick="window.loadMapVault()"
+                            class="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-all"
+                            title="Apri Cartella Vault Markdown">
+                            <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
+                        </button>
+                        <label for="sidebar-merge"
+                            class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
+                            title="Unisci un altro JSON alla mappa corrente">
+                            <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
+                        </label>
+                        <input type="file" id="sidebar-merge" accept=".json" class="hidden"
+                            onchange="window.mergeGraph(event)">
+                        <div class="h-px bg-slate-100 my-1"></div>
+                        <button onclick="window.backToLanding()"
+                            class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
+                            title="Nuova Mappa">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
+                        </button>
+                    </div>
+
+                    <button onclick="event.stopPropagation(); window.toggleFloatingActions()"
+                        id="floating-actions-toggle"
+                        class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-indigo-600 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                        title="Azioni Rapide">
+                        <i data-lucide="log-out" class="w-6 h-6 group-hover:rotate-12 transition-transform"
+                            style="transform: scaleX(-1);"></i>
                     </button>
-                    <label for="sidebar-import"
-                        class="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 cursor-pointer mb-0 transition-all"
-                        title="Carica JSON">
-                        <i data-lucide="upload" class="w-4 h-4"></i> Carica Mappa
-                    </label>
-                    <input type="file" id="sidebar-import" accept=".json" class="hidden"
-                        onchange="window.importGraph(event)">
-                    <label for="sidebar-merge"
-                        class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
-                        title="Unisci un altro JSON alla mappa corrente">
-                        <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
-                    </label>
-                    <input type="file" id="sidebar-merge" accept=".json" class="hidden"
-                        onchange="window.mergeGraph(event)">
-                    <div class="h-px bg-slate-100 my-1"></div>
-                    <button onclick="window.backToLanding()"
-                        class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
-                        title="Nuova Mappa">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
+                </div>
+
+                <div id="d3-container"></div>
+
+
+
+                <!-- Control Card Fluttuante -->
+                <div
+                    class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
+
+                    <!-- Centra Vista -->
+                    <button onclick="window.resetZoom()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Centra e resetta la vista">
+                        <i data-lucide="maximize" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">CENTRA</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Riordina Vista -->
+                    <button onclick="window.riordinaMappa()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Riordina Layout Mappa">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">RIORDINA</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Toggle Layout -->
+                    <button id="card-btn-layout" onclick="window.toggleLayout()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Cambia Layout (Radiale / Separato / Orbit)">
+                        <i data-lucide="network" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">LAYOUT</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Pinning -->
+                    <button id="card-btn-physics" onclick="window.togglePhysics()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                        title="Pinning: Blocca Nodi">
+                        <i data-lucide="anchor" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">PIN</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Attrazione -->
+                    <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                        title="Attiva/Disattiva forze di attrazione tra nodi">
+                        <i data-lucide="magnet" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">ATTR</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Distanza Nodi -->
+                    <div class="flex flex-col items-center">
+                        <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
+                        <div class="flex gap-1">
+                            <button onclick="window.changeDistance(-1)"
+                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                    data-lucide="minus" class="w-4 h-4"></i></button>
+                            <button onclick="window.changeDistance(1)"
+                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                    data-lucide="plus" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Dimensione Testo Nodi -->
+                    <div class="flex flex-col items-center">
+                        <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Testo</span>
+                        <div class="flex gap-1">
+                            <button onclick="window.changeFontScale(-1)"
+                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                    data-lucide="minus" class="w-4 h-4"></i></button>
+                            <button onclick="window.changeFontScale(1)"
+                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                    data-lucide="plus" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Toggle Label -->
+                    <button id="card-btn-labels" onclick="window.toggleLabels()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Mostra/Nascondi Etichette Relazioni">
+                        <i data-lucide="tag" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">TESTO</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200"></div>
+
+                    <!-- Pathfinder -->
+                    <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
+                        <i data-lucide="route" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">PATH</span>
+                    </button>
+                    <div class="w-px h-8 bg-slate-200" id="dynamic-slider-divider"></div>
+
+                    <!-- Slider Filtro Densità (Solo KG) -->
+                    <div class="flex-col w-32 px-2 hidden" id="min-link-control">
+                        <div class="flex justify-between w-full mb-1">
+                            <span class="text-[9px] font-bold text-slate-500 uppercase">Min Link</span>
+                            <span id="filter-val-display"
+                                class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">0</span>
+                        </div>
+                        <input type="range" id="node-filter-slider" min="0" max="1" value="0"
+                            class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
+                    </div>
+
+                    <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
+                    <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
+                        <div class="flex justify-between w-full mb-1">
+                            <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
+                            <span id="level-slider-val"
+                                class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
+                        </div>
+                        <input type="range" id="level-slider" min="0" max="5" value="5"
+                            class="w-full accent-indigo-600 cursor-pointer"
+                            oninput="window.onLevelSliderInput(this.value)">
+                    </div>
+
+                    <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
+
+                    <!-- Snapshot -->
+                    <button onclick="window.exportSnapshot()"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Esporta Snapshot PNG della mappa">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">FOTO</span>
                     </button>
                 </div>
 
-                <button onclick="event.stopPropagation(); window.toggleFloatingActions()" id="floating-actions-toggle"
-                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-indigo-600 hover:bg-slate-50 transition-all focus:outline-none group relative"
-                    title="Azioni Rapide">
-                    <i data-lucide="log-out" class="w-6 h-6 group-hover:rotate-12 transition-transform"
-                        style="transform: scaleX(-1);"></i>
-                </button>
-            </div>
-
-            <div id="d3-container"></div>
-
-            <!-- Toggle A11y Panel -->
-            <button id="a11y-panel-toggle"
-                onclick="document.getElementById('a11y-panel').classList.toggle('hidden-panel')"
-                class="hidden absolute top-6 right-6 bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 z-[40]"
-                title="Strumenti Compensativi">
-                <i data-lucide="eye" class="w-6 h-6"></i>
-            </button>
-
-            <!-- A11y Panel per OpenDyslexic -->
-            <div id="a11y-panel" class="a11y-panel hidden-panel">
-                <span class="text-[10px] uppercase font-bold text-slate-400 mb-1">Strumenti Compensativi</span>
-                <button onclick="document.body.classList.toggle('a11y-invert'); this.classList.toggle('active')"
-                    class="a11y-btn"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
-                <button onclick="document.body.classList.toggle('a11y-low-contrast'); this.classList.toggle('active')"
-                    class="a11y-btn"><i data-lucide="contrast" class="w-4 h-4"></i> Riduci Contrasti</button>
-                <button onclick="document.body.classList.toggle('a11y-high-contrast'); this.classList.toggle('active')"
-                    class="a11y-btn"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
-                <button onclick="document.body.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
-                    class="a11y-btn"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
-                <button onclick="window.toggleMagnifier(); this.classList.toggle('active')"
-                    class="a11y-btn"><i data-lucide="search" class="w-4 h-4"></i> Lente Ingrandimento</button>
-            </div>
-
-            <!-- Control Card Fluttuante -->
-            <div
-                class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
-
-                <!-- Centra Vista -->
-                <button onclick="window.resetZoom()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Centra e resetta la vista">
-                    <i data-lucide="maximize" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">CENTRA</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Riordina Vista -->
-                <button onclick="window.riordinaMappa()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Riordina Layout Mappa">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">RIORDINA</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Toggle Layout -->
-                <button id="card-btn-layout" onclick="window.toggleLayout()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Cambia Layout (Radiale / Separato / Orbit)">
-                    <i data-lucide="network" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">LAYOUT</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Pinning -->
-                <button id="card-btn-physics" onclick="window.togglePhysics()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Pinning: Blocca Nodi">
-                    <i data-lucide="anchor" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">PIN</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Attrazione -->
-                <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Attiva/Disattiva forze di attrazione tra nodi">
-                    <i data-lucide="magnet" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">ATTR</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Distanza Nodi -->
-                <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
-                    <div class="flex gap-1">
-                        <button onclick="window.changeDistance(-1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="minus" class="w-4 h-4"></i></button>
-                        <button onclick="window.changeDistance(1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="plus" class="w-4 h-4"></i></button>
-                    </div>
+                <!-- Hint Modalità Linking / Pathfinder -->
+                <div id="mode-hint"
+                    class="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm hidden z-40 animate-bounce">
                 </div>
-                <div class="w-px h-8 bg-slate-200"></div>
+            </main>
+        </div>
 
-                <!-- Dimensione Testo Nodi -->
-                <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Testo</span>
-                    <div class="flex gap-1">
-                        <button onclick="window.changeFontScale(-1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="minus" class="w-4 h-4"></i></button>
-                        <button onclick="window.changeFontScale(1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="plus" class="w-4 h-4"></i></button>
-                    </div>
-                </div>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Toggle Label -->
-                <button id="card-btn-labels" onclick="window.toggleLabels()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Mostra/Nascondi Etichette Relazioni">
-                    <i data-lucide="tag" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">TESTO</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Pathfinder -->
-                <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
-                    <i data-lucide="route" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">PATH</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200" id="dynamic-slider-divider"></div>
-
-                <!-- Slider Filtro Densità (Solo KG) -->
-                <div class="flex-col w-32 px-2 hidden" id="min-link-control">
-                    <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase">Min Link</span>
-                        <span id="filter-val-display"
-                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">0</span>
-                    </div>
-                    <input type="range" id="node-filter-slider" min="0" max="1" value="0"
-                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
-                </div>
-
-                <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
-                <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
-                    <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
-                        <span id="level-slider-val"
-                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
-                    </div>
-                    <input type="range" id="level-slider" min="0" max="5" value="5"
-                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.onLevelSliderInput(this.value)">
-                </div>
-
-                <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
-
-                <!-- Snapshot -->
-                <button onclick="window.exportSnapshot()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta Snapshot PNG della mappa">
-                    <i data-lucide="camera" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">FOTO</span>
-                </button>
-            </div>
-
-            <!-- Hint Modalità Linking / Pathfinder -->
-            <div id="mode-hint"
-                class="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm hidden z-40 animate-bounce">
-            </div>
-        </main>
-    </div>
-
-    <!-- ==========================================
+        <!-- ==========================================
          MENÙ CONTESTUALE (Right Click)
          ========================================== -->
-    <div id="context-menu"
-        class="hidden bg-white shadow-2xl rounded-xl border border-slate-200 py-1 z-50 overflow-y-auto max-h-[85vh] w-56 modal-scroll">
-        <!-- Contenuto dinamico inserito dal JS -->
-    </div>
+        <div id="context-menu"
+            class="hidden bg-white shadow-2xl rounded-xl border border-slate-200 py-1 z-50 overflow-y-auto max-h-[85vh] w-56 modal-scroll">
+            <!-- Contenuto dinamico inserito dal JS -->
+        </div>
 
-    <!-- ==========================================
+        <!-- ==========================================
          MODALI E OVERLAYS
          ========================================== -->
 
-    <!-- Modal Popup per Fonti e Note (Source Modal) -->
-    <div id="source-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300"
-            id="source-modal-content-box">
+        <!-- Modal Popup per Fonti e Note (Source Modal) -->
+        <div id="source-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300"
+                id="source-modal-content-box">
 
-            <div id="source-modal-header"
-                class="flex items-center justify-between p-5 border-b border-slate-100 rounded-t-xl shrink-0 transition-colors">
-                <div class="flex items-center gap-3">
-                    <div id="source-modal-icon" class="p-2 rounded-lg text-current">
-                        <i data-lucide="book-open"></i>
+                <div id="source-modal-header"
+                    class="flex items-center justify-between p-5 border-b border-slate-100 rounded-t-xl shrink-0 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div id="source-modal-icon" class="p-2 rounded-lg text-current">
+                            <i data-lucide="book-open"></i>
+                        </div>
+                        <div>
+                            <div id="source-modal-kinship"
+                                class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
+                            <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
+                            <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
+                        </div>
                     </div>
-                    <div>
-                        <div id="source-modal-kinship"
-                            class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
-                        <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
-                        <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
-                    </div>
+                    <button onclick="window.closeSourceModal()"
+                        class="opacity-70 hover:opacity-100 p-1.5 rounded-full transition-opacity">
+                        <i data-lucide="x"></i>
+                    </button>
                 </div>
-                <button onclick="window.closeSourceModal()"
-                    class="opacity-70 hover:opacity-100 p-1.5 rounded-full transition-opacity">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
 
-            <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
-            <div id="modal-a11y-toolbar"
-                class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
-                <button
-                    onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
-                    class="tts-button" title="Attiva Riga Lettura"><i
-                        data-lucide="align-justify"></i></button>
-                <button id="btn-line-height" onclick="window.cycleLineHeight()"
-                    class="tts-button" title="Cambia Interlinea"><i
-                        data-lucide="move-vertical"></i></button>
-                <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)"
-                    class="tts-button" title="Attiva/Disattiva Sillabazione"><i
-                        data-lucide="split-square-horizontal"></i></button>
-                <button
-                    onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
-                    class="tts-button" title="Aumenta Spaziatura Caratteri"><i
-                        data-lucide="space"></i></button>
-                <div class="w-px h-6 bg-slate-200 mx-1"></div>
-                <button id="btn-text-zoom" onclick="window.cycleTextZoom()"
-                    class="tts-button" title="Zoom Testo"><i
-                        data-lucide="zoom-in"></i></button>
-                <button onclick="window.readModalAloud('source-modal')" class="tts-button" title="Leggi ad alta voce">
-                    <i data-lucide="volume-2"></i>
-                </button>
-            </div>
+                <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
+                <div id="modal-a11y-toolbar"
+                    class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
+                    <button id="btn-modal-ruler"
+                        onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
+                        class="tts-button" title="Riga di Lettura"><i data-lucide="align-justify"></i></button>
+                    <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
+                        title="Attiva/Desattiva Sillabazione"><i data-lucide="split-square-horizontal"></i></button>
+                    <button
+                        onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
+                        class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
+                    <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                    <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
+                        title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
+                    <button onclick="window.readModalAloud('source-modal')" class="tts-button"
+                        title="Leggi ad alta voce">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                </div>
 
-            <div lang="it" class="p-6 overflow-y-auto text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
-                <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
+                <div lang="it" class="p-6 overflow-y-auto text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
+                    <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modale Prompt Personalizzato -->
-    <div id="prompt-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
-            id="prompt-box">
-            <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title">Inserisci valore</h3>
-            <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
-            <input type="text" id="prompt-input"
-                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6">
-            <div class="flex justify-end gap-3">
-                <button id="prompt-cancel"
-                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
-                <button id="prompt-ok"
-                    class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
+        <!-- Modale Prompt Personalizzato -->
+        <div id="prompt-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+                id="prompt-box">
+                <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title">Inserisci valore</h3>
+                <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
+                <input type="text" id="prompt-input"
+                    class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6">
+                <div class="flex justify-end gap-3">
+                    <button id="prompt-cancel"
+                        class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
+                    <button id="prompt-ok"
+                        class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modale Selezione Numero Domande -->
-    <div id="selection-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2100] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 transform scale-95 transition-transform duration-200 text-center">
-            <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-100">
-                <i data-lucide="help-circle" class="w-8 h-8"></i>
+        <!-- Modale Selezione Numero Domande -->
+        <div id="selection-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+            <div
+                class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 transform scale-95 transition-transform duration-200 text-center">
+                <div
+                    class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-100">
+                    <i data-lucide="help-circle" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">Lunghezza del Quiz</h3>
+                <p class="text-sm text-slate-500 mb-8 font-medium">Quante domande vuoi affrontare in questa sessione?
+                </p>
+
+                <div class="grid grid-cols-3 gap-3 mb-8">
+                    <button onclick="window.confirmSelection(5)"
+                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
+                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">5</span>
+                        <span class="text-[10px] uppercase font-bold tracking-widest">Breve</span>
+                    </button>
+                    <button onclick="window.confirmSelection(15)"
+                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
+                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">15</span>
+                        <span class="text-[10px] uppercase font-bold tracking-widest">Medio</span>
+                    </button>
+                    <button onclick="window.confirmSelection(25)"
+                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
+                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">25</span>
+                        <span class="text-[10px] uppercase font-bold tracking-widest">Intenso</span>
+                    </button>
+                </div>
+
+                <button onclick="window.closeSelectionModal()"
+                    class="text-slate-400 text-[10px] uppercase font-bold tracking-widest hover:text-slate-600 transition">Annulla</button>
             </div>
-            <h3 class="text-xl font-bold text-slate-800 mb-2">Lunghezza del Quiz</h3>
-            <p class="text-sm text-slate-500 mb-8 font-medium">Quante domande vuoi affrontare in questa sessione?</p>
-            
-            <div class="grid grid-cols-3 gap-3 mb-8">
-                <button onclick="window.confirmSelection(5)" class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                    <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">5</span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest">Breve</span>
-                </button>
-                <button onclick="window.confirmSelection(15)" class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                    <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">15</span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest">Medio</span>
-                </button>
-                <button onclick="window.confirmSelection(25)" class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                    <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">25</span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest">Intenso</span>
-                </button>
-            </div>
-            
-            <button onclick="window.closeSelectionModal()" class="text-slate-400 text-[10px] uppercase font-bold tracking-widest hover:text-slate-600 transition">Annulla</button>
         </div>
-    </div>
 
-    <!-- Modale Istruzioni JSON Esterno -->
-    <div id="external-json-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div
-            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
-                <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa Mapp.AI con
-                    ChatGPT/Claude</h3>
-                <button onclick="window.closeExternalJSONModal()"
-                    class="hover:bg-white/20 p-1 rounded-lg transition-colors">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
-                <div>
-                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
-                        <pre id="external-prompt-text"
-                            class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per Mapp.AI.
+        <!-- Modale Istruzioni JSON Esterno -->
+        <div id="external-json-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div
+                class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
+                    <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa Mapp.AI con
+                        ChatGPT/Claude</h3>
+                    <button onclick="window.closeExternalJSONModal()"
+                        class="hover:bg-white/20 p-1 rounded-lg transition-colors">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
+                            <pre id="external-prompt-text"
+                                class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per Mapp.AI.
 Usa esattamente questo schema:
 {
   "nodes": [
@@ -973,279 +1263,300 @@ Usa esattamente questo schema:
   ]
 }
 Restituisci solo il JSON pulito.</pre>
-                        <button onclick="window.copyExternalPrompt()"
-                            class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
-                            <i data-lucide="copy" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
-                    <p class="text-xs text-slate-600 leading-relaxed">
-                        Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
-                            class="font-bold text-indigo-600">.json</span>.
-                        Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare la
-                        tua mappa!
-                    </p>
-                </div>
-                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                    <p class="text-xs text-amber-700 font-medium">
-                        💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere una
-                        mappa ricca di informazioni.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modale Confirm Personalizzato -->
-    <div id="confirm-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
-            id="confirm-box">
-            <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
-            <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
-            <div class="flex justify-end gap-3">
-                <button id="confirm-cancel"
-                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
-                <button id="confirm-ok"
-                    class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE EDITING NODO -->
-    <div id="edit-node-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-200"
-            id="edit-node-box">
-            <h3 class="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="edit-3"
-                    class="text-indigo-600"></i> Modifica Nodo</h3>
-            <style>
-                .node-icon-outline {
-                    filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
-                }
-            </style>
-            <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 modal-scroll">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Nodo (Label)</label>
-                    <input type="text" id="edit-n-label"
-                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-xs font-bold text-slate-500 uppercase">Contenuto Info</label>
-                        <button id="revert-ai-btn" onclick="window.revertToAIContent()"
-                            class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold uppercase tracking-wider hidden">Ripristina
-                            Testo AI</button>
-                    </div>
-                    <textarea id="edit-n-content" rows="4"
-                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Collegamenti (Web o
-                        File)</label>
-                    <div id="edit-n-urls-list" class="space-y-2 mb-3">
-                        <!-- Lista link qui -->
-                    </div>
-                    <div class="flex gap-2">
-                        <div class="relative flex-grow">
-                            <i data-lucide="link"
-                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                            <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
-                                class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="window.copyExternalPrompt()"
+                                class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
                         </div>
-                        <button onclick="window.handlePickLocalFileForEdit()"
-                            class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0 flex items-center gap-2 text-xs font-bold border border-slate-200 shadow-sm">
-                            <i data-lucide="folder-open" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="window.addLinkToNode()"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi</button>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
+                                class="font-bold text-indigo-600">.json</span>.
+                            Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare
+                            la
+                            tua mappa!
+                        </p>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                        <p class="text-xs text-amber-700 font-medium">
+                            💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere
+                            una
+                            mappa ricca di informazioni.
+                        </p>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Immagini</label>
-                    <div id="edit-n-images-list" class="grid grid-cols-4 gap-2 mb-3">
-                        <!-- Preview immagini qui -->
-                    </div>
-                    <div class="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <input type="url" id="edit-n-image-url-input" placeholder="URL Immagine (https://...)"
+            </div>
+        </div>
+
+        <!-- Modale Confirm Personalizzato -->
+        <div id="confirm-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+                id="confirm-box">
+                <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
+                <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
+                <div class="flex justify-end gap-3">
+                    <button id="confirm-cancel"
+                        class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
+                    <button id="confirm-ok"
+                        class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE EDITING NODO -->
+        <div id="edit-node-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-200"
+                id="edit-node-box">
+                <h3 class="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="edit-3"
+                        class="text-indigo-600"></i> Modifica Nodo</h3>
+                <style>
+                    .node-icon-outline {
+                        filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
+                    }
+                </style>
+                <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 modal-scroll">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Nodo (Label)</label>
+                        <input type="text" id="edit-n-label"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                        <div class="flex items-center gap-3">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">OPPURE</span>
-                            <input type="file" id="edit-n-image-file-input" accept="image/*"
-                                class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                                onchange="window.handleImageUploadForEdit(this)">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Contenuto Info</label>
+                            <button id="revert-ai-btn" onclick="window.revertToAIContent()"
+                                class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold uppercase tracking-wider hidden">Ripristina
+                                Testo AI</button>
                         </div>
-                        <button onclick="window.addImageToNode()"
-                            class="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi
-                            Immagine</button>
+                        <textarea id="edit-n-content" rows="4"
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                     </div>
-                </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Collegamenti (Web o
+                            File)</label>
+                        <div id="edit-n-urls-list" class="space-y-2 mb-3">
+                            <!-- Lista link qui -->
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="relative flex-grow">
+                                <i data-lucide="link"
+                                    class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                                <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
+                                    class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <button onclick="window.handlePickLocalFileForEdit()"
+                                class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0 flex items-center gap-2 text-xs font-bold border border-slate-200 shadow-sm">
+                                <i data-lucide="folder-open" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="window.addLinkToNode()"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Immagini</label>
+                        <div id="edit-n-images-list" class="grid grid-cols-4 gap-2 mb-3">
+                            <!-- Preview immagini qui -->
+                        </div>
+                        <div class="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <input type="url" id="edit-n-image-url-input" placeholder="URL Immagine (https://...)"
+                                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase">OPPURE</span>
+                                <input type="file" id="edit-n-image-file-input" accept="image/*"
+                                    class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                    onchange="window.handleImageUploadForEdit(this)">
+                            </div>
+                            <button onclick="window.addImageToNode()"
+                                class="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi
+                                Immagine</button>
+                        </div>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore Macroarea</label>
-                    <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <input type="color" id="edit-n-color"
-                            class="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 bg-transparent">
-                        <div class="text-[10px] text-slate-500 font-medium">
-                            Il cambio colore influirà su tutti i nodi appartenenti alla stessa macroarea.
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore Macroarea</label>
+                        <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <input type="color" id="edit-n-color"
+                                class="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 bg-transparent">
+                            <div class="text-[10px] text-slate-500 font-medium">
+                                Il cambio colore influirà su tutti i nodi appartenenti alla stessa macroarea.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-3">Visibilità
+                            modifiche</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <label
+                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                                <input type="checkbox" id="edit-vis-text"
+                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-600"></i>
+                            </label>
+                            <label
+                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                                <input type="checkbox" id="edit-vis-image"
+                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                <i data-lucide="image" class="w-3.5 h-3.5 text-slate-600"></i>
+                            </label>
+                            <label
+                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                                <input type="checkbox" id="edit-vis-link"
+                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                <i data-lucide="link" class="w-3.5 h-3.5 text-slate-600"></i>
+                            </label>
+                            <label
+                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                                <input type="checkbox" id="edit-vis-file"
+                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                <i data-lucide="database" class="w-3.5 h-3.5 text-slate-600"></i>
+                            </label>
                         </div>
                     </div>
                 </div>
-
-                <div class="pt-4 border-t border-slate-100">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-3">Visibilità modifiche</label>
-                    <div class="grid grid-cols-4 gap-2">
-                        <label
-                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                            <input type="checkbox" id="edit-vis-text"
-                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                            <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-600"></i>
-                        </label>
-                        <label
-                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                            <input type="checkbox" id="edit-vis-image"
-                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                            <i data-lucide="image" class="w-3.5 h-3.5 text-slate-600"></i>
-                        </label>
-                        <label
-                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                            <input type="checkbox" id="edit-vis-link"
-                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                            <i data-lucide="link" class="w-3.5 h-3.5 text-slate-600"></i>
-                        </label>
-                        <label
-                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                            <input type="checkbox" id="edit-vis-file"
-                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                            <i data-lucide="database" class="w-3.5 h-3.5 text-slate-600"></i>
-                        </label>
-                    </div>
+                <div class="mt-6 flex gap-3 justify-end">
+                    <button onclick="window.closeEditModal()"
+                        class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
+                    <button onclick="window.saveEditNode()"
+                        class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md">Salva
+                        Modifiche</button>
                 </div>
-            </div>
-            <div class="mt-6 flex gap-3 justify-end">
-                <button onclick="window.closeEditModal()"
-                    class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
-                <button onclick="window.saveEditNode()"
-                    class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md">Salva
-                    Modifiche</button>
             </div>
         </div>
-    </div>
 
-    <!-- Modale Espansione Contestuale IA -->
-    <div id="contextual-ai-extension-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-300 flex flex-col">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-2">
-                    <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="sparkles"></i></div>
-                    <div>
-                        <h3 class="font-bold text-xl text-slate-800">Espansione Contestuale IA</h3>
-                        <p class="text-xs text-slate-500 font-bold">Nodo: <span id="contextual-ai-node-title" class="text-indigo-600">...</span></p>
+        <!-- Modale Espansione Contestuale IA -->
+        <div id="contextual-ai-extension-modal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div
+                class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-300 flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="sparkles"></i></div>
+                        <div>
+                            <h3 class="font-bold text-xl text-slate-800">Espansione Contestuale IA</h3>
+                            <p class="text-xs text-slate-500 font-bold">Nodo: <span id="contextual-ai-node-title"
+                                    class="text-indigo-600">...</span></p>
+                        </div>
+                    </div>
+                    <button onclick="window.closeContextualAIModal()"
+                        class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
+                </div>
+
+                <div class="mb-4">
+                    <!-- Tab Selector -->
+                    <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
+                        <button id="tab-ctx-text" onclick="window.switchCtxTab('text')"
+                            class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Testo
+                            / URL</button>
+                        <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
+                            class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica
+                            PDF</button>
+                    </div>
+
+                    <!-- Panel: Text/URL -->
+                    <div id="ctx-panel-text" class="space-y-3">
+                        <p class="text-[11px] text-slate-500 italic">Incolla qui il contenuto o l'indirizzo web che l'IA
+                            deve usare per generare nuovi rami figli.</p>
+                        <textarea id="contextual-ai-input"
+                            class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400"
+                            placeholder="Incolla qui testo o URL..."></textarea>
+                    </div>
+
+                    <!-- Panel: PDF -->
+                    <div id="ctx-panel-pdf"
+                        class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                        <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
+                                class="w-8 h-8"></i></div>
+                        <div class="text-center">
+                            <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
+                            <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima
+                                dell'espansione.
+                            </p>
+                        </div>
+                        <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
+                            onchange="window.handleCtxPDFSelect(this)">
+                        <button onclick="document.getElementById('ctx-pdf-file').click()"
+                            class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli
+                            File</button>
+                        <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
                     </div>
                 </div>
-                <button onclick="window.closeContextualAIModal()"
-                    class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
-            </div>
 
-            <div class="mb-4">
-                <!-- Tab Selector -->
-                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
-                    <button id="tab-ctx-text" onclick="window.switchCtxTab('text')" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Testo / URL</button>
-                    <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica PDF</button>
+                <div class="flex gap-3 justify-end mt-4">
+                    <button onclick="window.closeContextualAIModal()"
+                        class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
+                    <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
+                        class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md flex items-center gap-2">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Espandi Nodo
+                    </button>
                 </div>
-
-                <!-- Panel: Text/URL -->
-                <div id="ctx-panel-text" class="space-y-3">
-                    <p class="text-[11px] text-slate-500 italic">Incolla qui il contenuto o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.</p>
-                    <textarea id="contextual-ai-input" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400" placeholder="Incolla qui testo o URL..."></textarea>
-                </div>
-
-                <!-- Panel: PDF -->
-                <div id="ctx-panel-pdf" class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                    <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text" class="w-8 h-8"></i></div>
-                    <div class="text-center">
-                        <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
-                        <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima dell'espansione.</p>
-                    </div>
-                    <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden" onchange="window.handleCtxPDFSelect(this)">
-                    <button onclick="document.getElementById('ctx-pdf-file').click()" class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli File</button>
-                    <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
-                </div>
-            </div>
-            
-            <div class="flex gap-3 justify-end mt-4">
-                <button onclick="window.closeContextualAIModal()"
-                    class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
-                <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
-                    class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md flex items-center gap-2">
-                    <i data-lucide="zap" class="w-4 h-4"></i> Espandi Nodo
-                </button>
             </div>
         </div>
-    </div>
 
-    <!-- Quiz / Flashcard Modal -->
-    <div id="quiz-modal"
-        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 transform scale-95 transition-transform duration-300 flex flex-col"
-            id="quiz-modal-content">
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-2">
-                    <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="brain-circuit"></i></div>
-                    <div>
-                        <h3 class="font-bold text-xl text-slate-800">Spaced Repetition</h3>
-                        <p class="text-xs text-slate-500 font-bold" id="quiz-node-title">Nodo</p>
+        <!-- Quiz / Flashcard Modal -->
+        <div id="quiz-modal"
+            class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 transform scale-95 transition-transform duration-300 flex flex-col"
+                id="quiz-modal-content">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="brain-circuit"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xl text-slate-800">Spaced Repetition</h3>
+                            <p class="text-xs text-slate-500 font-bold" id="quiz-node-title">Nodo</p>
+                        </div>
+                    </div>
+                    <button onclick="window.closeQuizModal()"
+                        class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
+                </div>
+
+                <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
+                    <!-- question injected here -->
+                </div>
+
+                <div id="quiz-options-container" class="space-y-3 mb-6">
+                    <!-- options injected here -->
+                </div>
+
+                <div id="quiz-feedback-container"
+                    class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
+                    <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
+                        id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
+                    <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
+                    <div class="flex gap-3" id="quiz-sr-buttons">
+                        <button
+                            class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
+                            onclick="window.processSRResponse('hard')">
+                            <span class="text-lg mb-1">😩</span>
+                            <span>Difficile</span>
+                            <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
+                        </button>
+                        <button
+                            class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
+                            onclick="window.processSRResponse('good')">
+                            <span class="text-lg mb-1">🤔</span>
+                            <span>Normale</span>
+                            <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
+                        </button>
+                        <button
+                            class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
+                            onclick="window.processSRResponse('easy')">
+                            <span class="text-lg mb-1">😎</span>
+                            <span>Facile</span>
+                            <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
+                        </button>
+                    </div>
+                    <div id="quiz-next-container" class="hidden">
+                        <button onclick="window.showNextSubQuestion()"
+                            class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
+                            <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
                     </div>
                 </div>
-                <button onclick="window.closeQuizModal()"
-                    class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
-            </div>
-
-            <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
-                <!-- question injected here -->
-            </div>
-
-            <div id="quiz-options-container" class="space-y-3 mb-6">
-                <!-- options injected here -->
-            </div>
-
-            <div id="quiz-feedback-container"
-                class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
-                <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
-                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
-                <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
-                <div class="flex gap-3" id="quiz-sr-buttons">
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('hard')">
-                        <span class="text-lg mb-1">😩</span>
-                        <span>Difficile</span>
-                        <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
-                    </button>
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('good')">
-                        <span class="text-lg mb-1">🤔</span>
-                        <span>Normale</span>
-                        <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
-                    </button>
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('easy')">
-                        <span class="text-lg mb-1">😎</span>
-                        <span>Facile</span>
-                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
-                    </button>
-                </div>
-                <div id="quiz-next-container" class="hidden">
-                    <button onclick="window.showNextSubQuestion()" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
-                         <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
             </div>
         </div>
     </div>
@@ -1256,36 +1567,96 @@ Restituisci solo il JSON pulito.</pre>
             <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible">
                 <style>
                     @keyframes breathe {
-                      0%, 100% { transform: scale(0.95); }
-                      50% { transform: scale(1.10); }
+
+                        0%,
+                        100% {
+                            transform: scale(0.95);
+                        }
+
+                        50% {
+                            transform: scale(1.10);
+                        }
                     }
+
                     @keyframes shakeBloom {
-                      0%  { transform: rotate(0deg) scale(1); }
-                      2%  { transform: rotate(-3deg) scale(1.02); }
-                      4%  { transform: rotate(3deg) scale(1.05); }
-                      6%  { transform: rotate(-3deg) scale(1.08); }
-                      8%  { transform: rotate(3deg) scale(1.1); }
-                      10% { transform: rotate(0deg) scale(1.12); }
-                      12% { transform: rotate(-3deg) scale(1.1); }
-                      14% { transform: rotate(3deg) scale(1.08); }
-                      16% { transform: rotate(-2deg) scale(1.05); }
-                      18% { transform: rotate(2deg) scale(1.02); }
-                      20% { transform: rotate(0deg) scale(1); }
-                      100% { transform: rotate(0deg) scale(1); }
+                        0% {
+                            transform: rotate(0deg) scale(1);
+                        }
+
+                        2% {
+                            transform: rotate(-3deg) scale(1.02);
+                        }
+
+                        4% {
+                            transform: rotate(3deg) scale(1.05);
+                        }
+
+                        6% {
+                            transform: rotate(-3deg) scale(1.08);
+                        }
+
+                        8% {
+                            transform: rotate(3deg) scale(1.1);
+                        }
+
+                        10% {
+                            transform: rotate(0deg) scale(1.12);
+                        }
+
+                        12% {
+                            transform: rotate(-3deg) scale(1.1);
+                        }
+
+                        14% {
+                            transform: rotate(3deg) scale(1.08);
+                        }
+
+                        16% {
+                            transform: rotate(-2deg) scale(1.05);
+                        }
+
+                        18% {
+                            transform: rotate(2deg) scale(1.02);
+                        }
+
+                        20% {
+                            transform: rotate(0deg) scale(1);
+                        }
+
+                        100% {
+                            transform: rotate(0deg) scale(1);
+                        }
                     }
+
                     .center-pulse {
-                      transform-origin: 100px 100px;
-                      animation: breathe 3s ease-in-out infinite;
+                        transform-origin: 100px 100px;
+                        animation: breathe 3s ease-in-out infinite;
                     }
+
                     .branch-node {
-                      transform-origin: 100px 100px;
-                      animation: shakeBloom 2.5s linear infinite;
+                        transform-origin: 100px 100px;
+                        animation: shakeBloom 2.5s linear infinite;
                     }
-                    .node-1 { animation-delay: 0s; }
-                    .node-3 { animation-delay: 0.5s; }
-                    .node-5 { animation-delay: 1.0s; }
-                    .node-2 { animation-delay: 1.5s; }
-                    .node-4 { animation-delay: 2.0s; }
+
+                    .node-1 {
+                        animation-delay: 0s;
+                    }
+
+                    .node-3 {
+                        animation-delay: 0.5s;
+                    }
+
+                    .node-5 {
+                        animation-delay: 1.0s;
+                    }
+
+                    .node-2 {
+                        animation-delay: 1.5s;
+                    }
+
+                    .node-4 {
+                        animation-delay: 2.0s;
+                    }
                 </style>
                 <g class="branch-node node-1">
                     <line x1="100" y1="100" x2="100" y2="30" stroke="#475569" stroke-width="2" />
@@ -1311,12 +1682,13 @@ Restituisci solo il JSON pulito.</pre>
             </svg>
         </div>
         <h2 class="text-xl font-bold text-slate-900 mb-2" id="loading-title">Mapp.AI sta elaborando...</h2>
-        <p class="text-slate-700 text-center max-w-md px-4 font-medium" id="loading-desc">Interpretazione delle fonti con Gemini</p>
+        <p class="text-slate-700 text-center max-w-md px-4 font-medium" id="loading-desc">Interpretazione delle fonti
+            con Gemini</p>
     </div>
 
     <!-- Modal AI Gemini -->
     <div id="ai-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col transform scale-95 transition-transform duration-300"
             id="ai-modal-content-box">
             <div
@@ -1333,8 +1705,7 @@ Restituisci solo il JSON pulito.</pre>
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button id="tts-button" onclick="window.toggleTTS()"
-                        class="tts-button" title="Leggi ad alta voce">
+                    <button id="tts-button" onclick="window.toggleTTS()" class="tts-button" title="Leggi ad alta voce">
                         <i data-lucide="volume-2"></i>
                     </button>
                     <button onclick="window.closeAIModal()"
@@ -1388,17 +1759,32 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
             <button onclick="window.closeConfigAIModal()"
                 class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
-            <h2 class="text-xl font-black text-slate-800 mb-5 flex items-center gap-2">
-                <i data-lucide="settings" class="text-indigo-500"></i> Configura AI
+            <h2 class="text-xl font-black text-slate-800 mb-2 flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <i data-lucide="settings" class="text-indigo-500"></i> <span id="modal-setup-title">Configura
+                        AI</span>
+                </span>
             </h2>
+            <div class="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="text-[10px] font-bold text-slate-400 uppercase ml-2"
+                    id="label-language-select">Lingua:</span>
+                <div class="flex gap-4 mr-2">
+                    <button type="button" onclick="window.changeLanguage('it')"
+                        class="text-[28px] hover:scale-110 transition-transform cursor-pointer grayscale opacity-40 hover:grayscale-0 hover:opacity-100 leading-none"
+                        id="lang-btn-it" title="Italiano">🇮🇹</button>
+                    <button type="button" onclick="window.changeLanguage('en')"
+                        class="text-[28px] hover:scale-110 transition-transform cursor-pointer grayscale opacity-40 hover:grayscale-0 hover:opacity-100 leading-none"
+                        id="lang-btn-en" title="English">🇬🇧</button>
+                </div>
+            </div>
             <div class="space-y-5">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">API Key (Google
-                        AI Studio)</label>
-                    <p class="text-xs text-slate-400 mb-2">La chiave verrà salvata localmente.
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider"
+                        id="label-api-key">API Key (Google AI Studio)</label>
+                    <p class="text-xs text-slate-400 mb-2" id="label-api-key-desc">La chiave verrà salvata localmente.
                         <button type="button" onclick="window.showAPITutorial()"
                             class="text-indigo-500 hover:text-indigo-700 underline inline-flex items-center gap-1"><i
-                                data-lucide="help-circle" class="w-3 h-3"></i> Come ottenerla?</button>
+                                data-lucide="help-circle" class="w-3 h-3"></i> <span id="label-api-key-how">Come ottenerla?</span></button>
                     </p>
                     <div class="relative">
                         <i data-lucide="key"
@@ -1410,11 +1796,12 @@ Restituisci solo il JSON pulito.</pre>
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Modello
-                            AI</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider"
+                            id="label-ai-model">Modello AI</label>
                         <button type="button" onclick="window.refreshGeminiModels()" id="refresh-models-btn"
                             class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1 transition-colors">
-                            <i data-lucide="refresh-cw" class="w-3 h-3" id="refresh-models-icon"></i> Aggiorna Modelli
+                            <i data-lucide="refresh-cw" class="w-3 h-3" id="refresh-models-icon"></i> <span
+                                id="label-refresh-models">Aggiorna Modelli</span>
                         </button>
                     </div>
                     <div class="relative">
@@ -1432,12 +1819,15 @@ Restituisci solo il JSON pulito.</pre>
                     <p id="models-status" class="text-[10px] text-slate-400 mt-1.5 italic hidden"></p>
                 </div>
                 <!-- Pricing Legend -->
-                <div
+                <div id="pricing-legend"
                     class="bg-indigo-50/60 border border-indigo-200/50 p-3 rounded-xl text-[11px] text-slate-600 space-y-1.5">
-                    <p><strong>🆓 Gratuito:</strong> Fino a 15 req/min e 1.500/giorno. Ottimo per iniziare.</p>
-                    <p><strong>💰 A pagamento:</strong> Nessun limite. Costo tipico per mappa/KG: <strong>5–10 cent
+                    <p id="pricing-free"><strong>🆓 Gratuito:</strong> Fino a 15 req/min e 1.500/giorno. Ottimo per
+                        iniziare.</p>
+                    <p id="pricing-paid"><strong>💰 A pagamento:</strong> Nessun limite. Costo tipico per mappa/KG:
+                        <strong>5–10 cent
                             €/CHF</strong>.</p>
-                    <p class="text-[10px] text-slate-400 italic">Inserisci la API Key e clicca "Aggiorna Modelli" per
+                    <p id="pricing-note" class="text-[10px] text-slate-400 italic">Inserisci la API Key e clicca
+                        "Aggiorna Modelli" per
                         vedere tutti i modelli disponibili con costi e formati supportati.</p>
                 </div>
             </div>
@@ -1451,87 +1841,20 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
                 <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="brain-circuit" class="text-indigo-500"></i> Metodo di Studio Attivo
+                    <i data-lucide="brain-circuit" class="text-indigo-500"></i> <span id="modal-study-title-label">Metodo di Studio Attivo</span>
                 </h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')" class="tts-button" title="Attiva Riga Lettura">
-                        <i data-lucide="align-justify"></i>
-                    </button>
-                    <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button" title="Leggi ad alta voce">
+                    <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button"
+                        title="Leggi ad alta voce">
                         <i data-lucide="volume-2"></i>
                     </button>
                     <button onclick="window.closeAppTutorial()" class="text-slate-400 hover:text-slate-700 p-1"><i
                             data-lucide="x"></i></button>
                 </div>
             </div>
-            <div class="p-6 pt-4 overflow-y-auto modal-scroll space-y-4 text-sm text-slate-600">
-                <p>Mapp.AI non è solo un generatore di schemi: è un <strong>ambiente di apprendimento attivo</strong>.
-                    La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.
-                </p>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔁</span> Ripasso Dilazionato (Spaced Repetition)
-                    </h3>
-                    <p class="text-xs text-slate-600">Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli
-                        crescenti (1g → 3g → 7g → 14g). Mapp.AI integra un sistema di ripetizione spaziata: usa il tasto
-                        destro sui nodi per generare e ripassare le flashcard!</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🧠</span> Active Recall (Richiamo Attivo)
-                    </h3>
-                    <p class="text-xs text-slate-600">Non rileggere passivamente: <strong>chiudi gli appunti</strong> e
-                        prova a riscrivere cosa ricordi. Fai doppio click su un nodo della mappa, svuota il contenuto e
-                        riscrivi con parole tue. L'atto di recuperare dalla memoria è 2–3x più efficace della rilettura.
-                    </p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">👨‍🏫</span> Metodo Feynman
-                    </h3>
-                    <p class="text-xs text-slate-600">Spiega ogni concetto <strong>come se lo stessi insegnando a un
-                            bambino di 10 anni</strong>. Se non riesci a farlo senza intoppi, hai trovato il tuo punto
-                        debole. Usa i nodi della mappa per riscrivere le spiegazioni finché non diventano chiare e
-                        lineari.</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔀</span> Interleaving (Studio Alternato)
-                    </h3>
-                    <p class="text-xs text-slate-600">Alterna argomenti diversi nella stessa sessione di studio, invece
-                        di dedicarti a uno solo. Il cervello impara a <strong>distinguere e collegare</strong> i
-                        concetti. Usa il Knowledge Graph per visualizzare i legami trasversali tra temi!</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">❓</span> Interrogazione Elaborativa
-                    </h3>
-                    <p class="text-xs text-slate-600">Per ogni nodo della mappa chiediti: <strong>"Perché funziona
-                            così?"</strong> e <strong>"Come si collega al resto?"</strong>. Questo livello di
-                        auto-interrogazione trasforma la lettura passiva in comprensione profonda.</p>
-                </div>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">📂</span> Collegamento File Locali
-                    </h3>
-                    <p class="text-xs text-slate-600">Hai degli approfondimenti sul computer? Trascina file o clicca sul
-                        nodo per collegare documenti locali (PDF, immagini, file di testo). I nodi con file collegati
-                        mostrano l'icona del database <i data-lucide="database" class="w-3 h-3 inline"></i> per un
-                        accesso istantaneo alle tue risorse offline.</p>
-                </div>
-
-                <p class="font-bold text-indigo-600 mt-4 text-center">I nodi modificati ricevono icone speciali: <i
-                        data-lucide="pencil" class="w-4 h-4 inline-block mb-1"></i> (testo), <i data-lucide="image"
-                        class="w-4 h-4 inline-block mb-1"></i> (immagini), <i data-lucide="link"
-                        class="w-4 h-4 inline-block mb-1"></i> (link) e <i data-lucide="database"
-                        class="w-4 h-4 inline-block mb-1"></i> (file locali). Più personalizzi, più il tuo studio
-                    diventa efficace!</p>
+            <div id="study-modal-content"
+                class="p-6 pt-4 overflow-y-auto modal-scroll space-y-4 text-sm text-slate-600">
+                <!-- Content injected dynamically via translation system -->
             </div>
         </div>
     </div>
@@ -1543,85 +1866,20 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
                 <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="book-open" class="text-indigo-500"></i> Come usare Mapp.AI
+                    <i data-lucide="book-open" class="text-indigo-500"></i> <span id="modal-guide-title-label">Come usare Mapp.AI</span>
                 </h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')" class="tts-button" title="Attiva Riga Lettura">
-                        <i data-lucide="align-justify"></i>
-                    </button>
-                    <button onclick="window.readModalAloud('app-guide-modal')" class="tts-button" title="Leggi ad alta voce">
+                    <button onclick="window.readModalAloud('app-guide-modal')" class="tts-button"
+                        title="Leggi ad alta voce">
                         <i data-lucide="volume-2"></i>
                     </button>
                     <button onclick="window.closeAppGuide()" class="text-slate-400 hover:text-slate-700 p-1"><i
                             data-lucide="x"></i></button>
                 </div>
             </div>
-            <div class="p-6 pt-4 overflow-y-auto modal-scroll space-y-5 text-sm text-slate-600">
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2">📌 Passo 1 — Configura la tua API Key</h3>
-                    <p class="text-xs text-slate-600">Clicca il bottone <strong>"Configura AI"</strong> in alto a
-                        destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i
-                        modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2">📂 Passo 2 — Carica le tue Fonti</h3>
-                    <p class="text-xs text-slate-600 space-y-1">
-                        Puoi caricare materiale da diverse fonti:<br>
-                        <strong>📄 PDF</strong> — Carica un file PDF dal tuo computer.<br>
-                        <strong>🌐 URL Web</strong> — Incolla l'indirizzo di una pagina web.<br>
-                        <strong>🎬 YouTube</strong> — Incolla il link di un video YouTube.<br>
-                        <strong>📝 Testo Libero</strong> — Scrivi o incolla del testo direttamente.
-                    </p>
-                </div>
-
-                <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4">
-                    <h3 class="font-black text-fuchsia-700 text-sm mb-2">🎯 Passo 3 — Scegli il tipo di Mappa</h3>
-                    <p class="text-xs text-slate-600"><strong>Mappa Mentale:</strong> Struttura gerarchica (L0→L5)
-                        perfetta per lo studio. Ogni nodo ha un ruolo preciso.<br>
-                        <strong>Knowledge Graph:</strong> Rete di relazioni tra concetti, ideale per visualizzare
-                        connessioni trasversali.
-                    </p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2">✍️ Passo 4 — Personalizza e Guida l'AI</h3>
-                    <p class="text-xs text-slate-600">Scrivi il nome del <strong>Nodo Centrale</strong> (l'argomento
-                        principale). Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus
-                        specifico e regolare la densità delle diramazioni profonde.</p>
-                </div>
-
-                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <h3 class="font-black text-violet-700 text-sm mb-2">🗺️ Passo 5 — Interagisci con la Mappa</h3>
-                    <p class="text-xs text-slate-600 space-y-1">
-                        Una volta generata la mappa puoi:<br>
-                        <strong>🖱️ Doppio click</strong> su un nodo — Apri il pannello per leggere, modificare note e
-                        aggiungere immagini.<br>
-                        <strong>🔍 Scroll</strong> — Zoom in/out sulla mappa.<br>
-                        <strong>✋ Drag</strong> — Trascina i nodi per riorganizzarli.<br>
-                        <strong>📌 Click destro</strong> — Menu contestuale con opzioni avanzate (quiz, espansione,
-                        flashcard).<br>
-                        <strong>🔒 Fissa i nodi</strong> — Usa il bottone "Pin" nella toolbar per bloccare le posizioni.
-                    </p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2">💾 Passo 6 — Salva e Riprendi</h3>
-                    <p class="text-xs text-slate-600">Le mappe vengono <strong>salvate automaticamente</strong> nella
-                        cartella "Salvataggi Mapp.AI" dentro Documenti. Puoi importare/esportare i file JSON per
-                        condividerli. I progetti recenti appaiono nella barra in fondo alla landing page.</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2">📓 Raccoglitore Appunti</h3>
-                    <p class="text-xs text-slate-600">Nella <strong>sidebar laterale</strong> trovi il Raccoglitore
-                        Appunti: visualizza tutte le note e immagini che hai aggiunto ai nodi. È il tuo quaderno
-                        digitale collegato direttamente alla mappa!</p>
-                </div>
-
-                <p class="text-center text-xs text-slate-400 italic pt-2">Mapp.AI salva tutto localmente sul tuo Mac. I
-                    tuoi dati non lasciano mai il tuo dispositivo.</p>
+            <div id="guide-modal-content"
+                class="p-6 pt-4 overflow-y-auto modal-scroll space-y-5 text-sm text-slate-600">
+                <!-- Content injected dynamically via translation system -->
             </div>
         </div>
     </div>
@@ -1634,7 +1892,15 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
             <div class="p-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
                 <h2 id="merge-modal-title" class="text-lg font-bold flex items-center gap-2">
-                    <i data-lucide="merge" class="w-5 h-5"></i> Unisci Mappa
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-merge">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 2v4" />
+                        <path d="M12 18v4" />
+                        <path d="M2 12h4" />
+                        <path d="M18 12h4" />
+                    </svg> Unisci Mappa
                 </h2>
                 <p class="text-amber-100 text-xs mt-1">Stai per aggiungere una nuova mappa alla vista corrente.</p>
             </div>
@@ -1708,6 +1974,8 @@ Restituisci solo il JSON pulito.</pre>
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
+    <script src="traduzioni/it_translations.js"></script>
+    <script src="traduzioni/en_translations.js"></script>
     <script src="js/hypher.js"></script>
     <script src="js/it.js"></script>
     <script src="js/app.js"></script>
@@ -1732,11 +2000,53 @@ Restituisci solo il JSON pulito.</pre>
                 }
             }, 600);
         }
+
+        // Forza render icone Lucide per Drawer
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, 500);
+        });
     </script>
 
     <!-- LENTE DI INGRANDIMENTO -->
     <div id="magnifier-lens">
         <div id="magnifier-content"></div>
+    </div>
+    <!-- Global A11y Panel Toggle -->
+    <button id="a11y-panel-toggle" onclick="document.getElementById('a11y-panel').classList.toggle('hidden-panel')"
+        class="fixed top-6 right-6 bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 z-[999999]"
+        title="Strumenti Compensativi">
+        <i data-lucide="eye" class="w-6 h-6"></i>
+    </button>
+
+    <!-- A11y Panel per OpenDyslexic (Global) -->
+    <div id="a11y-panel" class="a11y-panel hidden-panel">
+        <span class="text-[10px] uppercase font-bold text-slate-400 mb-1">Strumenti Visivi</span>
+        <button onclick="document.documentElement.classList.toggle('a11y-invert'); this.classList.toggle('active')"
+            class="a11y-btn"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
+        <button
+            onclick="document.documentElement.classList.toggle('a11y-low-contrast'); this.classList.toggle('active')"
+            class="a11y-btn"><i data-lucide="contrast" class="w-4 h-4"></i> Riduci Contrasti</button>
+        <button
+            onclick="document.documentElement.classList.toggle('a11y-high-contrast'); this.classList.toggle('active')"
+            class="a11y-btn"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
+        <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
+            class="a11y-btn"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
+        <button onclick="window.cycleLineHeight()" class="a11y-btn"><i data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
+
+        <span class="text-[10px] uppercase font-bold text-slate-400 mb-1 mt-2">Strumenti di Lettura</span>
+        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="a11y-btn"><i
+                data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
+        <button
+            onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
+            class="a11y-btn"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
+        <button id="btn-text-zoom-panel" onclick="window.cycleTextZoom()" class="a11y-btn"><i data-lucide="zoom-in"
+                class="w-4 h-4"></i> Testo x1</button>
+        <button onclick="window.toggleMagnifier(); this.classList.toggle('active')" class="a11y-btn"><i
+                data-lucide="search" class="w-4 h-4"></i> Lente Ingrandimento</button>
     </div>
 </body>
 
