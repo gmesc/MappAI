@@ -992,7 +992,11 @@ window.fetchModelAPI = async function (payload, apiKey) {
     const modelEl = document.getElementById('model-select');
     let model = modelEl ? modelEl.value : null;
     if (!model) {
-        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral24b');
+        const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+        model = localStorage.getItem(storageKey);
+    }
+    if (!model) {
+        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-nemo');
     }
 
     if (window.electronAPI) {
@@ -3225,7 +3229,9 @@ window.saveMapVault = async function () {
                 nodes: appState.db.nodes,
                 links: appState.db.links,
                 userProfile: appState.userProfile,
-                tutorState: tutorState
+                tutorState: tutorState,
+                aiProvider: appState.aiProvider,
+                aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model')
             }
         });
 
@@ -6658,6 +6664,19 @@ window.directLoadVault = async function (folderPath) {
             if (loadRes.data.tutorState) {
                 tutorState = loadRes.data.tutorState;
             }
+            
+            // Ripristina AI Provider e Modello se presenti
+            if (loadRes.data.aiProvider) {
+                appState.aiProvider = loadRes.data.aiProvider;
+                localStorage.setItem('ai_provider', appState.aiProvider);
+                if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+            }
+            if (loadRes.data.aiModel) {
+                const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+                localStorage.setItem(storageKey, loadRes.data.aiModel);
+            }
+            // Forza il refresh dei modelli per popolare la tendina e selezionare quello corretto
+            if (window.refreshGeminiModels) window.refreshGeminiModels();
 
             // Ricostruisci sourcesDict
             appState.db.nodes.forEach(n => {
@@ -6682,13 +6701,11 @@ window.directLoadVault = async function (folderPath) {
     }
 };
 
-// Initialization
-(function initProfile() {
-    const saved = localStorage.getItem('mapp_user_profile');
-    if (saved) {
-        try {
-            appState.userProfile = JSON.parse(saved);
-        } catch (e) { }
-    }
+    // Inizializza i modelli all'avvio se c'è una chiave
+    setTimeout(() => {
+        if (window.getSystemKey && window.getSystemKey()) {
+            if (window.refreshGeminiModels) window.refreshGeminiModels();
+        }
+    }, 1000);
 })();
 

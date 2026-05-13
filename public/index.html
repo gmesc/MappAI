@@ -1456,7 +1456,7 @@ Restituisci solo il JSON pulito.</pre>
     <!-- MODALE EDITING NODO -->
     <div id="edit-node-modal"
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-200"
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 transform scale-95 transition-transform duration-200"
             id="edit-node-box">
             <h3 class="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="edit-3"
                     class="text-indigo-600"></i> Modifica Nodo</h3>
@@ -1464,8 +1464,11 @@ Restituisci solo il JSON pulito.</pre>
                 .node-icon-outline {
                     filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
                 }
+                #edit-node-modal label {
+                    letter-spacing: 0.1em;
+                }
             </style>
-            <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 modal-scroll">
+            <div class="space-y-6 max-h-[70vh] overflow-y-auto pr-4 modal-scroll">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Nodo (Label)</label>
                     <input type="text" id="edit-n-label"
@@ -1499,7 +1502,7 @@ Restituisci solo il JSON pulito.</pre>
                             <i data-lucide="folder-open" class="w-4 h-4"></i>
                         </button>
                         <button onclick="window.addLinkToNode()"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi</button>
+                            class="px-8 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-black text-[11px] uppercase tracking-widest shadow-md shrink-0">Aggiungi</button>
                     </div>
                 </div>
                 <div>
@@ -1510,10 +1513,10 @@ Restituisci solo il JSON pulito.</pre>
                     <div class="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                         <input type="url" id="edit-n-image-url-input" placeholder="URL Immagine (https://...)"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                        <div class="flex items-center gap-3">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase">OPPURE</span>
+                        <div class="flex items-center gap-4 py-1">
+                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter whitespace-nowrap bg-slate-100 px-2 py-1 rounded">OPPURE</span>
                             <input type="file" id="edit-n-image-file-input" accept="image/*"
-                                class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                class="flex-grow text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:font-black file:text-[10px] file:uppercase file:tracking-wider file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer transition-all"
                                 onchange="window.handleImageUploadForEdit(this)">
                         </div>
                         <button onclick="window.addImageToNode()"
