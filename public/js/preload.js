@@ -2,7 +2,9 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     generateGemini: (data) => ipcRenderer.invoke('generate-gemini', data),
+    generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', data),
     listModels: (data) => ipcRenderer.invoke('list-models', data),
+    listInfomaniakModels: (data) => ipcRenderer.invoke('list-infomaniak-models', data),
     saveMapJSON: (mapData) => ipcRenderer.invoke('save-map-json', mapData),
     openSaveFolder: () => ipcRenderer.invoke('open-save-folder'),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
@@ -15,5 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
     pickFolder: () => ipcRenderer.invoke('pick-folder'),
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
-    getAllVaults: () => ipcRenderer.invoke('get-all-vaults')
+    getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
+    loadPrompts: () => ipcRenderer.invoke('load-prompts'),
+    savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });

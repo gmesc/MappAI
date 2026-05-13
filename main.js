@@ -14,7 +14,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        title: "MappAI",
+        title: "MappAI Swiss",
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -48,49 +48,141 @@ ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
         try { fs.writeFileSync(statusPath, JSON.stringify({ ...data, timestamp: Date.now() })); } catch(e) {}
     };
 
-    updateStatus({ state: 'started', model: model || 'gemini-2.0-flash', message: 'Richiesta inviata a Google...' });
+    const modelName = model || "gemini-2.0-flash";
+    updateStatus({ state: 'started', model: modelName, message: 'Richiesta inviata a Google...' });
 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+    try {
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 600000 // 10 minutes timeout for complex maps
+        });
+        
+        updateStatus({ state: 'completed' });
+        return response.data;
+    } catch (error) {
+        let errorMsg = error.message;
+        if (error.response && error.response.data) {
+            errorMsg = JSON.stringify(error.response.data);
+        }
+        updateStatus({ state: 'error', message: errorMsg });
+        throw new Error(errorMsg);
+    }
+});
+
+// IPC handler for proxying Infomaniak requests
+ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId }) => {
+    // Infomaniak endpoint: https://api.infomaniak.com/2/ai/{product_id}/openai/v1/chat/completions
+    const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/chat/completions`;
+
+    try {
+        // Forza stream per bypassare il Gateway Timeout
+        payload.stream = true;
+
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            responseType: 'stream'
+        });
+
+        return new Promise((resolve, reject) => {
+            let fullText = '';
+            let lastChunk = null;
+
+            response.data.on('data', (chunk) => {
+                const lines = chunk.toString().split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6);
+                        if (dataStr.trim() === '[DONE]') continue;
+                        try {
+                            const dataObj = JSON.parse(dataStr);
+                            lastChunk = dataObj;
+                            if (dataObj.choices && dataObj.choices[0].delta && dataObj.choices[0].delta.content) {
+                                fullText += dataObj.choices[0].delta.content;
+                            }
+                        } catch (e) {
+                            // ignora errori di parsing parziali
+                        }
+                    }
+                }
+            });
+
+            response.data.on('end', () => {
+                // Ricostruisci il formato standard atteso da InfomaniakBridge
+                resolve({
+                    id: lastChunk?.id || 'stream',
+                    object: 'chat.completion',
+                    created: lastChunk?.created || Math.floor(Date.now() / 1000),
+                    model: lastChunk?.model || payload.model,
+                    choices: [
+                        {
+                            index: 0,
+                            message: {
+                                role: 'assistant',
+                                content: fullText
+                            },
+                            finish_reason: lastChunk?.choices?.[0]?.finish_reason || 'stop'
+                        }
+                    ],
+                    usage: lastChunk?.usage || {}
+                });
+            });
+
+            response.data.on('error', (err) => {
+                reject(new Error(err.message));
+            });
+        });
+
+    } catch (error) {
+        let errorMsg = error.message;
+        if (error.response && error.response.data) {
+            // Se responseType è 'stream', error.response.data è uno stream e non può essere serializzato
+            errorMsg = `Infomaniak Error (${error.response.status}): ${error.response.statusText}`;
+        }
+        console.error("Infomaniak API Error:", errorMsg);
+        throw new Error(errorMsg);
+    }
+});
+
+// IPC handler for listing available Infomaniak models
+ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {
-        const modelName = model || "gemini-2.0-flash";
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/models`;
 
         const req = https.request(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json' 
             }
         }, (res) => {
-            updateStatus({ state: 'processing', model: modelName, message: 'Ricezione dati in corso...', statusCode: res.statusCode });
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
-                        updateStatus({ state: 'completed' });
-                        resolve(JSON.parse(data));
+                        const parsed = JSON.parse(data);
+                        const models = (parsed.data || []).map(m => ({
+                            id: m.id,
+                            displayName: m.id + ' (Swiss AI)',
+                            kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
+                        }));
+                        resolve(models);
                     } catch(e) {
-                        updateStatus({ state: 'error', message: 'Errore parsing JSON' });
-                        reject(new Error("Errore parsing API Response JSON"));
+                        reject(new Error("Errore parsing lista modelli Infomaniak"));
                     }
                 } else {
-                    updateStatus({ state: 'error', message: `Errore Server ${res.statusCode}` });
-                    reject(new Error(`Errore Server ${res.statusCode}: ${data}`));
+                    reject(new Error(`Errore Server Infomaniak ${res.statusCode}: ${data}`));
                 }
             });
         });
 
-        req.on('error', (e) => {
-            updateStatus({ state: 'error', message: e.message });
-            reject(e);
-        });
-        
-        req.setTimeout(300000, () => {
-             updateStatus({ state: 'timeout' });
-             req.abort();
-             reject(new Error("Timeout server Google"));
-        });
-
-        req.write(JSON.stringify(payload));
+        req.on('error', (e) => reject(e));
+        req.setTimeout(30000, () => { req.abort(); reject(new Error("Timeout API Infomaniak")); });
         req.end();
     });
 });
@@ -132,6 +224,15 @@ ipcMain.handle('list-models', async (event, { apiKey }) => {
         req.setTimeout(30000, () => { req.abort(); reject(new Error("Timeout")); });
         req.end();
     });
+});
+
+ipcMain.handle('open-external', async (event, url) => {
+    try {
+        await shell.openExternal(url);
+        return { success: true };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 });
 
 // IPC Handler to save JSON automatically
@@ -572,6 +673,43 @@ ipcMain.handle('fetch-url', async (event, url) => {
         }
         
         return { success: true, text: text.replace(/\s+/g, ' ').trim().substring(0, 50000) };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to load prompts configuration
+ipcMain.handle('load-prompts', async () => {
+    try {
+        const userDataPath = app.getPath('userData');
+        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
+        
+        if (fs.existsSync(userPromptsPath)) {
+            const data = fs.readFileSync(userPromptsPath, 'utf-8');
+            return { success: true, data: JSON.parse(data) };
+        }
+        
+        // Fallback to default bundled prompts
+        const defaultPromptsPath = path.join(__dirname, 'prompts_config.json');
+        if (fs.existsSync(defaultPromptsPath)) {
+            const data = fs.readFileSync(defaultPromptsPath, 'utf-8');
+            return { success: true, data: JSON.parse(data) };
+        }
+        
+        return { success: false, error: 'File not found' };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to save prompts configuration
+ipcMain.handle('save-prompts', async (event, promptsData) => {
+    try {
+        const userDataPath = app.getPath('userData');
+        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
+        
+        fs.writeFileSync(userPromptsPath, JSON.stringify(promptsData, null, 4), 'utf-8');
+        return { success: true };
     } catch (err) {
         return { success: false, error: err.message };
     }

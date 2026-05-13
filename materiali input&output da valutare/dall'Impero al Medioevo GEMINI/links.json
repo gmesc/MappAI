@@ -1,0 +1,1302 @@
+[
+  {
+    "source": "ROOT",
+    "target": "L1_0",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_1",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_2",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_3",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_4",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_POPOLI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_IMPATTO_ROMANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_NUOVI_REGNI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_TERMINE_BARBARO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI_L4_AGRICOLTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI_L4_ALLEVAMENTO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI_L4_SOSTENTAMENTO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI_L4_CLIMA_MITE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_TERRE_FERTILI",
+    "target": "L1_1_L2_CAUSE_L3_TERRE_FERTILI_L4_ABBANDONO_TERRE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA_L4_GUERRE_INTERNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA_L4_MINACCE_ESTERNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA_L4_PROTEZIONE_ROMANA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA_L4_STABILITA_POLITICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_SICUREZZA",
+    "target": "L1_1_L2_CAUSE_L3_SICUREZZA_L4_RIFUGIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_GOTI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI_L4_VISIGOTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_GOTI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI_L4_OSTROGOTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_GOTI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI_L4_SACC_ROMA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_GOTI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI_L4_TEODORICO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_GOTI",
+    "target": "L1_1_L2_POPOLI_L3_GOTI_L4_ORIGINE_GOTICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI_L4_CLODOVEO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI_L4_REGNO_FRANCO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI_L4_ALLEANZA_CHIESA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI_L4_LINGUA_FRANCA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_FRANCHI",
+    "target": "L1_1_L2_POPOLI_L3_FRANCHI_L4_ESPANSIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_VANDALI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI_L4_REGNO_AFRICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_VANDALI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI_L4_FLOTTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_VANDALI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI_L4_SACC_ROMA_455",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_VANDALI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI_L4_PERSECUZIONI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_VANDALI",
+    "target": "L1_1_L2_POPOLI_L3_VANDALI_L4_FINE_REGNO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI_L4_ARRIVO_ITALIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI_L4_REGNO_LONGOBARDO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI_L4_CAPITALE_PAVIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI_L4_CONVERSIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_LONGOBARDI",
+    "target": "L1_1_L2_POPOLI_L3_LONGOBARDI_L4_EDITTO_ROTARI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_ALTRI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI_L4_BURGUNDI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_ALTRI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI_L4_ALAMANNI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_ALTRI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI_L4_SUEBI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_ALTRI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI_L4_ANGLI_SASSONI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_POPOLI_L3_ALTRI",
+    "target": "L1_1_L2_POPOLI_L3_ALTRI_L4_ERULI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE_L4_VALLO_ADRIANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE_L4_DANUBIO_RENO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE_L4_COSTI_DIFESA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE_L4_GUERRE_CONTINUE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CONFINE_L4_PERDITA_CONTROLLO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI_L4_SOLDATI_PAGATI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI_L4_ALTI_GRADI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI_L4_MANCANZA_CITTADINI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI_L4_ODOACRE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_MERCENARI_L4_DOPPIA_LEALTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA_L4_PERDITA_FUNZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA_L4_ABBANDONO_MONUMENTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA_L4_RIFUGIO_CAMPAGNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA_L4_ECONOMIA_CURTENSE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_CITTA_L4_CENTRI_LOCALI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO_L4_ROMOLO_AUGUSTOLO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO_L4_ODOACRE_RE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO_L4_DATA_SIMBOLICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO_L4_AUTORITA_ITALIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_FINE_IMPERO_L4_CRISI_PREESISTENTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE_L4_TARDA_ANTICHITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE_L4_INCONTRO_CULTURE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE_L4_DURATA_SECOLI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE_L4_NUOVA_CIVILTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE",
+    "target": "L1_1_L2_IMPATTO_ROMANO_L3_TRASFORMAZIONE_L4_NON_CROLLO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE_L4_SCAMBI_CULTURALI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE_L4_NUOVE_IDENTITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE_L4_RITMI_DIVERSI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE_L4_LINGUA_LATINA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_FUSIONE_L4_LEGGI_SCRITTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI_L4_AMMINISTRAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI_L4_LEGGI_SCRITTE_ROMANE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI_L4_GESTIONE_TERRE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI_L4_ISTRUZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_ROMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_ROMANI_L4_CHIESA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI_L4_POTERE_MILITARE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI_L4_RE_GUERRIERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI_L4_STRUTTURA_SOCIALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI_L4_LEGGI_CONSUETUDINARIE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_GERMANI",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_GERMANI_L4_TERRE_CONQUISTATE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE_L4_LATINO_VOLGARE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE_L4_ITALIANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE_L4_FRANCESE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE_L4_SPAGNOLO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_LINGUE",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_LINGUE_L4_INFLUENZE_GERMANICHE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA_L4_MOSAICO_REGNI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA_L4_EREDITA_COMUNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA_L4_NUOVA_GEOGRAFIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA_L4_CRISTIANESIMO_COLLANTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_NUOVI_REGNI_L3_EUROPA",
+    "target": "L1_1_L2_NUOVI_REGNI_L3_EUROPA_L4_MONASTERI_CULTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA_L4_BAR_BAR",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA_L4_PUNTO_VISTA_ROMANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA_L4_LINGUA_DIVERSA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA_L4_GRECI_ROMANI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_ONOMATOPEA_L4_DISPREGIATIVO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE_L4_MANCANZA_CULTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE_L4_SELVAGGIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE_L4_PREGIUDIZIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE_L4_CONTRAPPOSTO_ROMANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_INCIVILE_L4_IMMAGINE_GUERRIERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA_L4_PRECISIONE_STORICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA_L4_NO_GIUDIZIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA_L4_RICONOSCIMENTO_CULTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA_L4_COMPLESSITA_STORICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_PREFERENZA_L4_EVOLUZIONE_STUDI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA_L4_SENSO_COMUNITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA_L4_ONORE_MILITARE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA_L4_CIVILTA_DIVERSA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA_L4_TRADIZIONI_ORALI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_CULTURA_L4_ARTE_METALLI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA_L4_CONSUETUDINE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA_L4_PAROLA_DATA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA_L4_OREFICERIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA_L4_ARMI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA",
+    "target": "L1_1_L2_TERMINE_BARBARO_L3_LEGGI_ABILITA_L4_ARTIGIANATO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO_L5_ATTILA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO_L5_CAVALIERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO_L5_GUERRIERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO_L5_NO_CITTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_CHI_ERANO_L5_NOMADI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE_L5_STEPPE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE_L5_CONFINE_CINA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE_L5_MIGRAZIONE_OVEST",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE_L5_IMPERO_ROMANO_ORIENTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_ORIGINE_L5_CAVALIERI_ARCIERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA_L5_TENDE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA_L5_ALLEVAMENTO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA_L5_CACCIA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA_L5_NO_AGRICOLTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_VITA_L5_SACCHEGGI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI_L5_VISIGOTI_FUGA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI_L5_BATTAGLIA_ADRIANOPOLI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI_L5_INSURREZIONI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI_L5_SPINTA_OCCIDENTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_IMPATTO_GOTI_L5_INTEGRAZIONE_FORZATA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA_L5_TERRORE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA_L5_DEVASTAZIONI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA_L5_FUGHE_DI_MASSA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA_L5_IMMAGINE_DEMONIACA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA",
+    "target": "L1_1_L2_CAUSE_L3_UNNI_L4_PAURA_L5_CROLLO_MORALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI_L5_INVERNI_RIGIDI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI_L5_ESTATI_SECCHE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI_L5_TERRE_ESAURITE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI_L5_POPOLAZIONE_CRESCE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_RACCOLTI_L5_MIGRAZIONI_INTERNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME_L5_MALATTIE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME_L5_DISORDINE_SOCIALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME_L5_ABBANDONO_VILLAGGI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME_L5_RICERCA_CIBO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_FAME_L5_PRESSIONE_DEMOGRAFICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE_L5_EROSIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE_L5_DESERTIFICAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE_L5_FORESTE_PALUDI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE_L5_POVERTA_SUOLO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_TERRE_IMPRODUTTIVE_L5_NUOVE_COLTIVAZIONI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE_L5_SOPRAVVIVENZA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE_L5_NO_RITORNO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE_L5_INTERAZIONE_POPOLI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE_L5_IMPATTO_AMBIENTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_MIGRAZIONI_FORZATE_L5_ADATTAMENTO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA_L5_TECNICHE_ARCAICHE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA_L5_MONOCOLTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA_L5_DIPENDENZA_NATURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA_L5_PERDITA_TERRENI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA",
+    "target": "L1_1_L2_CAUSE_L3_CLIMA_L4_IMPATTO_AGRICOLTURA_L5_NUOVE_OPPORTUNITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA_L5_CITTA_ROMANE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA_L5_COMMERCI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA_L5_INFRASTRUTTURE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA_L5_TERRE_COLTIVATE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_RICCHEZZA_L5_STILE_VITA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE_L5_LEGGI_SCRITTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE_L5_GOVERNO_CENTRALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE_L5_ESERCITO_POTENTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE_L5_LINGUA_COMUNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_ORGANIZZAZIONE_L5_CULTURA_URBANA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO_L5_CONTADINI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO_L5_SOLDATI_MERCENARI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO_L5_STIPENDIO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO_L5_RUOLI_ALTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_LAVORO_L5_INTEGRAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE_L5_CRISI_DEMOGRAFICA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE_L5_FRONTIERE_APERTE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE_L5_TERRE_ABBANDONATE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE_L5_RIDUZIONE_POPOLAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_TERRE_DISABITATE_L5_VANTAGGI_STRATEGICI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO_L5_ARTE_ARCHITETTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO_L5_DIRITTO_ROMANO",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO_L5_CULTURA_SCRITTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO_L5_TITOLI_ROMANI",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_CAUSE_L3_ATTRAZIONE_ROMANA_L4_PRESTIGIO_L5_CRISTIANESIMO",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L1_4_STABILITA_ORGANIZZAZIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L1_4_VESCOVI_PROTETTORI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L1_4_CONVERSIONE_RE_GERMANICI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L1_4_CHIESA_COLLANTE_SOCIALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L1_4_MONASTERI_CULTURA",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_PROTETTORI",
+    "target": "L1_4_VESCOVI_RUOLO_CIVILE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_PROTETTORI",
+    "target": "L1_4_VESCOVI_PROTEZIONE_CITTA",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CONVERSIONE_RE_GERMANICI",
+    "target": "L1_4_CLODOVEO_FRANCHI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CONVERSIONE_RE_GERMANICI",
+    "target": "L1_4_STABILITA_POLITICA_CONVERSIONE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CHIESA_COLLANTE_SOCIALE",
+    "target": "L1_4_LATINO_LINGUA_COMUNE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CHIESA_COLLANTE_SOCIALE",
+    "target": "L1_4_FUNZIONARI_ISTRUITI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_MONASTERI_CULTURA",
+    "target": "L1_4_COPIA_MANOSCRITTI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_MONASTERI_CULTURA",
+    "target": "L1_4_CONSERVAZIONE_CONOSCENZA",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_RUOLO_CIVILE",
+    "target": "L1_4_VESCOVI_MAGISTRATI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_RUOLO_CIVILE",
+    "target": "L1_4_VESCOVI_DIPLOMATICI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CLODOVEO_FRANCHI",
+    "target": "L1_4_BATTESIMO_CLODOVEO",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_LATINO_LINGUA_COMUNE",
+    "target": "L1_4_LATINO_CULTURA_SAPERE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_COPIA_MANOSCRITTI",
+    "target": "L1_4_AMANUENSI_MONASTERI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_CONSERVAZIONE_CONOSCENZA",
+    "target": "L1_4_SCRIPTORIA_MONASTICI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_MAGISTRATI",
+    "target": "L1_4_GIUSTIZIA_LOCALE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_VESCOVI_DIPLOMATICI",
+    "target": "L1_4_NEGOZIATI_PACE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_BATTESIMO_CLODOVEO",
+    "target": "L1_4_ALLEANZA_CHIESA_FRANCHI",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_LATINO_CULTURA_SAPERE",
+    "target": "L1_4_DIFFUSIONE_SAPERE_LATINO",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_AMANUENSI_MONASTERI",
+    "target": "L1_4_TECNICA_AMANUENSE",
+    "isCross": false
+  },
+  {
+    "source": "L1_4_SCRIPTORIA_MONASTICI",
+    "target": "L1_4_BIBLIOTECHE_MONASTICHE",
+    "isCross": false
+  }
+]

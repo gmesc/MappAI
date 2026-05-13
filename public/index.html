@@ -56,6 +56,7 @@
             color: #6366f1 !important;
             border: 1px solid #e0e7ff !important;
         }
+
         .btn-landing-secondary:hover {
             background-color: #6366f1 !important;
             color: white !important;
@@ -308,10 +309,13 @@
                 <div class="flex flex-col md:flex-row justify-between items-center gap-6">
                     <!-- Brand -->
                     <div class="flex items-center gap-4">
-                        <img src="MappAI_icon.png" class="w-[70px] h-[70px] object-contain rounded-2xl shrink-0" alt="MappAI Icon">
+                        <img src="MappAI_icon.png" class="w-[70px] h-[70px] object-contain rounded-2xl shrink-0"
+                            alt="MappAI Icon">
                         <div class="flex flex-col">
                             <h1 class="text-[40px] leading-none font-black text-slate-800 tracking-tight">MappAI</h1>
-                            <p id="landing-subtitle" class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Visualizzatore di conoscenza</p>
+                            <p id="landing-subtitle"
+                                class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Visualizzatore
+                                di conoscenza</p>
                         </div>
                     </div>
 
@@ -323,15 +327,18 @@
                         </button>
                         <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
                             class="btn-landing-secondary px-4 py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
-                            <i data-lucide="book-open" class="w-3.5 h-3.5"></i> <span data-i18n="btn_app_guide">Guida</span>
+                            <i data-lucide="book-open" class="w-3.5 h-3.5"></i> <span
+                                data-i18n="btn_app_guide">Guida</span>
                         </button>
                         <button type="button" onclick="window.showAppTutorial()" id="btn-app-tutorial"
                             class="btn-landing-secondary px-4 py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
-                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> <span data-i18n="btn_active_study">Studio</span>
+                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> <span
+                                data-i18n="btn_active_study">Studio</span>
                         </button>
                         <button type="button" onclick="window.showUserProfileModal()" id="btn-user-profile"
                             class="btn-landing-secondary px-4 py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
-                            <i data-lucide="user" class="w-3.5 h-3.5"></i> <span data-i18n="btn_who_are_you">Chi sei</span>
+                            <i data-lucide="user" class="w-3.5 h-3.5"></i> <span data-i18n="btn_who_are_you">Chi
+                                sei</span>
                         </button>
                     </div>
                 </div>
@@ -343,24 +350,30 @@
                     <button onclick="window.startEmptyMap()"
                         class="flex-1 p-5 bg-indigo-50/50 border border-indigo-100 rounded-3xl hover:bg-indigo-100/50 transition-all text-left group shadow-sm hover:shadow-md">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-indigo-200">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-indigo-200">
                                 <i data-lucide="plus" class="w-6 h-6"></i>
                             </div>
                             <div>
-                                <span class="block font-black text-indigo-900 text-sm" data-i18n="btn_new_project">Nuovo Progetto</span>
-                                <span class="block text-[10px] text-indigo-500 font-bold uppercase tracking-wider">Mappa Vuota</span>
+                                <span class="block font-black text-indigo-900 text-sm" data-i18n="btn_new_project">Nuovo
+                                    Progetto</span>
+                                <span class="block text-[10px] text-indigo-500 font-bold uppercase tracking-wider">Mappa
+                                    Vuota</span>
                             </div>
                         </div>
                     </button>
                     <button onclick="window.showVaultManager()"
                         class="flex-1 p-5 bg-white border border-slate-100 rounded-3xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left group shadow-sm hover:shadow-md">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all border border-slate-100">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all border border-slate-100">
                                 <i data-lucide="folder-open" class="w-6 h-6"></i>
                             </div>
                             <div>
-                                <span class="block font-black text-indigo-900 text-sm" data-i18n="btn_open_vault">Apri Vault (Second Brain)</span>
-                                <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider" data-i18n="sub_vault_manager">Gestione Second Brain</span>
+                                <span class="block font-black text-indigo-900 text-sm" data-i18n="btn_open_vault">Apri
+                                    Vault (Second Brain)</span>
+                                <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider"
+                                    data-i18n="sub_vault_manager">Gestione Second Brain</span>
                             </div>
                         </div>
                     </button>
@@ -379,7 +392,7 @@
                     </label>
 
                     <div class="ml-10 flex flex-wrap gap-3 mb-4">
-                        <div class="source-type-btn" onclick="window.addSource('url')">
+                        <div id="btn-src-url" class="source-type-btn" onclick="window.addSource('url')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-link">
@@ -388,7 +401,7 @@
                             </svg>
                             <span class="text-sm font-bold">URL Web</span>
                         </div>
-                        <div class="source-type-btn" onclick="window.addSource('youtube')">
+                        <div id="btn-src-youtube" class="source-type-btn" onclick="window.addSource('youtube')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-play-square">
@@ -397,7 +410,7 @@
                             </svg>
                             <span class="text-sm font-bold">YouTube</span>
                         </div>
-                        <div class="source-type-btn" onclick="window.addSource('audio')">
+                        <div id="btn-src-audio" class="source-type-btn" onclick="window.addSource('audio')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-mic">
@@ -407,7 +420,7 @@
                             </svg>
                             <span class="text-sm font-bold">Audio</span>
                         </div>
-                        <div class="source-type-btn" onclick="window.addSource('video')">
+                        <div id="btn-src-video" class="source-type-btn" onclick="window.addSource('video')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-video">
@@ -416,7 +429,7 @@
                             </svg>
                             <span class="text-sm font-bold">Video</span>
                         </div>
-                        <div class="source-type-btn" onclick="window.addSource('doc')">
+                        <div id="btn-src-doc" class="source-type-btn" onclick="window.addSource('doc')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-file-spreadsheet">
@@ -431,7 +444,7 @@
                             </svg>
                             <span class="text-sm font-bold">Documenti</span>
                         </div>
-                        <div class="source-type-btn" onclick="window.addSource('text')">
+                        <div id="btn-src-text" class="source-type-btn" onclick="window.addSource('text')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-type">
@@ -562,6 +575,17 @@
                 </div>
 
                 <!-- STEP 6 rimosso dal form — ora dentro il modale Configura AI -->
+                <div id="token-counter-container"
+                    class="ml-10 hidden flex items-center justify-between px-5 py-3 bg-indigo-50/40 border border-indigo-200/50 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Peso Documento
+                            (Stima)</span>
+                    </div>
+                    <span id="token-count"
+                        class="text-xs font-bold text-indigo-600 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100">0
+                        Tokens</span>
+                </div>
 
                 <!-- Pulsante Generate -->
                 <div class="pt-8 border-t border-indigo-200/40 flex flex-col gap-4">
@@ -639,619 +663,643 @@
     </div>
 
 
-        <!-- ==========================================
+    <!-- ==========================================
          MAPPA MENTALE (D3.js View)
          ========================================== -->
-        <div id="map-view" class="flex flex-col md:flex-row h-screen relative overflow-hidden">
+    <div id="map-view" class="flex flex-col md:flex-row h-screen relative overflow-hidden">
 
-            <!-- Sidebar -->
-            <aside id="sidebar"
-                class="w-full md:w-[38%] lg:w-[29%] bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out">
-                <!-- Header -->
-                <div class="p-5 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-3 shrink-0">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                                <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg"
-                                    alt="MappAI Icon">
-                                MappAI
-                            </h1>
-                            <p class="text-slate-500 text-xs mt-1 font-mono uppercase tracking-wider"
-                                id="sidebar-subtitle">
-                                Visualizzatore di conoscenza</p>
-                        </div>
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-full md:w-[38%] lg:w-[29%] bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out">
+            <!-- Header -->
+            <div class="p-5 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-3 shrink-0">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                            <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg" alt="MappAI Icon">
+                            MappAI
+                        </h1>
+                        <p class="text-slate-500 text-xs mt-1 font-mono uppercase tracking-wider" id="sidebar-subtitle">
+                            Visualizzatore di conoscenza</p>
                     </div>
-
-
                 </div>
 
-                <!-- TAB NAVIGATION -->
-                <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
-                    <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
-                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
-                        title="Indice">
-                        <i data-lucide="git-branch" class="w-5 h-5"></i>
-                    </button>
-                    <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
-                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                        title="Note">
-                        <i data-lucide="sticky-note" class="w-5 h-5"></i>
-                    </button>
-                    <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
-                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                        title="Studio">
-                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                    </button>
-                    <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
-                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                        title="Finder">
-                        <i data-lucide="search" class="w-5 h-5"></i>
-                    </button>
-                    <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
-                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                        title="Tutor AI">
-                        <i data-lucide="bot" class="w-5 h-5"></i>
-                    </button>
+
+            </div>
+
+            <!-- TAB NAVIGATION -->
+            <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
+                <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
+                    title="Indice">
+                    <i data-lucide="git-branch" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Note">
+                    <i data-lucide="sticky-note" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Studio">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Finder">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Tutor AI">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- ═══ TAB: STRUTTURA ═══ -->
+            <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
+
+                <div id="tree-view-container" class="p-4 space-y-1"></div>
+
+                <!-- Node Details (shown when a node is selected) -->
+                <div class="p-5" id="node-details">
+                    <div class="text-center text-slate-400 mt-8 animate-pulse">
+                        <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
+                        <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
+                        <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per
+                            gestire lo stato di apprendimento e i contenuti.</p>
+                    </div>
                 </div>
 
-                <!-- ═══ TAB: STRUTTURA ═══ -->
-                <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
-
-                    <div id="tree-view-container" class="p-4 space-y-1"></div>
-
-                    <!-- Node Details (shown when a node is selected) -->
-                    <div class="p-5" id="node-details">
-                        <div class="text-center text-slate-400 mt-8 animate-pulse">
-                            <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
-                            <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
-                            <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per
-                                gestire lo stato di apprendimento e i contenuti.</p>
-                        </div>
+                <!-- Tree View (macro-areas / super-hubs) -->
+                <div class="px-5 pb-4 border-t border-slate-200/60">
+                    <h3
+                        class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
+                        <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
+                        <span id="tree-view-title">Macro-aree</span>
+                    </h3>
+                    <div id="macro-areas-container" class="space-y-1">
+                        <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
+                        </p>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Tree View (macro-areas / super-hubs) -->
-                    <div class="px-5 pb-4 border-t border-slate-200/60">
+            <!-- ═══ TAB: FINDER ═══ -->
+            <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
+                        <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
+                            class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
+                            oninput="window.performSuperSearch(this.value)">
+                        <button id="super-finder-clear" onclick="window.clearSuperFinder()"
+                            class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
+                        etichette,
+                        descrizioni, citazioni e fonti esterne.</p>
+                </div>
+
+                <div id="super-finder-results" class="p-2 space-y-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-slate-300">
+                        <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: TUTOR AI ═══ -->
+            <div id="sidebar-panel-tutor" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                    <div class="flex justify-between items-center mb-3">
                         <h3
-                            class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
-                            <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
-                            <span id="tree-view-title">Macro-aree</span>
+                            class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
                         </h3>
-                        <div id="macro-areas-container" class="space-y-1">
-                            <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
-                            </p>
-                        </div>
+                        <button onclick="window.resetSidebarTutor()"
+                            class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
+                </div>
+
+                <!-- Chat History -->
+                <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
+                    <!-- Initial message -->
+                    <div
+                        class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
+                        <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
                     </div>
                 </div>
 
-                <!-- ═══ TAB: FINDER ═══ -->
-                <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
-                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
-                        <div class="relative">
-                            <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
-                            <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
-                                class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
-                                oninput="window.performSuperSearch(this.value)">
-                            <button id="super-finder-clear" onclick="window.clearSuperFinder()"
-                                class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
-                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                            </button>
-                        </div>
-                        <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
-                            etichette,
-                            descrizioni, citazioni e fonti esterne.</p>
-                    </div>
-
-                    <div id="super-finder-results" class="p-2 space-y-4">
-                        <div class="flex flex-col items-center justify-center py-20 text-slate-300">
-                            <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
-                            <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
-                        </div>
+                <!-- Input Area -->
+                <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
+                    <div class="flex flex-col gap-2">
+                        <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
+                            class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                            onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
+                        <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
+                            class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                            <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <!-- ═══ TAB: TUTOR AI ═══ -->
-                <div id="sidebar-panel-tutor" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
-                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3
-                                class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
-                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
-                            </h3>
-                            <button onclick="window.resetSidebarTutor()" class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
-                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                            </button>
-                        </div>
-                        <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
-                    </div>
-                    
-                    <!-- Chat History -->
-                    <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
-                        <!-- Initial message -->
-                        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
-                            <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
-                        </div>
-                    </div>
 
-                    <!-- Input Area -->
-                    <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
-                        <div class="flex flex-col gap-2">
-                            <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
-                                class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                                onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
-                            <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
-                                class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-                                <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
-                            </button>
-                        </div>
-                    </div>
+
+            <!-- ═══ TAB: NOTE ═══ -->
+            <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
+                <div class="px-5 pt-5 pb-2">
+                    <h3
+                        class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
+                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
+                    </h3>
                 </div>
-
-
-
-                <!-- ═══ TAB: NOTE ═══ -->
-                <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
-                    <div class="px-5 pt-5 pb-2">
-                        <h3
-                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                            <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
-                        </h3>
-                    </div>
-                    <div id="user-notes-container" class="space-y-3 px-5 pb-5">
-                        <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
-                            Modifica i
-                            nodi con doppio click per aggiungere appunti e immagini.</p>
-                    </div>
+                <div id="user-notes-container" class="space-y-3 px-5 pb-5">
+                    <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                        Modifica i
+                        nodi con doppio click per aggiungere appunti e immagini.</p>
                 </div>
+            </div>
 
-                <!-- ═══ TAB: STUDIO ═══ -->
-                <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
-                    <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
-                        <!-- Pomodoro Timer -->
-                        <div
-                            class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
-                                <span id="pomodoro-time"
-                                    class="font-bold text-slate-800 text-2xl font-mono tracking-wider">25:00</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                    class="px-4 py-2 bg-rose-50 text-rose-600 text-xs uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
-                                <button onclick="window.resetPomodoro()"
-                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
-                                    title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+            <!-- ═══ TAB: STUDIO ═══ -->
+            <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
+                <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
+                    <!-- Pomodoro Timer -->
+                    <div
+                        class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+                            <span id="pomodoro-time"
+                                class="font-bold text-slate-800 text-2xl font-mono tracking-wider">25:00</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="pomodoro-btn" onclick="window.togglePomodoro()"
+                                class="px-4 py-2 bg-rose-50 text-rose-600 text-xs uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
+                            <button onclick="window.resetPomodoro()"
+                                class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
+                                title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <!-- Statistiche Progresso -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
+                                Mappa</span>
+                            <span id="study-progress-text"
+                                class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
+                            <div id="study-progress-bar"
+                                class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
                             </div>
                         </div>
-                        <!-- Statistiche Progresso -->
-                        <div>
+                        <div class="flex justify-between text-xs font-bold">
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
+                                <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Fatti</span>
+                            </div>
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
+                                <span id="stats-review" class="text-amber-500 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Ripasso</span>
+                            </div>
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
+                                <span id="stats-todo" class="text-red-400 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Sospesi</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Azioni Studio -->
+                    <div class="space-y-3 mt-2">
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
-                                    Mappa</span>
-                                <span id="study-progress-text"
-                                    class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
+                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
+                                    grafico</span>
+                                <span id="total-cost-display" class="text-xs font-bold text-indigo-600">$0.0000</span>
                             </div>
-                            <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
-                                <div id="study-progress-bar"
-                                    class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
-                                </div>
+                            <div class="flex justify-between items-center text-xs text-slate-500">
+                                <span>Token Totali:</span>
+                                <span id="total-tokens-display" class="font-mono">0</span>
                             </div>
-                            <div class="flex justify-between text-xs font-bold">
-                                <div
-                                    class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
-                                    <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
-                                        class="text-slate-400 text-[10px] uppercase">Fatti</span>
-                                </div>
-                                <div
-                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
-                                    <span id="stats-review" class="text-amber-500 text-lg">0</span><span
-                                        class="text-slate-400 text-[10px] uppercase">Ripasso</span>
-                                </div>
-                                <div
-                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
-                                    <span id="stats-todo" class="text-red-400 text-lg">0</span><span
-                                        class="text-slate-400 text-[10px] uppercase">Sospesi</span>
-                                </div>
+                            <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
+                                <span>Modello Usato:</span>
+                                <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
                             </div>
                         </div>
-                        <!-- Azioni Studio -->
-                        <div class="space-y-3 mt-2">
-                            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span
-                                        class="text-xs uppercase font-bold text-slate-400 tracking-widest">Investimento
-                                        Studio (AI Cost)</span>
-                                    <span id="total-cost-display"
-                                        class="text-xs font-bold text-indigo-600">$0.0000</span>
-                                </div>
-                                <div class="flex justify-between items-center text-xs text-slate-500">
-                                    <span>Token Totali:</span>
-                                    <span id="total-tokens-display" class="font-mono">0</span>
-                                </div>
-                                <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
-                                    <span>Modello Usato:</span>
-                                    <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
-                                </div>
-                            </div>
 
-                            <button onclick="window.generateGlobalFlashcards()"
-                                class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                                <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
-                            </button>
-                            <button onclick="window.generateGlobalQuiz()"
-                                class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                                <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
-                            </button>
-                            <button onclick="window.showAppTutorial()"
-                                class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                                <i data-lucide="lightbulb" class="w-5 h-5"></i> Metodo Studio Attivo
-                            </button>
-                        </div>
+                        <button onclick="window.generateGlobalFlashcards()"
+                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
+                        </button>
+                        <button onclick="window.generateGlobalQuiz()"
+                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
+                        </button>
+                        <button onclick="window.showAppTutorial()"
+                            class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="lightbulb" class="w-5 h-5"></i> Metodo Studio Attivo
+                        </button>
+                    </div>
 
-                        <!-- Set Flashcard Generati -->
-                        <div class="mt-4 border-t border-slate-200 pt-5">
-                            <h3
-                                class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                                <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
-                            </h3>
-                            <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
-                                    quiz
-                                    per visualizzarli qui.</p>
-                            </div>
+                    <!-- Set Flashcard Generati -->
+                    <div class="mt-4 border-t border-slate-200 pt-5">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
+                        </h3>
+                        <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
+                                quiz
+                                per visualizzarli qui.</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-            </aside>
+        </aside>
 
-            <!-- Main Content -->
-            <main id="main-content"
-                class="w-full md:w-2/3 lg:w-3/4 h-2/3 md:h-screen relative overflow-hidden transition-all duration-600 ease-in-out bg-slate-50">
+        <!-- Main Content -->
+        <main id="main-content"
+            class="w-full md:w-2/3 lg:w-3/4 h-2/3 md:h-screen relative overflow-hidden transition-all duration-600 ease-in-out bg-slate-50">
 
-                <!-- Sidebar Toggle (Top Left) -->
-                <div class="absolute top-6 left-6 z-[40]">
-                    <button onclick="window.toggleSidebar()"
-                        class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
-                        title="Nascondi/Mostra Sidebar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            <!-- Sidebar Toggle (Top Left) -->
+            <div class="absolute top-6 left-6 z-[40]">
+                <button onclick="window.toggleSidebar()"
+                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                    title="Nascondi/Mostra Sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        id="sidebar-toggle-icon" class="w-6 h-6">
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M9 3v18" />
+                        <path d="m16 15-3-3 3-3" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- QUICK ACTIONS MENU (Bottom Left) -->
+            <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
+                <!-- Popover Menu -->
+                <div id="floating-actions-menu"
+                    class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
+                    <button onclick="window.exportNotesMarkdown()"
+                        class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
+                        title="Esporta Appunti MD">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            id="sidebar-toggle-icon" class="w-6 h-6">
-                            <rect width="18" height="18" x="3" y="3" rx="2" />
-                            <path d="M9 3v18" />
-                            <path d="m16 15-3-3 3-3" />
-                        </svg>
+                            class="w-4 h-4">
+                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                            <path d="M10 9H8" />
+                            <path d="M16 13H8" />
+                            <path d="M16 17H8" />
+                        </svg> Esporta Appunti
+                    </button>
+                    <!-- SOTA: MARKDOWN VAULT ACTIONS -->
+                    <button onclick="window.saveMapVault()"
+                        class="w-full px-4 py-2.5 bg-indigo-600 text-white border border-indigo-500 rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-3 transition-all shadow-sm"
+                        title="Salva come Vault Markdown">
+                        <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
+                    </button>
+                    <button onclick="window.loadMapVault()"
+                        class="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-all"
+                        title="Apri Cartella Vault Markdown">
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
+                    </button>
+                    <label for="sidebar-merge"
+                        class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
+                        title="Unisci un altro JSON alla mappa corrente">
+                        <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
+                    </label>
+                    <input type="file" id="sidebar-merge" accept=".json" class="hidden"
+                        onchange="window.mergeGraph(event)">
+                    <div class="h-px bg-slate-100 my-1"></div>
+                    <button onclick="window.backToLanding()"
+                        class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
+                        title="Nuova Mappa">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
                     </button>
                 </div>
 
-                <!-- QUICK ACTIONS MENU (Bottom Left) -->
-                <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
-                    <!-- Popover Menu -->
-                    <div id="floating-actions-menu"
-                        class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
-                        <button onclick="window.exportNotesMarkdown()"
-                            class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
-                            title="Esporta Appunti MD">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="w-4 h-4">
-                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                                <path d="M10 9H8" />
-                                <path d="M16 13H8" />
-                                <path d="M16 17H8" />
-                            </svg> Esporta Appunti
-                        </button>
-                        <!-- SOTA: MARKDOWN VAULT ACTIONS -->
-                        <button onclick="window.saveMapVault()"
-                            class="w-full px-4 py-2.5 bg-indigo-600 text-white border border-indigo-500 rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-3 transition-all shadow-sm"
-                            title="Salva come Vault Markdown">
-                            <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
-                        </button>
-                        <button onclick="window.loadMapVault()"
-                            class="w-full px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-all"
-                            title="Apri Cartella Vault Markdown">
-                            <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
-                        </button>
-                        <label for="sidebar-merge"
-                            class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
-                            title="Unisci un altro JSON alla mappa corrente">
-                            <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
-                        </label>
-                        <input type="file" id="sidebar-merge" accept=".json" class="hidden"
-                            onchange="window.mergeGraph(event)">
-                        <div class="h-px bg-slate-100 my-1"></div>
-                        <button onclick="window.backToLanding()"
-                            class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
-                            title="Nuova Mappa">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
-                        </button>
-                    </div>
+                <button onclick="event.stopPropagation(); window.toggleFloatingActions()" id="floating-actions-toggle"
+                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-indigo-600 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                    title="Azioni Rapide">
+                    <i data-lucide="log-out" class="w-6 h-6 group-hover:rotate-12 transition-transform"
+                        style="transform: scaleX(-1);"></i>
+                </button>
+            </div>
 
-                    <button onclick="event.stopPropagation(); window.toggleFloatingActions()"
-                        id="floating-actions-toggle"
-                        class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-indigo-600 hover:bg-slate-50 transition-all focus:outline-none group relative"
-                        title="Azioni Rapide">
-                        <i data-lucide="log-out" class="w-6 h-6 group-hover:rotate-12 transition-transform"
-                            style="transform: scaleX(-1);"></i>
-                    </button>
+            <div id="d3-container"></div>
+
+
+
+            <!-- Control Card Fluttuante -->
+            <div
+                class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
+
+                <!-- Centra Vista -->
+                <button onclick="window.resetZoom()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Centra e resetta la vista">
+                    <i data-lucide="maximize" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">CENTRA</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Riordina Vista -->
+                <button onclick="window.riordinaMappa()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Riordina Layout Mappa">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">RIORDINA</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Toggle Layout -->
+                <button id="card-btn-layout" onclick="window.toggleLayout()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Cambia Layout (Radiale / Separato / Orbit)">
+                    <i data-lucide="network" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">LAYOUT</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Pinning -->
+                <button id="card-btn-physics" onclick="window.togglePhysics()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                    title="Pinning: Blocca Nodi">
+                    <i data-lucide="anchor" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PIN</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Attrazione -->
+                <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                    title="Attiva/Disattiva forze di attrazione tra nodi">
+                    <i data-lucide="magnet" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">ATTR</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Distanza Nodi -->
+                <div class="flex flex-col items-center">
+                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
+                    <div class="flex gap-1">
+                        <button onclick="window.changeDistance(-1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="minus" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeDistance(1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Dimensione Testo Nodi -->
+                <div class="flex flex-col items-center">
+                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Testo</span>
+                    <div class="flex gap-1">
+                        <button onclick="window.changeFontScale(-1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="minus" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeFontScale(1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Toggle Label -->
+                <button id="card-btn-labels" onclick="window.toggleLabels()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Mostra/Nascondi Etichette Relazioni">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">TESTO</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Pathfinder -->
+                <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
+                    <i data-lucide="route" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PATH</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200" id="dynamic-slider-divider"></div>
+
+                <!-- Slider Filtro Densità (Solo KG) -->
+                <div class="flex-col w-32 px-2 hidden" id="min-link-control">
+                    <div class="flex justify-between w-full mb-1">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase">Min Link</span>
+                        <span id="filter-val-display"
+                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">0</span>
+                    </div>
+                    <input type="range" id="node-filter-slider" min="0" max="1" value="0"
+                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
                 </div>
 
-                <div id="d3-container"></div>
-
-
-
-                <!-- Control Card Fluttuante -->
-                <div
-                    class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
-
-                    <!-- Centra Vista -->
-                    <button onclick="window.resetZoom()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Centra e resetta la vista">
-                        <i data-lucide="maximize" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">CENTRA</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Riordina Vista -->
-                    <button onclick="window.riordinaMappa()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Riordina Layout Mappa">
-                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">RIORDINA</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Toggle Layout -->
-                    <button id="card-btn-layout" onclick="window.toggleLayout()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Cambia Layout (Radiale / Separato / Orbit)">
-                        <i data-lucide="network" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">LAYOUT</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Pinning -->
-                    <button id="card-btn-physics" onclick="window.togglePhysics()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                        title="Pinning: Blocca Nodi">
-                        <i data-lucide="anchor" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">PIN</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Attrazione -->
-                    <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                        title="Attiva/Disattiva forze di attrazione tra nodi">
-                        <i data-lucide="magnet" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">ATTR</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Distanza Nodi -->
-                    <div class="flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
-                        <div class="flex gap-1">
-                            <button onclick="window.changeDistance(-1)"
-                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                    data-lucide="minus" class="w-4 h-4"></i></button>
-                            <button onclick="window.changeDistance(1)"
-                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                    data-lucide="plus" class="w-4 h-4"></i></button>
-                        </div>
+                <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
+                <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
+                    <div class="flex justify-between w-full mb-1">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
+                        <span id="level-slider-val"
+                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
                     </div>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Dimensione Testo Nodi -->
-                    <div class="flex flex-col items-center">
-                        <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Testo</span>
-                        <div class="flex gap-1">
-                            <button onclick="window.changeFontScale(-1)"
-                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                    data-lucide="minus" class="w-4 h-4"></i></button>
-                            <button onclick="window.changeFontScale(1)"
-                                class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                    data-lucide="plus" class="w-4 h-4"></i></button>
-                        </div>
-                    </div>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Toggle Label -->
-                    <button id="card-btn-labels" onclick="window.toggleLabels()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Mostra/Nascondi Etichette Relazioni">
-                        <i data-lucide="tag" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">TESTO</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200"></div>
-
-                    <!-- Pathfinder -->
-                    <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
-                        <i data-lucide="route" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">PATH</span>
-                    </button>
-                    <div class="w-px h-8 bg-slate-200" id="dynamic-slider-divider"></div>
-
-                    <!-- Slider Filtro Densità (Solo KG) -->
-                    <div class="flex-col w-32 px-2 hidden" id="min-link-control">
-                        <div class="flex justify-between w-full mb-1">
-                            <span class="text-[9px] font-bold text-slate-500 uppercase">Min Link</span>
-                            <span id="filter-val-display"
-                                class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">0</span>
-                        </div>
-                        <input type="range" id="node-filter-slider" min="0" max="1" value="0"
-                            class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
-                    </div>
-
-                    <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
-                    <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
-                        <div class="flex justify-between w-full mb-1">
-                            <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
-                            <span id="level-slider-val"
-                                class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
-                        </div>
-                        <input type="range" id="level-slider" min="0" max="5" value="5"
-                            class="w-full accent-indigo-600 cursor-pointer"
-                            oninput="window.onLevelSliderInput(this.value)">
-                    </div>
-
-                    <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
-
-                    <!-- Snapshot -->
-                    <button onclick="window.exportSnapshot()"
-                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Esporta Snapshot PNG della mappa">
-                        <i data-lucide="camera" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">FOTO</span>
-                    </button>
+                    <input type="range" id="level-slider" min="0" max="5" value="5"
+                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.onLevelSliderInput(this.value)">
                 </div>
 
-                <!-- Hint Modalità Linking / Pathfinder -->
-                <div id="mode-hint"
-                    class="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm hidden z-40 animate-bounce">
-                </div>
-            </main>
-        </div>
+                <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
 
-        <!-- ==========================================
+                <!-- Snapshot -->
+                <button onclick="window.exportSnapshot()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Esporta Snapshot PNG della mappa">
+                    <i data-lucide="camera" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">FOTO</span>
+                </button>
+            </div>
+
+            <!-- Hint Modalità Linking / Pathfinder -->
+            <div id="mode-hint"
+                class="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm hidden z-40 animate-bounce">
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================
          MENÙ CONTESTUALE (Right Click)
          ========================================== -->
-        <div id="context-menu"
-            class="hidden bg-white shadow-2xl rounded-xl border border-slate-200 py-1 z-50 overflow-y-auto max-h-[85vh] w-56 modal-scroll">
-            <!-- Contenuto dinamico inserito dal JS -->
-        </div>
+    <div id="context-menu"
+        class="hidden bg-white shadow-2xl rounded-xl border border-slate-200 py-1 z-50 overflow-y-auto max-h-[85vh] w-56 modal-scroll">
+        <!-- Contenuto dinamico inserito dal JS -->
+    </div>
 
-        <!-- ==========================================
+    <!-- ==========================================
          MODALI E OVERLAYS
          ========================================== -->
 
-        <!-- Modal Popup per Fonti e Note (Source Modal) -->
-        <div id="source-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-[66vw] max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300"
-                id="source-modal-content-box">
+    <!-- Modal Popup per Fonti e Note (Source Modal) -->
+    <div id="source-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-[66vw] max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300"
+            id="source-modal-content-box">
 
-                <div id="source-modal-header"
-                    class="flex items-center justify-between p-5 border-b border-slate-100 rounded-t-xl shrink-0 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <div id="source-modal-icon" class="p-2 rounded-lg text-current">
-                            <i data-lucide="book-open"></i>
-                        </div>
-                        <div>
-                            <div id="source-modal-kinship"
-                                class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
-                            <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
-                            <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
-                        </div>
+            <div id="source-modal-header"
+                class="flex items-center justify-between p-5 border-b border-slate-100 rounded-t-xl shrink-0 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div id="source-modal-icon" class="p-2 rounded-lg text-current">
+                        <i data-lucide="book-open"></i>
                     </div>
-                    <button onclick="window.closeSourceModal()"
-                        class="opacity-70 hover:opacity-100 p-1.5 rounded-full transition-opacity">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-
-                <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
-                <div id="modal-a11y-toolbar"
-                    class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
-                    <button id="btn-modal-ruler"
-                        onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
-                        class="tts-button" title="Riga di Lettura"><i data-lucide="align-justify"></i></button>
-                    <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
-                        title="Attiva/Desattiva Sillabazione"><i data-lucide="split-square-horizontal"></i></button>
-                    <button
-                        onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
-                        class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
-                    <div class="w-px h-6 bg-slate-200 mx-1"></div>
-                    <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
-                        title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
-                    <button onclick="window.readModalAloud('source-modal')" class="tts-button"
-                        title="Leggi ad alta voce">
-                        <i data-lucide="volume-2"></i>
-                    </button>
-                </div>
-
-                <div lang="it" class="p-6 overflow-y-auto text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
-                    <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Modale Prompt Personalizzato -->
-        <div id="prompt-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
-                id="prompt-box">
-                <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title">Inserisci valore</h3>
-                <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
-                <input type="text" id="prompt-input"
-                    class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6">
-                <div class="flex justify-end gap-3">
-                    <button id="prompt-cancel"
-                        class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
-                    <button id="prompt-ok"
-                        class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modale Selezione Numero Domande -->
-        <div id="selection-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div
-                class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 transform scale-95 transition-transform duration-200 text-center">
-                <div
-                    class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-100">
-                    <i data-lucide="help-circle" class="w-8 h-8"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-800 mb-2">Lunghezza del Quiz</h3>
-                <p class="text-sm text-slate-500 mb-8 font-medium">Quante domande vuoi affrontare in questa sessione?
-                </p>
-
-                <div class="grid grid-cols-3 gap-3 mb-8">
-                    <button onclick="window.confirmSelection(5)"
-                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">5</span>
-                        <span class="text-[10px] uppercase font-bold tracking-widest">Breve</span>
-                    </button>
-                    <button onclick="window.confirmSelection(15)"
-                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">15</span>
-                        <span class="text-[10px] uppercase font-bold tracking-widest">Medio</span>
-                    </button>
-                    <button onclick="window.confirmSelection(25)"
-                        class="flex flex-col items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition group">
-                        <span class="text-2xl font-black text-slate-400 group-hover:text-indigo-500">25</span>
-                        <span class="text-[10px] uppercase font-bold tracking-widest">Intenso</span>
-                    </button>
-                </div>
-
-                <button onclick="window.closeSelectionModal()"
-                    class="text-slate-400 text-[10px] uppercase font-bold tracking-widest hover:text-slate-600 transition">Annulla</button>
-            </div>
-        </div>
-
-        <!-- Modale Istruzioni JSON Esterno -->
-        <div id="external-json-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-            <div
-                class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
-                    <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa MappAI con
-                        ChatGPT/Claude</h3>
-                    <button onclick="window.closeExternalJSONModal()"
-                        class="hover:bg-white/20 p-1 rounded-lg transition-colors">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
                     <div>
-                        <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
-                            <pre id="external-prompt-text"
-                                class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per MappAI.
+                        <div id="source-modal-kinship"
+                            class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
+                        <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
+                        <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
+                    </div>
+                </div>
+                <button onclick="window.closeSourceModal()"
+                    class="opacity-70 hover:opacity-100 p-1.5 rounded-full transition-opacity">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
+            <div id="modal-a11y-toolbar"
+                class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
+                <button id="btn-modal-ruler"
+                    onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
+                    class="tts-button" title="Riga di Lettura"><i data-lucide="align-justify"></i></button>
+                <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
+                    title="Attiva/Desattiva Sillabazione"><i data-lucide="split-square-horizontal"></i></button>
+                <button
+                    onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
+                    class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
+                <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
+                    title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
+                <button onclick="window.readModalAloud('source-modal')" class="tts-button" title="Leggi ad alta voce">
+                    <i data-lucide="volume-2"></i>
+                </button>
+            </div>
+
+            <div lang="it" class="p-6 overflow-y-auto text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
+                <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Prompt Personalizzato -->
+    <div id="prompt-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+            id="prompt-box">
+            <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title">Inserisci valore</h3>
+            <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
+            <input type="text" id="prompt-input"
+                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6">
+            <div class="flex justify-end gap-3">
+                <button id="prompt-cancel"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
+                <button id="prompt-ok"
+                    class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Selezione Numero Domande -->
+    <!-- Modale Configurazione Studio -->
+    <div id="study-config-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 transform scale-95 transition-transform duration-200 text-center">
+            <div id="study-config-icon"
+                class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-100">
+                <i data-lucide="book-open" class="w-8 h-8"></i>
+            </div>
+            <h3 id="study-config-title" class="text-xl font-bold text-slate-800 mb-2">Configura Sessione</h3>
+            <p class="text-sm text-slate-500 mb-6 font-medium">Scegli come vuoi studiare questo materiale.</p>
+
+            <div id="quiz-type-container" class="mb-5 text-left hidden">
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Tipo di
+                    Quiz</label>
+                <select id="study-quiz-type"
+                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3 outline-none">
+                    <option value="Risposta Multipla">Risposta Multipla (A/B/C/D)</option>
+                    <option value="Vero o Falso">Vero o Falso</option>
+                    <option value="Risposta Aperta">Risposta Aperta Breve</option>
+                </select>
+            </div>
+
+            <div class="mb-6 text-left">
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Quantità
+                    (Domande/Card)</label>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="window.selectStudyQuantity(5)"
+                        class="study-qty-btn p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="5">5</button>
+                    <button onclick="window.selectStudyQuantity(10)"
+                        class="study-qty-btn p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="10">10</button>
+                    <button onclick="window.selectStudyQuantity(15)"
+                        class="study-qty-btn p-2 bg-indigo-50 border border-indigo-500 rounded-lg text-indigo-600 font-bold transition"
+                        data-qty="15">15</button>
+                    <button onclick="window.selectStudyQuantity(20)"
+                        class="study-qty-btn p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="20">20</button>
+                </div>
+            </div>
+
+            <div class="mb-8 flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="flex items-center gap-2 text-slate-700 text-sm font-bold">
+                    <i data-lucide="timer" class="w-4 h-4 text-slate-400"></i> Timer di Fluency
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="study-timer-toggle" class="sr-only peer">
+                    <div
+                        class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500">
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="window.closeStudyConfigModal()"
+                    class="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-xl hover:bg-slate-200 transition text-sm">Annulla</button>
+                <button onclick="window.startStudySession()"
+                    class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm shadow-md">Inizia
+                    Sessione</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Istruzioni JSON Esterno -->
+    <div id="external-json-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
+                <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa MappAI con
+                    ChatGPT/Claude</h3>
+                <button onclick="window.closeExternalJSONModal()"
+                    class="hover:bg-white/20 p-1 rounded-lg transition-colors">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
+                        <pre id="external-prompt-text"
+                            class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per MappAI.
 Usa esattamente questo schema:
 {
   "nodes": [
@@ -1265,389 +1313,533 @@ Usa esattamente questo schema:
   ]
 }
 Restituisci solo il JSON pulito.</pre>
-                            <button onclick="window.copyExternalPrompt()"
-                                class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
-                                <i data-lucide="copy" class="w-4 h-4"></i>
-                            </button>
-                        </div>
+                        <button onclick="window.copyExternalPrompt()"
+                            class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
                     </div>
-                    <div>
-                        <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
-                        <p class="text-xs text-slate-600 leading-relaxed">
-                            Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
-                                class="font-bold text-indigo-600">.json</span>.
-                            Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare
-                            la
-                            tua mappa!
-                        </p>
-                    </div>
-                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                        <p class="text-xs text-amber-700 font-medium">
-                            💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere
-                            una
-                            mappa ricca di informazioni.
-                        </p>
-                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
+                            class="font-bold text-indigo-600">.json</span>.
+                        Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare
+                        la
+                        tua mappa!
+                    </p>
+                </div>
+                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                    <p class="text-xs text-amber-700 font-medium">
+                        💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere
+                        una
+                        mappa ricca di informazioni.
+                    </p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modale Confirm Personalizzato -->
-        <div id="confirm-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
-                id="confirm-box">
-                <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
-                <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
-                <div class="flex justify-end gap-3">
-                    <button id="confirm-cancel"
-                        class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
-                    <button id="confirm-ok"
-                        class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
-                </div>
+    <!-- Modale Confirm Personalizzato -->
+    <div id="confirm-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+            id="confirm-box">
+            <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
+            <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">Annulla</button>
+                <button id="confirm-ok"
+                    class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
             </div>
         </div>
+    </div>
 
-        <!-- MODALE CHI SEI (PROFILO STUDENTE) -->
-        <div id="user-profile-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200"
-                id="user-profile-box">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                        <i data-lucide="user-circle" class="text-indigo-600"></i> <span data-i18n="profile_title">Profilo Studente</span>
-                    </h3>
-                    <button onclick="window.closeUserProfileModal()" class="text-slate-400 hover:text-slate-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+    <!-- MODALE CHI SEI (PROFILO STUDENTE) -->
+    <div id="user-profile-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200"
+            id="user-profile-box">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="user-circle" class="text-indigo-600"></i> <span data-i18n="profile_title">Profilo
+                        Studente</span>
+                </h3>
+                <button onclick="window.closeUserProfileModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label
+                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
+                    <input type="text" id="up-nickname" placeholder="Come ti chiami?"
+                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
                 </div>
-                
-                <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
-                        <input type="text" id="up-nickname" placeholder="Come ti chiami?"
+                        <label
+                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
+                        <input type="number" id="up-age" placeholder="Es. 15"
                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
-                            <input type="number" id="up-age" placeholder="Es. 15"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
-                            <input type="text" id="up-grade" placeholder="Es. 3a Media"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                        </div>
-                    </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="profile_system">Sistema Scolastico</label>
-                        <select id="up-system" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
-                            <option value="Ticino">Scuola dell'obbligo del Canton Ticino</option>
-                            <option value="Italia">Scuola dell'obbligo Italiana</option>
-                        </select>
+                        <label
+                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
+                        <input type="text" id="up-grade" placeholder="Es. 3a Media"
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
                     </div>
                 </div>
-
-                <div class="mt-8 flex flex-col gap-3">
-                    <button onclick="window.saveUserProfile()"
-                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
-                        Salva Profilo
-                    </button>
-                    <button onclick="window.resetUserProfile()"
-                        class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
-                        Elimina Profilo
-                    </button>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+                        data-i18n="profile_system">Sistema Scolastico</label>
+                    <select id="up-system"
+                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+                        <option value="Ticino">Scuola dell'obbligo del Canton Ticino</option>
+                        <option value="Italia">Scuola dell'obbligo Italiana</option>
+                    </select>
                 </div>
             </div>
-        </div>
 
-        <!-- MODALE ESPLORA VAULT -->
-        <div id="vault-manager-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh]"
-                id="vault-manager-box">
-                <div class="flex justify-between items-center mb-6 shrink-0">
-                    <div>
-                        <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                            <i data-lucide="library" class="text-indigo-600"></i> <span data-i18n="vault_manager_title">Esplora i tuoi Vault</span>
-                        </h3>
-                        <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1" data-i18n="vault_manager_subtitle">Second Brain Knowledge Management</p>
-                    </div>
-                    <button onclick="window.closeVaultManager()" class="text-slate-400 hover:text-slate-600">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
-                </div>
-
-                <div id="vault-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2 modal-scroll min-h-[300px]">
-                    <!-- Lista dinamica dei vault qui -->
-                    <div class="flex items-center justify-center p-20 text-slate-300">
-                        <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
-                    </div>
-                </div>
-
-                <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center shrink-0">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella: Documents/Salvataggi MappAI</p>
-                    <button onclick="window.loadMapVault()" class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
-                    </button>
-                </div>
+            <div class="mt-8 flex flex-col gap-3">
+                <button onclick="window.saveUserProfile()"
+                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
+                    Salva Profilo
+                </button>
+                <button onclick="window.resetUserProfile()"
+                    class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                    Elimina Profilo
+                </button>
             </div>
         </div>
+    </div>
 
-        <!-- MODALE EDITING NODO -->
-        <div id="edit-node-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-200"
-                id="edit-node-box">
-                <h3 class="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="edit-3"
-                        class="text-indigo-600"></i> Modifica Nodo</h3>
-                <style>
-                    .node-icon-outline {
-                        filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
-                    }
-                </style>
-                <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 modal-scroll">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Nodo (Label)</label>
-                        <input type="text" id="edit-n-label"
+    <!-- MODALE ESPLORA VAULT -->
+    <div id="vault-manager-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh]"
+            id="vault-manager-box">
+            <div class="flex justify-between items-center mb-6 shrink-0">
+                <div>
+                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <i data-lucide="library" class="text-indigo-600"></i> <span
+                            data-i18n="vault_manager_title">Esplora i tuoi Vault</span>
+                    </h3>
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1"
+                        data-i18n="vault_manager_subtitle">Second Brain Knowledge Management</p>
+                </div>
+                <button onclick="window.closeVaultManager()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div id="vault-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2 modal-scroll min-h-[300px]">
+                <!-- Lista dinamica dei vault qui -->
+                <div class="flex items-center justify-center p-20 text-slate-300">
+                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center shrink-0">
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella: Documents/Salvataggi
+                    MappAI</p>
+                <button onclick="window.loadMapVault()"
+                    class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE EDITING NODO -->
+    <div id="edit-node-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-200"
+            id="edit-node-box">
+            <h3 class="font-bold text-xl text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="edit-3"
+                    class="text-indigo-600"></i> Modifica Nodo</h3>
+            <style>
+                .node-icon-outline {
+                    filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
+                }
+            </style>
+            <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 modal-scroll">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Nodo (Label)</label>
+                    <input type="text" id="edit-n-label"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase">Contenuto Info</label>
+                        <button id="revert-ai-btn" onclick="window.revertToAIContent()"
+                            class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold uppercase tracking-wider hidden">Ripristina
+                            Testo AI</button>
+                    </div>
+                    <textarea id="edit-n-content" rows="4"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Collegamenti (Web o
+                        File)</label>
+                    <div id="edit-n-urls-list" class="space-y-2 mb-3">
+                        <!-- Lista link qui -->
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="relative flex-grow">
+                            <i data-lucide="link"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                            <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
+                                class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <button onclick="window.handlePickLocalFileForEdit()"
+                            class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0 flex items-center gap-2 text-xs font-bold border border-slate-200 shadow-sm">
+                            <i data-lucide="folder-open" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="window.addLinkToNode()"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Immagini</label>
+                    <div id="edit-n-images-list" class="grid grid-cols-4 gap-2 mb-3">
+                        <!-- Preview immagini qui -->
+                    </div>
+                    <div class="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <input type="url" id="edit-n-image-url-input" placeholder="URL Immagine (https://...)"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">OPPURE</span>
+                            <input type="file" id="edit-n-image-file-input" accept="image/*"
+                                class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                                onchange="window.handleImageUploadForEdit(this)">
+                        </div>
+                        <button onclick="window.addImageToNode()"
+                            class="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi
+                            Immagine</button>
                     </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="block text-xs font-bold text-slate-500 uppercase">Contenuto Info</label>
-                            <button id="revert-ai-btn" onclick="window.revertToAIContent()"
-                                class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold uppercase tracking-wider hidden">Ripristina
-                                Testo AI</button>
-                        </div>
-                        <textarea id="edit-n-content" rows="4"
-                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Collegamenti (Web o
-                            File)</label>
-                        <div id="edit-n-urls-list" class="space-y-2 mb-3">
-                            <!-- Lista link qui -->
-                        </div>
-                        <div class="flex gap-2">
-                            <div class="relative flex-grow">
-                                <i data-lucide="link"
-                                    class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                                <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
-                                    class="w-full border border-slate-300 rounded-lg p-2.5 pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                            <button onclick="window.handlePickLocalFileForEdit()"
-                                class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shrink-0 flex items-center gap-2 text-xs font-bold border border-slate-200 shadow-sm">
-                                <i data-lucide="folder-open" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="window.addLinkToNode()"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Immagini</label>
-                        <div id="edit-n-images-list" class="grid grid-cols-4 gap-2 mb-3">
-                            <!-- Preview immagini qui -->
-                        </div>
-                        <div class="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <input type="url" id="edit-n-image-url-input" placeholder="URL Immagine (https://...)"
-                                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                            <div class="flex items-center gap-3">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase">OPPURE</span>
-                                <input type="file" id="edit-n-image-file-input" accept="image/*"
-                                    class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                                    onchange="window.handleImageUploadForEdit(this)">
-                            </div>
-                            <button onclick="window.addImageToNode()"
-                                class="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs">Aggiungi
-                                Immagine</button>
-                        </div>
-                    </div>
+                </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore Macroarea</label>
-                        <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <input type="color" id="edit-n-color"
-                                class="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 bg-transparent">
-                            <div class="text-[10px] text-slate-500 font-medium">
-                                Il cambio colore influirà su tutti i nodi appartenenti alla stessa macroarea.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="pt-4 border-t border-slate-100">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-3">Visibilità
-                            modifiche</label>
-                        <div class="grid grid-cols-4 gap-2">
-                            <label
-                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                                <input type="checkbox" id="edit-vis-text"
-                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                                <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-600"></i>
-                            </label>
-                            <label
-                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                                <input type="checkbox" id="edit-vis-image"
-                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                                <i data-lucide="image" class="w-3.5 h-3.5 text-slate-600"></i>
-                            </label>
-                            <label
-                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                                <input type="checkbox" id="edit-vis-link"
-                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                                <i data-lucide="link" class="w-3.5 h-3.5 text-slate-600"></i>
-                            </label>
-                            <label
-                                class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
-                                <input type="checkbox" id="edit-vis-file"
-                                    class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                                <i data-lucide="database" class="w-3.5 h-3.5 text-slate-600"></i>
-                            </label>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore Macroarea</label>
+                    <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <input type="color" id="edit-n-color"
+                            class="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 bg-transparent">
+                        <div class="text-[10px] text-slate-500 font-medium">
+                            Il cambio colore influirà su tutti i nodi appartenenti alla stessa macroarea.
                         </div>
                     </div>
                 </div>
-                <div class="mt-6 flex gap-3 justify-end">
-                    <button onclick="window.closeEditModal()"
-                        class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
-                    <button onclick="window.saveEditNode()"
-                        class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md">Salva
-                        Modifiche</button>
+
+                <div class="pt-4 border-t border-slate-100">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-3">Visibilità
+                        modifiche</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <label
+                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input type="checkbox" id="edit-vis-text"
+                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-600"></i>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input type="checkbox" id="edit-vis-image"
+                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            <i data-lucide="image" class="w-3.5 h-3.5 text-slate-600"></i>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input type="checkbox" id="edit-vis-link"
+                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            <i data-lucide="link" class="w-3.5 h-3.5 text-slate-600"></i>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input type="checkbox" id="edit-vis-file"
+                                class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            <i data-lucide="database" class="w-3.5 h-3.5 text-slate-600"></i>
+                        </label>
+                    </div>
                 </div>
             </div>
+            <div class="mt-6 flex gap-3 justify-end">
+                <button onclick="window.closeEditModal()"
+                    class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
+                <button onclick="window.saveEditNode()"
+                    class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md">Salva
+                    Modifiche</button>
+            </div>
         </div>
+    </div>
 
-        <!-- Modale Espansione Contestuale IA -->
-        <div id="contextual-ai-extension-modal"
-            class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-            <div
-                class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-300 flex flex-col">
-                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                    <div class="flex items-center gap-2">
-                        <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="sparkles"></i></div>
-                        <div>
-                            <h3 class="font-bold text-xl text-slate-800">Espansione Contestuale IA</h3>
-                            <p class="text-xs text-slate-500 font-bold">Nodo: <span id="contextual-ai-node-title"
-                                    class="text-indigo-600">...</span></p>
-                        </div>
+    <!-- Modale Espansione Contestuale IA -->
+    <div id="contextual-ai-extension-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform scale-95 transition-transform duration-300 flex flex-col">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="sparkles"></i></div>
+                    <div>
+                        <h3 class="font-bold text-xl text-slate-800">Espansione Contestuale IA</h3>
+                        <p class="text-xs text-slate-500 font-bold">Nodo: <span id="contextual-ai-node-title"
+                                class="text-indigo-600">...</span></p>
                     </div>
-                    <button onclick="window.closeContextualAIModal()"
+                </div>
+                <button onclick="window.closeContextualAIModal()"
+                    class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="mb-4">
+                <!-- Tab Selector -->
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
+                    <button id="tab-ctx-text" onclick="window.switchCtxTab('text')"
+                        class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Testo
+                        / URL</button>
+                    <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
+                        class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica
+                        PDF</button>
+                </div>
+
+                <!-- Panel: Text/URL -->
+                <div id="ctx-panel-text" class="space-y-3">
+                    <p class="text-[11px] text-slate-500 italic">Incolla qui il contenuto o l'indirizzo web che l'IA
+                        deve usare per generare nuovi rami figli.</p>
+                    <textarea id="contextual-ai-input"
+                        class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400"
+                        placeholder="Incolla qui testo o URL..."></textarea>
+                </div>
+
+                <!-- Panel: PDF -->
+                <div id="ctx-panel-pdf"
+                    class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                    <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
+                            class="w-8 h-8"></i></div>
+                    <div class="text-center">
+                        <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
+                        <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima
+                            dell'espansione.
+                        </p>
+                    </div>
+                    <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
+                        onchange="window.handleCtxPDFSelect(this)">
+                    <button onclick="document.getElementById('ctx-pdf-file').click()"
+                        class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli
+                        File</button>
+                    <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 justify-end mt-4">
+                <button onclick="window.closeContextualAIModal()"
+                    class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
+                <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
+                    class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md flex items-center gap-2">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Espandi Nodo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz / Flashcard Modal -->
+    <!-- Modale Sessione di Studio (Player) -->
+    <div id="study-player-modal"
+        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2500] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 transform scale-95 transition-transform duration-300 flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg" id="study-player-icon"><i
+                            data-lucide="brain-circuit"></i></div>
+                    <div>
+                        <h3 class="font-bold text-xl text-slate-800" id="study-player-title">Sessione di Studio</h3>
+                        <p class="text-xs text-slate-500 font-bold tracking-widest uppercase"><span
+                                id="study-player-progress">1 / 10</span></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div id="study-player-timer-container"
+                        class="hidden font-mono text-xl font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
+                        00:00
+                    </div>
+                    <button onclick="window.closeStudyPlayer()"
                         class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
                 </div>
+            </div>
 
-                <div class="mb-4">
-                    <!-- Tab Selector -->
-                    <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
-                        <button id="tab-ctx-text" onclick="window.switchCtxTab('text')"
-                            class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Testo
-                            / URL</button>
-                        <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
-                            class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica
-                            PDF</button>
+            <!-- Flashcard View -->
+            <div id="study-flashcard-view" class="hidden flex-col items-center justify-center min-h-[300px] mb-6">
+                <div id="flashcard-front"
+                    class="text-center w-full px-6 py-12 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm mb-6 cursor-pointer hover:bg-slate-100 transition"
+                    onclick="window.flipFlashcard()">
+                    <p class="text-2xl font-bold text-slate-800" id="flashcard-front-text">Domanda?</p>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold mt-4 tracking-widest"><i
+                            data-lucide="rotate-cw" class="inline w-3 h-3"></i> Clicca per girare</p>
+                </div>
+
+                <div id="flashcard-back-container" class="hidden w-full flex-col items-center">
+                    <div
+                        class="text-center w-full px-6 py-8 bg-indigo-50 border border-indigo-200 rounded-2xl shadow-inner mb-6">
+                        <p class="text-lg font-medium text-slate-700 leading-relaxed" id="flashcard-back-text">Risposta.
+                        </p>
                     </div>
 
-                    <!-- Panel: Text/URL -->
-                    <div id="ctx-panel-text" class="space-y-3">
-                        <p class="text-[11px] text-slate-500 italic">Incolla qui il contenuto o l'indirizzo web che l'IA
-                            deve usare per generare nuovi rami figli.</p>
-                        <textarea id="contextual-ai-input"
-                            class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400"
-                            placeholder="Incolla qui testo o URL..."></textarea>
+                    <div class="flex w-full gap-3">
+                        <button onclick="window.nextStudyItem('hard')"
+                            class="flex-1 py-4 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 transition-all">
+                            <span class="text-xl mb-1">😩</span>
+                            <span>Non conoscevo</span>
+                        </button>
+                        <button onclick="window.nextStudyItem('good')"
+                            class="flex-1 py-4 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 transition-all">
+                            <span class="text-xl mb-1">🤔</span>
+                            <span>Non ricordavo</span>
+                        </button>
+                        <button onclick="window.nextStudyItem('easy')"
+                            class="flex-1 py-4 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 transition-all">
+                            <span class="text-xl mb-1">😎</span>
+                            <span>Sapevo e ricordavo</span>
+                        </button>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Panel: PDF -->
-                    <div id="ctx-panel-pdf"
-                        class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                        <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
-                                class="w-8 h-8"></i></div>
-                        <div class="text-center">
-                            <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
-                            <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima
-                                dell'espansione.
-                            </p>
-                        </div>
-                        <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
-                            onchange="window.handleCtxPDFSelect(this)">
-                        <button onclick="document.getElementById('ctx-pdf-file').click()"
-                            class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli
-                            File</button>
-                        <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
+            <!-- Quiz View -->
+            <div id="study-quiz-view" class="hidden flex-col w-full min-h-[300px]">
+                <div class="mt-2 mb-6 font-bold text-xl text-slate-800 text-center px-4" id="study-quiz-question">
+                    Domanda Quiz
+                </div>
+
+                <!-- Multiple Choice & True/False -->
+                <div id="study-quiz-options" class="space-y-3 mb-6 hidden w-full"></div>
+
+                <!-- Open Answer -->
+                <div id="study-quiz-open" class="hidden w-full flex-col gap-4 mb-6">
+                    <textarea id="study-quiz-textarea"
+                        class="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        placeholder="Scrivi la tua risposta qui..."></textarea>
+                    <button onclick="window.checkOpenAnswer()"
+                        class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Verifica
+                        Risposta</button>
+                </div>
+
+                <div id="study-quiz-feedback"
+                    class="hidden p-6 rounded-xl border border-slate-200 bg-slate-50 mb-4 shadow-inner text-center">
+                    <h4 class="font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                        id="study-quiz-feedback-title">Risultato</h4>
+                    <p class="text-md text-slate-700 mb-6 font-medium leading-relaxed" id="study-quiz-feedback-desc">
+                    </p>
+                    <button onclick="window.nextStudyItem()"
+                        class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition mx-auto">Prossima
+                        Domanda</button>
+                </div>
+            </div>
+
+            <!-- Summary View -->
+            <div id="study-summary-view" class="hidden flex-col w-full min-h-[300px]">
+                <div class="text-center mb-6">
+                    <div
+                        class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-md">
+                        <i data-lucide="trophy" class="w-10 h-10"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-800">Sessione Completata!</h3>
+                    <p class="text-slate-500 font-medium" id="study-summary-stats">Hai risposto correttamente a 8
+                        domande su 10.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                        <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Analisi
+                            Errori</span>
+                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded"
+                            id="study-summary-time">Tempo: 02:45</span>
+                    </div>
+                    <div id="study-summary-mistakes" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Mistakes injected here -->
                     </div>
                 </div>
 
-                <div class="flex gap-3 justify-end mt-4">
-                    <button onclick="window.closeContextualAIModal()"
-                        class="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg">Annulla</button>
-                    <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
-                        class="px-4 py-2 bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md flex items-center gap-2">
-                        <i data-lucide="zap" class="w-4 h-4"></i> Espandi Nodo
+                <div class="flex gap-3">
+                    <button onclick="window.closeStudyPlayer()"
+                        class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition">Torna
+                        alla Mappa</button>
+                    <button onclick="window.saveStudyReport()"
+                        class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
+                        <i data-lucide="save" class="w-5 h-5"></i> Salva nel Vault
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+    <div id="quiz-modal"
+        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 transform scale-95 transition-transform duration-300 flex flex-col"
+            id="quiz-modal-content">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="brain-circuit"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-xl text-slate-800">Spaced Repetition</h3>
+                        <p class="text-xs text-slate-500 font-bold" id="quiz-node-title">Nodo</p>
+                    </div>
+                </div>
+                <button onclick="window.closeQuizModal()"
+                    class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
+            </div>
+
+            <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
+                <!-- question injected here -->
+            </div>
+
+            <div id="quiz-options-container" class="space-y-3 mb-6">
+                <!-- options injected here -->
+            </div>
+
+            <div id="quiz-feedback-container"
+                class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
+                <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
+                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
+                <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
+                <div class="flex gap-3" id="quiz-sr-buttons">
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('hard')">
+                        <span class="text-lg mb-1">😩</span>
+                        <span>Difficile</span>
+                        <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
+                    </button>
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('good')">
+                        <span class="text-lg mb-1">🤔</span>
+                        <span>Normale</span>
+                        <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
+                    </button>
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('easy')">
+                        <span class="text-lg mb-1">😎</span>
+                        <span>Facile</span>
+                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
+                    </button>
+                </div>
+                <div id="quiz-next-container" class="hidden">
+                    <button onclick="window.showNextSubQuestion()"
+                        class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
+                        <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
         </div>
-
-        <!-- Quiz / Flashcard Modal -->
-        <div id="quiz-modal"
-            class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 transform scale-95 transition-transform duration-300 flex flex-col"
-                id="quiz-modal-content">
-                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                    <div class="flex items-center gap-2">
-                        <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i data-lucide="brain-circuit"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-xl text-slate-800">Spaced Repetition</h3>
-                            <p class="text-xs text-slate-500 font-bold" id="quiz-node-title">Nodo</p>
-                        </div>
-                    </div>
-                    <button onclick="window.closeQuizModal()"
-                        class="text-slate-400 hover:text-slate-700 p-1 rounded-full"><i data-lucide="x"></i></button>
-                </div>
-
-                <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
-                    <!-- question injected here -->
-                </div>
-
-                <div id="quiz-options-container" class="space-y-3 mb-6">
-                    <!-- options injected here -->
-                </div>
-
-                <div id="quiz-feedback-container"
-                    class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
-                    <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
-                        id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
-                    <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
-                    <div class="flex gap-3" id="quiz-sr-buttons">
-                        <button
-                            class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
-                            onclick="window.processSRResponse('hard')">
-                            <span class="text-lg mb-1">😩</span>
-                            <span>Difficile</span>
-                            <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
-                        </button>
-                        <button
-                            class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
-                            onclick="window.processSRResponse('good')">
-                            <span class="text-lg mb-1">🤔</span>
-                            <span>Normale</span>
-                            <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
-                        </button>
-                        <button
-                            class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
-                            onclick="window.processSRResponse('easy')">
-                            <span class="text-lg mb-1">😎</span>
-                            <span>Facile</span>
-                            <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
-                        </button>
-                    </div>
-                    <div id="quiz-next-container" class="hidden">
-                        <button onclick="window.showNextSubQuestion()"
-                            class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
-                            <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    </div>
     </div>
 
     <!-- Loading Overlay con Custom MappAI Spinner -->
@@ -1867,20 +2059,69 @@ Restituisci solo il JSON pulito.</pre>
                 </div>
             </div>
             <div class="space-y-5">
-                <div>
+                <div class="mb-5">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Provider
+                        AI</label>
+                    <div class="flex bg-slate-100 p-1 rounded-xl">
+                        <button type="button" onclick="window.switchAIProvider('google')" id="provider-google"
+                            class="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Google
+                            Gemini</button>
+                        <button type="button" onclick="window.switchAIProvider('infomaniak')" id="provider-infomaniak"
+                            class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Infomaniak
+                            (CH)</button>
+                    </div>
+                </div>
+                <!-- Google Gemini API Key Container -->
+                <div id="gemini-api-key-container">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider"
-                        id="label-api-key">API Key (Google AI Studio)</label>
-                    <p class="text-xs text-slate-400 mb-2" id="label-api-key-desc">La chiave verrà salvata localmente.
-                        <button type="button" onclick="window.showAPITutorial()"
+                        id="label-api-key-google">Google API Key</label>
+                    <p class="text-xs text-slate-400 mb-2">La chiave verrà salvata localmente.
+                        <button type="button" onclick="window.showAPITutorial('google')"
                             class="text-indigo-500 hover:text-indigo-700 underline inline-flex items-center gap-1"><i
-                                data-lucide="help-circle" class="w-3 h-3"></i> <span id="label-api-key-how">Come ottenerla?</span></button>
+                                data-lucide="help-circle" class="w-3 h-3"></i> <span id="label-api-key-how-google">Come
+                                ottenerla?</span></button>
                     </p>
                     <div class="relative">
                         <i data-lucide="key"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
-                        <input type="password" id="api-key-input"
+                        <input type="password" id="gemini-api-key-input"
+                            onblur="localStorage.setItem('gemini_api_key', this.value);"
                             class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
-                            placeholder="AIzaSy...">
+                            placeholder="Inserisci chiave Google Gemini...">
+                    </div>
+                </div>
+
+                <!-- Infomaniak API Key & Product ID Container -->
+                <div id="infomaniak-api-key-container" class="hidden space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider"
+                            id="label-api-key-infomaniak">Infomaniak API Token</label>
+                        <p class="text-xs text-slate-400 mb-2">Il token verrà salvato localmente.
+                            <button type="button" onclick="window.showAPITutorial('infomaniak')"
+                                class="text-indigo-500 hover:text-indigo-700 underline inline-flex items-center gap-1"><i
+                                    data-lucide="help-circle" class="w-3 h-3"></i> <span id="label-api-key-how-infomaniak">Come
+                                    ottenerlo?</span></button>
+                        </p>
+                        <div class="relative">
+                            <i data-lucide="key"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                            <input type="password" id="infomaniak-api-key-input"
+                                onblur="localStorage.setItem('infomaniak_api_key', this.value);"
+                                class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
+                                placeholder="Inserisci token Infomaniak...">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Product ID
+                            (Infomaniak)</label>
+                        <div class="relative">
+                            <i data-lucide="package"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                            <input type="text" id="infomaniak-product-id"
+                                onblur="if(window.updateInfomaniakProductId) window.updateInfomaniakProductId(this.value);"
+                                class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition"
+                                placeholder="Es: 12345">
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -1897,7 +2138,7 @@ Restituisci solo il JSON pulito.</pre>
                         <i data-lucide="cpu"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <select id="model-select"
-                            onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); localStorage.setItem('gemini_selected_model', this.value);"
+                            onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); if(window.appState && window.appState.aiProvider === 'infomaniak') { localStorage.setItem('infomaniak_selected_model', this.value); } else { localStorage.setItem('gemini_selected_model', this.value); }"
                             class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 outline-none appearance-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
                             <option value="">Caricamento modelli in corso...</option>
                         </select>
@@ -1909,15 +2150,10 @@ Restituisci solo il JSON pulito.</pre>
                 </div>
                 <!-- Pricing Legend -->
                 <div id="pricing-legend"
-                    class="bg-indigo-50/60 border border-indigo-200/50 p-3 rounded-xl text-[11px] text-slate-600 space-y-1.5">
-                    <p id="pricing-free"><strong>🆓 Gratuito:</strong> Fino a 15 req/min e 1.500/giorno. Ottimo per
-                        iniziare.</p>
-                    <p id="pricing-paid"><strong>💰 A pagamento:</strong> Nessun limite. Costo tipico per mappa/KG:
-                        <strong>5–10 cent
-                            €/CHF</strong>.</p>
-                    <p id="pricing-note" class="text-[10px] text-slate-400 italic">Inserisci la API Key e clicca
-                        "Aggiorna Modelli" per
-                        vedere tutti i modelli disponibili con costi e formati supportati.</p>
+                    class="bg-indigo-50/60 border border-indigo-200/50 p-4 rounded-xl text-[11px] text-slate-600 space-y-1.5 min-h-[80px]">
+                    <div id="provider-info-content">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -1930,7 +2166,8 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
                 <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="brain-circuit" class="text-indigo-500"></i> <span id="modal-study-title-label">Metodo di Studio Attivo</span>
+                    <i data-lucide="brain-circuit" class="text-indigo-500"></i> <span
+                        id="modal-study-title-label">Metodo di Studio Attivo</span>
                 </h2>
                 <div class="flex items-center gap-2">
                     <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button"
@@ -1955,7 +2192,8 @@ Restituisci solo il JSON pulito.</pre>
         <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
                 <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="book-open" class="text-indigo-500"></i> <span id="modal-guide-title-label">Come usare MappAI</span>
+                    <i data-lucide="book-open" class="text-indigo-500"></i> <span id="modal-guide-title-label">Come
+                        usare MappAI</span>
                 </h2>
                 <div class="flex items-center gap-2">
                     <button onclick="window.readModalAloud('app-guide-modal')" class="tts-button"
@@ -2067,6 +2305,7 @@ Restituisci solo il JSON pulito.</pre>
     <script src="traduzioni/en_translations.js"></script>
     <script src="js/hypher.js"></script>
     <script src="js/it.js"></script>
+    <script src="js/infomaniak_bridge.js"></script>
     <script src="js/app.js"></script>
     <script>
         window.toggleSidebar = function () {
@@ -2124,7 +2363,8 @@ Restituisci solo il JSON pulito.</pre>
             class="a11y-btn"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
         <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
             class="a11y-btn"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
-        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="a11y-btn"><i data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
+        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="a11y-btn"><i data-lucide="move-vertical"
+                class="w-4 h-4"></i> Interlinea Testo</button>
 
         <span class="text-[10px] uppercase font-bold text-slate-400 mb-1 mt-2">Strumenti di Lettura</span>
         <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="a11y-btn"><i
@@ -2137,6 +2377,84 @@ Restituisci solo il JSON pulito.</pre>
         <button onclick="window.toggleMagnifier(); this.classList.toggle('active')" class="a11y-btn"><i
                 data-lucide="search" class="w-4 h-4"></i> Lente Ingrandimento</button>
     </div>
+
+    <!-- ==========================================
+         DEVELOPER DASHBOARD (PROMPT CONFIG)
+         ========================================== -->
+    <div id="admin-dashboard"
+        class="fixed inset-0 z-[1000000] hidden items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-5 h-5 text-emerald-400"></i> Developer Dashboard: System Prompts
+                </h2>
+                <button onclick="window.closeAdminDashboard()"
+                    class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Sidebar Liste Prompts -->
+                <div class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 overflow-y-auto">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Prompts Disponibili</h3>
+                    <div id="admin-prompts-list" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <!-- Main Editor -->
+                <div class="w-2/3 p-6 flex flex-col bg-white">
+                    <h3 id="admin-prompt-title" class="text-xl font-bold text-slate-800 mb-1">Seleziona un prompt</h3>
+                    <p id="admin-prompt-desc" class="text-sm text-slate-500 mb-4 h-10 line-clamp-2">Le descrizioni
+                        appariranno qui.</p>
+
+                    <textarea id="admin-prompt-editor"
+                        class="flex-1 w-full bg-slate-900 text-emerald-400 font-mono text-sm p-4 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                        spellcheck="false" placeholder="Il testo del prompt..."></textarea>
+
+                    <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <div class="flex gap-2">
+                            <button onclick="window.testPrompt()"
+                                class="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2">
+                                <i data-lucide="flask-conical" class="w-4 h-4"></i> Test Prompt
+                            </button>
+                        </div>
+                        <button onclick="window.saveCurrentPrompt()"
+                            class="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-md flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> Salva Modifiche
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- A/B Testing Area (Hidden by default) -->
+            <div id="admin-test-area" class="h-1/3 border-t border-slate-200 bg-slate-50 p-4 hidden flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-bold text-slate-700"><i data-lucide="bot" class="w-4 h-4 inline"></i> Test
+                        Output (Gemini)</h3>
+                    <button onclick="document.getElementById('admin-test-area').classList.add('hidden')"
+                        class="text-slate-400 hover:text-red-500">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="flex gap-4 h-full">
+                    <div class="w-1/3 flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-500">Simula Input Utente/Testo:</label>
+                        <textarea id="admin-test-input"
+                            class="flex-1 border border-slate-300 rounded p-2 text-xs font-mono"></textarea>
+                        <button onclick="window.runAIPromptTest()"
+                            class="py-1 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700">Invia
+                            Test</button>
+                    </div>
+                    <div class="w-2/3">
+                        <textarea id="admin-test-output"
+                            class="w-full h-full border border-slate-300 rounded p-2 text-xs font-mono bg-white"
+                            readonly placeholder="Output del modello..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/admin_prompts.js"></script>
 </body>
 
 </html>

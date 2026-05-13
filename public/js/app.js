@@ -9,6 +9,163 @@ window.safeCreateIcons();
 // Secondary call to ensure all dynamic or hidden elements are caught
 setTimeout(window.safeCreateIcons, 500);
 
+let appState = {
+    rootNodeLabel: "",
+    extractionMode: "mindmap",
+    layoutMode: "default",
+    semanticGuidance: "",
+    focusTopic: "",
+    sources: [],
+    db: {
+        nodes: [],
+        links: [],
+        sourcesDict: {},
+        customColors: {}
+    },
+    activeVaultPath: null,
+    userProfile: {
+        nickname: "",
+        age: "",
+        grade: "",
+        system: "Ticino"
+    },
+    aiProvider: localStorage.getItem('ai_provider') || 'google',
+    infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
+    studentMode: false
+};
+
+// ==========================================
+// MODALITÀ STUDENTE (SECRET SEQUENCE)
+// ==========================================
+let studentModeKeys = [];
+const studentModeSecret = ['l', 'k', 'j', 'h'];
+
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey) {
+        const key = e.key.toLowerCase();
+        if (studentModeSecret.includes(key)) {
+            studentModeKeys.push(key);
+            if (studentModeKeys.length > 4) studentModeKeys.shift();
+
+            if (studentModeKeys.join('') === 'lkjh') {
+                window.toggleStudentMode();
+                studentModeKeys = [];
+            }
+        } else {
+            studentModeKeys = [];
+        }
+    } else {
+        studentModeKeys = [];
+    }
+});
+
+window.toggleStudentMode = function () {
+    appState.studentMode = !appState.studentMode;
+    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
+
+    const btnUrl = document.getElementById('btn-src-url');
+    const btnYoutube = document.getElementById('btn-src-youtube');
+    const btnAudio = document.getElementById('btn-src-audio');
+    const btnVideo = document.getElementById('btn-src-video');
+
+    const displayStyle = appState.studentMode ? 'none' : '';
+
+    if (btnUrl) btnUrl.style.display = displayStyle;
+    if (btnYoutube) btnYoutube.style.display = displayStyle;
+    if (btnAudio) btnAudio.style.display = displayStyle;
+    if (btnVideo) btnVideo.style.display = displayStyle;
+};
+
+window.updateInfomaniakProductId = function (value) {
+    const val = value ? value.trim() : "";
+    localStorage.setItem('infomaniak_product_id', val);
+    appState.infomaniakProductId = val;
+}
+window.switchAIProvider = function (provider) {
+    appState.aiProvider = provider;
+    localStorage.setItem('ai_provider', provider);
+
+    const btnGoogle = document.getElementById('provider-google');
+    const btnInfomaniak = document.getElementById('provider-infomaniak');
+    const geminiFields = document.getElementById('gemini-api-key-container');
+    const infomaniakFields = document.getElementById('infomaniak-api-key-container');
+
+    if (!btnGoogle || !btnInfomaniak) return;
+
+    if (provider === 'google') {
+        btnGoogle.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+        btnGoogle.classList.remove('text-slate-500');
+        btnInfomaniak.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+        btnInfomaniak.classList.add('text-slate-500');
+
+        if (geminiFields) geminiFields.classList.remove('hidden');
+        if (infomaniakFields) infomaniakFields.classList.add('hidden');
+    } else {
+        btnInfomaniak.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+        btnInfomaniak.classList.remove('text-slate-500');
+        btnGoogle.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+        btnGoogle.classList.add('text-slate-500');
+
+        if (geminiFields) geminiFields.classList.add('hidden');
+        if (infomaniakFields) infomaniakFields.classList.remove('hidden');
+    }
+
+    // Add visual 'active' checkmark indicator to provider buttons
+    if (provider === 'google') {
+        btnGoogle.innerHTML = '✅ Google Gemini';
+        btnInfomaniak.innerHTML = 'Infomaniak (CH)';
+    } else {
+        btnInfomaniak.innerHTML = '✅ Infomaniak (CH)';
+        btnGoogle.innerHTML = 'Google Gemini';
+    }
+
+    if (window.refreshGeminiModels) window.refreshGeminiModels();
+    if (window.updateProviderInfo) window.updateProviderInfo(provider);
+};
+
+window.showAPITutorial = function (provider) {
+    const targetProvider = provider || appState.aiProvider;
+    let url = "https://aistudio.google.com/app/apikey";
+    if (targetProvider === 'infomaniak') {
+        url = "https://manager.infomaniak.com/v3/ng/profile/token/api";
+    }
+
+    if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(url);
+    } else {
+        window.open(url, '_blank');
+    }
+};
+
+window.updateProviderInfo = function (provider) {
+    const content = document.getElementById('provider-info-content');
+    if (!content) return;
+
+    const isEn = window.currentLanguage === 'en';
+
+    if (provider === 'google') {
+        content.innerHTML = isEn ? `
+            <p><strong>🎯 Target:</strong> Recommended for <strong>High School, University students or Professors</strong>.</p>
+            <p><strong>🚀 Performance:</strong> Massive token window (up to 2M), no timeout, and generates high levels of detail.</p>
+            <p class="text-[10px] text-slate-400 italic mt-1">Includes Free (15 req/min) and Pay-as-you-go tiers.</p>
+        ` : `
+            <p><strong>🎯 Target:</strong> Consigliato per studenti <strong>Liceali, Universitari o Professori</strong>.</p>
+            <p><strong>🚀 Performance:</strong> Enorme finestra di token (fino a 2M), nessun timeout e generazione di enormi quantità di dettagli.</p>
+            <p class="text-[10px] text-slate-400 italic mt-1">Include piano Gratuito (15 req/min) e Pay-as-you-go.</p>
+        `;
+    } else {
+        content.innerHTML = isEn ? `
+            <p><strong>🎯 Target:</strong> Exceptional for <strong>Middle School</strong> students.</p>
+            <p><strong>⚖️ Balance:</strong> Smaller input/output but fast and effective responses for basic learning.</p>
+            <p class="text-[10px] text-slate-400 italic mt-1">Powered by secure Swiss infrastructure.</p>
+        ` : `
+            <p><strong>🎯 Target:</strong> Eccezionale per studenti delle <strong>Scuole Medie</strong>.</p>
+            <p><strong>⚖️ Bilanciamento:</strong> Input/Output più ridotti ma risposte veloci ed efficaci per l'apprendimento di base.</p>
+            <p class="text-[10px] text-slate-400 italic mt-1">Servizio basato su infrastruttura svizzera sicura.</p>
+        `;
+    }
+};
+
 const MARKER_JSON = String.fromCharCode(96, 96, 96) + 'json';
 const MARKER_HTML = String.fromCharCode(96, 96, 96) + 'html';
 const MARKER_END = String.fromCharCode(96, 96, 96);
@@ -142,7 +299,13 @@ window.showConfigAIModal = function () {
             m.classList.remove('hidden');
             m.style.display = 'flex';
             window.safeCreateIcons();
-            try { if (window.getSystemKey && window.getSystemKey()) window.refreshGeminiModels(); } catch (e) { }
+
+            // Initialize Product ID
+            const productIdInput = document.getElementById('infomaniak-product-id');
+            if (productIdInput) productIdInput.value = appState.infomaniakProductId;
+
+            // Sync UI with current provider
+            window.switchAIProvider(appState.aiProvider);
         }
     } catch (e) { console.error('showConfigAIModal error:', e); }
 };
@@ -342,15 +505,9 @@ window.closeAppTutorial = function () {
     if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
 };
 
-window.showAPITutorial = function () {
+window.closeUserProfileModal = function () {
     try {
-        const m = document.getElementById('api-tutorial-modal');
-        if (m) { m.classList.remove('hidden'); m.style.display = 'flex'; }
-    } catch (e) { console.error('showAPITutorial error:', e); }
-};
-window.closeAPITutorial = function () {
-    try {
-        const m = document.getElementById('api-tutorial-modal');
+        const m = document.getElementById('user-profile-modal');
         if (m) { m.style.display = 'none'; m.classList.add('hidden'); }
     } catch (e) { }
 };
@@ -516,6 +673,11 @@ const MODEL_KB = {
     // ── Gemini 1.5 series ──
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, note: 'Stabile, legacy' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Potente, legacy' },
+    // ── Infomaniak ──
+    'mistral24b': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
+    'llama3': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
+    'mistral3': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
+    'gemma3n': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -574,7 +736,7 @@ function renderModelSelect(models, selectEl, currentValue) {
     if (!selectEl) return;
     selectEl.innerHTML = '';
 
-    const tierOrder = ['⚡ Veloce', '💎 Potente', '🟢 Economico', '📦 Legacy', 'Nuovi Modelli'];
+    const tierOrder = ['🇨🇭 Swiss Made', '⚡ Veloce', '💎 Potente', '🟢 Economico', '📦 Legacy', 'Nuovi Modelli'];
     const groups = {};
 
     models.forEach(m => {
@@ -613,47 +775,87 @@ function renderModelSelect(models, selectEl, currentValue) {
     } else if (selectEl.options.length > 0) {
         // If current value is invalid, pick the first available
         selectEl.value = selectEl.options[0].value;
-        localStorage.setItem('gemini_selected_model', selectEl.value);
+        if (window.appState && window.appState.aiProvider === 'infomaniak') {
+            localStorage.setItem('infomaniak_selected_model', selectEl.value);
+        } else {
+            localStorage.setItem('gemini_selected_model', selectEl.value);
+        }
     }
     if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
 }
 
 window.refreshGeminiModels = async function () {
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const apiKey = window.getSystemKey();
+    const selectEl = document.getElementById('model-select');
+    const statusEl = document.getElementById('models-status');
+    const refreshIcon = document.getElementById('refresh-models-icon');
+
+    // If no API key, clear the select box and show message
     if (!apiKey) {
+        if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca API Key)</option>';
         window.showToast("Inserisci prima una API Key per caricare i modelli.", "error");
+        if (statusEl) {
+            statusEl.innerText = "Attesa inserimento API Key...";
+            statusEl.classList.remove('hidden');
+        }
         return;
     }
 
-    const statusEl = document.getElementById('models-status');
-    const refreshIcon = document.getElementById('refresh-models-icon');
-    const selectEl = document.getElementById('model-select');
-    const currentValue = selectEl ? selectEl.value : '';
+    let productId = null;
+    if (isInfomaniak) {
+        productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
+        if (!productId) {
+            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
+            window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
+            if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
+            return;
+        }
+    }
+
+    const storageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const currentValue = localStorage.getItem(storageKey) || (selectEl ? selectEl.value : '');
 
     if (statusEl) { statusEl.innerText = "Caricamento modelli in corso..."; statusEl.classList.remove('hidden'); }
     if (refreshIcon) refreshIcon.style.animation = 'spin 1s linear infinite';
 
     try {
-        if (!window.electronAPI || !window.electronAPI.listModels) {
-            throw new Error("API list-models non disponibile");
+        let rawModels = [];
+        if (isInfomaniak) {
+            if (!window.electronAPI || !window.electronAPI.listInfomaniakModels) {
+                throw new Error("API list-infomaniak-models non disponibile");
+            }
+            rawModels = await window.electronAPI.listInfomaniakModels({ apiKey, productId });
+        } else {
+            if (!window.electronAPI || !window.electronAPI.listModels) {
+                throw new Error("API list-models non disponibile");
+            }
+            rawModels = await window.electronAPI.listModels({ apiKey });
         }
 
-        const rawModels = await window.electronAPI.listModels({ apiKey });
         if (!rawModels || rawModels.length === 0) {
+            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello trovato</option>';
             if (statusEl) statusEl.innerText = "Nessun modello trovato.";
             return;
         }
 
-        // Filter: exclude non-generative text models
-        const excludePatterns = ['tts', 'live', 'embed', 'image', 'nano-banana', 'veo', 'lyria', 'imagen', 'robotics', 'deep-research', 'computer-use'];
-        const filteredModels = rawModels.filter(m => {
-            const id = m.id.toLowerCase();
-            if (excludePatterns.some(p => id.includes(p))) return false;
-            if (!id.includes('gemini')) return false; // Ensure it's a Gemini LLM
-            return true;
-        });
+        let filteredModels = [];
+        if (isInfomaniak) {
+            // Include all returned Infomaniak models except embeddings
+            filteredModels = rawModels.filter(m => !m.id.toLowerCase().includes('embed'));
+        } else {
+            // Filter out unsupported models for Gemini
+            const excludePatterns = ['tts', 'live', 'embed', 'image', 'nano-banana', 'veo', 'lyria', 'imagen', 'robotics', 'deep-research', 'computer-use'];
+            filteredModels = rawModels.filter(m => {
+                const id = m.id.toLowerCase();
+                if (excludePatterns.some(p => id.includes(p))) return false;
+                if (!id.includes('gemini')) return false; // Ensure it's a Gemini LLM
+                return true;
+            });
+        }
 
         if (filteredModels.length === 0) {
+            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello compatibile</option>';
             if (statusEl) statusEl.innerText = "Nessun modello compatibile trovato.";
             return;
         }
@@ -683,7 +885,8 @@ window.refreshGeminiModels = async function () {
         // Populate select with optgroups
         if (selectEl) {
             renderModelSelect(filteredModels, selectEl, currentValue);
-            localStorage.setItem('gemini_available_models', JSON.stringify(filteredModels.map(m => ({ id: m.id, displayName: m.displayName, kb: m.kb }))));
+            const availableModelsKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+            localStorage.setItem(availableModelsKey, JSON.stringify(filteredModels.map(m => ({ id: m.id, displayName: m.displayName, kb: m.kb }))));
         }
 
         if (statusEl) { statusEl.innerText = `${filteredModels.length} modelli compatibili trovati.`; }
@@ -770,47 +973,51 @@ window.extractTextFromPDF = async function (file) {
     return fullText;
 };
 
-let appState = {
-    rootNodeLabel: "",
-    extractionMode: "mindmap",
-    layoutMode: "default",
-    semanticGuidance: "",
-    focusTopic: "",
-    sources: [],
-    db: {
-        nodes: [],
-        links: [],
-        sourcesDict: {},
-        customColors: {}
-    },
-    activeVaultPath: null,
-    userProfile: {
-        nickname: "",
-        age: "",
-        grade: "",
-        system: "Ticino"
-    }
-};
+
 
 window.getSystemKey = function () {
-    const inputEl = document.getElementById('api-key-input');
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const inputId = isInfomaniak ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
+    const storageKey = isInfomaniak ? 'infomaniak_api_key' : 'gemini_api_key';
+
+    const inputEl = document.getElementById(inputId);
     let key = inputEl ? inputEl.value.trim() : "";
     if (!key || key === "") {
-        key = localStorage.getItem('gemini_api_key') || "";
+        key = localStorage.getItem(storageKey) || "";
     }
     return key;
 };
 
 window.fetchModelAPI = async function (payload, apiKey) {
     const modelEl = document.getElementById('model-select');
-    const model = modelEl ? modelEl.value : 'gemini-2.0-flash';
+    let model = modelEl ? modelEl.value : null;
+    if (!model) {
+        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral24b');
+    }
 
     if (window.electronAPI) {
         try {
-            const response = await window.electronAPI.generateGemini({ apiKey, payload, model });
+            let response;
+            if (appState.aiProvider === 'infomaniak') {
+                const productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
+                if (!productId) throw new Error("Inserisci il Product ID di Infomaniak nel Setup.");
+
+                // Salva Product ID per persistenza
+                localStorage.setItem('infomaniak_product_id', productId);
+                appState.infomaniakProductId = productId;
+
+                // Translate payload using bridge
+                const translatedPayload = window.InfomaniakBridge.translatePayload(payload, model);
+                const rawResponse = await window.electronAPI.generateInfomaniak({ apiKey, payload: translatedPayload, productId });
+
+                // Translate back to Gemini format for app compatibility
+                response = window.InfomaniakBridge.translateResponse(rawResponse);
+            } else {
+                response = await window.electronAPI.generateGemini({ apiKey, payload, model });
+            }
 
             // Tracking Usage
-            if (response.usageMetadata) {
+            if (response && response.usageMetadata) {
                 if (!appState.generationUsage) appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0 };
                 appState.generationUsage.promptTokens += (response.usageMetadata.promptTokenCount || 0);
                 appState.generationUsage.candidateTokens += (response.usageMetadata.candidatesTokenCount || 0);
@@ -843,6 +1050,52 @@ window.updateCostDisplay = function () {
     if (modelEl && appState.generationUsage.usedModel) modelEl.textContent = appState.generationUsage.usedModel;
 }
 
+window.updateTokenCounter = function () {
+    const container = document.getElementById('token-counter-container');
+    const display = document.getElementById('token-count');
+    if (!container || !display) return;
+
+    let totalChars = 0;
+
+    // Sum contents from textarea sources
+    const textareas = document.querySelectorAll('.landing-textarea');
+    textareas.forEach(ta => {
+        totalChars += ta.value.length;
+    });
+
+    // Sum contents from appState (extracted from files/urls)
+    if (appState.sources) {
+        appState.sources.forEach(s => {
+            if (s.content) totalChars += s.content.length;
+        });
+    }
+
+    if (totalChars > 0) {
+        container.classList.remove('hidden');
+        // Heuristic: ~4 chars per token
+        const tokens = Math.ceil(totalChars / 4);
+        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
+
+        // Visual feedback based on size
+        if (tokens > 30000) {
+            display.classList.add('text-rose-600', 'border-rose-200');
+            display.classList.remove('text-indigo-600', 'border-indigo-100');
+        } else {
+            display.classList.remove('text-rose-600', 'border-rose-200');
+            display.classList.add('text-indigo-600', 'border-indigo-100');
+        }
+    } else {
+        container.classList.add('hidden');
+    }
+};
+
+// Auto-update counter when typing in textareas
+document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('landing-textarea')) {
+        window.updateTokenCounter();
+    }
+});
+
 window.addSource = function (type) {
     if (!appState.sources) appState.sources = [];
     const container = document.getElementById('sources-container');
@@ -856,16 +1109,16 @@ window.addSource = function (type) {
         inputHtml = '<input type="file" accept=".pdf" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handlePDFUpload(this)"><p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima dell\'analisi AI.</p>';
     } else if (type === 'audio') {
         titleHtml = '<i data-lucide="mic" class="w-4 h-4 text-amber-400"></i> File Audio';
-        inputHtml = '<input type="file" multiple accept="audio/*" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'audio\')"><p class="text-[10px] text-slate-400">MP3, WAV, AAC... Gemini ascolterà il file.</p>';
+        inputHtml = '<input type="file" multiple accept="audio/*" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'audio\')"><p class="text-[10px] text-slate-400">MP3, WAV, AAC... MappAI ascolterà il file.</p>';
     } else if (type === 'video') {
         titleHtml = '<i data-lucide="video" class="w-4 h-4 text-rose-400"></i> File Video';
-        inputHtml = '<input type="file" multiple accept="video/*" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'video\')"><p class="text-[10px] text-slate-400">MP4, MOV, WEBM... Gemini vedrà il file.</p>';
+        inputHtml = '<input type="file" multiple accept="video/*" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'video\')"><p class="text-[10px] text-slate-400">MP4, MOV, WEBM... MappAI vedrà il file.</p>';
     } else if (type === 'url') {
         titleHtml = '<i data-lucide="link" class="w-4 h-4 text-sky-400"></i> Link Web';
-        inputHtml = '<input type="url" placeholder="https://..." class="landing-input shadow-none mb-1 text-sm" data-source-id="' + id + '" onblur="window.handleUrlBlur(this)"><p class="text-[10px] text-slate-400">Gemini analizzerà i contenuti della pagina web.</p>';
+        inputHtml = '<input type="url" placeholder="https://..." class="landing-input shadow-none mb-1 text-sm" data-source-id="' + id + '" onblur="window.handleUrlBlur(this)"><p class="text-[10px] text-slate-400">MappAI analizzerà i contenuti della pagina web.</p>';
     } else if (type === 'youtube') {
         titleHtml = '<i data-lucide="youtube" class="w-4 h-4 text-red-400"></i> Video YouTube';
-        inputHtml = '<input type="url" placeholder="https://youtube.com/watch?v=..." class="landing-input shadow-none mb-1 text-sm" data-source-id="' + id + '" onblur="window.handleUrlBlur(this)"><p class="text-[10px] text-slate-400">Gemini estrarrà i contenuti audio/visivi del video.</p>';
+        inputHtml = '<input type="url" placeholder="https://youtube.com/watch?v=..." class="landing-input shadow-none mb-1 text-sm" data-source-id="' + id + '" onblur="window.handleUrlBlur(this)"><p class="text-[10px] text-slate-400">MappAI estrarrà i contenuti audio/visivi del video.</p>';
     } else if (type === 'text') {
         titleHtml = '<i data-lucide="type" class="w-4 h-4 text-amber-400"></i> Testo Libero';
         inputHtml = '<textarea placeholder="Incolla qui i tuoi appunti..." class="landing-input landing-textarea text-sm" data-source-id="' + id + '"></textarea>';
@@ -915,7 +1168,7 @@ window.removeSource = function (id) {
     document.getElementById(id).remove();
 }
 
-window.handlePDFUpload = function (input) {
+window.handlePDFUpload = async function (input) {
     var file = input.files[0];
     if (!file) return;
     var sourceObj = appState.sources.find(function (s) { return s.id === input.dataset.sourceId; });
@@ -931,12 +1184,52 @@ window.handlePDFUpload = function (input) {
     }
 
     var sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-    statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> PDF pronto (' + sizeMB + ' MB).';
+    statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> Estrazione testo in corso...';
+
+    try {
+        const text = await window.extractTextFromPDF(file);
+        sourceObj.content = text;
+        statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> PDF pronto (' + sizeMB + ' MB).';
+        window.updateTokenCounter();
+    } catch (e) {
+        statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline text-red-400"></i> Errore estrazione.';
+    }
+
     window.safeCreateIcons();
     window.handleSourceAutofill(file.name);
 }
 
-window.handleFileUpload = function (input, type) {
+window.processSourceFile = async function (sourceObj, file, statusEl) {
+    if (!file || !sourceObj || !statusEl) return;
+
+    const fileName = file.name.toLowerCase();
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+
+    statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> Lettura file...';
+
+    try {
+        let text = "";
+        if (fileName.endsWith('.pdf')) {
+            text = await window.extractTextFromPDF(file);
+        } else if (fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.csv') || fileName.endsWith('.rtf')) {
+            text = await file.text();
+        }
+
+        if (text) {
+            sourceObj.content = text;
+            statusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${file.name} (${sizeMB} MB) pronto.`;
+            window.updateTokenCounter();
+        } else {
+            statusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${file.name} (${sizeMB} MB) caricato.`;
+        }
+    } catch (e) {
+        console.error("Errore lettura file:", e);
+        statusEl.innerHTML = `<i data-lucide="alert-circle" class="w-3 h-3 inline text-red-400"></i> Errore lettura.`;
+    }
+    window.safeCreateIcons();
+};
+
+window.handleFileUpload = async function (input, type) {
     if (!input.files || input.files.length === 0) return;
 
     var firstFile = input.files[0];
@@ -955,10 +1248,9 @@ window.handleFileUpload = function (input, type) {
         input.parentNode.appendChild(statusEl);
     }
 
-    var sizeMB = (firstFile.size / (1024 * 1024)).toFixed(1);
-    statusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${firstFile.name} (${sizeMB} MB) caricato.`;
     input.style.display = 'none';
     window.handleSourceAutofill(firstFile.name);
+    await window.processSourceFile(sourceObj, firstFile, statusEl);
 
     if (input.files.length > 1) {
         for (let i = 1; i < input.files.length; i++) {
@@ -971,17 +1263,14 @@ window.handleFileUpload = function (input, type) {
             newSourceObj.path = (window.electronAPI && window.electronAPI.getPathForFile) ? window.electronAPI.getPathForFile(extraFile) : extraFile.path;
             newSourceObj.mimeType = extraFile.type;
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 let newContainer = document.getElementById(newId);
                 if (newContainer) {
                     let newStatusEl = document.createElement('p');
                     newStatusEl.className = 'text-[10px] text-emerald-400 mt-1 font-bold';
                     newStatusEl.id = 'status-' + newId;
-                    newStatusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${extraFile.name} (${(extraFile.size / (1024 * 1024)).toFixed(1)} MB) caricato.`;
 
                     let inputDiv = newContainer.querySelector('.flex-grow');
-                    if (inputDiv) inputDiv.appendChild(newStatusEl);
-
                     let inp = newContainer.querySelector('input[type="file"]');
                     if (inp) inp.style.display = 'none';
                     window.handleSourceAutofill(extraFile.name);
@@ -993,10 +1282,14 @@ window.handleFileUpload = function (input, type) {
 }
 
 window.startGeneration = async function () {
-    const inputKey = document.getElementById('api-key-input') ? document.getElementById('api-key-input').value.trim() : "";
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const inputId = isInfomaniak ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
+    const storageKey = isInfomaniak ? 'infomaniak_api_key' : 'gemini_api_key';
+
+    const inputKey = document.getElementById(inputId) ? document.getElementById(inputId).value.trim() : "";
 
     if (inputKey !== "") {
-        localStorage.setItem('gemini_api_key', inputKey);
+        localStorage.setItem(storageKey, inputKey);
     }
 
     const apiKey = window.getSystemKey();
@@ -1093,16 +1386,6 @@ window.startGeneration = async function () {
                     hasSources = true;
                 }
             } catch (e) { console.error("Errore lettura TXT", e); }
-        } else if (src.type === 'doc' && src.file && src.file.name.toLowerCase().endsWith('.pdf')) {
-            const arrayBuffer = await src.file.arrayBuffer();
-            try {
-                const pdfText = await parsePdf(arrayBuffer);
-                textParts.push(`--- FONTE PDF (${src.file.name}) ---\n${pdfText}\n`);
-                hasSources = true;
-            } catch (e) {
-                console.error("Errore PDF.js in-browser:", e);
-                textParts.push(`--- ERRORE LETTURA PDF (${src.file.name}): ${e.message} ---\n`);
-            }
         } else if (src.type === 'doc' && src.file && src.file.name.toLowerCase().endsWith('.docx')) {
             window.showLoadingOverlay(true, "Estrazione testo dal documento Word...");
             try {
@@ -1136,7 +1419,7 @@ window.startGeneration = async function () {
                 continue; // Salta la sezione File API sotto
             } catch (e) { console.error("Errore Base64 Documento", e); }
         } else if ((src.type === 'audio' || src.type === 'video' || src.type === 'doc') && src.file) {
-            window.showLoadingOverlay(true, `Caricamento ${src.type.toUpperCase()} su Google File API...`);
+            window.showLoadingOverlay(true, `MappAI: Caricamento ${src.type.toUpperCase()} nel Cloud AI...`);
             try {
                 let uploadedFile;
                 // Usiamo l'API Electron solo se abbiamo un percorso file valido (stringa)
@@ -1201,7 +1484,7 @@ window.startGeneration = async function () {
         return;
     }
 
-    window.showLoadingOverlay(true, "Inizializzazione elaborazione...");
+    window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."));
 
     if (appState.extractionMode === 'mindmap') {
         await extractMindMapIterative(textParts, fileParts, apiKey);
@@ -1219,7 +1502,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             sourcesDict: {}
         };
 
-        window.showLoadingOverlay(true, "Analisi introduttiva dell'argomento principale...");
+        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi introduttiva dell'argomento principale...`);
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
@@ -1238,12 +1521,12 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const maxBranches = parseInt(document.getElementById('branches-slider').value) || 0;
 
         if (l1Labels.length === 0 || autoGenerateL1) {
-            window.showLoadingOverlay(true, "Fase 1: Individuazione delle Macro-Categorie...");
-            let promptL1 = `Analizza le seguenti fonti. Identifica da 3 a 5 argomenti o macro-categorie fondamentali (Nodi di Livello 1) per descrivere il tema "${appState.rootNodeLabel}".\n`;
-            if (l1Labels.length > 0) {
-                promptL1 += `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Labels)}.\n`;
-            }
-            promptL1 += `Restituisci SOLO ED ESCLUSIVAMENTE un Array JSON di stringhe. Nessun commento o testo aggiuntivo.\n\nFONTI:\n${textParts.join('\n')}`;
+            window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Individuazione delle Macro-Categorie...`);
+            let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
+                rootNodeLabel: appState.rootNodeLabel,
+                optionalL1Labels: l1Labels.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Labels)}.\\n` : '',
+                textParts: textParts.join('\\n')
+            });
 
             const schemaL1 = { type: "ARRAY", items: { type: "STRING" } };
             const payloadL1 = {
@@ -1270,7 +1553,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         let l1NodesData = [];
         l1Labels.forEach((lbl, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { id: l1Id, label: lbl, content: `Macro-area: ${lbl}`, desc: `Macro-area: ${lbl}`, level: 1, chunks: [], studyStatus: 'none' };
+            let nodeObj = { id: l1Id, label: lbl, content: lbl, desc: `Categoria principale: ${lbl}`, level: 1, chunks: [], studyStatus: 'none' };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
             appState.db.links.push({ source: rootId, target: l1Id, rel: "include" });
@@ -1279,7 +1562,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const schemaBranch = {
             type: "OBJECT",
             properties: {
-                nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc"] } },
+                nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "chunks"] } },
                 links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING" } }, required: ["source", "target", "rel"] } }
             },
             required: ["nodes", "links"]
@@ -1287,31 +1570,34 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         for (let i = 0; i < l1NodesData.length; i++) {
             const l1Node = l1NodesData[i];
-            window.showLoadingOverlay(true, `Fase 2: Elaborazione ramo ${i + 1} di ${l1NodesData.length} ("${l1Node.label}")...`);
+            window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Elaborazione ramo ${i + 1} di ${l1NodesData.length} ("${l1Node.label}")...`);
 
             if (i > 0) {
                 // Rate limit prevention for free-tier Gemini API (15 RPM limits)
                 await new Promise(resolve => setTimeout(resolve, 4500));
             }
 
-            let promptBranch = `Sei un tutor esperto. Costruisci un ramo di una Mappa Mentale JSON sull'argomento: "${appState.rootNodeLabel}".\n` +
-                `ATTENZIONE: DEVI POPOLARE SOLO ED ESCLUSIVAMENTE IL SOTTO-RAMO DELLA CATEGORIA: "${l1Node.label}" (usa il suo ID esatto come Source genitore: "${l1Node.id}").\n\n` +
-                `REGOLE TASSATIVE:\n` +
-                `1. INCLUDI nei 'nodes' il nodo padre esatto ("id": "${l1Node.id}", "label": "${l1Node.label}", "level": 1). COME 'content' INSERISCI UN CHIARO E UTILISSIMO RIASSUNTO descrittivo della macro-area (almeno 30 parole, massimo 50 parole) per aiutare lo studente.\n` +
-                `2. Usa TASSATIVAMENTE e rigorosamente SEMPRE L'ITALIANO per tutto l'albero. Questo vale anche per le parole di connessione logica ('rel' nei links), usa verbi italiani come "include", "porta a", "causa", "è formato da", "dipende da"\n` +
-                `3. Crea nodi di Livello 2 (usa 'level': 2) per i concetti chiave derivanti da "${l1Node.label}". Collega ognuno al genitore inserendo in links "source": "${l1Node.id}".\n` +
-                `4. Crea nodi di Livello 3 (usa 'level': 3) figli dei nodi L2.\n` +
-                `5. Crea nodi di Livello 4 e 5 (usa 'level': 4, 5) per approfondire ulteriormente i dettagli più specifici, assicurando una gerarchia profonda e completa.\n`;
-
-            if (maxBranches > 0) {
-                promptBranch += `6. DEVI ASSOLUTAMENTE generare ALMENO ${maxBranches} rami per ogni livello di profondità (L2, L3, L4, L5) per popolare l'albero in modo folto e dettagliato.\n`;
+            let userProfileStr = '';
+            if (appState.userProfile) {
+                userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
             }
 
-            promptBranch += `7. 'content' DEVE ESSERE una frase molto concisa (massimo 10 parole). 'desc' DEVE ESSERE un paragrafo ESTREMAMENTE CORPOSO, DETTAGLIATO E DISCORSIVO (minimo 250-300 parole) che spieghi in modo enciclopedico e approfondito il concetto, includendo tutto il contesto tecnico o storico derivante dalle fonti. SE IL TESTO 'desc' E' TROPPO BREVE FALLIRAI IL COMPITO.\n` +
-                `8. Identifica almeno 1 'source' specifico per ogni argomento (es. libro, autore, documento).\n` +
-                `9. ID nodi: Usa stringhe univoche in maiuscolo (es. "${l1Node.id}_CONCEPT_1").\n` +
-                `10. 'chunks': Inserisci un array di stringhe contenente LE ESATTE CITAZIONI ESTRATTE DALLE FONTI (copia/incolla una o più frasi reali dal testo per comprovare il concetto). Assicurati di includere nelle citazioni il titolo originale del documento se presente.\n\n` +
-                `FONTI DA ANALIZZARE:\n${textParts.join('\n\n')}`;
+            if (appState.studentMode) {
+                userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+            }
+
+            let optionalMaxBranches = maxBranches > 0 ? `6. DEVI ASSOLUTAMENTE generare ALMENO ${maxBranches} rami per ogni livello di profondità (L2, L3, L4, L5) per popolare l'albero in modo folto e dettagliato.\\n` : '';
+
+            const promptKey = appState.studentMode ? "MIND_MAP_BRANCH_STUDENT" : "MIND_MAP_BRANCH";
+
+            let promptBranch = window.fillPromptTemplate(promptKey, {
+                rootNodeLabel: appState.rootNodeLabel,
+                l1NodeLabel: l1Node.label,
+                l1NodeId: l1Node.id,
+                optionalMaxBranches: optionalMaxBranches,
+                userProfileInjection: userProfileStr,
+                textParts: textParts.join('\\n\\n')
+            });
 
             const payloadBranch = {
                 contents: [{ parts: [...fileParts, { text: promptBranch }] }],
@@ -1324,7 +1610,78 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 if (cand && cand.content && cand.content.parts) {
                     let rawText = cand.content.parts[0].text;
                     let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                    let branchData = JSON.parse(cleanText);
+                    let branchData = salvageTruncatedJSON(cleanText);
+
+                    // --- ID SANITIZATION (Critical for Infomaniak/Open Weights) ---
+                    // Prevent LLMs from outputting generic IDs like "1", "2" which cause massive collisions across branches.
+                    if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                        let idMapping = {};
+
+                        // Smart L1 Identification: If the model failed to use l1Node.id, find the node that represents the macro-area
+                        let l1Candidate = branchData.nodes.find(n => n.id === l1Node.id);
+                        if (!l1Candidate) {
+                            l1Candidate = branchData.nodes.find(n => n.label.trim().toLowerCase() === l1Node.label.trim().toLowerCase());
+                        }
+                        if (!l1Candidate) {
+                            l1Candidate = branchData.nodes.find(n => parseInt(n.level) === 1);
+                            if (!l1Candidate && branchData.links) {
+                                let targetIds = new Set(branchData.links.map(l => l.target));
+                                l1Candidate = branchData.nodes.find(n => !targetIds.has(n.id));
+                            }
+                        }
+                        if (l1Candidate) {
+                            idMapping[l1Candidate.id] = l1Node.id;
+                            l1Candidate.id = l1Node.id;
+                        }
+
+                        // Deduplicate nodes that represent the same L1 category
+                        branchData.nodes.forEach(n => {
+                            if (n.id !== l1Node.id && n.label.trim().toLowerCase() === l1Node.label.trim().toLowerCase()) {
+                                idMapping[n.id] = l1Node.id;
+                                n.id = l1Node.id;
+                            }
+                        });
+
+                        // Keep only unique nodes, favoring those with descriptions
+                        let uniqueNodesMap = {};
+                        branchData.nodes.forEach(n => {
+                            if (!uniqueNodesMap[n.id]) {
+                                uniqueNodesMap[n.id] = n;
+                            } else {
+                                let existing = uniqueNodesMap[n.id];
+                                let nDesc = n.desc || n.content || "";
+                                let exDesc = existing.desc || existing.content || "";
+                                if (nDesc.length > exDesc.length) {
+                                    existing.desc = nDesc;
+                                    existing.content = n.content || existing.content;
+                                }
+                                if (n.chunks) {
+                                    existing.chunks = existing.chunks || [];
+                                    existing.chunks.push(...n.chunks);
+                                }
+                            }
+                        });
+                        branchData.nodes = Object.values(uniqueNodesMap);
+
+                        branchData.nodes.forEach((n, idx) => {
+                            // If the ID is not the exact L1 node, and doesn't already safely start with the L1 prefix
+                            if (n.id !== l1Node.id && !n.id.startsWith(l1Node.id)) {
+                                let safeSuffix = n.id.length < 6 ? `N${idx}_${n.id}` : n.id;
+                                let newId = `${l1Node.id}_${safeSuffix}`.replace(/[^a-zA-Z0-9_]/g, '_');
+                                idMapping[n.id] = newId;
+                                n.id = newId;
+                            }
+                        });
+                        // Rewrite links with the sanitized IDs
+                        if (branchData.links && Array.isArray(branchData.links)) {
+                            branchData.links.forEach(l => {
+                                if (idMapping[l.source]) l.source = idMapping[l.source];
+                                if (idMapping[l.target]) l.target = idMapping[l.target];
+                            });
+                            // Filter out self-links that might have been created by merging duplicates
+                            branchData.links = branchData.links.filter(l => l.source !== l.target);
+                        }
+                    }
 
                     let l1ChunksAggregated = []; // Raccogliamo tutte le note della prole
 
@@ -1335,7 +1692,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                                 let existingNode = appState.db.nodes.find(x => x.id === l1Node.id);
                                 if (existingNode && n.content) {
                                     existingNode.content = n.content;
-                                    existingNode.desc = n.content;
+                                    existingNode.desc = n.desc || n.content;
                                 }
                                 if (n.chunks) l1ChunksAggregated.push(...n.chunks);
                             } else {
@@ -1363,6 +1720,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             }
                         });
                     }
+
+                    // Fallback di sicurezza: connetti i nodi orfani al genitore L1
+                    if (branchData.nodes && branchData.links) {
+                        const linkedTargetIds = new Set(branchData.links.map(l => l.target));
+                        branchData.nodes.forEach(n => {
+                            if (n.id !== l1Node.id && !linkedTargetIds.has(n.id)) {
+                                appState.db.links.push({ source: l1Node.id, target: n.id, rel: "approfondisce" });
+                            }
+                        });
+                    }
                 }
             } catch (e) {
                 console.warn(`Errore durante la generazione del ramo ${l1Node.label}:`, e);
@@ -1386,24 +1753,58 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
     }
 }
 
+function salvageTruncatedJSON(text) {
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.warn("JSON parse failed, attempting to salvage truncated JSON...");
+        let tempText = text;
+
+        while (tempText.lastIndexOf('}') !== -1) {
+            let lastClose = tempText.lastIndexOf('}');
+            let salvaged = tempText.substring(0, lastClose + 1);
+
+            let openBraces = (salvaged.match(/\{/g) || []).length;
+            let closeBraces = (salvaged.match(/\}/g) || []).length;
+            let openBrackets = (salvaged.match(/\[/g) || []).length;
+            let closeBrackets = (salvaged.match(/\]/g) || []).length;
+
+            while (closeBrackets < openBrackets) { salvaged += ']'; closeBrackets++; }
+            while (closeBraces < openBraces) { salvaged += '}'; closeBraces++; }
+
+            try {
+                return JSON.parse(salvaged);
+            } catch (e2) {
+                // If it still fails (e.g. cut off inside a string with a brace), cut off the last brace and try again
+                tempText = tempText.substring(0, lastClose);
+            }
+        }
+
+        console.error("Failed to salvage JSON entirely");
+        throw e; // Throw original error if all salvage attempts fail
+    }
+}
+
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
-    var promptText = `Sei un esperto estensore di Knowledge Graph.\n` +
-        `Tema: ${appState.rootNodeLabel}.\nModalità: Knowledge Graph Relazionale Libero.\n`;
-
-    promptText += `\nREGOLE FONDAMENTALI (Pena fallimento critico):\n- Estrai concetti chiave, date, o eventi storici ('id' MAIUSCOLO univoco).\n` +
-        `- Estrai il MASSIMO NUMERO POSSIBILE di Nodi (nodes) pertinenti. Non fermarti a riassunti basilari.\n` +
-        `- Ogni nodo ('nodes') DEVE avere: 'label' (Testo Breve), 'desc' (Paragrafo ESTREMAMENTE CORPOSO di almeno 250-300 parole, enciclopedico, ricco di contesto e discorsivo), e 'level' (1 per Super-Hub, 2 per Hub medi, 3 per Nodi foglia).\n` +
-        `- SE 'desc' E' TROPPO BREVE, IL RISULTATO SARA' SCARTATO.\n` +
-        `- Crea una FITTA RETE di RELAZIONI ('links') logiche e storicamente/tecnicamente fondate tra i nodi.\n` +
-        `- Il 'rel' nei links DEVE ESSERE esplicativo (massimo 5 parole).\n\n`;
-
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
-    if (kgKeywords) promptText += `Focalizza le relazioni su questi Super-Hub semantici (se pertinenti): ${kgKeywords}.\n`;
 
-    promptText += `\n- Usa archi relazionali tra i nodi (source, target, rel).\n` +
-        `- 'content' è una breve frase (max 10 parole). 'desc' DEVE ESSERE un paragrafo ESTREMAMENTE CORPOSO, DETTAGLIATO E DISCORSIVO (minimo 250-300 parole) che spieghi in modo enciclopedico e approfondito il concetto, includendo tutto il contesto tecnico o storico derivante dalle fonti. SE IL TESTO 'desc' E' TROPPO BREVE FALLIRAI IL COMPITO IN MODO CRITICO.\n` +
-        `- 'chunks' DEVE contenere un array con le ESATTE CITAZIONI TESTUALI estratte dalle fonti (assicurati di includere il titolo del documento originale se noto).\n\n` +
-        `FONTI DA ANALIZZARE:\n${textParts.join('\n\n')}`;
+    let userProfileStr = '';
+    if (appState.userProfile) {
+        userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
+    }
+
+    if (appState.studentMode) {
+        userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+    }
+
+    const promptKey = appState.studentMode ? "KNOWLEDGE_GRAPH_SINGLE_STUDENT" : "KNOWLEDGE_GRAPH_SINGLE";
+
+    var promptText = window.fillPromptTemplate(promptKey, {
+        rootNodeLabel: appState.rootNodeLabel,
+        optionalKeywords: kgKeywords ? `Focalizza le relazioni su questi Super-Hub semantici (se pertinenti): ${kgKeywords}.\\n` : '',
+        userProfileInjection: userProfileStr,
+        textParts: textParts.join('\\n\\n')
+    });
 
     const schema = {
         type: "OBJECT", properties: {
@@ -1415,12 +1816,12 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = { contents: [{ parts: [...fileParts, { text: promptText }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema } };
 
     try {
-        window.showLoadingOverlay(true, "Analisi e formattazione Graph...");
+        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
-        appState.db = JSON.parse(cleanText);
+        appState.db = salvageTruncatedJSON(cleanText);
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -1593,17 +1994,18 @@ function renderGraph() {
 
     if (!simulation) {
         simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(d => ((d.source.level === 0) ? 120 : 80) * forceDistMult))
-            .force("collide", d3.forceCollide().radius(d => getNodeRadius(d) + 25).iterations(3))
-            .force("charge", d3.forceManyBody().strength(d => (d.level === 0 ? -800 : -200) * forceChargeMult))
+            .force("link", d3.forceLink(links).id(d => d.id).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult))
+            .force("collide", d3.forceCollide().radius(d => getNodeRadius(d) + 50).iterations(3))
+            .force("charge", d3.forceManyBody().strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult))
             .force("center", d3.forceCenter(0, 0));
 
         simulation.on("tick", tick);
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
     } else {
         simulation.nodes(nodes);
-        simulation.force("link").links(links).distance(d => ((d.source.level === 0) ? 120 : 80) * forceDistMult);
-        simulation.force("charge").strength(d => (d.level === 0 ? -800 : -200) * forceChargeMult);
+        simulation.force("link").links(links).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult);
+        simulation.force("charge").strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult);
+        simulation.force("collide").radius(d => getNodeRadius(d) + 50);
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
         simulation.alpha(0.3).restart();
     }
@@ -1615,7 +2017,7 @@ function renderGraph() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    linkEnter.append("line").attr("class", "link").attr("stroke", "#cbd5e1").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
+    linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
     linkEnter.append("text").attr("class", "link-label").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
@@ -1671,7 +2073,7 @@ function renderGraph() {
                 ? appState.db.customColors[d.group]
                 : (colorScale[d.group] || colorScale[1]);
             let hsl = d3.hsl(baseColor);
-            hsl.l = Math.min(0.95, hsl.l + (d.level - 1) * 0.15);
+            hsl.l = Math.min(0.95, hsl.l + (d.level - 1) * 0.08);
             return hsl.toString();
         })
         .attr("stroke", d => {
@@ -2108,7 +2510,7 @@ function handleBackgroundClick() {
 let loadingInterval = null;
 let loadingSeconds = 0;
 const sotaStatusMessages = [
-    "Gemini sta leggendo i tuoi documenti...",
+    "MappAI sta leggendo i tuoi documenti...",
     "Analisi semantica profonda...",
     "Estrazione concetti chiave...",
     "Costruzione relazioni topologiche...",
@@ -2122,11 +2524,13 @@ window.showLoadingOverlay = function (show, text) {
     const el = document.getElementById('loading-overlay');
     const desc = document.getElementById('loading-desc');
     const title = document.getElementById('loading-title');
+    const a11yBtn = document.getElementById('a11y-panel-toggle');
 
     if (show) {
         el.classList.add('visible');
+        if (a11yBtn) a11yBtn.classList.add('hidden');
         if (text) desc.textContent = text;
-        
+
         if (!loadingInterval) {
             loadingSeconds = 0;
             let msgIdx = 0;
@@ -2136,18 +2540,19 @@ window.showLoadingOverlay = function (show, text) {
                     msgIdx = (msgIdx + 1) % sotaStatusMessages.length;
                     desc.textContent = sotaStatusMessages[msgIdx];
                 }
-                title.textContent = `Mapp.AI sta lavorando... (${loadingSeconds}s)`;
+                title.textContent = `MappAI sta lavorando... (${loadingSeconds}s)`;
             }, 1000);
         }
     } else {
         el.classList.remove('visible');
+        if (a11yBtn) a11yBtn.classList.remove('hidden');
         if (loadingInterval) {
             clearInterval(loadingInterval);
             loadingInterval = null;
         }
-        if (title) title.textContent = "Mapp.AI sta lavorando...";
+        if (title) title.textContent = "MappAI sta lavorando...";
     }
-}
+};
 
 window.switchToMapLayout = function () {
     document.getElementById('landing-view').style.display = 'none';
@@ -2347,7 +2752,7 @@ window.openSourceModal = function (nodeId) {
         if (!sourceModal) return;
         sourceModal.classList.remove('hidden');
         sourceModal.classList.add('flex');
-        
+
         editTarget = d; // Set edit target for Tutor AI
 
         sourceModalKinship.classList.add('hidden');
@@ -2491,7 +2896,7 @@ window.openSourceModal = function (nodeId) {
             });
             html += `</div></div>`;
         }
-        
+
         // --- SEZIONE TUTOR AI ---
         html += `
         <div class="mt-8 border-t border-slate-200 pt-6">
@@ -2513,7 +2918,7 @@ window.openSourceModal = function (nodeId) {
                         <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
                     </button>
                 </div>
-                <div id="node-tutor-chat-area" class="hidden flex-col h-64">
+                <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
                     <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
                     <div class="flex gap-2 mt-auto">
                         <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
@@ -2642,12 +3047,12 @@ window.setMode = function (mode) {
 window.toggleDyslexicFont = function () {
     let isDyslexicFont = document.body.classList.contains('font-dyslexic');
     const a11yButtons = document.querySelectorAll('#modal-a11y-toolbar button');
-    
+
     if (!isDyslexicFont) {
         document.body.classList.add('font-dyslexic');
         document.documentElement.classList.add('font-dyslexic');
         window.applyDirectZoom(1.5);
-        
+
         // Hide non-essential buttons in Dyslexic mode
         a11yButtons.forEach(btn => {
             if (btn.id !== 'btn-modal-ruler' && btn.getAttribute('title') !== 'Leggi ad alta voce') {
@@ -2656,12 +3061,12 @@ window.toggleDyslexicFont = function () {
         });
         const separator = document.querySelector('#modal-a11y-toolbar .w-px');
         if (separator) separator.style.display = 'none';
-        
+
     } else {
         document.body.classList.remove('font-dyslexic');
         document.documentElement.classList.remove('font-dyslexic');
         window.applyDirectZoom(1.0);
-        
+
         // Show all buttons back
         a11yButtons.forEach(btn => {
             btn.style.display = '';
@@ -2805,13 +3210,13 @@ window.importGraph = function (event) {
 
 window.saveMapVault = async function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
-    
+
     try {
         const result = await window.electronAPI.pickFolder();
         if (result.canceled) return;
-        
+
         window.showLoadingOverlay(true, "Esportazione Vault in corso...");
-        
+
         const saveRes = await window.electronAPI.saveVault({
             folderPath: result.folderPath,
             mapData: {
@@ -2823,7 +3228,7 @@ window.saveMapVault = async function () {
                 tutorState: tutorState
             }
         });
-        
+
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
@@ -2842,11 +3247,11 @@ window.loadMapVault = async function () {
     try {
         const result = await window.electronAPI.pickFolder();
         if (result.canceled) return;
-        
+
         window.showLoadingOverlay(true, "Caricamento Vault...");
-        
+
         const loadRes = await window.electronAPI.loadVault(result.folderPath);
-        
+
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
@@ -2867,7 +3272,7 @@ window.loadMapVault = async function () {
                     }));
                 }
             });
-            
+
             window.switchToMapLayout();
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast("Vault caricato con successo!", "success");
@@ -2890,7 +3295,7 @@ window.startEmptyMap = function () {
     };
     appState.rootNodeLabel = "Nuovo Progetto";
     appState.extractionMode = "mindmap";
-    
+
     // Reset simulation
     simulation = null;
     window.switchToMapLayout();
@@ -3162,17 +3567,10 @@ window.aiCrossLink = async function (existingIds, newIds) {
 
     window.showLoadingOverlay(true, "L'AI sta cercando correlazioni tra le mappe...");
 
-    const promptText = `Sei un esperto di analisi di Knowledge Graph. Ti do due liste di concetti provenienti da due Knowledge Graph diversi. Cerca possibili correlazioni semantiche tra concetti della LISTA A e concetti della LISTA B.
-
-LISTA A (mappa esistente):
-${existingLabels.map(n => `- ${n.id}: "${n.label}"`).join('\n')}
-
-LISTA B (mappa importata):
-${newLabels.map(n => `- ${n.id}: "${n.label}"`).join('\n')}
-
-Rispondi SOLO con un JSON array. Ogni elemento deve avere: "source" (ID dalla lista A), "target" (ID dalla lista B), "rel" (parola di relazione in italiano, 1-3 parole).
-Suggerisci TUTTE le correlazioni semanticamente significative e plausibili che trovi. Se non trovi correlazioni valide, rispondi con [].
-Formato: [{"source":"id_a","target":"id_b","rel":"correlazione"}]`;
+    const promptText = window.fillPromptTemplate("SEMANTIC_CORRELATION", {
+        existingLabels: existingLabels.map(n => `- ${n.id}: "${n.label}"`).join('\\n'),
+        newLabels: newLabels.map(n => `- ${n.id}: "${n.label}"`).join('\\n')
+    });
 
     try {
         const response = await window.fetchModelAPI({
@@ -3740,19 +4138,10 @@ window.generateFlashcardForNode = async function (node, silent = false) {
     }
     if (!silent) window.showLoadingOverlay(true, "Generazione Flashcard in corso...");
 
-    const promptText = `Genera 5 diverse domande di verifica a risposta multipla basate sul seguente concetto: "${node.label}" - "${node.content || node.desc}". 
-Restituisci SOLO E SOLTANTO codice JSON valido con questa struttura esatta:
-[
-  {
-    "q": "Domanda 1?",
-    "a1": "Opzione sbagliata",
-    "a2": "Opzione sbagliata",
-    "a3": "Opzione corretta",
-    "correct": 3
-  },
-  ... (altre 4 domande)
-]
-Assicurati che "correct" indichi il numero (1, 2 o 3) della risposta corretta per ogni oggetto. Usa l'italiano.`;
+    const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
+        nodeLabel: node.label,
+        nodeContent: node.content || node.desc
+    });
 
     const schema = {
         type: "ARRAY",
@@ -4116,7 +4505,7 @@ window.openAIModal = function (titleText) {
     document.getElementById('ai-modal-body').innerHTML = `
                 <div class="flex flex-col items-center justify-center py-16 space-y-4">
                     <i data-lucide="loader-2" class="w-12 h-12 animate-spin text-indigo-400"></i>
-                    <p class="text-indigo-600 animate-pulse font-bold text-sm tracking-wide">Gemini sta elaborando le informazioni...</p>
+                    <p class="text-indigo-600 animate-pulse font-bold text-sm tracking-wide">MappAI sta elaborando le informazioni...</p>
                 </div>
             `;
     window.safeCreateIcons();
@@ -4153,7 +4542,7 @@ let tutorState = {
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
 };
 
-window.parseSimpleMarkdown = function(text) {
+window.parseSimpleMarkdown = function (text) {
     if (!text) return "";
     let html = text;
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -4162,68 +4551,68 @@ window.parseSimpleMarkdown = function(text) {
     return html;
 }
 
-window.readTextAloud = function(btnElement, textToRead) {
+window.readTextAloud = function (btnElement, textToRead) {
     if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
         btnElement.innerHTML = '<i data-lucide="volume-2" class="w-4 h-4"></i>';
         window.safeCreateIcons();
         return;
     }
-    
+
     // Rimuovi tag HTML per la lettura
     let cleanText = stripHTML(textToRead);
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'it-IT';
     utterance.rate = 0.9;
-    
+
     utterance.onstart = () => {
         btnElement.innerHTML = '<i data-lucide="square" class="w-4 h-4 text-red-500 fill-current"></i>';
         window.safeCreateIcons();
     };
-    
+
     const onEnd = () => {
         btnElement.innerHTML = '<i data-lucide="volume-2" class="w-4 h-4"></i>';
         window.safeCreateIcons();
     };
-    
+
     utterance.onend = onEnd;
     utterance.onerror = onEnd;
-    
+
     window.speechSynthesis.speak(utterance);
 }
 
-window.saveTutorChatTranscript = async function(targetName, role, text) {
+window.saveTutorChatTranscript = async function (targetName, role, text) {
     if (!window.electronAPI) return;
     try {
         let projectName = appState.extractionMode === 'mindmap' ? 'Mappa' : 'KG';
         if (appState.db && appState.db.nodes && appState.db.nodes.length > 0) {
             projectName = appState.db.nodes[0].label;
         }
-        
+
         let prefix = role === 'user' ? 'Studente' : 'Tutor';
         let cleanText = stripHTML(window.parseSimpleMarkdown(text)).replace(/<br>/g, '\n');
         let contentToSave = `[${prefix}]: ${cleanText}`;
-        
+
         await window.electronAPI.saveChatTranscript({
             projectName: projectName,
             targetName: targetName,
             textContent: contentToSave,
             vaultPath: appState.activeVaultPath
         });
-    } catch(e) {
+    } catch (e) {
         console.error("Errore salvataggio transcript:", e);
     }
 }
 
-window.resetSidebarTutor = function() {
+window.resetSidebarTutor = function () {
     tutorState.sidebar.history = [];
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
     if (chatHistory) {
         const lang = appState.language || 'it';
-        const firstMsg = lang === 'it' ? 
+        const firstMsg = lang === 'it' ?
             "Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?" :
             "Hi! I'm your global AI Tutor. How can I help you study this map?";
-            
+
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
@@ -4235,14 +4624,14 @@ window.resetSidebarTutor = function() {
     }
 }
 
-window.sendSidebarTutorMessage = async function() {
+window.sendSidebarTutorMessage = async function () {
     const inputEl = document.getElementById('ai-sidebar-input');
     const customQuery = inputEl.value.trim();
     if (!customQuery) return;
-    
+
     inputEl.value = '';
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
-    
+
     chatHistory.innerHTML += `
         <div class="bg-emerald-500 text-black p-3 rounded-lg text-sm rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
@@ -4256,13 +4645,13 @@ window.sendSidebarTutorMessage = async function() {
     `;
     window.safeCreateIcons();
     chatHistory.scrollTop = chatHistory.scrollHeight;
-    
+
     if (tutorState.sidebar.history.length === 0) {
         let globalContext = "CONTESTO GLOBALE DELLA MAPPA:\n\n";
         appState.db.nodes.forEach(n => {
             globalContext += `- NODO [${n.label}]: ${stripHTML(n.desc || "")}\n`;
         });
-        
+
         tutorState.sidebar.history.push({
             role: "user",
             parts: [{ text: `Contesto globale del progetto:\n${globalContext}\n\nDomanda dell'utente: ${customQuery}` }]
@@ -4273,40 +4662,40 @@ window.sendSidebarTutorMessage = async function() {
             parts: [{ text: customQuery }]
         });
     }
-    
+
     try {
         const apiKey = window.getSystemKey();
         const payload = {
             systemInstruction: { parts: [{ text: "Sei un Tutor per studenti. Hai accesso all'intero contesto del progetto dell'utente. Rispondi sempre in italiano, in modo didattico, conciso e incoraggiante. Usa formattazione HTML (<strong>, <p>, <ul>, <li>)." }] },
             contents: tutorState.sidebar.history
         };
-        
+
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
-        
+
         let rawText = data.candidates[0].content.parts[0].text || "";
         let resultHTML = rawText.split(MARKER_HTML).join('').split(MARKER_END).join('').trim();
-        
+
         tutorState.sidebar.history.push({
             role: "model",
             parts: [{ text: rawText }]
         });
-        
-    // Update UI
-    document.getElementById(loaderId).remove();
-    let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    chatHistory.innerHTML += `
+
+        // Update UI
+        document.getElementById(loaderId).remove();
+        let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        chatHistory.innerHTML += `
         <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
             <div class="markdown-body flex-grow">${resultHTML}</div>
             <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
         </div>
     `;
-    window.safeCreateIcons();
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-    
-    window.saveTutorChatTranscript("sidebar", "user", customQuery);
-    window.saveTutorChatTranscript("sidebar", "model", resultHTML);
-        
+        window.safeCreateIcons();
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        window.saveTutorChatTranscript("sidebar", "user", customQuery);
+        window.saveTutorChatTranscript("sidebar", "model", resultHTML);
+
     } catch (e) {
         console.error(e);
         document.getElementById(loaderId).remove();
@@ -4315,29 +4704,29 @@ window.sendSidebarTutorMessage = async function() {
     }
 }
 
-window.resetNodeTutor = function() {
+window.resetNodeTutor = function () {
     if (!editTarget) return;
     delete tutorState.nodes[editTarget.id];
-    
+
     // UI Update
     document.getElementById('node-tutor-start').classList.remove('hidden');
     document.getElementById('node-tutor-chat-area').classList.add('hidden');
     document.getElementById('node-tutor-chat-area').classList.remove('flex');
     document.getElementById('node-tutor-chat-history').innerHTML = '';
-    
+
     window.showToast("Chat del nodo resettata.", "success");
     initD3Visualization(); // Update icons on graph
 }
 
-window.startNodeTutor = function() {
+window.startNodeTutor = function () {
     if (!editTarget) return;
-    
+
     document.getElementById('node-tutor-start').classList.add('hidden');
     document.getElementById('node-tutor-chat-area').classList.remove('hidden');
     document.getElementById('node-tutor-chat-area').classList.add('flex');
-    
+
     const chatHistory = document.getElementById('node-tutor-chat-history');
-    
+
     // Check for existing persistence
     if (!tutorState.nodes[editTarget.id]) {
         // Initialize new session for this node
@@ -4346,12 +4735,12 @@ window.startNodeTutor = function() {
             turns: 0,
             history: []
         };
-        
+
         const lang = appState.language || 'it';
-        const firstMsg = lang === 'it' ? 
+        const firstMsg = lang === 'it' ?
             "Sei in fase di studio o di ragionamento?" :
             "Are you in the study or reasoning phase?";
-            
+
         let safeRawTextForBtn = firstMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
@@ -4360,12 +4749,12 @@ window.startNodeTutor = function() {
             </div>
         `;
         window.safeCreateIcons();
-        
+
         tutorState.nodes[editTarget.id].history.push({
             role: "model",
             parts: [{ text: firstMsg }]
         });
-        
+
         window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "model", (lang === 'it' ? "--- NUOVA SESSIONE NODO ---\n" : "--- NEW NODE SESSION ---\n") + firstMsg);
     } else {
         // Render existing persistent chat history
@@ -4374,7 +4763,7 @@ window.startNodeTutor = function() {
             let text = msg.parts[0].text;
             let resultHTML = window.parseSimpleMarkdown(text);
             let safeRawTextForBtn = text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            
+
             if (msg.role === 'user') {
                 // remove context injection from rendering if present
                 let visibleText = text;
@@ -4401,15 +4790,15 @@ window.startNodeTutor = function() {
     }
 }
 
-window.sendNodeTutorMessage = async function() {
+window.sendNodeTutorMessage = async function () {
     if (!editTarget) return;
     const inputEl = document.getElementById('node-tutor-input');
     const customQuery = inputEl.value.trim();
     if (!customQuery) return;
-    
+
     inputEl.value = '';
     const chatHistory = document.getElementById('node-tutor-chat-history');
-    
+
     chatHistory.innerHTML += `
         <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
@@ -4421,26 +4810,26 @@ window.sendNodeTutorMessage = async function() {
     `;
     window.safeCreateIcons();
     chatHistory.scrollTop = chatHistory.scrollHeight;
-    
+
     let currentNodeState = tutorState.nodes[editTarget.id];
     if (!currentNodeState) return;
-    
+
     if (currentNodeState.turns === 0 && !currentNodeState.phase) {
         const lowerQ = customQuery.toLowerCase();
         if (lowerQ.includes('studio')) currentNodeState.phase = 'studio';
         else if (lowerQ.includes('ragionamento')) currentNodeState.phase = 'ragionamento';
-        else currentNodeState.phase = 'studio'; 
+        else currentNodeState.phase = 'studio';
     }
-    
+
     currentNodeState.turns++;
-    
+
     let contextStr = `CONTESTO NODO [${editTarget.label}]: ${stripHTML(editTarget.desc || '')}\n`;
     if (editTarget.chunks && editTarget.chunks.length > 0) {
-        contextStr += `FONTI/ESTRATTI DISPONIBILI:\n${editTarget.chunks.map((c, i) => `[Fonte ${i+1}]: ${c}`).join('\n')}\n`;
+        contextStr += `FONTI/ESTRATTI DISPONIBILI:\n${editTarget.chunks.map((c, i) => `[Fonte ${i + 1}]: ${c}`).join('\n')}\n`;
     }
 
     const isKG = appState.extractionMode !== 'mindmap';
-    
+
     if (!isKG) {
         let parentNode = appState.db.nodes.find(n => n.id === editTarget.parent);
         if (parentNode) contextStr += `APPARTIENE ALLA MACROAREA: ${parentNode.label}\n`;
@@ -4453,87 +4842,89 @@ window.sendNodeTutorMessage = async function() {
             if (degreeCounts[sid] !== undefined) degreeCounts[sid]++;
             if (degreeCounts[tid] !== undefined) degreeCounts[tid]++;
         });
-        
+
         let superhubs = appState.db.nodes
             .map(n => ({ ...n, degree: degreeCounts[n.id] || 0 }))
             .filter(n => n.degree >= 2)
-            .sort((a,b)=>b.degree-a.degree);
-            
+            .sort((a, b) => b.degree - a.degree);
+
         if (superhubs.length > 0 && superhubs[0].id !== editTarget.id) {
             contextStr += `SUPER-HUB PRINCIPALE DEL GRAFO: ${superhubs[0].label}\n`;
         }
     }
-    
+
     const lang = appState.language || 'it';
     let instruction = "";
 
-    if (lang === 'it') {
-        instruction = "Sei un Tutor Socratico. Rispondi in italiano usando formattazione HTML (<strong>,<p>,<ul>). REGOLA FONDAMENTALE: Sii ESTREMAMENTE conciso e colloquiale. Fai al massimo UNA domanda alla volta. NON dare risposte lunghe e non elencare tutto il contesto in una volta sola. ";
-        
-        if (appState.userProfile && appState.userProfile.nickname) {
-            instruction += ` L'utente è ${appState.userProfile.nickname}, ha ${appState.userProfile.age} anni, frequenta la classe ${appState.userProfile.grade} nel sistema: ${appState.userProfile.system}. Adatta rigorosamente la complessità didattica, il vocabolario e le domande a questo profilo cognitivo e curriculare. `;
+    let userProfileStr = "";
+    if (appState.userProfile && appState.userProfile.nickname) {
+        if (lang === 'it') {
+            userProfileStr = ` L'utente è ${appState.userProfile.nickname}, ha ${appState.userProfile.age} anni, frequenta la classe ${appState.userProfile.grade} nel sistema: ${appState.userProfile.system}. Adatta rigorosamente la complessità didattica, il vocabolario e le domande a questo profilo cognitivo e curriculare. `;
+        } else {
+            userProfileStr = ` The user is ${appState.userProfile.nickname}, ${appState.userProfile.age} years old, attending grade ${appState.userProfile.grade}. Strictly adapt the pedagogical complexity, vocabulary, and questions to this cognitive and curricular profile. `;
         }
+    }
 
-        instruction += " Il tuo obiettivo primario è mantenere lo studente in uno stato di FLOW (sfida ottimale). Se l'utente manifesta difficoltà, stress o fatica nel rispondere, riduci drasticamente la difficoltà, evita nuove domande, offri esempi chiarificatori e rendi la conversazione più leggera e rassicurante. ";
-
+    let phaseStr = "";
+    if (lang === 'it') {
         if (currentNodeState.phase === 'studio') {
-            instruction += currentNodeState.turns <= 3 ? 
+            phaseStr = currentNodeState.turns <= 3 ?
                 "L'utente è in fase di STUDIO. Accogli la sua interazione con 1-2 frasi incoraggianti, e fagli una sola domanda facile per testare le basi." :
                 "L'utente è in fase di STUDIO (Turno > 3). SWITCH SOCRATICO: poni UNA domanda mirata per sollecitarlo a rielaborare autonomamente.";
         } else {
-            instruction += currentNodeState.turns <= 3 ?
+            phaseStr = currentNodeState.turns <= 3 ?
                 "L'utente è in fase di RAGIONAMENTO. Prendi l'iniziativa: fagli UNA singola domanda di ragionamento per valutare la sua comprensione." :
                 "L'utente è in fase di RAGIONAMENTO (Turno > 3). Formula un breve feedback oggettivo. Proponi UNA singola pista di ragionamento alternativa.";
         }
-        
-        instruction += !isKG ? " (Se utile, fai un breve cenno alla macro-area del nodo)." : " (Se utile, suggerisci brevemente un nesso verso un super-hub).";
     } else {
-        // English Prompt
-        instruction = "You are a Socratic Tutor. Respond in English using HTML formatting (<strong>,<p>,<ul>). FUNDAMENTAL RULE: Be EXTREMELY concise and conversational. Ask at most ONE question at a time. DO NOT give long answers and do not list all the context at once. ";
-
-        if (appState.userProfile && appState.userProfile.nickname) {
-            instruction += ` The user is ${appState.userProfile.nickname}, ${appState.userProfile.age} years old, attending grade ${appState.userProfile.grade}. Strictly adapt the pedagogical complexity, vocabulary, and questions to this cognitive and curricular profile. `;
-        }
-
-        instruction += " Your primary goal is to keep the student in a state of FLOW (optimal challenge). If the user shows difficulty, stress, or fatigue in answering, drastically reduce the difficulty, avoid new questions, offer clarifying examples, and make the conversation lighter and more reassuring. ";
-
         if (currentNodeState.phase === 'studio') {
-            instruction += currentNodeState.turns <= 3 ? 
+            phaseStr = currentNodeState.turns <= 3 ?
                 "The user is in the STUDY phase. Welcome their interaction with 1-2 encouraging sentences, and ask only one easy question to test the basics." :
                 "The user is in the STUDY phase (Turn > 3). SOCRATIC SWITCH: ask ONE targeted question to prompt them to re-elaborate independently.";
         } else {
-            instruction += currentNodeState.turns <= 3 ?
+            phaseStr = currentNodeState.turns <= 3 ?
                 "The user is in the REASONING phase. Take the initiative: ask them ONE single reasoning question to assess their understanding." :
                 "The user is in the REASONING phase (Turn > 3). Formulate brief objective feedback. Propose ONE single alternative reasoning path.";
         }
-
-        instruction += !isKG ? " (If useful, make a brief reference to the macro-area of the node)." : " (If useful, briefly suggest a connection to a super-hub).";
     }
-    
+
+    let kgStr = "";
+    if (lang === 'it') {
+        kgStr = !isKG ? " (Se utile, fai un breve cenno alla macro-area del nodo)." : " (Se utile, suggerisci brevemente un nesso verso un super-hub).";
+    } else {
+        kgStr = !isKG ? " (If useful, make a brief reference to the macro-area of the node)." : " (If useful, briefly suggest a connection to a super-hub).";
+    }
+
+    instruction = window.fillPromptTemplate(lang === 'it' ? "SOCRATIC_TUTOR_IT" : "SOCRATIC_TUTOR_EN", {
+        userProfileProfile: userProfileStr,
+        phaseInstruction: phaseStr,
+        kgInstruction: kgStr
+    });
+
     let apiQuery = customQuery;
     if (currentNodeState.turns === 1) {
         const prefix = appState.language === 'en' ? "The user says:" : "L'utente dice:";
         apiQuery = `${contextStr}\n\n${prefix} ${customQuery}`;
     }
-    
+
     currentNodeState.history.push({ role: "user", parts: [{ text: apiQuery }] });
-    
+
     try {
         const apiKey = window.getSystemKey();
         const payload = {
             systemInstruction: { parts: [{ text: instruction }] },
             contents: currentNodeState.history
         };
-        
+
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
-        
+
         let rawText = data.candidates[0].content.parts[0].text || "";
         let resultHTML = window.parseSimpleMarkdown(rawText);
         let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        
+
         currentNodeState.history.push({ role: "model", parts: [{ text: rawText }] });
-        
+
         document.getElementById(loaderId).remove();
         chatHistory.innerHTML += `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
@@ -4543,7 +4934,7 @@ window.sendNodeTutorMessage = async function() {
         `;
         window.safeCreateIcons();
         chatHistory.scrollTop = chatHistory.scrollHeight;
-        
+
         window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "user", customQuery);
         window.saveTutorChatTranscript(`nodo_${editTarget.label}`, "model", resultHTML);
         initD3Visualization();
@@ -4567,7 +4958,10 @@ window.generateAIQuiz = async function () {
     aModal.classList.remove('hidden');
     setTimeout(() => { aModal.classList.remove('opacity-0'); aBox.classList.remove('scale-95'); }, 10);
 
-    const prompt = `Crea una singola domanda a risposta multipla basata su questo concetto: "${cleanLabel(currentNode.label)}: ${cleanLabel(currentNode.desc || currentNode.content)}". Fornisci 4 opzioni di cui solo 1 corretta.`;
+    const prompt = window.fillPromptTemplate("SINGLE_QUIZ_TUTOR", {
+        nodeLabel: cleanLabel(currentNode.label),
+        nodeDesc: cleanLabel(currentNode.desc || currentNode.content)
+    });
 
     try {
         const apiKey = window.getSystemKey();
@@ -4935,7 +5329,7 @@ window.changeLanguage = function (lang) {
     window.currentLanguage = lang;
     localStorage.setItem('mapp_language', lang);
     // Uso i nomi definiti nei file .js caricati
-    const t = lang === 'en' ? en_translations : it_translations;
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
 
     // --- 1. LOCALIZZAZIONE LANDING PAGE ---
     const els = {
@@ -4957,7 +5351,7 @@ window.changeLanguage = function (lang) {
         'modal-study-title-label': t.modal_study_title,
         'modal-guide-title-label': t.modal_guide_title,
         'label-language-select': lang === 'it' ? 'Lingua:' : 'Language:',
-        'label-api-key': t.api_key_label,
+        'label-api-key': appState.aiProvider === 'infomaniak' ? (t.api_key_label_infomaniak || "API Token (Infomaniak)") : (t.api_key_label_google || t.api_key_label),
         'label-api-key-desc': t.api_key_desc,
         'label-api-key-how': t.api_key_how,
         'label-ai-model': t.ai_model_label,
@@ -5110,19 +5504,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
 
     StorageManager.renderRecentProjects();
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-        const keyInput = document.getElementById('api-key-input');
-        if (keyInput) keyInput.value = savedKey;
+
+    // Load Gemini Key
+    const savedGeminiKey = localStorage.getItem('gemini_api_key');
+    if (savedGeminiKey) {
+        const geminiInput = document.getElementById('gemini-api-key-input');
+        if (geminiInput) geminiInput.value = savedGeminiKey;
+    }
+
+    // Load Infomaniak Key
+    const savedInfomaniakKey = localStorage.getItem('infomaniak_api_key');
+    if (savedInfomaniakKey) {
+        const infomaniakInput = document.getElementById('infomaniak-api-key-input');
+        if (infomaniakInput) infomaniakInput.value = savedInfomaniakKey;
     }
 
     // Load saved models on boot
-    const savedModelsStr = localStorage.getItem('gemini_available_models');
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const modelsStorageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+    const selectionStorageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const defaultModel = isInfomaniak ? 'mistral24b' : 'gemini-2.0-flash';
+
+    const savedModelsStr = localStorage.getItem(modelsStorageKey);
     const selectEl = document.getElementById('model-select');
     if (savedModelsStr) {
         try {
             const savedModels = JSON.parse(savedModelsStr);
-            const currentValue = localStorage.getItem('gemini_selected_model') || 'gemini-2.0-flash';
+            const currentValue = localStorage.getItem(selectionStorageKey) || defaultModel;
             renderModelSelect(savedModels, selectEl, currentValue);
         } catch (e) {
             if (selectEl) selectEl.innerHTML = '<option value="">Clicca Aggiorna Modelli</option>';
@@ -5130,31 +5538,43 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         if (selectEl) selectEl.innerHTML = '<option value="">Clicca Aggiorna Modelli</option>';
     }
+
+    // Initialize the UI for the current provider
+    if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
 });
 
 window.globalQuizQueue = [];
 
 let pendingTopic = null;
-window.generateGlobalFlashcards = async function () {
-    const apiKey = window.getSystemKey();
-    if (!apiKey) { window.showToast("Inserisci API Key.", "error"); return; }
+window.studyConfig = { mode: 'quiz', quantity: 15, timer: false };
 
-    window.showPrompt("Argomento di ripasso (Opzionale)", "", (topic) => {
-        pendingTopic = topic;
-        window.openSelectionModal();
-    }, "Inserisci un argomento o lascia vuoto per casuale:");
+window.generateGlobalFlashcards = function () {
+    window.openStudyConfigModal('flashcard');
 };
 
-window.openSelectionModal = function () {
-    const modal = document.getElementById('selection-modal');
+window.generateGlobalQuiz = function () {
+    window.openStudyConfigModal('quiz');
+};
+
+window.openStudyConfigModal = function (mode) {
+    window.studyConfig.mode = mode;
+    window.selectStudyQuantity(15);
+    document.getElementById('study-timer-toggle').checked = false;
+
+    document.getElementById('study-config-title').innerText = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
+    const quizTypeContainer = document.getElementById('quiz-type-container');
+    if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
+    else quizTypeContainer.classList.add('hidden');
+
+    const modal = document.getElementById('study-config-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
     window.safeCreateIcons();
 };
 
-window.closeSelectionModal = function () {
-    const modal = document.getElementById('selection-modal');
+window.closeStudyConfigModal = function () {
+    const modal = document.getElementById('study-config-modal');
     modal.classList.add('opacity-0');
     setTimeout(() => {
         modal.classList.add('hidden');
@@ -5162,58 +5582,369 @@ window.closeSelectionModal = function () {
     }, 200);
 };
 
-window.confirmSelection = async function (count) {
-    window.closeSelectionModal();
-    let allNodes = appState.db.nodes;
-    if (allNodes.length === 0) { window.showToast("Nessun nodo trovato.", "error"); return; }
-
-    let nodesPool = [];
-    if (pendingTopic) {
-        const lowerTopic = pendingTopic.toLowerCase();
-        nodesPool = allNodes.filter(n =>
-            n.label.toLowerCase().includes(lowerTopic) ||
-            (n.desc || n.content || '').toLowerCase().includes(lowerTopic)
-        );
-        if (nodesPool.length === 0) {
-            window.showToast("Argomento non trovato. Ripasso casuale.", "info");
-            nodesPool = allNodes.filter(n => n.level <= 2);
+window.selectStudyQuantity = function (qty) {
+    window.studyConfig.quantity = qty;
+    document.querySelectorAll('.study-qty-btn').forEach(btn => {
+        if (parseInt(btn.dataset.qty) === qty) {
+            btn.classList.remove('bg-slate-50', 'text-slate-500', 'border-slate-200');
+            btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-500');
+        } else {
+            btn.classList.add('bg-slate-50', 'text-slate-500', 'border-slate-200');
+            btn.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-500');
         }
-    } else {
-        nodesPool = allNodes.filter(n => n.level <= 2);
-        if (nodesPool.length === 0) nodesPool = allNodes;
+    });
+};
+
+window.startStudySession = async function () {
+    window.closeStudyConfigModal();
+    window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;
+    if (window.studyConfig.mode === 'quiz') {
+        window.studyConfig.quizType = document.getElementById('study-quiz-type').value;
     }
 
-    const selection = nodesPool.sort(() => 0.5 - Math.random()).slice(0, count);
-    window.showLoadingOverlay(true, `Generazione sessione da ${count} set in corso...`);
-
-    let successCount = 0;
-    for (const n of selection) {
-        try {
-            await window.generateFlashcardForNode(n, true);
-            if (n.flashcardTest) successCount++;
-        } catch (e) { console.error(e); }
+    const allNodesText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+    if (!allNodesText || allNodesText.trim() === '') {
+        window.showToast("Nessun contenuto nella mappa.", "error");
+        return;
     }
-    window.showLoadingOverlay(false);
 
-    if (successCount > 0) {
-        window.globalQuizQueue = selection.filter(n => n.flashcardTest);
-        window.playNextGlobalQuiz();
-    } else {
-        window.showToast("Errore durante la generazione delle flashcard.", "error");
+    const apiKey = window.getSystemKey();
+    if (!apiKey) { window.showToast("Inserisci API Key nelle impostazioni.", "error"); return; }
+
+    window.showLoadingOverlay(true, "Generazione materiale di studio in corso...");
+
+    try {
+        let schema, prompt;
+        if (window.studyConfig.mode === 'quiz') {
+            prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", {
+                quantity: window.studyConfig.quantity,
+                quizType: window.studyConfig.quizType,
+                nodeLabel: "Tutta la Mappa"
+            });
+            schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        q: { type: "STRING" },
+                        options: { type: "ARRAY", items: { type: "STRING" } },
+                        correct: { type: "STRING" },
+                        explanation: { type: "STRING" }
+                    },
+                    required: ["q", "correct", "explanation"]
+                }
+            };
+        } else {
+            prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
+                quantity: window.studyConfig.quantity,
+                nodeLabel: "Tutta la Mappa"
+            });
+            schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: { front: { type: "STRING" }, back: { type: "STRING" } },
+                    required: ["front", "back"]
+                }
+            };
+        }
+
+        const response = await window.fetchModelAPI({
+            contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + allNodesText }] }],
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
+        }, apiKey);
+
+        let rawText = response.candidates[0].content.parts[0].text;
+        let cleanText = rawText.split('```json').join('').split('```').join('').trim();
+        window.activeStudySessionItems = JSON.parse(cleanText);
+        window.currentStudyItemIndex = 0;
+
+        // Initialize results
+        window.studyResults = {
+            mode: window.studyConfig.mode,
+            type: window.studyConfig.quizType || 'Flashcard',
+            correct: 0,
+            total: window.activeStudySessionItems.length,
+            mistakes: [],
+            startTime: Date.now()
+        };
+
+        window.openStudyPlayer();
+
+    } catch (err) {
+        window.showAlert("Errore Generazione", err.message);
+    } finally {
+        window.showLoadingOverlay(false);
     }
 };
 
-window.playNextGlobalQuiz = function () {
-    if (window.globalQuizQueue && window.globalQuizQueue.length > 0) {
-        const nextNode = window.globalQuizQueue.shift();
-        window.openQuizModal(nextNode);
+window.studyTimerInterval = null;
+window.studySeconds = 0;
+
+window.openStudyPlayer = function () {
+    if (!window.activeStudySessionItems || window.activeStudySessionItems.length === 0) {
+        window.showToast("Nessuna domanda generata.", "error");
+        return;
+    }
+
+    const modal = document.getElementById('study-player-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+    const timerContainer = document.getElementById('study-player-timer-container');
+    if (window.studyConfig.timer) {
+        timerContainer.classList.remove('hidden');
+        window.studySeconds = 0;
+        timerContainer.innerText = "00:00";
+        if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+        window.studyTimerInterval = setInterval(() => {
+            window.studySeconds++;
+            const m = String(Math.floor(window.studySeconds / 60)).padStart(2, '0');
+            const s = String(window.studySeconds % 60).padStart(2, '0');
+            timerContainer.innerText = `${m}:${s}`;
+        }, 1000);
     } else {
-        window.showToast("Sessione di ripasso completata!", "success");
+        timerContainer.classList.add('hidden');
+    }
+
+    document.getElementById('study-flashcard-view').classList.add('hidden');
+    document.getElementById('study-quiz-view').classList.add('hidden');
+    document.getElementById('study-summary-view').classList.add('hidden');
+
+    window.renderCurrentStudyItem();
+    window.safeCreateIcons();
+};
+
+window.closeStudyPlayer = function () {
+    if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+    const modal = document.getElementById('study-player-modal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+};
+
+window.renderCurrentStudyItem = function () {
+    const item = window.activeStudySessionItems[window.currentStudyItemIndex];
+    document.getElementById('study-player-progress').innerText = `${window.currentStudyItemIndex + 1} / ${window.activeStudySessionItems.length}`;
+
+    if (window.studyConfig.mode === 'flashcard') {
+        document.getElementById('study-flashcard-view').classList.remove('hidden');
+        document.getElementById('study-flashcard-view').classList.add('flex');
+        document.getElementById('study-quiz-view').classList.add('hidden');
+
+        document.getElementById('flashcard-front').classList.remove('hidden');
+        document.getElementById('flashcard-back-container').classList.add('hidden');
+        document.getElementById('flashcard-front-text').innerText = item.front;
+        document.getElementById('flashcard-back-text').innerText = item.back;
+    } else {
+        document.getElementById('study-quiz-view').classList.remove('hidden');
+        document.getElementById('study-quiz-view').classList.add('flex');
+        document.getElementById('study-flashcard-view').classList.add('hidden');
+
+        document.getElementById('study-quiz-question').innerText = item.q;
+        document.getElementById('study-quiz-feedback').classList.add('hidden');
+
+        const isMultiple = item.options && item.options.length > 0;
+        const optsContainer = document.getElementById('study-quiz-options');
+        const openContainer = document.getElementById('study-quiz-open');
+
+        if (isMultiple) {
+            optsContainer.classList.remove('hidden');
+            openContainer.classList.add('hidden');
+            optsContainer.innerHTML = '';
+            item.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full p-4 bg-white border-2 border-slate-200 rounded-xl text-left hover:border-indigo-400 hover:bg-indigo-50 transition text-slate-700 font-medium";
+                btn.innerText = opt;
+                btn.onclick = () => window.checkQuizAnswer(opt, item);
+                optsContainer.appendChild(btn);
+            });
+        } else {
+            optsContainer.classList.add('hidden');
+            openContainer.classList.remove('hidden');
+            openContainer.classList.add('flex');
+            document.getElementById('study-quiz-textarea').value = '';
+        }
     }
 };
 
-window.generateGlobalQuiz = async function () {
-    await window.generateGlobalFlashcards();
+window.flipFlashcard = function () {
+    document.getElementById('flashcard-front').classList.add('hidden');
+    document.getElementById('flashcard-back-container').classList.remove('hidden');
+    document.getElementById('flashcard-back-container').classList.add('flex');
+};
+
+window.checkQuizAnswer = function (selected, item) {
+    const isCorrect = String(selected).toLowerCase() === String(item.correct).toLowerCase() ||
+        String(selected).includes(String(item.correct)) ||
+        String(item.correct).includes(String(selected));
+
+    if (isCorrect) {
+        window.studyResults.correct++;
+    } else {
+        window.studyResults.mistakes.push({
+            q: item.q,
+            userAnswer: selected,
+            correctAnswer: item.correct,
+            explanation: item.explanation
+        });
+    }
+
+    const feedbackTitle = document.getElementById('study-quiz-feedback-title');
+    const feedbackDesc = document.getElementById('study-quiz-feedback-desc');
+
+    if (isCorrect) {
+        feedbackTitle.innerHTML = '<i data-lucide="check-circle" class="text-emerald-500 w-5 h-5"></i> Esatto!';
+        feedbackTitle.className = "font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2 text-emerald-600";
+    } else {
+        feedbackTitle.innerHTML = '<i data-lucide="x-circle" class="text-red-500 w-5 h-5"></i> Sbagliato';
+        feedbackTitle.className = "font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2 text-red-600";
+    }
+
+    feedbackDesc.innerHTML = `<strong>Risposta corretta:</strong> ${item.correct}<br><br><strong>Spiegazione:</strong> ${item.explanation}`;
+    document.getElementById('study-quiz-feedback').classList.remove('hidden');
+    document.getElementById('study-quiz-options').classList.add('hidden');
+    window.safeCreateIcons();
+};
+
+window.checkOpenAnswer = function () {
+    const item = window.activeStudySessionItems[window.currentStudyItemIndex];
+    document.getElementById('study-quiz-open').classList.add('hidden');
+    document.getElementById('study-quiz-open').classList.remove('flex');
+
+    const feedbackTitle = document.getElementById('study-quiz-feedback-title');
+    const feedbackDesc = document.getElementById('study-quiz-feedback-desc');
+
+    feedbackTitle.innerHTML = '<i data-lucide="info" class="text-indigo-500 w-5 h-5"></i> Verifica la tua risposta';
+    feedbackTitle.className = "font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2 text-indigo-600";
+    feedbackDesc.innerHTML = `<strong>Risposta di riferimento:</strong> ${item.correct}<br><br><strong>Spiegazione:</strong> ${item.explanation}`;
+
+    document.getElementById('study-quiz-feedback').classList.remove('hidden');
+
+    // In open answer we don't automatically record correct/wrong, 
+    // maybe we assume they are learning. Let's mark as 'incomplete' or similar.
+    window.studyResults.mistakes.push({
+        q: item.q,
+        correctAnswer: item.correct,
+        explanation: item.explanation,
+        isOpen: true
+    });
+
+    window.safeCreateIcons();
+};
+
+window.nextStudyItem = function (flashcardFeedback = null) {
+    if (flashcardFeedback) {
+        if (flashcardFeedback === 'easy') {
+            window.studyResults.correct++;
+        } else {
+            const item = window.activeStudySessionItems[window.currentStudyItemIndex];
+            window.studyResults.mistakes.push({
+                q: item.front,
+                correctAnswer: item.back,
+                feedback: flashcardFeedback
+            });
+        }
+    }
+
+    window.currentStudyItemIndex++;
+    if (window.currentStudyItemIndex < window.activeStudySessionItems.length) {
+        window.renderCurrentStudyItem();
+    } else {
+        window.showStudySummary();
+    }
+};
+
+window.showStudySummary = function () {
+    if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+
+    document.getElementById('study-flashcard-view').classList.add('hidden');
+    document.getElementById('study-quiz-view').classList.add('hidden');
+    document.getElementById('study-summary-view').classList.remove('hidden');
+    document.getElementById('study-summary-view').classList.add('flex');
+
+    const statsText = `Hai completato la sessione! Score: <b class="text-indigo-600">${window.studyResults.correct} / ${window.studyResults.total}</b>`;
+    document.getElementById('study-summary-stats').innerHTML = statsText;
+
+    const m = Math.floor(window.studySeconds / 60);
+    const s = window.studySeconds % 60;
+    document.getElementById('study-summary-time').innerText = `Tempo: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+    const mistakesContainer = document.getElementById('study-summary-mistakes');
+    mistakesContainer.innerHTML = '';
+
+    if (window.studyResults.mistakes.length === 0) {
+        mistakesContainer.innerHTML = '<p class="text-sm text-emerald-600 font-bold text-center py-4">Ottimo lavoro! Nessun errore rilevato. 🎉</p>';
+    } else {
+        window.studyResults.mistakes.forEach(m => {
+            const div = document.createElement('div');
+            div.className = "p-3 bg-white border border-slate-200 rounded-xl shadow-sm";
+            div.innerHTML = `
+                <p class="text-xs font-black text-slate-800 mb-1">${m.q}</p>
+                <p class="text-[10px] text-red-500 mb-2"><b>Risposta Corretta:</b> ${m.correctAnswer}</p>
+                ${m.explanation ? `<p class="text-[9px] text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100">${m.explanation}</p>` : ''}
+            `;
+            mistakesContainer.appendChild(div);
+        });
+    }
+    window.safeCreateIcons();
+};
+
+window.saveStudyReport = async function () {
+    const apiKey = window.getSystemKey();
+    if (!appState.activeVaultPath) {
+        window.showToast("Nessun Vault attivo. Collega o crea un Vault per salvare.", "warning");
+        return;
+    }
+
+    window.showLoadingOverlay(true, "Salvataggio report nel Vault...");
+
+    const m = Math.floor(window.studySeconds / 60);
+    const s = window.studySeconds % 60;
+    const timeStr = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+    let reportText = `# Report Sessione di Studio\n`;
+    reportText += `Data: ${new Date().toLocaleString()}\n`;
+    reportText += `Modalità: ${window.studyResults.mode}\n`;
+    reportText += `Tipo: ${window.studyResults.type}\n`;
+    reportText += `Score: ${window.studyResults.correct} / ${window.studyResults.total}\n`;
+    reportText += `Tempo Impiegato: ${timeStr}\n\n`;
+    reportText += `## Analisi Errori / Ripasso\n\n`;
+
+    if (window.studyResults.mistakes.length === 0) {
+        reportText += "Nessun errore! Eccellente preparazione.\n";
+    } else {
+        window.studyResults.mistakes.forEach((m, idx) => {
+            reportText += `### Errore ${idx + 1}\n`;
+            reportText += `**Domanda:** ${m.q}\n`;
+            reportText += `**Risposta Corretta:** ${m.correctAnswer}\n`;
+            if (m.explanation) reportText += `**Spiegazione:** ${m.explanation}\n`;
+            reportText += `\n---\n\n`;
+        });
+    }
+
+    try {
+        const projectName = appState.db.rootNodeLabel || "Progetto_Senza_Nome";
+        const res = await window.electronAPI.saveChatTranscript({
+            projectName: projectName,
+            targetName: `Report_Studio_${window.studyResults.mode}`,
+            textContent: reportText,
+            vaultPath: appState.activeVaultPath
+        });
+
+        if (res.success) {
+            window.showToast("Report salvato con successo nel Vault!", "success");
+        } else {
+            throw new Error(res.error);
+        }
+    } catch (err) {
+        window.showAlert("Errore Salvataggio", err.message);
+    } finally {
+        window.showLoadingOverlay(false);
+    }
 };
 
 // Inizializza Costi al caricamento
@@ -5285,7 +6016,7 @@ window.cycleLineHeight = function () {
     const lh = lineHeights[currentLineHeightIdx];
     const btn = document.getElementById('btn-line-height');
     if (btn) btn.innerHTML = `<i data-lucide="move-vertical" class="w-3 h-3"></i> INTERLINEA x${lh.toFixed(1)}`;
-    
+
     // Applica a tutto il contenuto leggibile con forza !important
     const containers = document.querySelectorAll('.markdown-body, .note-text, #source-modal-body, .ai-result-content, .rich-desc');
     containers.forEach(c => {
@@ -5635,52 +6366,21 @@ window.executeContextualAIExtension = async function () {
     }
 
     window.closeContextualAIModal();
-    window.showLoadingOverlay(true, "Mapp.AI sta leggendo e iniettando i nuovi concetti...");
+    window.showLoadingOverlay(true, "MappAI sta leggendo e iniettando i nuovi concetti...");
 
     try {
 
         const existingLabels = appState.db.nodes.map(n => n.label.toLowerCase().trim());
-        const promptText = `Sei un costruttore di Knowledge Graph di alto livello (SOTA Second Brain). 
-Il nodo genitore selezionato per l'espansione è:
-ID: "${contextualAITargetNode.id}"
-Label: "${contextualAITargetNode.label}"
+        const promptKey = appState.studentMode ? "SOTA_SECOND_BRAIN_STUDENT" : "SOTA_SECOND_BRAIN";
 
-Nella mappa esistono già questi concetti (EVITA DI CREARE NUOVI NODI PER QUESTI):
-[${existingLabels.join(', ')}]
-
-L'utente ti ha fornito questo materiale per espandere il ramo selezionato:
-"""
-${sourceContent}
-"""
-
-Compito:
-1. Leggi il materiale ed estrai concetti che siano FIGLI o SOTTO-TEMI di "${contextualAITargetNode.label}".
-2. Sii specifico e analitico. Estrai dai 5 ai 15 nuovi concetti se il testo lo permette.
-3. Restituisci SOLO un JSON valido con questa struttura:
-{
-  "nodes": [
-    {
-      "id": "RAND_ID", 
-      "label": "Nome Concetto", 
-      "desc": "Descrizione approfondita e didattica (3-4 frasi)", 
-      "level": ${contextualAITargetNode.level + 1},
-      "group": ${contextualAITargetNode.group || 0}
-    }
-  ],
-  "links": [
-    {
-      "source": "${contextualAITargetNode.id}", 
-      "target": "RAND_ID", 
-      "rel": "relazione specifica (es: causa, composto da, esempio di, conseguenza)"
-    }
-  ]
-}
-
-REGOLE MANDATORIE:
-- NON includere il nodo genitore "${contextualAITargetNode.id}" nella lista "nodes".
-- Tutti i nuovi nodi devono essere collegati tramite "links" al genitore o ad altri nuovi nodi.
-- Se un concetto nel testo è già presente nella lista dei concetti esistenti, NON crearlo come nuovo nodo, ma puoi creare un link verso di esso.
-- Restituisci SOLO il JSON puro.`;
+        const promptText = window.fillPromptTemplate(promptKey, {
+            targetId: contextualAITargetNode.id,
+            targetLabel: contextualAITargetNode.label,
+            existingLabels: existingLabels.join(', '),
+            sourceContent: sourceContent,
+            targetLevel: contextualAITargetNode.level + 1,
+            targetGroup: contextualAITargetNode.group || 0
+        });
 
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
@@ -5803,10 +6503,10 @@ window.ctxExpansionPDFFile = null;
    USER PROFILE & VAULT MANAGER (SOTA)
    ========================================== */
 
-window.showUserProfileModal = function() {
+window.showUserProfileModal = function () {
     const modal = document.getElementById('user-profile-modal');
     const box = document.getElementById('user-profile-box');
-    
+
     // Fill fields
     document.getElementById('up-nickname').value = appState.userProfile.nickname || "";
     document.getElementById('up-age').value = appState.userProfile.age || "";
@@ -5822,7 +6522,7 @@ window.showUserProfileModal = function() {
     window.safeCreateIcons();
 };
 
-window.closeUserProfileModal = function() {
+window.closeUserProfileModal = function () {
     const modal = document.getElementById('user-profile-modal');
     const box = document.getElementById('user-profile-box');
     modal.classList.add('opacity-0');
@@ -5833,7 +6533,7 @@ window.closeUserProfileModal = function() {
     }, 200);
 };
 
-window.saveUserProfile = function() {
+window.saveUserProfile = function () {
     appState.userProfile.nickname = document.getElementById('up-nickname').value.trim();
     appState.userProfile.age = document.getElementById('up-age').value.trim();
     appState.userProfile.grade = document.getElementById('up-grade').value.trim();
@@ -5844,7 +6544,7 @@ window.saveUserProfile = function() {
     window.closeUserProfileModal();
 };
 
-window.resetUserProfile = function() {
+window.resetUserProfile = function () {
     window.showPrompt("Verifica Reset", "", (val) => {
         if (val.toLowerCase().trim() === "elimina il mio profilo") {
             appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
@@ -5858,10 +6558,10 @@ window.resetUserProfile = function() {
 };
 
 // Vault Manager
-window.showVaultManager = async function() {
+window.showVaultManager = async function () {
     const modal = document.getElementById('vault-manager-modal');
     const box = document.getElementById('vault-manager-box');
-    
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => {
@@ -5869,11 +6569,11 @@ window.showVaultManager = async function() {
         box.classList.remove('scale-95');
     }, 10);
     window.safeCreateIcons();
-    
+
     await window.loadVaultList();
 };
 
-window.closeVaultManager = function() {
+window.closeVaultManager = function () {
     const modal = document.getElementById('vault-manager-modal');
     const box = document.getElementById('vault-manager-box');
     modal.classList.add('opacity-0');
@@ -5884,7 +6584,7 @@ window.closeVaultManager = function() {
     }, 200);
 };
 
-window.loadVaultList = async function() {
+window.loadVaultList = async function () {
     const container = document.getElementById('vault-list-container');
     container.innerHTML = '<div class="flex items-center justify-center p-20 text-slate-300"><i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i></div>';
     window.safeCreateIcons();
@@ -5892,7 +6592,7 @@ window.loadVaultList = async function() {
     try {
         const vaults = await window.electronAPI.getAllVaults();
         container.innerHTML = "";
-        
+
         if (!vaults || vaults.length === 0) {
             container.innerHTML = `<div class="text-center p-10 text-slate-400 font-bold uppercase tracking-widest text-xs">${window.getTranslation('empty_projects_msg')}</div>`;
             return;
@@ -5901,7 +6601,7 @@ window.loadVaultList = async function() {
         vaults.forEach(v => {
             const card = document.createElement('div');
             card.className = "bg-white border border-slate-100 p-4 rounded-2xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group shadow-sm flex justify-between items-center";
-            
+
             let userBadge = "";
             if (v.nickname) {
                 userBadge = `<span class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase">${v.nickname} (${v.age || '?'})</span>`;
@@ -5922,7 +6622,7 @@ window.loadVaultList = async function() {
                 </div>
                 <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-all"></i>
             `;
-            
+
             card.onclick = () => {
                 window.closeVaultManager();
                 window.directLoadVault(v.fullPath);
@@ -5935,7 +6635,7 @@ window.loadVaultList = async function() {
     }
 };
 
-window.directLoadVault = async function(folderPath) {
+window.directLoadVault = async function (folderPath) {
     window.showLoadingOverlay(true, "Caricamento Vault...");
     try {
         const loadRes = await window.electronAPI.loadVault(folderPath);
@@ -5949,11 +6649,11 @@ window.directLoadVault = async function(folderPath) {
                 links: loadRes.data.links || [],
                 sourcesDict: {}
             };
-            
+
             if (loadRes.data.userProfile) {
                 appState.userProfile = loadRes.data.userProfile;
             }
-            
+
             // Ripristina lo stato delle chat se presente
             if (loadRes.data.tutorState) {
                 tutorState = loadRes.data.tutorState;
@@ -5988,7 +6688,7 @@ window.directLoadVault = async function(folderPath) {
     if (saved) {
         try {
             appState.userProfile = JSON.parse(saved);
-        } catch(e) {}
+        } catch (e) { }
     }
 })();
 
