@@ -32,22 +32,24 @@ let appState = {
     allProfiles: [],
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
-    studentMode: true
+    studentMode: true,
+    infomaniakAllModels: false
 };
 
 // ==========================================
-// MODALITÀ STUDENTE (SECRET SEQUENCE)
+// MODALITÀ INFOMANIAK PRO (SECRET SEQUENCE)
 // ==========================================
-let studentModeKeys = [];
-const studentModeSecret = ['l', 'k', 'j', 'h'];
+let infomaniakProKeys = [];
+const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
+        
+        // Student Mode Handler
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
             if (studentModeKeys.length > 4) studentModeKeys.shift();
-
             if (studentModeKeys.join('') === 'lkjh') {
                 window.toggleStudentMode();
                 studentModeKeys = [];
@@ -55,10 +57,33 @@ document.addEventListener('keydown', (e) => {
         } else {
             studentModeKeys = [];
         }
+
+        // Infomaniak Pro Mode Handler
+        if (infomaniakProSecret.includes(key)) {
+            infomaniakProKeys.push(key);
+            if (infomaniakProKeys.length > 4) infomaniakProKeys.shift();
+            if (infomaniakProKeys.join('') === 'mnbv') {
+                window.toggleInfomaniakProMode();
+                infomaniakProKeys = [];
+            }
+        } else {
+            infomaniakProKeys = [];
+        }
     } else {
         studentModeKeys = [];
+        infomaniakProKeys = [];
     }
 });
+
+window.toggleInfomaniakProMode = function () {
+    appState.infomaniakAllModels = !appState.infomaniakAllModels;
+    const msg = appState.infomaniakAllModels ? "Modalità PRO (All Models) ATTIVATA" : "Modalità BETA (Google Models Only) ATTIVATA";
+    window.showToast(msg, "success");
+    // Refresh models if provider is Infomaniak
+    if (appState.aiProvider === 'infomaniak' && window.refreshGeminiModels) {
+        window.refreshGeminiModels();
+    }
+};
 
 window.applyStudentModeUI = function () {
     const btnUrl = document.getElementById('btn-src-url');
@@ -336,6 +361,9 @@ let magnifierLens = null;
 let magnifierContent = null;
 let lastMousePos = { x: 0, y: 0 };
 
+let magnifierObserver = null;
+let magnifierDebounceTimer = null;
+
 window.toggleMagnifier = function () {
     magnifierActive = !magnifierActive;
     magnifierLens = document.getElementById('magnifier-lens');
@@ -345,10 +373,49 @@ window.toggleMagnifier = function () {
         magnifierLens.style.display = 'block';
         window.refreshMagnifier();
         document.addEventListener('mousemove', window.handleMagnifierMove);
+        
+        // Sincronizza dinamicamente la lente con i cambiamenti della UI (es. apertura modali)
+        magnifierObserver = new MutationObserver((mutations) => {
+            let shouldRefresh = false;
+            for (let m of mutations) {
+                // Ignora i cambiamenti della lente stessa per evitare loop infiniti
+                if (m.target.id === 'magnifier-lens' || m.target.id === 'magnifier-content') continue;
+                if (m.target.closest && m.target.closest('#magnifier-lens')) continue;
+                
+                // Ignora aggiornamenti continui e leggeri (es. animazioni svg/d3, input testo rapido)
+                if (m.target.tagName === 'line' || m.target.tagName === 'circle' || m.target.tagName === 'path' || m.target.tagName === 'text') continue;
+                if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'transform') continue;
+                if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'style') continue;
+
+                shouldRefresh = true;
+                break;
+            }
+            
+            if (shouldRefresh) {
+                clearTimeout(magnifierDebounceTimer);
+                magnifierDebounceTimer = setTimeout(() => {
+                    if (magnifierActive) window.refreshMagnifier();
+                }, 300); // 300ms debounce per non bloccare la UI
+            }
+        });
+        
+        // Osserva i cambiamenti rilevanti nel DOM
+        magnifierObserver.observe(document.body, { 
+            childList: true, 
+            subtree: true, 
+            attributes: true, 
+            attributeFilter: ['class', 'style'] 
+        });
+
     } else {
         magnifierLens.style.display = 'none';
         document.removeEventListener('mousemove', window.handleMagnifierMove);
         magnifierContent.innerHTML = '';
+        if (magnifierObserver) {
+            magnifierObserver.disconnect();
+            magnifierObserver = null;
+        }
+        clearTimeout(magnifierDebounceTimer);
     }
 };
 
@@ -362,9 +429,6 @@ window.refreshMagnifier = function () {
     // Elementi UI da escludere dalla lente (evita sdoppiamenti di menu fixed)
     const excludeIds = [
         'magnifier-lens',
-        'a11y-panel-toggle',
-        'insegnai-drawer',
-        'projects-bar',
         'toast-container',
         'alert-modal'
     ];
@@ -385,13 +449,6 @@ window.refreshMagnifier = function () {
                 }
             });
 
-            // Rimuovi pannelli accessibilità
-            if (clone.classList && clone.classList.contains('a11y-panel')) {
-                shouldAppend = false;
-            } else if (clone.querySelectorAll) {
-                const panels = clone.querySelectorAll('.a11y-panel');
-                panels.forEach(p => p.remove());
-            }
 
             // Converti 'fixed' in 'absolute' per evitare che i cloni escano dalla lente
             if (shouldAppend) {
@@ -424,9 +481,11 @@ window.handleMagnifierMove = function (e) {
     magnifierLens.style.left = (x - 120) + 'px';
     magnifierLens.style.top = (y - 120) + 'px';
 
-    // Ripristinata la formula corretta: WebKit moltiplica già queste coordinate per lo zoom: 2
-    magnifierContent.style.left = (-x + 60) + 'px';
-    magnifierContent.style.top = (-y + 60) + 'px';
+    // Formula corretta per transform: scale(2)
+    // Il punto (x,y) deve finire al centro della lente (120, 120)
+    // L + x*2 = 120 => L = 120 - x*2
+    magnifierContent.style.left = (120 - x * 2) + 'px';
+    magnifierContent.style.top = (120 - y * 2) + 'px';
 };
 
 window.readModalAloud = function (modalId) {
@@ -677,11 +736,9 @@ const MODEL_KB = {
     // ── Gemini 1.5 series ──
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, note: 'Stabile, legacy' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Potente, legacy' },
-    // ── Infomaniak ──
-    'mistral24b': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
-    'llama3': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
-    'mistral3': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
-    'gemma3n': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud' },
+    // ── Infomaniak (Limit to Google/Gemma) ──
+    'gemma-4': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
+    'gemma': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma)' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -845,8 +902,13 @@ window.refreshGeminiModels = async function () {
 
         let filteredModels = [];
         if (isInfomaniak) {
-            // Include all returned Infomaniak models except embeddings
-            filteredModels = rawModels.filter(m => !m.id.toLowerCase().includes('embed'));
+            // Include only Google models (Gemma) unless Pro mode is active
+            filteredModels = rawModels.filter(m => {
+                const id = m.id.toLowerCase();
+                if (id.includes('embed')) return false;
+                if (appState.infomaniakAllModels) return true; // Pro mode shows everything
+                return (id.includes('gemma') || id.includes('google'));
+            });
         } else {
             // Filter out unsupported models for Gemini
             const excludePatterns = ['tts', 'live', 'embed', 'image', 'nano-banana', 'veo', 'lyria', 'imagen', 'robotics', 'deep-research', 'computer-use'];
@@ -1583,30 +1645,30 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const schemaBranch = {
             type: "OBJECT",
             properties: {
-                nodes: { 
-                    type: "ARRAY", 
-                    items: { 
-                        type: "OBJECT", 
-                        properties: { 
-                            id: { type: "STRING" }, 
-                            label: { type: "STRING" }, 
-                            content: { type: "STRING" }, 
+                nodes: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            id: { type: "STRING" },
+                            label: { type: "STRING" },
+                            content: { type: "STRING" },
                             level: { type: "INTEGER" }
-                        }, 
-                        required: ["id", "label", "content"] 
-                    } 
+                        },
+                        required: ["id", "label", "content"]
+                    }
                 },
-                links: { 
-                    type: "ARRAY", 
-                    items: { 
-                        type: "OBJECT", 
-                        properties: { 
-                            source: { type: "STRING" }, 
-                            target: { type: "STRING" }, 
-                            rel: { type: "STRING" } 
-                        }, 
-                        required: ["source", "target", "rel"] 
-                    } 
+                links: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            source: { type: "STRING" },
+                            target: { type: "STRING" },
+                            rel: { type: "STRING" }
+                        },
+                        required: ["source", "target", "rel"]
+                    }
                 }
             },
             required: ["nodes", "links"]
@@ -1863,10 +1925,10 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         }, required: ["nodes", "links"]
     };
 
-    const payload = { 
-        contents: [{ parts: [...fileParts, { text: promptText }] }], 
+    const payload = {
+        contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema } 
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema }
     };
 
     try {
@@ -6624,20 +6686,20 @@ window.ctxExpansionPDFFile = null;
    USER PROFILE & VAULT MANAGER (SOTA)
    ========================================== */
 
-window.updateProfilesDropdown = function() {
+window.updateProfilesDropdown = function () {
     const select = document.getElementById('up-saved-profiles');
     if (!select) return;
-    
+
     // Keep the first "+ Nuovo Profilo" option
     select.innerHTML = '<option value="">+ Nuovo Profilo</option>';
-    
+
     appState.allProfiles.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.nickname;
         opt.text = `${p.nickname} (${p.grade || 'Senza classe'})`;
         select.appendChild(opt);
     });
-    
+
     // Select the current one if it exists
     if (appState.userProfile && appState.userProfile.nickname) {
         select.value = appState.userProfile.nickname;
@@ -6646,10 +6708,10 @@ window.updateProfilesDropdown = function() {
     }
 };
 
-window.loadSelectedProfile = function() {
+window.loadSelectedProfile = function () {
     const select = document.getElementById('up-saved-profiles');
     const selectedNickname = select.value;
-    
+
     if (!selectedNickname) {
         // Clear fields for a new profile
         appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
@@ -6660,7 +6722,7 @@ window.loadSelectedProfile = function() {
         document.getElementById('up-grade').value = "";
         return;
     }
-    
+
     const profile = appState.allProfiles.find(p => p.nickname === selectedNickname);
     if (profile) {
         appState.userProfile = { ...profile };
@@ -6674,21 +6736,21 @@ window.loadSelectedProfile = function() {
     }
 };
 
-window.updateGradeOptions = function() {
+window.updateGradeOptions = function () {
     const systemSelect = document.getElementById('up-system');
     const gradeSelect = document.getElementById('up-grade');
     const currentVal = gradeSelect.value;
     const isTicino = systemSelect.value === 'Ticino';
-    
+
     gradeSelect.innerHTML = '';
     const maxGrade = isTicino ? 4 : 3;
-    
+
     // Add default empty option
     const emptyOpt = document.createElement('option');
     emptyOpt.value = "";
-    emptyOpt.text = "Seleziona la classe";
+    emptyOpt.text = "Classe...";
     gradeSelect.appendChild(emptyOpt);
-    
+
     for (let i = 1; i <= maxGrade; i++) {
         const opt = document.createElement('option');
         const val = `${i}a Media`;
@@ -6696,7 +6758,7 @@ window.updateGradeOptions = function() {
         opt.text = val;
         gradeSelect.appendChild(opt);
     }
-    
+
     // Restore previous value if it's still valid
     if (currentVal && Array.from(gradeSelect.options).some(o => o.value === currentVal)) {
         gradeSelect.value = currentVal;
@@ -6713,7 +6775,7 @@ window.showUserProfileModal = function () {
     document.getElementById('up-nickname').value = appState.userProfile.nickname || "";
     document.getElementById('up-age').value = appState.userProfile.age || "";
     document.getElementById('up-system').value = appState.userProfile.system || "Ticino";
-    
+
     // Update grade options based on system, then set value
     window.updateGradeOptions();
     if (appState.userProfile.grade) {
@@ -6762,7 +6824,7 @@ window.saveUserProfile = function () {
 
     localStorage.setItem('mapp_user_profile', JSON.stringify(appState.userProfile));
     localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
-    
+
     window.showToast("Profilo salvato correttamente!", "success");
     window.closeUserProfileModal();
 };
@@ -6779,11 +6841,11 @@ window.resetUserProfile = function () {
             // Remove from allProfiles
             appState.allProfiles = appState.allProfiles.filter(p => p.nickname !== currentNickname);
             localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
-            
+
             // Clear current profile
             appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
             localStorage.removeItem('mapp_user_profile');
-            
+
             window.showToast("Profilo eliminato.", "success");
             window.closeUserProfileModal();
         } else {
@@ -6940,7 +7002,7 @@ window.directLoadVault = async function (folderPath) {
     if (savedProfiles) {
         try {
             appState.allProfiles = JSON.parse(savedProfiles);
-        } catch(e) {}
+        } catch (e) { }
     }
 
     const saved = localStorage.getItem('mapp_user_profile');
@@ -6949,7 +7011,7 @@ window.directLoadVault = async function (folderPath) {
             appState.userProfile = JSON.parse(saved);
             // Migrate single profile to allProfiles if not there
             if (appState.userProfile.nickname && appState.allProfiles.length === 0) {
-                appState.allProfiles.push({...appState.userProfile});
+                appState.allProfiles.push({ ...appState.userProfile });
                 localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
             }
         } catch (e) { }

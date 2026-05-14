@@ -679,254 +679,258 @@
                             <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg" alt="MappAI Icon">
                             MappAI
                         </h1>
-                        <div id="project-title-container" class="group flex items-start gap-2 mt-1 cursor-pointer" onclick="window.startEditingTitle()">
-                            <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
+                        <div id="project-title-container" class="group flex items-start gap-2 mt-1 cursor-pointer"
+                            onclick="window.startEditingTitle()">
+                            <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow"
+                                id="sidebar-subtitle" style="line-height: 1.4;">
                                 Visualizzatore di conoscenza</p>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
+                            <div
+                                class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
                                 <i data-lucide="edit-3" class="w-3 h-3"></i>
                             </div>
                         </div>
-                </div>
-
-
-            </div>
-
-            <!-- TAB NAVIGATION -->
-            <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
-                <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
-                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
-                    title="Indice">
-                    <i data-lucide="git-branch" class="w-5 h-5"></i>
-                </button>
-                <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
-                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    title="Note">
-                    <i data-lucide="sticky-note" class="w-5 h-5"></i>
-                </button>
-                <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
-                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    title="Studio">
-                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                </button>
-                <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
-                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    title="Finder">
-                    <i data-lucide="search" class="w-5 h-5"></i>
-                </button>
-                <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
-                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    title="Tutor AI">
-                    <i data-lucide="bot" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- ═══ TAB: STRUTTURA ═══ -->
-            <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
-
-                <div id="tree-view-container" class="p-4 space-y-1"></div>
-
-                <!-- Node Details (shown when a node is selected) -->
-                <div class="p-5" id="node-details">
-                    <div class="text-center text-slate-400 mt-8 animate-pulse">
-                        <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
-                        <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
-                        <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per
-                            gestire lo stato di apprendimento e i contenuti.</p>
                     </div>
+
+
                 </div>
 
-                <!-- Tree View (macro-areas / super-hubs) -->
-                <div class="px-5 pb-4 border-t border-slate-200/60">
-                    <h3
-                        class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
-                        <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
-                        <span id="tree-view-title">Macro-aree</span>
-                    </h3>
-                    <div id="macro-areas-container" class="space-y-1">
-                        <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
-                        </p>
+                <!-- TAB NAVIGATION -->
+                <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
+                    <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
+                        title="Indice">
+                        <i data-lucide="git-branch" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Note">
+                        <i data-lucide="sticky-note" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Studio">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Finder">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                    </button>
+                    <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
+                        class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                        title="Tutor AI">
+                        <i data-lucide="bot" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- ═══ TAB: STRUTTURA ═══ -->
+                <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto modal-scroll">
+
+                    <div id="tree-view-container" class="p-4 space-y-1"></div>
+
+                    <!-- Node Details (shown when a node is selected) -->
+                    <div class="p-5" id="node-details">
+                        <div class="text-center text-slate-400 mt-8 animate-pulse">
+                            <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
+                            <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
+                            <p class="text-sm mt-2 leading-relaxed">Usa il tasto Sinistro per studiare, tasto Destro per
+                                gestire lo stato di apprendimento e i contenuti.</p>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- ═══ TAB: FINDER ═══ -->
-            <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
-                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
-                    <div class="relative">
-                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
-                        <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
-                            class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
-                            oninput="window.performSuperSearch(this.value)">
-                        <button id="super-finder-clear" onclick="window.clearSuperFinder()"
-                            class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
-                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-                    <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
-                        etichette,
-                        descrizioni, citazioni e fonti esterne.</p>
-                </div>
-
-                <div id="super-finder-results" class="p-2 space-y-4">
-                    <div class="flex flex-col items-center justify-center py-20 text-slate-300">
-                        <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
-                        <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ═══ TAB: TUTOR AI ═══ -->
-            <div id="sidebar-panel-tutor" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
-                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
-                    <div class="flex justify-between items-center mb-3">
+                    <!-- Tree View (macro-areas / super-hubs) -->
+                    <div class="px-5 pb-4 border-t border-slate-200/60">
                         <h3
-                            class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
-                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
+                            <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
+                            <span id="tree-view-title">Macro-aree</span>
                         </h3>
-                        <button onclick="window.resetSidebarTutor()"
-                            class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
-                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                        </button>
-                    </div>
-                    <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
-                </div>
-
-                <!-- Chat History -->
-                <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
-                    <!-- Initial message -->
-                    <div
-                        class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
-                        <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
-                    </div>
-                </div>
-
-                <!-- Input Area -->
-                <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
-                    <div class="flex flex-col gap-2">
-                        <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
-                            class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                            onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
-                        <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
-                            class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-                            <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-
-
-            <!-- ═══ TAB: NOTE ═══ -->
-            <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
-                <div class="px-5 pt-5 pb-2">
-                    <h3
-                        class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
-                    </h3>
-                </div>
-                <div id="user-notes-container" class="space-y-3 px-5 pb-5">
-                    <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
-                        Modifica i
-                        nodi con doppio click per aggiungere appunti e immagini.</p>
-                </div>
-            </div>
-
-            <!-- ═══ TAB: STUDIO ═══ -->
-            <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
-                <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
-                    <!-- Pomodoro Timer -->
-                    <div
-                        class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
-                            <span id="pomodoro-time"
-                                class="font-bold text-slate-800 text-2xl font-mono tracking-wider">25:00</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                class="px-4 py-2 bg-rose-50 text-rose-600 text-xs uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
-                            <button onclick="window.resetPomodoro()"
-                                class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
-                                title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                        <div id="macro-areas-container" class="space-y-1">
+                            <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
+                            </p>
                         </div>
                     </div>
-                    <!-- Statistiche Progresso -->
-                    <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
-                                Mappa</span>
-                            <span id="study-progress-text"
-                                class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
+                </div>
+
+                <!-- ═══ TAB: FINDER ═══ -->
+                <div id="sidebar-panel-finder" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
+                            <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
+                                class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
+                                oninput="window.performSuperSearch(this.value)">
+                            <button id="super-finder-clear" onclick="window.clearSuperFinder()"
+                                class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
                         </div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
-                            <div id="study-progress-bar"
-                                class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
+                        <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
+                            etichette,
+                            descrizioni, citazioni e fonti esterne.</p>
+                    </div>
+
+                    <div id="super-finder-results" class="p-2 space-y-4">
+                        <div class="flex flex-col items-center justify-center py-20 text-slate-300">
+                            <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
+                            <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: TUTOR AI ═══ -->
+                <div id="sidebar-panel-tutor" class="flex-grow overflow-y-auto modal-scroll hidden flex-col">
+                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3
+                                class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
+                            </h3>
+                            <button onclick="window.resetSidebarTutor()"
+                                class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
+                    </div>
+
+                    <!-- Chat History -->
+                    <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
+                        <!-- Initial message -->
+                        <div
+                            class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
+                            <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
+                                class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
+                            <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
+                                class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                                <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- ═══ TAB: NOTE ═══ -->
+                <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
+                    <div class="px-5 pt-5 pb-2">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
+                            <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
+                        </h3>
+                    </div>
+                    <div id="user-notes-container" class="space-y-3 px-5 pb-5">
+                        <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                            Modifica i
+                            nodi con doppio click per aggiungere appunti e immagini.</p>
+                    </div>
+                </div>
+
+                <!-- ═══ TAB: STUDIO ═══ -->
+                <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
+                    <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
+                        <!-- Pomodoro Timer -->
+                        <div
+                            class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+                                <span id="pomodoro-time"
+                                    class="font-bold text-slate-800 text-2xl font-mono tracking-wider">25:00</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="pomodoro-btn" onclick="window.togglePomodoro()"
+                                    class="px-4 py-2 bg-rose-50 text-rose-600 text-xs uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm">INIZIA</button>
+                                <button onclick="window.resetPomodoro()"
+                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm"
+                                    title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
                             </div>
                         </div>
-                        <div class="flex justify-between text-xs font-bold">
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
-                                <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Fatti</span>
-                            </div>
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
-                                <span id="stats-review" class="text-amber-500 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Ripasso</span>
-                            </div>
-                            <div
-                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
-                                <span id="stats-todo" class="text-red-400 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Sospesi</span>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Azioni Studio -->
-                    <div class="space-y-3 mt-2">
-                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <!-- Statistiche Progresso -->
+                        <div>
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
-                                    grafico</span>
-                                <span id="total-cost-display" class="text-xs font-bold text-indigo-600">$0.0000</span>
+                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
+                                    Mappa</span>
+                                <span id="study-progress-text"
+                                    class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
                             </div>
-                            <div class="flex justify-between items-center text-xs text-slate-500">
-                                <span>Token Totali:</span>
-                                <span id="total-tokens-display" class="font-mono">0</span>
+                            <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
+                                <div id="study-progress-bar"
+                                    class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
+                                </div>
                             </div>
-                            <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
-                                <span>Modello Usato:</span>
-                                <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
+                            <div class="flex justify-between text-xs font-bold">
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
+                                    <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Fatti</span>
+                                </div>
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
+                                    <span id="stats-review" class="text-amber-500 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Ripasso</span>
+                                </div>
+                                <div
+                                    class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
+                                    <span id="stats-todo" class="text-red-400 text-lg">0</span><span
+                                        class="text-slate-400 text-[10px] uppercase">Sospesi</span>
+                                </div>
                             </div>
                         </div>
+                        <!-- Azioni Studio -->
+                        <div class="space-y-3 mt-2">
+                            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
+                                        grafico</span>
+                                    <span id="total-cost-display"
+                                        class="text-xs font-bold text-indigo-600">$0.0000</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500">
+                                    <span>Token Totali:</span>
+                                    <span id="total-tokens-display" class="font-mono">0</span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
+                                    <span>Modello Usato:</span>
+                                    <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
+                                </div>
+                            </div>
 
-                        <button onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
-                        </button>
-                        <button onclick="window.generateGlobalQuiz()"
-                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
-                        </button>
-                        <button onclick="window.showAppTutorial()"
-                            class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="lightbulb" class="w-5 h-5"></i> Metodo Studio Attivo
-                        </button>
-                    </div>
+                            <button onclick="window.generateGlobalFlashcards()"
+                                class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
+                            </button>
+                            <button onclick="window.generateGlobalQuiz()"
+                                class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
+                            </button>
+                            <button onclick="window.showAppTutorial()"
+                                class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                <i data-lucide="lightbulb" class="w-5 h-5"></i> Metodo Studio Attivo
+                            </button>
+                        </div>
 
-                    <!-- Set Flashcard Generati -->
-                    <div class="mt-4 border-t border-slate-200 pt-5">
-                        <h3
-                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
-                        </h3>
-                        <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
-                                quiz
-                                per visualizzarli qui.</p>
+                        <!-- Set Flashcard Generati -->
+                        <div class="mt-4 border-t border-slate-200 pt-5">
+                            <h3
+                                class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                                <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
+                            </h3>
+                            <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
+                                    quiz
+                                    per visualizzarli qui.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
         </aside>
 
@@ -1377,7 +1381,8 @@ Restituisci solo il JSON pulito.</pre>
 
             <div class="space-y-4">
                 <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili Salvati</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
+                        Salvati</label>
                     <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
                         class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 text-indigo-700 font-bold">
                         <option value="">+ Nuovo Profilo</option>
@@ -1410,8 +1415,8 @@ Restituisci solo il JSON pulito.</pre>
                         data-i18n="profile_system">Sistema Scolastico</label>
                     <select id="up-system" onchange="window.updateGradeOptions()"
                         class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
-                        <option value="Ticino">Scuola dell'obbligo del Canton Ticino</option>
-                        <option value="Italia">Scuola dell'obbligo Italiana</option>
+                        <option value="Ticino">Sistema Scolastico Ticinese</option>
+                        <option value="Italia">Sistema Scolastico Italiano</option>
                     </select>
                 </div>
             </div>
@@ -1477,6 +1482,7 @@ Restituisci solo il JSON pulito.</pre>
                 .node-icon-outline {
                     filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white);
                 }
+
                 #edit-node-modal label {
                     letter-spacing: 0.1em;
                 }
@@ -1526,10 +1532,11 @@ Restituisci solo il JSON pulito.</pre>
                     <div class="space-y-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
                         <input type="url" id="edit-n-image-url-input" placeholder="Incolla URL immagine..."
                             class="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white transition-all placeholder:text-slate-300">
-                        
+
                         <div class="flex items-center gap-3">
                             <div class="h-[1px] flex-grow bg-slate-200"></div>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] px-2">oppure</span>
+                            <span
+                                class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] px-2">oppure</span>
                             <div class="h-[1px] flex-grow bg-slate-200"></div>
                         </div>
 
@@ -2123,7 +2130,8 @@ Restituisci solo il JSON pulito.</pre>
                         <p class="text-xs text-slate-400 mb-2">Il token verrà salvato localmente.
                             <button type="button" onclick="window.showAPITutorial('infomaniak')"
                                 class="text-indigo-500 hover:text-indigo-700 underline inline-flex items-center gap-1"><i
-                                    data-lucide="help-circle" class="w-3 h-3"></i> <span id="label-api-key-how-infomaniak">Come
+                                    data-lucide="help-circle" class="w-3 h-3"></i> <span
+                                    id="label-api-key-how-infomaniak">Come
                                     ottenerlo?</span></button>
                         </p>
                         <div class="relative">
@@ -2363,10 +2371,6 @@ Restituisci solo il JSON pulito.</pre>
         });
     </script>
 
-    <!-- LENTE DI INGRANDIMENTO -->
-    <div id="magnifier-lens">
-        <div id="magnifier-content"></div>
-    </div>
     <!-- Global A11y Panel Toggle -->
     <button id="a11y-panel-toggle" onclick="document.getElementById('a11y-panel').classList.toggle('hidden-panel')"
         class="fixed top-6 right-6 bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 z-[999999]"
@@ -2421,17 +2425,26 @@ Restituisci solo il JSON pulito.</pre>
                 <!-- Sidebar Liste Prompts -->
                 <div class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col h-full overflow-hidden">
                     <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl shrink-0">
-                        <button onclick="window.switchAdminTab('MAPS_KG')" data-tab="MAPS_KG" class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe & KG</button>
-                        <button onclick="window.switchAdminTab('TUTOR')" data-tab="TUTOR" class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor AI</button>
-                        <button onclick="window.switchAdminTab('STUDY')" data-tab="STUDY" class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Studio</button>
+                        <button onclick="window.switchAdminTab('MAPS_KG')" data-tab="MAPS_KG"
+                            class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe
+                            & KG</button>
+                        <button onclick="window.switchAdminTab('TUTOR')" data-tab="TUTOR"
+                            class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor
+                            AI</button>
+                        <button onclick="window.switchAdminTab('STUDY')" data-tab="STUDY"
+                            class="admin-tab-btn flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Studio</button>
                     </div>
 
                     <div class="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0">
-                        <h4 class="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-1">Fase di Lavoro</h4>
-                        <p id="admin-tab-explanation" class="text-[10px] text-slate-500 leading-relaxed font-medium italic">Seleziona un tab per vedere la spiegazione...</p>
+                        <h4 class="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-1">Fase di Lavoro
+                        </h4>
+                        <p id="admin-tab-explanation"
+                            class="text-[10px] text-slate-500 leading-relaxed font-medium italic">Seleziona un tab per
+                            vedere la spiegazione...</p>
                     </div>
 
-                    <h3 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Prompts Disponibili</h3>
+                    <h3 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Prompts
+                        Disponibili</h3>
                     <div id="admin-prompts-list" class="flex-1 overflow-y-auto pr-1 modal-scroll">
                         <!-- Populated by JS -->
                     </div>
@@ -2488,6 +2501,10 @@ Restituisci solo il JSON pulito.</pre>
                 </div>
             </div>
         </div>
+    </div>
+    <!-- LENTE DI INGRANDIMENTO -->
+    <div id="magnifier-lens">
+        <div id="magnifier-content"></div>
     </div>
     <script src="js/admin_prompts.js"></script>
 </body>

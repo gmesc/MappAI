@@ -6,7 +6,7 @@ window.InfomaniakBridge = {
     /**
      * Translates a Gemini payload to an OpenAI-compatible messages array.
      */
-    translatePayload: function(geminiPayload, modelName = "mistral24b") {
+    translatePayload: function(geminiPayload, modelName = "google/gemma-4-31B-it") {
         const messages = [];
 
         // 1. Extract System Instruction
