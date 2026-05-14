@@ -159,5 +159,24 @@ const it_translations = {
     vault_manager_title: "Esplora i tuoi Vault",
     vault_manager_subtitle: "Second Brain Knowledge Management",
     last_saved: "Ultimo salvataggio",
-    student: "Studente"
+    student: "Studente",
+    
+    // Admin Dashboard
+    admin_tab_maps: "Mappe & KG",
+    admin_tab_tutor: "Tutor AI",
+    admin_tab_study: "Studio",
+    admin_explanation_maps: "Questi prompt gestiscono la fase di 'estrazione della conoscenza'. Definiscono come l'AI legge i documenti, identifica i concetti chiave e costruisce i rami della mappa o le relazioni del Knowledge Graph.",
+    admin_explanation_tutor: "Questi prompt definiscono la personalità e il metodo pedagogico dell'AI Tutor. Regolano il tono socratico, la gestione degli errori dello studente e la guida passo-passo nello studio.",
+    admin_explanation_study: "Questi prompt gestiscono la creazione automatica di materiali di verifica. Definiscono il formato di Quiz e Flashcard, assicurando che siano basati esclusivamente sui concetti presenti nella mappa.",
+    admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",
+    admin_prompt_desc_branch: "Costruzione strutturata dei Rami della Mappa Mentale",
+    admin_prompt_desc_kg: "Generazione Knowledge Graph (Single Pass)",
+    admin_prompt_desc_merge: "Correlazione Semantica tra Mappe (Merge)",
+    admin_prompt_desc_quiz_flash: "Generazione Quiz Multipli (Flashcards)",
+    admin_prompt_desc_quiz_tutor: "Generazione Quiz Singolo (AI Tutor)",
+    admin_prompt_desc_socratic_it: "Istruzioni AI Tutor Socratico (Italiano)",
+    admin_prompt_desc_socratic_en: "Istruzioni AI Tutor Socratico (Inglese)",
+    admin_prompt_desc_sota: "Espansione Contesto SOTA Second Brain",
+    admin_prompt_desc_dynamic_quiz: "Generazione Verifiche Dinamiche",
+    admin_prompt_desc_flashcards: "Generazione Flashcards"
 };

@@ -1,16 +1,40 @@
 window.systemPromptsConfig = {};
 window.systemPromptsDescriptions = {
-    "L1_MACRO_CATEGORIES": "Generazione Nodi di Livello 1 (Macro-Categorie)",
-    "MIND_MAP_BRANCH": "Costruzione strutturata dei Rami della Mappa Mentale",
-    "KNOWLEDGE_GRAPH_SINGLE": "Generazione Knowledge Graph (Single Pass)",
-    "SEMANTIC_CORRELATION": "Correlazione Semantica tra Mappe (Merge)",
-    "MULTIPLE_CHOICE_QUIZ": "Generazione Quiz Multipli (Flashcards)",
-    "SINGLE_QUIZ_TUTOR": "Generazione Quiz Singolo (AI Tutor)",
-    "SOCRATIC_TUTOR_IT": "Istruzioni AI Tutor Socratico (Italiano)",
-    "SOCRATIC_TUTOR_EN": "Istruzioni AI Tutor Socratico (Inglese)",
-    "SOTA_SECOND_BRAIN": "Espansione Contesto SOTA Second Brain"
+    "L1_MACRO_CATEGORIES": "admin_prompt_desc_l1",
+    "MIND_MAP_BRANCH": "admin_prompt_desc_branch",
+    "KNOWLEDGE_GRAPH_SINGLE": "admin_prompt_desc_kg",
+    "SEMANTIC_CORRELATION": "admin_prompt_desc_merge",
+    "MULTIPLE_CHOICE_QUIZ": "admin_prompt_desc_quiz_flash",
+    "SINGLE_QUIZ_TUTOR": "admin_prompt_desc_quiz_tutor",
+    "SOCRATIC_TUTOR_IT": "admin_prompt_desc_socratic_it",
+    "SOCRATIC_TUTOR_EN": "admin_prompt_desc_socratic_en",
+    "SOCRATIC_TUTOR": "admin_prompt_desc_socratic_it",
+    "SOTA_SECOND_BRAIN": "admin_prompt_desc_sota",
+    "DYNAMIC_QUIZ": "admin_prompt_desc_dynamic_quiz",
+    "FLASHCARD_GENERATOR": "admin_prompt_desc_flashcards"
 };
+
+window.systemPromptsCategories = {
+    "MAPS_KG": ["L1_MACRO_CATEGORIES", "MIND_MAP_BRANCH", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
+    "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
+    "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"]
+};
+
+// Helper per ottenere la traduzione corrente
+window.getAdminTranslation = function(key) {
+    const lang = window.currentLanguage || 'it';
+    const dict = lang === 'it' ? window.it_translations : window.en_translations;
+    return dict[key] || key;
+};
+
+window.systemTabExplanations = {
+    "MAPS_KG": "admin_explanation_maps",
+    "TUTOR": "admin_explanation_tutor",
+    "STUDY": "admin_explanation_study"
+};
+
 window.currentAdminPromptKey = null;
+window.currentAdminTab = "MAPS_KG";
 
 // Helper function to fill variables in prompt string
 window.fillPromptTemplate = function(promptKey, variables) {
@@ -89,15 +113,62 @@ window.loadPromptsConfig = async function() {
 
 window.renderAdminPromptsList = function() {
     const listEl = document.getElementById('admin-prompts-list');
+    const explanationEl = document.getElementById('admin-tab-explanation');
     listEl.innerHTML = '';
     
-    for (const key of Object.keys(window.systemPromptsConfig)) {
+    // Update explanation
+    if (explanationEl) {
+        const explKey = window.systemTabExplanations[window.currentAdminTab];
+        explanationEl.innerText = window.getAdminTranslation(explKey) || "";
+    }
+
+    // Update tab UI labels and selection
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        const tab = btn.getAttribute('data-tab');
+        
+        // Update Label
+        if (tab === 'MAPS_KG') btn.innerText = window.getAdminTranslation('admin_tab_maps');
+        if (tab === 'TUTOR') btn.innerText = window.getAdminTranslation('admin_tab_tutor');
+        if (tab === 'STUDY') btn.innerText = window.getAdminTranslation('admin_tab_study');
+
+        if (tab === window.currentAdminTab) {
+            btn.classList.add('bg-indigo-600', 'text-white');
+            btn.classList.remove('bg-slate-100', 'text-slate-600');
+        } else {
+            btn.classList.remove('bg-indigo-600', 'text-white');
+            btn.classList.add('bg-slate-100', 'text-slate-600');
+        }
+    });
+
+    const categories = window.systemPromptsCategories[window.currentAdminTab] || [];
+    const allKeys = Object.keys(window.systemPromptsConfig);
+    
+    // Sort keys based on category order
+    allKeys.sort((a, b) => {
+        const baseA = a.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
+        const baseB = b.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
+        const indexA = categories.indexOf(baseA);
+        const indexB = categories.indexOf(baseB);
+        
+        if (indexA !== indexB) {
+            return indexA - indexB;
+        }
+        return a.localeCompare(b);
+    });
+
+    for (const key of allKeys) {
+        const baseKey = key.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
+        if (!categories.includes(baseKey)) continue;
+
         const btn = document.createElement('button');
         btn.className = `w-full text-left p-3 rounded-lg border border-slate-200 transition-colors text-sm hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2 ${window.currentAdminPromptKey === key ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50'}`;
         
+        const descKey = window.systemPromptsDescriptions[key] || window.systemPromptsDescriptions[baseKey];
+        const descText = window.getAdminTranslation(descKey);
+
         btn.innerHTML = `
             <div class="font-bold text-slate-800">${key}</div>
-            <div class="text-[10px] text-slate-500 line-clamp-1">${window.systemPromptsDescriptions[key] || 'Nessuna descrizione'}</div>
+            <div class="text-[10px] text-slate-500 line-clamp-1">${descText}</div>
         `;
         
         btn.onclick = () => window.selectAdminPrompt(key);
@@ -105,10 +176,18 @@ window.renderAdminPromptsList = function() {
     }
 };
 
+window.switchAdminTab = function(tab) {
+    window.currentAdminTab = tab;
+    window.renderAdminPromptsList();
+};
+
 window.selectAdminPrompt = function(key) {
     window.currentAdminPromptKey = key;
+    const baseKey = key.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
+    const descKey = window.systemPromptsDescriptions[key] || window.systemPromptsDescriptions[baseKey];
+    
     document.getElementById('admin-prompt-title').innerText = key;
-    document.getElementById('admin-prompt-desc').innerText = window.systemPromptsDescriptions[key] || 'Nessuna descrizione';
+    document.getElementById('admin-prompt-desc').innerText = window.getAdminTranslation(descKey);
     document.getElementById('admin-prompt-editor').value = window.systemPromptsConfig[key];
     window.renderAdminPromptsList();
 };

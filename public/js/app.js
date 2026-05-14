@@ -29,9 +29,10 @@ let appState = {
         grade: "",
         system: "Ticino"
     },
+    allProfiles: [],
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
-    studentMode: false
+    studentMode: true
 };
 
 // ==========================================
@@ -59,10 +60,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-window.toggleStudentMode = function () {
-    appState.studentMode = !appState.studentMode;
-    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
-
+window.applyStudentModeUI = function () {
     const btnUrl = document.getElementById('btn-src-url');
     const btnYoutube = document.getElementById('btn-src-youtube');
     const btnAudio = document.getElementById('btn-src-audio');
@@ -74,6 +72,12 @@ window.toggleStudentMode = function () {
     if (btnYoutube) btnYoutube.style.display = displayStyle;
     if (btnAudio) btnAudio.style.display = displayStyle;
     if (btnVideo) btnVideo.style.display = displayStyle;
+};
+
+window.toggleStudentMode = function () {
+    appState.studentMode = !appState.studentMode;
+    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
+    window.applyStudentModeUI();
 };
 
 window.updateInfomaniakProductId = function (value) {
@@ -1497,6 +1501,19 @@ window.startGeneration = async function () {
     }
 }
 
+const UNIVERSAL_SYSTEM_INSTRUCTION = `
+SEI UN MOTORE DI GENERAZIONE KNOWLEDGE GRAPH (JSON).
+REGOLE TASSATIVE DI OUTPUT:
+1. RESTITUISCI SOLO JSON PURO. Nessun commento, nessuna introduzione, nessun blocco di codice markdown.
+2. LINGUA: Usa sempre l'ITALIANO (o la lingua richiesta dall'utente).
+3. TITOLI (label): Massimo 3 parole chiave. Sii estremamente sintetico nei titoli dei nodi.
+4. DESCRIZIONI (content): Sii chiaro, didattico e conciso (max 30 parole).
+5. CONNETTIVITÀ: Ogni nodo DEVE essere collegato a un altro. Non lasciare nodi orfani.
+6. ID UNICI: Crea ID parlanti e univoci (es: CATEGORIA_CONCETTO_1).
+7. COERENZA: Se stai espandendo un ramo, usa l'ID del genitore fornito per collegare i nuovi nodi.
+8. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
+`;
+
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
@@ -1566,8 +1583,31 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const schemaBranch = {
             type: "OBJECT",
             properties: {
-                nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "chunks"] } },
-                links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING" } }, required: ["source", "target", "rel"] } }
+                nodes: { 
+                    type: "ARRAY", 
+                    items: { 
+                        type: "OBJECT", 
+                        properties: { 
+                            id: { type: "STRING" }, 
+                            label: { type: "STRING" }, 
+                            content: { type: "STRING" }, 
+                            level: { type: "INTEGER" }
+                        }, 
+                        required: ["id", "label", "content"] 
+                    } 
+                },
+                links: { 
+                    type: "ARRAY", 
+                    items: { 
+                        type: "OBJECT", 
+                        properties: { 
+                            source: { type: "STRING" }, 
+                            target: { type: "STRING" }, 
+                            rel: { type: "STRING" } 
+                        }, 
+                        required: ["source", "target", "rel"] 
+                    } 
+                }
             },
             required: ["nodes", "links"]
         };
@@ -1599,12 +1639,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 l1NodeLabel: l1Node.label,
                 l1NodeId: l1Node.id,
                 optionalMaxBranches: optionalMaxBranches,
-                userProfileInjection: userProfileStr,
+                userProfileInjection: userProfileStr + "\n\nIMPORTANTE: Sii sintetico ed efficace. Ogni descrizione 'content' deve essere di massimo 20-30 parole. Evita ripetizioni e non generare campi non richiesti.",
                 textParts: textParts.join('\\n\\n')
             });
 
             const payloadBranch = {
                 contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
                 generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch }
             };
 
@@ -1649,7 +1690,12 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         // Keep only unique nodes, favoring those with descriptions
                         let uniqueNodesMap = {};
                         branchData.nodes.forEach(n => {
-                            if (!uniqueNodesMap[n.id]) {
+                            // Integrità dati: se mancano campi opzionali li aggiungiamo noi
+                            if (!n.desc) n.desc = n.content;
+                            if (!n.chunks) n.chunks = [];
+                            if (!n.studyStatus) n.studyStatus = 'none';
+
+                            if (!uniqueNodesMap[n.id] || (n.content && n.content.length > uniqueNodesMap[n.id].content.length)) {
                                 uniqueNodesMap[n.id] = n;
                             } else {
                                 let existing = uniqueNodesMap[n.id];
@@ -1817,7 +1863,11 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         }, required: ["nodes", "links"]
     };
 
-    const payload = { contents: [{ parts: [...fileParts, { text: promptText }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema } };
+    const payload = { 
+        contents: [{ parts: [...fileParts, { text: promptText }] }], 
+        systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema } 
+    };
 
     try {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
@@ -2518,7 +2568,7 @@ const sotaStatusMessages = [
     "Analisi semantica profonda...",
     "Estrazione concetti chiave...",
     "Costruzione relazioni topologiche...",
-    "Ottimizzazione del Knowledge Graph...",
+    "Ottimizzazione del grafo...",
     "Mappatura nessi logici complessi...",
     "Rifinitura descrizioni enciclopediche...",
     "Ancora un attimo, sto collegando i puntini..."
@@ -2556,6 +2606,69 @@ window.showLoadingOverlay = function (show, text) {
         }
         if (title) title.textContent = "MappAI sta lavorando...";
     }
+};
+
+window.startEditingTitle = function () {
+    const container = document.getElementById('project-title-container');
+    if (!container || container.querySelector('input')) return;
+
+    const currentTitle = appState.rootNodeLabel || 'Mappa Senza Nome';
+
+    // Fermiamo la propagazione per evitare loop sul click del container
+    container.onclick = null;
+
+    container.innerHTML = `
+        <input type="text" id="edit-project-title-input" 
+            class="w-full bg-white border border-indigo-300 rounded px-2 py-1 text-[10px] font-mono uppercase outline-none focus:ring-1 focus:ring-indigo-500" 
+            value="${currentTitle}">
+    `;
+
+    const input = document.getElementById('edit-project-title-input');
+    input.focus();
+    input.select();
+
+    const save = () => {
+        const newTitle = input.value.trim();
+        appState.rootNodeLabel = newTitle || currentTitle;
+
+        // Ripristina l'HTML originale
+        container.innerHTML = `
+            <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
+                Progetto: ${appState.rootNodeLabel}</p>
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
+                <i data-lucide="edit-3" class="w-3 h-3"></i>
+            </div>
+        `;
+
+        // Riattiva il click per la prossima volta
+        setTimeout(() => {
+            container.onclick = window.startEditingTitle;
+        }, 100);
+
+        if (window.safeCreateIcons) window.safeCreateIcons();
+
+        if (newTitle && newTitle !== currentTitle) {
+            // Update root node if mindmap
+            if (appState.extractionMode === 'mindmap' && appState.db.nodes.length > 0) {
+                const rootNode = appState.db.nodes.find(n => n.id === 'root');
+                if (rootNode) {
+                    rootNode.label = appState.rootNodeLabel;
+                    if (window.updateVisualization) window.updateVisualization();
+                    if (window.renderTreeView) window.renderTreeView();
+                }
+            }
+            window.showToast("Titolo aggiornato", "success");
+        }
+    };
+
+    input.onblur = save;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') save();
+        if (e.key === 'Escape') {
+            input.value = currentTitle;
+            save();
+        }
+    };
 };
 
 window.switchToMapLayout = function () {
@@ -3231,7 +3344,8 @@ window.saveMapVault = async function () {
                 userProfile: appState.userProfile,
                 tutorState: tutorState,
                 aiProvider: appState.aiProvider,
-                aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model')
+                aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
+                generationUsage: appState.generationUsage
             }
         });
 
@@ -6390,6 +6504,7 @@ window.executeContextualAIExtension = async function () {
 
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
+            systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
             generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
         }, apiKey);
 
@@ -6509,15 +6624,101 @@ window.ctxExpansionPDFFile = null;
    USER PROFILE & VAULT MANAGER (SOTA)
    ========================================== */
 
+window.updateProfilesDropdown = function() {
+    const select = document.getElementById('up-saved-profiles');
+    if (!select) return;
+    
+    // Keep the first "+ Nuovo Profilo" option
+    select.innerHTML = '<option value="">+ Nuovo Profilo</option>';
+    
+    appState.allProfiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.nickname;
+        opt.text = `${p.nickname} (${p.grade || 'Senza classe'})`;
+        select.appendChild(opt);
+    });
+    
+    // Select the current one if it exists
+    if (appState.userProfile && appState.userProfile.nickname) {
+        select.value = appState.userProfile.nickname;
+    } else {
+        select.value = "";
+    }
+};
+
+window.loadSelectedProfile = function() {
+    const select = document.getElementById('up-saved-profiles');
+    const selectedNickname = select.value;
+    
+    if (!selectedNickname) {
+        // Clear fields for a new profile
+        appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
+        document.getElementById('up-nickname').value = "";
+        document.getElementById('up-age').value = "";
+        document.getElementById('up-system').value = "Ticino";
+        window.updateGradeOptions();
+        document.getElementById('up-grade').value = "";
+        return;
+    }
+    
+    const profile = appState.allProfiles.find(p => p.nickname === selectedNickname);
+    if (profile) {
+        appState.userProfile = { ...profile };
+        document.getElementById('up-nickname').value = profile.nickname || "";
+        document.getElementById('up-age').value = profile.age || "";
+        document.getElementById('up-system').value = profile.system || "Ticino";
+        window.updateGradeOptions();
+        if (profile.grade) {
+            document.getElementById('up-grade').value = profile.grade;
+        }
+    }
+};
+
+window.updateGradeOptions = function() {
+    const systemSelect = document.getElementById('up-system');
+    const gradeSelect = document.getElementById('up-grade');
+    const currentVal = gradeSelect.value;
+    const isTicino = systemSelect.value === 'Ticino';
+    
+    gradeSelect.innerHTML = '';
+    const maxGrade = isTicino ? 4 : 3;
+    
+    // Add default empty option
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = "";
+    emptyOpt.text = "Seleziona la classe";
+    gradeSelect.appendChild(emptyOpt);
+    
+    for (let i = 1; i <= maxGrade; i++) {
+        const opt = document.createElement('option');
+        const val = `${i}a Media`;
+        opt.value = val;
+        opt.text = val;
+        gradeSelect.appendChild(opt);
+    }
+    
+    // Restore previous value if it's still valid
+    if (currentVal && Array.from(gradeSelect.options).some(o => o.value === currentVal)) {
+        gradeSelect.value = currentVal;
+    }
+};
+
 window.showUserProfileModal = function () {
     const modal = document.getElementById('user-profile-modal');
     const box = document.getElementById('user-profile-box');
 
+    window.updateProfilesDropdown();
+
     // Fill fields
     document.getElementById('up-nickname').value = appState.userProfile.nickname || "";
     document.getElementById('up-age').value = appState.userProfile.age || "";
-    document.getElementById('up-grade').value = appState.userProfile.grade || "";
     document.getElementById('up-system').value = appState.userProfile.system || "Ticino";
+    
+    // Update grade options based on system, then set value
+    window.updateGradeOptions();
+    if (appState.userProfile.grade) {
+        document.getElementById('up-grade').value = appState.userProfile.grade;
+    }
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -6540,27 +6741,55 @@ window.closeUserProfileModal = function () {
 };
 
 window.saveUserProfile = function () {
-    appState.userProfile.nickname = document.getElementById('up-nickname').value.trim();
+    const nickname = document.getElementById('up-nickname').value.trim();
+    if (!nickname) {
+        window.showToast("Il nickname è obbligatorio", "error");
+        return;
+    }
+
+    appState.userProfile.nickname = nickname;
     appState.userProfile.age = document.getElementById('up-age').value.trim();
-    appState.userProfile.grade = document.getElementById('up-grade').value.trim();
+    appState.userProfile.grade = document.getElementById('up-grade').value;
     appState.userProfile.system = document.getElementById('up-system').value;
 
+    // Update or add to allProfiles
+    const existingIndex = appState.allProfiles.findIndex(p => p.nickname.toLowerCase() === nickname.toLowerCase());
+    if (existingIndex >= 0) {
+        appState.allProfiles[existingIndex] = { ...appState.userProfile };
+    } else {
+        appState.allProfiles.push({ ...appState.userProfile });
+    }
+
     localStorage.setItem('mapp_user_profile', JSON.stringify(appState.userProfile));
+    localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+    
     window.showToast("Profilo salvato correttamente!", "success");
     window.closeUserProfileModal();
 };
 
 window.resetUserProfile = function () {
+    const currentNickname = appState.userProfile.nickname;
+    if (!currentNickname) {
+        window.showToast("Nessun profilo selezionato da eliminare.", "error");
+        return;
+    }
+
     window.showPrompt("Verifica Reset", "", (val) => {
-        if (val.toLowerCase().trim() === "elimina il mio profilo") {
+        if (val.toLowerCase().trim() === "elimina") {
+            // Remove from allProfiles
+            appState.allProfiles = appState.allProfiles.filter(p => p.nickname !== currentNickname);
+            localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+            
+            // Clear current profile
             appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
             localStorage.removeItem('mapp_user_profile');
+            
             window.showToast("Profilo eliminato.", "success");
             window.closeUserProfileModal();
         } else {
             window.showToast("Stringa errata. Reset annullato.");
         }
-    }, "Scrivi esattamente 'elimina il mio profilo' per confermare:");
+    }, "Scrivi 'elimina' per confermare la cancellazione di " + currentNickname + ":");
 };
 
 // Vault Manager
@@ -6664,7 +6893,7 @@ window.directLoadVault = async function (folderPath) {
             if (loadRes.data.tutorState) {
                 tutorState = loadRes.data.tutorState;
             }
-            
+
             // Ripristina AI Provider e Modello se presenti
             if (loadRes.data.aiProvider) {
                 appState.aiProvider = loadRes.data.aiProvider;
@@ -6674,6 +6903,10 @@ window.directLoadVault = async function (folderPath) {
             if (loadRes.data.aiModel) {
                 const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
                 localStorage.setItem(storageKey, loadRes.data.aiModel);
+            }
+            if (loadRes.data.generationUsage) {
+                appState.generationUsage = loadRes.data.generationUsage;
+                if (window.updateCostDisplay) window.updateCostDisplay();
             }
             // Forza il refresh dei modelli per popolare la tendina e selezionare quello corretto
             if (window.refreshGeminiModels) window.refreshGeminiModels();
@@ -6701,6 +6934,27 @@ window.directLoadVault = async function (folderPath) {
     }
 };
 
+// Initialization
+(function initProfile() {
+    const savedProfiles = localStorage.getItem('mapp_all_profiles');
+    if (savedProfiles) {
+        try {
+            appState.allProfiles = JSON.parse(savedProfiles);
+        } catch(e) {}
+    }
+
+    const saved = localStorage.getItem('mapp_user_profile');
+    if (saved) {
+        try {
+            appState.userProfile = JSON.parse(saved);
+            // Migrate single profile to allProfiles if not there
+            if (appState.userProfile.nickname && appState.allProfiles.length === 0) {
+                appState.allProfiles.push({...appState.userProfile});
+                localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+            }
+        } catch (e) { }
+    }
+
     // Inizializza i modelli all'avvio se c'è una chiave
     setTimeout(() => {
         if (window.getSystemKey && window.getSystemKey()) {
@@ -6708,4 +6962,9 @@ window.directLoadVault = async function (folderPath) {
         }
     }, 1000);
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Applica Modalità Studente al caricamento
+    if (window.applyStudentModeUI) window.applyStudentModeUI();
+});
 
