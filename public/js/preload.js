@@ -20,5 +20,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
-    openExternal: (url) => ipcRenderer.invoke('open-external', url)
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    capturePage: () => ipcRenderer.invoke('capture-page')
 });

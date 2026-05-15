@@ -1,0 +1,77 @@
+[
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_RADICI_2",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_TRONCO_2",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_CHIOMA_2",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_CHIOMA_2",
+    "target": "FOTOSINTESI_PROCESSO_3",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_PROCESSO_3",
+    "target": "FOTOSINTESI_INGREDIENTI_4",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_PROCESSO_3",
+    "target": "FOTOSINTESI_PRODOTTI_4",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_PROCESSO_3",
+    "target": "FOTOSINTESI_CLOROFILLA_4",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_RADICI_2",
+    "target": "LINFA_GREZZA_3",
+    "isCross": false
+  },
+  {
+    "source": "LINFA_GREZZA_3",
+    "target": "STRUTTURA_TRONCO_2",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "LINFA_ELABORATA_3",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "LEGNO_PROPRIETA_3",
+    "isCross": false
+  },
+  {
+    "source": "LEGNO_PROPRIETA_3",
+    "target": "LEGNO_ANELLI_4",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "STRUTTURA_CORTECCIA_3",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "CICLO_STAGIONI_2",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "AMBIENTE_BENEFICI_2",
+    "isCross": false
+  }
+]

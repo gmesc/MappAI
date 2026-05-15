@@ -1,6 +1,8 @@
 window.systemPromptsConfig = {};
 window.systemPromptsDescriptions = {
     "L1_MACRO_CATEGORIES": "admin_prompt_desc_l1",
+    "MIND_MAP_FULL_TREE": "admin_prompt_desc_mm_full",
+    "KNOWLEDGE_GRAPH_FULL_TREE": "admin_prompt_desc_kg_full",
     "MIND_MAP_BRANCH": "admin_prompt_desc_branch",
     "KNOWLEDGE_GRAPH_SINGLE": "admin_prompt_desc_kg",
     "SEMANTIC_CORRELATION": "admin_prompt_desc_merge",
@@ -11,11 +13,15 @@ window.systemPromptsDescriptions = {
     "SOCRATIC_TUTOR": "admin_prompt_desc_socratic_it",
     "SOTA_SECOND_BRAIN": "admin_prompt_desc_sota",
     "DYNAMIC_QUIZ": "admin_prompt_desc_dynamic_quiz",
-    "FLASHCARD_GENERATOR": "admin_prompt_desc_flashcards"
+    "FLASHCARD_GENERATOR": "admin_prompt_desc_flashcards",
+    "MIND_MAP_FULL_TREE_IT": "admin_prompt_desc_mm_full",
+    "MIND_MAP_FULL_TREE_EN": "admin_prompt_desc_mm_full",
+    "KNOWLEDGE_GRAPH_FULL_TREE_IT": "admin_prompt_desc_kg_full",
+    "KNOWLEDGE_GRAPH_FULL_TREE_EN": "admin_prompt_desc_kg_full"
 };
 
 window.systemPromptsCategories = {
-    "MAPS_KG": ["L1_MACRO_CATEGORIES", "MIND_MAP_BRANCH", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
+    "MAPS_KG": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "KNOWLEDGE_GRAPH_FULL_TREE", "MIND_MAP_BRANCH", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
     "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"]
 };
@@ -158,16 +164,16 @@ window.renderAdminPromptsList = function() {
 
     for (const key of allKeys) {
         const baseKey = key.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
-        if (!categories.includes(baseKey)) continue;
+        if (!categories.includes(baseKey) && !categories.includes(key)) continue;
 
         const btn = document.createElement('button');
         btn.className = `w-full text-left p-3 rounded-lg border border-slate-200 transition-colors text-sm hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2 ${window.currentAdminPromptKey === key ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50'}`;
         
         const descKey = window.systemPromptsDescriptions[key] || window.systemPromptsDescriptions[baseKey];
-        const descText = window.getAdminTranslation(descKey);
+        const descText = descKey ? window.getAdminTranslation(descKey) : "Nessuna descrizione";
 
         btn.innerHTML = `
-            <div class="font-bold text-slate-800">${key}</div>
+            <div class="font-bold text-slate-800 text-[11px]">${key}</div>
             <div class="text-[10px] text-slate-500 line-clamp-1">${descText}</div>
         `;
         

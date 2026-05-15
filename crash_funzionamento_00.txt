@@ -1,0 +1,947 @@
+-------------------------------------
+Translated Report (Full Report Below)
+-------------------------------------
+Process:             MappAI Swiss [87941]
+Path:                /Users/USER/*/MappAI Swiss.app/Contents/MacOS/MappAI Swiss
+Identifier:          com.mappai.generatore
+Version:             1.0.0 (1.0.0)
+Code Type:           ARM-64 (Native)
+Role:                Foreground
+Parent Process:      launchd [1]
+Coalition:           com.mappai.generatore [45124]
+User ID:             501
+
+Date/Time:           2026-05-14 22:25:55.6570 +0200
+Launch Time:         2026-05-14 22:19:43.7030 +0200
+Hardware Model:      Mac17,3
+OS Version:          macOS 26.4.1 (25E253)
+Release Type:        User
+
+Crash Reporter Key:  459AEA91-CB7D-C048-A523-4CF8D3086F0E
+Incident Identifier: 40F4EB48-BF37-4BB1-A31C-DD8A120B2E1E
+
+Sleep/Wake UUID:       A920254C-DD16-4BDA-9571-D56E07914F13
+
+Time Awake Since Boot: 260000 seconds
+Time Since Wake:       2711 seconds
+
+System Integrity Protection: enabled
+
+Triggered by Thread: 0  CrBrowserMain, Dispatch Queue: com.apple.main-thread
+
+Exception Type:    EXC_BREAKPOINT (SIGTRAP)
+Exception Codes:   0x0000000000000001, 0x000000010e5c00c8
+
+Termination Reason:  Namespace SIGNAL, Code 5, Trace/BPT trap: 5
+Terminating Process: exc handler [87941]
+
+
+Thread 0 Crashed:: CrBrowserMain Dispatch queue: com.apple.main-thread
+0   Electron Framework            	       0x10e5c00c8 v8::BackingStore::MaxByteLength() const + 12620
+1   Electron Framework            	       0x110d811f8 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 13229960
+2   Electron Framework            	       0x110d7fff0 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 13225344
+3   Electron Framework            	       0x110d726f0 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 13169792
+4   Electron Framework            	       0x110d71300 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 13164688
+5   Electron Framework            	       0x110d0e7c0 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 12760400
+6   Electron Framework            	       0x110d07268 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 12730360
+7   Electron Framework            	       0x110d0dfd0 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 12758368
+8   Electron Framework            	       0x110bb734c v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 11354332
+9   Electron Framework            	       0x1117daa7c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 279504
+10  Electron Framework            	       0x1117f4f5c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 387248
+11  Electron Framework            	       0x1117f556c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 388800
+12  Electron Framework            	       0x11183f494 std::process::id::h056ebf195753a258 + 87160
+13  Electron Framework            	       0x10e449600 0x10e260000 + 2004480
+14  Electron Framework            	       0x11183e65c std::process::id::h056ebf195753a258 + 83520
+15  CoreFoundation                	       0x18a580bc0 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 28
+16  CoreFoundation                	       0x18a580b54 __CFRunLoopDoSource0 + 172
+17  CoreFoundation                	       0x18a5808c0 __CFRunLoopDoSources0 + 232
+18  CoreFoundation                	       0x18a57f4e4 __CFRunLoopRun + 820
+19  CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+20  HIToolbox                     	       0x197354560 RunCurrentEventLoopInMode + 320
+21  HIToolbox                     	       0x1973578bc ReceiveNextEventCommon + 488
+22  HIToolbox                     	       0x1974e113c _BlockUntilNextEventMatchingListInMode + 48
+23  AppKit                        	       0x18f0571a4 _DPSBlockUntilNextEventMatchingListInMode + 228
+24  AppKit                        	       0x18e9ab084 _DPSNextEvent + 576
+25  AppKit                        	       0x18f54069c -[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 688
+26  AppKit                        	       0x18f5403a8 -[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 72
+27  AppKit                        	       0x18e99e13c -[NSApplication run] + 368
+28  Electron Framework            	       0x1118400b0 std::process::id::h056ebf195753a258 + 90260
+29  Electron Framework            	       0x11183e020 std::process::id::h056ebf195753a258 + 81924
+30  Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+31  Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+32  Electron Framework            	       0x110990818 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 9098664
+33  Electron Framework            	       0x110992298 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 9105448
+34  Electron Framework            	       0x11098e14c v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 9088732
+35  Electron Framework            	       0x10e80b66c v8::CodeEvent::GetScriptLine() + 378780
+36  Electron Framework            	       0x10e80c6cc v8::CodeEvent::GetScriptLine() + 382972
+37  Electron Framework            	       0x10e80c544 v8::CodeEvent::GetScriptLine() + 382580
+38  Electron Framework            	       0x10e80ae84 v8::CodeEvent::GetScriptLine() + 376756
+39  Electron Framework            	       0x10e80b048 v8::CodeEvent::GetScriptLine() + 377208
+40  Electron Framework            	       0x10e4e452c ElectronMain + 180
+41  dyld                          	       0x18a107da4 start + 6992
+
+Thread 1:: com.apple.NSEventThread
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   CoreFoundation                	       0x18a580d68 __CFRunLoopServiceMachPort + 160
+5   CoreFoundation                	       0x18a57f654 __CFRunLoopRun + 1188
+6   CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+7   AppKit                        	       0x18eaccc64 _NSEventThread + 184
+8   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+9   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 2:: ThreadPoolServiceThread
+0   libsystem_kernel.dylib        	       0x18a48bba8 kevent64 + 8
+1   Electron Framework            	       0x1118493c8 std::process::id::h056ebf195753a258 + 127916
+2   Electron Framework            	       0x111848bb8 std::process::id::h056ebf195753a258 + 125852
+3   Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+4   Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+5   Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+6   Electron Framework            	       0x1117ff170 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 428740
+7   Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+8   Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+9   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+10  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 3:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x111810eac std::sys::pal::unix::os::errno::h12fdde1c2329795a + 501760
+8   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+9   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+10  Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+11  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+12  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+13  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 4:: ThreadPoolBackgroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x111811648 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503708
+9   Electron Framework            	       0x1118115ec std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503616
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 5:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 6:: Chrome_IOThread
+0   libsystem_kernel.dylib        	       0x18a48bba8 kevent64 + 8
+1   Electron Framework            	       0x1118493c8 std::process::id::h056ebf195753a258 + 127916
+2   Electron Framework            	       0x111848bb8 std::process::id::h056ebf195753a258 + 125852
+3   Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+4   Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+5   Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+6   Electron Framework            	       0x110992f40 v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const + 9108688
+7   Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+8   Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+9   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+10  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 7:: MemoryInfra
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d78f0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 266820
+6   Electron Framework            	       0x11179c544 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 24216
+7   Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+8   Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+9   Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+10  Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+11  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+12  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+13  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 8:
+0   libsystem_kernel.dylib        	       0x18a485fc4 kevent + 8
+1   Electron Framework            	       0x10e4e3ccc uv_free_interface_addresses + 1560
+2   Electron Framework            	       0x10e4d37d0 uv_run + 372
+3   Electron Framework            	       0x11528ece4 node::OnFatalError(char const*, char const*) + 466180
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 9:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x11528cec4 node::OnFatalError(char const*, char const*) + 458468
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 10:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x11528cec4 node::OnFatalError(char const*, char const*) + 458468
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 11:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x11528cec4 node::OnFatalError(char const*, char const*) + 458468
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 12:
+0   libsystem_kernel.dylib        	       0x18a47fbb0 semaphore_wait_trap + 8
+1   Electron Framework            	       0x10e4df57c uv_sem_wait + 24
+2   Electron Framework            	       0x115340f48 node::SetTracingController(v8::TracingController*) + 103536
+3   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+4   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 13:: NetworkConfigWatcher
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   CoreFoundation                	       0x18a580d68 __CFRunLoopServiceMachPort + 160
+5   CoreFoundation                	       0x18a57f654 __CFRunLoopRun + 1188
+6   CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+7   Foundation                    	       0x18bdc8b44 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+8   Electron Framework            	       0x11183ff24 std::process::id::h056ebf195753a258 + 89864
+9   Electron Framework            	       0x11183e020 std::process::id::h056ebf195753a258 + 81924
+10  Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+11  Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+12  Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+13  Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+14  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+15  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+16  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 14:: CrShutdownDetector
+0   libsystem_kernel.dylib        	       0x18a48091c read + 8
+1   Electron Framework            	       0x10e6df858 ares_threadsafety + 196856
+2   Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+3   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+4   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 15:: NetworkConfigWatcher
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   CoreFoundation                	       0x18a580d68 __CFRunLoopServiceMachPort + 160
+5   CoreFoundation                	       0x18a57f654 __CFRunLoopRun + 1188
+6   CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+7   Foundation                    	       0x18bdc8b44 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+8   Electron Framework            	       0x11183ff24 std::process::id::h056ebf195753a258 + 89864
+9   Electron Framework            	       0x11183e020 std::process::id::h056ebf195753a258 + 81924
+10  Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+11  Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+12  Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+13  Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+14  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+15  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+16  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 16:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 17:: ThreadPoolSingleThreadForegroundBlocking0
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x111811724 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503928
+9   Electron Framework            	       0x111811614 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503656
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 18:: CompositorTileWorker1
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x11182a198 std::process::id::h056ebf195753a258 + 380
+3   Electron Framework            	       0x1127baf58 _$LT$object..xcoff..Symbol64$u20$as$u20$object..read..xcoff..symbol..Symbol$GT$::n_value::he0fe3918a79f4509 + 9308808
+4   Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+5   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+6   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 19:
+0   libsystem_kernel.dylib        	       0x18a48ae80 __select + 8
+1   Electron Framework            	       0x10e6dd7d8 ares_threadsafety + 188536
+2   Electron Framework            	       0x10e679848 node::FreeArrayBufferAllocator(node::ArrayBufferAllocator*) + 17896
+3   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+4   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 20:: NetworkNotificationThreadMac
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   CoreFoundation                	       0x18a580d68 __CFRunLoopServiceMachPort + 160
+5   CoreFoundation                	       0x18a57f654 __CFRunLoopRun + 1188
+6   CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+7   Foundation                    	       0x18bdc8b44 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+8   Electron Framework            	       0x11183ff24 std::process::id::h056ebf195753a258 + 89864
+9   Electron Framework            	       0x11183e020 std::process::id::h056ebf195753a258 + 81924
+10  Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+11  Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+12  Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+13  Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+14  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+15  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+16  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 21:: ThreadPoolSingleThreadSharedForegroundBlocking1
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116f8 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503884
+9   Electron Framework            	       0x1118115c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503572
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 22:: NetworkConfigWatcher
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   CoreFoundation                	       0x18a580d68 __CFRunLoopServiceMachPort + 160
+5   CoreFoundation                	       0x18a57f654 __CFRunLoopRun + 1188
+6   CoreFoundation                	       0x18a651be0 _CFRunLoopRunSpecificWithOptions + 532
+7   Foundation                    	       0x18bdc8b44 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+8   Electron Framework            	       0x11183ff24 std::process::id::h056ebf195753a258 + 89864
+9   Electron Framework            	       0x11183e020 std::process::id::h056ebf195753a258 + 81924
+10  Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+11  Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+12  Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+13  Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+14  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+15  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+16  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 23:: ThreadPoolSingleThreadSharedForeground2
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116f8 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503884
+9   Electron Framework            	       0x1118115c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503572
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 24:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 25:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 26:: CacheThread_BlockFile
+0   libsystem_kernel.dylib        	       0x18a48bba8 kevent64 + 8
+1   Electron Framework            	       0x1118493c8 std::process::id::h056ebf195753a258 + 127916
+2   Electron Framework            	       0x111848bb8 std::process::id::h056ebf195753a258 + 125852
+3   Electron Framework            	       0x1117f5bd4 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 390440
+4   Electron Framework            	       0x1117c0f04 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 174168
+5   Electron Framework            	       0x111818334 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531592
+6   Electron Framework            	       0x1118184c0 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 531988
+7   Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+8   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+9   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 27:: ThreadPoolBackgroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x111811648 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503708
+9   Electron Framework            	       0x1118115ec std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503616
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 28:: ThreadPoolSingleThreadSharedBackgroundBlocking3
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x111811674 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503752
+9   Electron Framework            	       0x111811600 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503636
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 29:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x10e4d0074 uv_cancel + 680
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 30:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x10e4d0074 uv_cancel + 680
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 31:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x10e4d0074 uv_cancel + 680
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 32:
+0   libsystem_kernel.dylib        	       0x18a48350c __psynch_cvwait + 8
+1   libsystem_pthread.dylib       	       0x18a4c4128 _pthread_cond_wait + 980
+2   Electron Framework            	       0x10e4df6f4 uv_cond_wait + 12
+3   Electron Framework            	       0x10e4d0074 uv_cancel + 680
+4   libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+5   libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 33:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 34:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 35:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 36:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 37:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 38:: ThreadPoolForegroundWorker
+0   libsystem_kernel.dylib        	       0x18a47fc34 mach_msg2_trap + 8
+1   libsystem_kernel.dylib        	       0x18a492574 mach_msg2_internal + 76
+2   libsystem_kernel.dylib        	       0x18a4889c0 mach_msg_overwrite + 480
+3   libsystem_kernel.dylib        	       0x18a47ffc0 mach_msg + 24
+4   Electron Framework            	       0x111842d5c std::process::id::h056ebf195753a258 + 101696
+5   Electron Framework            	       0x1117d7a28 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 267132
+6   Electron Framework            	       0x111812474 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 507336
+7   Electron Framework            	       0x11181192c std::sys::pal::unix::os::errno::h12fdde1c2329795a + 504448
+8   Electron Framework            	       0x1118116cc std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503840
+9   Electron Framework            	       0x111811598 std::sys::pal::unix::os::errno::h12fdde1c2329795a + 503532
+10  Electron Framework            	       0x11182a884 std::process::id::h056ebf195753a258 + 2152
+11  libsystem_pthread.dylib       	       0x18a4c3c58 _pthread_start + 136
+12  libsystem_pthread.dylib       	       0x18a4bec1c thread_start + 8
+
+Thread 39:
+
+Thread 40:
+
+
+Thread 0 crashed with ARM Thread State (64-bit):
+    x0: 0x0000000000000000   x1: 0x000000016ae104d8   x2: 0x0000000000000000   x3: 0x00000001118816e0
+    x4: 0xfffffffffeb83ff0   x5: 0x0000000000000010   x6: 0x0000000000000000   x7: 0x00000001157e4c4b
+    x8: 0x0000000000000000   x9: 0x0000000000000000  x10: 0x0000000000000000  x11: 0x00000000000000a4
+   x12: 0x00000000000000a4  x13: 0x0000000000000000  x14: 0x000000000000000a  x15: 0x0000000000000fa0
+   x16: 0x000000018a4bec8c  x17: 0x00000001f7905df0  x18: 0x0000000000000000  x19: 0x0000011403653340
+   x20: 0x0000000000000005  x21: 0x0000012c00300d80  x22: 0xaaaaaaaaaaaaaaaa  x23: 0x000000011576ec86
+   x24: 0x00000114015878b0  x25: 0x00000114015878b0  x26: 0xaaaaaaaaaaaaaaaa  x27: 0x00000114017e1340
+   x28: 0x0000000000000000   fp: 0x000000016ae10550   lr: 0x000000010e5bfb68
+    sp: 0x000000016ae10460   pc: 0x000000010e5c00c8 cpsr: 0x80000000
+   far: 0x0000000000000000  esr: 0xf2000000 (Breakpoint) brk 0
+
+Binary Images:
+       0x104fec000 -        0x104feffff com.mappai.generatore (1.0.0) <4c4c4408-5555-3144-a188-5e50f5f92e4d> /Users/USER/*/MappAI Swiss.app/Contents/MacOS/MappAI Swiss
+       0x10e260000 -        0x116893fff com.github.Electron.framework (*) <4c4c44e1-5555-3144-a119-a11710d5d872> /Users/USER/*/MappAI Swiss.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework
+       0x105020000 -        0x105033fff com.github.Squirrel (1.0) <4c4c4432-5555-3144-a1a2-284ec343d1e5> /Users/USER/*/MappAI Swiss.app/Contents/Frameworks/Squirrel.framework/Versions/A/Squirrel
+       0x10509c000 -        0x1050dbfff com.electron.reactive (3.1.0) <4c4c44d0-5555-3144-a1b0-b169da9ee134> /Users/USER/*/MappAI Swiss.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/ReactiveObjC
+       0x105040000 -        0x10504bfff org.mantle.Mantle (1.0) <4c4c445d-5555-3144-a1e3-1dc51cd7d356> /Users/USER/*/MappAI Swiss.app/Contents/Frameworks/Mantle.framework/Versions/A/Mantle
+       0x10553c000 -        0x1056f7fff libffmpeg.dylib (*) <4c4c4482-5555-3144-a177-bcb0a0f52b95> /Users/USER/*/MappAI Swiss.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib
+       0x1052ac000 -        0x1052b7fff libobjc-trampolines.dylib (*) <a4dd56f1-375a-3540-844b-5e397f0b78b3> /usr/lib/libobjc-trampolines.dylib
+       0x12e148000 -        0x12eafffff com.apple.AGXMetalG17G (350.38) <c44193ee-a732-3f50-acb5-a6d3a6ca2a27> /System/Library/Extensions/AGXMetalG17G.bundle/Contents/MacOS/AGXMetalG17G
+       0x18a503000 -        0x18aa60c5f com.apple.CoreFoundation (6.9) <04941709-2330-3bf8-9213-6d33964db448> /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation
+       0x197297000 -        0x19759205f com.apple.HIToolbox (2.1.1) <bcb81496-c81f-3d3e-a617-ccca047989e0> /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/HIToolbox
+       0x18e972000 -        0x190094abf com.apple.AppKit (6.9) <59e23bd5-d01e-305a-b96f-a5790356049a> /System/Library/Frameworks/AppKit.framework/Versions/C/AppKit
+       0x18a0e8000 -        0x18a18dec7 dyld (*) <9f682dcf-340c-3bfa-bcdd-dd702f30313e> /usr/lib/dyld
+               0x0 - 0xffffffffffffffff ??? (*) <00000000-0000-0000-0000-000000000000> ???
+       0x18a4bd000 -        0x18a4c9b3b libsystem_pthread.dylib (*) <e7a73008-0c09-31e3-9dd9-0c61652f0e85> /usr/lib/system/libsystem_pthread.dylib
+       0x18a47f000 -        0x18a4bc28f libsystem_kernel.dylib (*) <51565b39-f595-3e96-a217-fef29815057a> /usr/lib/system/libsystem_kernel.dylib
+       0x18bd6f000 -        0x18cd511df com.apple.Foundation (6.9) <8e9a5c62-7e95-3047-81e7-735ae1aee5f8> /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation
+
+External Modification Summary:
+  Calls made by other processes targeting this process:
+    task_for_pid: 0
+    thread_create: 0
+    thread_set_state: 0
+  Calls made by this process:
+    task_for_pid: 0
+    thread_create: 0
+    thread_set_state: 0
+  Calls made by all processes on this machine:
+    task_for_pid: 0
+    thread_create: 0
+    thread_set_state: 0
+
+VM Region Summary:
+ReadOnly portion of Libraries: Total=1.9G resident=0K(0%) swapped_out_or_unallocated=1.9G(100%)
+Writable regions: Total=795.7M written=1122K(0%) resident=1122K(0%) swapped_out=0K(0%) unallocated=794.6M(100%)
+
+                                VIRTUAL   REGION 
+REGION TYPE                        SIZE    COUNT (non-coalesced) 
+===========                     =======  ======= 
+Accelerate framework               128K        1 
+Activity Tracing                   256K        1 
+ColorSync                           16K        1 
+CoreAnimation                      960K       38 
+CoreGraphics                        32K        2 
+CoreUI image data                 1008K        7 
+Dispatch continuations            80.0M        1 
+Foundation                          48K        2 
+Kernel Alloc Once                   48K        2 
+MALLOC                            17.2M       11 
+MALLOC guard page                 3584K        4 
+Mach message                        96K        4 
+Memory Tag 22                     64.0M        1 
+Memory Tag 253                    32.0G      615 
+Memory Tag 255                     1.1T      241 
+Memory Tag 255 (reserved)          208K        4         reserved VM address space (unallocated)
+STACK GUARD                       56.6M       41 
+Stack                            290.3M       41 
+VM_ALLOCATE                       6352K       21 
+__AUTH                            6042K      639 
+__AUTH_CONST                      90.0M     1030 
+__CTF                               824        1 
+__DATA                            40.6M      986 
+__DATA_CONST                      40.6M     1043 
+__DATA_DIRTY                      8377K      880 
+__FONT_DATA                        2352        1 
+__LINKEDIT                       577.9M        9 
+__OBJC_RO                         79.1M        1 
+__OBJC_RW                         2597K        1 
+__TEXT                             1.4G     1066 
+__TPRO_CONST                       128K        2 
+mapped file                      297.3M       52 
+page table in kernel              1122K        1 
+shared memory                     1424K       15 
+===========                     =======  ======= 
+TOTAL                              1.1T     6765 
+TOTAL, minus reserved VM space     1.1T     6765 
+
+
+-----------
+Full Report
+-----------
+
+{"app_name":"MappAI Swiss","timestamp":"2026-05-14 22:26:10.00 +0200","app_version":"1.0.0","slice_uuid":"4c4c4408-5555-3144-a188-5e50f5f92e4d","build_version":"1.0.0","platform":1,"bundleID":"com.mappai.generatore","share_with_app_devs":0,"is_first_party":0,"bug_type":"309","os_version":"macOS 26.4.1 (25E253)","roots_installed":0,"name":"MappAI Swiss","incident_id":"40F4EB48-BF37-4BB1-A31C-DD8A120B2E1E"}
+{
+  "uptime" : 260000,
+  "procRole" : "Foreground",
+  "version" : 2,
+  "userID" : 501,
+  "deployVersion" : 210,
+  "modelCode" : "Mac17,3",
+  "coalitionID" : 45124,
+  "osVersion" : {
+    "train" : "macOS 26.4.1",
+    "build" : "25E253",
+    "releaseType" : "User"
+  },
+  "captureTime" : "2026-05-14 22:25:55.6570 +0200",
+  "codeSigningMonitor" : 2,
+  "incident" : "40F4EB48-BF37-4BB1-A31C-DD8A120B2E1E",
+  "pid" : 87941,
+  "translated" : false,
+  "cpuType" : "ARM-64",
+  "procLaunch" : "2026-05-14 22:19:43.7030 +0200",
+  "procStartAbsTime" : 6366388688984,
+  "procExitAbsTime" : 6375315500575,
+  "procName" : "MappAI Swiss",
+  "procPath" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/MacOS\/MappAI Swiss",
+  "bundleInfo" : {"CFBundleShortVersionString":"1.0.0","CFBundleVersion":"1.0.0","CFBundleIdentifier":"com.mappai.generatore"},
+  "storeInfo" : {"deviceIdentifierForVendor":"A4FD64A9-EB8E-5182-B315-A767A1CFD686","thirdParty":true},
+  "parentProc" : "launchd",
+  "parentPid" : 1,
+  "coalitionName" : "com.mappai.generatore",
+  "crashReporterKey" : "459AEA91-CB7D-C048-A523-4CF8D3086F0E",
+  "appleIntelligenceStatus" : {"state":"available"},
+  "developerMode" : 1,
+  "codeSigningID" : "Electron",
+  "codeSigningTeamID" : "",
+  "codeSigningFlags" : 570556929,
+  "codeSigningValidationCategory" : 10,
+  "codeSigningTrustLevel" : 4294967295,
+  "codeSigningAuxiliaryInfo" : 0,
+  "instructionByteStream" : {"beforePC":"BgAAFOjEA5AIoRqRAwAAFOjEA5AIEReR6AMA+eDEA5AAGAKRYtQElA==","atPC":"AAAg1AAAQNQgACDU\/8MA0fRPAan9ewKp\/YMAkfMDCKro8wGy6AcA+Q=="},
+  "bootSessionUUID" : "999E6E06-A83F-4726-AF52-E66A9EF4D846",
+  "wakeTime" : 2711,
+  "sleepWakeUUID" : "A920254C-DD16-4BDA-9571-D56E07914F13",
+  "sip" : "enabled",
+  "exception" : {"codes":"0x0000000000000001, 0x000000010e5c00c8","rawCodes":[1,4535877832],"type":"EXC_BREAKPOINT","signal":"SIGTRAP"},
+  "termination" : {"flags":0,"code":5,"namespace":"SIGNAL","indicator":"Trace\/BPT trap: 5","byProc":"exc handler","byPid":87941},
+  "os_fault" : {"process":"MappAI Swiss"},
+  "extMods" : {"caller":{"thread_create":0,"thread_set_state":0,"task_for_pid":0},"system":{"thread_create":0,"thread_set_state":0,"task_for_pid":0},"targeted":{"thread_create":0,"thread_set_state":0,"task_for_pid":0},"warnings":0},
+  "faultingThread" : 0,
+  "threads" : [{"threadState":{"x":[{"value":0},{"value":6088099032},{"value":0},{"value":4589098720,"symbolLocation":358084,"symbol":"std::process::id::h056ebf195753a258"},{"value":18446744073688072176},{"value":16},{"value":0},{"value":4655565899,"symbolLocation":222872,"symbol":"cppgc::NameProvider::kNoNameDeducible"},{"value":0},{"value":0},{"value":0},{"value":164},{"value":164},{"value":0},{"value":10},{"value":4000},{"value":6615198860,"symbolLocation":0,"symbol":"pthread_getspecific"},{"value":8448400880},{"value":0},{"value":1185467937600},{"value":5},{"value":1288493337984},{"value":12297829382473034410},{"value":4655082630},{"value":1185433548976},{"value":1185433548976},{"value":12297829382473034410},{"value":1185436013376},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4535876456},"cpsr":{"value":2147483648},"fp":{"value":6088099152},"sp":{"value":6088098912},"esr":{"value":4060086272,"description":"(Breakpoint) brk 0"},"pc":{"value":4535877832,"matchesCrashFrame":1},"far":{"value":0}},"id":3317693,"triggered":true,"name":"CrBrowserMain","queue":"com.apple.main-thread","frames":[{"imageOffset":3539144,"symbol":"v8::BackingStore::MaxByteLength() const","symbolLocation":12620,"imageIndex":1},{"imageOffset":45224440,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":13229960,"imageIndex":1},{"imageOffset":45219824,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":13225344,"imageIndex":1},{"imageOffset":45164272,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":13169792,"imageIndex":1},{"imageOffset":45159168,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":13164688,"imageIndex":1},{"imageOffset":44754880,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":12760400,"imageIndex":1},{"imageOffset":44724840,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":12730360,"imageIndex":1},{"imageOffset":44752848,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":12758368,"imageIndex":1},{"imageOffset":43348812,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":11354332,"imageIndex":1},{"imageOffset":56076924,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":279504,"imageIndex":1},{"imageOffset":56184668,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":387248,"imageIndex":1},{"imageOffset":56186220,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":388800,"imageIndex":1},{"imageOffset":56489108,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":87160,"imageIndex":1},{"imageOffset":2004480,"imageIndex":1},{"imageOffset":56485468,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":83520,"imageIndex":1},{"imageOffset":515008,"symbol":"__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__","symbolLocation":28,"imageIndex":8},{"imageOffset":514900,"symbol":"__CFRunLoopDoSource0","symbolLocation":172,"imageIndex":8},{"imageOffset":514240,"symbol":"__CFRunLoopDoSources0","symbolLocation":232,"imageIndex":8},{"imageOffset":509156,"symbol":"__CFRunLoopRun","symbolLocation":820,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":775520,"symbol":"RunCurrentEventLoopInMode","symbolLocation":320,"imageIndex":9},{"imageOffset":788668,"symbol":"ReceiveNextEventCommon","symbolLocation":488,"imageIndex":9},{"imageOffset":2400572,"symbol":"_BlockUntilNextEventMatchingListInMode","symbolLocation":48,"imageIndex":9},{"imageOffset":7229860,"symbol":"_DPSBlockUntilNextEventMatchingListInMode","symbolLocation":228,"imageIndex":10},{"imageOffset":233604,"symbol":"_DPSNextEvent","symbolLocation":576,"imageIndex":10},{"imageOffset":12379804,"symbol":"-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]","symbolLocation":688,"imageIndex":10},{"imageOffset":12379048,"symbol":"-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]","symbolLocation":72,"imageIndex":10},{"imageOffset":180540,"symbol":"-[NSApplication run]","symbolLocation":368,"imageIndex":10},{"imageOffset":56492208,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":90260,"imageIndex":1},{"imageOffset":56483872,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":81924,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":41093144,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":9098664,"imageIndex":1},{"imageOffset":41099928,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":9105448,"imageIndex":1},{"imageOffset":41083212,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":9088732,"imageIndex":1},{"imageOffset":5944940,"symbol":"v8::CodeEvent::GetScriptLine()","symbolLocation":378780,"imageIndex":1},{"imageOffset":5949132,"symbol":"v8::CodeEvent::GetScriptLine()","symbolLocation":382972,"imageIndex":1},{"imageOffset":5948740,"symbol":"v8::CodeEvent::GetScriptLine()","symbolLocation":382580,"imageIndex":1},{"imageOffset":5942916,"symbol":"v8::CodeEvent::GetScriptLine()","symbolLocation":376756,"imageIndex":1},{"imageOffset":5943368,"symbol":"v8::CodeEvent::GetScriptLine()","symbolLocation":377208,"imageIndex":1},{"imageOffset":2639148,"symbol":"ElectronMain","symbolLocation":180,"imageIndex":1},{"imageOffset":130468,"symbol":"start","symbolLocation":6992,"imageIndex":11}]},{"id":3317775,"name":"com.apple.NSEventThread","threadState":{"x":[{"value":268451845},{"value":21592279046},{"value":8589934592},{"value":133053791862784},{"value":0},{"value":133053791862784},{"value":2},{"value":4294967295},{"value":0},{"value":17179869184},{"value":0},{"value":2},{"value":0},{"value":0},{"value":30979},{"value":0},{"value":18446744073709551569},{"value":8448402992},{"value":0},{"value":4294967295},{"value":2},{"value":133053791862784},{"value":0},{"value":133053791862784},{"value":21592279046},{"value":6090956936},{"value":8589934592},{"value":18446744073709550527},{"value":4412409862}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6090956784},"sp":{"value":6090956704},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":515432,"symbol":"__CFRunLoopServiceMachPort","symbolLocation":160,"imageIndex":8},{"imageOffset":509524,"symbol":"__CFRunLoopRun","symbolLocation":1188,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":1420388,"symbol":"_NSEventThread","symbolLocation":184,"imageIndex":10},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317776,"name":"ThreadPoolServiceThread","threadState":{"x":[{"value":4},{"value":0},{"value":0},{"value":1185411919488},{"value":4},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":612},{"value":265567665500},{"value":4679975560},{"value":39939},{"value":0},{"value":15270994831},{"value":369},{"value":6099382272},{"value":0},{"value":1288494809192},{"value":1288493607232},{"value":0},{"value":6099381552},{"value":12297829382473034411},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4588868552},"cpsr":{"value":2684354560},"fp":{"value":6099381520},"sp":{"value":6099381344},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614989736},"far":{"value":0}},"frames":[{"imageOffset":52136,"symbol":"kevent64","symbolLocation":8,"imageIndex":14},{"imageOffset":56529864,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":127916,"imageIndex":1},{"imageOffset":56527800,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":125852,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56226160,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":428740,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317777,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869442},{"value":0},{"value":170437187207168},{"value":0},{"value":170437187207168},{"value":32},{"value":1866},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":39683},{"value":91625968982},{"value":18446744073709551569},{"value":4589111240,"symbolLocation":370604,"symbol":"std::process::id::h056ebf195753a258"},{"value":0},{"value":1866},{"value":32},{"value":170437187207168},{"value":0},{"value":170437187207168},{"value":17179870466},{"value":6107802848},{"value":0},{"value":18446744073709550527},{"value":1282}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6107802192},"sp":{"value":6107802112},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56299180,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":501760,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317778,"name":"ThreadPoolBackgroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":168238163951616},{"value":0},{"value":168238163951616},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":39171},{"value":4584},{"value":18446744073709551569},{"value":4589111240,"symbolLocation":370604,"symbol":"std::process::id::h056ebf195753a258"},{"value":0},{"value":0},{"value":32},{"value":168238163951616},{"value":0},{"value":168238163951616},{"value":17179869186},{"value":6116224272},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6116223616},"sp":{"value":6116223536},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301128,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503708,"imageIndex":1},{"imageOffset":56301036,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503616,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317779,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":153944512790528},{"value":0},{"value":153944512790528},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":35843},{"value":13464},{"value":18446744073709551569},{"value":4589111240,"symbolLocation":370604,"symbol":"std::process::id::h056ebf195753a258"},{"value":0},{"value":0},{"value":32},{"value":153944512790528},{"value":0},{"value":153944512790528},{"value":17179869186},{"value":6124645648},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6124644992},"sp":{"value":6124644912},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317780,"name":"Chrome_IOThread","threadState":{"x":[{"value":1},{"value":0},{"value":0},{"value":1185439026848},{"value":5},{"value":0},{"value":0},{"value":6133065072},{"value":0},{"value":9},{"value":9223372036854775809},{"value":9432},{"value":4679975608},{"value":37635},{"value":0},{"value":38752},{"value":369},{"value":6133067776},{"value":0},{"value":1288494800872},{"value":1288493612672},{"value":0},{"value":6133067040},{"value":12297829382473034411},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4588868552},"cpsr":{"value":2147483648},"fp":{"value":6133067008},"sp":{"value":6133066832},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614989736},"far":{"value":0}},"frames":[{"imageOffset":52136,"symbol":"kevent64","symbolLocation":8,"imageIndex":14},{"imageOffset":56529864,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":127916,"imageIndex":1},{"imageOffset":56527800,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":125852,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":41103168,"symbol":"v8::internal::compiler::CompilationDependencies::FieldTypeDependencyOffTheRecord(v8::internal::compiler::MapRef, v8::internal::compiler::MapRef, v8::internal::InternalIndex, v8::internal::compiler::ObjectRef) const","symbolLocation":9108688,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317781,"name":"MemoryInfra","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":275990303473664},{"value":0},{"value":275990303473664},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":64259},{"value":18446744073709551615},{"value":18446744073709551569},{"value":6141489152},{"value":0},{"value":0},{"value":32},{"value":275990303473664},{"value":0},{"value":275990303473664},{"value":17179869186},{"value":6141488160},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6141487504},"sp":{"value":6141487424},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064240,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":266820,"imageIndex":1},{"imageOffset":55821636,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":24216,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317783,"frames":[{"imageOffset":28612,"symbol":"kevent","symbolLocation":8,"imageIndex":14},{"imageOffset":2637004,"symbol":"uv_free_interface_addresses","symbolLocation":1560,"imageIndex":1},{"imageOffset":2570192,"symbol":"uv_run","symbolLocation":372,"imageIndex":1},{"imageOffset":117632228,"symbol":"node::OnFatalError(char const*, char const*)","symbolLocation":466180,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":0},{"value":6149877376},{"value":1024},{"value":0},{"value":0},{"value":0},{"value":6149877328},{"value":4294967295},{"value":13},{"value":736},{"value":8425150688,"symbolLocation":0,"symbol":"vm_page_size"},{"value":0},{"value":76800},{"value":76032},{"value":363},{"value":326554953526272},{"value":0},{"value":1185413203688},{"value":1185412419328},{"value":4294967295},{"value":0},{"value":0},{"value":1},{"value":65531},{"value":6149877376},{"value":6149910256},{"value":1185413204224}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4534975692},"cpsr":{"value":1610612736},"fp":{"value":6149910240},"sp":{"value":6149877248},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614966212},"far":{"value":0}}},{"id":3317784,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":117624516,"symbol":"node::OnFatalError(char const*, char const*)","symbolLocation":458468,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":77312},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6158331592},{"value":0},{"value":512},{"value":2199023256066},{"value":2199023256066},{"value":512},{"value":0},{"value":2199023256064},{"value":305},{"value":8448401112},{"value":0},{"value":1185412809880},{"value":1185412809944},{"value":6158332128},{"value":0},{"value":0},{"value":77312},{"value":77312},{"value":78080},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6158331712},"sp":{"value":6158331568},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317785,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":117624516,"symbol":"node::OnFatalError(char const*, char const*)","symbolLocation":458468,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":77056},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6166752968},{"value":0},{"value":512},{"value":2199023256066},{"value":2199023256066},{"value":512},{"value":0},{"value":2199023256064},{"value":305},{"value":8448401112},{"value":0},{"value":1185412809880},{"value":1185412809944},{"value":6166753504},{"value":0},{"value":0},{"value":77056},{"value":77056},{"value":77824},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6166753088},"sp":{"value":6166752944},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317786,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":117624516,"symbol":"node::OnFatalError(char const*, char const*)","symbolLocation":458468,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":260},{"value":0},{"value":76800},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6175174344},{"value":0},{"value":512},{"value":2199023256066},{"value":2199023256066},{"value":512},{"value":0},{"value":2199023256064},{"value":305},{"value":8448401112},{"value":0},{"value":1185412809880},{"value":1185412809944},{"value":6175174880},{"value":0},{"value":0},{"value":76800},{"value":76800},{"value":77568},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6175174464},"sp":{"value":6175174320},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317787,"frames":[{"imageOffset":2992,"symbol":"semaphore_wait_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":2618748,"symbol":"uv_sem_wait","symbolLocation":24,"imageIndex":1},{"imageOffset":118361928,"symbol":"node::SetTracingController(v8::TracingController*)","symbolLocation":103536,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":14},{"value":0},{"value":4650700548,"symbolLocation":103468,"symbol":"node::SetTracingController(v8::TracingController*)"},{"value":0},{"value":6175256576},{"value":419432703},{"value":0},{"value":0},{"value":4650700548,"symbolLocation":103468,"symbol":"node::SetTracingController(v8::TracingController*)"},{"value":63236},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":18446744073709551580},{"value":8448401328},{"value":0},{"value":4680729724},{"value":4680729528},{"value":4680728576},{"value":4680729720},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4534957436},"cpsr":{"value":536870912},"fp":{"value":6175256464},"sp":{"value":6175256448},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940592},"far":{"value":0}}},{"id":3317793,"name":"NetworkConfigWatcher","threadState":{"x":[{"value":268451845},{"value":21592279046},{"value":8589934592},{"value":264995187195904},{"value":0},{"value":264995187195904},{"value":2},{"value":4294967295},{"value":0},{"value":17179869184},{"value":0},{"value":2},{"value":0},{"value":0},{"value":61699},{"value":0},{"value":18446744073709551569},{"value":8448402992},{"value":0},{"value":4294967295},{"value":2},{"value":264995187195904},{"value":0},{"value":264995187195904},{"value":21592279046},{"value":6183673256},{"value":8589934592},{"value":18446744073709550527},{"value":4412409862}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6183673104},"sp":{"value":6183673024},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":515432,"symbol":"__CFRunLoopServiceMachPort","symbolLocation":160,"imageIndex":8},{"imageOffset":509524,"symbol":"__CFRunLoopRun","symbolLocation":1188,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":367428,"symbol":"-[NSRunLoop(NSRunLoop) runMode:beforeDate:]","symbolLocation":212,"imageIndex":15},{"imageOffset":56491812,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":89864,"imageIndex":1},{"imageOffset":56483872,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":81924,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317794,"name":"CrShutdownDetector","threadState":{"x":[{"value":4},{"value":0},{"value":4},{"value":6183759971},{"value":6183759304},{"value":18},{"value":0},{"value":0},{"value":2863311530},{"value":8425150616,"symbolLocation":0,"symbol":"_current_pid"},{"value":8026668483491361347},{"value":2},{"value":1288496312968},{"value":0},{"value":16383},{"value":22656},{"value":3},{"value":8448409744},{"value":0},{"value":1185432295552},{"value":4},{"value":0},{"value":6183759700},{"value":4},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4537055320},"cpsr":{"value":1610612736},"fp":{"value":6183759760},"sp":{"value":6183759376},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614944028},"far":{"value":0}},"frames":[{"imageOffset":6428,"symbol":"read","symbolLocation":8,"imageIndex":14},{"imageOffset":4716632,"symbol":"ares_threadsafety","symbolLocation":196856,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317795,"name":"NetworkConfigWatcher","threadState":{"x":[{"value":268451845},{"value":21592279046},{"value":8589934592},{"value":256199094173696},{"value":0},{"value":256199094173696},{"value":2},{"value":4294967295},{"value":0},{"value":17179869184},{"value":0},{"value":2},{"value":0},{"value":0},{"value":59651},{"value":0},{"value":18446744073709551569},{"value":8448402992},{"value":0},{"value":4294967295},{"value":2},{"value":256199094173696},{"value":0},{"value":256199094173696},{"value":21592279046},{"value":6192176552},{"value":8589934592},{"value":18446744073709550527},{"value":4412409862}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6192176400},"sp":{"value":6192176320},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":515432,"symbol":"__CFRunLoopServiceMachPort","symbolLocation":160,"imageIndex":8},{"imageOffset":509524,"symbol":"__CFRunLoopRun","symbolLocation":1188,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":367428,"symbol":"-[NSRunLoop(NSRunLoop) runMode:beforeDate:]","symbolLocation":212,"imageIndex":15},{"imageOffset":56491812,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":89864,"imageIndex":1},{"imageOffset":56483872,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":81924,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317796,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":255099582545920},{"value":0},{"value":255099582545920},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":59395},{"value":8904},{"value":18446744073709551569},{"value":8448401360},{"value":0},{"value":0},{"value":32},{"value":255099582545920},{"value":0},{"value":255099582545920},{"value":17179869186},{"value":6200601872},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6200601216},"sp":{"value":6200601136},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317798,"name":"ThreadPoolSingleThreadForegroundBlocking0","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":207923661766656},{"value":0},{"value":207923661766656},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":48411},{"value":8425236288,"symbolLocation":0,"symbol":"OBJC_CLASS_$___NSCFString"},{"value":18446744073709551569},{"value":8448401360},{"value":0},{"value":0},{"value":32},{"value":207923661766656},{"value":0},{"value":207923661766656},{"value":17179869186},{"value":6209023248},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6209022592},"sp":{"value":6209022512},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301348,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503928,"imageIndex":1},{"imageOffset":56301076,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503656,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317799,"name":"CompositorTileWorker1","threadState":{"x":[{"value":260},{"value":0},{"value":768},{"value":0},{"value":0},{"value":161},{"value":0},{"value":0},{"value":6217444952},{"value":0},{"value":0},{"value":2},{"value":2},{"value":0},{"value":0},{"value":0},{"value":305},{"value":8448401112},{"value":0},{"value":1185412091992},{"value":1185412092120},{"value":6217445600},{"value":0},{"value":0},{"value":768},{"value":769},{"value":1024},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6217445072},"sp":{"value":6217444928},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}},"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":56402328,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":380,"imageIndex":1},{"imageOffset":72724312,"symbol":"_$LT$object..xcoff..Symbol64$u20$as$u20$object..read..xcoff..symbol..Symbol$GT$::n_value::he0fe3918a79f4509","symbolLocation":9308808,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317801,"frames":[{"imageOffset":48768,"symbol":"__select","symbolLocation":8,"imageIndex":14},{"imageOffset":4708312,"symbol":"ares_threadsafety","symbolLocation":188536,"imageIndex":1},{"imageOffset":4298824,"symbol":"node::FreeArrayBufferAllocator(node::ArrayBufferAllocator*)","symbolLocation":17896,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":6225866624},{"value":128},{"value":6225866496},{"value":0},{"value":568576},{"value":0},{"value":568576},{"value":2442015325859072},{"value":93},{"value":1185416294784},{"value":0},{"value":7},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4537047000},"cpsr":{"value":2684354560},"fp":{"value":6225866656},"sp":{"value":6225866496},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614986368},"far":{"value":0}}},{"id":3317802,"name":"NetworkNotificationThreadMac","threadState":{"x":[{"value":268451845},{"value":21592279046},{"value":8589934592},{"value":218815698829312},{"value":0},{"value":218815698829312},{"value":2},{"value":4294967295},{"value":0},{"value":17179869184},{"value":0},{"value":2},{"value":0},{"value":0},{"value":50947},{"value":0},{"value":18446744073709551569},{"value":8448402992},{"value":0},{"value":4294967295},{"value":2},{"value":218815698829312},{"value":0},{"value":218815698829312},{"value":21592279046},{"value":6234283432},{"value":8589934592},{"value":18446744073709550527},{"value":4412409862}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6234283280},"sp":{"value":6234283200},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":515432,"symbol":"__CFRunLoopServiceMachPort","symbolLocation":160,"imageIndex":8},{"imageOffset":509524,"symbol":"__CFRunLoopRun","symbolLocation":1188,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":367428,"symbol":"-[NSRunLoop(NSRunLoop) runMode:beforeDate:]","symbolLocation":212,"imageIndex":15},{"imageOffset":56491812,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":89864,"imageIndex":1},{"imageOffset":56483872,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":81924,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317834,"name":"ThreadPoolSingleThreadSharedForegroundBlocking1","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":377145373229056},{"value":0},{"value":377145373229056},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":87811},{"value":38208},{"value":18446744073709551569},{"value":8448409744},{"value":0},{"value":0},{"value":32},{"value":377145373229056},{"value":0},{"value":377145373229056},{"value":17179869186},{"value":6242708752},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6242708096},"sp":{"value":6242708016},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301304,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503884,"imageIndex":1},{"imageOffset":56300992,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503572,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317835,"name":"NetworkConfigWatcher","threadState":{"x":[{"value":268451845},{"value":21592279046},{"value":8589934592},{"value":381543419740160},{"value":0},{"value":381543419740160},{"value":2},{"value":4294967295},{"value":0},{"value":17179869184},{"value":0},{"value":2},{"value":0},{"value":0},{"value":88835},{"value":0},{"value":18446744073709551569},{"value":8448402992},{"value":0},{"value":4294967295},{"value":2},{"value":381543419740160},{"value":0},{"value":381543419740160},{"value":21592279046},{"value":6251126184},{"value":8589934592},{"value":18446744073709550527},{"value":4412409862}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6251126032},"sp":{"value":6251125952},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":515432,"symbol":"__CFRunLoopServiceMachPort","symbolLocation":160,"imageIndex":8},{"imageOffset":509524,"symbol":"__CFRunLoopRun","symbolLocation":1188,"imageIndex":8},{"imageOffset":1371104,"symbol":"_CFRunLoopRunSpecificWithOptions","symbolLocation":532,"imageIndex":8},{"imageOffset":367428,"symbol":"-[NSRunLoop(NSRunLoop) runMode:beforeDate:]","symbolLocation":212,"imageIndex":15},{"imageOffset":56491812,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":89864,"imageIndex":1},{"imageOffset":56483872,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":81924,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317836,"name":"ThreadPoolSingleThreadSharedForeground2","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":382642931367936},{"value":0},{"value":382642931367936},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":89091},{"value":37704},{"value":18446744073709551569},{"value":1185416339840},{"value":0},{"value":0},{"value":32},{"value":382642931367936},{"value":0},{"value":382642931367936},{"value":17179869186},{"value":6259551504},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6259550848},"sp":{"value":6259550768},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301304,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503884,"imageIndex":1},{"imageOffset":56300992,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503572,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317837,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":383742442995712},{"value":0},{"value":383742442995712},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":89347},{"value":91625968982},{"value":18446744073709551569},{"value":8448401360},{"value":0},{"value":0},{"value":32},{"value":383742442995712},{"value":0},{"value":383742442995712},{"value":17179869186},{"value":6267972880},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6267972224},"sp":{"value":6267972144},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317838,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":384841954623488},{"value":0},{"value":384841954623488},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":89603},{"value":12504},{"value":18446744073709551569},{"value":8448401352},{"value":0},{"value":0},{"value":32},{"value":384841954623488},{"value":0},{"value":384841954623488},{"value":17179869186},{"value":6276394256},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6276393600},"sp":{"value":6276393520},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317839,"name":"CacheThread_BlockFile","threadState":{"x":[{"value":4},{"value":0},{"value":0},{"value":1185433582144},{"value":2},{"value":0},{"value":0},{"value":2240044497},{"value":0},{"value":0},{"value":2001},{"value":265627713125},{"value":1185412563200},{"value":640},{"value":16383},{"value":16664},{"value":369},{"value":6284816384},{"value":0},{"value":1185412563432},{"value":1185412126208},{"value":0},{"value":6284815696},{"value":12297829382473034411},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":4588868552},"cpsr":{"value":2684354560},"fp":{"value":6284815664},"sp":{"value":6284815488},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614989736},"far":{"value":0}},"frames":[{"imageOffset":52136,"symbol":"kevent64","symbolLocation":8,"imageIndex":14},{"imageOffset":56529864,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":127916,"imageIndex":1},{"imageOffset":56527800,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":125852,"imageIndex":1},{"imageOffset":56187860,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":390440,"imageIndex":1},{"imageOffset":55971588,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":174168,"imageIndex":1},{"imageOffset":56329012,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531592,"imageIndex":1},{"imageOffset":56329408,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":531988,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317852,"name":"ThreadPoolBackgroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":404684703531008},{"value":0},{"value":404684703531008},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":94223},{"value":36264},{"value":18446744073709551569},{"value":4589111240,"symbolLocation":370604,"symbol":"std::process::id::h056ebf195753a258"},{"value":0},{"value":0},{"value":32},{"value":404684703531008},{"value":0},{"value":404684703531008},{"value":17179869186},{"value":6293237008},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6293236352},"sp":{"value":6293236272},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301128,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503708,"imageIndex":1},{"imageOffset":56301036,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503616,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317855,"name":"ThreadPoolSingleThreadSharedBackgroundBlocking3","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":393706767122432},{"value":0},{"value":393706767122432},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":91667},{"value":6144},{"value":18446744073709551569},{"value":8448409744},{"value":0},{"value":0},{"value":32},{"value":393706767122432},{"value":0},{"value":393706767122432},{"value":17179869186},{"value":6301658384},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6301657728},"sp":{"value":6301657648},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301172,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503752,"imageIndex":1},{"imageOffset":56301056,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503636,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317859,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":2556020,"symbol":"uv_cancel","symbolLocation":680,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":256},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6310096600},{"value":0},{"value":0},{"value":2},{"value":2},{"value":0},{"value":0},{"value":0},{"value":305},{"value":8448401112},{"value":0},{"value":4679732056},{"value":4679732120},{"value":6310097120},{"value":0},{"value":0},{"value":256},{"value":256},{"value":1280},{"value":4679729152},{"value":1185413415144}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6310096720},"sp":{"value":6310096576},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317860,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":2556020,"symbol":"uv_cancel","symbolLocation":680,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":512},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6318534360},{"value":0},{"value":0},{"value":2},{"value":2},{"value":0},{"value":0},{"value":0},{"value":305},{"value":8448401112},{"value":0},{"value":4679732056},{"value":4679732120},{"value":6318534880},{"value":0},{"value":0},{"value":512},{"value":512},{"value":1536},{"value":4679729152},{"value":1185435216256}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6318534480},"sp":{"value":6318534336},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317861,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":2556020,"symbol":"uv_cancel","symbolLocation":680,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":4},{"value":0},{"value":0},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6326972120},{"value":0},{"value":0},{"value":2},{"value":2},{"value":0},{"value":0},{"value":0},{"value":305},{"value":8448401112},{"value":0},{"value":4679732056},{"value":4679732120},{"value":6326972640},{"value":0},{"value":0},{"value":0},{"value":0},{"value":768},{"value":4679729152},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6326972240},"sp":{"value":6326972096},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317862,"frames":[{"imageOffset":17676,"symbol":"__psynch_cvwait","symbolLocation":8,"imageIndex":14},{"imageOffset":28968,"symbol":"_pthread_cond_wait","symbolLocation":980,"imageIndex":13},{"imageOffset":2619124,"symbol":"uv_cond_wait","symbolLocation":12,"imageIndex":1},{"imageOffset":2556020,"symbol":"uv_cancel","symbolLocation":680,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}],"threadState":{"x":[{"value":260},{"value":0},{"value":0},{"value":0},{"value":0},{"value":160},{"value":0},{"value":0},{"value":6335409880},{"value":0},{"value":0},{"value":2},{"value":2},{"value":0},{"value":0},{"value":0},{"value":305},{"value":8448401112},{"value":0},{"value":4679732056},{"value":4679732120},{"value":6335410400},{"value":0},{"value":0},{"value":0},{"value":0},{"value":1024},{"value":4679729152},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615220520},"cpsr":{"value":1610612736},"fp":{"value":6335410000},"sp":{"value":6335409856},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614955276},"far":{"value":0}}},{"id":3317863,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":518982373212160},{"value":0},{"value":518982373212160},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":120835},{"value":64824},{"value":18446744073709551569},{"value":1185416368000},{"value":0},{"value":0},{"value":32},{"value":518982373212160},{"value":0},{"value":518982373212160},{"value":17179869186},{"value":6352252176},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6352251520},"sp":{"value":6352251440},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317864,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":520081884839936},{"value":0},{"value":520081884839936},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":121091},{"value":42984},{"value":18446744073709551569},{"value":1185416366592},{"value":0},{"value":0},{"value":32},{"value":520081884839936},{"value":0},{"value":520081884839936},{"value":17179869186},{"value":6343830800},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6343830144},"sp":{"value":6343830064},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317865,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":517882861584384},{"value":0},{"value":517882861584384},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":120579},{"value":47279000005632},{"value":18446744073709551569},{"value":8448401120},{"value":0},{"value":0},{"value":32},{"value":517882861584384},{"value":0},{"value":517882861584384},{"value":17179869186},{"value":6360673552},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6360672896},"sp":{"value":6360672816},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317866,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":417827303456768},{"value":0},{"value":417827303456768},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":97283},{"value":0},{"value":18446744073709551569},{"value":2578920405},{"value":0},{"value":0},{"value":32},{"value":417827303456768},{"value":0},{"value":417827303456768},{"value":17179869186},{"value":6369094928},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6369094272},"sp":{"value":6369094192},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317867,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":515683838328832},{"value":0},{"value":515683838328832},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":120067},{"value":91625968982},{"value":18446744073709551569},{"value":8448401360},{"value":0},{"value":0},{"value":32},{"value":515683838328832},{"value":0},{"value":515683838328832},{"value":17179869186},{"value":6377516304},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6377515648},"sp":{"value":6377515568},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3317868,"name":"ThreadPoolForegroundWorker","threadState":{"x":[{"value":268451845},{"value":17179869186},{"value":0},{"value":514584326701056},{"value":0},{"value":514584326701056},{"value":32},{"value":0},{"value":0},{"value":17179869184},{"value":32},{"value":0},{"value":0},{"value":0},{"value":119811},{"value":0},{"value":18446744073709551569},{"value":2578920405},{"value":0},{"value":0},{"value":32},{"value":514584326701056},{"value":0},{"value":514584326701056},{"value":17179869186},{"value":6385937680},{"value":0},{"value":18446744073709550527},{"value":2}],"flavor":"ARM_THREAD_STATE64","lr":{"value":6615016820},"cpsr":{"value":0},"fp":{"value":6385937024},"sp":{"value":6385936944},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6614940724},"far":{"value":0}},"frames":[{"imageOffset":3124,"symbol":"mach_msg2_trap","symbolLocation":8,"imageIndex":14},{"imageOffset":79220,"symbol":"mach_msg2_internal","symbolLocation":76,"imageIndex":14},{"imageOffset":39360,"symbol":"mach_msg_overwrite","symbolLocation":480,"imageIndex":14},{"imageOffset":4032,"symbol":"mach_msg","symbolLocation":24,"imageIndex":14},{"imageOffset":56503644,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":101696,"imageIndex":1},{"imageOffset":56064552,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":267132,"imageIndex":1},{"imageOffset":56304756,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":507336,"imageIndex":1},{"imageOffset":56301868,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":504448,"imageIndex":1},{"imageOffset":56301260,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503840,"imageIndex":1},{"imageOffset":56300952,"symbol":"std::sys::pal::unix::os::errno::h12fdde1c2329795a","symbolLocation":503532,"imageIndex":1},{"imageOffset":56404100,"symbol":"std::process::id::h056ebf195753a258","symbolLocation":2152,"imageIndex":1},{"imageOffset":27736,"symbol":"_pthread_start","symbolLocation":136,"imageIndex":13},{"imageOffset":7196,"symbol":"thread_start","symbolLocation":8,"imageIndex":13}]},{"id":3321983,"frames":[],"threadState":{"x":[{"value":6088667136},{"value":110235},{"value":6088130560},{"value":0},{"value":409604},{"value":18446744073709551615},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":0},"cpsr":{"value":0},"fp":{"value":0},"sp":{"value":6088667136},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6615198728},"far":{"value":0}}},{"id":3322208,"frames":[],"threadState":{"x":[{"value":6089240576},{"value":64019},{"value":6088704000},{"value":0},{"value":409604},{"value":18446744073709551615},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0},{"value":0}],"flavor":"ARM_THREAD_STATE64","lr":{"value":0},"cpsr":{"value":0},"fp":{"value":0},"sp":{"value":6089240576},"esr":{"value":1442840704,"description":"(Syscall)"},"pc":{"value":6615198728},"far":{"value":0}}}],
+  "usedImages" : [
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4378771456,
+    "CFBundleShortVersionString" : "1.0.0",
+    "CFBundleIdentifier" : "com.mappai.generatore",
+    "size" : 16384,
+    "uuid" : "4c4c4408-5555-3144-a188-5e50f5f92e4d",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/MacOS\/MappAI Swiss",
+    "name" : "MappAI Swiss",
+    "CFBundleVersion" : "1.0.0"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4532338688,
+    "CFBundleIdentifier" : "com.github.Electron.framework",
+    "size" : 140722176,
+    "uuid" : "4c4c44e1-5555-3144-a119-a11710d5d872",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/Frameworks\/Electron Framework.framework\/Versions\/A\/Electron Framework",
+    "name" : "Electron Framework",
+    "CFBundleVersion" : "30.5.1"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4378984448,
+    "CFBundleShortVersionString" : "1.0",
+    "CFBundleIdentifier" : "com.github.Squirrel",
+    "size" : 81920,
+    "uuid" : "4c4c4432-5555-3144-a1a2-284ec343d1e5",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/Frameworks\/Squirrel.framework\/Versions\/A\/Squirrel",
+    "name" : "Squirrel",
+    "CFBundleVersion" : "1"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4379492352,
+    "CFBundleShortVersionString" : "3.1.0",
+    "CFBundleIdentifier" : "com.electron.reactive",
+    "size" : 262144,
+    "uuid" : "4c4c44d0-5555-3144-a1b0-b169da9ee134",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/Frameworks\/ReactiveObjC.framework\/Versions\/A\/ReactiveObjC",
+    "name" : "ReactiveObjC",
+    "CFBundleVersion" : "0.0.0"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4379115520,
+    "CFBundleShortVersionString" : "1.0",
+    "CFBundleIdentifier" : "org.mantle.Mantle",
+    "size" : 49152,
+    "uuid" : "4c4c445d-5555-3144-a1e3-1dc51cd7d356",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/Frameworks\/Mantle.framework\/Versions\/A\/Mantle",
+    "name" : "Mantle",
+    "CFBundleVersion" : "0.0.0"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64",
+    "base" : 4384342016,
+    "size" : 1818624,
+    "uuid" : "4c4c4482-5555-3144-a177-bcb0a0f52b95",
+    "path" : "\/Users\/USER\/*\/MappAI Swiss.app\/Contents\/Frameworks\/Electron Framework.framework\/Versions\/A\/Libraries\/libffmpeg.dylib",
+    "name" : "libffmpeg.dylib"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 4381655040,
+    "size" : 49152,
+    "uuid" : "a4dd56f1-375a-3540-844b-5e397f0b78b3",
+    "path" : "\/usr\/lib\/libobjc-trampolines.dylib",
+    "name" : "libobjc-trampolines.dylib"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 5068062720,
+    "CFBundleShortVersionString" : "350.38",
+    "CFBundleIdentifier" : "com.apple.AGXMetalG17G",
+    "size" : 10190848,
+    "uuid" : "c44193ee-a732-3f50-acb5-a6d3a6ca2a27",
+    "path" : "\/System\/Library\/Extensions\/AGXMetalG17G.bundle\/Contents\/MacOS\/AGXMetalG17G",
+    "name" : "AGXMetalG17G",
+    "CFBundleVersion" : "350.38"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6615478272,
+    "CFBundleShortVersionString" : "6.9",
+    "CFBundleIdentifier" : "com.apple.CoreFoundation",
+    "size" : 5626976,
+    "uuid" : "04941709-2330-3bf8-9213-6d33964db448",
+    "path" : "\/System\/Library\/Frameworks\/CoreFoundation.framework\/Versions\/A\/CoreFoundation",
+    "name" : "CoreFoundation",
+    "CFBundleVersion" : "4424.1.402"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6831042560,
+    "CFBundleShortVersionString" : "2.1.1",
+    "CFBundleIdentifier" : "com.apple.HIToolbox",
+    "size" : 3125344,
+    "uuid" : "bcb81496-c81f-3d3e-a617-ccca047989e0",
+    "path" : "\/System\/Library\/Frameworks\/Carbon.framework\/Versions\/A\/Frameworks\/HIToolbox.framework\/Versions\/A\/HIToolbox",
+    "name" : "HIToolbox"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6687236096,
+    "CFBundleShortVersionString" : "6.9",
+    "CFBundleIdentifier" : "com.apple.AppKit",
+    "size" : 24259264,
+    "uuid" : "59e23bd5-d01e-305a-b96f-a5790356049a",
+    "path" : "\/System\/Library\/Frameworks\/AppKit.framework\/Versions\/C\/AppKit",
+    "name" : "AppKit",
+    "CFBundleVersion" : "2685.50.120"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6611173376,
+    "size" : 679624,
+    "uuid" : "9f682dcf-340c-3bfa-bcdd-dd702f30313e",
+    "path" : "\/usr\/lib\/dyld",
+    "name" : "dyld"
+  },
+  {
+    "size" : 0,
+    "source" : "A",
+    "base" : 0,
+    "uuid" : "00000000-0000-0000-0000-000000000000"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6615191552,
+    "size" : 52028,
+    "uuid" : "e7a73008-0c09-31e3-9dd9-0c61652f0e85",
+    "path" : "\/usr\/lib\/system\/libsystem_pthread.dylib",
+    "name" : "libsystem_pthread.dylib"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6614937600,
+    "size" : 250512,
+    "uuid" : "51565b39-f595-3e96-a217-fef29815057a",
+    "path" : "\/usr\/lib\/system\/libsystem_kernel.dylib",
+    "name" : "libsystem_kernel.dylib"
+  },
+  {
+    "source" : "P",
+    "arch" : "arm64e",
+    "base" : 6641086464,
+    "CFBundleShortVersionString" : "6.9",
+    "CFBundleIdentifier" : "com.apple.Foundation",
+    "size" : 16654816,
+    "uuid" : "8e9a5c62-7e95-3047-81e7-735ae1aee5f8",
+    "path" : "\/System\/Library\/Frameworks\/Foundation.framework\/Versions\/C\/Foundation",
+    "name" : "Foundation",
+    "CFBundleVersion" : "4424.1.402"
+  }
+],
+  "sharedCache" : {
+  "base" : 6610042880,
+  "size" : 5978570752,
+  "uuid" : "2d40543a-792e-37b8-978d-3d7030e1aa81"
+},
+  "vmSummary" : "ReadOnly portion of Libraries: Total=1.9G resident=0K(0%) swapped_out_or_unallocated=1.9G(100%)\nWritable regions: Total=795.7M written=1122K(0%) resident=1122K(0%) swapped_out=0K(0%) unallocated=794.6M(100%)\n\n                                VIRTUAL   REGION \nREGION TYPE                        SIZE    COUNT (non-coalesced) \n===========                     =======  ======= \nAccelerate framework               128K        1 \nActivity Tracing                   256K        1 \nColorSync                           16K        1 \nCoreAnimation                      960K       38 \nCoreGraphics                        32K        2 \nCoreUI image data                 1008K        7 \nDispatch continuations            80.0M        1 \nFoundation                          48K        2 \nKernel Alloc Once                   48K        2 \nMALLOC                            17.2M       11 \nMALLOC guard page                 3584K        4 \nMach message                        96K        4 \nMemory Tag 22                     64.0M        1 \nMemory Tag 253                    32.0G      615 \nMemory Tag 255                     1.1T      241 \nMemory Tag 255 (reserved)          208K        4         reserved VM address space (unallocated)\nSTACK GUARD                       56.6M       41 \nStack                            290.3M       41 \nVM_ALLOCATE                       6352K       21 \n__AUTH                            6042K      639 \n__AUTH_CONST                      90.0M     1030 \n__CTF                               824        1 \n__DATA                            40.6M      986 \n__DATA_CONST                      40.6M     1043 \n__DATA_DIRTY                      8377K      880 \n__FONT_DATA                        2352        1 \n__LINKEDIT                       577.9M        9 \n__OBJC_RO                         79.1M        1 \n__OBJC_RW                         2597K        1 \n__TEXT                             1.4G     1066 \n__TPRO_CONST                       128K        2 \nmapped file                      297.3M       52 \npage table in kernel              1122K        1 \nshared memory                     1424K       15 \n===========                     =======  ======= \nTOTAL                              1.1T     6765 \nTOTAL, minus reserved VM space     1.1T     6765 \n",
+  "legacyInfo" : {
+  "threadTriggered" : {
+    "name" : "CrBrowserMain",
+    "queue" : "com.apple.main-thread"
+  }
+},
+  "logWritingSignature" : "8d953b9074199b0be80389632a2e01a5a324ed8f",
+  "roots_installed" : 0,
+  "bug_type" : "309",
+  "trmStatus" : 1,
+  "trialInfo" : {
+  "rollouts" : [
+    {
+      "rolloutId" : "644114de41e7236e6177f9bd",
+      "factorPackIds" : [
+
+      ],
+      "deploymentId" : 240000013
+    },
+    {
+      "rolloutId" : "699d4a6bb3c59721f0815d4a",
+      "factorPackIds" : [
+        "69d6e27d996f614fd8fe5d81",
+        "69d6e24b59b29e26f812e93a",
+        "69d6e29aee67f703bcda0268",
+        "69d6e2b359b29e26f812e93c"
+      ],
+      "deploymentId" : 240000025
+    }
+  ],
+  "experiments" : [
+
+  ]
+}
+}
+
+Model: Mac17,3, BootROM 18000.101.7, proc 10:4:6:0 processors, 32 GB, SMC 
+Graphics: Apple M5, Apple M5, Built-In
+Display: Color LCD, 2560 x 1664 Retina, Main, MirrorOff, Online
+Memory Module: LPDDR5, Micron
+AirPort: chip id: 0x11 api 1.2 firmware [Rev 72.29.721 N1B1 devFused=0] phy [20.1.62.0], core80211 [324.29.751 N1_silicon_b ], Apr  5 2026 21:19:05 version XBS_BUILD_TAG GIT_DESCRIBE FWID chip id: 0x11 api 1.2 firmware [Rev 72.29.721 N1B1 devFused=0] phy [20.1.62.0], core80211 [324.29.751 N1_silicon_b ]
+IO80211_driverkit-1555.23 "IO80211_driverkit-1555.23" Apr  5 2026 21:03:59
+AirPort: 
+Bluetooth: Version (null), 0 services, 0 devices, 0 incoming serial ports
+Network Service: Wi-Fi, AirPort, en0
+Thunderbolt Bus: MacBook Air, Apple Inc.
+Thunderbolt Bus: MacBook Air, Apple Inc.

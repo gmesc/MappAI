@@ -39,6 +39,9 @@ let appState = {
 // ==========================================
 // MODALITÀ INFOMANIAK PRO (SECRET SEQUENCE)
 // ==========================================
+let studentModeKeys = [];
+const studentModeSecret = ['l', 'k', 'j', 'h'];
+
 let infomaniakProKeys = [];
 const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
@@ -315,8 +318,12 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     btnCancel.onclick = () => cleanup();
     btnOk.onclick = () => { cleanup(); onConfirm(input.value.trim()); };
 
-    input.onkeypress = (e) => {
-        if (e.key === 'Enter') { cleanup(); onConfirm(input.value.trim()); }
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault();
+            cleanup(); 
+            onConfirm(input.value.trim()); 
+        }
     };
 }
 
@@ -1003,12 +1010,12 @@ function updateModelCapabilities() {
 // Funzioni sicure per il processing delle stringhe multilinea
 function cleanLabel(str) {
     if (!str) return "";
-    return String(str).split('\\n').join(' ').split(String.fromCharCode(10)).join(' ');
+    return String(str).split('\\n').join('\n').trim();
 }
 
 function getLabelLines(str) {
     if (!str) return [];
-    return String(str).split('\\n').join(String.fromCharCode(10)).split(String.fromCharCode(10));
+    return String(str).split('\n');
 }
 
 function stripHTML(html) {
@@ -1554,7 +1561,7 @@ window.startGeneration = async function () {
         return;
     }
 
-    window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."));
+    window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
     if (appState.extractionMode === 'mindmap') {
         await extractMindMapIterative(textParts, fileParts, apiKey);
@@ -1572,15 +1579,18 @@ REGOLE TASSATIVE DI OUTPUT:
 4. DESCRIZIONI (content): Sii chiaro, didattico e conciso (max 30 parole).
 5. CONNETTIVITÀ: Ogni nodo DEVE essere collegato a un altro. Non lasciare nodi orfani.
 6. ID UNICI: Crea ID parlanti e univoci (es: CATEGORIA_CONCETTO_1).
-7. COERENZA: Se stai espandendo un ramo, usa l'ID del genitore fornito per collegare i nuovi nodi.
-8. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
+7. CITAZIONI (chunks): DEBBONO essere frasi intere, verbatim e significative estratte dai testi (minimo 15 parole). È VIETATO inserire singole parole o frammenti brevi.
+8. COERENZA: Se stai espandendo un ramo, usa l'ID del genitore fornito per collegare i nuovi nodi.
+9. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
 `;
 
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
+        const isKG = appState.extractionMode === 'kg';
         const rootId = "ROOT";
+        
         appState.db = {
-            nodes: [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
+            nodes: isKG ? [] : [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
             links: [],
             sourcesDict: {}
         };
@@ -1594,24 +1604,41 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
             if (l0Text) {
-                appState.db.nodes[0].content = l0Text.trim();
-                appState.db.nodes[0].desc = l0Text.trim();
+                if (!isKG) {
+                    appState.db.nodes[0].content = l0Text.trim();
+                    appState.db.nodes[0].desc = l0Text.trim();
+                }
             }
         } catch (e) { console.log("L0 fallito", e); }
 
-        let l1Labels = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
+        let l1Data = Array.from(document.querySelectorAll('.l1-topic-input'))
+            .map(i => i.value.trim())
+            .filter(v => v)
+            .map(lbl => ({ label: lbl, rel: "include" }));
+
         const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle').checked;
         const maxBranches = parseInt(document.getElementById('branches-slider').value) || 0;
 
-        if (l1Labels.length === 0 || autoGenerateL1) {
+        if (l1Data.length === 0 || autoGenerateL1) {
             window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Individuazione delle Macro-Categorie...`);
             let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
                 rootNodeLabel: appState.rootNodeLabel,
-                optionalL1Labels: l1Labels.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Labels)}.\\n` : '',
+                optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { type: "ARRAY", items: { type: "STRING" } };
+            const schemaL1 = { 
+                type: "ARRAY", 
+                items: { 
+                    type: "OBJECT", 
+                    properties: { 
+                        label: { type: "STRING" }, 
+                        rel: { type: "STRING" } 
+                    },
+                    required: ["label", "rel"]
+                } 
+            };
+
             const payloadL1 = {
                 contents: [{ parts: [{ text: promptL1 }] }],
                 generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
@@ -1624,22 +1651,40 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 let cleanL1Text = rawL1.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let generatedL1s = JSON.parse(cleanL1Text);
                 generatedL1s.forEach(gL1 => {
-                    if (!l1Labels.some(existing => existing.toLowerCase() === gL1.toLowerCase())) {
-                        l1Labels.push(gL1);
+                    if (typeof gL1 === 'string') gL1 = { label: gL1, rel: "include" };
+                    if (!l1Data.some(existing => existing.label.toLowerCase() === gL1.label.toLowerCase())) {
+                        l1Data.push(gL1);
+                    } else {
+                        // Se l'IA ha trovato una relazione migliore per un label manuale, aggiorniamola
+                        let existing = l1Data.find(x => x.label.toLowerCase() === gL1.label.toLowerCase());
+                        if (existing && existing.rel === "include") existing.rel = gL1.rel;
                     }
                 });
             }
         }
 
-        if (l1Labels.length === 0) l1Labels = ["Concetti Principali"];
+        if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
 
         let l1NodesData = [];
-        l1Labels.forEach((lbl, idx) => {
+        l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { id: l1Id, label: lbl, content: lbl, desc: `Categoria principale: ${lbl}`, level: 1, chunks: [], studyStatus: 'none' };
+            // Assegniamo un gruppo unico (idx + 1) per garantire colori diversi agli Hub
+            let nodeObj = { 
+                id: l1Id, 
+                label: item.label, 
+                content: item.label, 
+                desc: `Categoria principale: ${item.label}`, 
+                level: 1, 
+                group: idx + 1, 
+                chunks: [], 
+                studyStatus: 'none' 
+            };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
-            appState.db.links.push({ source: rootId, target: l1Id, rel: "include" });
+            // Solo per le Mappe Mentali forziamo il collegamento gerarchico al ROOT. 
+            if (appState.extractionMode === 'mindmap') {
+                appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
+            }
         });
 
         const schemaBranch = {
@@ -1653,9 +1698,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             id: { type: "STRING" },
                             label: { type: "STRING" },
                             content: { type: "STRING" },
-                            level: { type: "INTEGER" }
+                            level: { type: "INTEGER" },
+                            chunks: { type: "ARRAY", items: { type: "STRING" } }
                         },
-                        required: ["id", "label", "content"]
+                        required: ["id", "label", "content", "level", "chunks"]
                     }
                 },
                 links: {
@@ -1674,179 +1720,140 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             required: ["nodes", "links"]
         };
 
-        for (let i = 0; i < l1NodesData.length; i++) {
-            const l1Node = l1NodesData[i];
-            window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Elaborazione ramo ${i + 1} di ${l1NodesData.length} ("${l1Node.label}")...`);
 
-            if (i > 0) {
-                // Rate limit prevention for free-tier Gemini API (15 RPM limits)
-                await new Promise(resolve => setTimeout(resolve, 4500));
-            }
+        let l1LabelsStr = l1NodesData.map(n => `- ID: ${n.id} | Etichetta: "${n.label}"`).join('\n');
 
-            let userProfileStr = '';
-            if (appState.userProfile) {
-                userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
-            }
+        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Generazione dell'intero albero della mappa in corso...`);
 
-            if (appState.studentMode) {
-                userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
-            }
+        let userProfileStr = '';
+        if (appState.userProfile) {
+            userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
+        }
 
-            let optionalMaxBranches = maxBranches > 0 ? `6. DEVI ASSOLUTAMENTE generare ALMENO ${maxBranches} rami per ogni livello di profondità (L2, L3, L4, L5) per popolare l'albero in modo folto e dettagliato.\\n` : '';
+        if (appState.studentMode) {
+            userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+        }
 
-            const promptKey = appState.studentMode ? "MIND_MAP_BRANCH_STUDENT" : "MIND_MAP_BRANCH";
+        let optionalMaxBranches = maxBranches > 0 ? `\nDEVI ASSOLUTAMENTE generare ALMENO ${maxBranches} sotto-rami per ogni macro-area per popolare l'albero in modo folto e dettagliato.` : '';
 
-            let promptBranch = window.fillPromptTemplate(promptKey, {
-                rootNodeLabel: appState.rootNodeLabel,
-                l1NodeLabel: l1Node.label,
-                l1NodeId: l1Node.id,
-                optionalMaxBranches: optionalMaxBranches,
-                userProfileInjection: userProfileStr + "\n\nIMPORTANTE: Sii sintetico ed efficace. Ogni descrizione 'content' deve essere di massimo 20-30 parole. Evita ripetizioni e non generare campi non richiesti.",
-                textParts: textParts.join('\\n\\n')
-            });
+        let promptKey = appState.extractionMode === 'kg' ? "KNOWLEDGE_GRAPH_FULL_TREE" : "MIND_MAP_FULL_TREE";
+        let promptFullTree = window.fillPromptTemplate(promptKey, {
+            rootNodeLabel: appState.rootNodeLabel,
+            l1LabelsStr: l1LabelsStr,
+            optionalMaxBranches: optionalMaxBranches,
+            userProfileStr: userProfileStr
+        });
 
-            const payloadBranch = {
-                contents: [{ parts: [...fileParts, { text: promptBranch }] }],
-                systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
-                generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch }
-            };
+        const payloadTree = {
+            contents: [{ parts: [...fileParts, { text: promptFullTree }] }],
+            systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch }
+        };
 
-            try {
-                const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
-                const cand = dataBranch.candidates && dataBranch.candidates[0];
-                if (cand && cand.content && cand.content.parts) {
-                    let rawText = cand.content.parts[0].text;
-                    let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                    let branchData = salvageTruncatedJSON(cleanText);
+        try {
+            const dataTree = await window.fetchModelAPI(payloadTree, apiKey);
+            const cand = dataTree.candidates && dataTree.candidates[0];
+            if (cand && cand.content && cand.content.parts) {
+                let rawText = cand.content.parts[0].text;
+                let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+                let branchData = salvageTruncatedJSON(cleanText);
 
-                    // --- ID SANITIZATION (Critical for Infomaniak/Open Weights) ---
-                    // Prevent LLMs from outputting generic IDs like "1", "2" which cause massive collisions across branches.
-                    if (branchData.nodes && Array.isArray(branchData.nodes)) {
-                        let idMapping = {};
-
-                        // Smart L1 Identification: If the model failed to use l1Node.id, find the node that represents the macro-area
-                        let l1Candidate = branchData.nodes.find(n => n.id === l1Node.id);
-                        if (!l1Candidate) {
-                            l1Candidate = branchData.nodes.find(n => n.label.trim().toLowerCase() === l1Node.label.trim().toLowerCase());
-                        }
-                        if (!l1Candidate) {
-                            l1Candidate = branchData.nodes.find(n => parseInt(n.level) === 1);
-                            if (!l1Candidate && branchData.links) {
-                                let targetIds = new Set(branchData.links.map(l => l.target));
-                                l1Candidate = branchData.nodes.find(n => !targetIds.has(n.id));
-                            }
-                        }
-                        if (l1Candidate) {
-                            idMapping[l1Candidate.id] = l1Node.id;
-                            l1Candidate.id = l1Node.id;
-                        }
-
-                        // Deduplicate nodes that represent the same L1 category
-                        branchData.nodes.forEach(n => {
-                            if (n.id !== l1Node.id && n.label.trim().toLowerCase() === l1Node.label.trim().toLowerCase()) {
-                                idMapping[n.id] = l1Node.id;
-                                n.id = l1Node.id;
-                            }
-                        });
-
-                        // Keep only unique nodes, favoring those with descriptions
-                        let uniqueNodesMap = {};
-                        branchData.nodes.forEach(n => {
-                            // Integrità dati: se mancano campi opzionali li aggiungiamo noi
-                            if (!n.desc) n.desc = n.content;
-                            if (!n.chunks) n.chunks = [];
-                            if (!n.studyStatus) n.studyStatus = 'none';
-
-                            if (!uniqueNodesMap[n.id] || (n.content && n.content.length > uniqueNodesMap[n.id].content.length)) {
-                                uniqueNodesMap[n.id] = n;
-                            } else {
-                                let existing = uniqueNodesMap[n.id];
-                                let nDesc = n.desc || n.content || "";
-                                let exDesc = existing.desc || existing.content || "";
-                                if (nDesc.length > exDesc.length) {
-                                    existing.desc = nDesc;
-                                    existing.content = n.content || existing.content;
-                                }
-                                if (n.chunks) {
-                                    existing.chunks = existing.chunks || [];
-                                    existing.chunks.push(...n.chunks);
-                                }
-                            }
-                        });
-                        branchData.nodes = Object.values(uniqueNodesMap);
-
-                        branchData.nodes.forEach((n, idx) => {
-                            // If the ID is not the exact L1 node, and doesn't already safely start with the L1 prefix
-                            if (n.id !== l1Node.id && !n.id.startsWith(l1Node.id)) {
-                                let safeSuffix = n.id.length < 6 ? `N${idx}_${n.id}` : n.id;
-                                let newId = `${l1Node.id}_${safeSuffix}`.replace(/[^a-zA-Z0-9_]/g, '_');
-                                idMapping[n.id] = newId;
-                                n.id = newId;
-                            }
-                        });
-                        // Rewrite links with the sanitized IDs
-                        if (branchData.links && Array.isArray(branchData.links)) {
-                            branchData.links.forEach(l => {
-                                if (idMapping[l.source]) l.source = idMapping[l.source];
-                                if (idMapping[l.target]) l.target = idMapping[l.target];
-                            });
-                            // Filter out self-links that might have been created by merging duplicates
-                            branchData.links = branchData.links.filter(l => l.source !== l.target);
-                        }
+                if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                    // Pre-calculate parent mapping from links to aggregate chunks
+                    const parentMap = {};
+                    if (branchData.links) {
+                        branchData.links.forEach(l => { parentMap[l.target] = l.source; });
                     }
 
-                    let l1ChunksAggregated = []; // Raccogliamo tutte le note della prole
+                    const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+                    const aiToRealIdMap = {};
 
-                    if (branchData.nodes && Array.isArray(branchData.nodes)) {
-                        branchData.nodes.forEach(n => {
-                            if (n.id === l1Node.id) {
-                                // Update summary for the L1 node requested by the user
-                                let existingNode = appState.db.nodes.find(x => x.id === l1Node.id);
-                                if (existingNode && n.content) {
-                                    existingNode.content = n.content;
-                                    existingNode.desc = n.desc || n.content;
-                                }
-                                if (n.chunks) l1ChunksAggregated.push(...n.chunks);
-                            } else {
-                                let nodeLevel = parseInt(n.level);
-                                if (isNaN(nodeLevel)) nodeLevel = 2; // base level if missing
-                                const desc = n.desc || n.content || "";
-                                appState.db.nodes.push({ ...n, level: nodeLevel, studyStatus: 'none', desc: desc, aiDesc: desc, chunks: n.chunks || [] });
-                                if (n.chunks && n.chunks.length > 0) {
-                                    appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Testo di origine", source: l1Node.label, text: c }));
-                                    l1ChunksAggregated.push(...n.chunks);
-                                }
+                    branchData.nodes.forEach(n => {
+                        let existingNode, realMatch;
+
+                        if (isKG) {
+                            // KG: match SOLO tra i nodi L1 già registrati (Hub protetti)
+                            existingNode = appState.db.nodes.find(x => x.id === n.id && x.level === 1);
+                            realMatch = appState.db.nodes.find(ex => ex.level === 1 && normalizeLabel(ex.label) === normalizeLabel(n.label));
+                        } else {
+                            // Mappa Mentale: match su tutti i nodi (comportamento originale)
+                            existingNode = appState.db.nodes.find(x => x.id === n.id);
+                            realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
+                        }
+
+                        if (existingNode) {
+                            // L'IA ha usato l'ID corretto → aggiorna solo content/desc
+                            if (n.content) existingNode.content = n.content;
+                            if (n.desc) existingNode.desc = n.desc;
+                        } else if (realMatch) {
+                            // L'IA ha inventato un nuovo ID per un nodo già esistente → rimappa i link
+                            aiToRealIdMap[n.id] = realMatch.id;
+                            if (n.content && !realMatch.content) realMatch.content = n.content;
+                            if (n.desc && !realMatch.desc) realMatch.desc = n.desc;
+                            // Nodo genuinamente nuovo
+                            let nodeLevel = parseInt(n.level);
+                            if (isNaN(nodeLevel)) nodeLevel = 2;
+
+                            if (appState.extractionMode === 'kg') {
+                                // In KG permettiamo nuovi L1 solo se l'IA lo richiede espressamente, 
+                                // altrimenti schiacciamo tutto a L2 (per evitare L3, L4 etc)
+                                if (nodeLevel !== 1) nodeLevel = 2;
                             }
-                        });
-                    }
+                            
+                            const desc = n.desc || n.content || "";
+                            appState.db.nodes.push({ ...n, level: nodeLevel, studyStatus: 'none', desc, aiDesc: desc, chunks: n.chunks || [] });
+                        }
 
-                    // Riversa l'aggregato dei chunk nel nodo L1 per mostrare la prole
-                    if (l1ChunksAggregated.length > 0) {
-                        if (!appState.db.sourcesDict[l1Node.id]) appState.db.sourcesDict[l1Node.id] = [];
-                        appState.db.sourcesDict[l1Node.id].push(...l1ChunksAggregated.filter((v, i, a) => a.indexOf(v) === i).map(c => ({ title: "Da sottomacchie", source: "Corpo della mappa", text: c })));
-                    }
-                    if (branchData.links && Array.isArray(branchData.links)) {
-                        branchData.links.forEach(l => {
-                            if (l.source && l.target && l.rel) {
+                        // Populate Sources Dictionary for Citations
+                        if (n.chunks && n.chunks.length > 0) {
+                            let targetId = realMatch ? realMatch.id : n.id;
+                            let l1ParentName = "Documento";
+                            let currentP = n.id;
+                            let sP = 0;
+                            while (parentMap[currentP] && sP < 10) {
+                                sP++;
+                                let pId = parentMap[currentP];
+                                let mappedPId = aiToRealIdMap[pId] || pId;
+                                let pNode = appState.db.nodes.find(x => x.id === mappedPId);
+                                if (pNode && pNode.level === 1) { l1ParentName = pNode.label; break; }
+                                currentP = pId;
+                            }
+
+                            appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                            
+                            let currentId = n.id;
+                            let safety = 0;
+                            while (parentMap[currentId] && safety < 5) {
+                                safety++;
+                                let parentId = parentMap[currentId];
+                                let mappedParentId = aiToRealIdMap[parentId] || parentId;
+                                if (!appState.db.sourcesDict[mappedParentId]) appState.db.sourcesDict[mappedParentId] = [];
+                                appState.db.sourcesDict[mappedParentId].push(...n.chunks.map(c => ({ title: "Da sottomacchie", source: "Corpo della mappa", text: c })));
+                                currentId = parentId;
+                            }
+                        }
+                    });
+                }
+                
+                if (branchData.links && Array.isArray(branchData.links)) {
+                    branchData.links.forEach(l => {
+                        if (l.source && l.target && l.rel) {
+                            // Remap duplicate AI IDs back to real L1 IDs
+                            let finalSource = aiToRealIdMap[l.source] || l.source;
+                            let finalTarget = aiToRealIdMap[l.target] || l.target;
+                            
+                            if (finalSource !== finalTarget) {
+                                l.source = finalSource;
+                                l.target = finalTarget;
                                 appState.db.links.push(l);
                             }
-                        });
-                    }
-
-                    // Fallback di sicurezza: connetti i nodi orfani al genitore L1
-                    if (branchData.nodes && branchData.links) {
-                        const linkedTargetIds = new Set(branchData.links.map(l => l.target));
-                        branchData.nodes.forEach(n => {
-                            if (n.id !== l1Node.id && !linkedTargetIds.has(n.id)) {
-                                appState.db.links.push({ source: l1Node.id, target: n.id, rel: "approfondisce" });
-                            }
-                        });
-                    }
+                        }
+                    });
                 }
-            } catch (e) {
-                console.warn(`Errore durante la generazione del ramo ${l1Node.label}:`, e);
-                window.showToast(`Errore ramo "${l1Node.label}": il livello non è stato popolato. (Vedi console)`, "error");
             }
+        } catch (e) {
+            console.warn("Errore durante la generazione single-pass:", e);
+            window.showToast("Errore durante la generazione dell'albero.", "error");
         }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
@@ -1937,15 +1944,92 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
-        appState.db = salvageTruncatedJSON(cleanText);
+        let rawData = salvageTruncatedJSON(cleanText);
+        
+        // Normalizzazione e forzatura livelli
+        const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+        const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
+        
+        if (rawData.nodes) {
+            rawData.nodes.forEach(n => {
+                n.studyStatus = 'none';
+                
+                // 1. Se è un Hub manuale dell'utente -> Forza L1 (sempre)
+                // 2. Se l'IA ha proposto un Hub (L1) -> Permetti L1
+                // 3. Altrimenti (L2, L3, L4...) -> Forza L2 per pulizia KG
+                const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
+                const aiWantsHub = (parseInt(n.level) === 1);
+                
+                if (isManualHub || aiWantsHub) {
+                    n.level = 1;
+                } else {
+                    n.level = 2; 
+                }
+                
+                if (!n.desc) n.desc = n.content || "";
+                n.aiDesc = n.desc;
+            });
+
+            // Post-processing di salvataggio: se l'IA è stata testarda e ha fatto < 3 Hub, promuoviamo noi i nodi più connessi
+            let currentHubs = rawData.nodes.filter(n => n.level === 1);
+            if (currentHubs.length < 3 && rawData.nodes.length > 5) {
+                // Calcola il grado di connessione di ogni nodo
+                const degreeMap = {};
+                rawData.nodes.forEach(n => degreeMap[n.id] = 0);
+                (rawData.links || []).forEach(l => {
+                    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (degreeMap[sourceId] !== undefined) degreeMap[sourceId]++;
+                    if (degreeMap[targetId] !== undefined) degreeMap[targetId]++;
+                });
+
+                // Ordina i nodi L2 per grado di connessione decrescente
+                const candidates = rawData.nodes
+                    .filter(n => n.level === 2)
+                    .sort((a, b) => degreeMap[b.id] - degreeMap[a.id]);
+
+                // Promuovi i nodi migliori finché non abbiamo 3-4 Hub
+                let neededHubs = Math.max(3, Math.min(5, Math.floor(rawData.nodes.length / 4))) - currentHubs.length;
+                for (let i = 0; i < neededHubs && i < candidates.length; i++) {
+                    candidates[i].level = 1;
+                }
+            }
+
+            // Assegna group unico incrementale a ogni Hub L1
+            let groupIdx = 1;
+            rawData.nodes.filter(n => n.level === 1).forEach(hub => {
+                hub.group = groupIdx++;
+            });
+
+            // Assegna group ai nodi L2 basandosi sulle connessioni (BFS verso Hub più vicino)
+            const hubGroupMap = {};
+            rawData.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
+            const rawLinks = rawData.links || [];
+
+            rawData.nodes.filter(n => n.level === 2).forEach(node => {
+                // BFS per trovare l'Hub L1 più vicino
+                const visited = new Set([node.id]);
+                const queue = [node.id];
+                let foundGroup = null;
+                while (queue.length > 0 && !foundGroup) {
+                    const cur = queue.shift();
+                    if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
+                    rawLinks.forEach(l => {
+                        const s = typeof l.source === 'object' ? l.source.id : l.source;
+                        const t = typeof l.target === 'object' ? l.target.id : l.target;
+                        if (s === cur && !visited.has(t)) { visited.add(t); queue.push(t); }
+                        if (t === cur && !visited.has(s)) { visited.add(s); queue.push(s); }
+                    });
+                    if (visited.size > 50) break;
+                }
+                node.group = foundGroup || 1;
+            });
+        }
+
+        appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
-        appState.db.nodes.forEach(n => {
-            n.studyStatus = 'none';
-            if (!n.desc) n.desc = n.desc || n.content || "";
-            n.aiDesc = n.desc;
-        });
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
             if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
@@ -2051,6 +2135,10 @@ function initD3Visualization() {
         .scaleExtent([0.1, 5])
         .on("zoom", (event) => {
             g.attr("transform", event.transform);
+            // Raddoppiato lo spessore dell'outline bianca dei testi (richiesta utente)
+            const k = event.transform.k;
+            const strokeW = Math.max(1.2, (2.4 / k)); 
+            g.selectAll(".node-text").style("stroke-width", strokeW + "px");
         });
     svg.call(zoom);
 
@@ -2085,6 +2173,30 @@ function renderGraph() {
     });
 
     function getParentGroup(nodeId) {
+        const isKG = appState.extractionMode === 'kg';
+
+        if (isKG) {
+            // KG: cerca qualsiasi Hub L1 collegato (in qualsiasi direzione, BFS)
+            const visited = new Set();
+            const queue = [nodeId];
+            visited.add(nodeId);
+            while (queue.length > 0) {
+                const cur = queue.shift();
+                const curNode = nodes.find(x => x.id === cur);
+                if (curNode && curNode.level === 1) return curNode.group;
+
+                links.forEach(l => {
+                    const sId = typeof l.source === 'object' ? l.source.id : l.source;
+                    const tId = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (sId === cur && !visited.has(tId)) { visited.add(tId); queue.push(tId); }
+                    if (tId === cur && !visited.has(sId)) { visited.add(sId); queue.push(sId); }
+                });
+                if (visited.size > 50) break; // Sicurezza anti-loop
+            }
+            return 1; // Default se nessun Hub trovato
+        }
+
+        // Mind Map: risali la catena gerarchica (comportamento originale)
         let currentId = nodeId;
         let safeCounter = 0;
         while (safeCounter < 100) {
@@ -2143,6 +2255,45 @@ function renderGraph() {
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
+    // Pre-calcolo delle connessioni agli hub per la colorazione KG
+    if (appState.extractionMode === 'kg') {
+        const hubColors = {};
+        nodes.filter(n => n.level === 1).forEach(h => {
+            hubColors[h.id] = (appState.db.customColors && appState.db.customColors[h.group])
+                ? appState.db.customColors[h.group]
+                : (colorScale[h.group] || colorScale[1] || "#ef4444");
+        });
+
+        nodes.forEach(n => {
+            if (n.level > 1) {
+                const connectedTo = new Set();
+                links.forEach(l => {
+                    const source = typeof l.source === 'object' ? l.source : nodes.find(x => x.id === l.source);
+                    const target = typeof l.target === 'object' ? l.target : nodes.find(x => x.id === l.target);
+                    
+                    if (!source || !target) return;
+
+                    // Se connesso direttamente a un hub
+                    if (source.id === n.id && hubColors[target.id]) connectedTo.add(hubColors[target.id]);
+                    if (target.id === n.id && hubColors[source.id]) connectedTo.add(hubColors[source.id]);
+
+                    // Se connesso a un altro nodo che ha lo stesso group (ereditarietà colore)
+                    if (source.id === n.id && target.level > 1 && target.group === n.group) {
+                        const col = (appState.db.customColors && appState.db.customColors[target.group]) ? appState.db.customColors[target.group] : colorScale[target.group];
+                        if (col) connectedTo.add(col);
+                    }
+                    if (target.id === n.id && source.level > 1 && source.group === n.group) {
+                        const col = (appState.db.customColors && appState.db.customColors[source.group]) ? appState.db.customColors[source.group] : colorScale[source.group];
+                        if (col) connectedTo.add(col);
+                    }
+                });
+                n.hubColors = Array.from(connectedTo);
+            } else {
+                n.hubColors = [];
+            }
+        });
+    }
+
     const nodeSelection = g.selectAll(".node-group").data(nodes, d => d.id);
     const nodeEnter = nodeSelection.enter().append("g").attr("class", "node-group")
         .call(drag(simulation))
@@ -2153,9 +2304,12 @@ function renderGraph() {
         .on("touchmove", handleTouchMove);
 
     nodeEnter.append("circle").attr("class", "node-circle");
+    
+    // Contenitore per gli archi segmentati (solo KG)
+    nodeEnter.append("g").attr("class", "node-segments");
 
     nodeEnter.append("text").attr("class", "node-text")
-        .attr("dy", d => -(getNodeRadius(d) + 8))
+        .attr("text-anchor", "middle")
         .attr("fill", "#0f172a")
         .attr("font-size", d => {
             let baseSize = 8;
@@ -2168,16 +2322,17 @@ function renderGraph() {
 
     nodeEnter.append("foreignObject")
         .attr("class", "node-icons-fo pointer-events-none")
-        .attr("width", 30)
-        .attr("height", 14)
-        .attr("x", -15)
-        .attr("y", -7);
+        .attr("width", 100)
+        .attr("height", 20)
+        .attr("x", -50)
+        .attr("y", 0);
 
     const nodeMerge = nodeEnter.merge(nodeSelection);
 
     nodeMerge.select("circle.node-circle")
         .attr("r", d => getNodeRadius(d))
         .attr("fill", d => {
+            if (appState.extractionMode === 'kg' && d.level > 1) return "#e2e8f0"; // Grigio Slate-200 per KG (migliore visibilità)
             let baseColor;
             if (d.level === 0) {
                 baseColor = (appState.db.customColors && appState.db.customColors[0])
@@ -2193,6 +2348,10 @@ function renderGraph() {
             return hsl.toString();
         })
         .attr("stroke", d => {
+            if (appState.extractionMode === 'kg') {
+                if (d.level === 1) return "none"; // Super Hub senza outline
+                if (d.level > 1) return "none"; // Gestito dai segmenti
+            }
             if (d.studyStatus === 'done') return '#22c55e';
             if (d.studyStatus === 'review') return '#f59e0b';
             if (d.studyStatus === 'todo') return '#ef4444';
@@ -2208,9 +2367,46 @@ function renderGraph() {
                 : (colorScale[d.group] || colorScale[d.level !== undefined ? d.level : 1] || "#333");
         })
         .attr("stroke-width", d => {
+            if (appState.extractionMode === 'kg') return 0; // Tutto gestito via fill o segmenti
             if (d.studyStatus && d.studyStatus !== 'none') return d.level === 0 ? 6 : 4;
-            return 0;
+            return 2; // Outline base visibile
         });
+
+    // Gestione segmenti colorati per KG
+    nodeMerge.select(".node-segments").each(function(d) {
+        const container = d3.select(this);
+        container.selectAll("*").remove();
+        
+        if (appState.extractionMode === 'kg' && d.level > 1) {
+            const r = getNodeRadius(d);
+            const strokeW = 4; // Spessore bordo segmentato più evidente
+            
+            if (d.hubColors && d.hubColors.length > 0) {
+                const colors = d.hubColors;
+                const arcCount = colors.length;
+                const angleStep = (2 * Math.PI) / arcCount;
+
+                colors.forEach((color, i) => {
+                    const arc = d3.arc()
+                        .innerRadius(r) // Inizio dal raggio del cerchio
+                        .outerRadius(r + strokeW) // Spessore verso l'esterno
+                        .startAngle(i * angleStep)
+                        .endAngle((i + 1) * angleStep);
+                    
+                    container.append("path")
+                        .attr("d", arc)
+                        .attr("fill", color);
+                });
+            } else {
+                // Se non collegato a hub, bordo grigio semplice per non lasciare il nodo nudo
+                container.append("circle")
+                    .attr("r", r + 1.5)
+                    .attr("fill", "none")
+                    .attr("stroke", "#cbd5e1")
+                    .attr("stroke-width", 2);
+            }
+        }
+    });
 
     nodeMerge.select("text.node-text")
         .each(function (d) {
@@ -2221,20 +2417,38 @@ function renderGraph() {
             else if (d.level === 3 && labelStr.length > 25) labelStr = labelStr.substring(0, 25) + "...";
 
             let lines = getLabelLines(labelStr);
-            if (lines.length > 1) {
-                textEl.text('');
-                lines.forEach((line, i) => {
-                    textEl.append('tspan')
-                        .attr('x', 0)
-                        .attr('dy', i === 0 ? `-${(lines.length - 1) * 1.1}em` : '1.1em')
-                        .text(line);
-                });
-            } else {
-                textEl.text(labelStr);
-            }
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            
+            textEl.text('');
+            lines.forEach((line, i) => {
+                // Center logic: 
+                // 1 line: dy=0.35em
+                // 2 lines: dy=-0.2em, then 1.1em
+                // With icons, shift up by ~0.5em
+                let firstDy = 0.35 - ((lines.length - 1) * 0.55);
+                if (hasIcons) firstDy -= 0.6;
+
+                textEl.append('tspan')
+                    .attr('x', 0)
+                    .attr('dy', i === 0 ? `${firstDy}em` : '1.1em')
+                    .text(line);
+            });
         });
 
     nodeMerge.select("foreignObject.node-icons-fo")
+        .attr("y", d => {
+            const labelStr = cleanLabel(d.label);
+            const lines = getLabelLines(labelStr);
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            if (!hasIcons) return 0;
+
+            // Place below the text lines
+            const baseSize = (d.level === 0 ? 14 : (d.level === 1 ? 12 : (d.level === 2 ? 10 : 9)));
+            const fontSize = baseSize * globalFontScale;
+            return (lines.length * (fontSize * 0.6)) + 4;
+        })
         .html(d => {
             let icons = [];
             const outlineClass = "node-icon-outline";
@@ -2374,46 +2588,34 @@ window.changeFontScale = function (dir) {
     }
 };
 
-window.exportSnapshot = function () {
-    const svgNode = document.querySelector("#d3-container svg");
-    if (!svgNode) return;
+window.exportSnapshot = async function () {
+    try {
+        window.showToast("Cattura immagine pulita in corso...", "info");
+        
+        // Attiva modalità snapshot (nasconde UI)
+        document.body.classList.add('is-snapshotting');
+        
+        // Attendi un frame per il reflow del layout
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-    const serializer = new XMLSerializer();
-    let source = serializer.serializeToString(svgNode);
+        const dataUrl = await window.electronAPI.capturePage();
+        
+        // Ripristina UI
+        document.body.classList.remove('is-snapshotting');
 
-    // Fix namespace
-    if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
-        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-    }
-    if (!source.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
-        source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
-    }
-
-    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
-
-    const img = new Image();
-    img.onload = function () {
-        const canvas = document.createElement("canvas");
-        canvas.width = svgNode.getBoundingClientRect().width * 2;
-        canvas.height = svgNode.getBoundingClientRect().height * 2;
-        const ctx = canvas.getContext("2d");
-
-        // Opzionale: disegna lo sfondo
-        ctx.fillStyle = document.body.classList.contains('font-dyslexic') ?
-            (document.body.classList.contains('a11y-invert') ? '#000' : '#f0f4ff') : '#fafbff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.scale(2, 2);
-        ctx.drawImage(img, 0, 0);
+        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
 
         const a = document.createElement("a");
-        a.download = "MappAI_Snapshot.png";
-        a.href = canvas.toDataURL("image/png");
+        a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
+        a.href = dataUrl;
         a.click();
-
-        window.showToast("Snapshot salvato con successo!", "success");
-    };
-    img.src = url;
+        
+        window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+    } catch (err) {
+        document.body.classList.remove('is-snapshotting');
+        console.error("Errore Snapshot:", err);
+        window.showToast("Errore durante lo snapshot: " + err.message, "error");
+    }
 };
 
 window.changeDistance = function (dir) {
@@ -2625,24 +2827,65 @@ function handleBackgroundClick() {
 
 let loadingInterval = null;
 let loadingSeconds = 0;
-const sotaStatusMessages = [
-    "MappAI sta leggendo i tuoi documenti...",
-    "Analisi semantica profonda...",
-    "Estrazione concetti chiave...",
-    "Costruzione relazioni topologiche...",
-    "Ottimizzazione del grafo...",
-    "Mappatura nessi logici complessi...",
-    "Rifinitura descrizioni enciclopediche...",
-    "Ancora un attimo, sto collegando i puntini..."
-];
+window.loadingMessagesConfig = {
+    default: [
+        "MappAI sta leggendo i tuoi documenti...",
+        "Analisi semantica profonda...",
+        "Estrazione concetti chiave...",
+        "Costruzione relazioni topologiche...",
+        "Ottimizzazione del grafo...",
+        "Mappatura nessi logici complessi...",
+        "Rifinitura descrizioni enciclopediche...",
+        "Ancora un attimo, sto collegando i puntini..."
+    ],
+    mindmap: [
+        "MappAI sta leggendo i tuoi documenti...",
+        "Individuazione dei concetti centrali...",
+        "Strutturazione gerarchica delle idee...",
+        "Diramazione dei sotto-argomenti...",
+        "Sintesi dei concetti chiave...",
+        "Costruzione della mappa mentale...",
+        "Ancora un attimo, sto collegando i rami..."
+    ],
+    kg: [
+        "MappAI sta leggendo i tuoi documenti...",
+        "Estrazione profonda delle entità...",
+        "Analisi delle relazioni logiche...",
+        "Costruzione della rete semantica...",
+        "Risoluzione delle entità duplicate...",
+        "Ottimizzazione del Knowledge Graph...",
+        "Ancora un attimo, sto collegando i nodi..."
+    ],
+    quiz: [
+        "Analisi del materiale di studio...",
+        "Selezione dei concetti da testare...",
+        "Formulazione delle domande...",
+        "Generazione dei distrattori logici...",
+        "Verifica delle risposte corrette...",
+        "Impaginazione del quiz interattivo...",
+        "Ancora un attimo, preparo la sfida..."
+    ],
+    flashcard: [
+        "Analisi del materiale di studio...",
+        "Identificazione delle nozioni chiave...",
+        "Sintesi per il fronte della carta...",
+        "Elaborazione della spiegazione estesa...",
+        "Costruzione del mazzo di flashcard...",
+        "Impaginazione interattiva...",
+        "Ancora un attimo, le carte sono quasi pronte..."
+    ]
+};
 
-window.showLoadingOverlay = function (show, text) {
+window.currentLoadingMode = 'default';
+
+window.showLoadingOverlay = function (show, text, mode = 'default') {
     const el = document.getElementById('loading-overlay');
     const desc = document.getElementById('loading-desc');
     const title = document.getElementById('loading-title');
     const a11yBtn = document.getElementById('a11y-panel-toggle');
 
     if (show) {
+        window.currentLoadingMode = mode;
         el.classList.add('visible');
         if (a11yBtn) a11yBtn.classList.add('hidden');
         if (text) desc.textContent = text;
@@ -2653,8 +2896,9 @@ window.showLoadingOverlay = function (show, text) {
             loadingInterval = setInterval(() => {
                 loadingSeconds++;
                 if (loadingSeconds % 4 === 0) {
-                    msgIdx = (msgIdx + 1) % sotaStatusMessages.length;
-                    desc.textContent = sotaStatusMessages[msgIdx];
+                    const messages = window.loadingMessagesConfig[window.currentLoadingMode] || window.loadingMessagesConfig['default'];
+                    msgIdx = (msgIdx + 1) % messages.length;
+                    desc.textContent = messages[msgIdx];
                 }
                 title.textContent = `MappAI sta lavorando... (${loadingSeconds}s)`;
             }, 1000);
@@ -2863,10 +3107,10 @@ window.handleNodeClick = function (event, d) {
 
                     <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">${cleanLabel(d.content || d.desc) || "Nessuna descrizione."}</div>
                     
-                    <!-- Multiple Links in Details -->
-                    ${(d.urls && d.urls.length > 0) ? `
+                    <!-- Links in Details -->
+                    ${(d.urls && d.urls.length > 0) || d.url ? `
                         <div class="space-y-2 mb-6">
-                            ${d.urls.map(u => {
+                            ${(d.urls || (d.url ? [d.url] : [])).map(u => {
             const isLocal = u.startsWith('file://');
             const displayUrl = u.length > 40 ? u.substring(0, 40) + "..." : u;
             return `
@@ -3144,14 +3388,8 @@ window.openSourceModal = function (nodeId) {
 window.openCustomLink = function (url) {
     if (!url) return;
     try {
-        if (typeof window.require !== 'undefined') {
-            const { shell } = window.require('electron');
-            if (url.startsWith('file://')) {
-                let path = url.replace('file://', '');
-                shell.openPath(path);
-            } else {
-                shell.openExternal(url);
-            }
+        if (window.electronAPI && window.electronAPI.openExternal) {
+            window.electronAPI.openExternal(url);
         } else {
             window.open(url, '_blank');
         }
@@ -3964,10 +4202,18 @@ window.showContextMenu = function (e, type, data) {
                     `;
         }
     } else if (type === 'bg') {
-        menu.innerHTML = `
-                    <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo Isolato</div>
-                    <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
-                `;
+        if (appState.extractionMode === 'kg') {
+            menu.innerHTML = `
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Super-Hub Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+            `;
+        } else {
+            menu.innerHTML = `
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+            `;
+        }
     }
 
     window.safeCreateIcons();
@@ -4009,11 +4255,43 @@ window.ctxAction = function (action) {
     }
     else if (action === 'edit') { window.openEditModal(data); }
     else if (action === 'add_child') {
-        window.showPrompt("Nome del nuovo nodo figlio:", "", (lbl) => {
+        if (appState.extractionMode === 'kg') {
+            // In KG mode, add_child becomes a choice or defaults to node
+            window.showPrompt("Nome del nuovo nodo figlio:", "", (lbl) => {
+                if (lbl) {
+                    let newId = 'NODE_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                    appState.db.nodes.push({ id: newId, label: lbl, content: "", desc: "", level: 2, studyStatus: 'none', chunks: [], x: data.x + 30, y: data.y + 30 });
+                    appState.db.links.push({ source: data.id, target: newId, rel: "collegato_a" });
+                    window.updateDegreeStats(); renderGraph();
+                }
+            });
+        } else {
+            window.showPrompt("Nome del nuovo nodo figlio:", "", (lbl) => {
+                if (lbl) {
+                    let newId = 'NODE_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                    appState.db.nodes.push({ id: newId, label: lbl, content: "", desc: "", level: (data.level || 0) + 1, studyStatus: 'none', chunks: [], x: data.x + 30, y: data.y + 30 });
+                    appState.db.links.push({ source: data.id, target: newId, rel: "collegato_a" });
+                    window.updateDegreeStats(); renderGraph();
+                }
+            });
+        }
+    }
+    else if (action === 'add_isolated_hub') {
+        window.showPrompt("Nome del nuovo Super-Hub:", "", (lbl) => {
+            if (lbl) {
+                let newId = 'HUB_' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                // Troviamo il prossimo gruppo libero
+                const nextGroup = (Math.max(...appState.db.nodes.map(n => n.group || 0)) || 0) + 1;
+                appState.db.nodes.push({ id: newId, label: lbl, content: lbl, desc: "Super-Hub manuale", level: 1, group: nextGroup, studyStatus: 'none', chunks: [] });
+                window.updateDegreeStats(); renderGraph();
+            }
+        });
+    }
+    else if (action === 'add_isolated_node') {
+        window.showPrompt("Nome del nuovo nodo isolato:", "", (lbl) => {
             if (lbl) {
                 let newId = 'NODE_' + Math.random().toString(36).substr(2, 6).toUpperCase();
-                appState.db.nodes.push({ id: newId, label: lbl, content: "", desc: "", level: (data.level || 0) + 1, studyStatus: 'none', chunks: [], x: data.x + 30, y: data.y + 30 });
-                appState.db.links.push({ source: data.id, target: newId, rel: "collegato_a" });
+                appState.db.nodes.push({ id: newId, label: lbl, content: "", desc: "", level: 2, studyStatus: 'none', chunks: [] });
                 window.updateDegreeStats(); renderGraph();
             }
         });
@@ -4025,14 +4303,16 @@ window.ctxAction = function (action) {
         pathfinderActive = false;
     }
     else if (action === 'generate_flashcard') {
-        window.generateFlashcardForNode(data);
+        window.openStudyConfigModal('flashcard', data, 'node');
+    }
+    else if (action === 'generate_flashcard_branch') {
+        window.openStudyConfigModal('flashcard', data, 'branch');
     }
     else if (action === 'test_flashcard') {
-        if (!data.flashcardTest) {
-            window.showToast("Nessuna flashcard presente. Generala prima!", "error");
-            return;
-        }
-        window.openQuizModal(data);
+        window.openStudyConfigModal('quiz', data, 'node');
+    }
+    else if (action === 'test_flashcard_branch') {
+        window.openStudyConfigModal('quiz', data, 'branch');
     }
     else if (action === 'delete_node') {
         window.showConfirm("Elimina Nodo", "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?", () => {
@@ -4132,6 +4412,13 @@ window.openEditModal = function (nodeData) {
         window.safeCreateIcons();
     }, 10);
 }
+
+window.setEditColor = function (color) {
+    const colorInput = document.getElementById('edit-n-color');
+    if (colorInput) {
+        colorInput.value = color;
+    }
+};
 
 window.renderEditLinksList = function () {
     const container = document.getElementById('edit-n-urls-list');
@@ -4267,6 +4554,7 @@ window.saveEditNode = function () {
     window.closeEditModal();
     renderGraph();
     window.updateUserNotesSidebar();
+    StorageManager.saveCurrentProject();
     if (currentNode && currentNode.id === editTarget.id) window.handleNodeClick({ stopPropagation: () => { } }, currentNode);
 }
 
@@ -4275,7 +4563,7 @@ window.updateUserNotesSidebar = function () {
     const hint = document.getElementById('empty-notes-hint');
     if (!container) return;
 
-    const customNodes = appState.db.nodes.filter(n => n.hasCustomText || n.hasCustomImage);
+    const customNodes = appState.db.nodes.filter(n => n.hasCustomText || n.hasCustomImage || (n.urls && n.urls.length > 0) || n.url);
     if (customNodes.length === 0) {
         if (hint) hint.style.display = 'block';
         Array.from(container.children).forEach(c => { if (c.id !== 'empty-notes-hint') c.remove(); });
@@ -4295,6 +4583,19 @@ window.updateUserNotesSidebar = function () {
         }
         if (n.image) {
             html += `<img src="${n.image}" class="w-full h-20 object-cover rounded mt-2 border border-indigo-200">`;
+        }
+        const nodeUrls = n.urls || (n.url ? [n.url] : []);
+        if (nodeUrls.length > 0) {
+            html += `<div class="mt-2 space-y-1">`;
+            nodeUrls.forEach(u => {
+                const isLocal = u.startsWith('file://');
+                const displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
+                html += `
+                    <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
+                        <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
+                    </span>`;
+            });
+            html += `</div>`;
         }
         html += `</div>`;
     });
@@ -4318,7 +4619,7 @@ window.generateFlashcardForNode = async function (node, silent = false) {
     if (!apiKey) {
         if (!silent) window.showToast("Nessuna API Key presente per generare le flashcard.", "error"); return;
     }
-    if (!silent) window.showLoadingOverlay(true, "Generazione Flashcard in corso...");
+    if (!silent) window.showLoadingOverlay(true, "Generazione Flashcard in corso...", "flashcard");
 
     const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
         nodeLabel: node.label,
@@ -4447,7 +4748,7 @@ window.generateBranchFlashcards = async function (node) {
     let nodes = [node, ...window.getDescendants(node.id)];
     if (nodes.length > 10) nodes = nodes.slice(0, 10);
 
-    window.showLoadingOverlay(true, `Generazione per Ramo in corso (${nodes.length} nodi)...`);
+    window.showLoadingOverlay(true, `Generazione per Ramo in corso (${nodes.length} nodi)...`, "flashcard");
     let successCount = 0;
     for (const n of nodes) {
         try {
@@ -5545,6 +5846,16 @@ window.changeLanguage = function (lang) {
         if (el) el.innerText = els[id];
     }
 
+    // Process data-i18n attributes automatically
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.innerHTML = t[key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (t[key]) el.setAttribute('placeholder', t[key]);
+    });
+
     // --- 1b. LOCALIZZAZIONE PRICING (Inner HTML) ---
     const pricingFree = document.getElementById('pricing-free');
     const pricingPaid = document.getElementById('pricing-paid');
@@ -5705,7 +6016,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const modelsStorageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
     const selectionStorageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const defaultModel = isInfomaniak ? 'mistral24b' : 'gemini-2.0-flash';
+    const defaultModel = isInfomaniak ? 'google/gemma-4-31B-it' : 'gemini-2.0-flash';
 
     const savedModelsStr = localStorage.getItem(modelsStorageKey);
     const selectEl = document.getElementById('model-select');
@@ -5728,7 +6039,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.globalQuizQueue = [];
 
 let pendingTopic = null;
-window.studyConfig = { mode: 'quiz', quantity: 15, timer: false };
+window.studyConfig = { mode: 'quiz', quantity: 15, timer: false, target: null, scope: 'all' };
 
 window.generateGlobalFlashcards = function () {
     window.openStudyConfigModal('flashcard');
@@ -5738,12 +6049,20 @@ window.generateGlobalQuiz = function () {
     window.openStudyConfigModal('quiz');
 };
 
-window.openStudyConfigModal = function (mode) {
+window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') {
     window.studyConfig.mode = mode;
+    window.studyConfig.target = targetNode;
+    window.studyConfig.scope = scope;
+
     window.selectStudyQuantity(15);
     document.getElementById('study-timer-toggle').checked = false;
 
-    document.getElementById('study-config-title').innerText = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
+    let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
+    if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
+    else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
+    
+    document.getElementById('study-config-title').innerText = title;
+    
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
@@ -5784,16 +6103,31 @@ window.startStudySession = async function () {
         window.studyConfig.quizType = document.getElementById('study-quiz-type').value;
     }
 
-    const allNodesText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
-    if (!allNodesText || allNodesText.trim() === '') {
-        window.showToast("Nessun contenuto nella mappa.", "error");
+    let studyText = "";
+    let targetLabel = "Tutta la Mappa";
+
+    if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
+        const n = window.studyConfig.target;
+        studyText = `${n.label}: ${n.content || n.desc}`;
+        targetLabel = n.label;
+    } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
+        const root = window.studyConfig.target;
+        const branchNodes = [root, ...window.getDescendants(root.id)];
+        studyText = branchNodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+        targetLabel = `Ramo ${root.label}`;
+    } else {
+        studyText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+    }
+
+    if (!studyText || studyText.trim() === '') {
+        window.showToast("Nessun contenuto trovato per lo studio.", "error");
         return;
     }
 
     const apiKey = window.getSystemKey();
     if (!apiKey) { window.showToast("Inserisci API Key nelle impostazioni.", "error"); return; }
 
-    window.showLoadingOverlay(true, "Generazione materiale di studio in corso...");
+    window.showLoadingOverlay(true, "Generazione materiale di studio in corso...", window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
 
     try {
         let schema, prompt;
@@ -5801,7 +6135,7 @@ window.startStudySession = async function () {
             prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", {
                 quantity: window.studyConfig.quantity,
                 quizType: window.studyConfig.quizType,
-                nodeLabel: "Tutta la Mappa"
+                nodeLabel: targetLabel
             });
             schema = {
                 type: "ARRAY",
@@ -5819,7 +6153,7 @@ window.startStudySession = async function () {
         } else {
             prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
                 quantity: window.studyConfig.quantity,
-                nodeLabel: "Tutta la Mappa"
+                nodeLabel: targetLabel
             });
             schema = {
                 type: "ARRAY",
@@ -5832,7 +6166,7 @@ window.startStudySession = async function () {
         }
 
         const response = await window.fetchModelAPI({
-            contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + allNodesText }] }],
+            contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + studyText }] }],
             generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
         }, apiKey);
 

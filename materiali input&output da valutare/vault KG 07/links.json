@@ -1,0 +1,77 @@
+[
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_RADICI_2",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_TRONCO_2",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STRUTTURA_CHIOMA_2",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_CHIOMA_2",
+    "target": "FOTOSINTESI_CENTRALE_3",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_CENTRALE_3",
+    "target": "FOTOSINTESI_INGREDIENTI_4",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_CENTRALE_3",
+    "target": "FOTOSINTESI_PRODOTTI_4",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_CENTRALE_3",
+    "target": "FOTOSINTESI_CLOROFILLA_4",
+    "isCross": false
+  },
+  {
+    "source": "FOTOSINTESI_CENTRALE_3",
+    "target": "FOTOSINTESI_STOMI_4",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "CIRCOLAZIONE_LINFA_3",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "LEGNO_STRUTTURA_3",
+    "isCross": false
+  },
+  {
+    "source": "LEGNO_STRUTTURA_3",
+    "target": "LEGNO_ANELLI_4",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_TRONCO_2",
+    "target": "TRONCO_STRATI_4",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "STAGIONI_CICLO_3",
+    "isCross": false
+  },
+  {
+    "source": "SISTEMA_ALBERO_1",
+    "target": "AMBIENTE_BENEFICI_3",
+    "isCross": false
+  },
+  {
+    "source": "STRUTTURA_RADICI_2",
+    "target": "CIRCOLAZIONE_LINFA_3",
+    "isCross": false
+  }
+]

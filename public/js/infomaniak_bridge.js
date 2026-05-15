@@ -29,13 +29,12 @@ window.InfomaniakBridge = {
         }
 
         // 3. Build OpenAI payload
+        // 3. Build OpenAI payload
         const openAIPayload = {
             model: modelName,
             messages: messages,
-            temperature: geminiPayload.generationConfig?.temperature || 0.7,
-            top_p: geminiPayload.generationConfig?.topP || 1.0,
-            max_completion_tokens: geminiPayload.generationConfig?.maxOutputTokens || 32768,
-            max_tokens: geminiPayload.generationConfig?.maxOutputTokens || 32768,
+            temperature: 0.3, // Lower temperature for more consistent JSON
+            max_tokens: 4000,
         };
 
         // 4. Handle JSON enforcement

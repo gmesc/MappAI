@@ -1,7 +1,6 @@
-    <style>
-    /* ==========================================
-           MAPP.AI – Design System: Luminous & Clean
-           ========================================== */
+/* ==========================================
+       MAPP.AI – Design System: Luminous & Clean
+       ========================================== */
 
     /* OpenDyslexic Font */
     @font-face {
@@ -569,7 +568,9 @@
         pointer-events: none;
         text-anchor: middle;
         font-weight: bold;
-        text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+        stroke: white;
+        stroke-linejoin: round;
+        paint-order: stroke fill;
     }
 
     .link {
@@ -706,6 +707,7 @@
     .modal-scroll {
         scrollbar-width: thin;
         scrollbar-color: #c7d2fe transparent;
+        scrollbar-gutter: stable;
     }
 
     /* ==========================================
@@ -1005,7 +1007,33 @@
         .glass-card {
             margin: 12px;
             padding: 20px !important;
-        }
+    /* ==========================================
+       12. SNAPSHOT MODE (Clean capture)
+       ========================================== */
+    body.is-snapshotting #sidebar,
+    body.is-snapshotting #projects-bar,
+    body.is-snapshotting #map-control-card,
+    body.is-snapshotting .floating-actions-container,
+    body.is-snapshotting #floating-actions-menu,
+    body.is-snapshotting #floating-actions-toggle,
+    body.is-snapshotting #mode-hint,
+    body.is-snapshotting .a11y-panel,
+    body.is-snapshotting #a11y-panel-toggle,
+    body.is-snapshotting #insegnai-drawer,
+    body.is-snapshotting #toast-container,
+    body.is-snapshotting .modal {
+        display: none !important;
     }
 
-    </style>
+    body.is-snapshotting #main-content {
+        width: 100vw !important;
+        flex: 1 !important;
+        height: 100vh !important;
+    }
+
+    body.is-snapshotting *,
+    body.is-snapshotting *::before,
+    body.is-snapshotting *::after {
+        transition: none !important;
+        animation: none !important;
+    }
