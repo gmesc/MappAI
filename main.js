@@ -312,6 +312,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
             userProfile: mapData.userProfile,
+            customColors: mapData.customColors || {},
             lastUpdated: new Date().toISOString()
         };
         const indexYaml = Object.entries(indexData).map(([k,v]) => {
@@ -328,11 +329,14 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         }));
         fs.writeFileSync(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2), 'utf-8');
 
-        // 3. Save Nodes & Allegati directory
+        // 3. Save Nodes & Allegati directory (Updated)
         const nodesDir = path.join(folderPath, 'Nodi');
         const allegatiDir = path.join(folderPath, 'Allegati');
         if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
         if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
+
+        // Collect all links for the summary file
+        const globalLinks = [];
 
         // 4. Save each node as a Markdown file
         (mapData.nodes || []).forEach(node => {
@@ -345,27 +349,64 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             frontmatter += `level: ${node.level}\n`;
             frontmatter += `group: ${node.group || 0}\n`;
             if (node.parent) frontmatter += `parent: "${node.parent}"\n`;
+            if (node.iconVisibility) frontmatter += `iconVisibility: ${JSON.stringify(node.iconVisibility)}\n`;
+            if (node.hasCustomText) frontmatter += `hasCustomText: true\n`;
+            if (node.hasCustomImage) frontmatter += `hasCustomImage: true\n`;
+            if (node.x !== undefined) frontmatter += `x: ${node.x}\n`;
+            if (node.y !== undefined) frontmatter += `y: ${node.y}\n`;
+            if (node.savedX !== undefined) frontmatter += `savedX: ${node.savedX}\n`;
+            if (node.savedY !== undefined) frontmatter += `savedY: ${node.savedY}\n`;
             
+            // Handle Links Summary
+            const nodeUrls = node.urls || (node.url ? [node.url] : []);
+            nodeUrls.forEach(u => {
+                if (u) globalLinks.push(`- [${node.label}] (${node.id}): ${u}`);
+            });
+            if (nodeUrls.length > 0) frontmatter += `urls: ${JSON.stringify(nodeUrls)}\n`;
+
             // Handle Images
             const nodeImages = node.images || (node.image ? [node.image] : []);
             const vaultImageRefs = [];
             
             nodeImages.forEach((img, idx) => {
+                if (!img) return;
+                
                 if (img.startsWith('http')) {
-                    vaultImageRefs.push(img); // Keep web URLs
-                } else if (fs.existsSync(img)) {
-                    // Local file: copy to Allegati
-                    const ext = path.extname(img) || '.jpg';
-                    const newFileName = `${node.id}_${idx}${ext}`;
-                    const destPath = path.join(allegatiDir, newFileName);
+                    vaultImageRefs.push(img); 
+                } else if (img.startsWith('data:image')) {
+                    // Handle Base64 Data URL
                     try {
-                        fs.copyFileSync(img, destPath);
+                        const parts = img.split(';base64,');
+                        const mime = parts[0].split(':')[1];
+                        const ext = '.' + (mime.split('/')[1] || 'jpg');
+                        const base64Data = parts[1];
+                        const buffer = Buffer.from(base64Data, 'base64');
+                        
+                        const newFileName = `${node.id}_up_${idx}${ext}`;
+                        const destPath = path.join(allegatiDir, newFileName);
+                        fs.writeFileSync(destPath, buffer);
                         vaultImageRefs.push(`../Allegati/${newFileName}`);
                     } catch(e) {
-                        vaultImageRefs.push(img); // Fallback to original path if copy fails
+                        vaultImageRefs.push(img);
                     }
                 } else {
-                    vaultImageRefs.push(img);
+                    // Local file handling
+                    let cleanPath = img.replace('file://', '');
+                    try { cleanPath = decodeURIComponent(cleanPath); } catch(e) {}
+                    
+                    if (fs.existsSync(cleanPath)) {
+                        const ext = path.extname(cleanPath) || '.jpg';
+                        const newFileName = `${node.id}_${idx}${ext}`;
+                        const destPath = path.join(allegatiDir, newFileName);
+                        try {
+                            fs.copyFileSync(cleanPath, destPath);
+                            vaultImageRefs.push(`../Allegati/${newFileName}`);
+                        } catch(e) {
+                            vaultImageRefs.push(img);
+                        }
+                    } else {
+                        vaultImageRefs.push(img);
+                    }
                 }
             });
 
@@ -395,12 +436,44 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.writeFileSync(path.join(nodesDir, fileName), frontmatter + content, 'utf-8');
         });
         
-        // 5. Save Tutor Chat State
+        // 5. Save Global Links Summary
+        const summaryHeader = `INDICE FONTI E LINK - ${mapData.rootNodeLabel}\n`;
+        const summaryTxt = summaryHeader + "=".repeat(summaryHeader.length) + "\n\n" + 
+                          (globalLinks.length > 0 ? globalLinks.join('\n') : "Nessun link esterno trovato.");
+        fs.writeFileSync(path.join(folderPath, 'fonti_e_link.txt'), summaryTxt, 'utf-8');
+
+        // 6. Save Tutor Chat State
         if (mapData.tutorState) {
             fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
         }
 
-        return { success: true, path: folderPath };
+        // 7. Return upgrades for image paths (Base64 -> Local File)
+        const upgrades = (mapData.nodes || []).map(node => {
+            const nodeImages = node.images || (node.image ? [node.image] : []);
+            const absoluteVaultPaths = [];
+            
+            nodeImages.forEach((img, idx) => {
+                if (!img || img.startsWith('http')) {
+                    absoluteVaultPaths.push(img);
+                } else if (img.startsWith('data:image')) {
+                    const parts = img.split(';base64,');
+                    const mime = parts[0].split(':')[1];
+                    const ext = '.' + (mime.split('/')[1] || 'jpg');
+                    const newFileName = `${node.id}_up_${idx}${ext}`;
+                    absoluteVaultPaths.push(path.join(allegatiDir, newFileName));
+                } else {
+                    let cleanPath = img.replace('file://', '');
+                    try { cleanPath = decodeURIComponent(cleanPath); } catch(e) {}
+                    const ext = path.extname(cleanPath) || '.jpg';
+                    const newFileName = `${node.id}_${idx}${ext}`;
+                    absoluteVaultPaths.push(path.join(allegatiDir, newFileName));
+                }
+            });
+
+            return { id: node.id, images: absoluteVaultPaths };
+        });
+
+        return { success: true, path: folderPath, upgrades: upgrades };
     } catch (err) {
         return { success: false, error: err.message };
     }
@@ -425,6 +498,9 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
                 if (line.startsWith('userProfile:')) {
                     try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
+                }
+                if (line.startsWith('customColors:')) {
+                    try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
                 }
             });
         }
@@ -465,6 +541,15 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                         if (k === 'images') {
                             try { node.images = JSON.parse(v); } catch(e) {}
                         }
+                        if (k === 'iconVisibility') {
+                            try { node.iconVisibility = JSON.parse(v); } catch(e) {}
+                        }
+                        if (k === 'hasCustomText') node.hasCustomText = (cleanV === 'true');
+                        if (k === 'hasCustomImage') node.hasCustomImage = (cleanV === 'true');
+                        if (k === 'x') { node.x = parseFloat(cleanV); node.fx = node.x; }
+                        if (k === 'y') { node.y = parseFloat(cleanV); node.fy = node.y; }
+                        if (k === 'savedX') node.savedX = parseFloat(cleanV);
+                        if (k === 'savedY') node.savedY = parseFloat(cleanV);
                     });
 
                     // Remove embedded images from description text since they are in node.images

@@ -1589,10 +1589,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const isKG = appState.extractionMode === 'kg';
         const rootId = "ROOT";
         
+        window.resetVaultState();
+
         appState.db = {
             nodes: isKG ? [] : [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
             links: [],
-            sourcesDict: {}
+            sourcesDict: {},
+            customColors: {}
         };
 
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi introduttiva dell'argomento principale...`);
@@ -1905,6 +1908,7 @@ function salvageTruncatedJSON(text) {
 }
 
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
+    window.resetVaultState();
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
 
     let userProfileStr = '';
@@ -2632,32 +2636,56 @@ window.toggleLayout = function () {
     if (!simulation) return;
     const isMindmap = appState.extractionMode === 'mindmap';
     const btn = document.getElementById('card-btn-layout');
-    const span = btn ? btn.querySelector('span') : null;
+    const span = document.getElementById('layout-label-text');
+    const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
 
-    if (isMindmap) {
-        appState.layoutMode = appState.layoutMode === 'default' ? 'radial' : 'default';
-    } else {
-        if (appState.layoutMode === 'default') appState.layoutMode = 'separated';
-        else if (appState.layoutMode === 'separated') appState.layoutMode = 'orbit';
+    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal)
+    if (appState.layoutMode === 'default') {
+        appState.layoutMode = 'orbit';
+    } else if (appState.layoutMode === 'orbit') {
+        appState.layoutMode = isMindmap ? 'radial' : 'separated';
+    } else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
+        if (hasSnapshot) appState.layoutMode = 'personal';
         else appState.layoutMode = 'default';
+    } else if (appState.layoutMode === 'personal') {
+        appState.layoutMode = 'default';
+    } else {
+        appState.layoutMode = 'default';
+    }
+
+    // Applica logic layout
+    if (appState.layoutMode === 'personal') {
+        appState.db.nodes.forEach(n => {
+            if (n.savedX !== undefined && n.savedY !== undefined) {
+                n.x = n.savedX; n.y = n.savedY;
+                n.fx = n.savedX; n.fy = n.savedY;
+                n.pinned = true;
+            }
+        });
+        window.showToast("Layout Personale Ripristinato", "success");
     }
 
     if (btn) {
         if (appState.layoutMode !== 'default') {
-            btn.classList.replace('bg-slate-100', 'bg-indigo-100');
-            btn.classList.replace('text-slate-600', 'text-indigo-600');
+            btn.classList.add('bg-indigo-100', 'text-indigo-600');
+            btn.classList.remove('bg-slate-100', 'text-slate-600');
             if (appState.layoutMode === 'separated') span.innerText = 'SEPARATO';
             if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
             if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
+            if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
         } else {
-            btn.classList.replace('bg-indigo-100', 'bg-slate-100');
-            btn.classList.replace('text-indigo-600', 'text-slate-600');
+            btn.classList.remove('bg-indigo-100', 'text-indigo-600');
+            btn.classList.add('bg-slate-100', 'text-slate-600');
             span.innerText = 'LAYOUT';
         }
     }
 
-    window.applyLayoutForces();
-}
+    if (appState.layoutMode !== 'personal') {
+        window.applyLayoutForces();
+    } else {
+        simulation.alpha(0.3).restart();
+    }
+};
 
 window.applyLayoutForces = function () {
     if (!simulation) return;
@@ -2990,6 +3018,13 @@ window.switchToMapLayout = function () {
     }
     if (window.toggleProjectsBar) {
         window.toggleProjectsBar(false); // false = forza la chiusura
+    }
+
+    // Mostra tasto Salva Layout Snapshot
+    const saveLayoutBtn = document.getElementById('save-layout-btn');
+    if (saveLayoutBtn) {
+        saveLayoutBtn.classList.remove('hidden');
+        saveLayoutBtn.classList.add('flex');
     }
 
     const levelControl = document.getElementById('level-filter-control');
@@ -3539,13 +3574,51 @@ window.removeL1Input = function (btn) {
 
 window.riordinaMappa = function () {
     if (!simulation) return;
-    appState.db.nodes.forEach(d => {
-        if (d.level > 0) {
-            d.fx = null;
-            d.fy = null;
+    
+    // Se ci sono nodi pinnati o salvati, chiedi conferma
+    const pinnedNodes = appState.db.nodes.filter(n => n.fx !== null && n.fx !== undefined);
+    if (pinnedNodes.length > 0) {
+        window.showConfirm("Reset Layout?", "Hai delle posizioni bloccate o salvate. Vuoi resettare tutto il layout (i nodi torneranno liberi) o solo rinfrescare la vista mantenendo i blocchi?", () => {
+            appState.db.nodes.forEach(n => { n.fx = null; n.fy = null; n.pinned = false; });
+            applyDefaultLayout();
+        }, "Resetta Tutto", "Mantieni Blocchi", () => {
+            applyDefaultLayout();
+        });
+    } else {
+        applyDefaultLayout();
+    }
+    
+    function applyDefaultLayout() {
+        appState.db.nodes.forEach(d => {
+            if (d.level > 0 && !d.pinned) {
+                d.fx = null;
+                d.fy = null;
+            }
+        });
+        simulation.alpha(1).restart();
+        window.showToast("Layout ricalcolato", "success");
+    }
+};
+
+window.salvaLayout = function () {
+    if (!appState || !appState.db || !appState.db.nodes) return;
+    
+    appState.db.nodes.forEach(n => {
+        if (n.x !== undefined && n.y !== undefined) {
+            n.fx = n.x;
+            n.fy = n.y;
+            n.pinned = true;
+            n.savedX = n.x; // Snapshot permanente
+            n.savedY = n.y;
         }
     });
-    simulation.alpha(1).restart();
+    
+    // Forza salvataggio immediato
+    if (StorageManager.currentProjectId) {
+        StorageManager.saveCurrentProject();
+    }
+    
+    window.showToast("Layout Salvato (Snapshot creato)!", "success");
 };
 
 window.exportGraph = function () {
@@ -3645,14 +3718,35 @@ window.saveMapVault = async function () {
                 tutorState: tutorState,
                 aiProvider: appState.aiProvider,
                 aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
-                generationUsage: appState.generationUsage
+                generationUsage: appState.generationUsage,
+                customColors: appState.db.customColors || {}
             }
         });
 
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
-            window.showToast("Vault salvato con successo!", "success");
+            
+            // Applica upgrade per ripulire il Base64 dalla memoria
+            if (saveRes.upgrades) {
+                saveRes.upgrades.forEach(up => {
+                    const node = appState.db.nodes.find(n => n.id === up.id);
+                    if (node && up.images) {
+                        node.images = up.images;
+                        if (up.images.length > 0) node.image = up.images[0];
+                    }
+                });
+                console.log("Memory Clean: Base64 images replaced with local paths.");
+            }
+
+            // Mostra subito il tasto Sincronizza
+            const syncBtn = document.getElementById('sync-vault-btn');
+            if (syncBtn) {
+                syncBtn.classList.remove('hidden');
+                syncBtn.classList.add('flex');
+            }
+            
+            window.showToast("Vault creato e collegato!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
         }
@@ -3680,7 +3774,8 @@ window.loadMapVault = async function () {
             appState.db = {
                 nodes: loadRes.data.nodes || [],
                 links: loadRes.data.links || [],
-                sourcesDict: {}
+                sourcesDict: {},
+                customColors: loadRes.data.customColors || {}
             };
 
             appState.db.nodes.forEach(n => {
@@ -3694,6 +3789,14 @@ window.loadMapVault = async function () {
             });
 
             window.switchToMapLayout();
+            
+            // Mostra tasto Sincronizza Vault
+            const syncBtn = document.getElementById('sync-vault-btn');
+            if (syncBtn) {
+                syncBtn.classList.remove('hidden');
+                syncBtn.classList.add('flex');
+            }
+
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast("Vault caricato con successo!", "success");
         } else {
@@ -5689,6 +5792,22 @@ const StorageManager = {
             simulation = null;
             this.currentProjectId = id;
 
+            // Ripristina posizioni salvate
+            if (appState.db.nodes) {
+                appState.db.nodes.forEach(n => {
+                    if (n.pinned) { n.fx = n.x; n.fy = n.y; }
+                });
+            }
+
+            // Mostra tasto Sincronizza se c'è un vault
+            const syncBtn = document.getElementById('sync-vault-btn');
+            if (syncBtn && appState.activeVaultPath) {
+                syncBtn.classList.remove('hidden');
+                syncBtn.classList.add('flex');
+            } else if (syncBtn) {
+                syncBtn.classList.add('hidden');
+            }
+
             window.switchToMapLayout();
             setTimeout(() => {
                 try {
@@ -7318,7 +7437,19 @@ window.directLoadVault = async function (folderPath) {
                 }
             });
 
+            if (loadRes.data.customColors) {
+                appState.db.customColors = loadRes.data.customColors;
+            }
+
             window.switchToMapLayout();
+            
+            // Mostra tasto Sincronizza Vault
+            const syncBtn = document.getElementById('sync-vault-btn');
+            if (syncBtn) {
+                syncBtn.classList.remove('hidden');
+                syncBtn.classList.add('flex');
+            }
+
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast("Vault caricato con successo!", "success");
         } else {
@@ -7327,6 +7458,15 @@ window.directLoadVault = async function (folderPath) {
     } catch (e) {
         window.showLoadingOverlay(false);
         window.showAlert("Errore", e.message);
+    }
+};
+
+window.resetVaultState = function () {
+    appState.activeVaultPath = null;
+    const syncBtn = document.getElementById('sync-vault-btn');
+    if (syncBtn) {
+        syncBtn.classList.add('hidden');
+        syncBtn.classList.remove('flex');
     }
 };
 
