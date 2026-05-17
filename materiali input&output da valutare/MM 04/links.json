@@ -1,0 +1,182 @@
+[
+  {
+    "source": "ROOT",
+    "target": "L1_0",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_1",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_2",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_3",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_4",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_5",
+    "isCross": false
+  },
+  {
+    "source": "L1_0",
+    "target": "L2_0_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_0_1",
+    "target": "L3_0_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_0_1",
+    "target": "L3_0_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_0",
+    "target": "L2_0_2",
+    "isCross": false
+  },
+  {
+    "source": "L2_0_2",
+    "target": "L3_0_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_0_2",
+    "target": "L3_0_2_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L2_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_1_1",
+    "target": "L3_1_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_1_1",
+    "target": "L3_1_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L2_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L2_1_2",
+    "target": "L3_1_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_1_2",
+    "target": "L3_1_2_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_2",
+    "target": "L2_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_2_1",
+    "target": "L3_2_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_2_1",
+    "target": "L3_2_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_2",
+    "target": "L2_2_2",
+    "isCross": false
+  },
+  {
+    "source": "L2_2_2",
+    "target": "L3_2_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_2_2",
+    "target": "L3_2_2_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_3",
+    "target": "L2_3_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_3_1",
+    "target": "L3_3_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_3_1",
+    "target": "L3_3_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_3",
+    "target": "L2_3_2",
+    "isCross": false
+  },
+  {
+    "source": "L2_3_2",
+    "target": "L3_3_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_3_2",
+    "target": "L3_3_2_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L2_4_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_4_1",
+    "target": "L3_4_1_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_4_1",
+    "target": "L3_4_1_2",
+    "isCross": false
+  },
+  {
+    "source": "L1_4",
+    "target": "L2_4_2",
+    "isCross": false
+  },
+  {
+    "source": "L2_4_2",
+    "target": "L3_4_2_1",
+    "isCross": false
+  },
+  {
+    "source": "L2_4_2",
+    "target": "L3_4_2_2",
+    "isCross": false
+  }
+]

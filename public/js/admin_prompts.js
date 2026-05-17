@@ -21,7 +21,8 @@ window.systemPromptsDescriptions = {
 };
 
 window.systemPromptsCategories = {
-    "MAPS_KG": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "KNOWLEDGE_GRAPH_FULL_TREE", "MIND_MAP_BRANCH", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
+    "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "MIND_MAP_BRANCH"],
+    "KGRAPHS": ["KNOWLEDGE_GRAPH_FULL_TREE", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
     "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"]
 };
@@ -29,18 +30,24 @@ window.systemPromptsCategories = {
 // Helper per ottenere la traduzione corrente
 window.getAdminTranslation = function(key) {
     const lang = window.currentLanguage || 'it';
-    const dict = lang === 'it' ? window.it_translations : window.en_translations;
+    let dict = {};
+    if (lang === 'it') {
+        dict = (typeof it_translations !== 'undefined' ? it_translations : (window.it_translations || {}));
+    } else {
+        dict = (typeof en_translations !== 'undefined' ? en_translations : (window.en_translations || {}));
+    }
     return dict[key] || key;
 };
 
 window.systemTabExplanations = {
-    "MAPS_KG": "admin_explanation_maps",
+    "MINDMAPS": "admin_explanation_mindmaps",
+    "KGRAPHS": "admin_explanation_kgraphs",
     "TUTOR": "admin_explanation_tutor",
     "STUDY": "admin_explanation_study"
 };
 
 window.currentAdminPromptKey = null;
-window.currentAdminTab = "MAPS_KG";
+window.currentAdminTab = "MINDMAPS";
 
 // Helper function to fill variables in prompt string
 window.fillPromptTemplate = function(promptKey, variables) {
@@ -96,7 +103,7 @@ window.openAdminDashboard = async function() {
         await window.loadPromptsConfig();
     }
     
-    window.renderAdminPromptsList();
+    await window.renderAdminPromptsList();
     if (window.lucide) window.lucide.createIcons();
 };
 
@@ -117,9 +124,15 @@ window.loadPromptsConfig = async function() {
     }
 };
 
-window.renderAdminPromptsList = function() {
+window.renderAdminPromptsList = async function() {
+    // Forza il caricamento se la lista è vuota
+    if (Object.keys(window.systemPromptsConfig).length === 0) {
+        await window.loadPromptsConfig();
+    }
+
     const listEl = document.getElementById('admin-prompts-list');
     const explanationEl = document.getElementById('admin-tab-explanation');
+    if (!listEl) return;
     listEl.innerHTML = '';
     
     // Update explanation
@@ -131,9 +144,8 @@ window.renderAdminPromptsList = function() {
     // Update tab UI labels and selection
     document.querySelectorAll('.admin-tab-btn').forEach(btn => {
         const tab = btn.getAttribute('data-tab');
-        
-        // Update Label
-        if (tab === 'MAPS_KG') btn.innerText = window.getAdminTranslation('admin_tab_maps');
+        if (tab === 'MINDMAPS') btn.innerText = window.getAdminTranslation('admin_tab_mindmaps');
+        if (tab === 'KGRAPHS') btn.innerText = window.getAdminTranslation('admin_tab_kgraphs');
         if (tab === 'TUTOR') btn.innerText = window.getAdminTranslation('admin_tab_tutor');
         if (tab === 'STUDY') btn.innerText = window.getAdminTranslation('admin_tab_study');
 
@@ -149,28 +161,23 @@ window.renderAdminPromptsList = function() {
     const categories = window.systemPromptsCategories[window.currentAdminTab] || [];
     const allKeys = Object.keys(window.systemPromptsConfig);
     
-    // Sort keys based on category order
-    allKeys.sort((a, b) => {
-        const baseA = a.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
-        const baseB = b.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
-        const indexA = categories.indexOf(baseA);
-        const indexB = categories.indexOf(baseB);
-        
-        if (indexA !== indexB) {
-            return indexA - indexB;
-        }
-        return a.localeCompare(b);
-    });
+    // Sort keys: prima quelli in categoria, poi alfabeticamente
+    allKeys.sort((a, b) => a.localeCompare(b));
 
+    let foundAny = false;
     for (const key of allKeys) {
-        const baseKey = key.replace(/_(INFOMANIAK|IT|EN|STUDENT).*/g, '');
-        if (!categories.includes(baseKey) && !categories.includes(key)) continue;
+        // Pulizia aggressiva della chiave per il matching con la categoria
+        const baseKey = key.split('_IT')[0].split('_EN')[0].split('_INFOMANIAK')[0].split('_STUDENT')[0];
+        
+        const isInCurrentTab = categories.includes(baseKey) || categories.includes(key);
+        if (!isInCurrentTab) continue;
 
+        foundAny = true;
         const btn = document.createElement('button');
         btn.className = `w-full text-left p-3 rounded-lg border border-slate-200 transition-colors text-sm hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2 ${window.currentAdminPromptKey === key ? 'bg-indigo-50 border-indigo-300' : 'bg-slate-50'}`;
         
         const descKey = window.systemPromptsDescriptions[key] || window.systemPromptsDescriptions[baseKey];
-        const descText = descKey ? window.getAdminTranslation(descKey) : "Nessuna descrizione";
+        const descText = descKey ? window.getAdminTranslation(descKey) : "Prompt di sistema";
 
         btn.innerHTML = `
             <div class="font-bold text-slate-800 text-[11px]">${key}</div>
@@ -179,6 +186,10 @@ window.renderAdminPromptsList = function() {
         
         btn.onclick = () => window.selectAdminPrompt(key);
         listEl.appendChild(btn);
+    }
+
+    if (!foundAny) {
+        listEl.innerHTML = '<div class="text-center p-10 text-slate-400 text-xs italic">Nessun prompt trovato in questa categoria.</div>';
     }
 };
 
@@ -257,6 +268,10 @@ window.runAIPromptTest = async function() {
 };
 
 // Initial load at startup
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.loadPromptsConfig();
+    });
+} else {
     window.loadPromptsConfig();
-});
+}

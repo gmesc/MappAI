@@ -162,10 +162,12 @@ const it_translations = {
     student: "Studente",
     
     // Admin Dashboard
-    admin_tab_maps: "Mappe & KG",
+    admin_tab_mindmaps: "Mappe Mentali",
+    admin_tab_kgraphs: "Knowledge Graph",
     admin_tab_tutor: "Tutor AI",
     admin_tab_study: "Studio",
-    admin_explanation_maps: "Questi prompt gestiscono la fase di 'estrazione della conoscenza'. Definiscono come l'AI legge i documenti, identifica i concetti chiave e costruisce i rami della mappa o le relazioni del Knowledge Graph.",
+    admin_explanation_mindmaps: "Questi prompt gestiscono la fase di 'estrazione della conoscenza' e definizione della struttura ad albero delle Mappe Mentali. Definiscono come l'AI legge i documenti e costruisce i rami gerarchici.",
+    admin_explanation_kgraphs: "Questi prompt definiscono la struttura a rete semantica per la costruzione del Knowledge Graph, impostando come l'AI identifica nodi e relazioni trasversali.",
     admin_explanation_tutor: "Questi prompt definiscono la personalità e il metodo pedagogico dell'AI Tutor. Regolano il tono socratico, la gestione degli errori dello studente e la guida passo-passo nello studio.",
     admin_explanation_study: "Questi prompt gestiscono la creazione automatica di materiali di verifica. Definiscono il formato di Quiz e Flashcard, assicurando che siano basati esclusivamente sui concetti presenti nella mappa.",
     admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",

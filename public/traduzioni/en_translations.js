@@ -164,8 +164,18 @@ const en_translations = {
     vault_manager_title: "Explore your Vaults",
     vault_manager_subtitle: "Second Brain Knowledge Management",
     last_saved: "Last saved",
-    student: "Student"
-,
+    student: "Student",
+    
+    // Admin Dashboard
+    admin_tab_mindmaps: "Mind Maps",
+    admin_tab_kgraphs: "Knowledge Graph",
+    admin_tab_tutor: "AI Tutor",
+    admin_tab_study: "Study",
+    admin_explanation_mindmaps: "These prompts manage the 'knowledge extraction' phase and the hierarchical definition of Mind Maps. They define how the AI reads documents and constructs tree branches.",
+    admin_explanation_kgraphs: "These prompts define the semantic network structure for the Knowledge Graph construction, setting up how the AI identifies nodes and cross-relations.",
+    admin_explanation_tutor: "These prompts define the personality and pedagogical method of the AI Tutor. They regulate socratic tone, student error management, and step-by-step guidance.",
+    admin_explanation_study: "These prompts handle the automatic generation of assessment materials. They define the format of Quizzes and Flashcards, ensuring they are based solely on concepts present in the map.",
+
     // Extra
     machine_id_desc: "Send the following <b>Machine ID</b> to Giacomo to receive your unique unlock code:",
     src_web: "Web URL",

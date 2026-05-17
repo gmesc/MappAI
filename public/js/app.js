@@ -1570,29 +1570,42 @@ window.startGeneration = async function () {
     }
 }
 
-const UNIVERSAL_SYSTEM_INSTRUCTION = `
-SEI UN MOTORE DI GENERAZIONE KNOWLEDGE GRAPH (JSON).
+const MIND_MAP_SYSTEM_INSTRUCTION = `
+SEI UN MOTORE DI GENERAZIONE MAPPE MENTALI GERARCHICHE (JSON).
+REGOLE TASSATIVE DI OUTPUT:
+1. RESTITUISCI SOLO JSON PURO. Nessun commento, nessuna introduzione, nessun blocco di codice markdown.
+2. LINGUA: Usa sempre l'ITALIANO (o la lingua richiesta dall'utente).
+3. TITOLI (label): Massimo 3 parole chiave. Sii estremamente sintetico nei titoli dei nodi.
+4. DESCRIZIONI (content): Sii chiaro, didattico e conciso (max 10 parole). La descrizione approfondita va in 'desc' (max 50 parole).
+5. CONNETTIVITÀ: La mappa deve essere rigorosamente gerarchica (albero). Ogni sotto-nodo (L2, L3...) deve avere un unico genitore logico. Non lasciare nodi orfani.
+6. ID UNICI: Crea ID parlanti e univoci coerenti con la gerarchia (es: L1_ID_CONCETTO).
+7. CITAZIONI (chunks): DEBBONO essere frasi intere, verbatim e significative estratte dai testi (minimo 15 parole). È VIETATO inserire singole parole o frammenti brevi.
+8. COERENZA: Rispetta gli ID delle Macro-Aree (L1) fornite per agganciare correttamente i rami figli.
+9. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
+`;
+
+const KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION = `
+SEI UN MOTORE DI GENERAZIONE KNOWLEDGE GRAPH RETICOLARE (JSON).
 REGOLE TASSATIVE DI OUTPUT:
 1. RESTITUISCI SOLO JSON PURO. Nessun commento, nessuna introduzione, nessun blocco di codice markdown.
 2. LINGUA: Usa sempre l'ITALIANO (o la lingua richiesta dall'utente).
 3. TITOLI (label): Massimo 3 parole chiave. Sii estremamente sintetico nei titoli dei nodi.
 4. DESCRIZIONI (content): Sii chiaro, didattico e conciso (max 30 parole).
-5. CONNETTIVITÀ: Ogni nodo DEVE essere collegato a un altro. Non lasciare nodi orfani.
-6. ID UNICI: Crea ID parlanti e univoci (es: CATEGORIA_CONCETTO_1).
+5. CONNETTIVITÀ: Non esiste un nodo centrale unico. Il grafo deve essere reticolare, con entità uniche connesse trasversalmente.
+6. ID UNICI: Crea ID parlanti e univoci per ogni entità (es: ENTITA_NOME).
 7. CITAZIONI (chunks): DEBBONO essere frasi intere, verbatim e significative estratte dai testi (minimo 15 parole). È VIETATO inserire singole parole o frammenti brevi.
-8. COERENZA: Se stai espandendo un ramo, usa l'ID del genitore fornito per collegare i nuovi nodi.
+8. COERENZA: Collega le entità nuove ai Super-Hub (L1) forniti usando gli ID indicati.
 9. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
 `;
 
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
-        const isKG = appState.extractionMode === 'kg';
         const rootId = "ROOT";
         
         window.resetVaultState();
 
         appState.db = {
-            nodes: isKG ? [] : [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
+            nodes: [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
             links: [],
             sourcesDict: {},
             customColors: {}
@@ -1607,10 +1620,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
             if (l0Text) {
-                if (!isKG) {
-                    appState.db.nodes[0].content = l0Text.trim();
-                    appState.db.nodes[0].desc = l0Text.trim();
-                }
+                appState.db.nodes[0].content = l0Text.trim();
+                appState.db.nodes[0].desc = l0Text.trim();
             }
         } catch (e) { console.log("L0 fallito", e); }
 
@@ -1684,10 +1695,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
-            // Solo per le Mappe Mentali forziamo il collegamento gerarchico al ROOT. 
-            if (appState.extractionMode === 'mindmap') {
-                appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
-            }
+            appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
         const schemaBranch = {
@@ -1701,10 +1709,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             id: { type: "STRING" },
                             label: { type: "STRING" },
                             content: { type: "STRING" },
+                            desc: { type: "STRING" },
                             level: { type: "INTEGER" },
                             chunks: { type: "ARRAY", items: { type: "STRING" } }
                         },
-                        required: ["id", "label", "content", "level", "chunks"]
+                        required: ["id", "label", "content", "desc", "level", "chunks"]
                     }
                 },
                 links: {
@@ -1739,18 +1748,19 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         let optionalMaxBranches = maxBranches > 0 ? `\nDEVI ASSOLUTAMENTE generare ALMENO ${maxBranches} sotto-rami per ogni macro-area per popolare l'albero in modo folto e dettagliato.` : '';
 
-        let promptKey = appState.extractionMode === 'kg' ? "KNOWLEDGE_GRAPH_FULL_TREE" : "MIND_MAP_FULL_TREE";
+        let promptKey = "MIND_MAP_FULL_TREE";
         let promptFullTree = window.fillPromptTemplate(promptKey, {
             rootNodeLabel: appState.rootNodeLabel,
             l1LabelsStr: l1LabelsStr,
             optionalMaxBranches: optionalMaxBranches,
-            userProfileStr: userProfileStr
+            userProfileStr: userProfileStr,
+            textParts: textParts.join('\n\n')
         });
 
         const payloadTree = {
             contents: [{ parts: [...fileParts, { text: promptFullTree }] }],
-            systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch }
+            systemInstruction: { parts: [{ text: MIND_MAP_SYSTEM_INSTRUCTION }] },
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: 8192 }
         };
 
         try {
@@ -1761,6 +1771,56 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let branchData = salvageTruncatedJSON(cleanText);
 
+                const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+                const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
+                const aiToRealIdMap = {};
+
+                // Estrattore robusto per mappare l'appartenenza a una macro-area L1
+                const extractL1Branch = (nodeId) => {
+                    if (!nodeId) return null;
+                    const cleanId = nodeId.toUpperCase();
+                    
+                    // 1. Formato esplicito L1_X (es. L1_3, L1_3_L2_A)
+                    const m1 = cleanId.match(/L1_(\d+)/);
+                    if (m1) return `L1_${m1[1]}`;
+                    
+                    // 2. Formato implicito LX_Y_... (es. L2_3_2, L3_3_2_1)
+                    const m2 = cleanId.match(/^L\d+_(\d+)/);
+                    if (m2) return `L1_${m2[1]}`;
+                    
+                    return null;
+                };
+
+                // Risolutore matematico per gerarchie ID strutturate (es: L3_3_2_1 -> L2_3_2)
+                const findParentIdByIdStructure = (nodeId, level) => {
+                    if (!nodeId || level <= 1) return null;
+                    const cleanId = nodeId.toUpperCase();
+                    
+                    const match = cleanId.match(/^L\d+_([\d_]+)$/);
+                    if (match) {
+                        const parts = match[1].split('_');
+                        if (parts.length > 1) {
+                            parts.pop();
+                            const parentLevel = level - 1;
+                            const parentId = `L${parentLevel}_${parts.join('_')}`;
+                            
+                            const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
+                            if (parentExists) return parentId;
+                        }
+                    }
+                    return null;
+                };
+
+                // COSTRUZIONE STRUTTURA GERARCHICA DI SICUREZZA (FAILSAFE HIERARCHY RECONSTRUCTION)
+                const lastNodeInBranch = {};
+                // Inizializza con i nodi L1 correnti
+                appState.db.nodes.forEach(node => {
+                    if (node.level === 1) {
+                        const l1Id = node.id.toUpperCase();
+                        lastNodeInBranch[l1Id] = { 1: l1Id };
+                    }
+                });
+
                 if (branchData.nodes && Array.isArray(branchData.nodes)) {
                     // Pre-calculate parent mapping from links to aggregate chunks
                     const parentMap = {};
@@ -1768,91 +1828,178 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         branchData.links.forEach(l => { parentMap[l.target] = l.source; });
                     }
 
-                    const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
-                    const aiToRealIdMap = {};
-
                     branchData.nodes.forEach(n => {
-                        let existingNode, realMatch;
+                        n.id = normalizeId(n.id);
+                        let existingNode = appState.db.nodes.find(x => normalizeId(x.id) === n.id);
+                        let realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
 
-                        if (isKG) {
-                            // KG: match SOLO tra i nodi L1 già registrati (Hub protetti)
-                            existingNode = appState.db.nodes.find(x => x.id === n.id && x.level === 1);
-                            realMatch = appState.db.nodes.find(ex => ex.level === 1 && normalizeLabel(ex.label) === normalizeLabel(n.label));
-                        } else {
-                            // Mappa Mentale: match su tutti i nodi (comportamento originale)
-                            existingNode = appState.db.nodes.find(x => x.id === n.id);
-                            realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
-                        }
-
+                        let targetId = n.id;
                         if (existingNode) {
-                            // L'IA ha usato l'ID corretto → aggiorna solo content/desc
                             if (n.content) existingNode.content = n.content;
                             if (n.desc) existingNode.desc = n.desc;
+                            aiToRealIdMap[n.id] = existingNode.id;
+                            targetId = existingNode.id;
                         } else if (realMatch) {
-                            // L'IA ha inventato un nuovo ID per un nodo già esistente → rimappa i link
                             aiToRealIdMap[n.id] = realMatch.id;
                             if (n.content && !realMatch.content) realMatch.content = n.content;
                             if (n.desc && !realMatch.desc) realMatch.desc = n.desc;
-                            // Nodo genuinamente nuovo
+                            targetId = realMatch.id;
+                        } else {
+                            aiToRealIdMap[n.id] = n.id;
                             let nodeLevel = parseInt(n.level);
                             if (isNaN(nodeLevel)) nodeLevel = 2;
-
-                            if (appState.extractionMode === 'kg') {
-                                // In KG permettiamo nuovi L1 solo se l'IA lo richiede espressamente, 
-                                // altrimenti schiacciamo tutto a L2 (per evitare L3, L4 etc)
-                                if (nodeLevel !== 1) nodeLevel = 2;
-                            }
                             
                             const desc = n.desc || n.content || "";
-                            appState.db.nodes.push({ ...n, level: nodeLevel, studyStatus: 'none', desc, aiDesc: desc, chunks: n.chunks || [] });
+                            appState.db.nodes.push({ 
+                                ...n, 
+                                level: nodeLevel, 
+                                studyStatus: 'none', 
+                                desc, 
+                                aiDesc: desc, 
+                                chunks: n.chunks || [] 
+                            });
                         }
 
-                        // Populate Sources Dictionary for Citations
+                        // Registra nel tracker gerarchico per ramo L1
+                        const l1Branch = extractL1Branch(targetId);
+                        if (l1Branch) {
+                            if (!lastNodeInBranch[l1Branch]) lastNodeInBranch[l1Branch] = { 1: l1Branch };
+                            lastNodeInBranch[l1Branch][n.level] = targetId;
+                        }
+
+                        // Citations logic
                         if (n.chunks && n.chunks.length > 0) {
-                            let targetId = realMatch ? realMatch.id : n.id;
                             let l1ParentName = "Documento";
                             let currentP = n.id;
                             let sP = 0;
                             while (parentMap[currentP] && sP < 10) {
                                 sP++;
-                                let pId = parentMap[currentP];
+                                let pId = normalizeId(parentMap[currentP]);
                                 let mappedPId = aiToRealIdMap[pId] || pId;
-                                let pNode = appState.db.nodes.find(x => x.id === mappedPId);
+                                let pNode = appState.db.nodes.find(x => normalizeId(x.id) === mappedPId);
                                 if (pNode && pNode.level === 1) { l1ParentName = pNode.label; break; }
                                 currentP = pId;
                             }
-
                             appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
-                            
-                            let currentId = n.id;
-                            let safety = 0;
-                            while (parentMap[currentId] && safety < 5) {
-                                safety++;
-                                let parentId = parentMap[currentId];
-                                let mappedParentId = aiToRealIdMap[parentId] || parentId;
-                                if (!appState.db.sourcesDict[mappedParentId]) appState.db.sourcesDict[mappedParentId] = [];
-                                appState.db.sourcesDict[mappedParentId].push(...n.chunks.map(c => ({ title: "Da sottomacchie", source: "Corpo della mappa", text: c })));
-                                currentId = parentId;
-                            }
                         }
                     });
                 }
                 
                 if (branchData.links && Array.isArray(branchData.links)) {
+                    const findNodeId = (idOrLabel) => {
+                        if (!idOrLabel) return null;
+                        const cleaned = idOrLabel.toString().trim();
+                        const upper = cleaned.toUpperCase();
+                        
+                        // 1. Cerca per ID esatto
+                        let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
+                        if (found) return found.id;
+                        
+                        // 2. Cerca tramite mappatura aiToRealIdMap
+                        if (aiToRealIdMap[upper]) {
+                            let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
+                            if (mappedNode) return mappedNode.id;
+                        }
+                        
+                        // 3. Cerca per Etichetta (Label) normalizzata
+                        const norm = normalizeLabel(cleaned);
+                        found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
+                        if (found) return found.id;
+                        
+                        // 4. Cerca per ID normalizzato
+                        found = appState.db.nodes.find(n => normalizeLabel(n.id) === norm);
+                        if (found) return found.id;
+                        
+                        return null;
+                    };
+
                     branchData.links.forEach(l => {
-                        if (l.source && l.target && l.rel) {
-                            // Remap duplicate AI IDs back to real L1 IDs
-                            let finalSource = aiToRealIdMap[l.source] || l.source;
-                            let finalTarget = aiToRealIdMap[l.target] || l.target;
+                        if (l.source && l.target) {
+                            let s = findNodeId(l.source);
+                            let t = findNodeId(l.target);
                             
-                            if (finalSource !== finalTarget) {
-                                l.source = finalSource;
-                                l.target = finalTarget;
-                                appState.db.links.push(l);
+                            // Fallback se il resolver semantico fallisce
+                            if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
+                            if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
+                            
+                            if (s && t && s !== t) {
+                                const sExists = appState.db.nodes.some(nx => nx.id === s);
+                                const tExists = appState.db.nodes.some(nx => nx.id === t);
+                                
+                                if (sExists && tExists) {
+                                    // Evita duplicati di link
+                                    const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
+                                    if (!linkExists) {
+                                        appState.db.links.push({ source: s, target: t, rel: l.rel || "include" });
+                                    }
+                                }
                             }
                         }
                     });
                 }
+
+                // 2. AUTO-LINK ORPHANED NODES (FAILSAFE COSTRUZIONE RAMI)
+                // Collega qualsiasi nodo gerarchico a cui sono mancati i link a causa di troncamento JSON o ID impliciti
+                appState.db.nodes.forEach(node => {
+                    if (node.level > 1) {
+                        const hasIncomingLink = appState.db.links.some(lk => {
+                            const tid = typeof lk.target === 'object' ? lk.target.id : lk.target;
+                            return tid === node.id;
+                        });
+
+                        if (!hasIncomingLink) {
+                            // A. Prova tramite la struttura matematica dell'ID (es: L3_3_2_1 -> L2_3_2)
+                            let parentId = findParentIdByIdStructure(node.id, node.level);
+
+                            // B. Fallback tramite stack-tracking del ramo L1
+                            if (!parentId) {
+                                const l1Branch = extractL1Branch(node.id);
+                                if (l1Branch && lastNodeInBranch[l1Branch]) {
+                                    let parentLevel = node.level - 1;
+                                    while (parentLevel >= 1 && !parentId) {
+                                        if (lastNodeInBranch[l1Branch][parentLevel]) {
+                                            parentId = lastNodeInBranch[l1Branch][parentLevel];
+                                        }
+                                        parentLevel--;
+                                    }
+                                }
+                            }
+
+                            if (parentId && parentId !== node.id) {
+                                appState.db.links.push({ 
+                                    source: parentId, 
+                                    target: node.id, 
+                                    rel: "include" 
+                                });
+                                console.log(`Failsafe Link Creato: ${parentId} -> ${node.id}`);
+                            }
+                        }
+                    }
+                });
+
+                // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
+                const hubGroupMap = {};
+                appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
+                
+                appState.db.nodes.forEach(node => {
+                    if (node.level > 1 && (!node.group || node.group === 0)) {
+                        // Cerca l'Hub L1 più vicino tramite i link
+                        const visited = new Set([node.id]);
+                        const queue = [node.id];
+                        let foundGroup = null;
+                        while (queue.length > 0 && !foundGroup) {
+                            const cur = queue.shift();
+                            if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
+                            appState.db.links.forEach(l => {
+                                const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                                if (sid === cur && !visited.has(tid)) { visited.add(tid); queue.push(tid); }
+                                if (tid === cur && !visited.has(sid)) { visited.add(sid); queue.push(sid); }
+                            });
+                        }
+                        if (foundGroup) node.group = foundGroup;
+                    }
+                });
             }
         } catch (e) {
             console.warn("Errore durante la generazione single-pass:", e);
@@ -1938,7 +2085,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
-        systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
+        systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
         generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema }
     };
 
@@ -7019,7 +7166,7 @@ window.executeContextualAIExtension = async function () {
 
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
-            systemInstruction: { parts: [{ text: UNIVERSAL_SYSTEM_INSTRUCTION }] },
+            systemInstruction: { parts: [{ text: appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
             generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
         }, apiKey);
 
