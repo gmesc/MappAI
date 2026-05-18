@@ -6,6 +6,9 @@ on:
       - global
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
     runs-on: ${{ matrix.os }}
@@ -38,7 +41,6 @@ jobs:
         run: npx electron-builder --${{ matrix.platform }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
