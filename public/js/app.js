@@ -33,7 +33,8 @@ let appState = {
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: true,
-    infomaniakAllModels: false
+    infomaniakAllModels: false,
+    multiPassMode: false
 };
 
 // ==========================================
@@ -106,6 +107,29 @@ window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
     window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
     window.applyStudentModeUI();
+};
+
+window.setMultiPassMode = function (enabled) {
+    appState.multiPassMode = enabled;
+    
+    const btnOff = document.getElementById('multipass-off');
+    const btnOn = document.getElementById('multipass-on');
+    
+    if (btnOff && btnOn) {
+        if (enabled) {
+            btnOn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnOn.classList.remove('text-slate-400', 'hover:text-slate-600');
+            btnOff.classList.remove('bg-white', 'shadow-sm', 'text-slate-700');
+            btnOff.classList.add('text-slate-400', 'hover:text-slate-600');
+        } else {
+            btnOff.classList.add('bg-white', 'shadow-sm', 'text-slate-700');
+            btnOff.classList.remove('text-slate-400', 'hover:text-slate-600');
+            btnOn.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnOn.classList.add('text-slate-400', 'hover:text-slate-600');
+        }
+    }
+    
+    window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
 window.updateInfomaniakProductId = function (value) {
@@ -1348,9 +1372,13 @@ window.handleFileUpload = async function (input, type) {
                     newStatusEl.id = 'status-' + newId;
 
                     let inputDiv = newContainer.querySelector('.flex-grow');
+                    if (inputDiv) inputDiv.appendChild(newStatusEl);
+
                     let inp = newContainer.querySelector('input[type="file"]');
                     if (inp) inp.style.display = 'none';
                     window.handleSourceAutofill(extraFile.name);
+
+                    await window.processSourceFile(newSourceObj, extraFile, newStatusEl);
                 }
             }, 50);
         }
@@ -1564,9 +1592,17 @@ window.startGeneration = async function () {
     window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
     if (appState.extractionMode === 'mindmap') {
-        await extractMindMapIterative(textParts, fileParts, apiKey);
+        if (appState.multiPassMode) {
+            await extractMindMapMultiPass(textParts, fileParts, apiKey);
+        } else {
+            await extractMindMapIterative(textParts, fileParts, apiKey);
+        }
     } else {
-        await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
+        if (appState.multiPassMode) {
+            await extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey);
+        } else {
+            await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
+        }
     }
 }
 
@@ -2022,6 +2058,421 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
     }
 }
 
+async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
+    try {
+        const rootId = "ROOT";
+        window.resetVaultState();
+
+        appState.db = {
+            nodes: [{ id: rootId, label: appState.rootNodeLabel, content: "Argomento principale dello studio.", level: 0, chunks: [], studyStatus: 'none', desc: "Argomento principale dello studio." }],
+            links: [],
+            sourcesDict: {},
+            customColors: {}
+        };
+
+        // Fase 1: Introduzione L0
+        window.showLoadingOverlay(true, "Mappa HD - Fase 1/3: Analisi introduttiva dell'argomento principale...");
+        try {
+            const payloadL0 = {
+                contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain" }
+            };
+            const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
+            const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
+            if (l0Text) {
+                appState.db.nodes[0].content = l0Text.trim();
+                appState.db.nodes[0].desc = l0Text.trim();
+            }
+        } catch (e) { console.warn("L0 fallito", e); }
+
+        // Fase 2: Macro-Categorie L1
+        let l1Data = Array.from(document.querySelectorAll('.l1-topic-input'))
+            .map(i => i.value.trim())
+            .filter(v => v)
+            .map(lbl => ({ label: lbl, rel: "include" }));
+
+        const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle').checked;
+
+        if (l1Data.length === 0 || autoGenerateL1) {
+            window.showLoadingOverlay(true, "Mappa HD - Fase 2/3: Individuazione delle Macro-Categorie...");
+            let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
+                rootNodeLabel: appState.rootNodeLabel,
+                optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
+                textParts: textParts.join('\\n')
+            });
+
+            const schemaL1 = { 
+                type: "ARRAY", 
+                items: { 
+                    type: "OBJECT", 
+                    properties: { 
+                        label: { type: "STRING" }, 
+                        rel: { type: "STRING" } 
+                    },
+                    required: ["label", "rel"]
+                } 
+            };
+
+            const payloadL1 = {
+                contents: [{ parts: [{ text: promptL1 }] }],
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
+            };
+
+            const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
+            const candidateL1 = dataL1.candidates && dataL1.candidates[0];
+            if (candidateL1 && candidateL1.content && candidateL1.content.parts) {
+                let rawL1 = candidateL1.content.parts[0].text;
+                let cleanL1Text = rawL1.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+                let generatedL1s = JSON.parse(cleanL1Text);
+                generatedL1s.forEach(gL1 => {
+                    if (typeof gL1 === 'string') gL1 = { label: gL1, rel: "include" };
+                    if (!l1Data.some(existing => existing.label.toLowerCase() === gL1.label.toLowerCase())) {
+                        l1Data.push(gL1);
+                    } else {
+                        let existing = l1Data.find(x => x.label.toLowerCase() === gL1.label.toLowerCase());
+                        if (existing && existing.rel === "include") existing.rel = gL1.rel;
+                    }
+                });
+            }
+        }
+
+        if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
+
+        let l1NodesData = [];
+        l1Data.forEach((item, idx) => {
+            let l1Id = `L1_${idx}`;
+            let nodeObj = { 
+                id: l1Id, 
+                label: item.label, 
+                content: item.label, 
+                desc: `Categoria principale: ${item.label}`, 
+                level: 1, 
+                group: idx + 1, 
+                chunks: [], 
+                studyStatus: 'none' 
+            };
+            l1NodesData.push(nodeObj);
+            appState.db.nodes.push(nodeObj);
+            appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
+        });
+
+        // Fase 3: Generazione dei rami Branch-by-Branch (Multi-Pass HD)
+        const schemaBranch = {
+            type: "OBJECT",
+            properties: {
+                nodes: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            id: { type: "STRING" },
+                            label: { type: "STRING" },
+                            content: { type: "STRING" },
+                            desc: { type: "STRING" },
+                            level: { type: "INTEGER" },
+                            chunks: { type: "ARRAY", items: { type: "STRING" } }
+                        },
+                        required: ["id", "label", "content", "desc", "level", "chunks"]
+                    }
+                },
+                links: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            source: { type: "STRING" },
+                            target: { type: "STRING" },
+                            rel: { type: "STRING" }
+                        },
+                        required: ["source", "target", "rel"]
+                    }
+                }
+            },
+            required: ["nodes", "links"]
+        };
+
+        let userProfileStr = '';
+        if (appState.userProfile) {
+            userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
+        }
+
+        if (appState.studentMode) {
+            userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+        }
+
+        const totalBranches = l1NodesData.length;
+        const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+        const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
+        
+        const aiToRealIdMap = {};
+        const lastNodeInBranch = {};
+        
+        // Inizializza tracciamento dei rami
+        l1NodesData.forEach(n => {
+            lastNodeInBranch[n.id.toUpperCase()] = { 1: n.id };
+        });
+
+        for (let idx = 0; idx < totalBranches; idx++) {
+            const branch = l1NodesData[idx];
+            window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
+
+            const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
+Hai il compito di sviluppare il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
+
+ISTRUZIONI PER IL RAMO:
+1. Genera tutti i sotto-nodi di Livello 2 e Livello 3 che appartengono a questa macro-area.
+2. Ciascun sotto-nodo generato deve definire:
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1).
+   - "label": titolo sintetico e focalizzato (max 3 parole).
+   - "content": sintesi didattica brevissima (max 10 parole).
+   - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+   - "level": assegna 2 per sotto-rami di dettaglio primario, 3 per concetti di approfondimento/foglia.
+   - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
+3. Definisci i collegamenti ("links") collegando i nodi generati in un albero gerarchico. Ogni nodo di livello 2 deve avere come sorgente ("source") l'ID di partenza "${branch.id}". Ogni nodo di livello 3 deve avere come sorgente ("source") il rispettivo nodo di livello 2. Non creare connessioni trasversali.
+
+Restituisci SOLO un oggetto JSON con chiavi "nodes" e "links". Nessun commento, nessun blocco markdown.
+Formato richiesto:
+{
+  "nodes": [
+    { "id": "ID_NODO", "label": "Label", "content": "Sintesi", "desc": "Descrizione...", "level": 2 o 3, "chunks": ["Citazione"] }
+  ],
+  "links": [
+    { "source": "ID_PADRE", "target": "ID_FIGLIO", "rel": "include" }
+  ]
+}
+
+${userProfileStr}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+            const payloadBranch = {
+                contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                systemInstruction: { parts: [{ text: "Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema." }] },
+                generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: 3000 }
+            };
+
+            try {
+                const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
+                const cand = dataBranch.candidates && dataBranch.candidates[0];
+                if (cand && cand.content && cand.content.parts) {
+                    let rawText = cand.content.parts[0].text;
+                    let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+                    let branchData = salvageTruncatedJSON(cleanText);
+
+                    if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                        // Pre-calcola parent mapping
+                        const parentMap = {};
+                        if (branchData.links) {
+                            branchData.links.forEach(l => { parentMap[l.target] = l.source; });
+                        }
+
+                        branchData.nodes.forEach(n => {
+                            n.id = normalizeId(n.id);
+                            let existingNode = appState.db.nodes.find(x => normalizeId(x.id) === n.id);
+                            let realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
+
+                            let targetId = n.id;
+                            if (existingNode) {
+                                if (n.content) existingNode.content = n.content;
+                                if (n.desc) existingNode.desc = n.desc;
+                                aiToRealIdMap[n.id] = existingNode.id;
+                                targetId = existingNode.id;
+                            } else if (realMatch) {
+                                aiToRealIdMap[n.id] = realMatch.id;
+                                if (n.content && !realMatch.content) realMatch.content = n.content;
+                                if (n.desc && !realMatch.desc) realMatch.desc = n.desc;
+                                targetId = realMatch.id;
+                            } else {
+                                aiToRealIdMap[n.id] = n.id;
+                                let nodeLevel = parseInt(n.level);
+                                if (isNaN(nodeLevel)) nodeLevel = 2;
+                                
+                                const desc = n.desc || n.content || "";
+                                appState.db.nodes.push({ 
+                                    ...n, 
+                                    level: nodeLevel, 
+                                    studyStatus: 'none', 
+                                    desc, 
+                                    aiDesc: desc, 
+                                    chunks: n.chunks || [] 
+                                });
+                            }
+
+                            // Registra nel tracker
+                            const cleanId = targetId.toUpperCase();
+                            const m1 = cleanId.match(/L1_(\d+)/);
+                            const l1Branch = m1 ? `L1_${m1[1]}` : branch.id;
+                            if (!lastNodeInBranch[l1Branch]) lastNodeInBranch[l1Branch] = { 1: l1Branch };
+                            lastNodeInBranch[l1Branch][n.level] = targetId;
+
+                            // Citazioni
+                            if (n.chunks && n.chunks.length > 0) {
+                                let l1ParentName = branch.label;
+                                appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                            }
+                        });
+                    }
+
+                    if (branchData.links && Array.isArray(branchData.links)) {
+                        const findNodeId = (idOrLabel) => {
+                            if (!idOrLabel) return null;
+                            const cleaned = idOrLabel.toString().trim();
+                            const upper = cleaned.toUpperCase();
+                            
+                            let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
+                            if (found) return found.id;
+                            
+                            if (aiToRealIdMap[upper]) {
+                                let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
+                                if (mappedNode) return mappedNode.id;
+                            }
+                            
+                            const norm = normalizeLabel(cleaned);
+                            found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
+                            if (found) return found.id;
+                            
+                            return null;
+                        };
+
+                        branchData.links.forEach(l => {
+                            if (l.source && l.target) {
+                                let s = findNodeId(l.source);
+                                let t = findNodeId(l.target);
+                                
+                                if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
+                                if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
+                                
+                                if (s && t && s !== t) {
+                                    const sExists = appState.db.nodes.some(nx => nx.id === s);
+                                    const tExists = appState.db.nodes.some(nx => nx.id === t);
+                                    
+                                    if (sExists && tExists) {
+                                        const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
+                                        if (!linkExists) {
+                                            appState.db.links.push({ source: s, target: t, rel: l.rel || "include" });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (branchErr) {
+                console.error(`Errore nel ramo ${branch.label}:`, branchErr);
+                // Fallback auto-healing per questo ramo
+                const fallbackL2Id = `${branch.id}_L2_FALLBACK`;
+                appState.db.nodes.push({
+                    id: fallbackL2Id,
+                    label: `Approfondimento ${branch.label}`,
+                    content: `Sotto-ramo di ${branch.label}`,
+                    desc: `Studio analitico per la macro-area ${branch.label}.`,
+                    level: 2,
+                    chunks: [],
+                    studyStatus: 'none'
+                });
+                appState.db.links.push({ source: branch.id, target: fallbackL2Id, rel: "dettagli" });
+            }
+        }
+
+        // AUTO-LINK ORPHANED NODES
+        const findParentIdByIdStructure = (nodeId, level) => {
+            if (!nodeId || level <= 1) return null;
+            const cleanId = nodeId.toUpperCase();
+            const match = cleanId.match(/^L\d+_([\d_]+)$/);
+            if (match) {
+                const parts = match[1].split('_');
+                if (parts.length > 1) {
+                    parts.pop();
+                    const parentLevel = level - 1;
+                    const parentId = `L${parentLevel}_${parts.join('_')}`;
+                    const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
+                    if (parentExists) return parentId;
+                }
+            }
+            return null;
+        };
+
+        const extractL1Branch = (nodeId) => {
+            if (!nodeId) return null;
+            const cleanId = nodeId.toUpperCase();
+            const m1 = cleanId.match(/L1_(\d+)/);
+            if (m1) return `L1_${m1[1]}`;
+            const m2 = cleanId.match(/^L\d+_(\d+)/);
+            if (m2) return `L1_${m2[1]}`;
+            return null;
+        };
+
+        appState.db.nodes.forEach(node => {
+            if (node.level > 1) {
+                const hasIncomingLink = appState.db.links.some(lk => {
+                    const tid = typeof lk.target === 'object' ? lk.target.id : lk.target;
+                    return tid === node.id;
+                });
+
+                if (!hasIncomingLink) {
+                    let parentId = findParentIdByIdStructure(node.id, node.level);
+                    if (!parentId) {
+                        const l1Branch = extractL1Branch(node.id);
+                        if (l1Branch && lastNodeInBranch[l1Branch]) {
+                            let parentLevel = node.level - 1;
+                            while (parentLevel >= 1 && !parentId) {
+                                if (lastNodeInBranch[l1Branch][parentLevel]) {
+                                    parentId = lastNodeInBranch[l1Branch][parentLevel];
+                                }
+                                parentLevel--;
+                            }
+                        }
+                    }
+
+                    if (parentId && parentId !== node.id) {
+                        appState.db.links.push({ 
+                            source: parentId, 
+                            target: node.id, 
+                            rel: "include" 
+                        });
+                    }
+                }
+            }
+        });
+
+        // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
+        const hubGroupMap = {};
+        appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
+        
+        appState.db.nodes.forEach(node => {
+            if (node.level > 1 && (!node.group || node.group === 0)) {
+                const visited = new Set([node.id]);
+                const queue = [node.id];
+                let foundGroup = null;
+                while (queue.length > 0 && !foundGroup) {
+                    const cur = queue.shift();
+                    if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
+                    appState.db.links.forEach(l => {
+                        const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                        const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                        if (sid === cur && !visited.has(tid)) { visited.add(tid); queue.push(tid); }
+                        if (tid === cur && !visited.has(sid)) { visited.add(sid); queue.push(sid); }
+                    });
+                }
+                if (foundGroup) node.group = foundGroup;
+            }
+        });
+
+        const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
+        appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+
+        window.showLoadingOverlay(false);
+        window.switchToMapLayout();
+        setTimeout(() => { initD3Visualization(); }, 200);
+        setTimeout(() => { window.showGenerationReport(); }, 1500);
+
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Generazione Mappa HD", err.message);
+    }
+}
+
 function salvageTruncatedJSON(text) {
     try {
         return JSON.parse(text);
@@ -2067,13 +2518,18 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
     }
 
+    const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
+    const minNodesVal = Math.max(10, maxNodesVal - 5);
+    const maxNodesStr = `${minNodesVal}-${maxNodesVal}`;
+
     const promptKey = appState.studentMode ? "KNOWLEDGE_GRAPH_SINGLE_STUDENT" : "KNOWLEDGE_GRAPH_SINGLE";
 
     var promptText = window.fillPromptTemplate(promptKey, {
         rootNodeLabel: appState.rootNodeLabel,
         optionalKeywords: kgKeywords ? `Focalizza le relazioni su questi Super-Hub semantici (se pertinenti): ${kgKeywords}.\\n` : '',
         userProfileInjection: userProfileStr,
-        textParts: textParts.join('\\n\\n')
+        textParts: textParts.join('\\n\\n'),
+        maxNodes: maxNodesStr
     });
 
     const schema = {
@@ -2086,8 +2542,14 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema }
+        generationConfig: { 
+            temperature: 0.2, 
+            responseMimeType: "application/json", 
+            responseSchema: schema,
+            maxOutputTokens: 8192
+        }
     };
+
 
     try {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
@@ -2195,6 +2657,373 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         window.showAlert("Errore Generazione Graph", err.message);
     }
 }
+
+async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
+    window.resetVaultState();
+    let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
+
+    let userProfileStr = '';
+    if (appState.userProfile) {
+        userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
+    }
+
+    if (appState.studentMode) {
+        userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+    }
+
+    const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
+    const minNodesVal = Math.max(10, maxNodesVal - 5);
+
+    try {
+        // ==========================================
+        // FASE 1: ESTRAZIONE CONCETTI (SCHELETRO)
+        // ==========================================
+        window.showLoadingOverlay(true, "Fase 1/3 (HD): Estrazione dei Concetti e dei Super-Hub...");
+
+        const p1PromptText = `SEI UN MOTORE DI ESTRAZIONE CONCETTUALE DI ALTO LIVELLO (Fase 1 di 3 - Scheletro del KG).
+Hai il compito di leggere il seguente testo ed estrarre esattamente tra i ${minNodesVal} e ${maxNodesVal} concetti o entità fondamentali per descrivere il tema "${appState.rootNodeLabel}".
+
+ISTRUZIONI:
+1. Per ogni concetto, estrai:
+   - "id": un ID unico e parlante in lettere maiuscole (es. FOTOSINTESI, CELLULOSA, TEORIA_COESIONE).
+   - "label": un titolo sintetico e chiaro (massimo 3 parole).
+   - "level": assegna valore 1 per i 3-5 concetti macro-aree principali (Super-Hub), e 2 per tutti gli altri concetti specifici di dettaglio.
+2. Rispetta la lingua italiana.
+3. Se l'utente ha indicato delle parole chiave di interesse (se pertinenti): [${kgKeywords}], includile assolutamente come Super-Hub (level 1) o concetti principali.
+
+Restituisci SOLO un oggetto JSON con chiave "nodes". Nessun commento, nessun blocco markdown.
+Formato richiesto:
+{
+  "nodes": [
+    { "id": "ID_CONCETTO", "label": "Nome Concetto", "level": 1 o 2 }
+  ]
+}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+        const p1Schema = {
+            type: "OBJECT",
+            properties: {
+                nodes: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            id: { type: "STRING" },
+                            label: { type: "STRING" },
+                            level: { type: "INTEGER" }
+                        },
+                        required: ["id", "label", "level"]
+                    }
+                }
+            },
+            required: ["nodes"]
+        };
+
+        const p1Payload = {
+            contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
+            systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: 2000 }
+        };
+
+        const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
+        let p1Raw = p1Response.candidates[0].content.parts[0].text;
+        let p1Clean = p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        let p1Data = salvageTruncatedJSON(p1Clean);
+
+        if (!p1Data.nodes || p1Data.nodes.length === 0) {
+            throw new Error("Impossibile estrarre lo scheletro dei nodi concettuali.");
+        }
+
+        const extractedNodes = p1Data.nodes;
+
+        // ==========================================
+        // FASE 2: ESTRAZIONE RELAZIONI (TOPOGRAFIA)
+        // ==========================================
+        window.showLoadingOverlay(true, "Fase 2/3 (HD): Mappatura e Connessione Relazionale...");
+
+        const conceptsListStr = extractedNodes.map(n => `- ID: "${n.id}" (Label: "${n.label}", Livello: ${n.level})`).join('\n');
+
+        const p2PromptText = `SEI UN MOTORE DI ANALISI DI COLLEGAMENTI RETICOLARI (Fase 2 di 3 - Topografia del KG).
+Ti fornisco una lista di concetti già estratti da un testo per il tema "${appState.rootNodeLabel}".
+Il tuo unico compito è leggere il testo originario e tracciare tutte le relazioni logico-causali, temporali o strutturali significative che legano questi concetti tra di loro.
+
+CONCETTI DISPONIBILI (Usa ESCLUSIVAMENTE questi ID esatti):
+${conceptsListStr}
+
+ISTRUZIONI:
+1. Crea relazioni ('links') collegando gli ID forniti. Usa ESCLUSIVAMENTE gli ID esatti presenti nella lista soprastante. NON inventare nuovi ID.
+2. Ciascun collegamento deve definire:
+   - "source": l'ID di origine esatto.
+   - "target": l'ID di destinazione esatto.
+   - "rel": una brevissima parola o locuzione di collegamento in italiano (es. "regola", "compone", "influenza", "produce", "genera", "scoperto da", "sviluppato in"). Massimo 3 parole.
+3. Tessi una rete ricca e interconnessa: idealmente ciascun concetto di livello 2 deve avere da 1 a 3 collegamenti verso i Super-Hub di livello 1 o altri nodi di livello 2. Assicurati che non rimanga alcun nodo isolato/orfano.
+
+Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.
+Formato richiesto:
+{
+  "links": [
+    { "source": "ID_A", "target": "ID_B", "rel": "relazione" }
+  ]
+}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+        const p2Schema = {
+            type: "OBJECT",
+            properties: {
+                links: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            source: { type: "STRING" },
+                            target: { type: "STRING" },
+                            rel: { type: "STRING" }
+                        },
+                        required: ["source", "target", "rel"]
+                    }
+                }
+            },
+            required: ["links"]
+        };
+
+        const p2Payload = {
+            contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
+            systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: 3000 }
+        };
+
+        const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
+        let p2Raw = p2Response.candidates[0].content.parts[0].text;
+        let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        let p2Data = salvageTruncatedJSON(p2Clean);
+
+        const extractedLinks = p2Data.links || [];
+
+        // ==========================================
+        // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH
+        // ==========================================
+        const batchSize = 7;
+        const totalNodes = extractedNodes.length;
+        const totalBatches = Math.ceil(totalNodes / batchSize);
+        const enrichedNodesMap = {};
+
+        for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+            const start = batchIdx * batchSize;
+            const end = Math.min(start + batchSize, totalNodes);
+            const batchNodes = extractedNodes.slice(start, end);
+            const batchNodesStr = batchNodes.map(n => `- ID: "${n.id}" (Label: "${n.label}")`).join('\n');
+
+            window.showLoadingOverlay(true, `Fase 3/3 (HD): Arricchimento dettagli (Batch ${batchIdx + 1}/${totalBatches})...`);
+
+            const p3PromptText = `SEI UN ARRICCHITORE CONCETTUALE DIDATTICO (Fase 3 di 3 - Dettagli e Citazioni).
+Stiamo realizzando un Knowledge Graph per uno studente.
+Il tuo compito è arricchire i seguenti concetti specifici leggendo le fonti originali.
+
+CONCETTI DA COMPLETARE IN QUESTO BATCH:
+${batchNodesStr}
+${userProfileStr}
+
+ISTRUZIONI PER OGNI CONCETTO:
+1. Genera "content": una sintesi concettuale brevissima (massimo 10 parole).
+2. Genera "desc": una descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+3. Genera "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (frasi intere di almeno 10-15 parole) copiate fedelmente e integralmente dal testo originale delle fonti che giustificano e supportano il concetto trattato. NON inventare o riassumere le citazioni!
+
+Restituisci SOLO un oggetto JSON con chiave "enrichedNodes". Nessun commento, nessun blocco markdown.
+Formato richiesto:
+{
+  "enrichedNodes": [
+    {
+      "id": "ID_CONCETTO",
+      "content": "Sintesi didattica",
+      "desc": "Spiegazione dettagliata ed estesa...",
+      "chunks": ["Citazione verbatim 1 dal testo", "Citazione verbatim 2 dal testo"]
+    }
+  ]
+}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+            const p3Schema = {
+                type: "OBJECT",
+                properties: {
+                    enrichedNodes: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                id: { type: "STRING" },
+                                content: { type: "STRING" },
+                                desc: { type: "STRING" },
+                                chunks: { type: "ARRAY", items: { type: "STRING" } }
+                            },
+                            required: ["id", "content", "desc", "chunks"]
+                        }
+                    }
+                },
+                required: ["enrichedNodes"]
+            };
+
+            const p3Payload = {
+                contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
+                systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: 3000 }
+            };
+
+            try {
+                const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
+                let p3Raw = p3Response.candidates[0].content.parts[0].text;
+                let p3Clean = p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+                let p3Data = salvageTruncatedJSON(p3Clean);
+
+                if (p3Data.enrichedNodes) {
+                    p3Data.enrichedNodes.forEach(node => {
+                        enrichedNodesMap[node.id] = node;
+                    });
+                }
+            } catch (batchErr) {
+                console.error(`Errore nel batch ${batchIdx + 1}:`, batchErr);
+                // Auto-healing fallback per questo batch
+                batchNodes.forEach(node => {
+                    enrichedNodesMap[node.id] = {
+                        id: node.id,
+                        content: node.label,
+                        desc: `Approfondimento su ${node.label} estratto dalle fonti biologiche/storiche di studio.`,
+                        chunks: ["Citazione estratta in corso di elaborazione."]
+                    };
+                });
+            }
+        }
+
+        // ==========================================
+        // ASSEMBLAGGIO FINALE E PULIZIA
+        // ==========================================
+        const finalNodes = extractedNodes.map(node => {
+            const enriched = enrichedNodesMap[node.id] || {};
+            return {
+                id: node.id,
+                label: node.label,
+                level: node.level,
+                content: enriched.content || node.label,
+                desc: enriched.desc || `Dettaglio concettuale per ${node.label}.`,
+                chunks: enriched.chunks || [],
+                aiDesc: enriched.desc || `Dettaglio concettuale per ${node.label}.`,
+                studyStatus: 'none'
+            };
+        });
+
+        // Normalizzazione e forzatura livelli
+        const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+        const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
+
+        finalNodes.forEach(n => {
+            const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
+            const aiWantsHub = (parseInt(n.level) === 1);
+            if (isManualHub || aiWantsHub) {
+                n.level = 1;
+            } else {
+                n.level = 2;
+            }
+        });
+
+        // Post-processing di salvataggio: se abbiamo < 3 Hub, ne promuoviamo
+        let currentHubs = finalNodes.filter(n => n.level === 1);
+        if (currentHubs.length < 3 && finalNodes.length > 5) {
+            const degreeMap = {};
+            finalNodes.forEach(n => degreeMap[n.id] = 0);
+            extractedLinks.forEach(l => {
+                const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                if (degreeMap[sourceId] !== undefined) degreeMap[sourceId]++;
+                if (degreeMap[targetId] !== undefined) degreeMap[targetId]++;
+            });
+
+            const candidates = finalNodes
+                .filter(n => n.level === 2)
+                .sort((a, b) => degreeMap[b.id] - degreeMap[a.id]);
+
+            let neededHubs = Math.max(3, Math.min(5, Math.floor(finalNodes.length / 4))) - currentHubs.length;
+            for (let i = 0; i < neededHubs && i < candidates.length; i++) {
+                candidates[i].level = 1;
+            }
+        }
+
+        // Assegna group unico incrementale a ogni Hub L1
+        let groupIdx = 1;
+        finalNodes.filter(n => n.level === 1).forEach(hub => {
+            hub.group = groupIdx++;
+        });
+
+        // Assegna group ai nodi L2 basandosi sulle connessioni (BFS verso Hub più vicino)
+        const hubGroupMap = {};
+        finalNodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
+        const rawLinks = extractedLinks;
+
+        finalNodes.filter(n => n.level === 2).forEach(node => {
+            const visited = new Set([node.id]);
+            const queue = [node.id];
+            let foundGroup = null;
+            while (queue.length > 0 && !foundGroup) {
+                const cur = queue.shift();
+                if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
+                rawLinks.forEach(l => {
+                    const s = typeof l.source === 'object' ? l.source.id : l.source;
+                    const t = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (s === cur && !visited.has(t)) { visited.add(t); queue.push(t); }
+                    if (t === cur && !visited.has(s)) { visited.add(s); queue.push(s); }
+                });
+                if (visited.size > 50) break;
+            }
+            node.group = foundGroup || 1;
+        });
+
+        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link
+        const validNodeIds = new Set(finalNodes.map(n => n.id));
+        let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+
+        const linkedNodes = new Set();
+        finalLinks.forEach(l => { linkedNodes.add(l.source); linkedNodes.add(l.target); });
+
+        const hubs = finalNodes.filter(n => n.level === 1);
+        if (hubs.length > 0) {
+            finalNodes.forEach(node => {
+                if (node.level === 2 && !linkedNodes.has(node.id)) {
+                    // Collega il nodo orfano a un Hub a caso (o al primo)
+                    const randomHub = hubs[Math.floor(Math.random() * hubs.length)];
+                    finalLinks.push({
+                        source: randomHub.id,
+                        target: node.id,
+                        rel: "correlato a"
+                    });
+                }
+            });
+        }
+
+        appState.db = {
+            nodes: finalNodes,
+            links: finalLinks,
+            sourcesDict: {},
+            customColors: {}
+        };
+
+        appState.db.nodes.forEach(n => {
+            if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
+        });
+
+        window.showLoadingOverlay(false);
+        window.switchToMapLayout();
+        setTimeout(() => { initD3Visualization(); }, 200);
+        setTimeout(() => { window.showGenerationReport(); }, 1500);
+
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Generazione Graph HD", err.message);
+    }
+}
 window.showGenerationReport = function () {
     if (!appState.generationUsage) return;
 
@@ -2243,11 +3072,25 @@ const colorScale = {
 const radiusScale = { 0: 45, 1: 30, 2: 20, 3: 15, 4: 10, 5: 7 };
 
 function getNodeRadius(d) {
-    if (appState.extractionMode !== 'mindmap' && d.degree !== undefined) {
-        // KG mode: scale radius by degree (connections)
-        const minR = 10, maxR = 45;
+    if (appState.extractionMode !== 'mindmap') {
+        // KG mode: scale radius by degree (connections) but respect the level hierarchy!
+        if (d.level === 0) {
+            // Level 0 (absolute Root/Theme): always the maximum primary size
+            return 45;
+        }
+        
         const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
-        return minR + ((d.degree || 0) / maxDeg) * (maxR - minR);
+        const degree = d.degree || 0;
+        
+        if (d.level === 1) {
+            // Level 1 (Super-Hub): ranges from 30px to 40px depending on degree
+            const minR = 30, maxR = 40;
+            return minR + (degree / maxDeg) * (maxR - minR);
+        } else {
+            // Level 2+ (Leaf/Concept nodes): ranges from 12px to 22px depending on degree
+            const minR = 12, maxR = 22;
+            return minR + (degree / maxDeg) * (maxR - minR);
+        }
     }
     return radiusScale[d.level !== undefined ? d.level : 1] || 15;
 }
@@ -2397,12 +3240,12 @@ function renderGraph() {
         .on("touchmove", handleTouchMove);
 
     linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
-    linkEnter.append("text").attr("class", "link-label").attr("dy", -4).text(d => d.rel);
+    linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
         .text(d => d.rel)
-        .attr("font-size", (8 * globalFontScale * 0.85) + "px");
+        .attr("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
@@ -2735,7 +3578,7 @@ window.changeFontScale = function (dir) {
             return (baseSize * globalFontScale) + "px";
         });
 
-        g.selectAll("text.link-label").attr("font-size", (8 * globalFontScale * 0.85) + "px");
+        g.selectAll("text.link-label").attr("font-size", (8 * globalFontScale * 0.765) + "px");
     }
 };
 
@@ -3607,6 +4450,7 @@ window.setMode = function (mode) {
     const btnMindmap = document.getElementById('mode-mindmap');
     const btnKG = document.getElementById('mode-kg');
     const containerDensity = document.getElementById('step-density-container');
+    const containerKGDensity = document.getElementById('step-kg-density-container');
     const containerRoot = document.getElementById('step-root-container');
     const modeInput = document.getElementById('extraction-mode');
 
@@ -3622,6 +4466,7 @@ window.setMode = function (mode) {
         btnMindmap.classList.add('active');
         btnKG.classList.remove('active');
         if (containerDensity) containerDensity.classList.remove('hidden');
+        if (containerKGDensity) containerKGDensity.classList.add('hidden');
         if (containerRoot) containerRoot.classList.remove('hidden');
 
         if (l1Title) l1Title.innerText = "Rami Principali (Livello 1)";
@@ -3633,6 +4478,7 @@ window.setMode = function (mode) {
         btnMindmap.classList.remove('active');
         btnKG.classList.add('active');
         if (containerDensity) containerDensity.classList.add('hidden');
+        if (containerKGDensity) containerKGDensity.classList.remove('hidden');
         if (containerRoot) containerRoot.classList.add('hidden');
 
         if (l1Title) l1Title.innerText = "Super-Hubs relazionali";
@@ -3641,7 +4487,16 @@ window.setMode = function (mode) {
         if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri Super-Hub in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Trattative, Eredità...");
     }
+
+    const btnGenerateLabel = document.getElementById('btn-generate-label');
+    if (btnGenerateLabel) {
+        const lang = window.currentLanguage || 'it';
+        const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+        btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
+    }
 }
+
+
 
 window.toggleDyslexicFont = function () {
     let isDyslexicFont = document.body.classList.contains('font-dyslexic');
@@ -6038,7 +6893,7 @@ window.toggleProjectsBar = function (forcedState) {
 
     const isCollapsed = forcedState !== undefined ? !forcedState : !bar.classList.contains('projects-collapsed');
 
-    const lang = localStorage.getItem('mapp_ai_language') || 'it';
+    const lang = localStorage.getItem('mappai_language') || 'it';
     const localTranslations = {
         it: { show_projects: 'Mostra Progetti', hide_projects: 'Nascondi Progetti' },
         en: { show_projects: 'Show Projects', hide_projects: 'Hide Projects' }
@@ -6050,19 +6905,19 @@ window.toggleProjectsBar = function (forcedState) {
         bar.style.transform = 'translateY(calc(100% - 0px))';
         if (icon) icon.style.transform = 'rotate(180deg)';
         if (text) text.textContent = t.show_projects || 'Mostra Progetti';
-        localStorage.setItem('mapp_bar_collapsed', 'true');
+        localStorage.setItem('mappai_bar_collapsed', 'true');
     } else {
         bar.classList.remove('projects-collapsed');
         bar.style.transform = 'translateY(0)';
         if (icon) icon.style.transform = 'rotate(0deg)';
         if (text) text.textContent = t.hide_projects || 'Nascondi Progetti';
-        localStorage.setItem('mapp_bar_collapsed', 'false');
+        localStorage.setItem('mappai_bar_collapsed', 'false');
     }
 };
 
 // Init bar state
 setTimeout(() => {
-    if (localStorage.getItem('mapp_bar_collapsed') === 'true') {
+    if (localStorage.getItem('mappai_bar_collapsed') === 'true') {
         window.toggleProjectsBar(false);
     }
 }, 500);
@@ -6072,11 +6927,11 @@ setInterval(() => {
 }, 120000); // periodic background save just in case
 
 // Aggiungo il gestore lingue per i modali
-window.currentLanguage = localStorage.getItem('mapp_language') || 'it';
+window.currentLanguage = localStorage.getItem('mappai_language') || 'it';
 
 window.changeLanguage = function (lang) {
     window.currentLanguage = lang;
-    localStorage.setItem('mapp_language', lang);
+    localStorage.setItem('mappai_language', lang);
     // Uso i nomi definiti nei file .js caricati
     const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
 
@@ -6091,7 +6946,11 @@ window.changeLanguage = function (lang) {
         'label-mode-mindmap': t.step2_mindmap,
         'label-mode-kg': t.step2_kg,
         'label-step4': t.step_density_title,
-        'btn-generate-label': t.new_map_btn,
+        'label-step4-kg': t.step_kg_density_title,
+        'label-step4-kg-desc': t.step_kg_density_desc,
+        'btn-generate-label': (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap' ? t.new_map_btn : t.new_kg_btn,
+
+
         'btn-blank-canvas-label': t.btn_blank_canvas_label || "Oppure crea Canvas Vuoto (Manuale)",
         'label-save-folder': t.save_folder,
         'label-ext-guide': t.ext_ai_guide,
@@ -7340,10 +8199,9 @@ window.updateGradeOptions = function () {
     const systemSelect = document.getElementById('up-system');
     const gradeSelect = document.getElementById('up-grade');
     const currentVal = gradeSelect.value;
-    const isTicino = systemSelect.value === 'Ticino';
+    const system = systemSelect.value;
 
     gradeSelect.innerHTML = '';
-    const maxGrade = isTicino ? 4 : 3;
 
     // Add default empty option
     const emptyOpt = document.createElement('option');
@@ -7351,12 +8209,31 @@ window.updateGradeOptions = function () {
     emptyOpt.text = "Classe...";
     gradeSelect.appendChild(emptyOpt);
 
-    for (let i = 1; i <= maxGrade; i++) {
-        const opt = document.createElement('option');
-        const val = `${i}a Media`;
-        opt.value = val;
-        opt.text = val;
-        gradeSelect.appendChild(opt);
+    if (system === 'Liceo_Ticino') {
+        for (let i = 1; i <= 4; i++) {
+            const opt = document.createElement('option');
+            const val = `${i}° Anno Liceo`;
+            opt.value = val;
+            opt.text = val;
+            gradeSelect.appendChild(opt);
+        }
+    } else if (system === 'Liceo_Italia') {
+        for (let i = 1; i <= 5; i++) {
+            const opt = document.createElement('option');
+            const val = `${i}° Anno Superiore`;
+            opt.value = val;
+            opt.text = val;
+            gradeSelect.appendChild(opt);
+        }
+    } else {
+        const maxGrade = system === 'Ticino' ? 4 : 3;
+        for (let i = 1; i <= maxGrade; i++) {
+            const opt = document.createElement('option');
+            const val = `${i}a Media`;
+            opt.value = val;
+            opt.text = val;
+            gradeSelect.appendChild(opt);
+        }
     }
 
     // Restore previous value if it's still valid
@@ -7422,8 +8299,8 @@ window.saveUserProfile = function () {
         appState.allProfiles.push({ ...appState.userProfile });
     }
 
-    localStorage.setItem('mapp_user_profile', JSON.stringify(appState.userProfile));
-    localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+    localStorage.setItem('mappai_user_profile', JSON.stringify(appState.userProfile));
+    localStorage.setItem('mappai_all_profiles', JSON.stringify(appState.allProfiles));
 
     window.showToast("Profilo salvato correttamente!", "success");
     window.closeUserProfileModal();
@@ -7440,11 +8317,11 @@ window.resetUserProfile = function () {
         if (val.toLowerCase().trim() === "elimina") {
             // Remove from allProfiles
             appState.allProfiles = appState.allProfiles.filter(p => p.nickname !== currentNickname);
-            localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+            localStorage.setItem('mappai_all_profiles', JSON.stringify(appState.allProfiles));
 
             // Clear current profile
             appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
-            localStorage.removeItem('mapp_user_profile');
+            localStorage.removeItem('mappai_user_profile');
 
             window.showToast("Profilo eliminato.", "success");
             window.closeUserProfileModal();
@@ -7619,21 +8496,21 @@ window.resetVaultState = function () {
 
 // Initialization
 (function initProfile() {
-    const savedProfiles = localStorage.getItem('mapp_all_profiles');
+    const savedProfiles = localStorage.getItem('mappai_all_profiles');
     if (savedProfiles) {
         try {
             appState.allProfiles = JSON.parse(savedProfiles);
         } catch (e) { }
     }
 
-    const saved = localStorage.getItem('mapp_user_profile');
+    const saved = localStorage.getItem('mappai_user_profile');
     if (saved) {
         try {
             appState.userProfile = JSON.parse(saved);
             // Migrate single profile to allProfiles if not there
             if (appState.userProfile.nickname && appState.allProfiles.length === 0) {
                 appState.allProfiles.push({ ...appState.userProfile });
-                localStorage.setItem('mapp_all_profiles', JSON.stringify(appState.allProfiles));
+                localStorage.setItem('mappai_all_profiles', JSON.stringify(appState.allProfiles));
             }
         } catch (e) { }
     }

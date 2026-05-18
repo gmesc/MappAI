@@ -6,6 +6,8 @@ const en_translations = {
     btn_active_study: "Active Study",
     recent_projects: "Recent Projects",
     new_map_btn: "Generate New Map",
+    new_kg_btn: "Generate Knowledge Graph",
+
     btn_blank_canvas_label: "Create Blank Canvas (Manual)",
     save_folder: "Save Folder",
     import_json: "Import JSON",
@@ -38,6 +40,9 @@ const en_translations = {
     step5: "Visualization Style",
     step_density_title: "Branch Density (L4 and L5)",
     step_density_desc: "L1-L2-L3 branches will always be generated. Choose how many branches to generate in deeper levels (0 = stops at L3).",
+    step_kg_density_title: "Number of Concepts/Entities (Level 2)",
+    step_kg_density_desc: "Choose how many conceptual nodes to generate within the relational graph (recommended 15-25 for neat graphs, up to 30+ for complete graphs).",
+
 
     // Placeholders
     placeholder_root: "Example: Dante Alighieri, Quantum Physics...",

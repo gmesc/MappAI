@@ -6,6 +6,8 @@ const it_translations = {
     btn_active_study: "Studio Attivo",
     recent_projects: "Progetti Recenti",
     new_map_btn: "Genera Nuova Mappa",
+    new_kg_btn: "Genera Knowledge Graph",
+
     btn_blank_canvas_label: "Crea Canvas Vuoto (Manuale)",
     save_folder: "Cartella Salvataggi",
     import_json: "Importa JSON",
@@ -33,6 +35,9 @@ const it_translations = {
     step5: "Stile Visualizzazione",
     step_density_title: "Densità Diramazioni (L4 e L5)",
     step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
+    step_kg_density_title: "Numero di Concetti/Entità (Livello 2)",
+    step_kg_density_desc: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).",
+
 
     // Placeholders
     placeholder_root: "Esempio: Dante Alighieri, Fisica Quantistica...",

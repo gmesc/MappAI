@@ -14,7 +14,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        title: "MappAI Swiss",
+        title: "MappAI",
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -325,6 +325,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const linksData = (mapData.links || []).map(l => ({
             source: typeof l.source === 'object' ? l.source.id : l.source,
             target: typeof l.target === 'object' ? l.target.id : l.target,
+            rel: l.rel || "",
             isCross: !!l.isCross
         }));
         fs.writeFileSync(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2), 'utf-8');
@@ -428,8 +429,9 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                 content += "\n\n## Fonti\n";
                 node.chunks.forEach(c => {
                     const cTitle = typeof c === 'string' ? 'Estratto' : (c.title || 'Estratto');
+                    const cSource = typeof c === 'string' ? 'Originale' : (c.source || 'Originale');
                     const cText = typeof c === 'string' ? c : (c.text || '');
-                    content += `- [${cTitle}]: ${cText}\n`;
+                    content += `- [${cTitle} | ${cSource}]: ${cText}\n`;
                 });
             }
 
@@ -514,7 +516,13 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         // Load links.json
         const linksPath = path.join(folderPath, 'links.json');
         if (fs.existsSync(linksPath)) {
-            mapData.links = JSON.parse(fs.readFileSync(linksPath, 'utf-8'));
+            const rawLinks = JSON.parse(fs.readFileSync(linksPath, 'utf-8'));
+            mapData.links = rawLinks.map(l => ({
+                source: l.source,
+                target: l.target,
+                rel: l.rel || "include",
+                isCross: !!l.isCross
+            }));
         }
 
         // Load Nodes
@@ -561,9 +569,17 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                         node.desc = fontiPart[0].replace(/^# .*\n\n/, '').trim();
                         const fontiLines = fontiPart[1].trim().split('\n- ');
                         fontiLines.forEach(f => {
-                            const match = f.match(/\[(.*?) \| (.*?)\]: (.*)/);
-                            if (match) {
-                                node.chunks.push({ title: match[1], source: match[2], text: match[3] });
+                            // Strip leading "- " if present due to split or format
+                            let cleanLine = f.replace(/^- /, '').trim();
+                            const matchWithSource = cleanLine.match(/\[(.*?) \| (.*?)\]: (.*)/);
+                            if (matchWithSource) {
+                                node.chunks.push({ title: matchWithSource[1], source: matchWithSource[2], text: matchWithSource[3] });
+                            } else {
+                                // Fallback for legacy vaults without " | Source"
+                                const matchSimple = cleanLine.match(/\[(.*?)\]: (.*)/);
+                                if (matchSimple) {
+                                    node.chunks.push({ title: matchSimple[1], source: 'Originale', text: matchSimple[2] });
+                                }
                             }
                         });
                     } else {
@@ -635,7 +651,7 @@ ipcMain.handle('pick-folder', async () => {
 // IPC Handler to open the specific folder in macOS Finder
 ipcMain.handle('open-save-folder', async () => {
     const docPath = app.getPath('documents');
-    const saveDir = path.join(docPath, 'Salvataggi Mapp.AI');
+    const saveDir = path.join(docPath, 'Salvataggi MappAI');
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
     }

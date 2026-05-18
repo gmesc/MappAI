@@ -106,11 +106,11 @@
     </div>
 
     <script>
-        const SECRET_SALT = "MAPP_AI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
+        const SECRET_SALT = "MAPPAI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
 
         document.addEventListener("DOMContentLoaded", async () => {
             const lockScreen = document.getElementById('beta-lock-screen');
-            if (localStorage.getItem('mapp_beta_access_granted') === 'true') {
+            if (localStorage.getItem('mappai_beta_access_granted') === 'true') {
                 lockScreen.style.display = 'none';
             }
 
@@ -145,7 +145,7 @@
                 const expectedCode = await generateExpectedCode(machineId);
 
                 if (input === expectedCode || input === 'DEV-BYPASS-2026') {
-                    localStorage.setItem('mapp_beta_access_granted', 'true');
+                    localStorage.setItem('mappai_beta_access_granted', 'true');
                     errorMsg.classList.add('hidden');
                     lockScreen.style.opacity = '0';
                     setTimeout(() => lockScreen.style.display = 'none', 500);
@@ -579,6 +579,45 @@
                             class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">2</span>
                     </div>
                 </div>
+
+                <!-- STEP 4 bis: Slider Numero Nodi per Knowledge Graph -->
+                <div id="step-kg-density-container" class="space-y-3 transition-all duration-300 hidden">
+                    <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
+                        <span class="step-badge bg-yellow-500">4</span>
+                        <span id="label-step4-kg">Numero di Concetti/Entità (Livello 2)</span>
+                    </label>
+                    <p class="text-xs text-slate-500 ml-10 mb-3" id="label-step4-kg-desc">Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).</p>
+                    <div
+                        class="ml-10 flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                        <span class="text-xs font-bold text-indigo-400">10</span>
+                        <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
+                            class="w-full outline-none accent-indigo-500 cursor-pointer"
+                            oninput="document.getElementById('kg-nodes-val').innerText = this.value">
+                        <span class="text-xs font-bold text-indigo-400">35</span>
+                        <span id="kg-nodes-val"
+                            class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">20</span>
+                    </div>
+                </div>
+
+                <!-- Generazione HD (Multi-Pass) -->
+                <div class="space-y-3 transition-all duration-300">
+                    <div class="ml-10 mt-3 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                        <div class="flex flex-col gap-0.5 max-w-[70%]">
+                            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
+                                Generazione HD (Multi-Pass)
+                            </span>
+                            <span class="text-[10px] text-slate-400">Consigliato per mappe o grafi densi o con modelli come Qwen. Genera i rami/nodi in fasi sequenziali per evitare il taglio dei dati.</span>
+                        </div>
+                        <div class="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300/40 w-32 shrink-0">
+                            <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
+                                class="flex-1 py-1 text-[10px] font-bold rounded transition-all bg-white shadow-sm text-slate-700">OFF</button>
+                            <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
+                                class="flex-1 py-1 text-[10px] font-bold rounded transition-all text-slate-400 hover:text-slate-600">ON</button>
+                        </div>
+                    </div>
+                </div>
+
 
                 <!-- STEP 6 rimosso dal form — ora dentro il modale Configura AI -->
                 <div id="token-counter-container"
@@ -1443,8 +1482,10 @@ Restituisci solo il JSON pulito.</pre>
                         data-i18n="profile_system">Sistema Scolastico</label>
                     <select id="up-system" onchange="window.updateGradeOptions()"
                         class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
-                        <option value="Ticino">Sistema Scolastico Ticinese</option>
-                        <option value="Italia">Sistema Scolastico Italiano</option>
+                        <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
+                        <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
+                        <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
+                        <option value="Liceo_Italia">Liceo / Scuola Superiore (Italia - 5 anni)</option>
                     </select>
                 </div>
             </div>

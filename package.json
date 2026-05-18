@@ -1,7 +1,7 @@
 {
-  "name": "mapp-ai-swiss",
+  "name": "mappai",
   "version": "1.0.0",
-  "description": "Mapp.AI - AI-Powered Mind Mapping and Knowledge Graph Tool",
+  "description": "MappAI - AI-Powered Mind Mapping and Knowledge Graph Tool",
   "author": {
     "name": "Giacomo Meschini",
     "email": "giacomo@insegnai.ch"
@@ -15,7 +15,7 @@
   "build": {
     "asar": true,
     "appId": "com.mappai.generatore",
-    "productName": "MappAI Swiss",
+    "productName": "MappAI",
     "mac": {
       "target": [
         {
