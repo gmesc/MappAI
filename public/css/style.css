@@ -1013,7 +1013,8 @@
     /* ==========================================
        13. DYNAMIC TEXT ZOOM USING --app-zoom
        ========================================== */
-    #source-modal-body {
+    #source-modal-body,
+    #ai-modal-body {
         font-size: calc(1rem * var(--app-zoom, 1)) !important;
     }
 

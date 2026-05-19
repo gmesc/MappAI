@@ -7688,6 +7688,33 @@ window.cycleTextZoom = function () {
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    // Applica inline style per bypassare bug di Safari su calc/CSS variables
+    const sourceBody = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
+
+    if (sourceBody) {
+        sourceBody.style.fontSize = z === 1.0 ? '' : `${z * 16}px`;
+    }
+    if (aiBody) {
+        aiBody.style.fontSize = z === 1.0 ? '' : `${z * 16}px`;
+    }
+    if (flashcardFront) {
+        flashcardFront.style.fontSize = z === 1.0 ? '' : `${z * 24}px`;
+    }
+    if (flashcardBack) {
+        flashcardBack.style.fontSize = z === 1.0 ? '' : `${z * 18}px`;
+    }
+    if (quizQuestion) {
+        quizQuestion.style.fontSize = z === 1.0 ? '' : `${z * 20}px`;
+    }
+    quizOptions.forEach(opt => {
+        opt.style.fontSize = z === 1.0 ? '' : `${z * 13}px`;
+    });
+
     // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
 
@@ -7703,6 +7730,10 @@ window.cycleTextZoom = function () {
 
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
+
+    // Forza reflow su iOS Safari per aggiornare le variabili CSS nei fogli di stile
+    document.documentElement.classList.toggle('force-reflow');
+    const _reflow = document.documentElement.offsetHeight;
 
     window.safeCreateIcons();
 };
@@ -7722,6 +7753,11 @@ window.resetA11yTools = function () {
 
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
     const body = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
     if (mainCard) {
         mainCard.style.transform = '';
@@ -7731,7 +7767,17 @@ window.resetA11yTools = function () {
     if (body) {
         body.style.lineHeight = '';
         body.style.zoom = '';
+        body.style.fontSize = '';
     }
+    if (aiBody) {
+        aiBody.style.fontSize = '';
+    }
+    if (flashcardFront) flashcardFront.style.fontSize = '';
+    if (flashcardBack) flashcardBack.style.fontSize = '';
+    if (quizQuestion) quizQuestion.style.fontSize = '';
+    quizOptions.forEach(opt => {
+        opt.style.fontSize = '';
+    });
     document.documentElement.style.fontSize = '';
 };
 
