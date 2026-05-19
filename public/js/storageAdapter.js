@@ -196,8 +196,12 @@
             const activeVault = folderName || currentVirtualVault || "Default_Vault";
             currentVirtualVault = activeVault;
 
+            const mapData = isExplicitExport ? vaultData.mapData : vaultData;
+
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
+                
+                // 1. Salva il file monolitico vault_data.json per caricamento rapido dell'app
                 const path = `MappAI_Vaults/${activeVault}/vault_data.json`;
                 await Filesystem.writeFile({
                     path: path,
@@ -206,6 +210,81 @@
                     encoding: 'utf8',
                     recursive: true
                 });
+
+                // 2. Salva index.yaml (Configurazione Globale Mappa)
+                const indexData = {
+                    extractionMode: mapData.extractionMode,
+                    rootNodeLabel: mapData.rootNodeLabel,
+                    userProfile: mapData.userProfile,
+                    customColors: mapData.customColors || {},
+                    lastUpdated: new Date().toISOString()
+                };
+                const indexYaml = Object.entries(indexData).map(([k,v]) => {
+                    if (typeof v === 'object' && v !== null) return `${k}: ${JSON.stringify(v)}`;
+                    return `${k}: ${v}`;
+                }).join('\n');
+                await Filesystem.writeFile({
+                    path: `MappAI_Vaults/${activeVault}/index.yaml`,
+                    data: indexYaml,
+                    directory: Directory.Documents,
+                    encoding: 'utf8',
+                    recursive: true
+                });
+
+                // 3. Salva Links (Relazioni)
+                const linksData = (mapData.links || []).map(l => ({
+                    source: typeof l.source === 'object' ? l.source.id : l.source,
+                    target: typeof l.target === 'object' ? l.target.id : l.target,
+                    rel: l.rel || "",
+                    isCross: !!l.isCross
+                }));
+                await Filesystem.writeFile({
+                    path: `MappAI_Vaults/${activeVault}/links.json`,
+                    data: JSON.stringify(linksData, null, 2),
+                    directory: Directory.Documents,
+                    encoding: 'utf8',
+                    recursive: true
+                });
+
+                // 4. Salva ciascun Nodo come file Markdown (.md) Obsidian-compatibile
+                if (mapData.nodes && mapData.nodes.length) {
+                    for (const node of mapData.nodes) {
+                        const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                        const fileName = `${safeLabel}_${node.id}.md`;
+                        
+                        let frontmatter = '---\n';
+                        frontmatter += `id: "${node.id}"\n`;
+                        frontmatter += `label: "${node.label}"\n`;
+                        frontmatter += `level: ${node.level}\n`;
+                        frontmatter += `group: ${node.group || 0}\n`;
+                        if (node.parent) frontmatter += `parent: "${node.parent}"\n`;
+                        if (node.iconVisibility) frontmatter += `iconVisibility: ${JSON.stringify(node.iconVisibility)}\n`;
+                        if (node.hasCustomText) frontmatter += `hasCustomText: true\n`;
+                        if (node.hasCustomImage) frontmatter += `hasCustomImage: true\n`;
+                        if (node.x !== undefined) frontmatter += `x: ${node.x}\n`;
+                        if (node.y !== undefined) frontmatter += `y: ${node.y}\n`;
+                        if (node.savedX !== undefined) frontmatter += `savedX: ${node.savedX}\n`;
+                        if (node.savedY !== undefined) frontmatter += `savedY: ${node.savedY}\n`;
+                        
+                        if (node.customColor) {
+                            frontmatter += `customColor: "${node.customColor}"\n`;
+                        }
+                        if (node.studyStatus) {
+                            frontmatter += `studyStatus: "${node.studyStatus}"\n`;
+                        }
+                        
+                        frontmatter += '---\n\n';
+                        const content = node.content || "";
+
+                        await Filesystem.writeFile({
+                            path: `MappAI_Vaults/${activeVault}/Nodi/${fileName}`,
+                            data: frontmatter + content,
+                            directory: Directory.Documents,
+                            encoding: 'utf8',
+                            recursive: true
+                        });
+                    }
+                }
 
                 // Aggiorna anche l'indice dei vault
                 let list = [];
@@ -569,17 +648,31 @@
 
                 const target = document.getElementById("d3-container") || document.body;
                 
-                // Opzioni ottimizzate per iPad/Safari
+                // Rendi temporaneamente trasparente il contenitore per escludere lo sfondo e la griglia
+                target.style.setProperty('background-color', 'transparent', 'important');
+                target.style.setProperty('background-image', 'none', 'important');
+
+                // Opzioni ottimizzate per iPad/Safari con sfondo trasparente
                 const canvas = await h2c(target, {
                     useCORS: true,
                     allowTaint: true,
-                    backgroundColor: null, // Usa lo sfondo dell'elemento (compresi stili/pattern del CSS)
+                    backgroundColor: null, // Consente la trasparenza impostata sull'elemento
                     scale: 2, // Snapshot HD (doppia risoluzione)
                     logging: false
                 });
 
+                // Ripristina lo sfondo e la griglia originali
+                target.style.removeProperty('background-color');
+                target.style.removeProperty('background-image');
+
                 return canvas.toDataURL("image/png");
             } catch (e) {
+                // In caso di errore ripristina comunque
+                const target = document.getElementById("d3-container");
+                if (target) {
+                    target.style.removeProperty('background-color');
+                    target.style.removeProperty('background-image');
+                }
                 console.warn("[MappAI Adapter] Errore html2canvas, uso fallback SVG:", e);
                 return getSvgFallback();
             }
