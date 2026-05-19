@@ -3245,7 +3245,7 @@ function renderGraph() {
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
         .text(d => d.rel)
-        .attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        .style("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
@@ -3305,7 +3305,7 @@ function renderGraph() {
     nodeEnter.append("text").attr("class", "node-text")
         .attr("text-anchor", "middle")
         .attr("fill", "#0f172a")
-        .attr("font-size", d => {
+        .style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3569,7 +3569,7 @@ window.toggleAttraction = function () {
 window.changeFontScale = function (dir) {
     globalFontScale = Math.max(0.5, Math.min(2.5, globalFontScale + (dir * 0.1)));
     if (g) {
-        g.selectAll("text.node-text").attr("font-size", d => {
+        g.selectAll("text.node-text").style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3578,7 +3578,7 @@ window.changeFontScale = function (dir) {
             return (baseSize * globalFontScale) + "px";
         });
 
-        g.selectAll("text.link-label").attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        g.selectAll("text.link-label").style("font-size", (8 * globalFontScale * 0.765) + "px");
     }
 };
 
@@ -7690,10 +7690,16 @@ window.cycleTextZoom = function () {
 
     // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const sourceBody = document.getElementById('source-modal-body');
 
-    if (mainCard) mainCard.style.zoom = z;
-    if (sourceBody) sourceBody.style.zoom = z;
+    if (mainCard) {
+        if (z === 1.0) {
+            mainCard.style.transform = '';
+            mainCard.style.transformOrigin = '';
+        } else {
+            mainCard.style.transform = `scale(${z})`;
+            mainCard.style.transformOrigin = 'top center';
+        }
+    }
 
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
@@ -7717,7 +7723,11 @@ window.resetA11yTools = function () {
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
     const body = document.getElementById('source-modal-body');
 
-    if (mainCard) mainCard.style.zoom = '';
+    if (mainCard) {
+        mainCard.style.transform = '';
+        mainCard.style.transformOrigin = '';
+        mainCard.style.zoom = '';
+    }
     if (body) {
         body.style.lineHeight = '';
         body.style.zoom = '';

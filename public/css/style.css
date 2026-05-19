@@ -1007,6 +1007,32 @@
         .glass-card {
             margin: 12px;
             padding: 20px !important;
+        }
+    }
+
+    /* ==========================================
+       13. DYNAMIC TEXT ZOOM USING --app-zoom
+       ========================================== */
+    #source-modal-body {
+        font-size: calc(1rem * var(--app-zoom, 1)) !important;
+    }
+
+    #flashcard-front-text {
+        font-size: calc(1.5rem * var(--app-zoom, 1)) !important;
+    }
+
+    #flashcard-back-text {
+        font-size: calc(1.125rem * var(--app-zoom, 1)) !important;
+    }
+
+    #study-quiz-question {
+        font-size: calc(1.25rem * var(--app-zoom, 1)) !important;
+    }
+
+    #study-quiz-options .quiz-option {
+        font-size: calc(0.8125rem * var(--app-zoom, 1)) !important;
+    }
+
     /* ==========================================
        12. SNAPSHOT MODE (Clean capture)
        ========================================== */

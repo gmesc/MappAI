@@ -318,15 +318,43 @@
 
         // --- RETE & AI (Bypass CORS) ---
 
-        listInfomaniakModels: async function () {
-            // Chiamata standard
-            const url = "https://api.infomaniak.com/1/ai/models";
-            const token = localStorage.getItem('infomaniak_api_token') || '';
+        listInfomaniakModels: async function (options) {
+            const { apiKey, productId } = options || {};
+            const token = apiKey || localStorage.getItem('infomaniak_api_key') || '';
+            const prodId = productId || localStorage.getItem('infomaniak_product_id') || '';
+            const url = `https://api.infomaniak.com/2/ai/${prodId}/openai/v1/models`;
+
+            if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
+                try {
+                    const { CapacitorHttp } = window.Capacitor.Plugins;
+                    const response = await CapacitorHttp.request({
+                        method: 'GET',
+                        url: url,
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const parsed = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                    const models = (parsed.data || []).map(m => ({
+                        id: m.id,
+                        displayName: m.id + ' (Swiss AI)',
+                        kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
+                    }));
+                    return models;
+                } catch (e) {
+                    console.error("Errore nativo fetch modelli Infomaniak:", e);
+                    return { error: e.message };
+                }
+            }
             try {
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                return await response.json();
+                const parsed = await response.json();
+                const models = (parsed.data || []).map(m => ({
+                    id: m.id,
+                    displayName: m.id + ' (Swiss AI)',
+                    kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
+                }));
+                return models;
             } catch (e) {
                 console.error("Errore fetch modelli Infomaniak:", e);
                 return { error: e.message };
@@ -334,9 +362,21 @@
         },
 
         listModels: async function () {
-            // Chiamata modelli Gemini
             const apiKey = window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key');
             const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+            if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
+                try {
+                    const { CapacitorHttp } = window.Capacitor.Plugins;
+                    const response = await CapacitorHttp.request({
+                        method: 'GET',
+                        url: url
+                    });
+                    return response.data;
+                } catch (e) {
+                    console.error("Errore nativo fetch modelli Gemini:", e);
+                    return { error: e.message };
+                }
+            }
             try {
                 const response = await fetch(url);
                 return await response.json();
@@ -346,15 +386,16 @@
             }
         },
 
-        generateInfomaniak: async function (payload) {
-            const token = localStorage.getItem('infomaniak_api_token') || '';
-            const productId = localStorage.getItem('infomaniak_product_id') || '';
-            const url = `https://api.infomaniak.com/1/ai/product/${productId}/chat/completions`;
+        generateInfomaniak: async function (options) {
+            const { apiKey, payload, productId } = options || {};
+            const token = apiKey || localStorage.getItem('infomaniak_api_key') || '';
+            const prodId = productId || localStorage.getItem('infomaniak_product_id') || '';
+            const url = `https://api.infomaniak.com/2/ai/${prodId}/openai/v1/chat/completions`;
 
             // Se siamo su Capacitor, usiamo il plugin Http nativo per bypassare interamente i controlli CORS
-            if (isCapacitor && window.Capacitor.Plugins.Http) {
-                const { Http } = window.Capacitor.Plugins;
-                const response = await Http.request({
+            if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
+                const { CapacitorHttp } = window.Capacitor.Plugins;
+                const response = await CapacitorHttp.request({
                     method: 'POST',
                     url: url,
                     headers: {
@@ -363,7 +404,7 @@
                     },
                     data: payload
                 });
-                return response.data;
+                return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
             }
 
             // Fallback per Browser standard
@@ -383,9 +424,9 @@
             // Nota: MappAI usa il modello di default configurato. Sostituiamo dinamicamente se necessario.
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-            if (isCapacitor && window.Capacitor.Plugins.Http) {
-                const { Http } = window.Capacitor.Plugins;
-                const response = await Http.request({
+            if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
+                const { CapacitorHttp } = window.Capacitor.Plugins;
+                const response = await CapacitorHttp.request({
                     method: 'POST',
                     url: url,
                     headers: { 'Content-Type': 'application/json' },
@@ -404,9 +445,9 @@
 
         fetchUrl: async function (targetUrl) {
             // Utilizzato per fare scraping o recuperare contenuti web esterni
-            if (isCapacitor && window.Capacitor.Plugins.Http) {
-                const { Http } = window.Capacitor.Plugins;
-                const response = await Http.request({
+            if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
+                const { CapacitorHttp } = window.Capacitor.Plugins;
+                const response = await CapacitorHttp.request({
                     method: 'GET',
                     url: targetUrl
                 });
@@ -451,6 +492,14 @@
             return null;
         }
     };
+
+    // Disabilita lo zoom pinch nativo a livello di viewport su Safari/iPadOS
+    document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('gesturechange', function (e) {
+        e.preventDefault();
+    }, { passive: false });
 
     console.log("[MappAI Adapter] Polyfill installato correttamente con successo!");
 })();
