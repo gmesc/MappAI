@@ -96,6 +96,51 @@
         });
     }
 
+    function loadHtml2Canvas() {
+        return new Promise((resolve) => {
+            if (typeof html2canvas !== 'undefined') {
+                resolve(html2canvas);
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+            script.onload = () => {
+                console.log("[MappAI Adapter] html2canvas.js caricato con successo.");
+                resolve(html2canvas);
+            };
+            script.onerror = () => {
+                console.error("[MappAI Adapter] Errore nel caricamento di html2canvas.js.");
+                resolve(null);
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    function getSvgFallback() {
+        try {
+            const svgElement = document.querySelector("#d3-container svg");
+            if (!svgElement) return null;
+            
+            const clonedSvg = svgElement.cloneNode(true);
+            const style = document.createElement("style");
+            style.textContent = `
+                svg { background-color: #0f172a; }
+                .node-circle { fill: #1e293b; stroke: #38bdf8; stroke-width: 2px; }
+                .node-text { fill: #f1f5f9; font-family: sans-serif; font-size: 12px; }
+                .link { stroke: #475569; stroke-opacity: 0.6; stroke-width: 1.5px; }
+                .link-label { fill: #94a3b8; font-family: sans-serif; font-size: 9px; }
+            `;
+            clonedSvg.insertBefore(style, clonedSvg.firstChild);
+            
+            const svgString = new XMLSerializer().serializeToString(clonedSvg);
+            const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+            return URL.createObjectURL(svgBlob);
+        } catch (err) {
+            console.error("[MappAI Adapter] Errore fallback SVG:", err);
+            return null;
+        }
+    }
+
     // Creazione dell'oggetto fittizio window.electronAPI
     window.electronAPI = {
         // --- STORAGE & GESTIONE VAULT ---
@@ -518,10 +563,26 @@
         },
 
         capturePage: async function () {
-            // Electron cattura la finestra con API native. 
-            // Su iPad/Web, l'agente dovrà caricare html2canvas per fotografare l'elemento #main-content o l'SVG del grafo.
-            console.warn("[MappAI Adapter] capturePage emulato: scarica l'immagine SVG del grafo direttamente tramite i controlli dell'interfaccia utente.");
-            return null;
+            try {
+                const h2c = await loadHtml2Canvas();
+                if (!h2c) throw new Error("html2canvas non caricato");
+
+                const target = document.getElementById("main-content") || document.body;
+                
+                // Opzioni ottimizzate per iPad/Safari
+                const canvas = await h2c(target, {
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: "#0f172a", // Colore sfondo scuro dell'app
+                    scale: 2, // Snapshot HD (doppia risoluzione)
+                    logging: false
+                });
+
+                return canvas.toDataURL("image/png");
+            } catch (e) {
+                console.warn("[MappAI Adapter] Errore html2canvas, uso fallback SVG:", e);
+                return getSvgFallback();
+            }
         }
     };
 

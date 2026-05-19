@@ -3677,7 +3677,7 @@ window.exportSnapshot = async function () {
         document.body.classList.add('is-snapshotting');
         
         // Attendi un frame per il reflow del layout
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
         
@@ -3686,12 +3686,28 @@ window.exportSnapshot = async function () {
 
         if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
 
-        const a = document.createElement("a");
-        a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
-        a.href = dataUrl;
-        a.click();
-        
-        window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const file = new File([blob], `MappAI_Snapshot_${new Date().getTime()}.png`, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta Snapshot",
+                    text: "Snapshot della mappa mentale creato con MappAI"
+                });
+                window.showToast("Snapshot condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione file non supportata da questo dispositivo");
+            }
+        } else {
+            const a = document.createElement("a");
+            a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
+            a.href = dataUrl;
+            a.click();
+            window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        }
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
         console.error("Errore Snapshot:", err);
