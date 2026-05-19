@@ -3292,6 +3292,7 @@ function renderGraph() {
     const nodeEnter = nodeSelection.enter().append("g").attr("class", "node-group")
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
+        .on("dblclick", (e, d) => { e.stopPropagation(); window.openSourceModal(d.id); })
         .on("contextmenu", (e, d) => window.showContextMenu(e, 'node', d))
         .on("touchstart", (e, d) => handleTouchStart(e, 'node', d))
         .on("touchend", handleTouchEnd)
@@ -3500,24 +3501,96 @@ function tick() {
 }
 
 function drag(simulation) {
+    let drawingLinkFrom = null;
+    let tempLine = null;
+
     function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-    }
-    function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-    }
-    function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
-        if (event.subject.level > 1 && !attractionEnabled) {
-            event.subject.fx = event.x; event.subject.fy = event.y;
-        } else if (event.subject.level > 1) {
-            event.subject.fx = null; event.subject.fy = null;
+        const sourceEvt = event.sourceEvent;
+        const isPen = sourceEvt && (
+            sourceEvt.pointerType === 'pen' ||
+            (sourceEvt.touches && sourceEvt.touches[0] && sourceEvt.touches[0].touchType === 'stylus') ||
+            (sourceEvt.targetTouches && sourceEvt.targetTouches[0] && sourceEvt.targetTouches[0].touchType === 'stylus')
+        );
+
+        if (isPen) {
+            // Modalità Penna: avvia disegno di una connessione senza muovere il nodo
+            drawingLinkFrom = event.subject;
+            tempLine = g.append("line")
+                .attr("class", "temp-drawing-link")
+                .attr("x1", event.subject.x)
+                .attr("y1", event.subject.y)
+                .attr("x2", event.subject.x)
+                .attr("y2", event.subject.y)
+                .attr("stroke", "#6366f1")
+                .attr("stroke-width", 3)
+                .attr("stroke-dasharray", "5,5")
+                .attr("marker-end", "url(#arrowhead)");
+        } else {
+            // Modalità Dito/Mouse: trascina il nodo normalmente
+            drawingLinkFrom = null;
+            tempLine = null;
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
         }
     }
+
+    function dragged(event) {
+        if (drawingLinkFrom) {
+            // Modalità Penna: aggiorna le coordinate della linea temporanea
+            if (tempLine) {
+                tempLine.attr("x2", event.x).attr("y2", event.y);
+            }
+        } else {
+            // Modalità Dito/Mouse: aggiorna coordinate trascinamento nodo
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+    }
+
+    function dragended(event) {
+        if (drawingLinkFrom) {
+            // Modalità Penna: rimuovi linea temporanea
+            if (tempLine) {
+                tempLine.remove();
+                tempLine = null;
+            }
+
+            // Cerca il nodo bersaglio nel raggio di rilascio (50px)
+            const targetNode = simulation.find(event.x, event.y, 50);
+            const sourceNode = drawingLinkFrom;
+            drawingLinkFrom = null;
+
+            if (targetNode && targetNode.id !== sourceNode.id) {
+                window.showPrompt(`Che relazione c'è tra "${cleanLabel(sourceNode.label)}" e "${cleanLabel(targetNode.label)}"?`, "collegato_a", (rel) => {
+                    if (rel) {
+                        const exists = appState.db.links.some(l => {
+                            let s = typeof l.source === 'object' ? l.source.id : l.source;
+                            let t = typeof l.target === 'object' ? l.target.id : l.target;
+                            return (s === sourceNode.id && t === targetNode.id) || (s === targetNode.id && t === sourceNode.id);
+                        });
+
+                        if (!exists) {
+                            appState.db.links.push({ source: sourceNode.id, target: targetNode.id, rel: rel });
+                            window.updateDegreeStats();
+                            renderGraph();
+                        }
+                    }
+                });
+            }
+            if (!event.active) simulation.alphaTarget(0);
+        } else {
+            // Modalità Dito/Mouse: termina trascinamento nodo
+            if (!event.active) simulation.alphaTarget(0);
+            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
+            if (event.subject.level > 1 && !attractionEnabled) {
+                event.subject.fx = event.x; event.subject.fy = event.y;
+            } else if (event.subject.level > 1) {
+                event.subject.fx = null; event.subject.fy = null;
+            }
+        }
+    }
+
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
 }
 
@@ -4165,8 +4238,11 @@ window.handleNodeClick = function (event, d) {
         document.getElementById('node-details').innerHTML = html;
         window.safeCreateIcons();
 
-        // Apriamo automaticamente il modale delle fonti come richiesto (stile mappatura_tutor)
-        window.openSourceModal(d.id);
+        // Apriamo automaticamente il modale delle fonti solo se non è un tocco di penna (Apple Pencil), per permettere l'evidenziazione rapida dei nodi
+        const isPen = event && (event.pointerType === 'pen' || (event.sourceEvent && event.sourceEvent.pointerType === 'pen'));
+        if (!isPen) {
+            window.openSourceModal(d.id);
+        }
     } catch (e) {
         const errDiv = document.createElement('div');
         errDiv.style = "position:fixed; top:50px; left:50px; background:red; color:white; z-index:99999; padding:20px; font-size: 20px; max-width:80%; word-wrap: break-word;";
