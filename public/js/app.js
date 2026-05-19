@@ -3501,9 +3501,11 @@ function drag(simulation) {
     let dragStartPos = null;
     let longPressTimer = null;
     let longPressTriggered = false;
+    let hasMovedSignificant = false;
 
     function dragstarted(event) {
         longPressTriggered = false;
+        hasMovedSignificant = false;
         const sourceEvt = event.sourceEvent;
 
         if (sourceEvt) {
@@ -3516,7 +3518,7 @@ function drag(simulation) {
         if (longPressTimer) clearTimeout(longPressTimer);
         longPressTimer = setTimeout(() => {
             longPressTriggered = true;
-            ignoreNextNodeClick = true; // Prevents opening node sidebar/focus modal after long press release
+            window.ignoreNextNodeClick = true; // Prevents opening node sidebar/focus modal after long press release
 
             let clientX = dragStartPos.x;
             let clientY = dragStartPos.y;
@@ -3549,7 +3551,8 @@ function drag(simulation) {
             const dx = curX - dragStartPos.x;
             const dy = curY - dragStartPos.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 15) { // 15px threshold
+            if (dist > 10) { // 10px threshold for drag/move
+                hasMovedSignificant = true;
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
@@ -3574,7 +3577,21 @@ function drag(simulation) {
         if (longPressTriggered) {
             longPressTriggered = false;
             // Delay resetting ignoreNextNodeClick slightly so click handler filters it
-            setTimeout(() => { ignoreNextNodeClick = false; }, 100);
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 100);
+            return;
+        }
+
+        // Se non si è mosso in modo significativo (tap veloce), gestiamo il click direttamente qui per evitare soppressione D3 su mobile
+        if (!hasMovedSignificant) {
+            // Ripristina la posizione originale se non era un drag reale
+            event.subject.fx = null;
+            event.subject.fy = null;
+            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; }
+
+            // Imposta ignoreNextNodeClick a true temporaneamente per evitare click nativo duplicato
+            window.ignoreNextNodeClick = true;
+            window.handleNodeClick(event.sourceEvent, event.subject);
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 200);
             return;
         }
 
