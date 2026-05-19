@@ -19,6 +19,18 @@
     // Rilevamento Capacitor (iPad/iOS)
     const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
 
+    if (isCapacitor && window.Capacitor.Plugins) {
+        if (!window.Capacitor.Plugins.Directory) {
+            window.Capacitor.Plugins.Directory = {
+                Documents: 'DOCUMENTS',
+                Data: 'DATA',
+                Cache: 'CACHE',
+                External: 'EXTERNAL',
+                ExternalStorage: 'EXTERNAL_STORAGE'
+            };
+        }
+    }
+
     // Helper minimale per IndexedDB (per memorizzare dati pesanti nel browser senza limiti di localStorage)
     const dbName = "MappAI_LocalDatabase";
     const storeName = "vaultStore";
