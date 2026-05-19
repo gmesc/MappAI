@@ -7697,22 +7697,28 @@ window.cycleTextZoom = function () {
     const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
     if (sourceBody) {
-        sourceBody.style.fontSize = z === 1.0 ? '' : `${z * 16}px`;
+        if (z === 1.0) sourceBody.style.removeProperty('font-size');
+        else sourceBody.style.setProperty('font-size', `${z * 16}px`, 'important');
     }
     if (aiBody) {
-        aiBody.style.fontSize = z === 1.0 ? '' : `${z * 16}px`;
+        if (z === 1.0) aiBody.style.removeProperty('font-size');
+        else aiBody.style.setProperty('font-size', `${z * 16}px`, 'important');
     }
     if (flashcardFront) {
-        flashcardFront.style.fontSize = z === 1.0 ? '' : `${z * 24}px`;
+        if (z === 1.0) flashcardFront.style.removeProperty('font-size');
+        else flashcardFront.style.setProperty('font-size', `${z * 24}px`, 'important');
     }
     if (flashcardBack) {
-        flashcardBack.style.fontSize = z === 1.0 ? '' : `${z * 18}px`;
+        if (z === 1.0) flashcardBack.style.removeProperty('font-size');
+        else flashcardBack.style.setProperty('font-size', `${z * 18}px`, 'important');
     }
     if (quizQuestion) {
-        quizQuestion.style.fontSize = z === 1.0 ? '' : `${z * 20}px`;
+        if (z === 1.0) quizQuestion.style.removeProperty('font-size');
+        else quizQuestion.style.setProperty('font-size', `${z * 20}px`, 'important');
     }
     quizOptions.forEach(opt => {
-        opt.style.fontSize = z === 1.0 ? '' : `${z * 13}px`;
+        if (z === 1.0) opt.style.removeProperty('font-size');
+        else opt.style.setProperty('font-size', `${z * 13}px`, 'important');
     });
 
     // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
@@ -7767,16 +7773,16 @@ window.resetA11yTools = function () {
     if (body) {
         body.style.lineHeight = '';
         body.style.zoom = '';
-        body.style.fontSize = '';
+        body.style.removeProperty('font-size');
     }
     if (aiBody) {
-        aiBody.style.fontSize = '';
+        aiBody.style.removeProperty('font-size');
     }
-    if (flashcardFront) flashcardFront.style.fontSize = '';
-    if (flashcardBack) flashcardBack.style.fontSize = '';
-    if (quizQuestion) quizQuestion.style.fontSize = '';
+    if (flashcardFront) flashcardFront.style.removeProperty('font-size');
+    if (flashcardBack) flashcardBack.style.removeProperty('font-size');
+    if (quizQuestion) quizQuestion.style.removeProperty('font-size');
     quizOptions.forEach(opt => {
-        opt.style.fontSize = '';
+        opt.style.removeProperty('font-size');
     });
     document.documentElement.style.fontSize = '';
 };
