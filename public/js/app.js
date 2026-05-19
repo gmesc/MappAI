@@ -3293,10 +3293,7 @@ function renderGraph() {
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
         .on("dblclick", (e, d) => { e.stopPropagation(); window.openSourceModal(d.id); })
-        .on("contextmenu", (e, d) => window.showContextMenu(e, 'node', d))
-        .on("touchstart", (e, d) => handleTouchStart(e, 'node', d))
-        .on("touchend", handleTouchEnd)
-        .on("touchmove", handleTouchMove);
+        .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
     
@@ -3501,17 +3498,86 @@ function tick() {
 }
 
 function drag(simulation) {
+    let dragStartPos = null;
+    let longPressTimer = null;
+    let longPressTriggered = false;
+
     function dragstarted(event) {
+        longPressTriggered = false;
+        const sourceEvt = event.sourceEvent;
+
+        if (sourceEvt) {
+            const touch = sourceEvt.touches ? sourceEvt.touches[0] : sourceEvt;
+            dragStartPos = { x: touch.clientX, y: touch.clientY };
+        } else {
+            dragStartPos = { x: event.x, y: event.y };
+        }
+
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            ignoreNextNodeClick = true; // Prevents opening node sidebar/focus modal after long press release
+
+            let clientX = dragStartPos.x;
+            let clientY = dragStartPos.y;
+            let syntheticEvent = {
+                preventDefault: () => { if (sourceEvt && sourceEvt.preventDefault) sourceEvt.preventDefault(); },
+                stopPropagation: () => { if (sourceEvt && sourceEvt.stopPropagation) sourceEvt.stopPropagation(); },
+                clientX: clientX,
+                clientY: clientY
+            };
+
+            window.showContextMenu(syntheticEvent, 'node', event.subject);
+            longPressTimer = null;
+        }, 500); // 500ms long press threshold
+
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
     }
+
     function dragged(event) {
+        if (dragStartPos) {
+            const sourceEvt = event.sourceEvent;
+            let curX = event.x;
+            let curY = event.y;
+            if (sourceEvt) {
+                const touch = sourceEvt.touches ? sourceEvt.touches[0] : sourceEvt;
+                curX = touch.clientX;
+                curY = touch.clientY;
+            }
+            const dx = curX - dragStartPos.x;
+            const dy = curY - dragStartPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 15) { // 15px threshold
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+        }
+
+        if (longPressTriggered) return;
+
         event.subject.fx = event.x;
         event.subject.fy = event.y;
     }
+
     function dragended(event) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
         if (!event.active) simulation.alphaTarget(0);
+
+        if (longPressTriggered) {
+            longPressTriggered = false;
+            // Delay resetting ignoreNextNodeClick slightly so click handler filters it
+            setTimeout(() => { ignoreNextNodeClick = false; }, 100);
+            return;
+        }
+
         if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
         if (event.subject.level > 1 && !attractionEnabled) {
             event.subject.fx = event.x; event.subject.fy = event.y;
@@ -3519,6 +3585,7 @@ function drag(simulation) {
             event.subject.fx = null; event.subject.fy = null;
         }
     }
+
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
 }
 
@@ -4053,9 +4120,15 @@ window.zoomToNode = function (nodeId) {
     }
 };
 
+window.ignoreNextNodeClick = false;
+
 window.handleNodeClick = function (event, d) {
+    if (window.ignoreNextNodeClick) {
+        window.ignoreNextNodeClick = false;
+        return;
+    }
     try {
-        event.stopPropagation();
+        if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
 
         if (linkingState.active) {
