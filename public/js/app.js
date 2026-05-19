@@ -3588,10 +3588,12 @@ function drag(simulation) {
             event.subject.fy = null;
             if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; }
 
-            // Imposta ignoreNextNodeClick a true temporaneamente per evitare click nativo duplicato
-            window.ignoreNextNodeClick = true;
+            // Esegui la chiamata diretta al gestore click
             window.handleNodeClick(event.sourceEvent, event.subject);
-            setTimeout(() => { window.ignoreNextNodeClick = false; }, 200);
+
+            // Imposta ignoreNextNodeClick a true per il click nativo duplicato che arriverà asincronamente
+            window.ignoreNextNodeClick = true;
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 300);
             return;
         }
 
