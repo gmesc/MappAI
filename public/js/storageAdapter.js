@@ -567,13 +567,13 @@
                 const h2c = await loadHtml2Canvas();
                 if (!h2c) throw new Error("html2canvas non caricato");
 
-                const target = document.getElementById("main-content") || document.body;
+                const target = document.getElementById("d3-container") || document.body;
                 
                 // Opzioni ottimizzate per iPad/Safari
                 const canvas = await h2c(target, {
                     useCORS: true,
                     allowTaint: true,
-                    backgroundColor: "#0f172a", // Colore sfondo scuro dell'app
+                    backgroundColor: null, // Usa lo sfondo dell'elemento (compresi stili/pattern del CSS)
                     scale: 2, // Snapshot HD (doppia risoluzione)
                     logging: false
                 });
