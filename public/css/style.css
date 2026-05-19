@@ -1064,3 +1064,12 @@
         transition: none !important;
         animation: none !important;
     }
+
+    /* Disable native iOS selection/callouts on graph to allow long-press context menu */
+    #d3-container,
+    #d3-container svg,
+    #d3-container svg * {
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+    }

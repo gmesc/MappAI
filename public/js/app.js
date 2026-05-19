@@ -4238,11 +4238,8 @@ window.handleNodeClick = function (event, d) {
         document.getElementById('node-details').innerHTML = html;
         window.safeCreateIcons();
 
-        // Apriamo automaticamente il modale delle fonti solo se non è un tocco di penna (Apple Pencil), per permettere l'evidenziazione rapida dei nodi
-        const isPen = event && (event.pointerType === 'pen' || (event.sourceEvent && event.sourceEvent.pointerType === 'pen'));
-        if (!isPen) {
-            window.openSourceModal(d.id);
-        }
+        // Apriamo automaticamente il modale delle fonti come richiesto (stile mappatura_tutor)
+        window.openSourceModal(d.id);
     } catch (e) {
         const errDiv = document.createElement('div');
         errDiv.style = "position:fixed; top:50px; left:50px; background:red; color:white; z-index:99999; padding:20px; font-size: 20px; max-width:80%; word-wrap: break-word;";
