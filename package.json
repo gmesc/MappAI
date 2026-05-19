@@ -20,7 +20,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": "arm64"
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "category": "public.app-category.education"
@@ -49,6 +52,10 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "@capacitor/cli": "^7.6.5",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.3.4",
     "axios": "^1.16.0",
     "cheerio": "^1.2.0",
     "hyphenation.it": "^0.2.1",
