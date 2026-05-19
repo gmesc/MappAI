@@ -3501,96 +3501,24 @@ function tick() {
 }
 
 function drag(simulation) {
-    let drawingLinkFrom = null;
-    let tempLine = null;
-
     function dragstarted(event) {
-        const sourceEvt = event.sourceEvent;
-        const isPen = sourceEvt && (
-            sourceEvt.pointerType === 'pen' ||
-            (sourceEvt.touches && sourceEvt.touches[0] && sourceEvt.touches[0].touchType === 'stylus') ||
-            (sourceEvt.targetTouches && sourceEvt.targetTouches[0] && sourceEvt.targetTouches[0].touchType === 'stylus')
-        );
-
-        if (isPen) {
-            // Modalità Penna: avvia disegno di una connessione senza muovere il nodo
-            drawingLinkFrom = event.subject;
-            tempLine = g.append("line")
-                .attr("class", "temp-drawing-link")
-                .attr("x1", event.subject.x)
-                .attr("y1", event.subject.y)
-                .attr("x2", event.subject.x)
-                .attr("y2", event.subject.y)
-                .attr("stroke", "#6366f1")
-                .attr("stroke-width", 3)
-                .attr("stroke-dasharray", "5,5")
-                .attr("marker-end", "url(#arrowhead)");
-        } else {
-            // Modalità Dito/Mouse: trascina il nodo normalmente
-            drawingLinkFrom = null;
-            tempLine = null;
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            event.subject.fx = event.subject.x;
-            event.subject.fy = event.subject.y;
-        }
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
     }
-
     function dragged(event) {
-        if (drawingLinkFrom) {
-            // Modalità Penna: aggiorna le coordinate della linea temporanea
-            if (tempLine) {
-                tempLine.attr("x2", event.x).attr("y2", event.y);
-            }
-        } else {
-            // Modalità Dito/Mouse: aggiorna coordinate trascinamento nodo
-            event.subject.fx = event.x;
-            event.subject.fy = event.y;
-        }
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
     }
-
     function dragended(event) {
-        if (drawingLinkFrom) {
-            // Modalità Penna: rimuovi linea temporanea
-            if (tempLine) {
-                tempLine.remove();
-                tempLine = null;
-            }
-
-            // Cerca il nodo bersaglio nel raggio di rilascio (50px)
-            const targetNode = simulation.find(event.x, event.y, 50);
-            const sourceNode = drawingLinkFrom;
-            drawingLinkFrom = null;
-
-            if (targetNode && targetNode.id !== sourceNode.id) {
-                window.showPrompt(`Che relazione c'è tra "${cleanLabel(sourceNode.label)}" e "${cleanLabel(targetNode.label)}"?`, "collegato_a", (rel) => {
-                    if (rel) {
-                        const exists = appState.db.links.some(l => {
-                            let s = typeof l.source === 'object' ? l.source.id : l.source;
-                            let t = typeof l.target === 'object' ? l.target.id : l.target;
-                            return (s === sourceNode.id && t === targetNode.id) || (s === targetNode.id && t === sourceNode.id);
-                        });
-
-                        if (!exists) {
-                            appState.db.links.push({ source: sourceNode.id, target: targetNode.id, rel: rel });
-                            window.updateDegreeStats();
-                            renderGraph();
-                        }
-                    }
-                });
-            }
-            if (!event.active) simulation.alphaTarget(0);
-        } else {
-            // Modalità Dito/Mouse: termina trascinamento nodo
-            if (!event.active) simulation.alphaTarget(0);
-            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
-            if (event.subject.level > 1 && !attractionEnabled) {
-                event.subject.fx = event.x; event.subject.fy = event.y;
-            } else if (event.subject.level > 1) {
-                event.subject.fx = null; event.subject.fy = null;
-            }
+        if (!event.active) simulation.alphaTarget(0);
+        if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
+        if (event.subject.level > 1 && !attractionEnabled) {
+            event.subject.fx = event.x; event.subject.fy = event.y;
+        } else if (event.subject.level > 1) {
+            event.subject.fx = null; event.subject.fy = null;
         }
     }
-
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
 }
 
@@ -5317,25 +5245,47 @@ window.closeLightbox = function () {
 // ==========================================
 let ctxTarget = null;
 let longPressTimer = null;
+let touchStartPos = null;
 
 function handleTouchStart(e, type, data) {
-    if (e.touches.length > 1) return; // ignore multi-touch
+    if (e.touches && e.touches.length > 1) return; // ignore multi-touch
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartPos = { x: touch.clientX, y: touch.clientY };
+
+    if (longPressTimer) clearTimeout(longPressTimer);
     longPressTimer = setTimeout(() => {
         let syntheticEvent = e;
         if (e.touches && e.touches[0]) {
             syntheticEvent = {
-                preventDefault: () => e.preventDefault(),
-                stopPropagation: () => e.stopPropagation(),
+                preventDefault: () => { if (e.preventDefault) e.preventDefault(); },
+                stopPropagation: () => { if (e.stopPropagation) e.stopPropagation(); },
                 clientX: e.touches[0].clientX,
                 clientY: e.touches[0].clientY
             };
         }
         window.showContextMenu(syntheticEvent, type, data);
-    }, 600);
+        longPressTimer = null;
+    }, 500); // reduced to 500ms for more responsive feel
 }
 
-function handleTouchEnd(e) { if (longPressTimer) clearTimeout(longPressTimer); }
-function handleTouchMove(e) { if (longPressTimer) clearTimeout(longPressTimer); }
+function handleTouchMove(e) {
+    if (!longPressTimer || !touchStartPos) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - touchStartPos.x;
+    const dy = touch.clientY - touchStartPos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 15) { // 15px threshold
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+function handleTouchEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
 
 window.showContextMenu = function (e, type, data) {
     e.preventDefault(); e.stopPropagation();
