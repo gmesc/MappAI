@@ -146,8 +146,10 @@
         },
 
         saveVault: async function (vaultData) {
-            // Se non c'è un vault attivo, ne creiamo uno temporaneo di default
-            const activeVault = currentVirtualVault || "Default_Vault";
+            const isExplicitExport = !!(vaultData && vaultData.mapData);
+            const folderName = isExplicitExport ? vaultData.folderPath : null;
+            const activeVault = folderName || currentVirtualVault || "Default_Vault";
+            currentVirtualVault = activeVault;
 
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
@@ -181,6 +183,24 @@
                         recursive: true
                     });
                 }
+
+                // Se l'utente ha esplicitamente richiesto di salvare/esportare il vault, apri lo Share Sheet nativo di iOS
+                if (isExplicitExport) {
+                    try {
+                        const blob = new Blob([JSON.stringify(vaultData, null, 2)], { type: 'application/json' });
+                        const file = new File([blob], `${activeVault}_vault.json`, { type: 'application/json' });
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                files: [file],
+                                title: `Esporta Vault - ${activeVault}`,
+                                text: `Vault di MappAI: ${activeVault}`
+                            });
+                        }
+                    } catch (shareError) {
+                        console.error("[MappAI Adapter] Errore durante navigator.share:", shareError);
+                    }
+                }
+
                 return { success: true };
             } else {
                 // Su Web scriviamo su IndexedDB
@@ -266,10 +286,10 @@
             // Su iPad/Web non possiamo selezionare cartelle reali di sistema.
             // Creiamo un prompt o usiamo un nome fisso per simulare il selettore.
             const vaultName = prompt("Inserisci il nome del nuovo Vault (o seleziona un nome esistente):", "Nuovo_Vault");
-            if (!vaultName) return null;
+            if (!vaultName) return { canceled: true };
 
             currentVirtualVault = vaultName.replace(/[^a-zA-Z0-9_]/g, "_"); // Rimuoviamo caratteri non sicuri
-            return currentVirtualVault;
+            return { canceled: false, folderPath: currentVirtualVault };
         },
 
         pickFile: async function () {
