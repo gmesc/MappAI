@@ -517,9 +517,21 @@
             }
         },
 
-        listModels: async function () {
-            const apiKey = window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key');
+        listModels: async function (options) {
+            const apiKey = (options && options.apiKey) || (window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key'));
             const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+            
+            const parseGeminiModels = (data) => {
+                if (!data || !data.models) return [];
+                return data.models
+                    .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                    .map(m => ({
+                        id: m.name.replace('models/', ''),
+                        displayName: m.displayName || m.name.replace('models/', ''),
+                        description: m.description || ''
+                    }));
+            };
+
             if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
                 try {
                     const { CapacitorHttp } = window.Capacitor.Plugins;
@@ -527,18 +539,20 @@
                         method: 'GET',
                         url: url
                     });
-                    return response.data;
+                    const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                    return parseGeminiModels(data);
                 } catch (e) {
                     console.error("Errore nativo fetch modelli Gemini:", e);
-                    return { error: e.message };
+                    return [];
                 }
             }
             try {
                 const response = await fetch(url);
-                return await response.json();
+                const data = await response.json();
+                return parseGeminiModels(data);
             } catch (e) {
                 console.error("Errore fetch modelli Gemini:", e);
-                return { error: e.message };
+                return [];
             }
         },
 
