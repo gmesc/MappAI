@@ -108,10 +108,19 @@
     <script>
         const SECRET_SALT = "MAPPAI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
 
+        // Nascondi immediatamente lo schermo di blocco se siamo su Capacitor/iOS o se l'accesso è già garantito per evitare flash visivi
+        const isCapacitor = (window.Capacitor !== undefined) || (window.location.protocol === 'capacitor:');
+        if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
+            const style = document.createElement('style');
+            style.innerHTML = '#beta-lock-screen { display: none !important; }';
+            document.head.appendChild(style);
+        }
+
         document.addEventListener("DOMContentLoaded", async () => {
             const lockScreen = document.getElementById('beta-lock-screen');
-            if (localStorage.getItem('mappai_beta_access_granted') === 'true') {
+            if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
                 lockScreen.style.display = 'none';
+                return;
             }
 
             // Ottieni l'ID Hardware univoco da Electron
