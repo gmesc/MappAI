@@ -589,10 +589,11 @@
             return await res.json();
         },
 
-        generateGemini: async function (payload) {
-            const apiKey = window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key');
-            // Nota: MappAI usa il modello di default configurato. Sostituiamo dinamicamente se necessario.
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        generateGemini: async function (options) {
+            const { apiKey, payload, model } = options || {};
+            const key = apiKey || (window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key'));
+            const selectedModel = model || localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
 
             if (isCapacitor && window.Capacitor.Plugins.CapacitorHttp) {
                 const { CapacitorHttp } = window.Capacitor.Plugins;
@@ -602,7 +603,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     data: payload
                 });
-                return response.data;
+                return typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
             }
 
             const res = await fetch(url, {
