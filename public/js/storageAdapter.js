@@ -411,7 +411,17 @@
         },
 
         loadPrompts: async function () {
-            // Carica la configurazione dei prompt personalizzati dell'utente
+            let defaultPrompts = {};
+            try {
+                const response = await fetch('./prompts_config.json');
+                if (response.ok) {
+                    defaultPrompts = await response.json();
+                }
+            } catch (err) {
+                console.error("[MappAI Adapter] Errore caricamento prompts di default:", err);
+            }
+
+            let overrides = {};
             const key = "mappai_custom_prompts";
             if (isCapacitor) {
                 try {
@@ -421,14 +431,21 @@
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
-                    return JSON.parse(res.data);
+                    overrides = JSON.parse(res.data);
                 } catch (e) {
-                    return {};
+                    // Ignora se non esistono personalizzazioni
                 }
             } else {
-                const data = localStorage.getItem(key);
-                return data ? JSON.parse(data) : {};
+                try {
+                    const data = localStorage.getItem(key);
+                    if (data) {
+                        overrides = JSON.parse(data);
+                    }
+                } catch (e) {}
             }
+
+            const combined = { ...defaultPrompts, ...overrides };
+            return { success: true, data: combined };
         },
 
         savePrompts: async function (config) {
