@@ -31,6 +31,51 @@
         }
     }
 
+    // In-memory cache for credentials to allow synchronous reads via window.getSystemKey()
+    window.secureKeys = {
+        gemini_api_key: '',
+        infomaniak_api_key: ''
+    };
+
+    window.initSecureKeys = async function () {
+        if (isCapacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.KeychainPlugin) {
+            try {
+                const { KeychainPlugin } = window.Capacitor.Plugins;
+                const geminiRes = await KeychainPlugin.getSecret({ key: 'gemini_api_key' });
+                window.secureKeys['gemini_api_key'] = geminiRes.value || '';
+                
+                const infoRes = await KeychainPlugin.getSecret({ key: 'infomaniak_api_key' });
+                window.secureKeys['infomaniak_api_key'] = infoRes.value || '';
+                
+                console.log("[MappAI Adapter] Keychain keys initialized successfully.");
+            } catch (e) {
+                console.error("[MappAI Adapter] Error loading secrets from iOS Keychain:", e);
+            }
+        } else {
+            // Load from localStorage for compatibility when running in web / non-iOS environment
+            window.secureKeys['gemini_api_key'] = localStorage.getItem('gemini_api_key') || '';
+            window.secureKeys['infomaniak_api_key'] = localStorage.getItem('infomaniak_api_key') || '';
+        }
+    };
+
+    window.saveSecureKey = async function (key, value) {
+        window.secureKeys[key] = value;
+        if (isCapacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.KeychainPlugin) {
+            try {
+                const { KeychainPlugin } = window.Capacitor.Plugins;
+                if (value === "") {
+                    await KeychainPlugin.deleteSecret({ key });
+                } else {
+                    await KeychainPlugin.setSecret({ key, value });
+                }
+            } catch (e) {
+                console.error(`[MappAI Adapter] Error writing key '${key}' to iOS Keychain:`, e);
+            }
+        } else {
+            localStorage.setItem(key, value);
+        }
+    };
+
     // Helper minimale per IndexedDB (per memorizzare dati pesanti nel browser senza limiti di localStorage)
     const dbName = "MappAI_LocalDatabase";
     const storeName = "vaultStore";
@@ -476,7 +521,7 @@
 
         listInfomaniakModels: async function (options) {
             const { apiKey, productId } = options || {};
-            const token = apiKey || localStorage.getItem('infomaniak_api_key') || '';
+            const token = apiKey || window.secureKeys['infomaniak_api_key'] || localStorage.getItem('infomaniak_api_key') || '';
             const prodId = productId || localStorage.getItem('infomaniak_product_id') || '';
             const url = `https://api.infomaniak.com/2/ai/${prodId}/openai/v1/models`;
 
@@ -518,7 +563,7 @@
         },
 
         listModels: async function (options) {
-            const apiKey = (options && options.apiKey) || (window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key'));
+            const apiKey = (options && options.apiKey) || (window.getSystemKey ? window.getSystemKey() : (window.secureKeys['gemini_api_key'] || localStorage.getItem('gemini_api_key')));
             const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
             
             const parseGeminiModels = (data) => {
@@ -558,7 +603,7 @@
 
         generateInfomaniak: async function (options) {
             const { apiKey, payload, productId } = options || {};
-            const token = apiKey || localStorage.getItem('infomaniak_api_key') || '';
+            const token = apiKey || window.secureKeys['infomaniak_api_key'] || localStorage.getItem('infomaniak_api_key') || '';
             const prodId = productId || localStorage.getItem('infomaniak_product_id') || '';
             const url = `https://api.infomaniak.com/2/ai/${prodId}/openai/v1/chat/completions`;
 
@@ -591,7 +636,7 @@
 
         generateGemini: async function (options) {
             const { apiKey, payload, model } = options || {};
-            const key = apiKey || (window.getSystemKey ? window.getSystemKey() : localStorage.getItem('gemini_api_key'));
+            const key = apiKey || (window.getSystemKey ? window.getSystemKey() : (window.secureKeys['gemini_api_key'] || localStorage.getItem('gemini_api_key')));
             const selectedModel = model || localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
 

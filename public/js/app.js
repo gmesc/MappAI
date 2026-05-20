@@ -1080,7 +1080,7 @@ window.getSystemKey = function () {
     const inputEl = document.getElementById(inputId);
     let key = inputEl ? inputEl.value.trim() : "";
     if (!key || key === "") {
-        key = localStorage.getItem(storageKey) || "";
+        key = (window.secureKeys && window.secureKeys[storageKey]) || localStorage.getItem(storageKey) || "";
     }
     return key;
 };
@@ -1394,7 +1394,11 @@ window.startGeneration = async function () {
     const inputKey = document.getElementById(inputId) ? document.getElementById(inputId).value.trim() : "";
 
     if (inputKey !== "") {
-        localStorage.setItem(storageKey, inputKey);
+        if (window.saveSecureKey) {
+            window.saveSecureKey(storageKey, inputKey);
+        } else {
+            localStorage.setItem(storageKey, inputKey);
+        }
     }
 
     const apiKey = window.getSystemKey();
@@ -7239,7 +7243,16 @@ window.changeLanguage = function (lang) {
 };
 
 // Add auto-render projects on load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Inizializza secure keys dal Keychain nativo se disponibile, o da localStorage
+    if (window.initSecureKeys) {
+        try {
+            await window.initSecureKeys();
+        } catch (e) {
+            console.error("[MappAI] Errore inizializzazione Secure Keys all'avvio:", e);
+        }
+    }
+
     // Inizializza Lingua
     window.changeLanguage(window.currentLanguage);
 
@@ -7255,14 +7268,14 @@ document.addEventListener('DOMContentLoaded', () => {
     StorageManager.renderRecentProjects();
 
     // Load Gemini Key
-    const savedGeminiKey = localStorage.getItem('gemini_api_key');
+    const savedGeminiKey = (window.secureKeys && window.secureKeys['gemini_api_key']) || localStorage.getItem('gemini_api_key');
     if (savedGeminiKey) {
         const geminiInput = document.getElementById('gemini-api-key-input');
         if (geminiInput) geminiInput.value = savedGeminiKey;
     }
 
     // Load Infomaniak Key
-    const savedInfomaniakKey = localStorage.getItem('infomaniak_api_key');
+    const savedInfomaniakKey = (window.secureKeys && window.secureKeys['infomaniak_api_key']) || localStorage.getItem('infomaniak_api_key');
     if (savedInfomaniakKey) {
         const infomaniakInput = document.getElementById('infomaniak-api-key-input');
         if (infomaniakInput) infomaniakInput.value = savedInfomaniakKey;

@@ -2229,7 +2229,7 @@ Restituisci solo il JSON pulito.</pre>
                         <i data-lucide="key"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <input type="password" id="gemini-api-key-input"
-                            onblur="localStorage.setItem('gemini_api_key', this.value);"
+                            onblur="if(window.saveSecureKey) { window.saveSecureKey('gemini_api_key', this.value); } else { localStorage.setItem('gemini_api_key', this.value); }"
                             class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                             placeholder="Inserisci chiave Google Gemini...">
                     </div>
@@ -2251,7 +2251,7 @@ Restituisci solo il JSON pulito.</pre>
                             <i data-lucide="key"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                             <input type="password" id="infomaniak-api-key-input"
-                                onblur="localStorage.setItem('infomaniak_api_key', this.value);"
+                                onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); }"
                                 class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                                 placeholder="Inserisci token Infomaniak...">
                         </div>
