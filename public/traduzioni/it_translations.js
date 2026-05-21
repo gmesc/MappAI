@@ -119,7 +119,7 @@ const it_translations = {
 
     // Sidebar Panels
     sidebar_no_node: "Nessun nodo selezionato",
-    sidebar_no_node_desc: "Usa il tasto Sinistro per studiare, tasto Destro per gestire lo stato di apprendimento e i contenuti.",
+    sidebar_no_node_desc: "Usa il tasto Sinistro per leggere i contenuti dei nodi e il tasto destro per modificarli. ",
     sidebar_macro_areas: "Macro-Aree",
     sidebar_generate_hint: "Genera una mappa per visualizzare la struttura.",
     sidebar_empty_notes: "Nessun appunto raccolto. Inizia a studiare!",
@@ -165,7 +165,7 @@ const it_translations = {
     vault_manager_subtitle: "Second Brain Knowledge Management",
     last_saved: "Ultimo salvataggio",
     student: "Studente",
-    
+
     // Admin Dashboard
     admin_tab_mindmaps: "Mappe Mentali",
     admin_tab_kgraphs: "Knowledge Graph",
@@ -188,7 +188,7 @@ const it_translations = {
     admin_prompt_desc_sota: "Espansione Contesto SOTA Second Brain",
     admin_prompt_desc_dynamic_quiz: "Generazione Verifiche Dinamiche",
     admin_prompt_desc_flashcards: "Generazione Flashcards"
-,
+    ,
     // Extra
     machine_id_desc: "Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:",
     src_web: "URL Web",
