@@ -99,8 +99,16 @@
 
     /* Annulla lo zoom per elementi di controllo esterni */
     #modal-a11y-toolbar,
-    #insegnai-drawer-tab {
+    #insegnai-drawer-tab,
+    #insegnai-drawer,
+    #a11y-panel-toggle,
+    #a11y-panel {
         zoom: calc(1 / var(--app-zoom, 1)) !important;
+    }
+
+    /* Applica lo zoom con fattore 0.5 al drawer dei progetti recenti */
+    #projects-bar {
+        zoom: calc((1 + (var(--app-zoom, 1) - 1) * 0.5) / var(--app-zoom, 1)) !important;
     }
 
     #projects-bar h3,

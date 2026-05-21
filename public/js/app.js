@@ -4744,9 +4744,7 @@ window.applyDirectZoom = function (z) {
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
         '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
-        '#projects-bar-content',
         '#source-modal-content-box',
         '#ai-modal-content-box',
         '#study-player-modal > div',
@@ -4773,6 +4771,12 @@ window.applyDirectZoom = function (z) {
             el.style.zoom = z;
         }
     });
+
+    // Rimuove stili di zoom residui dagli elementi esclusi gestiti via CSS
+    const drawer = document.getElementById('insegnai-drawer');
+    if (drawer) drawer.style.removeProperty('zoom');
+    const pbarContent = document.getElementById('projects-bar-content');
+    if (pbarContent) pbarContent.style.removeProperty('zoom');
 
     document.documentElement.style.fontSize = '';
 
@@ -8195,9 +8199,7 @@ window.applyTextZoom = function(idx) {
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
         '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
-        '#projects-bar-content',
         '#source-modal-content-box',
         '#ai-modal-content-box',
         '#study-player-modal > div',
