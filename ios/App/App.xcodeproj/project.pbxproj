@@ -8,8 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
-		483294462FBDE36200778BE6 /* KeychainPlugin 2.m in Sources */ = {isa = PBXBuildFile; fileRef = 483294442FBDE36200778BE6 /* KeychainPlugin 2.m */; };
-		483294472FBDE36200778BE6 /* KeychainPlugin 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483294452FBDE36200778BE6 /* KeychainPlugin 2.swift */; };
+		483294462FBDE36200778BE6 /* KeychainPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 483294442FBDE36200778BE6 /* KeychainPlugin.m */; };
+		483294472FBDE36200778BE6 /* KeychainPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483294452FBDE36200778BE6 /* KeychainPlugin.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
@@ -21,8 +21,8 @@
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
-		483294442FBDE36200778BE6 /* KeychainPlugin 2.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "KeychainPlugin 2.m"; sourceTree = "<group>"; };
-		483294452FBDE36200778BE6 /* KeychainPlugin 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeychainPlugin 2.swift"; sourceTree = "<group>"; };
+		483294442FBDE36200778BE6 /* KeychainPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KeychainPlugin.m; sourceTree = "<group>"; };
+		483294452FBDE36200778BE6 /* KeychainPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainPlugin.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -77,8 +77,8 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
-				483294442FBDE36200778BE6 /* KeychainPlugin 2.m */,
-				483294452FBDE36200778BE6 /* KeychainPlugin 2.swift */,
+				483294442FBDE36200778BE6 /* KeychainPlugin.m */,
+				483294452FBDE36200778BE6 /* KeychainPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -215,8 +215,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				483294462FBDE36200778BE6 /* KeychainPlugin 2.m in Sources */,
-				483294472FBDE36200778BE6 /* KeychainPlugin 2.swift in Sources */,
+				483294462FBDE36200778BE6 /* KeychainPlugin.m in Sources */,
+				483294472FBDE36200778BE6 /* KeychainPlugin.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,7 +360,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 32678PYY8K;
 				INFOPLIST_FILE = App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Giacomo;
+				INFOPLIST_KEY_CFBundleDisplayName = MappAI;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
@@ -385,7 +385,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 32678PYY8K;
 				INFOPLIST_FILE = App/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Giacomo;
+				INFOPLIST_KEY_CFBundleDisplayName = MappAI;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
