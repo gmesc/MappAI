@@ -4997,6 +4997,72 @@ window.saveMapVault = async function () {
     }
 };
 
+window.loadDemoGraph = async function (url) {
+    try {
+        window.closeVaultManager();
+        window.showLoadingOverlay(true, "Caricamento Demo...");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("File demo non trovato.");
+        const data = await res.json();
+        
+        if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
+
+        data.links.forEach(l => {
+            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
+            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
+        });
+        data.nodes.forEach(n => {
+            delete n.vx; delete n.vy;
+            delete n.fx; delete n.fy;
+        });
+
+        appState.db = { nodes: data.nodes, links: data.links };
+        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
+        
+        if (data.generationUsage) {
+            appState.generationUsage = data.generationUsage;
+            if (window.updateCostDisplay) window.updateCostDisplay();
+        } else {
+            appState.generationUsage = null;
+        }
+
+        if (data.customColors) {
+            appState.db.customColors = data.customColors;
+        }
+
+        appState.db.sourcesDict = {};
+        (appState.db.nodes || []).forEach(n => {
+            if (n.chunks && n.chunks.length > 0) {
+                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    title: "Estratto Fonte",
+                    source: "Dato Demo",
+                    text: c
+                }));
+            }
+        });
+
+        if (data.tutorState) {
+            window.tutorState = data.tutorState;
+            localStorage.setItem('mappai_tutor_state', JSON.stringify(window.tutorState));
+        } else {
+            window.tutorState = { messages: [], mode: "tutor", flashcards: [], currentFlashcardIndex: 0 };
+            localStorage.removeItem('mappai_tutor_state');
+        }
+
+        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
+        
+        if (typeof simulation !== 'undefined') simulation = null;
+        window.switchToMapLayout();
+        if (typeof initD3Visualization === 'function') initD3Visualization();
+        
+        window.showLoadingOverlay(false);
+        window.showToast("Mappa dimostrativa caricata con successo!", "success");
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        console.error(err);
+        window.showAlert("Errore", "Impossibile caricare l'esempio: " + err.message);
+    }
+};
 window.loadMapVault = async function () {
     try {
         const result = await window.electronAPI.pickFolder();

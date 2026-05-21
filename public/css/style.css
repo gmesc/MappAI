@@ -30,6 +30,10 @@
     /* ==========================================
            0. FONT GLOBALE + TOGGLE
            ========================================== */
+    html {
+        font-size: calc(16px * var(--app-zoom, 1));
+    }
+
     * {
         font-family: 'Space Mono', monospace !important;
     }
@@ -103,12 +107,17 @@
     #insegnai-drawer h1,
     #insegnai-drawer h2,
     #insegnai-drawer p {
-        font-size: 12px !important;
+        font-size: 0.75rem !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
     }
 
     #projects-bar span,
     #insegnai-drawer span {
-        font-size: 10px !important;
+        font-size: 0.625rem !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
     }
 
     /* A11y Compensatory filters */
