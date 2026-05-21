@@ -700,7 +700,7 @@ window.renderTreeView = function () {
         html += `<div class="mb-1">`;
         html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1.5 px-2 rounded-lg hover:bg-indigo-50 transition flex items-center gap-2 group">`;
         html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
-        html += `<span class="text-xs font-bold text-slate-700 group-hover:text-indigo-600 truncate">${rn.label}${degreeInfo}</span>`;
+        html += `<span class="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate">${rn.label}${degreeInfo}</span>`;
         html += `</button>`;
 
         if (children.length > 0) {
@@ -710,7 +710,7 @@ window.renderTreeView = function () {
                     c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
                 html += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
                 html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
-                html += `<span class="text-[10px] text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
+                html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
                 html += `</button>`;
             });
             html += `</div>`;
@@ -737,7 +737,7 @@ window.renderTreeView = function () {
                     : (colorScale[n.group] || '#4f46e5');
                 div.innerHTML = `
                             <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${mColor}"></div>
-                            <span class="text-[11px] font-bold text-slate-600 group-hover:text-indigo-600 transition truncate">${n.label}</span>
+                            <span class="text-[13px] font-bold text-slate-600 group-hover:text-indigo-600 transition truncate">${n.label}</span>
                         `;
                 macroContainer.appendChild(div);
             });
@@ -1141,11 +1141,12 @@ window.updateCostDisplay = function () {
     const candidatePrice = 0.40 / 1000000; // $ per token output
 
     const cost = (appState.generationUsage.promptTokens * promptPrice) + (appState.generationUsage.candidateTokens * candidatePrice);
+    const costInCents = cost * 100;
 
     const costEl = document.getElementById('total-cost-display');
     const tokenEl = document.getElementById('total-tokens-display');
 
-    if (costEl) costEl.textContent = '$' + cost.toFixed(4);
+    if (costEl) costEl.textContent = costInCents.toFixed(2) + ' ¢';
     if (tokenEl) tokenEl.textContent = appState.generationUsage.totalTokens.toLocaleString();
     const modelEl = document.getElementById('used-model-display');
     if (modelEl && appState.generationUsage.usedModel) modelEl.textContent = appState.generationUsage.usedModel;
@@ -3214,26 +3215,84 @@ function renderGraph() {
         n.group = getParentGroup(n.id);
     });
 
+    // Calcolo del peso dei nodi (Strategia 3)
+    nodes.forEach(n => {
+        n.weight = links.filter(l => {
+            let sId = typeof l.source === 'object' ? l.source.id : l.source;
+            let tId = typeof l.target === 'object' ? l.target.id : l.target;
+            return sId === n.id || tId === n.id;
+        }).length;
+    });
+
+    const isKG = appState.extractionMode === 'kg';
+
     if (!simulation) {
         simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult))
-            .force("collide", d3.forceCollide().radius(d => getNodeRadius(d) + 50).iterations(3))
-            .force("charge", d3.forceManyBody().strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult))
-            .force("center", d3.forceCenter(0, 0));
+            .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+                let baseDist = (d.source.level === 0) ? 200 : 140;
+                if (isKG) baseDist = 200; // Più spazio per KG
+                return baseDist * forceDistMult;
+            }))
+            .force("collide", d3.forceCollide().radius(d => {
+                // Più figli ha, più spazio attorno pretende
+                let extraPadding = 50 + (d.weight * 5);
+                if (extraPadding > 150) extraPadding = 150;
+                return getNodeRadius(d) + extraPadding;
+            }).iterations(3))
+            .force("charge", d3.forceManyBody().strength(d => {
+                let baseCharge = (d.level === 0 ? -1500 : -500);
+                if (isKG && d.level === 1) baseCharge = -1000;
+                // Nodi pesanti respingono di più per far spazio ai figli
+                return (baseCharge - (d.weight * 50)) * forceChargeMult;
+            }))
+            .force("center", d3.forceCenter(0, 0))
+            .force("radial", d3.forceRadial(d => {
+                if (isKG) {
+                    return d.level === 1 ? 250 : 550; // KG ha solo L1 (Hub) e L2 (Nodi)
+                } else {
+                    if (d.level === 0) return 0;
+                    if (d.level === 1) return 300;
+                    if (d.level === 2) return 500;
+                    return 700;
+                }
+            }, 0, 0).strength(0.3));
+
+        // Raffreddamento statico invisibile (Strategia 1)
+        simulation.stop();
+        simulation.tick(300);
 
         simulation.on("tick", tick);
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
     } else {
         simulation.nodes(nodes);
-        simulation.force("link").links(links).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult);
-        simulation.force("charge").strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult);
-        simulation.force("collide").radius(d => getNodeRadius(d) + 50);
+        simulation.force("link").links(links).distance(d => {
+            let baseDist = (d.source.level === 0) ? 200 : 140;
+            if (isKG) baseDist = 200;
+            return baseDist * forceDistMult;
+        });
+        simulation.force("collide").radius(d => {
+            let extraPadding = 50 + (d.weight * 5);
+            if (extraPadding > 150) extraPadding = 150;
+            return getNodeRadius(d) + extraPadding;
+        });
+        simulation.force("charge").strength(d => {
+            let baseCharge = (d.level === 0 ? -1500 : -500);
+            if (isKG && d.level === 1) baseCharge = -1000;
+            return (baseCharge - (d.weight * 50)) * forceChargeMult;
+        });
+
+        // Raffreddamento statico invisibile (Strategia 1)
+        simulation.stop();
+        simulation.tick(300);
+
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
         simulation.alpha(0.3).restart();
     }
 
     const linkSelection = g.selectAll(".link-group").data(links, d => `${d.source.id || d.source}-${d.target.id || d.target}-${d.rel}`);
     const linkEnter = linkSelection.enter().append("g").attr("class", "link-group")
+        .style("opacity", 0) // Cascading animation start
+
         .on("contextmenu", (e, d) => window.showContextMenu(e, 'link', d))
         .on("touchstart", (e, d) => handleTouchStart(e, 'link', d))
         .on("touchend", handleTouchEnd)
@@ -3290,6 +3349,7 @@ function renderGraph() {
 
     const nodeSelection = g.selectAll(".node-group").data(nodes, d => d.id);
     const nodeEnter = nodeSelection.enter().append("g").attr("class", "node-group")
+        .style("opacity", 0) // Cascading animation start
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
         .on("contextmenu", (e, d) => window.showContextMenu(e, 'node', d))
@@ -3487,6 +3547,26 @@ function renderGraph() {
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     window.applyVisualFilters();
+
+    // Applica subito le posizioni pre-calcolate (tick manuale)
+    tick();
+
+    // Animazione a cascata per svelamento progressivo (Strategia 4)
+    // Link appaiono tutti insieme con delay
+    linkEnter.transition().duration(800).delay(500).style("opacity", 1);
+    
+    // I nodi vecchi (merge senza enter) devono mantenere opacità 1
+    // Per sicurezza impostiamo a 1 tutto ciò che era già presente
+    nodeSelection.style("opacity", 1);
+    linkSelection.style("opacity", 1);
+
+    // I nodi nuovi appaiono a scaglioni in base al livello
+    nodeEnter.transition().duration(600).delay(d => {
+        if (d.level === 0) return 0;
+        if (d.level === 1) return 400;
+        if (d.level === 2) return 800;
+        return 1200;
+    }).style("opacity", 1);
 }
 
 function tick() {
@@ -4211,7 +4291,7 @@ window.openSourceModal = function (nodeId) {
         const hypBtn = document.getElementById('btn-hyphenation');
         if (hypBtn) hypBtn.classList.remove('bg-indigo-100');
         if (sourceModalBody) sourceModalBody.classList.remove('hyphens-auto-force');
-        if (window.resetA11yTools) window.resetA11yTools();
+        // Removed window.resetA11yTools() to maintain zoom state
 
         let pPath = [];
         let current = d;
@@ -4276,7 +4356,13 @@ window.openSourceModal = function (nodeId) {
             html += `<div class="space-y-2 mb-6">`;
             urls.forEach(u => {
                 const isLocal = u.startsWith('file://');
-                const displayUrl = u.length > 60 ? u.substring(0, 60) + "..." : u;
+                let displayUrl = u;
+                if (isLocal) {
+                    displayUrl = displayUrl.split(/[/\\]/).pop();
+                    try { displayUrl = decodeURIComponent(displayUrl); } catch(e) {}
+                } else if (displayUrl.length > 60) {
+                    displayUrl = displayUrl.substring(0, 60) + "...";
+                }
                 const icon = isLocal ? 'database' : 'link';
                 const label = isLocal ? 'File Locale' : 'Collegamento Esterno';
                 html += `
@@ -4542,11 +4628,38 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const sourceBody = document.getElementById('source-modal-body');
+    // Zoom per tutti i contenitori primari e modali con testo
+    const zoomSelectors = [
+        '.glass-card.max-w-3xl',
+        '#insegnai-drawer',
+        '#sidebar',
+        '#projects-bar-content',
+        '#source-modal-content-box',
+        '#ai-modal-content-box',
+        '#study-player-modal > div',
+        '#quiz-modal-content',
+        '#app-guide-modal > div',
+        '#app-tutorial-modal > div',
+        '#config-ai-modal > div',
+        '#merge-confirm-modal > div',
+        '#validate-link-modal > div',
+        '#user-profile-box',
+        '#api-tutorial-modal > div',
+        '#alert-box',
+        '#prompt-box',
+        '#study-config-modal > div',
+        '#external-json-modal > div',
+        '#vault-manager-box',
+        '#edit-node-box',
+        '#contextual-ai-extension-modal > div'
+    ];
 
-    if (mainCard) mainCard.style.zoom = z;
-    if (sourceBody) sourceBody.style.zoom = z;
+    zoomSelectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.style.zoom = z;
+        }
+    });
 
     document.documentElement.style.fontSize = '';
 
@@ -4627,6 +4740,8 @@ window.exportGraph = function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
     const exportData = {
         rootNodeLabel: appState.rootNodeLabel, mode: appState.extractionMode,
+        generationUsage: appState.generationUsage,
+        customColors: appState.db.customColors,
         nodes: appState.db.nodes.map(n => ({ id: n.id, label: n.label, content: n.content, desc: n.desc, image: n.image, level: n.level, group: n.group, studyStatus: n.studyStatus, chunks: n.chunks, x: n.x, y: n.y, fx: n.fx, fy: n.fy })),
         links: appState.db.links.map(l => ({ source: l.source.id || l.source, target: l.target.id || l.target, rel: l.rel }))
     };
@@ -4673,6 +4788,16 @@ window.importGraph = function (event) {
 
             appState.db = { nodes: data.nodes, links: data.links };
             appState.extractionMode = data.mode || "mindmap";
+            
+            if (data.generationUsage) {
+                appState.generationUsage = data.generationUsage;
+                if (window.updateCostDisplay) window.updateCostDisplay();
+            } else {
+                appState.generationUsage = null;
+            }
+            if (data.customColors) {
+                appState.db.customColors = data.customColors;
+            }
 
             appState.db.sourcesDict = {};
             (appState.db.nodes || []).forEach(n => {
@@ -5694,7 +5819,17 @@ window.updateUserNotesSidebar = function () {
             html += `<div class="mt-2 space-y-1">`;
             nodeUrls.forEach(u => {
                 const isLocal = u.startsWith('file://');
-                const displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
+                let displayUrl;
+                if (isLocal) {
+                    try {
+                        displayUrl = decodeURIComponent(u.split('/').pop());
+                    } catch(e) {
+                        displayUrl = u.split('/').pop();
+                    }
+                } else {
+                    displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
+                }
+                
                 html += `
                     <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
                         <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
@@ -5719,7 +5854,7 @@ window.updateUserNotesSidebar = function () {
 // ==========================================
 let currentQuizNode = null;
 
-window.generateFlashcardForNode = async function (node, silent = false) {
+window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
     const apiKey = window.getSystemKey();
     if (!apiKey) {
         if (!silent) window.showToast("Nessuna API Key presente per generare le flashcard.", "error"); return;
@@ -5750,8 +5885,24 @@ window.generateFlashcardForNode = async function (node, silent = false) {
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-        node.flashcardTest = JSON.parse(cleanText);
+        const items = JSON.parse(cleanText);
+        node.flashcardTest = items;
         node.nextReview = Date.now(); // Available right away
+        
+        if (!isBranch) {
+            appState.db.studySets = appState.db.studySets || [];
+            const isKG = appState.db.extractionMode === 'knowledge_graph';
+            const nodePrefix = (isKG && node.level === 1) ? 'Hub' : 'Nodo';
+            appState.db.studySets.push({
+                id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                title: `${nodePrefix}: ${node.label}`,
+                mode: 'quiz', // Default mode for nodes is currently 'quiz' (multiple choice)
+                type: 'Multiple Choice',
+                items: items,
+                date: new Date().toISOString()
+            });
+        }
+        
         if (!silent) {
             window.showLoadingOverlay(false);
             window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
@@ -5770,8 +5921,7 @@ window.renderStudySets = function () {
     const hint = document.getElementById('empty-sets-hint');
     if (!container || !hint) return;
 
-    const nodesWithCards = appState.db.nodes.filter(n => n.flashcardTest);
-    if (nodesWithCards.length === 0) {
+    if (!appState.db.studySets || appState.db.studySets.length === 0) {
         hint.style.display = 'block';
         Array.from(container.children).forEach(c => {
             if (c.id !== 'empty-sets-hint') c.remove();
@@ -5782,49 +5932,70 @@ window.renderStudySets = function () {
     hint.style.display = 'none';
     container.innerHTML = '<p class="text-[10px] text-slate-400 italic" id="empty-sets-hint" style="display:none;">Genera flashcard o quiz per visualizzarli qui.</p>';
 
-    nodesWithCards.forEach(n => {
-        const div = document.createElement('div');
-        div.className = "flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer group shadow-sm";
-        div.onclick = () => window.openQuizModal(n);
+    // Sort newest first
+    const sortedSets = [...appState.db.studySets].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-        let iconColor = n.studyStatus === 'done' ? 'text-emerald-500' : (n.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-400');
-        const lastScore = n.lastScore ? `<span class="text-[9px] text-slate-400 font-medium">Ultimo Score: <b class="text-indigo-500">${n.lastScore}</b></span>` : '<span class="text-[9px] text-slate-300 italic">Ancora da ripassare</span>';
+    sortedSets.forEach(set => {
+        const div = document.createElement('div');
+        div.className = "flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer group shadow-sm mb-2";
+        div.onclick = () => window.loadStudySet(set.id);
+
+        let iconColor = set.mode === 'quiz' ? 'text-amber-500' : 'text-purple-500';
+        let iconType = set.mode === 'quiz' ? 'help-circle' : 'brain-circuit';
 
         div.innerHTML = `
-                    <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
-                        <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-white transition">
-                             <i data-lucide="brain-circuit" class="w-4 h-4 ${iconColor}"></i>
-                        </div>
-                        <div class="flex flex-col min-w-0">
-                            <span class="text-xs font-bold text-slate-700 truncate leading-tight">${n.label}</span>
-                            ${lastScore}
-                        </div>
-                    </div>
-                    <div class="ml-3 shrink-0 flex items-center gap-1">
-                        <button onclick="event.stopPropagation(); window.deleteStudySet('${n.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
-                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
-                    </div>
-                `;
+            <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
+                <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-white transition">
+                     <i data-lucide="${iconType}" class="w-4 h-4 ${iconColor}"></i>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-xs font-bold text-slate-700 truncate leading-tight">${set.title}</span>
+                    <span class="text-[10px] text-slate-400">${set.items.length} domande &middot; ${new Date(set.date).toLocaleDateString()}</span>
+                </div>
+            </div>
+            <div class="ml-3 shrink-0 flex items-center gap-1">
+                <button onclick="event.stopPropagation(); window.deleteStudySet('${set.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+                <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
+            </div>
+        `;
         container.appendChild(div);
     });
     window.safeCreateIcons();
 };
 
-window.deleteStudySet = function (nodeId) {
-    const node = appState.db.nodes.find(n => n.id === nodeId);
-    if (node) {
-        node.flashcardTest = null;
-        node.studyStatus = null;
-        node.lastScore = null;
-        node.lastReviewed = null;
-        node.nextReview = null;
+window.loadStudySet = function (setId) {
+    const set = appState.db.studySets.find(s => s.id === setId);
+    if (!set) return;
+
+    window.activeStudySessionItems = set.items;
+    window.studyConfig = {
+        mode: set.mode,
+        quizType: set.type
+    };
+
+    window.studyResults = {
+        mode: set.mode,
+        type: set.type,
+        correct: 0,
+        total: set.items.length,
+        mistakes: [],
+        startTime: Date.now()
+    };
+    
+    window.currentStudyItemIndex = 0;
+    window.openStudyPlayer();
+};
+
+window.deleteStudySet = function (setId) {
+    if (confirm("Sei sicuro di voler eliminare questo set?")) {
+        appState.db.studySets = appState.db.studySets.filter(s => s.id !== setId);
         window.renderStudySets();
-        renderGraph();
-        window.showToast("Set di studio rimosso.", "info");
     }
 };
+
+
 
 window.getDescendants = function (nodeId) {
     let descendants = new Set();
@@ -5855,14 +6026,29 @@ window.generateBranchFlashcards = async function (node) {
 
     window.showLoadingOverlay(true, `Generazione per Ramo in corso (${nodes.length} nodi)...`, "flashcard");
     let successCount = 0;
+    let branchItems = [];
     for (const n of nodes) {
         try {
-            await window.generateFlashcardForNode(n, true);
-            if (n.flashcardTest) successCount++;
+            await window.generateFlashcardForNode(n, true, true);
+            if (n.flashcardTest) {
+                successCount++;
+                branchItems = branchItems.concat(n.flashcardTest);
+            }
         } catch (e) { console.error(e); }
     }
     window.showLoadingOverlay(false);
     if (successCount > 0) {
+        appState.db.studySets = appState.db.studySets || [];
+        appState.db.studySets.push({
+            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            title: `Ramo: ${node.label}`,
+            mode: 'quiz',
+            type: 'Multiple Choice',
+            items: branchItems,
+            date: new Date().toISOString()
+        });
+        if (window.renderStudySets) window.renderStudySets();
+
         window.globalQuizQueue = nodes.filter(n => n.flashcardTest);
         window.playNextGlobalQuiz();
     } else {
@@ -5932,10 +6118,39 @@ window.renderSubQuestion = function () {
     const optsContainer = document.getElementById('quiz-options-container');
     optsContainer.innerHTML = '';
 
-    [1, 2, 3].forEach(val => {
+    const optionsArray = [1, 2, 3].filter(val => {
+        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
+        return t && t.trim() !== '';
+    });
+
+    const isTrueFalse = optionsArray.length === 2 && optionsArray.some(val => {
+        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
+        const l = t.toLowerCase();
+        return l === 'vero' || l === 'falso' || l === 'true' || l === 'false';
+    });
+
+    if (isTrueFalse) {
+        optsContainer.className = "flex gap-4 mb-6";
+    } else {
+        optsContainer.className = "space-y-3 mb-6";
+    }
+
+    optionsArray.forEach(val => {
         let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
         let btn = document.createElement('div');
-        btn.className = "quiz-option";
+        
+        if (isTrueFalse) {
+            btn.className = "quiz-option flex-1 text-center";
+            const lowerText = text.toLowerCase();
+            if (lowerText === 'vero' || lowerText === 'true') {
+                btn.classList.add('tf-true');
+            } else if (lowerText === 'falso' || lowerText === 'false') {
+                btn.classList.add('tf-false');
+            }
+        } else {
+            btn.className = "quiz-option";
+        }
+        
         btn.innerText = text;
         btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
         optsContainer.appendChild(btn);
@@ -6202,7 +6417,7 @@ window.resetSidebarTutor = function () {
             "Hi! I'm your global AI Tutor. How can I help you study this map?";
 
         chatHistory.innerHTML = `
-            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
+            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
                 <button onclick="window.readTextAloud(this, \`${firstMsg.replace(/'/g, "\\'")}\`)" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
             </div>
@@ -6221,7 +6436,7 @@ window.sendSidebarTutorMessage = async function () {
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
 
     chatHistory.innerHTML += `
-        <div class="bg-emerald-500 text-black p-3 rounded-lg text-sm rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
+        <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
         </div>
     `;
@@ -6273,7 +6488,7 @@ window.sendSidebarTutorMessage = async function () {
         document.getElementById(loaderId).remove();
         let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML += `
-        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
+        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
             <div class="markdown-body flex-grow">${resultHTML}</div>
             <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
         </div>
@@ -6648,12 +6863,12 @@ window.togglePomodoro = function () {
     if (isPomodoroRunning) {
         clearInterval(pomodoroInterval);
         isPomodoroRunning = false;
-        btn.innerText = "RIPRENDI";
-        btn.className = "px-3 py-1.5 bg-amber-50 text-amber-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm";
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-amber-50 text-amber-600 rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm flex items-center justify-center";
     } else {
         isPomodoroRunning = true;
-        btn.innerText = "PAUSA";
-        btn.className = "px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm";
+        btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm flex items-center justify-center";
         pomodoroInterval = setInterval(() => {
             if (pomodoroTimeLeft > 0) {
                 pomodoroTimeLeft--;
@@ -6664,6 +6879,7 @@ window.togglePomodoro = function () {
             }
         }, 1000);
     }
+    if (window.safeCreateIcons) window.safeCreateIcons();
 };
 
 window.resetPomodoro = function () {
@@ -6671,9 +6887,10 @@ window.resetPomodoro = function () {
     isPomodoroRunning = false;
     pomodoroTimeLeft = 25 * 60;
     const btn = document.getElementById('pomodoro-btn');
-    btn.innerText = "INIZIA";
-    btn.className = "px-3 py-1.5 bg-rose-50 text-rose-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm";
+    btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+    btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
     updatePomodoroDisplay();
+    if (window.safeCreateIcons) window.safeCreateIcons();
 };
 
 function updatePomodoroDisplay() {
@@ -7229,17 +7446,19 @@ window.startStudySession = async function () {
     }
 
     let studyText = "";
-    let targetLabel = "Tutta la Mappa";
+    let targetLabel = "Globale";
 
     if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
         const n = window.studyConfig.target;
         studyText = `${n.label}: ${n.content || n.desc}`;
-        targetLabel = n.label;
+        const isKG = appState.db.extractionMode === 'knowledge_graph';
+        const nodePrefix = (isKG && n.level === 1) ? 'Hub' : 'Nodo';
+        targetLabel = `${nodePrefix}: ${n.label}`;
     } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
         const root = window.studyConfig.target;
         const branchNodes = [root, ...window.getDescendants(root.id)];
         studyText = branchNodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
-        targetLabel = `Ramo ${root.label}`;
+        targetLabel = `Ramo: ${root.label}`;
     } else {
         studyText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
     }
@@ -7298,6 +7517,19 @@ window.startStudySession = async function () {
         let rawText = response.candidates[0].content.parts[0].text;
         let cleanText = rawText.split('```json').join('').split('```').join('').trim();
         window.activeStudySessionItems = JSON.parse(cleanText);
+
+        appState.db.studySets = appState.db.studySets || [];
+        const label = targetLabel;
+        appState.db.studySets.push({
+            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            title: label,
+            mode: window.studyConfig.mode,
+            type: window.studyConfig.quizType || 'Flashcard',
+            items: window.activeStudySessionItems,
+            date: new Date().toISOString()
+        });
+        if (window.renderStudySets) window.renderStudySets();
+
         window.currentStudyItemIndex = 0;
 
         // Initialize results
@@ -7671,11 +7903,16 @@ window.cycleLineHeight = function () {
     window.safeCreateIcons();
 };
 
-let currentZoomIdx = 0;
+let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
 
-window.cycleTextZoom = function () {
-    currentZoomIdx = (currentZoomIdx + 1) % zooms.length;
+window.cycleTextZoom = function() {
+    window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
+};
+
+window.applyTextZoom = function(idx) {
+    currentZoomIdx = idx;
+    localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
 
     const label = `Testo x${(z === 1.0 ? '1' : z)}`;
@@ -7687,13 +7924,45 @@ window.cycleTextZoom = function () {
 
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
     document.documentElement.style.setProperty('--app-zoom', z);
+    
+    if (z > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
 
-    // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const sourceBody = document.getElementById('source-modal-body');
+    // Zoom per tutti i contenitori primari e modali con testo
+    const zoomSelectors = [
+        '.glass-card.max-w-3xl',
+        '#insegnai-drawer',
+        '#sidebar',
+        '#projects-bar-content',
+        '#source-modal-content-box',
+        '#ai-modal-content-box',
+        '#study-player-modal > div',
+        '#quiz-modal-content',
+        '#app-guide-modal > div',
+        '#app-tutorial-modal > div',
+        '#config-ai-modal > div',
+        '#merge-confirm-modal > div',
+        '#validate-link-modal > div',
+        '#user-profile-box',
+        '#api-tutorial-modal > div',
+        '#alert-box',
+        '#prompt-box',
+        '#study-config-modal > div',
+        '#external-json-modal > div',
+        '#vault-manager-box',
+        '#edit-node-box',
+        '#contextual-ai-extension-modal > div'
+    ];
 
-    if (mainCard) mainCard.style.zoom = z;
-    if (sourceBody) sourceBody.style.zoom = z;
+    zoomSelectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.style.zoom = z;
+        }
+    });
 
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
@@ -7714,13 +7983,41 @@ window.resetA11yTools = function () {
 
     document.documentElement.style.setProperty('--app-zoom', 1);
 
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const body = document.getElementById('source-modal-body');
+    const zoomSelectors = [
+        '.glass-card.max-w-3xl',
+        '#insegnai-drawer',
+        '#sidebar',
+        '#projects-bar-content',
+        '#source-modal-content-box',
+        '#ai-modal-content-box',
+        '#study-player-modal > div',
+        '#quiz-modal-content',
+        '#app-guide-modal > div',
+        '#app-tutorial-modal > div',
+        '#config-ai-modal > div',
+        '#merge-confirm-modal > div',
+        '#validate-link-modal > div',
+        '#user-profile-box',
+        '#api-tutorial-modal > div',
+        '#alert-box',
+        '#prompt-box',
+        '#study-config-modal > div',
+        '#external-json-modal > div',
+        '#vault-manager-box',
+        '#edit-node-box',
+        '#contextual-ai-extension-modal > div'
+    ];
 
-    if (mainCard) mainCard.style.zoom = '';
+    zoomSelectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.style.zoom = '';
+        }
+    });
+
+    const body = document.getElementById('source-modal-body');
     if (body) {
         body.style.lineHeight = '';
-        body.style.zoom = '';
     }
     document.documentElement.style.fontSize = '';
 };
@@ -8524,6 +8821,9 @@ window.resetVaultState = function () {
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Applica lo zoom salvato
+    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
+
     // Applica Modalità Studente al caricamento
     if (window.applyStudentModeUI) window.applyStudentModeUI();
 });

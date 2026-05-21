@@ -313,6 +313,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             rootNodeLabel: mapData.rootNodeLabel,
             userProfile: mapData.userProfile,
             customColors: mapData.customColors || {},
+            generationUsage: mapData.generationUsage || null,
             lastUpdated: new Date().toISOString()
         };
         const indexYaml = Object.entries(indexData).map(([k,v]) => {
@@ -449,7 +450,18 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
         }
 
-        // 7. Return upgrades for image paths (Base64 -> Local File)
+        // 7. Save Study Sets (Quiz e Flashcard)
+        const studyDir = path.join(folderPath, 'Materiale Studio');
+        if (mapData.studySets && mapData.studySets.length > 0) {
+            if (!fs.existsSync(studyDir)) fs.mkdirSync(studyDir, { recursive: true });
+            mapData.studySets.forEach(set => {
+                const safeTitle = set.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const fileName = `${safeTitle}_${set.id}.json`;
+                fs.writeFileSync(path.join(studyDir, fileName), JSON.stringify(set, null, 2), 'utf-8');
+            });
+        }
+
+        // 8. Return upgrades for image paths (Base64 -> Local File)
         const upgrades = (mapData.nodes || []).map(node => {
             const nodeImages = node.images || (node.image ? [node.image] : []);
             const absoluteVaultPaths = [];
@@ -503,6 +515,9 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 }
                 if (line.startsWith('customColors:')) {
                     try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
+                }
+                if (line.startsWith('generationUsage:')) {
+                    try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
                 }
             });
         }
@@ -589,6 +604,20 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 }
             });
         }
+        // Load Study Sets
+        mapData.studySets = [];
+        const studyDir = path.join(folderPath, 'Materiale Studio');
+        if (fs.existsSync(studyDir)) {
+            const files = fs.readdirSync(studyDir).filter(f => f.endsWith('.json'));
+            files.forEach(file => {
+                try {
+                    const content = fs.readFileSync(path.join(studyDir, file), 'utf-8');
+                    const set = JSON.parse(content);
+                    mapData.studySets.push(set);
+                } catch(e) {}
+            });
+        }
+
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };

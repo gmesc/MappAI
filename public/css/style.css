@@ -93,17 +93,9 @@
         /* Forza dimensione fissa */
     }
 
-    /* Annulla lo zoom della card per i bottoni al suo interno */
-    .glass-card button,
-    .glass-card .button-like,
-    .glass-card label.bg-white,
-    .glass-card label.bg-indigo-50,
-    .glass-card .source-type-btn,
-    .glass-card .mode-btn,
-    #source-modal-body button,
-    #ai-modal-body button,
-    #insegnai-drawer,
-    #projects-bar {
+    /* Annulla lo zoom per elementi di controllo esterni */
+    #modal-a11y-toolbar,
+    #insegnai-drawer-tab {
         zoom: calc(1 / var(--app-zoom, 1)) !important;
     }
 
@@ -1007,6 +999,9 @@
         .glass-card {
             margin: 12px;
             padding: 20px !important;
+        }
+    }
+    
     /* ==========================================
        12. SNAPSHOT MODE (Clean capture)
        ========================================== */
@@ -1037,3 +1032,74 @@
         transition: none !important;
         animation: none !important;
     }
+
+    /* ==========================================
+       13. SIDEBAR RESPONSIVE WIDTH & ZOOM
+       ========================================== */
+    .app-sidebar {
+        width: 100%;
+    }
+    @media (min-width: 768px) {
+        .app-sidebar {
+            width: calc(28% * var(--app-zoom, 1)) !important;
+        }
+    }
+    @media (min-width: 1024px) {
+        .app-sidebar {
+            width: calc(19% * var(--app-zoom, 1)) !important;
+        }
+    }
+
+    /* ==========================================
+       14. QUIZ TRUE/FALSE BUTTONS
+       ========================================== */
+    .quiz-option.tf-true {
+        background: #22c55e !important;
+        color: white !important;
+        border-color: #16a34a !important;
+        font-size: 18px !important;
+        padding: 20px !important;
+    }
+    .quiz-option.tf-true:hover {
+        background: #16a34a !important;
+    }
+    .quiz-option.tf-false {
+        background: #ef4444 !important;
+        color: white !important;
+        border-color: #dc2626 !important;
+        font-size: 18px !important;
+        padding: 20px !important;
+    }
+    .quiz-option.tf-false:hover {
+        background: #dc2626 !important;
+    }
+/* ==========================================
+   A11Y ZOOM MODALS FULLSCREEN
+   ========================================== */
+body.a11y-zoomed-modals .fixed.inset-0 {
+    padding: 0 !important;
+}
+
+body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) {
+    max-width: calc(100vw / var(--app-zoom, 1)) !important;
+    width: calc(100vw / var(--app-zoom, 1)) !important;
+    height: calc(100vh / var(--app-zoom, 1)) !important;
+    max-height: calc(100vh / var(--app-zoom, 1)) !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) > * {
+    border-radius: 0 !important;
+}
+
+@media (min-width: 768px) {
+    body.a11y-zoomed-modals #sidebar {
+        height: calc(100vh / var(--app-zoom, 1)) !important;
+        max-height: calc(100vh / var(--app-zoom, 1)) !important;
+    }
+}
