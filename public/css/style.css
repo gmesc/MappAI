@@ -31,7 +31,7 @@
            0. FONT GLOBALE + TOGGLE
            ========================================== */
     html {
-        font-size: calc(16px * var(--app-zoom, 1));
+        font-size: calc(100% * var(--app-zoom, 1));
     }
 
     * {

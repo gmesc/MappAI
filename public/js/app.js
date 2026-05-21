@@ -4934,6 +4934,57 @@ window.importGraph = function (event) {
     reader.readAsText(file);
 }
 
+window.loadOfflineExample = async function (filename) {
+    try {
+        const response = await fetch('./esempi/' + filename);
+        if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
+        const data = await response.json();
+        
+        if (!data.nodes || !data.links) throw new Error("JSON non valido.");
+
+        data.links.forEach(l => {
+            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
+            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
+        });
+        data.nodes.forEach(n => {
+            delete n.vx; delete n.vy;
+            delete n.fx; delete n.fy;
+        });
+
+        appState.db = { nodes: data.nodes, links: data.links };
+        appState.extractionMode = data.mode || "mindmap";
+        
+        if (data.generationUsage) {
+            appState.generationUsage = data.generationUsage;
+            if (window.updateCostDisplay) window.updateCostDisplay();
+        } else {
+            appState.generationUsage = null;
+        }
+        if (data.customColors) {
+            appState.db.customColors = data.customColors;
+        }
+
+        appState.db.sourcesDict = {};
+        (appState.db.nodes || []).forEach(n => {
+            if (n.chunks && n.chunks.length > 0) {
+                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    title: "Estratto Fonte",
+                    source: "Dato Esempio",
+                    text: c
+                }));
+            }
+        });
+
+        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
+        simulation = null;
+        window.switchToMapLayout();
+        initD3Visualization();
+        
+        document.getElementById('insegnai-drawer').classList.add('-translate-x-[320px]');
+        window.showToast("Esempio caricato con successo", "success");
+    } catch (err) { window.showAlert("Errore", "Errore caricamento esempio: " + err.message); }
+};
+
 // ==========================================
 // SOTA: MARKDOWN VAULT LOGIC
 // ==========================================
