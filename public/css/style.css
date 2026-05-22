@@ -231,7 +231,7 @@
         color: #ffffff !important;
         font-weight: bold !important;
         letter-spacing: 0.05em !important;
-        font-size: 14px !important;
+        font-size: 15.5px !important;
         padding: 16px 12px !important;
         writing-mode: vertical-rl !important;
         text-orientation: mixed !important;
@@ -337,7 +337,7 @@
         background-color: #10b981 !important; /* Green background fill */
         color: #ffffff !important; /* White text color */
         border: 1px solid #10b981 !important; /* Green border color */
-        font-size: 12px !important;
+        font-size: 13.5px !important;
     }
 
     #projects-bar button.absolute:hover {
@@ -438,17 +438,17 @@
         overflow-wrap: break-word !important;
     }
     #projects-bar #toggle-bar-text {
-        font-size: 12px !important; /* Enlarge text size by 20% (10px -> 12px) */
+        font-size: 13.5px !important; /* Enlarge text size by 20% (10px -> 12px) */
         color: #ffffff !important; /* Text color in white */
     }
 
     #projects-bar svg {
-        width: 12px !important;
-        height: 12px !important;
+        width: 13.5px !important;
+        height: 13.5px !important;
     }
     #projects-bar #toggle-bar-icon {
-        width: 14px !important;
-        height: 14px !important;
+        width: 15.5px !important;
+        height: 15.5px !important;
         color: #ffffff !important; /* Icon color in white */
     }
 
@@ -475,20 +475,21 @@
     }
 
     #landing-view .glass-card h1 {
-        font-size: calc(40px * var(--landing-zoom)) !important;
+        font-size: 40px !important;
     }
 
     #landing-view .glass-card #landing-subtitle {
-        font-size: calc(12px * var(--landing-zoom)) !important;
+        font-size: 12px !important;
     }
 
     #landing-view .glass-card .btn-landing-secondary {
-        font-size: calc(11px * var(--landing-zoom)) !important;
+        font-size: 13.5px !important;
     }
 
-    #landing-view .glass-card .btn-landing-secondary svg {
-        width: calc(14px * var(--landing-zoom)) !important;
-        height: calc(14px * var(--landing-zoom)) !important;
+    #landing-view .glass-card .btn-landing-secondary svg,
+    #landing-view .glass-card .btn-landing-secondary i {
+        width: 22px !important;
+        height: 22px !important;
     }
 
     #landing-view .glass-card span[data-i18n="btn_new_project"],
@@ -1665,22 +1666,38 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     /* 2. Utility Buttons Flexbox grid layout and no wrapping */
     #landing-view .glass-card .grid-cols-2 {
         display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 12px !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
     }
 
     #landing-view .glass-card .btn-landing-secondary {
-        flex: 1 1 auto !important;
-        white-space: nowrap !important;
-        padding: calc(10px * var(--landing-zoom)) calc(18px * var(--landing-zoom)) !important;
-        min-width: calc(110px * var(--landing-zoom)) !important;
+        flex: 0 0 auto !important;
+        white-space: normal !important;
+        padding: 8px 6px !important;
+        width: 96px !important;
+        height: 80px !important;
         background: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         color: #475569 !important;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
-        display: inline-flex !important;
+        display: flex !important;
+        flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
+        gap: 6px !important;
+        border-radius: 12px !important;
+        text-align: center !important;
+        font-size: 13.5px !important;
+        font-weight: bold !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary svg,
+    #landing-view .glass-card .btn-landing-secondary i {
+        width: 22px !important;
+        height: 22px !important;
+        margin: 0 !important;
+        flex-shrink: 0 !important;
     }
 
     #landing-view .glass-card .btn-landing-secondary:hover {
@@ -1753,16 +1770,16 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         margin-right: auto !important;
     }
 
-    /* Enlarge brand header typography & logo */
+    /* Enlarge brand header typography & logo - REMOVED SCALING */
     #landing-view .glass-card h1 {
-        font-size: calc(38px * var(--landing-zoom)) !important;
+        font-size: 40px !important;
     }
     #landing-view .glass-card #landing-subtitle {
-        font-size: calc(11.3px * var(--landing-zoom)) !important;
+        font-size: 12px !important;
     }
     #landing-view .glass-card img[alt="MappAI Icon"] {
-        width: calc(56px * var(--landing-zoom)) !important;
-        height: calc(56px * var(--landing-zoom)) !important;
+        width: 70px !important;
+        height: 70px !important;
     }
 
     /* Enlarge and align Quick Action buttons and label as large, vertical action cards */
@@ -1833,36 +1850,38 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         margin-top: calc(4px * var(--landing-zoom)) !important;
     }
 
-    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) - Gentler scaling */
+    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) - Gentler scaling - REMOVED SCALING */
     #landing-view .glass-card .btn-landing-secondary {
-        font-size: calc(12px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
-        padding: calc(8px * (1 + (var(--landing-zoom) - 1) * 0.4)) calc(14px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
-        border-radius: calc(10px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+        font-size: 13.5px !important;
+        padding: 8px 6px !important;
+        border-radius: 12px !important;
+        width: 96px !important;
+        height: 80px !important;
     }
     #landing-view .glass-card .btn-landing-secondary svg,
     #landing-view .glass-card .btn-landing-secondary i {
-        width: calc(13px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
-        height: calc(13px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+        width: 22px !important;
+        height: 22px !important;
     }
 
-    /* Centratura Header e Prevenzione Collisioni a Zoom Elevato (x1.5 e x2) */
+    /* Centratura Header e Prevenzione Collisioni a Zoom Elevato (x1.5 e x2) - MODIFIED TO STAY IN A ROW */
     body.a11y-zoom-x15 #landing-view .glass-card .border-b > div,
     body.a11y-zoom-x2 #landing-view .glass-card .border-b > div {
-        flex-direction: column !important;
+        flex-direction: row !important;
         align-items: center !important;
-        justify-content: center !important;
-        text-align: center !important;
-        gap: 1.5rem !important;
+        justify-content: space-between !important;
+        text-align: left !important;
+        gap: 24px !important;
     }
     body.a11y-zoom-x15 #landing-view .glass-card .border-b > div .flex.items-center,
     body.a11y-zoom-x2 #landing-view .glass-card .border-b > div .flex.items-center {
-        justify-content: center !important;
+        justify-content: flex-start !important;
     }
     body.a11y-zoom-x15 #landing-view .glass-card .border-b > div .grid,
     body.a11y-zoom-x2 #landing-view .glass-card .border-b > div .grid {
-        margin: 0 auto !important;
-        max-width: 450px !important;
-        width: 100% !important;
+        margin: 0 !important;
+        max-width: none !important;
+        width: auto !important;
     }
 
     /* Enlarge Step indicators and section labels */
@@ -1876,10 +1895,27 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         margin-bottom: calc(12.6px * var(--landing-zoom)) !important;
     }
 
+    /* Permanent horizontal layout for Section 1 and Section 2 under zoom */
+    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap,
+    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap,
+    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap,
+    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important; /* Firefox */
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
+    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
+    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar,
+    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar {
+        display: none !important; /* Chrome/Safari */
+    }
+
     /* Enlarge Source Type buttons */
     #landing-view .glass-card .source-type-btn {
         padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
         border-radius: calc(12.6px * var(--landing-zoom)) !important;
+        flex: 0 0 calc(105px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .source-type-btn span {
         font-size: calc(12px * var(--landing-zoom)) !important;
@@ -1895,7 +1931,7 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     #landing-view .glass-card .mode-btn {
         padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
         border-radius: calc(14.6px * var(--landing-zoom)) !important;
-        flex: 1 1 calc(192px * var(--landing-zoom)) !important;
+        flex: 0 0 calc(200px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .mode-btn span.font-bold {
         font-size: calc(12.6px * var(--landing-zoom)) !important;
@@ -2150,4 +2186,32 @@ body.a11y-zoom-x15 #floating-actions-menu label,
 body.a11y-zoom-x2 #floating-actions-menu button,
 body.a11y-zoom-x2 #floating-actions-menu label {
     white-space: nowrap !important;
+}
+
+/* Permanent horizontal layout for Step 1 (Sources) and Step 2 (Mode) in Teacher version under Zoom */
+#setup-form .ml-10.flex.flex-wrap,
+#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 12px !important;
+    padding-top: 4px !important;
+    padding-bottom: 8px !important;
+    scrollbar-width: none !important;
+}
+
+#setup-form .ml-10.flex.flex-wrap::-webkit-scrollbar,
+#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap::-webkit-scrollbar {
+    display: none !important;
+}
+
+#landing-view .glass-card .source-type-btn {
+    flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .mode-btn {
+    flex: 0 0 calc(200px * var(--landing-zoom)) !important;
 }
