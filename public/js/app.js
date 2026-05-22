@@ -101,6 +101,45 @@ window.applyStudentModeUI = function () {
     if (btnYoutube) btnYoutube.style.display = displayStyle;
     if (btnAudio) btnAudio.style.display = displayStyle;
     if (btnVideo) btnVideo.style.display = displayStyle;
+
+    const setupForm = document.getElementById('setup-form');
+    if (setupForm) {
+        if (appState.studentMode) {
+            setupForm.classList.add('hidden');
+        } else {
+            setupForm.classList.remove('hidden');
+        }
+    }
+
+    const sidebarTabTutor = document.getElementById('sidebar-tab-tutor');
+    if (sidebarTabTutor) {
+        if (appState.studentMode) {
+            sidebarTabTutor.classList.add('hidden');
+            const panelTutor = document.getElementById('sidebar-panel-tutor');
+            if (panelTutor && !panelTutor.classList.contains('hidden')) {
+                window.switchSidebarTab('structure');
+            }
+        } else {
+            sidebarTabTutor.classList.remove('hidden');
+        }
+    }
+
+    const btnFlashcards = document.getElementById('btn-generate-flashcards');
+    const btnQuiz = document.getElementById('btn-generate-quiz');
+    if (btnFlashcards) {
+        if (appState.studentMode) {
+            btnFlashcards.classList.add('hidden');
+        } else {
+            btnFlashcards.classList.remove('hidden');
+        }
+    }
+    if (btnQuiz) {
+        if (appState.studentMode) {
+            btnQuiz.classList.add('hidden');
+        } else {
+            btnQuiz.classList.remove('hidden');
+        }
+    }
 };
 
 window.toggleStudentMode = function () {
@@ -353,7 +392,14 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
 
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
-    window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+    if (appState.studentMode) {
+        window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+        return;
+    }
+    try {
+        const m = document.getElementById('config-ai-modal');
+        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
+    } catch (e) { }
 };
 window.closeConfigAIModal = function () {
     try {
@@ -4334,11 +4380,13 @@ window.handleNodeClick = function (event, d) {
                     ` : ''}
                     
                     <!-- AI QUIZ -->
+                    ${!appState.studentMode ? `
                     <div class="pt-4 border-t border-slate-200 space-y-4">
                         <button onclick="window.generateAIQuiz()" class="w-full bg-emerald-600 text-white font-bold p-2.5 rounded-lg shadow-md hover:bg-emerald-700 flex justify-center items-center gap-2 transition">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Mettiti alla prova (Genera Quiz)
                         </button>
                     </div>
+                    ` : ''}
             </div>
             `;
         document.getElementById('node-details').innerHTML = html;
@@ -4531,37 +4579,39 @@ window.openSourceModal = function (nodeId) {
         }
 
         // --- SEZIONE TUTOR AI ---
-        html += `
-        <div class="mt-8 border-t border-slate-200 pt-6">
-            <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
-                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
-                    <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
-                </label>
-                <div class="flex items-center gap-3">
-                    <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
-                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
-                </div>
-            </div>
-            <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
-                <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
-                    <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
-                    <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
-                        <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
-                    </button>
-                </div>
-                <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
-                    <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
-                    <div class="flex gap-2 mt-auto">
-                        <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
-                        <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+        if (!appState.studentMode) {
+            html += `
+            <div class="mt-8 border-t border-slate-200 pt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
+                    <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
+                        <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
+                        <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
                     </div>
                 </div>
-            </div>
-        </div>`;
+                <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
+                    <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
+                        <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
+                        <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
+                        </button>
+                    </div>
+                    <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
+                        <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
+                        <div class="flex gap-2 mt-auto">
+                            <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
+                            <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
 
         sourceModalBody.innerHTML = html;
         window.safeCreateIcons();
@@ -5649,6 +5699,19 @@ window.showContextMenu = function (e, type, data) {
     menu.innerHTML = ''; ctxTarget = { type, data };
 
     if (type === 'node') {
+        const expandAiHtml = !appState.studentMode ? `
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+        ` : '';
+
+        const spacedRepetitionHtml = !appState.studentMode ? `
+            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
+            <hr class="my-1 border-slate-200">
+        ` : '';
+
         menu.innerHTML = `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200">Stato di Studio</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
@@ -5656,11 +5719,13 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
+                    ${expandAiHtml}
                     <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
                     <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
                     <hr class="my-1 border-slate-200">
+                    ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
                 `;
     } else if (type === 'link') {

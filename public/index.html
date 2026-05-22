@@ -370,7 +370,7 @@
                     <!-- Utils (Griglia 2x2) -->
                     <div class="grid grid-cols-2 gap-2 w-full md:w-auto">
                         <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
-                            class="btn-landing-secondary px-4 py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm hidden">
+                            class="btn-landing-secondary px-4 py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
                             <i data-lucide="settings" class="w-3.5 h-3.5"></i> <span data-i18n="btn_setup">Setup</span>
                         </button>
                         <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
@@ -821,7 +821,6 @@
                 </button>
                 <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
                     class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    style="display: none !important;"
                     title="Tutor AI">
                     <i data-lucide="bot" class="w-5 h-5"></i>
                 </button>
@@ -1026,12 +1025,12 @@
                             </div>
                         </div>
 
-                        <button onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm hidden">
+                        <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
+                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
                         </button>
-                        <button onclick="window.generateGlobalQuiz()"
-                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm hidden">
+                        <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
+                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
                             <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
                         </button>
                         <button onclick="window.showAppTutorial()"
@@ -1091,17 +1090,9 @@
                 <div id="floating-actions-menu"
                     class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
                     <button onclick="window.exportNotesMarkdown()"
-                        class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
+                        class="w-full px-4 py-2.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold hover:bg-emerald-200 flex items-center gap-3 transition-all"
                         title="Esporta Appunti MD">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="w-4 h-4">
-                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                            <path d="M10 9H8" />
-                            <path d="M16 13H8" />
-                            <path d="M16 17H8" />
-                        </svg> Esporta Appunti
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Esporta Appunti
                     </button>
                     <!-- SOTA: MARKDOWN VAULT ACTIONS -->
                     <button onclick="window.saveMapVault()"
@@ -1110,24 +1101,24 @@
                         <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
                     </button>
                     <button onclick="window.loadMapVault()"
-                        class="w-full px-4 py-2 bg-white border border-slate-100 rounded-xl text-[10px] font-bold text-slate-500 hover:bg-slate-50 flex items-center gap-2 transition-all"
+                        class="w-full px-4 py-2.5 bg-blue-100 text-blue-800 border border-blue-300 rounded-xl text-xs font-bold hover:bg-blue-200 flex items-center gap-3 transition-all"
                         title="Apri Cartella Vault Markdown">
-                        <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Importa dal Vault
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
                     </button>
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()"
-                        class="hidden w-full px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-[10px] font-bold hover:bg-indigo-100 items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                        class="hidden w-full px-4 py-2.5 bg-cyan-100 text-cyan-800 border border-cyan-300 rounded-xl text-xs font-bold hover:bg-cyan-200 flex items-center gap-3 transition-all shadow-sm active:scale-95"
                         title="Sincronizza modifiche nel Vault">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizza Vault
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizza Vault
                     </button>
                     <!-- Tasto Salva Snapshot Layout (discreto) -->
                     <button id="save-layout-btn" onclick="window.salvaLayout()"
-                        class="hidden w-full px-4 py-2 bg-slate-50 text-slate-500 border border-slate-100 rounded-xl text-[10px] font-bold hover:bg-slate-100 items-center justify-center gap-2 transition-all"
+                        class="hidden w-full px-4 py-2.5 bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-3 transition-all"
                         title="Salva la disposizione attuale come 'Personal'">
-                        <i data-lucide="camera" class="w-3.5 h-3.5"></i> Salva Layout Snapshot
+                        <i data-lucide="camera" class="w-4 h-4"></i> Salva Layout Snapshot
                     </button>
                     <label for="sidebar-merge"
-                        class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
+                        class="w-full px-4 py-2.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 flex items-center gap-3 cursor-pointer mb-0 transition-all"
                         title="Unisci un altro JSON alla mappa corrente">
                         <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
                     </label>
@@ -1135,7 +1126,7 @@
                         onchange="window.mergeGraph(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()"
-                        class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
+                        class="w-full px-4 py-2.5 bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-bold hover:bg-rose-200 flex items-center gap-3 transition-all"
                         title="Nuova Mappa">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
                     </button>
