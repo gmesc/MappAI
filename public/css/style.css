@@ -97,35 +97,520 @@
         /* Forza dimensione fissa */
     }
 
-    /* Annulla lo zoom per elementi di controllo esterni */
-    #modal-a11y-toolbar,
-    #insegnai-drawer-tab,
-    #insegnai-drawer,
-    #a11y-panel-toggle,
-    #a11y-panel {
-        zoom: calc(1 / var(--app-zoom, 1)) !important;
+    :root {
+        --landing-zoom: 1.2;
+    }
+    body.a11y-zoom-x15 {
+        --landing-zoom: 1.5;
+    }
+    body.a11y-zoom-x2 {
+        --landing-zoom: 2.0;
     }
 
-    /* Applica lo zoom con fattore 0.5 al drawer dei progetti recenti */
-    #projects-bar {
-        zoom: calc((1 + (var(--app-zoom, 1) - 1) * 0.5) / var(--app-zoom, 1)) !important;
+    /* ==========================================
+       LOCK DRAWER, TAB AND A11Y PANEL ON IPAD/DESKTOP (Non scalano con lo zoom testo)
+       ========================================== */
+    #insegnai-drawer {
+        position: fixed !important;
+        top: 50% !important;
+        left: 0 !important;
+        z-index: 100 !important;
+        display: flex !important;
+        align-items: center !important;
+        width: auto !important;
+        transition: transform 0.3s ease !important;
     }
 
-    #projects-bar h3,
+    /* Translate mapping for JS and Tailwind class toggle compatibility */
+    #insegnai-drawer.-translate-x-\[320px\] {
+        transform: translateY(-50%) translateX(-320px) !important;
+    }
+    #insegnai-drawer:not(.-translate-x-\[320px\]) {
+        transform: translateY(-50%) translateX(0) !important;
+    }
+
+    #insegnai-drawer > div:not(#insegnai-drawer-tab) {
+        width: 320px !important;
+        max-height: 90vh !important;
+        padding: 24px !important;
+        border-radius: 0 16px 16px 0 !important;
+        box-sizing: border-box !important;
+    }
+
     #insegnai-drawer h1,
     #insegnai-drawer h2,
     #insegnai-drawer p {
-        font-size: 0.75rem !important;
+        font-size: 13px !important;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
         word-break: break-word !important;
     }
 
-    #projects-bar span,
+    #insegnai-drawer h2 {
+        font-size: 18px !important;
+        margin-bottom: 16px !important;
+        gap: 8px !important;
+    }
+
+    #insegnai-drawer p {
+        font-size: 13px !important;
+        line-height: 1.625 !important;
+        margin-bottom: 12px !important;
+    }
+
+    #insegnai-drawer a {
+        font-size: 13px !important;
+    }
+
+    #insegnai-drawer h3 {
+        font-size: 11px !important;
+        margin-bottom: 4px !important;
+        margin-top: 4px !important;
+    }
+
+    #insegnai-drawer button {
+        font-size: 13px !important;
+        padding: 8px !important;
+        gap: 12px !important;
+    }
+
+    #insegnai-drawer button span.font-bold {
+        font-size: 12px !important;
+    }
+
+    #insegnai-drawer button span.text-\[10px\],
+    #insegnai-drawer span.text-\[10px\],
+    #insegnai-drawer .text-\[10px\],
     #insegnai-drawer span {
-        font-size: 0.625rem !important;
+        font-size: 10px !important;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
+    }
+
+    #insegnai-drawer svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    #insegnai-drawer h2 svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    #insegnai-drawer .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 12px !important;
+    }
+    #insegnai-drawer .gap-2 {
+        gap: 8px !important;
+    }
+    #insegnai-drawer .gap-3 {
+        gap: 12px !important;
+    }
+    #insegnai-drawer .mt-2 {
+        margin-top: 8px !important;
+    }
+    #insegnai-drawer .pt-4 {
+        padding-top: 16px !important;
+    }
+
+    #insegnai-drawer-tab {
+        transform: scale(1.0) !important;
+        width: 44px !important;
+        background-color: #4f46e5 !important; /* Indigo-600 */
+        border: 1px solid #6366f1 !important;
+        border-left: none !important;
+        border-top-right-radius: 16px !important;
+        border-bottom-right-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        flex-shrink: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    #insegnai-drawer-tab button {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        letter-spacing: 0.05em !important;
+        font-size: 14px !important;
+        padding: 16px 12px !important;
+        writing-mode: vertical-rl !important;
+        text-orientation: mixed !important;
+        border-top-right-radius: 16px !important;
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        cursor: pointer !important;
+        white-space: nowrap !important;
+    }
+
+    #insegnai-drawer-tab button:hover {
+        background-color: #4338ca !important; /* Indigo-700 */
+    }
+
+    #insegnai-drawer-tab svg,
+    #insegnai-drawer-tab i {
+        width: 18px !important;
+        height: 18px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    #insegnai-drawer-tab svg:hover,
+    #insegnai-drawer-tab i:hover {
+        color: #ffffff !important;
+    }
+
+    #insegnai-drawer-tab > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 8px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
+
+    /* Global A11y Panel Toggle Button and Panel lock */
+    #a11y-panel-toggle {
+        width: 48px !important;
+        height: 48px !important;
+        padding: 12px !important;
+        top: 24px !important;
+        right: 24px !important;
+        border-radius: 9999px !important;
+    }
+
+    #a11y-panel-toggle svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    #a11y-panel {
+        top: 80px !important;
+        right: 24px !important;
+        width: 220px !important;
+        padding: 12px !important;
+        gap: 8px !important;
+        border-radius: 12px !important;
+    }
+
+    #a11y-panel span {
+        font-size: 10px !important;
+        margin-top: 8px !important;
+        margin-bottom: 4px !important;
+    }
+
+    #a11y-panel span:first-child {
+        margin-top: 0 !important;
+    }
+
+    #a11y-panel button {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        gap: 8px !important;
+    }
+
+    #a11y-panel button svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    #modal-a11y-toolbar {
+        padding: 12px 20px !important;
+    }
+
+    /* ==========================================
+       PROJECTS BAR (Completamente statica in pixel absolute)
+       ========================================== */
+    #projects-bar {
+        font-size: 13px !important;
+    }
+    
+    #projects-bar button.absolute {
+        right: 24px !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        border-top-left-radius: 16px !important;
+        border-top-right-radius: 16px !important;
+        gap: 8px !important;
+        background-color: #10b981 !important; /* Green background fill */
+        color: #ffffff !important; /* White text color */
+        border: 1px solid #10b981 !important; /* Green border color */
+        font-size: 12px !important;
+    }
+
+    #projects-bar button.absolute:hover {
+        background-color: #059669 !important; /* Darker green on hover */
+        border-color: #059669 !important;
+        color: #ffffff !important;
+    }
+
+    #projects-bar-content {
+        padding-top: 16px !important;
+        padding-bottom: 16px !important;
+    }
+
+    #recent-projects-container {
+        gap: 12px !important;
+        padding-bottom: 4px !important;
+        padding-left: 32px !important;
+        padding-right: 32px !important;
+    }
+
+    #recent-projects-container > div {
+        width: 220px !important;
+        padding: 14px !important;
+        border-radius: 14px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+    }
+
+    #recent-projects-container > div .mb-1 {
+        margin-bottom: 4px !important;
+    }
+
+    #recent-projects-container > div .mt-2 {
+        margin-top: 8px !important;
+    }
+
+    #recent-projects-container > div .gap-1\.5 {
+        gap: 6px !important;
+    }
+
+    #recent-projects-container > div .gap-1 {
+        gap: 4px !important;
+    }
+
+    #projects-bar h3,
+    #projects-bar h4,
+    #projects-bar span,
+    #projects-bar p,
+    #projects-bar button {
+        font-size: 14px !important;
+    }
+
+    #projects-bar h3 {
+        font-size: 22px !important; /* Keep large font size */
+        color: #475569 !important; /* Revert to clean slate color */
+        background-color: transparent !important; /* Transparent background */
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: 16px !important;
+        margin-left: 32px !important;
+        gap: 10px !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+    }
+    
+    #projects-bar h3 svg,
+    #projects-bar h3 i {
+        color: #6366f1 !important; /* Indigo icon */
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    #projects-bar h4 {
+        font-size: 14px !important;
+        color: #1e293b !important;
+        font-weight: bold !important;
+    }
+    #projects-bar p.text-xs {
+        font-size: 11px !important;
+        color: #64748b !important;
+    }
+    #projects-bar p.text-\[9px\] {
+        font-size: 11px !important;
+        color: #64748b !important;
+    }
+    #projects-bar span.text-\[8px\] {
+        font-size: 10px !important;
+    }
+    #projects-bar span.text-\[9px\],
+    #projects-bar span {
+        font-size: 11px !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    #projects-bar #toggle-bar-text {
+        font-size: 12px !important; /* Enlarge text size by 20% (10px -> 12px) */
+        color: #ffffff !important; /* Text color in white */
+    }
+
+    #projects-bar svg {
+        width: 12px !important;
+        height: 12px !important;
+    }
+    #projects-bar #toggle-bar-icon {
+        width: 14px !important;
+        height: 14px !important;
+        color: #ffffff !important; /* Icon color in white */
+    }
+
+    /* ==========================================
+       LANDING CARD TEXT ZOOM (Bypassa transform: scale)
+       ========================================== */
+    #landing-view .glass-card button,
+    #landing-view .glass-card .generate-btn,
+    #landing-view .glass-card .mode-btn,
+    #landing-view .glass-card .source-type-btn {
+        font-size: calc(13px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .generate-btn svg,
+    #landing-view .glass-card .mode-btn svg,
+    #landing-view .glass-card .source-type-btn svg {
+        width: calc(20px * var(--landing-zoom)) !important;
+        height: calc(20px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .source-type-btn svg {
+        width: calc(24px * var(--landing-zoom)) !important;
+        height: calc(24px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card h1 {
+        font-size: calc(40px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card #landing-subtitle {
+        font-size: calc(12px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary {
+        font-size: calc(11px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary svg {
+        width: calc(14px * var(--landing-zoom)) !important;
+        height: calc(14px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card span[data-i18n="btn_new_project"],
+    #landing-view .glass-card span[data-i18n="btn_open_vault"] {
+        font-size: calc(14px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card span.tracking-wider.uppercase,
+    #landing-view .glass-card span.tracking-wider {
+        font-size: calc(10px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .step-badge {
+        width: calc(32px * var(--landing-zoom)) !important;
+        height: calc(32px * var(--landing-zoom)) !important;
+        font-size: calc(14px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card #label-step1,
+    #landing-view .glass-card #label-step2,
+    #landing-view .glass-card #label-step3,
+    #landing-view .glass-card #label-step4,
+    #landing-view .glass-card #label-step4-kg,
+    #landing-view .glass-card label {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .landing-input {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        padding: calc(14px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(12px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card textarea {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        padding: calc(14px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(12px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .text-\[10px\] {
+        font-size: calc(10px * var(--landing-zoom)) !important;
+    }
+    
+    #landing-view .glass-card .text-\[11px\] {
+        font-size: calc(11px * var(--landing-zoom)) !important;
+    }
+
+    /* Target specific tailwind text classes within glass-card to scale with --landing-zoom */
+    #landing-view .glass-card .text-xs {
+        font-size: calc(12px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-sm {
+        font-size: calc(14px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-base {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-lg {
+        font-size: calc(18px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-\[9px\] {
+        font-size: calc(9px * var(--landing-zoom)) !important;
+    }
+
+    /* Scale paddings and gap/margins inside card elements */
+    #landing-view .glass-card .level-btn {
+        padding: calc(16px * var(--landing-zoom)) calc(12px * var(--landing-zoom)) !important;
+        border-radius: calc(12px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .mode-btn {
+        padding: calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(14px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .source-type-btn {
+        padding: calc(14px * var(--landing-zoom)) calc(8px * var(--landing-zoom)) !important;
+        border-radius: calc(12px * var(--landing-zoom)) !important;
+        gap: calc(6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .generate-btn {
+        padding: calc(18px * var(--landing-zoom)) !important;
+        border-radius: calc(14px * var(--landing-zoom)) !important;
+        gap: calc(10px * var(--landing-zoom)) !important;
+        font-size: calc(16px * var(--landing-zoom)) !important;
+    }
+
+    /* Zoom x1 (20% landing UI boost) */
+    body.a11y-zoom-x1 #landing-view .glass-card {
+        max-width: 57.6rem !important; /* 48rem * 1.2 */
+        padding: 2.4rem !important; /* 2rem * 1.2 */
+    }
+
+    /* Zoom x2 Fullscreen Mode */
+    body.a11y-zoom-x2 #landing-view {
+        background: white !important;
+        overflow-y: auto !important;
+        padding: 0 !important;
+    }
+    body.a11y-zoom-x2 #landing-view .landing-pattern,
+    body.a11y-zoom-x2 #landing-view .landing-glow {
+        display: none !important;
+    }
+    body.a11y-zoom-x2 #landing-view .glass-card {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+        z-index: 99999 !important;
+        overflow-y: auto !important;
+        background: white !important;
+        box-shadow: none !important;
+        padding: 2.5rem !important;
+        padding-bottom: 120px !important; /* Prevent bottom cutting on iPad WebKit */
+    }
+    body.a11y-zoom-x2 #landing-view .glass-card > * {
+        max-width: 800px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
 
     /* A11y Compensatory filters */
@@ -254,41 +739,21 @@
            ========================================== */
     #landing-view {
         min-height: 100vh;
-        background: linear-gradient(145deg, #f0fff0 0%, #b0eacd 50%, #b7f2dd 70%);
+        background: #ffffff !important;
         position: relative;
         width: 100%;
     }
 
-    .landing-pattern {
-        position: absolute;
-        inset: 0;
-        opacity: 0.35;
-        background-image: radial-gradient(#c7d2fe 1px, transparent 1px);
-        background-size: 32px 32px;
-        pointer-events: none;
-    }
-
+    .landing-pattern,
     .landing-glow {
-        position: absolute;
-        top: -150px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 700px;
-        height: 700px;
-        background: radial-gradient(circle, rgba(129, 140, 248, 0.12) 0%, rgba(196, 181, 253, 0.08) 40%, transparent 70%);
-        pointer-events: none;
+        display: none !important;
     }
 
     .glass-card {
-        background: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(199, 210, 254, 0.5);
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 1.5rem;
-        box-shadow:
-            0 4px 6px -1px rgba(99, 102, 241, 0.06),
-            0 20px 50px -12px rgba(99, 102, 241, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
     }
 
     .step-badge {
@@ -1146,8 +1611,327 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
 }
 
 @media (min-width: 768px) {
-    body.a11y-zoomed-modals #sidebar {
-        height: calc(100vh / var(--app-zoom, 1)) !important;
-        max-height: calc(100vh / var(--app-zoom, 1)) !important;
+        body.a11y-zoomed-modals #sidebar {
+            height: calc(100vh / var(--app-zoom, 1)) !important;
+            max-height: calc(100vh / var(--app-zoom, 1)) !important;
+        }
+    }
+
+    /* ==========================================
+       IPAD/DESKTOP FULL WHITE & BUTTON TEXT WRAPPING OPTIMIZATIONS
+       ========================================== */
+    /* 1. Force Solid White backgrounds and shadows for landing buttons/cards */
+    #landing-view button[onclick="window.startEmptyMap()"],
+    #landing-view button[onclick="window.showVaultManager()"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+        transition: all 0.3s ease !important;
+    }
+    #landing-view button[onclick="window.startEmptyMap()"]:hover,
+    #landing-view button[onclick="window.showVaultManager()"]:hover {
+        background-color: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04) !important;
+    }
+
+    /* Inactive states for source and mode buttons in landing card */
+    #landing-view .glass-card .mode-btn,
+    #landing-view .glass-card .source-type-btn {
+        background: #ffffff !important;
+        border-color: #e2e8f0 !important;
+        color: #475569 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.01) !important;
+    }
+    #landing-view .glass-card .mode-btn:hover,
+    #landing-view .glass-card .source-type-btn:hover {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        color: #121824 !important;
+    }
+    #landing-view .glass-card .mode-btn.active {
+        background: #ffffff !important;
+        border-color: #10b981 !important; /* Premium green matching projects bar */
+        color: #10b981 !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1) !important;
+    }
+    #landing-view .glass-card .mode-btn.active svg,
+    #landing-view .glass-card .mode-btn.active i {
+        color: #10b981 !important;
+    }
+
+    /* 2. Utility Buttons Flexbox grid layout and no wrapping */
+    #landing-view .glass-card .grid-cols-2 {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary {
+        flex: 1 1 auto !important;
+        white-space: nowrap !important;
+        padding: calc(10px * var(--landing-zoom)) calc(18px * var(--landing-zoom)) !important;
+        min-width: calc(110px * var(--landing-zoom)) !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #475569 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary:hover {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        color: #1e293b !important;
+    }
+
+    /* 3. Text Wrapping Prevention */
+    #landing-view button,
+    #landing-view label.cursor-pointer,
+    #landing-view .source-type-btn,
+    #landing-view .source-type-btn span,
+    #landing-view .mode-btn,
+    #landing-view .mode-btn span {
+        white-space: nowrap !important;
+    }
+
+@media (min-width: 768px) {
+    /* 1. Card constraints overrides for x1 and x2 on iPad/Desktop */
+    body.a11y-zoom-x1 #landing-view .glass-card {
+        max-width: 100% !important;
+        padding-left: 29px !important;
+        padding-right: 29px !important;
+    }
+
+    body.a11y-zoom-x2 #landing-view .glass-card {
+        position: relative !important;
+        inset: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: none !important;
+        padding: 0 !important;
+        padding-left: 29px !important;
+        padding-right: 29px !important;
+        margin-top: 19px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow-y: visible !important;
+    }
+    body.a11y-zoom-x2 #landing-view .glass-card > * {
+        max-width: 1100px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* Remove landing container frame to make it flat white and spacious */
+    #landing-view {
+        padding-bottom: calc(144px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-left: 29px !important;
+        padding-right: 29px !important;
+        margin-top: 19px !important;
+    }
+    #landing-view .glass-card > div,
+    #landing-view #setup-form,
+    #landing-view .max-w-2xl,
+    #landing-view .max-w-3xl {
+        max-width: 1100px !important;
+        width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* Enlarge brand header typography & logo */
+    #landing-view .glass-card h1 {
+        font-size: calc(38px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card #landing-subtitle {
+        font-size: calc(11.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card img[alt="MappAI Icon"] {
+        width: calc(56px * var(--landing-zoom)) !important;
+        height: calc(56px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Quick Action buttons (Nuovo Progetto, Apri Vault) */
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"],
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] {
+        padding: calc(20.6px * var(--landing-zoom)) calc(28.6px * var(--landing-zoom)) !important;
+        border-radius: calc(19.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] .w-12,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] .w-12 {
+        width: calc(48px * var(--landing-zoom)) !important;
+        height: calc(48px * var(--landing-zoom)) !important;
+        border-radius: calc(16px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] i,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] i {
+        width: calc(22.6px * var(--landing-zoom)) !important;
+        height: calc(22.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-sm {
+        font-size: calc(15.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-[10px],
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-[10px] {
+        font-size: calc(9.3px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) */
+    #landing-view .glass-card .btn-landing-secondary {
+        font-size: calc(14px * var(--landing-zoom)) !important; /* Increased text size for utility buttons (from 17px fixed) */
+        padding: calc(11.3px * var(--landing-zoom)) calc(19.3px * var(--landing-zoom)) !important;
+        border-radius: calc(11.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .btn-landing-secondary svg,
+    #landing-view .glass-card .btn-landing-secondary i {
+        width: calc(14.6px * var(--landing-zoom)) !important;
+        height: calc(14.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Step indicators and section labels */
+    #landing-view .glass-card .step-badge {
+        width: calc(30.6px * var(--landing-zoom)) !important;
+        height: calc(30.6px * var(--landing-zoom)) !important;
+        font-size: calc(12.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card label.flex {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        margin-bottom: calc(12.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Source Type buttons */
+    #landing-view .glass-card .source-type-btn {
+        padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+        border-radius: calc(12.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .source-type-btn span {
+        font-size: calc(12px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .source-type-btn svg,
+    #landing-view .glass-card .source-type-btn i {
+        width: calc(22.6px * var(--landing-zoom)) !important;
+        height: calc(22.6px * var(--landing-zoom)) !important;
+        margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Generation Mode buttons */
+    #landing-view .glass-card .mode-btn {
+        padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(14.6px * var(--landing-zoom)) !important;
+        flex: 1 1 calc(192px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .mode-btn span.font-bold {
+        font-size: calc(12.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .mode-btn span.text-[9px] {
+        font-size: calc(8.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .mode-btn svg,
+    #landing-view .glass-card .mode-btn i {
+        width: calc(24px * var(--landing-zoom)) !important;
+        height: calc(24px * var(--landing-zoom)) !important;
+        margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge "Genera Mappa" and "Canvas Vuoto" action buttons */
+    #landing-view .glass-card .generate-btn {
+        padding: calc(19.3px * var(--landing-zoom)) !important;
+        font-size: calc(15.3px * var(--landing-zoom)) !important;
+        border-radius: calc(14.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .generate-btn svg,
+    #landing-view .glass-card .generate-btn i {
+        width: calc(17.3px * var(--landing-zoom)) !important;
+        height: calc(17.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] {
+        padding: calc(11.3px * var(--landing-zoom)) !important;
+        font-size: calc(11.3px * var(--landing-zoom)) !important;
+        border-radius: calc(11.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] svg {
+        width: calc(16px * var(--landing-zoom)) !important;
+        height: calc(16px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge input fields, textareas, and source entries */
+    #landing-view .glass-card input[type="text"],
+    #landing-view .glass-card textarea {
+        font-size: calc(12px * var(--landing-zoom)) !important;
+        padding: calc(12.6px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(11.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .source-entry {
+        padding: calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(12.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Scale up all generic descriptions, checkboxes, and additional text blocks inside landing glass-card */
+    #landing-view .glass-card .text-xs,
+    #landing-view .glass-card p.text-xs {
+        font-size: calc(9.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-[10px],
+    #landing-view .glass-card span.text-[10px],
+    #landing-view .glass-card div.text-[10px] {
+        font-size: calc(8px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .text-[11px],
+    #landing-view .glass-card span.text-[11px],
+    #landing-view .glass-card p.text-[11px] {
+        font-size: calc(8.6px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card p.text-xs.italic {
+        font-size: calc(9.3px * var(--landing-zoom)) !important;
+    }
+
+    /* Branch sliders values */
+    #branches-val,
+    #kg-nodes-val {
+        font-size: calc(11.3px * var(--landing-zoom)) !important;
+        padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
+        border-radius: calc(6.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Multi-pass ON/OFF buttons */
+    #multipass-off,
+    #multipass-on {
+        font-size: calc(8px * var(--landing-zoom)) !important;
+        padding: calc(3.3px * var(--landing-zoom)) 0 !important;
+    }
+
+    /* Bottom action buttons: Guida AI Esterna / Importa JSON */
+    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
+    #landing-view .glass-card label[for="landing-import"] {
+        font-size: calc(8px * var(--landing-zoom)) !important;
+        padding: calc(6.6px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+        border-radius: calc(9.3px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"] i,
+    #landing-view .glass-card label[for="landing-import"] i {
+        width: calc(11.3px * var(--landing-zoom)) !important;
+        height: calc(11.3px * var(--landing-zoom)) !important;
+    }
+
+    /* Token count estimate bar */
+    #token-counter-container span {
+        font-size: calc(8px * var(--landing-zoom)) !important;
+    }
+    #token-count {
+        font-size: calc(9.3px * var(--landing-zoom)) !important;
+        padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
     }
 }
