@@ -1072,7 +1072,7 @@
 
             <!-- Sidebar Toggle (Top Left) -->
             <div class="absolute top-6 left-6 z-[40]">
-                <button onclick="window.toggleSidebar()"
+                <button id="sidebar-toggle-btn" onclick="window.toggleSidebar()"
                     class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
                     title="Nascondi/Mostra Sidebar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -1204,7 +1204,7 @@
 
                 <!-- Distanza Nodi -->
                 <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
+                    <i data-lucide="arrow-left-right" class="w-5 h-5 text-slate-500 mb-1" title="Distanza"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeDistance(-1)"
                             class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
@@ -1218,8 +1218,7 @@
 
                 <!-- Dimensione Testo Nodi -->
                 <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest"
-                        data-i18n="lbl_size_text">Testo</span>
+                    <i data-lucide="type" class="w-5 h-5 text-slate-500 mb-1" title="Testo"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeFontScale(-1)"
                             class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i

@@ -600,7 +600,7 @@
         border-radius: 0 !important;
         border: none !important;
         margin: 0 !important;
-        z-index: 99999 !important;
+        z-index: 10 !important;
         overflow-y: auto !important;
         background: white !important;
         box-shadow: none !important;
@@ -1594,10 +1594,10 @@ body.a11y-zoomed-modals .fixed.inset-0 {
 }
 
 body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) {
-    max-width: calc(100vw / var(--app-zoom, 1)) !important;
-    width: calc(100vw / var(--app-zoom, 1)) !important;
-    height: calc(100vh / var(--app-zoom, 1)) !important;
-    max-height: calc(100vh / var(--app-zoom, 1)) !important;
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
     border-radius: 0 !important;
     margin: 0 !important;
     transform: none !important;
@@ -1612,8 +1612,8 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
 
 @media (min-width: 768px) {
         body.a11y-zoomed-modals #sidebar {
-            height: calc(100vh / var(--app-zoom, 1)) !important;
-            max-height: calc(100vh / var(--app-zoom, 1)) !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
         }
     }
 
@@ -1622,14 +1622,16 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
        ========================================== */
     /* 1. Force Solid White backgrounds and shadows for landing buttons/cards */
     #landing-view button[onclick="window.startEmptyMap()"],
-    #landing-view button[onclick="window.showVaultManager()"] {
+    #landing-view button[onclick="window.showVaultManager()"],
+    #landing-view label[for="landing-import"].rounded-3xl {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
         transition: all 0.3s ease !important;
     }
     #landing-view button[onclick="window.startEmptyMap()"]:hover,
-    #landing-view button[onclick="window.showVaultManager()"]:hover {
+    #landing-view button[onclick="window.showVaultManager()"]:hover,
+    #landing-view label[for="landing-import"].rounded-3xl:hover {
         background-color: #f8fafc !important;
         border-color: #cbd5e1 !important;
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04) !important;
@@ -1763,42 +1765,104 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         height: calc(56px * var(--landing-zoom)) !important;
     }
 
-    /* Enlarge Quick Action buttons (Nuovo Progetto, Apri Vault) */
+    /* Enlarge and align Quick Action buttons and label as large, vertical action cards */
     #landing-view .glass-card button[onclick="window.startEmptyMap()"],
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] {
-        padding: calc(20.6px * var(--landing-zoom)) calc(28.6px * var(--landing-zoom)) !important;
-        border-radius: calc(19.3px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.startEmptyMap()"] .w-12,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] .w-12 {
-        width: calc(48px * var(--landing-zoom)) !important;
-        height: calc(48px * var(--landing-zoom)) !important;
-        border-radius: calc(16px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.startEmptyMap()"] i,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] i {
-        width: calc(22.6px * var(--landing-zoom)) !important;
-        height: calc(22.6px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-sm {
-        font-size: calc(15.3px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-[10px],
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-[10px] {
-        font-size: calc(9.3px * var(--landing-zoom)) !important;
+    #landing-view .glass-card button[onclick="window.showVaultManager()"],
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: calc(32px * var(--landing-zoom)) calc(24px * var(--landing-zoom)) !important;
+        border-radius: calc(24px * var(--landing-zoom)) !important;
     }
 
-    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) */
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] > div,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] > div,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl > div {
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: calc(16px * var(--landing-zoom)) !important;
+        width: 100% !important;
+    }
+
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] .w-12,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] .w-12,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl .w-12 {
+        width: calc(64px * var(--landing-zoom)) !important;
+        height: calc(64px * var(--landing-zoom)) !important;
+        border-radius: calc(20px * var(--landing-zoom)) !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] i,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] i,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl i,
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] svg,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] svg,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {
+        width: calc(28px * var(--landing-zoom)) !important;
+        height: calc(28px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-sm,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-sm {
+        font-size: calc(17px * var(--landing-zoom)) !important;
+        display: block !important;
+        text-align: center !important;
+    }
+
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-\[10px\],
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-\[10px\],
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-\[10px\],
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-slate-400,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-slate-400,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-slate-400,
+    #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-indigo-500,
+    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-indigo-500,
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-indigo-500 {
+        font-size: calc(11px * var(--landing-zoom)) !important;
+        display: block !important;
+        text-align: center !important;
+        margin-top: calc(4px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) - Gentler scaling */
     #landing-view .glass-card .btn-landing-secondary {
-        font-size: calc(14px * var(--landing-zoom)) !important; /* Increased text size for utility buttons (from 17px fixed) */
-        padding: calc(11.3px * var(--landing-zoom)) calc(19.3px * var(--landing-zoom)) !important;
-        border-radius: calc(11.3px * var(--landing-zoom)) !important;
+        font-size: calc(12px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+        padding: calc(8px * (1 + (var(--landing-zoom) - 1) * 0.4)) calc(14px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+        border-radius: calc(10px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
     }
     #landing-view .glass-card .btn-landing-secondary svg,
     #landing-view .glass-card .btn-landing-secondary i {
-        width: calc(14.6px * var(--landing-zoom)) !important;
-        height: calc(14.6px * var(--landing-zoom)) !important;
+        width: calc(13px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+        height: calc(13px * (1 + (var(--landing-zoom) - 1) * 0.4)) !important;
+    }
+
+    /* Centratura Header e Prevenzione Collisioni a Zoom Elevato (x1.5 e x2) */
+    body.a11y-zoom-x15 #landing-view .glass-card .border-b > div,
+    body.a11y-zoom-x2 #landing-view .glass-card .border-b > div {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 1.5rem !important;
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .border-b > div .flex.items-center,
+    body.a11y-zoom-x2 #landing-view .glass-card .border-b > div .flex.items-center {
+        justify-content: center !important;
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .border-b > div .grid,
+    body.a11y-zoom-x2 #landing-view .glass-card .border-b > div .grid {
+        margin: 0 auto !important;
+        max-width: 450px !important;
+        width: 100% !important;
     }
 
     /* Enlarge Step indicators and section labels */
@@ -1915,13 +1979,13 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
 
     /* Bottom action buttons: Guida AI Esterna / Importa JSON */
     #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
-    #landing-view .glass-card label[for="landing-import"] {
+    #landing-view .glass-card label[for="landing-import"].py-2 {
         font-size: calc(8px * var(--landing-zoom)) !important;
         padding: calc(6.6px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
         border-radius: calc(9.3px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"] i,
-    #landing-view .glass-card label[for="landing-import"] i {
+    #landing-view .glass-card label[for="landing-import"].py-2 i {
         width: calc(11.3px * var(--landing-zoom)) !important;
         height: calc(11.3px * var(--landing-zoom)) !important;
     }
@@ -1934,4 +1998,136 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         font-size: calc(9.3px * var(--landing-zoom)) !important;
         padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
     }
+}
+
+/* ==========================================================================
+   IPAD & DESKTOP ADJUSTMENTS (Sidebar top offset & control sizes)
+   ========================================================================== */
+
+/* Top padding offset for iOS status bar on iPad/Desktop */
+@media (min-width: 768px) {
+    #sidebar > div:first-child {
+        padding-top: calc(12px + env(safe-area-inset-top, 24px)) !important;
+    }
+}
+
+/* Lock Floating/Circular Actions Buttons dimensions on all zoom levels */
+#sidebar-toggle-btn,
+#floating-actions-toggle,
+#a11y-panel-toggle {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 12px !important;
+    border-radius: 9999px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+}
+
+#sidebar-toggle-btn svg,
+#sidebar-toggle-btn id,
+#sidebar-toggle-btn i,
+#floating-actions-toggle svg,
+#floating-actions-toggle id,
+#floating-actions-toggle i,
+#a11y-panel-toggle svg,
+#a11y-panel-toggle id,
+#a11y-panel-toggle i {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+}
+
+/* Stable absolute positioning for circular buttons on screen corners */
+.absolute.top-6.left-6 {
+    top: 24px !important;
+    left: 24px !important;
+}
+#floating-actions-container {
+    bottom: 32px !important;
+    left: 32px !important;
+}
+#a11y-panel-toggle.fixed {
+    top: 24px !important;
+    right: 24px !important;
+}
+
+/* Map Control Card overrides for zoom x1.5 and x2 to keep it compact and on-screen */
+body.a11y-zoom-x15 #map-control-card,
+body.a11y-zoom-x2 #map-control-card {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    bottom: 16px !important;
+    border-radius: 14px !important;
+    max-width: 90vw !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]),
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) i,
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) svg,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) i,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) svg {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) span,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) span {
+    font-size: 8.5px !important;
+    margin-top: 2px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card .w-px,
+body.a11y-zoom-x2 #map-control-card .w-px {
+    height: 24px !important;
+}
+
+/* Adjuster containers & icons (Distanza / Testo) */
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center {
+    justify-content: center !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center i {
+    width: 18px !important;
+    height: 18px !important;
+    margin-bottom: 2px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 4px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button i {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+/* Keep Min Link / Level sliders compact under zoom */
+body.a11y-zoom-x15 #map-control-card #level-filter-control,
+body.a11y-zoom-x2 #map-control-card #level-filter-control,
+body.a11y-zoom-x15 #map-control-card #min-link-control,
+body.a11y-zoom-x2 #map-control-card #min-link-control {
+    width: 100px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card #level-filter-control span,
+body.a11y-zoom-x2 #map-control-card #level-filter-control span,
+body.a11y-zoom-x15 #map-control-card #min-link-control span,
+body.a11y-zoom-x2 #map-control-card #min-link-control span {
+    font-size: 8px !important;
 }
