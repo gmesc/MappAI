@@ -4727,9 +4727,17 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
-        '.glass-card.max-w-3xl',
         '#sidebar',
         '#source-modal-content-box',
         '#ai-modal-content-box',
@@ -4875,7 +4883,8 @@ window.importGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
 
             // Normalize links: ensure source/target are string IDs, not objects
@@ -4890,7 +4899,7 @@ window.importGraph = function (event) {
             });
 
             appState.db = { nodes: data.nodes, links: data.links };
-            appState.extractionMode = data.mode || "mindmap";
+            appState.extractionMode = data.mode || data.extractionMode || "mindmap";
             
             if (data.generationUsage) {
                 appState.generationUsage = data.generationUsage;
@@ -4928,7 +4937,8 @@ window.loadOfflineExample = async function (filename) {
     try {
         const response = await fetch('./esempi/' + filename);
         if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
-        const data = await response.json();
+        const rawData = await response.json();
+        const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
         
         if (!data.nodes || !data.links) throw new Error("JSON non valido.");
 
@@ -4942,7 +4952,7 @@ window.loadOfflineExample = async function (filename) {
         });
 
         appState.db = { nodes: data.nodes, links: data.links };
-        appState.extractionMode = data.mode || "mindmap";
+        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
         
         if (data.generationUsage) {
             appState.generationUsage = data.generationUsage;
@@ -5232,7 +5242,8 @@ window.mergeGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
             pendingMergeData = data;
             pendingMergeFile = file.name;
@@ -8362,9 +8373,17 @@ window.applyTextZoom = function(idx) {
         document.body.classList.remove('a11y-zoomed-modals');
     }
 
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
-        '.glass-card.max-w-3xl',
         '#sidebar',
         '#source-modal-content-box',
         '#ai-modal-content-box',
@@ -8419,19 +8438,6 @@ window.applyTextZoom = function(idx) {
         else opt.style.setProperty('font-size', `${z * 13}px`, 'important');
     });
 
-    // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-
-    if (mainCard) {
-        if (z === 1.0) {
-            mainCard.style.transform = '';
-            mainCard.style.transformOrigin = '';
-        } else {
-            mainCard.style.transform = `scale(${z})`;
-            mainCard.style.transformOrigin = 'top center';
-        }
-    }
-
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
 
@@ -8454,6 +8460,8 @@ window.resetA11yTools = function () {
     if (btnZPanel) btnZPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> Testo x1`;
 
     document.documentElement.style.setProperty('--app-zoom', 1);
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2', 'a11y-zoomed-modals');
+    document.body.classList.add('a11y-zoom-x1');
 
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
     const body = document.getElementById('source-modal-body');
