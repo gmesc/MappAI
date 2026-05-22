@@ -1,59 +1,59 @@
-# Potenziamento dei Knowledge Graph (KG) tramite Context Window e Parametri Rinforzati
+# Piano di Implementazione - Risoluzione Bug Layout Navigazione e Controllo su iPad
 
-Questo piano d'azione illustra come estendere la capacità di generazione dei Knowledge Graph (KG) sfruttando al massimo la context window di Gemma 4 (fino a 8192 token di output) e rinforzando i parametri strutturali ed estrattivi per ottenere grafi reticolari molto più ricchi, densi e dettagliati, preservando l'eccellente qualità attuale delle relazioni.
-
-## User Review Required
-
-> [!IMPORTANT]
-> Aumentando i token di output a **8192** e il numero di nodi a **20-30**, l'IA avrà abbastanza spazio per tessere connessioni trasversali incredibilmente fitte. Questa soluzione mantiene intatta l'architettura matematica attuale (i Super-Hub a Livello 1, le relazioni a Livello 2), ma ne moltiplica i dettagli e l'accuratezza pedagogica.
-
----
-
-## Open Questions
-
-> [!IMPORTANT]
-> 1. **Budget dei Nodi**: Attualmente il limite è impostato a 15-20 nodi. Proponiamo di alzarlo a **20-30 nodi principali**. Preferisci questa densità o vogliamo spingerci oltre (es. 25-35)?
-> 2. **Crescita delle Relazioni Trasversali**: Proponiamo di imporre che ogni nodo abbia **almeno 2-3 collegamenti** (sia verso i Super-Hub che trasversali verso altri nodi di Livello 2). Questo renderà il KG estremamente reticolare. Pensi che questo livello di densità sia ottimale per lo studio?
-> 3. **Lunghezza delle Spiegazioni**: Proponiamo di aumentare la lunghezza massima del campo `desc` a **50-60 parole** (invece di 30-40) per dare definizioni storiche/scientifiche più profonde. È in linea con le tue aspettative?
+Questo piano descrive le modifiche per risolvere i problemi di visualizzazione del grafo su iPad sia nella versione `MappAI_iPad` che `MappAI_iPad_studente`:
+1. **Navigazione/Navbar troppo grande a zoom x2**: La control card fluttuante (`#map-control-card`) esce dallo schermo. Ridurremo e stabilizzeremo le sue dimensioni tramite CSS dedicato.
+2. **Sostituzione etichette con pittogrammi**: Le etichette di testo "Testo" e "Distanza" all'interno della control card sono troppo piccole e verranno rimpiazzate con icone Lucide (`type` e `arrow-left-right`) dotate di tooltip accessibile.
+3. **Pulsanti circolari a dimensione fissa**: I pulsanti per mostrare/nascondere la sidebar (`#sidebar-toggle-btn`), uscire (`#floating-actions-toggle`) ed accedere agli strumenti compensativi (`#a11y-panel-toggle`) devono mantenere dimensioni costanti indipendentemente dallo zoom del testo.
+4. **Offset superiore sidebar (Status Bar iOS)**: L'header della sidebar in modalità x1 è troppo compresso e vicino all'orologio di iOS. Aggiungeremo un padding superiore dinamico che rispetta la safe-area.
 
 ---
 
-## Proposed Changes
+## 1. Dettagli delle Soluzioni Proposte
 
-### [public/js/app.js](file:///Users/giacomomeschini/Antigravity/Mapp_AI_Infomaniak/public/js/app.js)
+1. **Sostituzione Testo con Icone (Punto 2)**
+   - In `public/index.html`, all'interno di `#map-control-card`:
+     - Rimpiazzare `<span ...>Distanza</span>` con `<i data-lucide="arrow-left-right" class="w-5 h-5 text-slate-500 mb-1" title="Distanza nodi"></i>`.
+     - Rimpiazzare `<span ... data-i18n="lbl_size_text">Testo</span>` con `<i data-lucide="type" class="w-5 h-5 text-slate-500 mb-1" title="Dimensione testo"></i>`.
+     - Rimuovere gli attributi `data-i18n` da questi elementi per evitare che la traduzione dinamica sovrascriva le icone.
 
-#### [MODIFY] [app.js](file:///Users/giacomomeschini/Antigravity/Mapp_AI_Infomaniak/public/js/app.js#L2085-L2090)
-Abiliteremo esplicitamente `maxOutputTokens: 8192` all'interno della `generationConfig` di `extractKnowledgeGraphSinglePass`. Questo sbloccherà automaticamente il limite del bridge di Infomaniak da 4000 a 8192 token:
+2. **Controllo Dimensioni e Layout `#map-control-card` sotto Zoom (Punto 1)**
+   - Introduzione di regole CSS specifiche per `body.a11y-zoom-x15` e `body.a11y-zoom-x2` per forzare l'uso di dimensioni in `px` stabili, evitando che la barra fluttuante raddoppi di dimensione e vada off-screen.
+   - Riduzione del padding e dei gap interni.
+   - Limitazione della larghezza massima al 90% della viewport per garantire la visibilità su iPad.
 
-```javascript
-    const payload = {
-        contents: [{ parts: [...fileParts, { text: promptText }] }],
-        systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { 
-            temperature: 0.2, 
-            responseMimeType: "application/json", 
-            responseSchema: schema,
-            maxOutputTokens: 8192 // <-- SBLOCCO CONTEXT WINDOW IN USCITA
-        }
-    };
-```
+3. **Blocco Dimensioni Pulsanti Circolari Fluttuanti (Punto 3)**
+   - Assegnare l'id `sidebar-toggle-btn` al pulsante della sidebar in `public/index.html`.
+   - Nel CSS, forzare dimensioni fisse in `px` (`width: 48px !important`, `height: 48px !important`) e icone a `24px` per `#sidebar-toggle-btn`, `#floating-actions-toggle` e `#a11y-panel-toggle`.
+   - Mantenere stabili le loro coordinate di ancoraggio assoluto sullo schermo.
 
----
-
-### [prompts_config.json](file:///Users/giacomomeschini/Antigravity/Mapp_AI_Infomaniak/prompts_config.json)
-
-#### [MODIFY] [prompts_config.json](file:///Users/giacomomeschini/Antigravity/Mapp_AI_Infomaniak/prompts_config.json#L12-L13)
-Aggiorneremo i prompt dei Knowledge Graph (`KNOWLEDGE_GRAPH_SINGLE_IT` e `KNOWLEDGE_GRAPH_SINGLE_EN`) con i seguenti rinforzi:
-*   Aumento del limite di nodi a **20-30 nodi** (o secondo feedback).
-*   Richiesta esplicita di densità reticolare (minimo **2-3 archi per nodo**, incentivando collegamenti trasversali tra nodi di Livello 2).
-*   Aumento del limite delle descrizioni a **50-60 parole**.
-*   Richiesta di estrazione di **almeno 2 citazioni testuali reali (chunks)** per ogni nodo per raddoppiare le fonti verificate.
+4. **Offset Header Sidebar per Orologio OS (Punto 4)**
+   - Aggiungere una regola CSS per tablet/desktop (`@media (min-width: 768px)`) che inserisce un padding-top nell'header della sidebar utilizando la safe-area di Capacitor/iOS (`env(safe-area-inset-top, 24px)`).
 
 ---
 
-## Verification Plan
+## 2. Proposta Modifiche File
 
-### Automated & Manual Tests
-1. **Verifica della generazione dei KG**: Avviare la generazione di un Knowledge Graph e verificare che la risposta JSON non venga troncata e che utilizzi più di 4000 token.
-2. **Controllo delle metriche di utilizzo**: Monitorare nel display dei costi che il consumo di output token superi agevolmente i 4000 token per le fonti estese.
-3. **Analisi Strutturale del Grafo**: Verificare sul canvas D3 che la densità delle relazioni trasversali sia aumentata, mantenendo i Super-Hub colorati al centro e i nodi disposti a rete.
+### [Componente Web UI]
+
+#### [MODIFY] [index.html](file:///Users/giacomomeschini/Antigravity/MappAI/public/index.html)
+- Aggiungere `id="sidebar-toggle-btn"` alla riga 1075.
+- Sostituire l'etichetta "Distanza" alla riga 1207 con l'icona `arrow-left-right`.
+- Sostituire l'etichetta "Testo" alle righe 1221-1222 con l'icona `type`.
+
+#### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
+- Aggiungere le regole CSS a fine file per:
+  - Offset della barra di stato iOS sulla sidebar in modalità tablet.
+  - Blocco dimensioni dei tre pulsanti circolari.
+  - Override px-based della control card `#map-control-card` sotto zoom `x15` e `x2`.
+
+---
+
+## 3. Piano di Verifica
+
+### Verifica Manuale (su iPadOS Simulator o tramite visualizzazione web)
+1. Avviare l'applicazione.
+2. **Verifica Sidebar Header (x1)**: Controllare che l'header della sidebar non sia sovrapposto all'orologio del simulatore iPad.
+3. **Verifica Dimensione Pulsanti Circolari**: Cambiare lo zoom a `Testo x1.5` e `Testo x2` e assicurarsi che i pulsanti di chiusura sidebar e di logout mantengano esattamente la stessa dimensione.
+4. **Verifica Control Card a Zoom x2**:
+   - Assicurarsi che la barra fluttuante rimanga centrata in basso e completamente visibile sullo schermo.
+   - Verificare che le parole "Distanza" e "Testo" siano sostituite dalle icone e che il layout sia pulito e compatto.

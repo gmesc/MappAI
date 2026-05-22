@@ -4773,10 +4773,11 @@ window.applyDirectZoom = function (z) {
         '#contextual-ai-extension-modal > div'
     ];
 
+    // Rimozione applicazione zoom inline (gestito via variabili CSS/rem)
     zoomSelectors.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) {
-            el.style.zoom = z;
+            el.style.removeProperty('zoom');
         }
     });
 
