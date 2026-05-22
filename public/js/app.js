@@ -32,7 +32,7 @@ let appState = {
     allProfiles: [],
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
-    studentMode: true,
+    studentMode: false,
     infomaniakAllModels: false,
     multiPassMode: false
 };
@@ -101,6 +101,45 @@ window.applyStudentModeUI = function () {
     if (btnYoutube) btnYoutube.style.display = displayStyle;
     if (btnAudio) btnAudio.style.display = displayStyle;
     if (btnVideo) btnVideo.style.display = displayStyle;
+
+    const setupForm = document.getElementById('setup-form');
+    if (setupForm) {
+        if (appState.studentMode) {
+            setupForm.classList.add('hidden');
+        } else {
+            setupForm.classList.remove('hidden');
+        }
+    }
+
+    const sidebarTabTutor = document.getElementById('sidebar-tab-tutor');
+    if (sidebarTabTutor) {
+        if (appState.studentMode) {
+            sidebarTabTutor.classList.add('hidden');
+            const panelTutor = document.getElementById('sidebar-panel-tutor');
+            if (panelTutor && !panelTutor.classList.contains('hidden')) {
+                window.switchSidebarTab('structure');
+            }
+        } else {
+            sidebarTabTutor.classList.remove('hidden');
+        }
+    }
+
+    const btnFlashcards = document.getElementById('btn-generate-flashcards');
+    const btnQuiz = document.getElementById('btn-generate-quiz');
+    if (btnFlashcards) {
+        if (appState.studentMode) {
+            btnFlashcards.classList.add('hidden');
+        } else {
+            btnFlashcards.classList.remove('hidden');
+        }
+    }
+    if (btnQuiz) {
+        if (appState.studentMode) {
+            btnQuiz.classList.add('hidden');
+        } else {
+            btnQuiz.classList.remove('hidden');
+        }
+    }
 };
 
 window.toggleStudentMode = function () {
@@ -353,21 +392,14 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
 
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
+    if (appState.studentMode) {
+        window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+        return;
+    }
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) {
-            m.classList.remove('hidden');
-            m.style.display = 'flex';
-            window.safeCreateIcons();
-
-            // Initialize Product ID
-            const productIdInput = document.getElementById('infomaniak-product-id');
-            if (productIdInput) productIdInput.value = appState.infomaniakProductId;
-
-            // Sync UI with current provider
-            window.switchAIProvider(appState.aiProvider);
-        }
-    } catch (e) { console.error('showConfigAIModal error:', e); }
+        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
+    } catch (e) { }
 };
 window.closeConfigAIModal = function () {
     try {
@@ -4348,11 +4380,13 @@ window.handleNodeClick = function (event, d) {
                     ` : ''}
                     
                     <!-- AI QUIZ -->
+                    ${!appState.studentMode ? `
                     <div class="pt-4 border-t border-slate-200 space-y-4">
                         <button onclick="window.generateAIQuiz()" class="w-full bg-emerald-600 text-white font-bold p-2.5 rounded-lg shadow-md hover:bg-emerald-700 flex justify-center items-center gap-2 transition">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Mettiti alla prova (Genera Quiz)
                         </button>
                     </div>
+                    ` : ''}
             </div>
             `;
         document.getElementById('node-details').innerHTML = html;
@@ -4545,37 +4579,39 @@ window.openSourceModal = function (nodeId) {
         }
 
         // --- SEZIONE TUTOR AI ---
-        html += `
-        <div class="mt-8 border-t border-slate-200 pt-6">
-            <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
-                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
-                    <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
-                </label>
-                <div class="flex items-center gap-3">
-                    <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
-                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
-                </div>
-            </div>
-            <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
-                <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
-                    <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
-                    <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
-                        <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
-                    </button>
-                </div>
-                <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
-                    <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
-                    <div class="flex gap-2 mt-auto">
-                        <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
-                        <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+        if (!appState.studentMode) {
+            html += `
+            <div class="mt-8 border-t border-slate-200 pt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
+                    <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
+                        <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
+                        <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
                     </div>
                 </div>
-            </div>
-        </div>`;
+                <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
+                    <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
+                        <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
+                        <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
+                        </button>
+                    </div>
+                    <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
+                        <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
+                        <div class="flex gap-2 mt-auto">
+                            <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
+                            <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
 
         sourceModalBody.innerHTML = html;
         window.safeCreateIcons();
@@ -5663,6 +5699,19 @@ window.showContextMenu = function (e, type, data) {
     menu.innerHTML = ''; ctxTarget = { type, data };
 
     if (type === 'node') {
+        const expandAiHtml = !appState.studentMode ? `
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+        ` : '';
+
+        const spacedRepetitionHtml = !appState.studentMode ? `
+            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
+            <hr class="my-1 border-slate-200">
+        ` : '';
+
         menu.innerHTML = `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200">Stato di Studio</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
@@ -5670,18 +5719,13 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
-                    <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+                    ${expandAiHtml}
                     <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
                     <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
                     <hr class="my-1 border-slate-200">
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
-                    <hr class="my-1 border-slate-200">
+                    ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
                 `;
     } else if (type === 'link') {
@@ -6237,6 +6281,7 @@ window.loadStudySet = function (setId) {
     const set = appState.db.studySets.find(s => s.id === setId);
     if (!set) return;
 
+    window.activeStudySetTitle = set.title || 'Mappa';
     window.activeStudySessionItems = set.items;
     window.studyConfig = {
         mode: set.mode,
@@ -7123,8 +7168,36 @@ window.selectQuizAnswer = function (selectedIndex) {
 // POMODORO & STATS LOGIC
 // ==========================================
 let pomodoroInterval;
+let pomodoroDuration = 25 * 60;
 let pomodoroTimeLeft = 25 * 60;
 let isPomodoroRunning = false;
+
+window.setPomodoroDuration = function (mins) {
+    pomodoroDuration = mins * 60;
+    clearInterval(pomodoroInterval);
+    isPomodoroRunning = false;
+    pomodoroTimeLeft = pomodoroDuration;
+    
+    const btn = document.getElementById('pomodoro-btn');
+    if (btn) {
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
+    }
+    updatePomodoroDisplay();
+    if (window.safeCreateIcons) window.safeCreateIcons();
+    
+    const p15 = document.getElementById('pomodoro-preset-15');
+    const p25 = document.getElementById('pomodoro-preset-25');
+    if (p15 && p25) {
+        if (mins === 15) {
+            p15.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
+            p25.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+        } else {
+            p25.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
+            p15.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+        }
+    }
+};
 
 window.togglePomodoro = function () {
     const btn = document.getElementById('pomodoro-btn');
@@ -7143,6 +7216,14 @@ window.togglePomodoro = function () {
                 updatePomodoroDisplay();
             } else {
                 window.resetPomodoro();
+                try {
+                    let sessions = parseInt(localStorage.getItem('mappai_pomodoro_sessions') || '0', 10);
+                    sessions++;
+                    localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
+                    window.updatePomodoroSessionsDisplay();
+                } catch(e) {
+                    console.error("Error updating pomodoro sessions", e);
+                }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
             }
         }, 1000);
@@ -7153,7 +7234,7 @@ window.togglePomodoro = function () {
 window.resetPomodoro = function () {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
-    pomodoroTimeLeft = 25 * 60;
+    pomodoroTimeLeft = pomodoroDuration;
     const btn = document.getElementById('pomodoro-btn');
     btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
     btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
@@ -7167,6 +7248,31 @@ function updatePomodoroDisplay() {
     const pTime = document.getElementById('pomodoro-time');
     if (pTime) pTime.innerText = `${m}:${s}`;
 }
+
+window.updatePomodoroSessionsDisplay = function () {
+    try {
+        const count = localStorage.getItem('mappai_pomodoro_sessions') || '0';
+        const badge = document.getElementById('pomodoro-sessions-badge');
+        if (badge) {
+            badge.innerText = `Sessioni: ${count} 🔥`;
+        }
+    } catch (e) {
+        console.error("Error displaying pomodoro sessions", e);
+    }
+};
+
+window.resetPomodoroSessions = function () {
+    if (confirm("Sei sicuro di voler azzerare le sessioni di Pomodoro completate?")) {
+        try {
+            localStorage.setItem('mappai_pomodoro_sessions', '0');
+            window.updatePomodoroSessionsDisplay();
+            window.showToast("Sessioni azzerate", "info");
+        } catch (e) {
+            console.error("Error resetting pomodoro sessions", e);
+        }
+    }
+};
+
 
 window.updateStudyStats = function () {
     let done = 0, review = 0, todo = 0, total = 0;
@@ -8008,8 +8114,133 @@ window.nextStudyItem = function (flashcardFeedback = null) {
     }
 };
 
+window.addStudyScore = function () {
+    try {
+        if (!window.studyResults) return;
+        
+        const score = {
+            title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
+            correct: window.studyResults.correct,
+            total: window.studyResults.total,
+            type: window.studyResults.type || "Quiz",
+            date: new Date().toISOString()
+        };
+        
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) {
+            console.error("Error reading study scores", e);
+        }
+        
+        if (!Array.isArray(scores)) scores = [];
+        
+        // Add to the beginning (newest first)
+        scores.unshift(score);
+        
+        // Keep at most 10
+        if (scores.length > 10) {
+            scores = scores.slice(0, 10);
+        }
+        
+        localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
+        window.updateStudyScoresDisplay();
+    } catch (err) {
+        console.error("Error saving score to history", err);
+    }
+};
+
+window.updateStudyScoresDisplay = function () {
+    try {
+        const container = document.getElementById('study-scores-container');
+        if (!container) return;
+        
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) {}
+        
+        if (!Array.isArray(scores) || scores.length === 0) {
+            container.innerHTML = `
+                <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
+            `;
+            return;
+        }
+        
+        container.innerHTML = '';
+        scores.forEach(s => {
+            const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+            
+            // Color based on performance
+            let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
+            let progressColor = "bg-rose-500";
+            if (percent >= 80) {
+                bgClass = "bg-emerald-50 border-emerald-100 text-emerald-700";
+                progressColor = "bg-emerald-500";
+            } else if (percent >= 50) {
+                bgClass = "bg-amber-50 border-amber-100 text-amber-700";
+                progressColor = "bg-amber-500";
+            }
+            
+            const div = document.createElement('div');
+            div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="font-bold text-slate-800 truncate max-w-[140px]" title="${s.title}">${s.title}</div>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}">${s.correct}/${s.total} (${percent}%)</span>
+                </div>
+                <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="h-full ${progressColor}" style="width: ${percent}%"></div>
+                </div>
+                <div class="flex justify-between items-center text-[9px] text-slate-400">
+                    <span>${s.type}</span>
+                    <span>${dateStr}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        
+        // Add a "Cancella storico" button at the end
+        const clearDiv = document.createElement('div');
+        clearDiv.className = "pt-2 flex justify-end";
+        clearDiv.innerHTML = `
+            <button onclick="window.clearStudyScores()" class="text-[9px] text-slate-400 hover:text-slate-600 flex items-center gap-1 font-semibold transition">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Cancella Storico
+            </button>
+        `;
+        container.appendChild(clearDiv);
+        
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    } catch (err) {
+        console.error("Error displaying study scores", err);
+    }
+};
+
+window.clearStudyScores = function () {
+    if (confirm("Sei sicuro di voler cancellare tutto lo storico dei punteggi?")) {
+        try {
+            localStorage.removeItem('mappai_study_scores');
+            window.updateStudyScoresDisplay();
+            window.showToast("Storico cancellato", "info");
+        } catch (e) {
+            console.error("Error clearing scores", e);
+        }
+    }
+};
+
 window.showStudySummary = function () {
     if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+
+    // Salva il punteggio nello storico
+    window.addStudyScore();
 
     document.getElementById('study-flashcard-view').classList.add('hidden');
     document.getElementById('study-quiz-view').classList.add('hidden');
@@ -9132,5 +9363,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Applica Modalità Studente al caricamento
     if (window.applyStudentModeUI) window.applyStudentModeUI();
+
+    // Inizializza grafici offline (Pomodoro sessioni e storico punteggi)
+    if (window.updatePomodoroSessionsDisplay) window.updatePomodoroSessionsDisplay();
+    if (window.updateStudyScoresDisplay) window.updateStudyScoresDisplay();
 });
 

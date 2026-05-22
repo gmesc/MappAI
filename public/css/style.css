@@ -2060,6 +2060,8 @@ body.a11y-zoom-x2 #map-control-card {
     bottom: 16px !important;
     border-radius: 14px !important;
     max-width: 90vw !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
 }
 
 body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]),
@@ -2096,7 +2098,9 @@ body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center {
 }
 
 body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center i,
-body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center i {
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center svg,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center svg {
     width: 18px !important;
     height: 18px !important;
     margin-bottom: 2px !important;
@@ -2110,7 +2114,9 @@ body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button {
 }
 
 body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button i,
-body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button i {
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button svg,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button svg {
     width: 12px !important;
     height: 12px !important;
 }
@@ -2130,4 +2136,18 @@ body.a11y-zoom-x2 #map-control-card #level-filter-control span,
 body.a11y-zoom-x15 #map-control-card #min-link-control span,
 body.a11y-zoom-x2 #map-control-card #min-link-control span {
     font-size: 8px !important;
+}
+
+/* Zoom overrides for Floating Actions Menu (Exit Menu) */
+body.a11y-zoom-x15 #floating-actions-menu {
+    min-width: 280px !important;
+}
+body.a11y-zoom-x2 #floating-actions-menu {
+    min-width: 340px !important;
+}
+body.a11y-zoom-x15 #floating-actions-menu button,
+body.a11y-zoom-x15 #floating-actions-menu label,
+body.a11y-zoom-x2 #floating-actions-menu button,
+body.a11y-zoom-x2 #floating-actions-menu label {
+    white-space: nowrap !important;
 }
