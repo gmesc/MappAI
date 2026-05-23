@@ -1059,13 +1059,13 @@
             const { Filesystem, Directory } = window.Capacitor.Plugins;
             
             const initialVaultsList = [
-                "Invenzione Carta",
-                "Robotica mindstorm gigetto 10 nodi",
-                "Robotica mindstorm gigetto 20 nodi",
-                "Robotica mindstorm gigetto 35 nodi",
-                "Sistema albero 1a media",
-                "Sistema albero Liceo",
-                "Storia Svizzera"
+                "KG Struttura Albero 1 media",
+                "KG Struttura albero Liceo",
+                "KG robotica mindstorm gigetto 10 nodi",
+                "KG robotica mindstorm gigetto 20 nodi",
+                "KG robotica mindstorm gigetto 35 nodi",
+                "MM Carta",
+                "MM Nascita della Svizzera"
             ];
 
             // 1. Controlla se la cartella "MappAI - Vault" contiene già l'indice
@@ -1092,7 +1092,7 @@
                     if (manifestRes.ok) {
                         const files = await manifestRes.json();
                         for (const relPath of files) {
-                            const srcUrl = `./vault_demo/${relPath}`;
+                            const srcUrl = `./Vault/${relPath}`;
                             const destPath = `MappAI - Vault/${relPath}`;
                             try {
                                 const isBinary = relPath.toLowerCase().endsWith('.pdf');

@@ -25,6 +25,24 @@ function createWindow() {
     mainWindow.loadFile('public/index.html');
 }
 
+function copyFolderSync(from, to) {
+    if (!fs.existsSync(to)) {
+        fs.mkdirSync(to, { recursive: true });
+    }
+    const files = fs.readdirSync(from);
+    for (const file of files) {
+        const fromPath = path.join(from, file);
+        const toPath = path.join(to, file);
+        if (fs.statSync(fromPath).isDirectory()) {
+            copyFolderSync(fromPath, toPath);
+        } else {
+            if (!fs.existsSync(toPath)) {
+                fs.copyFileSync(fromPath, toPath);
+            }
+        }
+    }
+}
+
 function initializeDesktopDemoVaults() {
     try {
         const docPath = app.getPath('documents');
@@ -33,34 +51,20 @@ function initializeDesktopDemoVaults() {
             fs.mkdirSync(saveDir, { recursive: true });
         }
 
-        const initialVaultsList = [
-            "Invenzione Carta",
-            "Robotica mindstorm gigetto 10 nodi",
-            "Robotica mindstorm gigetto 20 nodi",
-            "Robotica mindstorm gigetto 35 nodi",
-            "Sistema albero 1a media",
-            "Sistema albero Liceo",
-            "Storia Svizzera"
-        ];
-
-        initialVaultsList.forEach(vaultName => {
-            const vaultPath = path.join(saveDir, vaultName);
-            if (!fs.existsSync(vaultPath)) {
-                fs.mkdirSync(vaultPath, { recursive: true });
+        const srcDir = path.join(__dirname, 'public', 'Vault');
+        if (fs.existsSync(srcDir)) {
+            const items = fs.readdirSync(srcDir);
+            for (const item of items) {
+                const itemSrcPath = path.join(srcDir, item);
+                const itemDestPath = path.join(saveDir, item);
+                if (fs.statSync(itemSrcPath).isDirectory()) {
+                    if (!fs.existsSync(itemDestPath) || fs.readdirSync(itemDestPath).length === 0) {
+                        copyFolderSync(itemSrcPath, itemDestPath);
+                    }
+                }
             }
-
-            const allegatiPath = path.join(vaultPath, 'Allegati');
-            if (!fs.existsSync(allegatiPath)) {
-                fs.mkdirSync(allegatiPath, { recursive: true });
-            }
-
-            const indexPath = path.join(vaultPath, 'index.yaml');
-            if (!fs.existsSync(indexPath)) {
-                const defaultIndex = `extractionMode: mindmap\nrootNodeLabel: ${vaultName}\nlastUpdated: ${new Date().toISOString()}\n`;
-                fs.writeFileSync(indexPath, defaultIndex, 'utf-8');
-            }
-        });
-        console.log("[MappAI Desktop] Demo vaults initialized in Salvataggi MappAI.");
+            console.log("[MappAI Desktop] Demo vaults copied/verified from public/Vault.");
+        }
     } catch (err) {
         console.error("[MappAI Desktop] Error initializing demo vaults:", err);
     }

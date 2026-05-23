@@ -1,0 +1,6 @@
+extractionMode: mindmap
+rootNodeLabel: Confederazione Elvetica
+userProfile: {"nickname":"Gigi","age":"12","grade":"2a Media","system":"Ticino"}
+customColors: {"0":"#0f172a"}
+generationUsage: {"promptTokens":38325,"candidateTokens":8151,"totalTokens":46476,"usedModel":"google/gemma-4-31B-it"}
+lastUpdated: 2026-05-23T12:33:44.793Z
