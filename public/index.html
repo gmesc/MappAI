@@ -218,31 +218,33 @@
         <div class="landing-pattern"></div>
         <div class="landing-glow"></div>
 
-        <!-- Insegnai.ch Drawer -->
+                <!-- Insegnai.ch Drawer -->
         <div id="insegnai-drawer"
             class="fixed top-1/2 -translate-y-1/2 left-0 z-[100] flex items-center transition-transform duration-300 -translate-x-[320px]">
             <div
                 class="bg-white/95 backdrop-blur-md shadow-2xl border-y border-r border-indigo-200/60 rounded-r-2xl p-6 w-80 max-h-[90vh] overflow-y-auto flex flex-col pointer-events-auto">
-                <h2 class="text-lg font-black text-indigo-900 mb-4 flex items-center gap-2">
+                <h2 class="text-xl font-black text-indigo-900 mb-4 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                         class="lucide lucide-info text-indigo-500">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 16v-4" />
                         <path d="M12 8h.01" />
-                    </svg> Giacomo Meschini
+                    </svg> Chi ha creato MappAI?
                 </h2>
-                <div class="text-[13px] text-slate-600 leading-relaxed space-y-3">
+                <div class="text-[15px] text-slate-600 leading-relaxed space-y-3">
                     <p>
-                        Lavoro nel settore educativo e sono un appassionato di tecnologia.
+                        <span data-i18n="about_desc1">Ciao, mi chiamo Giacomo e sono lo sviluppatore di
+                            <strong>MappAI</strong>.</span>
                     </p>
                     <p>
-                        <span data-i18n="about_desc1">Ho creato <strong>MappAI</strong> come strumento di studio
-                            assistito e multimodale.</span>
+                        <span data-i18n="about_desc2">Ho creato questo software come strumento di organizzazione e
+                            assistenza per lo studio.</span>
                     </p>
                     <p>
-                        <span data-i18n="about_desc2">Tra i miei progetti c'è il portale <strong>insegnai.ch</strong>,
-                            dedicato a promuovere i temi dell'<em>AI literacy</em> e <em>fluency</em>.</span>
+                        <span data-i18n="about_desc3">Sono anche un docente di scuola media e da anni mi interesso
+                            all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo. Spero che questo
+                            software possa esservi d'aiuto.</span>
                     </p>
                     <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
                         <a href="https://insegnai.ch" target="_blank"
@@ -273,7 +275,7 @@
                                 <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
                                 <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                             </svg>
-                            Instagram
+                            insegnai.ch
                         </a>
                         <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
                             class="flex items-center gap-3 text-slate-500 hover:text-blue-600 font-bold transition-colors">
@@ -282,39 +284,25 @@
                                 stroke-linejoin="round" class="lucide lucide-facebook">
                                 <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
                             </svg>
-                            Facebook
+                            insegnai.ch
                         </a>
                     </div>
-                    
-                    <!-- Esempi Offline -->
+
+                    <!-- Feedback / Segnalazione -->
                     <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
-                        <h3 class="text-[11px] font-black uppercase tracking-widest text-indigo-400 mb-1">Esempi Offline</h3>
-                        <button onclick="window.loadOfflineExample('carta.json')"
-                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-merge shrink-0">
-                                <circle cx="18" cy="18" r="3" />
-                                <circle cx="6" cy="6" r="3" />
-                                <path d="M6 9v12" />
-                                <path d="M18 15V9a9 9 0 0 0-9-9" />
-                            </svg>
-                            <div class="flex flex-col">
-                                <span class="font-bold text-xs">Creazione della Carta</span>
-                                <span class="text-[10px] opacity-70">Mappa Mentale</span>
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1" id="feedback-section-title">Feedback & Bug</h3>
+                        <button onclick="window.openFeedbackModal()"
+                            class="flex items-center gap-3 text-left p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 hover:bg-amber-100 transition-colors shadow-sm w-full">
+                            <div class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle">
+                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                                    <line x1="12" x2="12" y1="9" y2="13" />
+                                    <line x1="12" x2="12.01" y1="17" y2="17" />
+                                </svg>
                             </div>
-                        </button>
-                        <button onclick="window.loadOfflineExample('rete_elettrica.json')"
-                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network shrink-0">
-                                <rect x="16" y="16" width="6" height="6" rx="1" />
-                                <rect x="2" y="16" width="6" height="6" rx="1" />
-                                <rect x="9" y="2" width="6" height="6" rx="1" />
-                                <path d="M5 16v-6c0-1 1-2 2-2h10c1 0 2 1 2 2v6" />
-                                <path d="M12 8v3" />
-                                <path d="M12 14v2" />
-                            </svg>
                             <div class="flex flex-col">
-                                <span class="font-bold text-xs">Rete Elettrica</span>
-                                <span class="text-[10px] opacity-70">Knowledge Graph</span>
+                                <span class="font-bold text-[14px]" id="feedback-btn-title">Segnalazione</span>
+                                <span class="text-[12px] opacity-70" id="feedback-btn-desc">Invia feedback o bug</span>
                             </div>
                         </button>
                     </div>
@@ -322,31 +310,25 @@
             </div>
             <!-- Linguetta (Tab) -->
             <div id="insegnai-drawer-tab"
-                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto transform scale-[0.9] origin-left">
-                <button onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
-                    class="text-white hover:bg-indigo-700 transition-colors px-3 py-3 rounded-tr-2xl font-bold tracking-widest text-[0.95rem]"
-                    style="writing-mode: vertical-rl; text-orientation: mixed;">
+                onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
+                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto cursor-pointer transition-all">
+                <span class="text-white font-bold tracking-widest text-[1.15rem] py-4 px-3"
+                    style="writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; display: block; text-align: center;">
                     insegnai.ch
-                </button>
+                </span>
                 <div class="flex flex-col items-center gap-3 pb-4 pt-2 px-3 border-t border-indigo-500/50">
-                    <a href="https://www.instagram.com/insegnai.ch/" target="_blank"
-                        class="text-white/70 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-instagram">
-                            <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                        </svg>
-                    </a>
-                    <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
-                        class="text-white/70 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-facebook">
-                            <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-                        </svg>
-                    </a>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-white/80">
+                        <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                        <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-white/80">
+                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                    </svg>
                 </div>
             </div>
         </div>

@@ -1,0 +1,2115 @@
+diff --git a/public/css/style.css b/public/css/style.css
+index 52c4ce0..96b8372 100644
+--- a/public/css/style.css
++++ b/public/css/style.css
+@@ -216,7 +216,6 @@
+     #insegnai-drawer-tab {
+         transform: scale(1.0) !important;
+         width: 44px !important;
+-        box-sizing: border-box !important;
+         background-color: #4f46e5 !important; /* Indigo-600 */
+         border: 1px solid #6366f1 !important;
+         border-left: none !important;
+@@ -226,15 +225,9 @@
+         flex-shrink: 0 !important;
+         display: flex !important;
+         flex-direction: column !important;
+-        cursor: pointer !important;
+-        transition: background-color 0.2s ease !important;
+-    }
+-
+-    #insegnai-drawer-tab:hover {
+-        background-color: #4338ca !important; /* Indigo-700 */
+     }
+ 
+-    #insegnai-drawer-tab span {
++    #insegnai-drawer-tab button {
+         color: #ffffff !important;
+         font-weight: bold !important;
+         letter-spacing: 0.05em !important;
+@@ -242,11 +235,16 @@
+         padding: 16px 12px !important;
+         writing-mode: vertical-rl !important;
+         text-orientation: mixed !important;
++        border-top-right-radius: 16px !important;
++        background: transparent !important;
++        border: none !important;
++        outline: none !important;
++        cursor: pointer !important;
+         white-space: nowrap !important;
+-        text-align: center !important;
+-        display: block !important;
+-        width: 100% !important;
+-        box-sizing: border-box !important;
++    }
++
++    #insegnai-drawer-tab button:hover {
++        background-color: #4338ca !important; /* Indigo-700 */
+     }
+ 
+     #insegnai-drawer-tab svg,
+@@ -254,11 +252,10 @@
+         width: 18px !important;
+         height: 18px !important;
+         color: rgba(255, 255, 255, 0.8) !important;
+-        transition: color 0.2s ease !important;
+     }
+ 
+-    #insegnai-drawer-tab:hover svg,
+-    #insegnai-drawer-tab:hover i {
++    #insegnai-drawer-tab svg:hover,
++    #insegnai-drawer-tab i:hover {
+         color: #ffffff !important;
+     }
+ 
+@@ -267,10 +264,8 @@
+         flex-direction: column !important;
+         align-items: center !important;
+         gap: 12px !important;
+-        padding: 12px 8px 16px 8px !important;
++        padding: 12px 8px !important;
+         border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+-        width: 100% !important;
+-        box-sizing: border-box !important;
+     }
+ 
+     /* Global A11y Panel Toggle Button and Panel lock */
+@@ -467,29 +462,16 @@
+         font-size: calc(13px * var(--landing-zoom)) !important;
+     }
+ 
+-    #landing-view .glass-card .generate-btn svg {
++    #landing-view .glass-card .generate-btn svg,
++    #landing-view .glass-card .mode-btn svg,
++    #landing-view .glass-card .source-type-btn svg {
+         width: calc(20px * var(--landing-zoom)) !important;
+         height: calc(20px * var(--landing-zoom)) !important;
+     }
+ 
+-    #landing-view .glass-card .mode-btn svg,
+-    #landing-view .glass-card .mode-btn i {
+-        width: calc(26.45px * var(--landing-zoom)) !important;
+-        height: calc(26.45px * var(--landing-zoom)) !important;
+-    }
+-
+-    #landing-view .glass-card .source-type-btn svg,
+-    #landing-view .glass-card .source-type-btn i {
+-        width: calc(31.74px * var(--landing-zoom)) !important;
+-        height: calc(31.74px * var(--landing-zoom)) !important;
+-    }
+-
+-    #landing-view .glass-card .source-type-btn span {
+-        font-size: calc(19px * var(--landing-zoom)) !important;
+-    }
+-
+-    #landing-view .glass-card .mode-btn span.font-bold {
+-        font-size: calc(19px * var(--landing-zoom)) !important;
++    #landing-view .glass-card .source-type-btn svg {
++        width: calc(24px * var(--landing-zoom)) !important;
++        height: calc(24px * var(--landing-zoom)) !important;
+     }
+ 
+     #landing-view .glass-card h1 {
+@@ -528,11 +510,11 @@
+ 
+     #landing-view .glass-card #label-step1,
+     #landing-view .glass-card #label-step2,
+-    #landing-view .glass-card #step-l1-title,
++    #landing-view .glass-card #label-step3,
+     #landing-view .glass-card #label-step4,
+     #landing-view .glass-card #label-step4-kg,
+     #landing-view .glass-card label {
+-        font-size: calc(17.6px * var(--landing-zoom)) !important;
++        font-size: calc(16px * var(--landing-zoom)) !important;
+     }
+ 
+     #landing-view .glass-card .landing-input {
+@@ -558,69 +540,18 @@
+     /* Target specific tailwind text classes within glass-card to scale with --landing-zoom */
+     #landing-view .glass-card .text-xs {
+         font-size: calc(12px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+     }
+     #landing-view .glass-card .text-sm {
+         font-size: calc(14px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+     }
+     #landing-view .glass-card .text-base {
+         font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+     }
+     #landing-view .glass-card .text-lg {
+         font-size: calc(18px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+     }
+     #landing-view .glass-card .text-\[9px\] {
+         font-size: calc(9px * var(--landing-zoom)) !important;
+-        line-height: 1.6 !important;
+-    }
+-
+-    /* Incremented sizes (+4px) for Section 3 and 4 descriptions and placeholder/example texts */
+-    #landing-view .glass-card #step-root-container p {
+-        font-size: calc(15px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #step-l1-desc {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #label-auto-l1 {
+-        font-size: calc(15px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #focus-input-container p {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #root-node-name,
+-    #landing-view .glass-card #root-node-name::placeholder {
+-        font-size: calc(20px * var(--landing-zoom)) !important;
+-    }
+-    #landing-view .glass-card .l1-topic-input,
+-    #landing-view .glass-card .l1-topic-input::placeholder {
+-        font-size: calc(18px * var(--landing-zoom)) !important;
+-    }
+-    #landing-view .glass-card #focus-input,
+-    #landing-view .glass-card #focus-input::placeholder {
+-        font-size: calc(20px * var(--landing-zoom)) !important;
+-    }
+-    #landing-view .glass-card #step-density-container p {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #label-step4-kg-desc {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #step-multipass-container span.font-bold {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+-    }
+-    #landing-view .glass-card #step-multipass-container span.text-slate-400 {
+-        font-size: calc(14px * var(--landing-zoom)) !important;
+-        line-height: 1.7 !important;
+     }
+ 
+     /* Scale paddings and gap/margins inside card elements */
+@@ -808,7 +739,6 @@
+            1. LANDING PAGE – Luminous Theme
+            ========================================== */
+     #landing-view {
+-        --landing-zoom: 1.2 !important;
+         min-height: 100vh;
+         background: #ffffff !important;
+         position: relative;
+@@ -1660,14 +1590,11 @@
+ /* ==========================================
+    A11Y ZOOM MODALS FULLSCREEN
+    ========================================== */
+-body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) {
++body.a11y-zoomed-modals .fixed.inset-0 {
+     padding: 0 !important;
+-    display: flex !important;
+-    align-items: center !important;
+-    justify-content: center !important;
+ }
+ 
+-body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) > div:not(#sidebar):not(#insegnai-drawer) {
++body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) {
+     max-width: 100vw !important;
+     width: 100vw !important;
+     height: 100vh !important;
+@@ -1680,7 +1607,7 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+     overflow: hidden !important;
+ }
+ 
+-body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) > div:not(#sidebar):not(#insegnai-drawer) > * {
++body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) > * {
+     border-radius: 0 !important;
+ }
+ 
+@@ -1896,8 +1823,8 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+     #landing-view .glass-card button[onclick="window.startEmptyMap()"] svg,
+     #landing-view .glass-card button[onclick="window.showVaultManager()"] svg,
+     #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {
+-        width: calc(32.2px * var(--landing-zoom)) !important;
+-        height: calc(32.2px * var(--landing-zoom)) !important;
++        width: calc(28px * var(--landing-zoom)) !important;
++        height: calc(28px * var(--landing-zoom)) !important;
+     }
+ 
+     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
+@@ -1964,23 +1891,23 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+         font-size: calc(12.6px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card label.flex {
+-        font-size: calc(17.6px * var(--landing-zoom)) !important;
++        font-size: calc(16px * var(--landing-zoom)) !important;
+         margin-bottom: calc(12.6px * var(--landing-zoom)) !important;
+     }
+ 
+     /* Permanent horizontal layout for Section 1 and Section 2 under zoom */
+-    body.a11y-zoom-x15 #landing-view .glass-card .source-buttons-container,
+-    body.a11y-zoom-x2 #landing-view .glass-card .source-buttons-container,
+-    body.a11y-zoom-x15 #landing-view .glass-card .mode-buttons-container,
+-    body.a11y-zoom-x2 #landing-view .glass-card .mode-buttons-container {
++    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap,
++    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap,
++    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap,
++    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap {
+         flex-wrap: nowrap !important;
+         overflow-x: auto !important;
+         scrollbar-width: none !important; /* Firefox */
+     }
+-    body.a11y-zoom-x15 #landing-view .glass-card .source-buttons-container::-webkit-scrollbar,
+-    body.a11y-zoom-x2 #landing-view .glass-card .source-buttons-container::-webkit-scrollbar,
+-    body.a11y-zoom-x15 #landing-view .glass-card .mode-buttons-container::-webkit-scrollbar,
+-    body.a11y-zoom-x2 #landing-view .glass-card .mode-buttons-container::-webkit-scrollbar {
++    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
++    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
++    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar,
++    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar {
+         display: none !important; /* Chrome/Safari */
+     }
+ 
+@@ -1988,15 +1915,15 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+     #landing-view .glass-card .source-type-btn {
+         padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+         border-radius: calc(12.6px * var(--landing-zoom)) !important;
+-        flex: 1 1 0% !important;
++        flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card .source-type-btn span {
+-        font-size: calc(19px * var(--landing-zoom)) !important;
++        font-size: calc(12px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card .source-type-btn svg,
+     #landing-view .glass-card .source-type-btn i {
+-        width: calc(29.9px * var(--landing-zoom)) !important;
+-        height: calc(29.9px * var(--landing-zoom)) !important;
++        width: calc(22.6px * var(--landing-zoom)) !important;
++        height: calc(22.6px * var(--landing-zoom)) !important;
+         margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+     }
+ 
+@@ -2004,28 +1931,18 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+     #landing-view .glass-card .mode-btn {
+         padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+         border-radius: calc(14.6px * var(--landing-zoom)) !important;
+-        flex: 1 1 0% !important;
+-    }
+-
+-    /* Prevent wrapping and allow scroll only under zoom modes */
+-    body.a11y-zoom-x15 #landing-view .glass-card .source-type-btn,
+-    body.a11y-zoom-x2 #landing-view .glass-card .source-type-btn {
+-        flex: 0 0 calc(145px * var(--landing-zoom)) !important;
+-    }
+-    body.a11y-zoom-x15 #landing-view .glass-card .mode-btn,
+-    body.a11y-zoom-x2 #landing-view .glass-card .mode-btn {
+-        flex: 0 0 calc(270px * var(--landing-zoom)) !important;
++        flex: 0 0 calc(200px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card .mode-btn span.font-bold {
+-        font-size: calc(19px * var(--landing-zoom)) !important;
++        font-size: calc(12.6px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card .mode-btn span.text-[9px] {
+         font-size: calc(8.6px * var(--landing-zoom)) !important;
+     }
+     #landing-view .glass-card .mode-btn svg,
+     #landing-view .glass-card .mode-btn i {
+-        width: calc(31.74px * var(--landing-zoom)) !important;
+-        height: calc(31.74px * var(--landing-zoom)) !important;
++        width: calc(24px * var(--landing-zoom)) !important;
++        height: calc(24px * var(--landing-zoom)) !important;
+         margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+     }
+ 
+@@ -2040,6 +1957,15 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+         width: calc(17.3px * var(--landing-zoom)) !important;
+         height: calc(17.3px * var(--landing-zoom)) !important;
+     }
++    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] {
++        padding: calc(11.3px * var(--landing-zoom)) !important;
++        font-size: calc(11.3px * var(--landing-zoom)) !important;
++        border-radius: calc(11.3px * var(--landing-zoom)) !important;
++    }
++    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] svg {
++        width: calc(16px * var(--landing-zoom)) !important;
++        height: calc(16px * var(--landing-zoom)) !important;
++    }
+ 
+     /* Enlarge input fields, textareas, and source entries */
+     #landing-view .glass-card input[type="text"],
+@@ -2087,25 +2013,26 @@ body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-scre
+         padding: calc(3.3px * var(--landing-zoom)) 0 !important;
+     }
+ 
+-    /* Token and Cost Estimator Card scaling */
+-    #token-cost-estimator-card {
+-        padding: calc(12.3px * var(--landing-zoom)) !important;
++    /* Bottom action buttons: Guida AI Esterna / Importa JSON */
++    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
++    #landing-view .glass-card label[for="landing-import"].py-2 {
++        font-size: calc(8px * var(--landing-zoom)) !important;
++        padding: calc(6.6px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+         border-radius: calc(9.3px * var(--landing-zoom)) !important;
+-        gap: calc(9.3px * var(--landing-zoom)) !important;
+-    }
+-    #token-cost-estimator-card #estimator-title-lbl {
+-        font-size: calc(16px * var(--landing-zoom)) !important;
+     }
+-    #token-cost-estimator-card #estimator-tokens-lbl,
+-    #token-cost-estimator-card #estimator-cost-lbl {
+-        font-size: calc(14px * var(--landing-zoom)) !important;
++    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"] i,
++    #landing-view .glass-card label[for="landing-import"].py-2 i {
++        width: calc(11.3px * var(--landing-zoom)) !important;
++        height: calc(11.3px * var(--landing-zoom)) !important;
+     }
+-    #token-cost-estimator-card #estimator-tokens,
+-    #token-cost-estimator-card #estimator-cost {
+-        font-size: calc(14px * var(--landing-zoom)) !important;
++
++    /* Token count estimate bar */
++    #token-counter-container span {
++        font-size: calc(8px * var(--landing-zoom)) !important;
+     }
+-    #token-cost-estimator-card .w-full.bg-slate-200.h-1.5 {
+-        height: calc(6px * var(--landing-zoom)) !important;
++    #token-count {
++        font-size: calc(9.3px * var(--landing-zoom)) !important;
++        padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
+     }
+ }
+ 
+@@ -2262,8 +2189,8 @@ body.a11y-zoom-x2 #floating-actions-menu label {
+ }
+ 
+ /* Permanent horizontal layout for Step 1 (Sources) and Step 2 (Mode) in Teacher version under Zoom */
+-#setup-form .source-buttons-container,
+-#setup-form .mode-buttons-container {
++#setup-form .ml-10.flex.flex-wrap,
++#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap {
+     display: flex !important;
+     flex-direction: row !important;
+     flex-wrap: nowrap !important;
+@@ -2276,100 +2203,15 @@ body.a11y-zoom-x2 #floating-actions-menu label {
+     scrollbar-width: none !important;
+ }
+ 
+-#setup-form .source-buttons-container::-webkit-scrollbar,
+-#setup-form .mode-buttons-container::-webkit-scrollbar {
+-    display: none !important;
+-}
+-
+-/* ==========================================
+-   HOMOGENEOUS PREMIUM SPACING SYSTEM
+-   ========================================== */
+-#landing-view .glass-card #setup-form {
+-    display: flex !important;
+-    flex-direction: column !important;
+-    gap: calc(40px * var(--landing-zoom)) !important;
+-    margin-top: 0 !important;
+-}
+-
+-#landing-view .glass-card #setup-form > * {
+-    margin-top: 0 !important;
+-    margin-bottom: 0 !important;
+-}
+-
+-#landing-view .glass-card #setup-form > div:not(:last-child) {
+-    display: flex !important;
+-    flex-direction: column !important;
+-    gap: calc(16px * var(--landing-zoom)) !important;
+-}
+-
+-#landing-view .glass-card #setup-form > div.hidden {
++#setup-form .ml-10.flex.flex-wrap::-webkit-scrollbar,
++#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap::-webkit-scrollbar {
+     display: none !important;
+ }
+ 
+-#landing-view .glass-card #setup-form > div:not(:last-child) > * {
+-    margin-top: 0 !important;
+-    margin-bottom: 0 !important;
+-}
+-
+-#landing-view .glass-card #setup-form > div:not(:last-child) > label {
+-    margin-bottom: 0 !important;
+-}
+-
+-/* Specific styling for Step 3 to ensure proper specificity and override standard step gap */
+-#landing-view .glass-card #setup-form > #step-3-container {
+-    gap: calc(24px * var(--landing-zoom)) !important;
+-}
+-
+-#landing-view .glass-card #setup-form > #step-3-container > label {
+-    margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
+-}
+-
+-#landing-view .glass-card #step-root-container,
+-#landing-view .glass-card #input-l1-container,
+-#landing-view .glass-card #focus-input-container {
+-    display: flex !important;
+-    flex-direction: column !important;
+-    gap: calc(12px * var(--landing-zoom)) !important;
+-}
+-
+-#landing-view .glass-card #step-root-container > *,
+-#landing-view .glass-card #input-l1-container > *,
+-#landing-view .glass-card #focus-input-container > * {
+-    margin-top: 0 !important;
+-    margin-bottom: 0 !important;
+-}
+-
+-#landing-view .glass-card #focus-input-container {
+-    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+-    padding-top: calc(20px * var(--landing-zoom)) !important;
+-}
+-
+-/* Ensure step density description paragraphs use flex-gap instead of manual margins */
+-#landing-view .glass-card #step-density-container p,
+-#landing-view .glass-card #step-kg-density-container p {
+-    margin-top: 0 !important;
+-    margin-bottom: 0 !important;
+-}
+-
+-/* Homogeneous space for Multi-Pass toggle container to align it closer to the density options */
+-#landing-view .glass-card #setup-form > #step-multipass-container {
+-    margin-top: calc(-16px * var(--landing-zoom)) !important; /* Reduces the gap of 40px to exactly 24px */
++#landing-view .glass-card .source-type-btn {
++    flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+ }
+ 
+-#landing-view .glass-card #setup-form > div:last-child {
+-    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+-    padding-top: calc(24px * var(--landing-zoom)) !important;
+-    margin-top: 0 !important;
++#landing-view .glass-card .mode-btn {
++    flex: 0 0 calc(200px * var(--landing-zoom)) !important;
+ }
+-
+-/* Scalabilità del titolo del progetto in sidebar per modalità a11y zoom x1.5 e x2 */
+-#sidebar-subtitle {
+-    font-size: calc(9px * var(--app-zoom, 1)) !important;
+-}
+-
+-#edit-project-title-input {
+-    font-size: calc(10px * var(--app-zoom, 1)) !important;
+-}
+-
+-
+-
+diff --git a/public/index.html b/public/index.html
+index 06894a3..fdfa3d1 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -230,21 +230,19 @@
+                         <circle cx="12" cy="12" r="10" />
+                         <path d="M12 16v-4" />
+                         <path d="M12 8h.01" />
+-                    </svg> Chi ha creato MappAI?
++                    </svg> Giacomo Meschini
+                 </h2>
+                 <div class="text-[13px] text-slate-600 leading-relaxed space-y-3">
+                     <p>
+-                        <span data-i18n="about_desc1">Ciao, mi chiamo Giacomo e sono lo sviluppatore di
+-                            <strong>MappAI</strong>.</span>
++                        Lavoro nel settore educativo e sono un appassionato di tecnologia.
+                     </p>
+                     <p>
+-                        <span data-i18n="about_desc2">Ho creato questo software come strumento di organizzazione e
+-                            assistenza per lo studio.</span>
++                        <span data-i18n="about_desc1">Ho creato <strong>MappAI</strong> come strumento di studio
++                            assistito e multimodale.</span>
+                     </p>
+                     <p>
+-                        <span data-i18n="about_desc3">Sono anche un docente di scuola media e da anni mi interesso
+-                            all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo. Spero che questo
+-                            software possa esservi d'aiuto.</span>
++                        <span data-i18n="about_desc2">Tra i miei progetti c'è il portale <strong>insegnai.ch</strong>,
++                            dedicato a promuovere i temi dell'<em>AI literacy</em> e <em>fluency</em>.</span>
+                     </p>
+                     <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
+                         <a href="https://insegnai.ch" target="_blank"
+@@ -275,7 +273,7 @@
+                                 <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                                 <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                             </svg>
+-                            insegnai.ch
++                            Instagram
+                         </a>
+                         <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
+                             class="flex items-center gap-3 text-slate-500 hover:text-blue-600 font-bold transition-colors">
+@@ -284,25 +282,39 @@
+                                 stroke-linejoin="round" class="lucide lucide-facebook">
+                                 <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                             </svg>
+-                            insegnai.ch
++                            Facebook
+                         </a>
+                     </div>
+-
+-                    <!-- Feedback / Segnalazione -->
++                    
++                    <!-- Esempi Offline -->
+                     <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
+-                        <h3 class="text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1" id="feedback-section-title">Feedback & Bug</h3>
+-                        <button onclick="window.openFeedbackModal()"
+-                            class="flex items-center gap-3 text-left p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 hover:bg-amber-100 transition-colors shadow-sm w-full">
+-                            <div class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle">
+-                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+-                                    <line x1="12" x2="12" y1="9" y2="13" />
+-                                    <line x1="12" x2="12.01" y1="17" y2="17" />
+-                                </svg>
++                        <h3 class="text-[11px] font-black uppercase tracking-widest text-indigo-400 mb-1">Esempi Offline</h3>
++                        <button onclick="window.loadOfflineExample('carta.json')"
++                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors shadow-sm">
++                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-git-merge shrink-0">
++                                <circle cx="18" cy="18" r="3" />
++                                <circle cx="6" cy="6" r="3" />
++                                <path d="M6 9v12" />
++                                <path d="M18 15V9a9 9 0 0 0-9-9" />
++                            </svg>
++                            <div class="flex flex-col">
++                                <span class="font-bold text-xs">Creazione della Carta</span>
++                                <span class="text-[10px] opacity-70">Mappa Mentale</span>
+                             </div>
++                        </button>
++                        <button onclick="window.loadOfflineExample('rete_elettrica.json')"
++                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm">
++                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network shrink-0">
++                                <rect x="16" y="16" width="6" height="6" rx="1" />
++                                <rect x="2" y="16" width="6" height="6" rx="1" />
++                                <rect x="9" y="2" width="6" height="6" rx="1" />
++                                <path d="M5 16v-6c0-1 1-2 2-2h10c1 0 2 1 2 2v6" />
++                                <path d="M12 8v3" />
++                                <path d="M12 14v2" />
++                            </svg>
+                             <div class="flex flex-col">
+-                                <span class="font-bold text-xs" id="feedback-btn-title">Segnalazione</span>
+-                                <span class="text-[10px] opacity-70" id="feedback-btn-desc">Invia feedback o bug</span>
++                                <span class="font-bold text-xs">Rete Elettrica</span>
++                                <span class="text-[10px] opacity-70">Knowledge Graph</span>
+                             </div>
+                         </button>
+                     </div>
+@@ -310,25 +322,31 @@
+             </div>
+             <!-- Linguetta (Tab) -->
+             <div id="insegnai-drawer-tab"
+-                onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
+-                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto cursor-pointer transition-all">
+-                <span class="text-white font-bold tracking-widest text-[0.95rem] py-4 px-3"
+-                    style="writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; display: block; text-align: center;">
++                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto transform scale-[0.9] origin-left">
++                <button onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
++                    class="text-white hover:bg-indigo-700 transition-colors px-3 py-3 rounded-tr-2xl font-bold tracking-widest text-[0.95rem]"
++                    style="writing-mode: vertical-rl; text-orientation: mixed;">
+                     insegnai.ch
+-                </span>
++                </button>
+                 <div class="flex flex-col items-center gap-3 pb-4 pt-2 px-3 border-t border-indigo-500/50">
+-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+-                        class="text-white/80">
+-                        <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+-                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+-                        <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+-                    </svg>
+-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+-                        class="text-white/80">
+-                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+-                    </svg>
++                    <a href="https://www.instagram.com/insegnai.ch/" target="_blank"
++                        class="text-white/70 hover:text-white transition-colors">
++                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
++                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
++                            class="lucide lucide-instagram">
++                            <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
++                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
++                            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
++                        </svg>
++                    </a>
++                    <a href="https://www.facebook.com/insegnai.ch/" target="_blank"
++                        class="text-white/70 hover:text-white transition-colors">
++                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
++                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
++                            class="lucide lucide-facebook">
++                            <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
++                        </svg>
++                    </a>
+                 </div>
+             </div>
+         </div>
+@@ -415,10 +433,8 @@
+                                 <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                             </div>
+                             <div class="min-w-0 flex-1">
+-                                <span class="block font-black text-indigo-900 text-sm truncate"
+-                                    id="label-import-json">Importa JSON</span>
+-                                <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mappa
+-                                    da file</span>
++                                <span class="block font-black text-indigo-900 text-sm truncate" id="label-import-json">Importa JSON</span>
++                                <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mappa da file</span>
+                             </div>
+                         </div>
+                     </label>
+@@ -438,7 +454,7 @@
+                         <span id="label-step1" data-i18n="step1">Carica le tue Fonti</span>
+                     </label>
+ 
+-                    <div class="flex flex-wrap gap-3 mb-4 source-buttons-container">
++                    <div class="ml-10 flex flex-wrap gap-3 mb-4">
+                         <div id="btn-src-url" class="source-type-btn" onclick="window.addSource('url')">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+@@ -503,7 +519,7 @@
+                         </div>
+                     </div>
+ 
+-                    <div id="sources-container" class="space-y-3">
++                    <div id="sources-container" class="ml-10 space-y-3">
+                         <!-- Fonti qui -->
+                     </div>
+                 </div>
+@@ -514,8 +530,8 @@
+                         <span class="step-badge bg-green-500">2</span>
+                         <span id="label-step2">Cosa desideri generare?</span>
+                     </label>
+-                    <div class="flex flex-col gap-4">
+-                        <div class="flex flex-wrap gap-4 mode-buttons-container">
++                    <div class="flex flex-col gap-4 ml-10">
++                        <div class="flex flex-wrap gap-4">
+                             <div class="mode-btn active" id="mode-mindmap" onclick="window.setMode('mindmap')">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+@@ -541,25 +557,25 @@
+                                 <span class="font-bold" id="label-mode-kg">Knowledge Graph</span>
+                             </div>
+                         </div>
++
++                        <!-- Root Node (Visibile solo per Mappe Mentali) -->
++                        <div id="step-root-container" class="space-y-2 mt-2 transition-all duration-300">
++                            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello
++                                Studio (Nodo Centrale):</p>
++                            <input type="text" id="root-node-name" class="landing-input w-full max-w-sm"
++                                placeholder="Es. Rivoluzione Francese, Fotosintesi...">
++                        </div>
+                     </div>
+                     <input type="hidden" id="extraction-mode" value="mindmap">
+                 </div> <!-- STEP 3: Rami Principali / Super-Hubs -->
+-                <div class="space-y-3" id="step-3-container">
++                <div class="space-y-3">
+                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
+                         <span class="step-badge bg-orange-500">3</span>
+                         <span id="step-l1-title">Rami Principali (Livello 1)</span>
+                     </label>
+ 
+-                    <!-- Root Node (Visibile solo per Mappe Mentali) -->
+-                    <div id="step-root-container" class="space-y-2 mt-2 transition-all duration-300">
+-                        <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello
+-                            Studio (Nodo Centrale):</p>
+-                        <input type="text" id="root-node-name" class="landing-input w-full"
+-                            placeholder="Es. Rivoluzione Francese, Fotosintesi...">
+-                    </div>
+-
+                     <div id="input-l1-container"
+-                        class="space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
++                        class="ml-10 space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                         <p class="text-xs text-slate-500 italic mb-2" id="step-l1-desc">Definisci i rami principali per
+                             organizzare lo studio:</p>
+                         <div id="l1-inputs-container" class="space-y-2">
+@@ -592,7 +608,7 @@
+                         </label>
+                     </div>
+ 
+-                    <div class="mt-4 space-y-2 border-t border-indigo-200/40 pt-4" id="focus-input-container">
++                    <div class="ml-10 mt-4 space-y-2 border-t border-indigo-200/40 pt-4">
+                         <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Focus specifico
+                             (Opzionale):</p>
+                         <textarea id="focus-input" class="landing-input min-h-[60px]"
+@@ -606,15 +622,15 @@
+                         <span class="step-badge bg-yellow-500">4</span>
+                         <span id="label-step4">Densità Diramazioni (L4 e L5)</span>
+                     </label>
+-                    <p class="text-xs text-slate-500 mb-3" id="label-step4-desc">I rami L1-L2-L3 verranno generati
+-                        sempre. Scegli
++                    <p class="text-xs text-slate-500 ml-10 mb-3">I rami L1-L2-L3 verranno generati sempre. Scegli
+                         quanti rami generare nei livelli più profondi (0 = si ferma a L3).</p>
+ 
+-                    <div class="flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
++                    <div
++                        class="ml-10 flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                         <span class="text-xs font-bold text-indigo-400">0</span>
+                         <input type="range" id="branches-slider" min="0" max="5" value="2"
+                             class="w-full outline-none accent-indigo-500 cursor-pointer"
+-                            oninput="document.getElementById('branches-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
++                            oninput="document.getElementById('branches-val').innerText = this.value">
+                         <span class="text-xs font-bold text-indigo-400">5</span>
+                         <span id="branches-val"
+                             class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">2</span>
+@@ -627,14 +643,13 @@
+                         <span class="step-badge bg-yellow-500">4</span>
+                         <span id="label-step4-kg">Numero di Concetti/Entità (Livello 2)</span>
+                     </label>
+-                    <p class="text-xs text-slate-500 mb-3" id="label-step4-kg-desc">Scegli quanti nodi concettuali
+-                        generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per
+-                        grafi completi).</p>
+-                    <div class="flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
++                    <p class="text-xs text-slate-500 ml-10 mb-3" id="label-step4-kg-desc">Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).</p>
++                    <div
++                        class="ml-10 flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                         <span class="text-xs font-bold text-indigo-400">10</span>
+                         <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
+                             class="w-full outline-none accent-indigo-500 cursor-pointer"
+-                            oninput="document.getElementById('kg-nodes-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
++                            oninput="document.getElementById('kg-nodes-val').innerText = this.value">
+                         <span class="text-xs font-bold text-indigo-400">35</span>
+                         <span id="kg-nodes-val"
+                             class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">20</span>
+@@ -642,16 +657,14 @@
+                 </div>
+ 
+                 <!-- Generazione HD (Multi-Pass) -->
+-                <div class="space-y-3 transition-all duration-300" id="step-multipass-container">
+-                    <div
+-                        class="mt-3 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/60">
++                <div class="space-y-3 transition-all duration-300">
++                    <div class="ml-10 mt-3 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                         <div class="flex flex-col gap-0.5 max-w-[70%]">
+                             <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                 <span class="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
+                                 Generazione HD (Multi-Pass)
+                             </span>
+-                            <span class="text-[10px] text-slate-400">Consigliato per mappe o grafi densi o con modelli
+-                                come Qwen. Genera i rami/nodi in fasi sequenziali per evitare il taglio dei dati.</span>
++                            <span class="text-[10px] text-slate-400">Consigliato per mappe o grafi densi o con modelli come Qwen. Genera i rami/nodi in fasi sequenziali per evitare il taglio dei dati.</span>
+                         </div>
+                         <div class="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300/40 w-32 shrink-0">
+                             <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
+@@ -663,36 +676,21 @@
+                 </div>
+ 
+ 
+-                <!-- Pulsante Generate -->
+-                <div class="pt-8 border-t border-indigo-200/40 flex flex-col gap-4">
+-                    <!-- Estimatore Token e Costi in Tempo Reale -->
+-                    <div id="token-cost-estimator-card"
+-                        class="w-full bg-indigo-50/40 border border-indigo-200/50 p-4 rounded-xl flex flex-col gap-3 transition-all duration-300">
+-                        <div class="flex items-center justify-between">
+-                            <span class="text-xs font-bold text-slate-700" id="estimator-title-lbl">Analisi Documento &
+-                                Stima Costi</span>
+-                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+-                        </div>
+-                        <div class="grid grid-cols-2 gap-4">
+-                            <div class="flex flex-col gap-1">
+-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+-                                    id="estimator-tokens-lbl">Input / Max Modello</span>
+-                                <span id="estimator-tokens" class="text-[10px] font-bold text-slate-700 font-mono">0 /
+-                                    -- token</span>
+-                            </div>
+-                            <div class="flex flex-col gap-1">
+-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+-                                    id="estimator-cost-lbl">Costo Stimato</span>
+-                                <span id="estimator-cost"
+-                                    class="text-[10px] font-bold text-indigo-600 font-mono">Gratuito</span>
+-                            </div>
+-                        </div>
+-                        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+-                            <div id="estimator-progress"
+-                                class="bg-indigo-500 h-full w-0 transition-all duration-500 rounded-full"></div>
+-                        </div>
++                <!-- STEP 6 rimosso dal form — ora dentro il modale Configura AI -->
++                <div id="token-counter-container"
++                    class="ml-10 hidden flex items-center justify-between px-5 py-3 bg-indigo-50/40 border border-indigo-200/50 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2">
++                    <div class="flex items-center gap-2">
++                        <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
++                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Peso Documento
++                            (Stima)</span>
+                     </div>
++                    <span id="token-count"
++                        class="text-xs font-bold text-indigo-600 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100">0
++                        Tokens</span>
++                </div>
+ 
++                <!-- Pulsante Generate -->
++                <div class="pt-8 border-t border-indigo-200/40 flex flex-col gap-4">
+                     <button type="submit" id="generate-btn" class="generate-btn w-full">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+@@ -706,10 +704,34 @@
+                         </svg>
+                         <span id="btn-generate-label">Genera Nuova Mappa</span>
+                     </button>
++                    <button type="button" onclick="window.createBlankCanvas()"
++                        class="w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm">
++                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
++                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
++                            class="lucide lucide-square-dashed-bottom">
++                            <path d="M5 21a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2" />
++                            <path d="M9 21h1" />
++                            <path d="M14 21h1" />
++                        </svg>
++                        <span id="btn-blank-canvas-label">Oppure crea Canvas Vuoto (Manuale)</span>
++                    </button>
+ 
+-                    <div class="hidden">
+-                        <input type="file" id="landing-import" accept=".json" class="hidden"
+-                            onchange="window.importGraph(event)">
++                    <div class="flex flex-wrap items-center justify-end gap-4 py-2">
++
++                        <div class="flex gap-2">
++                            <button type="button" onclick="window.openExternalJSONInstructions()"
++                                class="py-2 px-4 bg-indigo-50 border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2">
++                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> <span id="label-ext-guide">Guida AI
++                                    Esterna</span>
++                            </button>
++                            <label for="landing-import"
++                                class="py-2 px-4 bg-white border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-sm">
++                                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> <span
++                                    id="label-import-json">Importa JSON</span>
++                            </label>
++                            <input type="file" id="landing-import" accept=".json" class="hidden"
++                                onchange="window.importGraph(event)">
++                        </div>
+                     </div>
+                 </div>
+             </form>
+@@ -814,8 +836,7 @@
+                     <div class="text-center text-slate-400 mt-8 animate-pulse">
+                         <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
+                         <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
+-                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i contenuti
+-                            dei nodi e il tasto destro per modificarli.</p>
++                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i contenuti dei nodi e il tasto destro per modificarli.</p>
+                     </div>
+                 </div>
+ 
+@@ -921,7 +942,8 @@
+             <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
+                 <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
+                     <!-- Pomodoro Timer -->
+-                    <div class="flex flex-col gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
++                    <div
++                        class="flex flex-col gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                         <div class="flex justify-between items-center">
+                             <div class="flex items-center gap-3">
+                                 <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+@@ -947,11 +969,8 @@
+                                     class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold">25m</button>
+                             </div>
+                             <div class="flex items-center gap-2">
+-                                <span id="pomodoro-sessions-badge"
+-                                    class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 shadow-sm transition-all duration-300">Sessioni:
+-                                    0 🔥</span>
+-                                <button onclick="window.resetPomodoroSessions()"
+-                                    class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera sessioni">
++                                <span id="pomodoro-sessions-badge" class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 shadow-sm transition-all duration-300">Sessioni: 0 🔥</span>
++                                <button onclick="window.resetPomodoroSessions()" class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera sessioni">
+                                     <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                 </button>
+                             </div>
+@@ -1027,8 +1046,7 @@
+                             <i data-lucide="layers" class="w-4 h-4"></i> Materiale di Studio (Flashcard e Quiz)
+                         </h3>
+                         <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+-                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
+-                                flashcard o quiz pre-generati.</p>
++                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con flashcard o quiz pre-generati.</p>
+                         </div>
+                     </div>
+ 
+@@ -1039,8 +1057,7 @@
+                             <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi (Quiz)
+                         </h3>
+                         <div id="study-scores-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+-                            <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio
+-                                registrato. Completa un quiz per iniziare!</p>
++                            <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
+                         </div>
+                     </div>
+                 </div>
+@@ -1318,8 +1335,7 @@
+                 </button>
+             </div>
+ 
+-            <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl"
+-                id="source-modal-body">
++            <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
+                 <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
+             </div>
+         </div>
+@@ -1414,7 +1430,64 @@
+         </div>
+     </div>
+ 
+-
++    <!-- Modale Istruzioni JSON Esterno -->
++    <div id="external-json-modal"
++        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
++        <div
++            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
++            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
++                <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa MappAI con
++                    ChatGPT/Claude</h3>
++                <button onclick="window.closeExternalJSONModal()"
++                    class="hover:bg-white/20 p-1 rounded-lg transition-colors">
++                    <i data-lucide="x"></i>
++                </button>
++            </div>
++            <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
++                <div>
++                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
++                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
++                        <pre id="external-prompt-text"
++                            class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per MappAI.
++Usa esattamente questo schema:
++{
++  "nodes": [
++    {"id": "ROOT", "label": "Titolo Centrale", "level": 0, "content": "Descrizione..."},
++    {"id": "N1", "label": "Ramo Principale", "level": 1, "content": "..."},
++    {"id": "N1_1", "label": "Sottotema", "level": 2, "content": "..."}
++  ],
++  "links": [
++    {"source": "ROOT", "target": "N1", "rel": "include"},
++    {"source": "N1", "target": "N1_1", "rel": "include"}
++  ]
++}
++Restituisci solo il JSON pulito.</pre>
++                        <button onclick="window.copyExternalPrompt()"
++                            class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
++                            <i data-lucide="copy" class="w-4 h-4"></i>
++                        </button>
++                    </div>
++                </div>
++                <div>
++                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
++                    <p class="text-xs text-slate-600 leading-relaxed">
++                        Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
++                            class="font-bold text-indigo-600">.json</span>.
++                        Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare
++                        la
++                        tua mappa!
++                    </p>
++                </div>
++                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
++                    <p class="text-xs text-amber-700 font-medium">
++                        💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere
++                        una
++                        mappa ricca di informazioni.
++                    </p>
++                </div>
++            </div>
++        </div>
++    </div>
+ 
+     <!-- Modale Confirm Personalizzato -->
+     <div id="confirm-modal"
+@@ -1436,9 +1509,9 @@
+     <!-- MODALE CHI SEI (PROFILO STUDENTE) -->
+     <div id="user-profile-modal"
+         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
++        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200"
+             id="user-profile-box">
+-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
++            <div class="flex justify-between items-center mb-6">
+                 <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                     <i data-lucide="user-circle" class="text-indigo-600"></i> <span data-i18n="profile_title">Profilo
+                         Studente</span>
+@@ -1448,126 +1521,58 @@
+                 </button>
+             </div>
+ 
+-            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-6">
+-                <div class="space-y-4">
+-                    <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
+-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
+-                            Salvati</label>
+-                        <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
+-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 text-indigo-700 font-bold">
+-                            <option value="">+ Nuovo Profilo</option>
+-                        </select>
+-                    </div>
++            <div class="space-y-4">
++                <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
++                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
++                        Salvati</label>
++                    <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
++                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 text-indigo-700 font-bold">
++                        <option value="">+ Nuovo Profilo</option>
++                    </select>
++                </div>
++                <div>
++                    <label
++                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
++                    <input type="text" id="up-nickname" placeholder="Come ti chiami?"
++                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
++                </div>
++                <div class="grid grid-cols-2 gap-4">
+                     <div>
+                         <label
+-                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
+-                        <input type="text" id="up-nickname" placeholder="Come ti chiami?"
++                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
++                        <input type="number" id="up-age" placeholder="Es. 15"
+                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                     </div>
+-                    <div class="grid grid-cols-2 gap-4">
+-                        <div>
+-                            <label
+-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
+-                            <input type="number" id="up-age" placeholder="Es. 15"
+-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+-                        </div>
+-                        <div>
+-                            <label
+-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
+-                            <select id="up-grade"
+-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+-                                <!-- Populated dynamically -->
+-                            </select>
+-                        </div>
+-                    </div>
+                     <div>
+-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+-                            data-i18n="profile_system">Sistema Scolastico</label>
+-                        <select id="up-system" onchange="window.updateGradeOptions()"
++                        <label
++                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
++                        <select id="up-grade"
+                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+-                            <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
+-                            <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
+-                            <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
+-                            <option value="Liceo_Italia">Liceo / Scuola Superiore (Italia - 5 anni)</option>
++                            <!-- Populated dynamically -->
+                         </select>
+                     </div>
+                 </div>
+-
+-                <div class="flex flex-col gap-3 pb-2">
+-                    <button onclick="window.saveUserProfile()"
+-                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
+-                        Salva Profilo
+-                    </button>
+-                    <button onclick="window.resetUserProfile()"
+-                        class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
+-                        Elimina Profilo
+-                    </button>
+-                </div>
+-            </div>
+-        </div>
+-    </div>
+-
+-    <!-- MODALE SEGNALAZIONI & FEEDBACK -->
+-    <div id="feedback-modal"
+-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
+-            id="feedback-box">
+-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+-                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+-                    <i data-lucide="alert-triangle" class="text-amber-500"></i>
+-                    <span id="feedback-modal-title-lbl">Invia Segnalazione</span>
+-                </h3>
+-                <button onclick="window.closeFeedbackModal()" class="text-slate-400 hover:text-slate-600">
+-                    <i data-lucide="x" class="w-6 h-6"></i>
+-                </button>
+-            </div>
+-
+-            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5">
+-                <div>
+-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2" id="feedback-cat-label-lbl">Categoria della segnalazione</label>
+-                    <div class="grid grid-cols-2 gap-2" id="feedback-category-group">
+-                        <button type="button" onclick="window.selectFeedbackCategory('ui')" id="fb-cat-ui"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            🎨 Interfaccia / UI
+-                        </button>
+-                        <button type="button" onclick="window.selectFeedbackCategory('ai')" id="fb-cat-ai"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            🤖 Generazione AI
+-                        </button>
+-                        <button type="button" onclick="window.selectFeedbackCategory('storage')" id="fb-cat-storage"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            💾 Salvataggio / File
+-                        </button>
+-                        <button type="button" onclick="window.selectFeedbackCategory('bug')" id="fb-cat-bug"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            ⚠️ Bug / Errore
+-                        </button>
+-                        <button type="button" onclick="window.selectFeedbackCategory('suggestion')" id="fb-cat-suggestion"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            💡 Suggerimento
+-                        </button>
+-                        <button type="button" onclick="window.selectFeedbackCategory('other')" id="fb-cat-other"
+-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+-                            ➕ Altro
+-                        </button>
+-                    </div>
+-                </div>
+-
+                 <div>
+-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" id="feedback-desc-label-lbl">Dettagli della segnalazione</label>
+-                    <textarea id="feedback-text" placeholder="Descrivi il problema riscontrato o la tua proposta per migliorare MappAI..."
+-                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[120px] resize-none"></textarea>
+-                </div>
+-            </div>
+-
+-            <div class="mt-8 flex flex-col gap-3 flex-shrink-0">
+-                <button onclick="window.submitFeedback()"
+-                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+-                    <i data-lucide="send" class="w-4 h-4"></i> <span id="feedback-submit-btn-lbl">Invia Feedback via Email</span>
++                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
++                        data-i18n="profile_system">Sistema Scolastico</label>
++                    <select id="up-system" onchange="window.updateGradeOptions()"
++                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
++                        <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
++                        <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
++                        <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
++                        <option value="Liceo_Italia">Liceo / Scuola Superiore (Italia - 5 anni)</option>
++                    </select>
++                </div>
++            </div>
++
++            <div class="mt-8 flex flex-col gap-3">
++                <button onclick="window.saveUserProfile()"
++                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
++                    Salva Profilo
+                 </button>
+-                <button onclick="window.closeFeedbackModal()"
+-                    class="w-full py-3 bg-slate-100 text-slate-500 hover:bg-slate-200 font-bold rounded-xl transition-all">
+-                    Annulla
++                <button onclick="window.resetUserProfile()"
++                    class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
++                    Elimina Profilo
+                 </button>
+             </div>
+         </div>
+@@ -1601,24 +1606,19 @@
+ 
+             <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-3 shrink-0">
+                 <div class="flex justify-between items-center gap-2">
+-                    <button onclick="window.loadDemoGraph('esempi/carta.json')"
+-                        class="text-[11px] font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-2 rounded-lg flex-1 border border-amber-200 transition-colors flex justify-center items-center gap-1">
++                    <button onclick="window.loadDemoGraph('esempi/carta.json')" class="text-[11px] font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-2 rounded-lg flex-1 border border-amber-200 transition-colors flex justify-center items-center gap-1">
+                         <i data-lucide="file-text" class="w-3 h-3"></i> Esempio: La Carta (Quiz)
+                     </button>
+-                    <button onclick="window.loadDemoGraph('esempi/rete_elettrica.json')"
+-                        class="text-[11px] font-bold bg-sky-50 text-sky-600 hover:bg-sky-100 px-3 py-2 rounded-lg flex-1 border border-sky-200 transition-colors flex justify-center items-center gap-1">
++                    <button onclick="window.loadDemoGraph('esempi/rete_elettrica.json')" class="text-[11px] font-bold bg-sky-50 text-sky-600 hover:bg-sky-100 px-3 py-2 rounded-lg flex-1 border border-sky-200 transition-colors flex justify-center items-center gap-1">
+                         <i data-lucide="zap" class="w-3 h-3"></i> Esempio: Rete Elettrica
+                     </button>
+                 </div>
+                 <div class="flex justify-between items-center mt-2">
+-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest" id="vault-manager-folder-path-label">Cartella:
+-                        Documents/Salvataggi MappAI</p>
+-                    <button onclick="window.handleImportClick(event)"
++                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella: Documents/Salvataggi MappAI</p>
++                    <button onclick="window.loadMapVault()"
+                         class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                         <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
+                     </button>
+-                    <!-- Input file nascosto per importazione su iPad/iOS senza perdere il user gesture context -->
+-                    <input type="file" id="mappai-ipad-vault-file-picker" accept=".json" style="display: none;" onchange="window.handleIPadVaultFileSelected(event)">
+                 </div>
+             </div>
+         </div>
+@@ -1712,56 +1712,30 @@
+                     <!-- Colore elemento -->
+                     <div class="flex flex-col">
+                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore elemento</label>
+-                        <div
+-                            class="flex flex-col items-center justify-center gap-5 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow">
++                        <div class="flex flex-col items-center justify-center gap-5 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow">
+                             <!-- Main Picker -->
+                             <div class="relative group">
+                                 <input type="color" id="edit-n-color"
+                                     class="w-24 h-24 rounded-2xl cursor-pointer border-0 p-0 bg-transparent shadow-sm group-hover:scale-105 transition-transform">
+-                                <div
+-                                    class="absolute -bottom-1 -right-1 bg-white p-1 rounded-md shadow-sm border border-slate-100 pointer-events-none group-hover:scale-110 transition-transform">
++                                <div class="absolute -bottom-1 -right-1 bg-white p-1 rounded-md shadow-sm border border-slate-100 pointer-events-none group-hover:scale-110 transition-transform">
+                                     <i data-lucide="pipette" class="w-3 h-3 text-slate-400"></i>
+                                 </div>
+                             </div>
+-
++                            
+                             <!-- Power Palette -->
+                             <div class="grid grid-cols-6 gap-2 mt-1">
+-                                <div onclick="window.setEditColor('#00f2ff')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #00f2ff;" title="Cyber Cyan"></div>
+-                                <div onclick="window.setEditColor('#3b82f6')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #3b82f6;" title="Electric Blue"></div>
+-                                <div onclick="window.setEditColor('#8b5cf6')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #8b5cf6;" title="Neon Purple"></div>
+-                                <div onclick="window.setEditColor('#d946ef')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #d946ef;" title="Hot Pink"></div>
+-                                <div onclick="window.setEditColor('#f43f5e')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #f43f5e;" title="Power Red"></div>
+-                                <div onclick="window.setEditColor('#f97316')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #f97316;" title="Cyber Orange"></div>
+-                                <div onclick="window.setEditColor('#facc15')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #facc15;" title="Sunny Yellow"></div>
+-                                <div onclick="window.setEditColor('#4ade80')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #4ade80;" title="Neon Green"></div>
+-                                <div onclick="window.setEditColor('#2dd4bf')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #2dd4bf;" title="MappAI Teal"></div>
+-                                <div onclick="window.setEditColor('#06b6d4')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #06b6d4;" title="Arctic Blue"></div>
+-                                <div onclick="window.setEditColor('#64748b')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #64748b;" title="Steel Gray"></div>
+-                                <div onclick="window.setEditColor('#1e293b')"
+-                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+-                                    style="background: #1e293b;" title="Dark Mode"></div>
++                                <div onclick="window.setEditColor('#00f2ff')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #00f2ff;" title="Cyber Cyan"></div>
++                                <div onclick="window.setEditColor('#3b82f6')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #3b82f6;" title="Electric Blue"></div>
++                                <div onclick="window.setEditColor('#8b5cf6')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #8b5cf6;" title="Neon Purple"></div>
++                                <div onclick="window.setEditColor('#d946ef')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #d946ef;" title="Hot Pink"></div>
++                                <div onclick="window.setEditColor('#f43f5e')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #f43f5e;" title="Power Red"></div>
++                                <div onclick="window.setEditColor('#f97316')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #f97316;" title="Cyber Orange"></div>
++                                <div onclick="window.setEditColor('#facc15')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #facc15;" title="Sunny Yellow"></div>
++                                <div onclick="window.setEditColor('#4ade80')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #4ade80;" title="Neon Green"></div>
++                                <div onclick="window.setEditColor('#2dd4bf')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #2dd4bf;" title="MappAI Teal"></div>
++                                <div onclick="window.setEditColor('#06b6d4')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #06b6d4;" title="Arctic Blue"></div>
++                                <div onclick="window.setEditColor('#64748b')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #64748b;" title="Steel Gray"></div>
++                                <div onclick="window.setEditColor('#1e293b')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #1e293b;" title="Dark Mode"></div>
+                             </div>
+ 
+                             <div class="text-[9px] text-slate-400 font-bold leading-tight text-center">
+@@ -1773,8 +1747,7 @@
+                     <!-- Icone Modifiche -->
+                     <div class="flex flex-col">
+                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Icone modifiche </label>
+-                        <div
+-                            class="flex flex-col gap-3 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow justify-center">
++                        <div class="flex flex-col gap-3 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow justify-center">
+                             <label
+                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                 <div class="flex items-center gap-3">
+@@ -2292,16 +2265,16 @@
+     <!-- Modale Configura AI -->
+     <div id="config-ai-modal"
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] hidden items-center justify-center p-4">
+-        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative flex flex-col max-h-[90vh] my-auto">
++        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
+             <button onclick="window.closeConfigAIModal()"
+                 class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
+-            <h2 class="text-xl font-black text-slate-800 mb-2 flex items-center justify-between flex-shrink-0">
++            <h2 class="text-xl font-black text-slate-800 mb-2 flex items-center justify-between">
+                 <span class="flex items-center gap-2">
+                     <i data-lucide="settings" class="text-indigo-500"></i> <span id="modal-setup-title">Configura
+                         AI</span>
+                 </span>
+             </h2>
+-            <div class="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100 flex-shrink-0">
++            <div class="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                 <span class="text-[10px] font-bold text-slate-400 uppercase ml-2"
+                     id="label-language-select">Lingua:</span>
+                 <div class="flex gap-4 mr-2">
+@@ -2313,7 +2286,7 @@
+                         id="lang-btn-en" title="English">🇬🇧</button>
+                 </div>
+             </div>
+-            <div class="space-y-5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
++            <div class="space-y-5">
+                 <div class="mb-5">
+                     <label class="block text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Provider
+                         AI</label>
+@@ -2653,14 +2626,11 @@
+                 <div class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col h-full overflow-hidden">
+                     <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl shrink-0">
+                         <button onclick="window.switchAdminTab('MINDMAPS')" data-tab="MINDMAPS"
+-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe
+-                            Mentali</button>
++                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe Mentali</button>
+                         <button onclick="window.switchAdminTab('KGRAPHS')" data-tab="KGRAPHS"
+-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Knowledge
+-                            Graph</button>
++                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Knowledge Graph</button>
+                         <button onclick="window.switchAdminTab('TUTOR')" data-tab="TUTOR"
+-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor
+-                            AI</button>
++                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor AI</button>
+                         <button onclick="window.switchAdminTab('STUDY')" data-tab="STUDY"
+                             class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Studio</button>
+                     </div>
+diff --git a/public/js/app.js b/public/js/app.js
+index 16c11cb..139bb55 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -32,7 +32,7 @@ let appState = {
+     allProfiles: [],
+     aiProvider: localStorage.getItem('ai_provider') || 'google',
+     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
+-    studentMode: false,
++    studentMode: true,
+     infomaniakAllModels: false,
+     multiPassMode: false
+ };
+@@ -46,60 +46,7 @@ const studentModeSecret = ['l', 'k', 'j', 'h'];
+ let infomaniakProKeys = [];
+ const infomaniakProSecret = ['m', 'n', 'b', 'v'];
+ 
+-window.closeActiveModals = function () {
+-    const modals = [
+-        { id: 'config-ai-modal', close: () => window.closeConfigAIModal() },
+-        { id: 'user-profile-modal', close: () => window.closeUserProfileModal() },
+-        { id: 'app-guide-modal', close: () => window.closeAppGuide() },
+-        { id: 'app-tutorial-modal', close: () => window.closeAppTutorial() },
+-        { id: 'source-modal', close: () => window.closeSourceModal() },
+-        { id: 'ai-modal', close: () => window.closeAIModal() },
+-        { id: 'quiz-modal', close: () => window.closeQuizModal() },
+-        { id: 'study-config-modal', close: () => window.closeStudyConfigModal() },
+-        { id: 'study-player-modal', close: () => window.closeStudyPlayer() },
+-        { id: 'contextual-ai-extension-modal', close: () => window.closeContextualAIModal() },
+-        { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
+-        { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
+-        { id: 'validate-link-modal', close: () => window.closeValidateModal() },
+-        { id: 'api-tutorial-modal', close: () => {
+-            const m = document.getElementById('api-tutorial-modal');
+-            if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
+-        }},
+-        { id: 'merge-confirm-modal', close: () => {
+-            if (typeof window.cancelMerge === 'function') window.cancelMerge();
+-            else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+-        }},
+-        { id: 'confirm-modal', close: () => {
+-            const m = document.getElementById('confirm-modal');
+-            if (m && !m.classList.contains('hidden')) {
+-                const cancelBtn = document.getElementById('confirm-cancel');
+-                if (cancelBtn) cancelBtn.click();
+-                else m.classList.add('hidden');
+-            }
+-        }},
+-        { id: 'image-lightbox', close: () => window.closeLightbox() },
+-        { id: 'admin-dashboard', close: () => {
+-            if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+-            else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+-        }}
+-    ];
+-
+-    modals.forEach(m => {
+-        const el = document.getElementById(m.id);
+-        if (el && !el.classList.contains('hidden') && el.style.display !== 'none') {
+-            try {
+-                m.close();
+-            } catch (err) {
+-                console.error(`Error closing modal ${m.id}:`, err);
+-            }
+-        }
+-    });
+-};
+-
+ document.addEventListener('keydown', (e) => {
+-    if (e.key === 'Escape') {
+-        window.closeActiveModals();
+-    }
+     if (e.ctrlKey && e.shiftKey) {
+         const key = e.key.toLowerCase();
+         
+@@ -859,30 +806,12 @@ const MODEL_KB = {
+ 
+ // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
+ function matchModelKB(modelId) {
+-    if (!modelId) return null;
+     const id = modelId.toLowerCase().replace('models/', '');
+-
+-    // 1. Try to find in currently available models (stored in localStorage)
+-    const isInfomaniak = (window.appState && window.appState.aiProvider === 'infomaniak');
+-    const storageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+-    const savedModelsStr = localStorage.getItem(storageKey);
+-    if (savedModelsStr) {
+-        try {
+-            const savedModels = JSON.parse(savedModelsStr);
+-            const found = savedModels.find(m => m.id.toLowerCase() === modelId.toLowerCase() || m.id.toLowerCase().replace('models/', '') === id);
+-            if (found && found.kb) {
+-                return found.kb;
+-            }
+-        } catch (e) {
+-            console.error("Error parsing saved models from localStorage:", e);
+-        }
+-    }
+-
+-    // 2. Try exact prefix match first in MODEL_KB
++    // Try exact prefix match first
+     for (const pattern of Object.keys(MODEL_KB)) {
+         if (id.startsWith(pattern)) return MODEL_KB[pattern];
+     }
+-    // 3. Fuzzy: strip preview/exp suffixes and try again
++    // Fuzzy: strip preview/exp suffixes and try again
+     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
+     for (const pattern of Object.keys(MODEL_KB)) {
+         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
+@@ -994,7 +923,6 @@ window.refreshGeminiModels = async function () {
+             statusEl.innerText = "Attesa inserimento API Key...";
+             statusEl.classList.remove('hidden');
+         }
+-        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+         return;
+     }
+ 
+@@ -1005,7 +933,6 @@ window.refreshGeminiModels = async function () {
+             if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
+             window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
+             if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
+-            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+             return;
+         }
+     }
+@@ -1112,7 +1039,6 @@ function updateModelCapabilities() {
+     if (!kb) {
+         capsEl.innerHTML = '';
+         capsEl.classList.add('hidden');
+-        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+         return;
+     }
+ 
+@@ -1135,7 +1061,6 @@ function updateModelCapabilities() {
+                     <span class="text-[10px] text-slate-400 italic">${kb.note}</span>
+                 </div>`;
+     capsEl.classList.remove('hidden');
+-    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+ }
+ 
+ // Funzioni sicure per il processing delle stringhe multilinea
+@@ -1260,118 +1185,41 @@ window.updateCostDisplay = function () {
+ }
+ 
+ window.updateTokenCounter = function () {
+-    if (window.updateTokenCostEstimator) {
+-        window.updateTokenCostEstimator();
+-    }
+-};
+-
+-window.updateTokenCostEstimator = function () {
+-    const modelSelect = document.getElementById('model-select');
+-    const tokensValEl = document.getElementById('estimator-tokens');
+-    const costValEl = document.getElementById('estimator-cost');
+-    const progressEl = document.getElementById('estimator-progress');
+-    if (!tokensValEl || !costValEl || !progressEl) return;
+-
+-    const selectedModel = modelSelect ? modelSelect.value : '';
+-    if (!selectedModel) {
+-        tokensValEl.textContent = '0 / -- token';
+-        costValEl.textContent = '--';
+-        progressEl.style.width = '0%';
+-        return;
+-    }
++    const container = document.getElementById('token-counter-container');
++    const display = document.getElementById('token-count');
++    if (!container || !display) return;
+ 
+-    // 1. Get model specs
+-    const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
+-    
+-    // Determine context window
+-    let maxContext = 1048576; // Default to 1M
+-    const modelIdLower = selectedModel.toLowerCase();
+-    
+-    if (appState.aiProvider === 'infomaniak') {
+-        if (modelIdLower.includes('gemma')) {
+-            maxContext = 8192;
+-        } else if (modelIdLower.includes('llama-3') || modelIdLower.includes('mixtral') || modelIdLower.includes('mistral')) {
+-            maxContext = 32768; // 32k
+-        } else {
+-            maxContext = 32768; // Default for Infomaniak LLMs
+-        }
+-    } else {
+-        if (modelIdLower.includes('gemma')) {
+-            maxContext = 8192;
+-        } else if (modelIdLower.includes('pro')) {
+-            maxContext = 2097152; // 2M
+-        } else if (modelIdLower.includes('flash')) {
+-            maxContext = 1048576; // 1M
+-        }
+-    }
+-
+-    // 2. Count input tokens
+     let totalChars = 0;
++
+     // Sum contents from textarea sources
+     const textareas = document.querySelectorAll('.landing-textarea');
+     textareas.forEach(ta => {
+         totalChars += ta.value.length;
+     });
+-    // Sum contents from appState (extracted files/urls)
++
++    // Sum contents from appState (extracted from files/urls)
+     if (appState.sources) {
+         appState.sources.forEach(s => {
+             if (s.content) totalChars += s.content.length;
+         });
+     }
+-    const inputTokens = Math.ceil(totalChars / 4);
+ 
+-    // 3. Estimate output tokens based on MM or KG and depth/branches/nodes
+-    const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
+-    let outputTokens = 0;
+-    if (mode === 'mindmap') {
+-        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+-        // MM formula: N_nodes = 20 + maxBranches * 5
+-        const nNodes = 20 + branchesVal * 5;
+-        outputTokens = nNodes * 120;
+-    } else {
+-        const kgNodesVal = parseInt(document.getElementById('kg-nodes-slider')?.value || '20', 10);
+-        // KG formula: N_nodes = kgNodes
+-        outputTokens = kgNodesVal * 150;
+-    }
++    if (totalChars > 0) {
++        container.classList.remove('hidden');
++        // Heuristic: ~4 chars per token
++        const tokens = Math.ceil(totalChars / 4);
++        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
+ 
+-    // 4. Calculate cost in cents
+-    let costDisplay = '';
+-    const isFree = kb.free || (kb.inputCost === 0 && kb.outputCost === 0);
+-    const lang = window.currentLanguage || 'it';
+-    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+-    const freeText = t.estimator_free || (lang === 'en' ? 'Free (Free Tier)' : 'Gratuito (Piano Free)');
+-
+-    if (isFree) {
+-        costDisplay = freeText;
+-    } else {
+-        // Cost per 1M tokens * (tokens / 1M) -> cost in dollars * 100 -> cost in cents
+-        const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
+-        const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
+-        const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
+-        
+-        if (totalCostCents < 0.01) {
+-            costDisplay = `<0.01 ¢`;
++        // Visual feedback based on size
++        if (tokens > 30000) {
++            display.classList.add('text-rose-600', 'border-rose-200');
++            display.classList.remove('text-indigo-600', 'border-indigo-100');
+         } else {
+-            costDisplay = `${totalCostCents.toFixed(2)} ¢`;
++            display.classList.remove('text-rose-600', 'border-rose-200');
++            display.classList.add('text-indigo-600', 'border-indigo-100');
+         }
+-    }
+-
+-    // 5. Update UI
+-    tokensValEl.textContent = `${inputTokens.toLocaleString()} / ${maxContext.toLocaleString()} token`;
+-    costValEl.textContent = costDisplay;
+-
+-    // Progress bar calculation
+-    const progressPercent = Math.min((inputTokens / maxContext) * 100, 100);
+-    progressEl.style.width = `${progressPercent}%`;
+-
+-    // Colors: green (<50%), yellow (50-80%), red (>80%)
+-    progressEl.className = 'h-full transition-all duration-500 rounded-full';
+-    if (progressPercent < 50) {
+-        progressEl.classList.add('bg-emerald-500');
+-    } else if (progressPercent < 80) {
+-        progressEl.classList.add('bg-amber-500');
+     } else {
+-        progressEl.classList.add('bg-rose-500');
++        container.classList.add('hidden');
+     }
+ };
+ 
+@@ -4406,7 +4254,6 @@ window.switchToMapLayout = function () {
+         if (minLinkControl) minLinkControl.classList.remove('hidden');
+         if (sliderDivider) sliderDivider.classList.remove('hidden');
+     }
+-    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
+ }
+ 
+ window.backToLanding = function () {
+@@ -4834,30 +4681,6 @@ window.resetZoom = function () {
+     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+ };
+ 
+-window.updateStep4Display = function () {
+-    const isMindmap = (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap';
+-    const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle')?.checked ?? true;
+-    const lang = window.currentLanguage || 'it';
+-    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+-
+-    const descMM = document.getElementById('label-step4-desc');
+-    const descKG = document.getElementById('label-step4-kg-desc');
+-
+-    if (isMindmap) {
+-        if (descMM) {
+-            descMM.innerText = autoGenerateL1 ? 
+-                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") : 
+-                (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
+-        }
+-    } else {
+-        if (descKG) {
+-            descKG.innerText = autoGenerateL1 ? 
+-                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") : 
+-                (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
+-        }
+-    }
+-};
+-
+ window.setMode = function (mode) {
+     const btnMindmap = document.getElementById('mode-mindmap');
+     const btnKG = document.getElementById('mode-kg');
+@@ -4906,9 +4729,6 @@ window.setMode = function (mode) {
+         const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+         btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
+     }
+-
+-    window.updateStep4Display();
+-    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+ }
+ 
+ 
+@@ -4957,12 +4777,6 @@ window.applyDirectZoom = function (z) {
+ 
+     document.documentElement.style.setProperty('--app-zoom', z);
+ 
+-    if (z > 1.0) {
+-        document.body.classList.add('a11y-zoomed-modals');
+-    } else {
+-        document.body.classList.remove('a11y-zoomed-modals');
+-    }
+-
+     document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+     if (z === 1.0) {
+         document.body.classList.add('a11y-zoom-x1');
+@@ -4988,12 +4802,11 @@ window.applyDirectZoom = function (z) {
+         '#api-tutorial-modal > div',
+         '#alert-box',
+         '#prompt-box',
+-        '#confirm-box',
+         '#study-config-modal > div',
++        '#external-json-modal > div',
+         '#vault-manager-box',
+         '#edit-node-box',
+-        '#contextual-ai-extension-modal > div',
+-        '#feedback-box'
++        '#contextual-ai-extension-modal > div'
+     ];
+ 
+     // Rimozione applicazione zoom inline (gestito via variabili CSS/rem)
+@@ -5171,6 +4984,58 @@ window.importGraph = function (event) {
+     reader.readAsText(file);
+ }
+ 
++window.loadOfflineExample = async function (filename) {
++    try {
++        const response = await fetch('./esempi/' + filename);
++        if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
++        const rawData = await response.json();
++        const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
++        
++        if (!data.nodes || !data.links) throw new Error("JSON non valido.");
++
++        data.links.forEach(l => {
++            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
++            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
++        });
++        data.nodes.forEach(n => {
++            delete n.vx; delete n.vy;
++            delete n.fx; delete n.fy;
++        });
++
++        appState.db = { nodes: data.nodes, links: data.links };
++        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
++        
++        if (data.generationUsage) {
++            appState.generationUsage = data.generationUsage;
++            if (window.updateCostDisplay) window.updateCostDisplay();
++        } else {
++            appState.generationUsage = null;
++        }
++        if (data.customColors) {
++            appState.db.customColors = data.customColors;
++        }
++
++        appState.db.sourcesDict = {};
++        (appState.db.nodes || []).forEach(n => {
++            if (n.chunks && n.chunks.length > 0) {
++                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
++                    title: "Estratto Fonte",
++                    source: "Dato Esempio",
++                    text: c
++                }));
++            }
++        });
++
++        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
++        simulation = null;
++        window.switchToMapLayout();
++        initD3Visualization();
++        
++        document.getElementById('insegnai-drawer').classList.add('-translate-x-[320px]');
++        window.showToast("Esempio caricato con successo", "success");
++    } catch (err) { window.showAlert("Errore", "Errore caricamento esempio: " + err.message); }
++};
++
+ // ==========================================
+ // SOTA: MARKDOWN VAULT LOGIC
+ // ==========================================
+@@ -5382,67 +5247,6 @@ window.loadMapVault = async function () {
+     }
+ };
+ 
+-window.handleImportClick = function(event) {
+-    const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+-    if (isCapacitor) {
+-        // Su iPadOS/Capacitor facciamo scattare direttamente il click sull'input file nascosto
+-        // in modo sincrono per conservare la user gesture valida di WKWebView
+-        const filePicker = document.getElementById('mappai-ipad-vault-file-picker');
+-        if (filePicker) {
+-            filePicker.click();
+-        }
+-    } else {
+-        // Su desktop/electron chiamiamo il normale caricamento
+-        window.loadMapVault();
+-    }
+-};
+-
+-window.handleIPadVaultFileSelected = async function(event) {
+-    const file = event.target.files[0];
+-    if (!file) return;
+-
+-    window.showLoadingOverlay(true, "Importazione Vault in corso...");
+-    
+-    const reader = new FileReader();
+-    reader.onload = async (evt) => {
+-        try {
+-            const parsed = JSON.parse(evt.target.result);
+-            const data = parsed.db ? parsed.db : parsed;
+-            if (!data.nodes || !data.links) {
+-                window.showLoadingOverlay(false);
+-                window.showAlert("Errore", "Il file selezionato non è un Vault di MappAI valido.");
+-                return;
+-            }
+-            const baseName = file.name.replace('.json', '');
+-            const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+-            
+-            // Salva il vault nativamente tramite il bridge
+-            const saveRes = await window.electronAPI.saveVault({
+-                folderPath: safeName,
+-                mapData: parsed
+-            });
+-            
+-            window.showLoadingOverlay(false);
+-            if (saveRes && saveRes.success) {
+-                window.showToast("Vault importato con successo!", "success");
+-                // Ricarica la lista dei vault nel modale
+-                if (typeof window.loadVaultList === 'function') {
+-                    await window.loadVaultList();
+-                }
+-            } else {
+-                window.showAlert("Errore", "Impossibile salvare il Vault nel dispositivo.");
+-            }
+-        } catch (err) {
+-            window.showLoadingOverlay(false);
+-            window.showAlert("Errore", "Errore durante la lettura del file JSON: " + err.message);
+-        }
+-    };
+-    reader.readAsText(file);
+-    
+-    // Resetta il valore dell'input per permettere di riselezionare lo stesso file
+-    event.target.value = "";
+-};
+-
+ window.startEmptyMap = function () {
+     // Reset DB to a single root node
+     const rootId = "node_" + Math.random().toString(36).substr(2, 9);
+@@ -5472,7 +5276,33 @@ window.addEventListener('drop', (e) => {
+     }
+ });
+ 
++// --- Gestione Istruzioni JSON Esterno ---
++window.openExternalJSONInstructions = function () {
++    try {
++        const modal = document.getElementById('external-json-modal');
++        if (!modal) return;
++        modal.classList.remove('hidden');
++        modal.classList.add('flex');
++        setTimeout(() => modal.classList.add('opacity-100'), 10);
++        window.safeCreateIcons();
++    } catch (e) { console.error('openExternalJSONInstructions error:', e); }
++};
+ 
++window.closeExternalJSONModal = function () {
++    try {
++        const modal = document.getElementById('external-json-modal');
++        if (!modal) return;
++        modal.classList.remove('opacity-100');
++        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
++    } catch (e) { }
++};
++
++window.copyExternalPrompt = function () {
++    const text = document.getElementById('external-prompt-text').innerText;
++    navigator.clipboard.writeText(text).then(() => {
++        window.showToast("Prompt copiato negli appunti!", "success");
++    });
++};
+ 
+ // ==========================================
+ // MERGE / UNISCI SYSTEM
+@@ -7738,6 +7568,7 @@ window.changeLanguage = function (lang) {
+         'label-mode-kg': t.step2_kg,
+         'label-step4': t.step_density_title,
+         'label-step4-kg': t.step_kg_density_title,
++        'label-step4-kg-desc': t.step_kg_density_desc,
+         'btn-generate-label': (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap' ? t.new_map_btn : t.new_kg_btn,
+ 
+ 
+@@ -7753,17 +7584,7 @@ window.changeLanguage = function (lang) {
+         'label-api-key-desc': t.api_key_desc,
+         'label-api-key-how': t.api_key_how,
+         'label-ai-model': t.ai_model_label,
+-        'label-refresh-models': t.refresh_models,
+-        'estimator-title-lbl': t.estimator_title,
+-        'estimator-tokens-lbl': t.estimator_tokens_label,
+-        'estimator-cost-lbl': t.estimator_cost_label,
+-        'feedback-section-title': t.feedback_section,
+-        'feedback-btn-title': t.feedback_btn_title,
+-        'feedback-btn-desc': t.feedback_btn_desc,
+-        'feedback-modal-title-lbl': t.feedback_modal_title,
+-        'feedback-cat-label-lbl': t.feedback_cat_label,
+-        'feedback-desc-label-lbl': t.feedback_desc_label,
+-        'feedback-submit-btn-lbl': t.feedback_submit_btn
++        'label-refresh-models': t.refresh_models
+     };
+ 
+     for (let id in els) {
+@@ -7771,9 +7592,6 @@ window.changeLanguage = function (lang) {
+         if (el) el.innerText = els[id];
+     }
+ 
+-    const feedbackText = document.getElementById('feedback-text');
+-    if (feedbackText) feedbackText.placeholder = t.feedback_desc_placeholder;
+-
+     // Process data-i18n attributes automatically
+     document.querySelectorAll('[data-i18n]').forEach(el => {
+         const key = el.getAttribute('data-i18n');
+@@ -7908,14 +7726,6 @@ window.changeLanguage = function (lang) {
+     if (window.showToast) {
+         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
+     }
+-
+-    // Aggiorna dinamicamente le descrizioni di Step 4 in base a lingua e modalità
+-    if (window.updateStep4Display) {
+-        window.updateStep4Display();
+-    }
+-    if (window.updateTokenCostEstimator) {
+-        window.updateTokenCostEstimator();
+-    }
+ };
+ 
+ // Add auto-render projects on load
+@@ -7941,13 +7751,6 @@ document.addEventListener('DOMContentLoaded', async () => {
+     if (btnGuide) btnGuide.addEventListener('click', () => { console.log("Open Guide"); window.showAppGuide(); });
+     if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
+ 
+-    const autoGenToggle = document.getElementById('l1-auto-generate-toggle');
+-    if (autoGenToggle) {
+-        autoGenToggle.addEventListener('change', () => {
+-            if (window.updateStep4Display) window.updateStep4Display();
+-        });
+-    }
+-
+     StorageManager.renderRecentProjects();
+ 
+     // Load Gemini Key
+@@ -7986,20 +7789,6 @@ document.addEventListener('DOMContentLoaded', async () => {
+ 
+     // Initialize the UI for the current provider
+     if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+-
+-    // Setup estimator events and initial display
+-    if (selectEl) {
+-        selectEl.addEventListener('change', () => {
+-            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+-        });
+-    }
+-    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+-
+-    // Aggiorna dinamicamente l'etichetta del percorso cartella dei vault
+-    const labelEl = document.getElementById('vault-manager-folder-path-label');
+-    if (labelEl) {
+-        labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
+-    }
+ });
+ 
+ window.globalQuizQueue = [];
+@@ -8671,7 +8460,7 @@ window.applyTextZoom = function(idx) {
+     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
+     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
+ 
+-    // On the landing page, force the zoom level to 1.0 to prevent any enlargement
++    // Nella landing page, forza lo zoom a 1.0 per evitare corruzioni del layout
+     const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+     const effectiveZ = isLandingVisible ? 1.0 : z;
+ 
+@@ -8709,12 +8498,11 @@ window.applyTextZoom = function(idx) {
+         '#api-tutorial-modal > div',
+         '#alert-box',
+         '#prompt-box',
+-        '#confirm-box',
+         '#study-config-modal > div',
++        '#external-json-modal > div',
+         '#vault-manager-box',
+         '#edit-node-box',
+-        '#contextual-ai-extension-modal > div',
+-        '#feedback-box'
++        '#contextual-ai-extension-modal > div'
+     ];
+ 
+     // Applica inline style per bypassare bug di Safari su calc/CSS variables
+@@ -9005,7 +8793,35 @@ window.clearSuperFinder = function () {
+ const oldFinder = document.getElementById('map-finder-input');
+ if (oldFinder) oldFinder.remove();
+ 
++// === CANVAS VUOTO & ESPANSIONE CONTESTUALE ===
++window.createBlankCanvas = function () {
++    const mode = document.getElementById('extraction-mode').value;
++    appState.extractionMode = mode;
++    appState.db = { nodes: [], links: [] };
+ 
++    if (mode === 'mindmap') {
++        appState.db.nodes.push({
++            id: "ROOT",
++            label: "Nuovo Argomento",
++            content: "Inizia a scrivere...",
++            desc: "Inizia a scrivere...",
++            level: 0,
++            x: window.innerWidth / 2,
++            y: window.innerHeight / 2,
++            studyStatus: 'none',
++            chunks: []
++        });
++    }
++
++    appState.rootNodeLabel = "Mappa Manuale";
++    window.switchToMapLayout();
++
++    simulation = null;
++    initD3Visualization();
++    window.updateDegreeStats();
++    window.renderTreeView();
++    window.safeCreateIcons();
++};
+ 
+ let contextualAITargetNode = null;
+ 
+@@ -9597,104 +9413,6 @@ window.resetVaultState = function () {
+         } catch (e) { }
+     }
+ 
+-    // Gestione Segnalazioni e Feedback
+-    let selectedFeedbackCategory = 'ui';
+-
+-    window.selectFeedbackCategory = function (cat) {
+-        selectedFeedbackCategory = cat;
+-        const categories = ['ui', 'ai', 'storage', 'bug', 'suggestion', 'other'];
+-        categories.forEach(c => {
+-            const btn = document.getElementById(`fb-cat-${c}`);
+-            if (btn) {
+-                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+-                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+-            }
+-        });
+-
+-        const activeBtn = document.getElementById(`fb-cat-${cat}`);
+-        if (activeBtn) {
+-            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+-            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+-        }
+-    };
+-
+-    window.openFeedbackModal = function () {
+-        const modal = document.getElementById('feedback-modal');
+-        const box = document.getElementById('feedback-box');
+-        if (!modal || !box) return;
+-
+-        document.getElementById('feedback-text').value = '';
+-        window.selectFeedbackCategory('ui');
+-
+-        modal.classList.remove('hidden');
+-        modal.classList.add('flex');
+-        setTimeout(() => {
+-            modal.classList.remove('opacity-0');
+-            box.classList.remove('scale-95');
+-        }, 10);
+-        if (window.safeCreateIcons) window.safeCreateIcons();
+-    };
+-
+-    window.closeFeedbackModal = function () {
+-        const modal = document.getElementById('feedback-modal');
+-        const box = document.getElementById('feedback-box');
+-        if (!modal || !box) return;
+-
+-        modal.classList.add('opacity-0');
+-        box.classList.add('scale-95');
+-        setTimeout(() => {
+-            modal.classList.add('hidden');
+-            modal.classList.remove('flex');
+-        }, 200);
+-    };
+-
+-    window.submitFeedback = function () {
+-        const text = document.getElementById('feedback-text').value.trim();
+-        if (!text) {
+-            if (window.showToast) window.showToast("Inserisci i dettagli della segnalazione", "warning");
+-            return;
+-        }
+-
+-        const catLabels = {
+-            'ui': 'Interfaccia / UI',
+-            'ai': 'Generazione AI',
+-            'storage': 'Salvataggio / File',
+-            'bug': 'Bug / Errore',
+-            'suggestion': 'Suggerimento',
+-            'other': 'Altro'
+-        };
+-
+-        const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
+-        const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
+-        
+-        const appVersion = "1.0.0";
+-        const osInfo = "iOS / iPadOS (Capacitor)";
+-        const userAgent = navigator.userAgent;
+-        const model = document.getElementById('model-select')?.value || 'Non specificato';
+-        
+-        const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
+-                          `========================================\n` +
+-                          `Categoria: ${categoryLabel}\n` +
+-                          `Dispositivo: ${osInfo}\n` +
+-                          `Modello Selezionato: ${model}\n` +
+-                          `Versione App: ${appVersion}\n` +
+-                          `User Agent: ${userAgent}\n` +
+-                          `========================================\n\n` +
+-                          `DESCRIZIONE:\n${text}\n\n`;
+-
+-        navigator.clipboard.writeText(emailBody).then(() => {
+-            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+-            window.location.href = mailtoUrl;
+-            if (window.showToast) window.showToast("Segnalazione copiata e client email aperto!", "success");
+-            window.closeFeedbackModal();
+-        }).catch(err => {
+-            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+-            window.location.href = mailtoUrl;
+-            if (window.showToast) window.showToast("Email preparata!", "success");
+-            window.closeFeedbackModal();
+-        });
+-    };
+-
+     // Inizializza i modelli all'avvio se c'è una chiave
+     setTimeout(() => {
+         if (window.getSystemKey && window.getSystemKey()) {

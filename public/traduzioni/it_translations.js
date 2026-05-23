@@ -45,7 +45,7 @@ const it_translations = {
     placeholder_keywords: "Inserisci keyword separate da virgola...",
 
     // Loading
-    loading_processing: "Mapp.AI sta elaborando...",
+    loading_processing: "MappAI sta elaborando...",
     loading_sources: "Interpretazione delle fonti con Gemini",
 
     // Modals - AI Config
@@ -63,7 +63,7 @@ const it_translations = {
     pricing_note: "Inserisci la API Key e clicca 'Aggiorna Modelli' per vedere tutti i modelli disponibili con costi e formati supportati.",
 
     // Modals - App Guide
-    modal_guide_title: "Come usare Mapp.AI",
+    modal_guide_title: "Come usare MappAI",
     guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
     guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.",
     guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
@@ -73,18 +73,18 @@ const it_translations = {
     guide_step4_title: "✍️ Passo 4 — Personalizza e Guida l'AI",
     guide_step4_desc: "Inserisci il nome del Nodo Centrale. Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus specifico e regolare la densità delle diramazioni.",
     guide_step5_title: "🗺️ Passo 5 — Interagisci con la Mappa",
-    guide_step5_desc: "Doppio click su un nodo per leggere/modificare note. Scroll per lo zoom. Drag per spostare. Click destro per menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
+    guide_step5_desc: "Doppio tap su un nodo per leggere/modificare note. Pinch per lo zoom. Drag per spostare. Long press (tieni premuto) per il menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
     guide_step6_title: "💾 Passo 6 — Salva e Riprendi",
-    guide_step6_desc: "Le mappe vengono salvate automaticamente nella cartella 'Salvataggi Mapp.AI' in Documenti. Puoi importare/esportare file JSON. I progetti recenti appaiono nella barra della landing page.",
+    guide_step6_desc: "Le mappe vengono salvate automaticamente. I progetti recenti appaiono nella barra della landing page. Puoi importare/esportare file JSON. Condividi intere cartelle vault tramite l'app File usando AirDrop.",
     guide_notes_title: "📓 Raccoglitore Appunti",
     guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
-    guide_footer: "Mapp.AI salva tutto localmente sul tuo Mac. I tuoi dati non lasciano mai il dispositivo.",
+    guide_footer: "MappAI salva tutto localmente sul tuo Mac. I tuoi dati non lasciano mai il dispositivo.",
 
     // Modals - Active Study (Tutorial)
     modal_study_title: "Metodo di Studio Attivo",
     study_intro: "MappAI non è solo un generatore di schemi: è un ambiente di apprendimento attivo. La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.",
     study_sr_title: "🔁 Ripasso Dilazionato (Spaced Repetition)",
-    study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). Mapp.AI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
+    study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). MappAI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
     study_ar_title: "🧠 Active Recall (Richiamo Attivo)",
     study_ar_desc: "Non rileggere passivamente: chiudi gli appunti e prova a riscrivere cosa ricordi. Fai doppio click su un nodo della mappa, svuota il contenuto e riscrivi con parole tue. Recuperare dalla memoria è 2-3x più efficace della rilettura.",
     study_feynman_title: "👨‍🏫 Metodo Feynman",

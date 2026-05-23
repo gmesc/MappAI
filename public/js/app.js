@@ -49,7 +49,7 @@ const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
-        
+
         // Student Mode Handler
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
@@ -150,10 +150,10 @@ window.toggleStudentMode = function () {
 
 window.setMultiPassMode = function (enabled) {
     appState.multiPassMode = enabled;
-    
+
     const btnOff = document.getElementById('multipass-off');
     const btnOn = document.getElementById('multipass-on');
-    
+
     if (btnOff && btnOn) {
         if (enabled) {
             btnOn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
@@ -167,7 +167,7 @@ window.setMultiPassMode = function (enabled) {
             btnOn.classList.add('text-slate-400', 'hover:text-slate-600');
         }
     }
-    
+
     window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
@@ -382,10 +382,10 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     btnOk.onclick = () => { cleanup(); onConfirm(input.value.trim()); };
 
     input.onkeydown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            cleanup(); 
-            onConfirm(input.value.trim()); 
+            cleanup();
+            onConfirm(input.value.trim());
         }
     };
 }
@@ -436,7 +436,7 @@ window.toggleMagnifier = function () {
         magnifierLens.style.display = 'block';
         window.refreshMagnifier();
         document.addEventListener('mousemove', window.handleMagnifierMove);
-        
+
         // Sincronizza dinamicamente la lente con i cambiamenti della UI (es. apertura modali)
         magnifierObserver = new MutationObserver((mutations) => {
             let shouldRefresh = false;
@@ -444,7 +444,7 @@ window.toggleMagnifier = function () {
                 // Ignora i cambiamenti della lente stessa per evitare loop infiniti
                 if (m.target.id === 'magnifier-lens' || m.target.id === 'magnifier-content') continue;
                 if (m.target.closest && m.target.closest('#magnifier-lens')) continue;
-                
+
                 // Ignora aggiornamenti continui e leggeri (es. animazioni svg/d3, input testo rapido)
                 if (m.target.tagName === 'line' || m.target.tagName === 'circle' || m.target.tagName === 'path' || m.target.tagName === 'text') continue;
                 if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'transform') continue;
@@ -453,7 +453,7 @@ window.toggleMagnifier = function () {
                 shouldRefresh = true;
                 break;
             }
-            
+
             if (shouldRefresh) {
                 clearTimeout(magnifierDebounceTimer);
                 magnifierDebounceTimer = setTimeout(() => {
@@ -461,13 +461,13 @@ window.toggleMagnifier = function () {
                 }, 300); // 300ms debounce per non bloccare la UI
             }
         });
-        
+
         // Osserva i cambiamenti rilevanti nel DOM
-        magnifierObserver.observe(document.body, { 
-            childList: true, 
-            subtree: true, 
-            attributes: true, 
-            attributeFilter: ['class', 'style'] 
+        magnifierObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
         });
 
     } else {
@@ -915,10 +915,11 @@ window.refreshGeminiModels = async function () {
     const statusEl = document.getElementById('models-status');
     const refreshIcon = document.getElementById('refresh-models-icon');
 
-    // If no API key, clear the select box and show message
     if (!apiKey) {
         if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca API Key)</option>';
-        window.showToast("Inserisci prima una API Key per caricare i modelli.", "error");
+        if (!appState.studentMode) {
+            window.showToast("Inserisci prima una API Key per caricare i modelli.", "error");
+        }
         if (statusEl) {
             statusEl.innerText = "Attesa inserimento API Key...";
             statusEl.classList.remove('hidden');
@@ -1674,7 +1675,7 @@ REGOLE TASSATIVE DI OUTPUT:
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
-        
+
         window.resetVaultState();
 
         appState.db = {
@@ -1714,16 +1715,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -1756,15 +1757,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
             // Assegniamo un gruppo unico (idx + 1) per garantire colori diversi agli Hub
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -1852,15 +1853,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const extractL1Branch = (nodeId) => {
                     if (!nodeId) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     // 1. Formato esplicito L1_X (es. L1_3, L1_3_L2_A)
                     const m1 = cleanId.match(/L1_(\d+)/);
                     if (m1) return `L1_${m1[1]}`;
-                    
+
                     // 2. Formato implicito LX_Y_... (es. L2_3_2, L3_3_2_1)
                     const m2 = cleanId.match(/^L\d+_(\d+)/);
                     if (m2) return `L1_${m2[1]}`;
-                    
+
                     return null;
                 };
 
@@ -1868,7 +1869,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const findParentIdByIdStructure = (nodeId, level) => {
                     if (!nodeId || level <= 1) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     const match = cleanId.match(/^L\d+_([\d_]+)$/);
                     if (match) {
                         const parts = match[1].split('_');
@@ -1876,7 +1877,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             parts.pop();
                             const parentLevel = level - 1;
                             const parentId = `L${parentLevel}_${parts.join('_')}`;
-                            
+
                             const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
                             if (parentExists) return parentId;
                         }
@@ -1921,15 +1922,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             aiToRealIdMap[n.id] = n.id;
                             let nodeLevel = parseInt(n.level);
                             if (isNaN(nodeLevel)) nodeLevel = 2;
-                            
+
                             const desc = n.desc || n.content || "";
-                            appState.db.nodes.push({ 
-                                ...n, 
-                                level: nodeLevel, 
-                                studyStatus: 'none', 
-                                desc, 
-                                aiDesc: desc, 
-                                chunks: n.chunks || [] 
+                            appState.db.nodes.push({
+                                ...n,
+                                level: nodeLevel,
+                                studyStatus: 'none',
+                                desc,
+                                aiDesc: desc,
+                                chunks: n.chunks || []
                             });
                         }
 
@@ -1957,32 +1958,32 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         }
                     });
                 }
-                
+
                 if (branchData.links && Array.isArray(branchData.links)) {
                     const findNodeId = (idOrLabel) => {
                         if (!idOrLabel) return null;
                         const cleaned = idOrLabel.toString().trim();
                         const upper = cleaned.toUpperCase();
-                        
+
                         // 1. Cerca per ID esatto
                         let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                         if (found) return found.id;
-                        
+
                         // 2. Cerca tramite mappatura aiToRealIdMap
                         if (aiToRealIdMap[upper]) {
                             let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                             if (mappedNode) return mappedNode.id;
                         }
-                        
+
                         // 3. Cerca per Etichetta (Label) normalizzata
                         const norm = normalizeLabel(cleaned);
                         found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                         if (found) return found.id;
-                        
+
                         // 4. Cerca per ID normalizzato
                         found = appState.db.nodes.find(n => normalizeLabel(n.id) === norm);
                         if (found) return found.id;
-                        
+
                         return null;
                     };
 
@@ -1990,15 +1991,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         if (l.source && l.target) {
                             let s = findNodeId(l.source);
                             let t = findNodeId(l.target);
-                            
+
                             // Fallback se il resolver semantico fallisce
                             if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                             if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                            
+
                             if (s && t && s !== t) {
                                 const sExists = appState.db.nodes.some(nx => nx.id === s);
                                 const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                
+
                                 if (sExists && tExists) {
                                     // Evita duplicati di link
                                     const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
@@ -2039,10 +2040,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             }
 
                             if (parentId && parentId !== node.id) {
-                                appState.db.links.push({ 
-                                    source: parentId, 
-                                    target: node.id, 
-                                    rel: "include" 
+                                appState.db.links.push({
+                                    source: parentId,
+                                    target: node.id,
+                                    rel: "include"
                                 });
                                 console.log(`Failsafe Link Creato: ${parentId} -> ${node.id}`);
                             }
@@ -2053,7 +2054,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
                 const hubGroupMap = {};
                 appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-                
+
                 appState.db.nodes.forEach(node => {
                     if (node.level > 1 && (!node.group || node.group === 0)) {
                         // Cerca l'Hub L1 più vicino tramite i link
@@ -2138,16 +2139,16 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -2178,15 +2179,15 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2240,10 +2241,10 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         const totalBranches = l1NodesData.length;
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
-        
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
-        
+
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
             lastNodeInBranch[n.id.toUpperCase()] = { 1: n.id };
@@ -2324,15 +2325,15 @@ ${textParts.join('\n\n')}`;
                                 aiToRealIdMap[n.id] = n.id;
                                 let nodeLevel = parseInt(n.level);
                                 if (isNaN(nodeLevel)) nodeLevel = 2;
-                                
+
                                 const desc = n.desc || n.content || "";
-                                appState.db.nodes.push({ 
-                                    ...n, 
-                                    level: nodeLevel, 
-                                    studyStatus: 'none', 
-                                    desc, 
-                                    aiDesc: desc, 
-                                    chunks: n.chunks || [] 
+                                appState.db.nodes.push({
+                                    ...n,
+                                    level: nodeLevel,
+                                    studyStatus: 'none',
+                                    desc,
+                                    aiDesc: desc,
+                                    chunks: n.chunks || []
                                 });
                             }
 
@@ -2356,19 +2357,19 @@ ${textParts.join('\n\n')}`;
                             if (!idOrLabel) return null;
                             const cleaned = idOrLabel.toString().trim();
                             const upper = cleaned.toUpperCase();
-                            
+
                             let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                             if (found) return found.id;
-                            
+
                             if (aiToRealIdMap[upper]) {
                                 let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                                 if (mappedNode) return mappedNode.id;
                             }
-                            
+
                             const norm = normalizeLabel(cleaned);
                             found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                             if (found) return found.id;
-                            
+
                             return null;
                         };
 
@@ -2376,14 +2377,14 @@ ${textParts.join('\n\n')}`;
                             if (l.source && l.target) {
                                 let s = findNodeId(l.source);
                                 let t = findNodeId(l.target);
-                                
+
                                 if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                                 if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                                
+
                                 if (s && t && s !== t) {
                                     const sExists = appState.db.nodes.some(nx => nx.id === s);
                                     const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                    
+
                                     if (sExists && tExists) {
                                         const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
                                         if (!linkExists) {
@@ -2463,10 +2464,10 @@ ${textParts.join('\n\n')}`;
                     }
 
                     if (parentId && parentId !== node.id) {
-                        appState.db.links.push({ 
-                            source: parentId, 
-                            target: node.id, 
-                            rel: "include" 
+                        appState.db.links.push({
+                            source: parentId,
+                            target: node.id,
+                            rel: "include"
                         });
                     }
                 }
@@ -2476,7 +2477,7 @@ ${textParts.join('\n\n')}`;
         // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
         const hubGroupMap = {};
         appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-        
+
         appState.db.nodes.forEach(node => {
             if (node.level > 1 && (!node.group || node.group === 0)) {
                 const visited = new Set([node.id]);
@@ -2579,9 +2580,9 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { 
-            temperature: 0.2, 
-            responseMimeType: "application/json", 
+        generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json",
             responseSchema: schema,
             maxOutputTokens: 8192
         }
@@ -2595,27 +2596,27 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
-        
+
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
-        
+
         if (rawData.nodes) {
             rawData.nodes.forEach(n => {
                 n.studyStatus = 'none';
-                
+
                 // 1. Se è un Hub manuale dell'utente -> Forza L1 (sempre)
                 // 2. Se l'IA ha proposto un Hub (L1) -> Permetti L1
                 // 3. Altrimenti (L2, L3, L4...) -> Forza L2 per pulizia KG
                 const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
                 const aiWantsHub = (parseInt(n.level) === 1);
-                
+
                 if (isManualHub || aiWantsHub) {
                     n.level = 1;
                 } else {
-                    n.level = 2; 
+                    n.level = 2;
                 }
-                
+
                 if (!n.desc) n.desc = n.content || "";
                 n.aiDesc = n.desc;
             });
@@ -3115,10 +3116,10 @@ function getNodeRadius(d) {
             // Level 0 (absolute Root/Theme): always the maximum primary size
             return 45;
         }
-        
+
         const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
         const degree = d.degree || 0;
-        
+
         if (d.level === 1) {
             // Level 1 (Super-Hub): ranges from 30px to 40px depending on degree
             const minR = 30, maxR = 40;
@@ -3168,7 +3169,7 @@ function initD3Visualization() {
             g.attr("transform", event.transform);
             // Raddoppiato lo spessore dell'outline bianca dei testi (richiesta utente)
             const k = event.transform.k;
-            const strokeW = Math.max(1.2, (2.4 / k)); 
+            const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
         });
     svg.call(zoom);
@@ -3359,7 +3360,7 @@ function renderGraph() {
                 links.forEach(l => {
                     const source = typeof l.source === 'object' ? l.source : nodes.find(x => x.id === l.source);
                     const target = typeof l.target === 'object' ? l.target : nodes.find(x => x.id === l.target);
-                    
+
                     if (!source || !target) return;
 
                     // Se connesso direttamente a un hub
@@ -3392,7 +3393,7 @@ function renderGraph() {
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
-    
+
     // Contenitore per gli archi segmentati (solo KG)
     nodeEnter.append("g").attr("class", "node-segments");
 
@@ -3461,14 +3462,14 @@ function renderGraph() {
         });
 
     // Gestione segmenti colorati per KG
-    nodeMerge.select(".node-segments").each(function(d) {
+    nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
-        
+
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
             const strokeW = 4; // Spessore bordo segmentato più evidente
-            
+
             if (d.hubColors && d.hubColors.length > 0) {
                 const colors = d.hubColors;
                 const arcCount = colors.length;
@@ -3480,7 +3481,7 @@ function renderGraph() {
                         .outerRadius(r + strokeW) // Spessore verso l'esterno
                         .startAngle(i * angleStep)
                         .endAngle((i + 1) * angleStep);
-                    
+
                     container.append("path")
                         .attr("d", arc)
                         .attr("fill", color);
@@ -3507,7 +3508,7 @@ function renderGraph() {
             let lines = getLabelLines(labelStr);
             const vis = d.iconVisibility || { text: true, image: true, link: true };
             const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
-            
+
             textEl.text('');
             lines.forEach((line, i) => {
                 // Center logic: 
@@ -3588,7 +3589,7 @@ function renderGraph() {
     // Animazione a cascata per svelamento progressivo (Strategia 4)
     // Link appaiono tutti insieme con delay
     linkEnter.transition().duration(800).delay(500).style("opacity", 1);
-    
+
     // I nodi vecchi (merge senza enter) devono mantenere opacità 1
     // Per sicurezza impostiamo a 1 tutto ciò che era già presente
     nodeSelection.style("opacity", 1);
@@ -3788,15 +3789,15 @@ window.changeFontScale = function (dir) {
 window.exportSnapshot = async function () {
     try {
         window.showToast("Cattura immagine pulita in corso...", "info");
-        
+
         // Attiva modalità snapshot (nasconde UI)
         document.body.classList.add('is-snapshotting');
-        
+
         // Attendi un frame per il reflow del layout
         await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
-        
+
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
@@ -4506,7 +4507,7 @@ window.openSourceModal = function (nodeId) {
                 let displayUrl = u;
                 if (isLocal) {
                     displayUrl = displayUrl.split(/[/\\]/).pop();
-                    try { displayUrl = decodeURIComponent(displayUrl); } catch(e) {}
+                    try { displayUrl = decodeURIComponent(displayUrl); } catch (e) { }
                 } else if (displayUrl.length > 60) {
                     displayUrl = displayUrl.substring(0, 60) + "...";
                 }
@@ -4777,12 +4778,24 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    // Nella landing page, forza lo zoom a 1.0 per evitare corruzioni del layout
+    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = isLandingVisible ? 1.0 : z;
+
+    document.documentElement.style.setProperty('--app-zoom', effectiveZ);
+
+    if (effectiveZ > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
+
     document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
-    if (z === 1.0) {
+    if (effectiveZ === 1.0) {
         document.body.classList.add('a11y-zoom-x1');
-    } else if (z === 1.5) {
+    } else if (effectiveZ === 1.5) {
         document.body.classList.add('a11y-zoom-x15');
-    } else if (z === 2.0) {
+    } else if (effectiveZ === 2.0) {
         document.body.classList.add('a11y-zoom-x2');
     }
 
@@ -4851,7 +4864,7 @@ window.removeL1Input = function (btn) {
 
 window.riordinaMappa = function () {
     if (!simulation) return;
-    
+
     // Se ci sono nodi pinnati o salvati, chiedi conferma
     const pinnedNodes = appState.db.nodes.filter(n => n.fx !== null && n.fx !== undefined);
     if (pinnedNodes.length > 0) {
@@ -4864,7 +4877,7 @@ window.riordinaMappa = function () {
     } else {
         applyDefaultLayout();
     }
-    
+
     function applyDefaultLayout() {
         appState.db.nodes.forEach(d => {
             if (d.level > 0 && !d.pinned) {
@@ -4879,7 +4892,7 @@ window.riordinaMappa = function () {
 
 window.salvaLayout = function () {
     if (!appState || !appState.db || !appState.db.nodes) return;
-    
+
     appState.db.nodes.forEach(n => {
         if (n.x !== undefined && n.y !== undefined) {
             n.fx = n.x;
@@ -4889,12 +4902,12 @@ window.salvaLayout = function () {
             n.savedY = n.y;
         }
     });
-    
+
     // Forza salvataggio immediato
     if (StorageManager.currentProjectId) {
         StorageManager.saveCurrentProject();
     }
-    
+
     window.showToast("Layout Salvato (Snapshot creato)!", "success");
 };
 
@@ -4951,7 +4964,7 @@ window.importGraph = function (event) {
 
             appState.db = { nodes: data.nodes, links: data.links };
             appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-            
+
             if (data.generationUsage) {
                 appState.generationUsage = data.generationUsage;
                 if (window.updateCostDisplay) window.updateCostDisplay();
@@ -4990,7 +5003,7 @@ window.loadOfflineExample = async function (filename) {
         if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
         const rawData = await response.json();
         const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
-        
+
         if (!data.nodes || !data.links) throw new Error("JSON non valido.");
 
         data.links.forEach(l => {
@@ -5004,7 +5017,7 @@ window.loadOfflineExample = async function (filename) {
 
         appState.db = { nodes: data.nodes, links: data.links };
         appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-        
+
         if (data.generationUsage) {
             appState.generationUsage = data.generationUsage;
             if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5030,7 +5043,7 @@ window.loadOfflineExample = async function (filename) {
         simulation = null;
         window.switchToMapLayout();
         initD3Visualization();
-        
+
         document.getElementById('insegnai-drawer').classList.add('-translate-x-[320px]');
         window.showToast("Esempio caricato con successo", "success");
     } catch (err) { window.showAlert("Errore", "Errore caricamento esempio: " + err.message); }
@@ -5068,7 +5081,7 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
-            
+
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
                 saveRes.upgrades.forEach(up => {
@@ -5087,7 +5100,7 @@ window.saveMapVault = async function () {
                 syncBtn.classList.remove('hidden');
                 syncBtn.classList.add('flex');
             }
-            
+
             window.showToast("Vault creato e collegato!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
@@ -5106,7 +5119,7 @@ window.loadDemoGraph = async function (url) {
         const res = await fetch(url);
         if (!res.ok) throw new Error("File demo non trovato.");
         const data = await res.json();
-        
+
         if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
 
         data.links.forEach(l => {
@@ -5120,7 +5133,7 @@ window.loadDemoGraph = async function (url) {
 
         appState.db = { nodes: data.nodes, links: data.links };
         appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-        
+
         if (data.generationUsage) {
             appState.generationUsage = data.generationUsage;
             if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5152,11 +5165,11 @@ window.loadDemoGraph = async function (url) {
         }
 
         appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
-        
+
         if (typeof simulation !== 'undefined') simulation = null;
         window.switchToMapLayout();
         if (typeof initD3Visualization === 'function') initD3Visualization();
-        
+
         window.showLoadingOverlay(false);
         window.showToast("Mappa dimostrativa caricata con successo!", "success");
     } catch (err) {
@@ -5179,10 +5192,10 @@ window.loadMapVault = async function () {
             appState.activeVaultPath = result.folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             appState.rootNodeLabel = loadRes.data.rootNodeLabel || result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
+
             let nodesList = loadRes.data.nodes || [];
             let linksList = loadRes.data.links || [];
-            
+
             if (nodesList.length === 0) {
                 const rootId = "node_" + Math.random().toString(36).substr(2, 9);
                 nodesList = [{
@@ -5227,7 +5240,7 @@ window.loadMapVault = async function () {
             });
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -6165,13 +6178,13 @@ window.updateUserNotesSidebar = function () {
                 if (isLocal) {
                     try {
                         displayUrl = decodeURIComponent(u.split('/').pop());
-                    } catch(e) {
+                    } catch (e) {
                         displayUrl = u.split('/').pop();
                     }
                 } else {
                     displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
                 }
-                
+
                 html += `
                     <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
                         <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
@@ -6230,7 +6243,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         const items = JSON.parse(cleanText);
         node.flashcardTest = items;
         node.nextReview = Date.now(); // Available right away
-        
+
         if (!isBranch) {
             appState.db.studySets = appState.db.studySets || [];
             const isKG = appState.db.extractionMode === 'knowledge_graph';
@@ -6244,7 +6257,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
                 date: new Date().toISOString()
             });
         }
-        
+
         if (!silent) {
             window.showLoadingOverlay(false);
             window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
@@ -6326,7 +6339,7 @@ window.loadStudySet = function (setId) {
         mistakes: [],
         startTime: Date.now()
     };
-    
+
     window.currentStudyItemIndex = 0;
     window.openStudyPlayer();
 };
@@ -6481,7 +6494,7 @@ window.renderSubQuestion = function () {
     optionsArray.forEach(val => {
         let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
         let btn = document.createElement('div');
-        
+
         if (isTrueFalse) {
             btn.className = "quiz-option flex-1 text-center";
             const lowerText = text.toLowerCase();
@@ -6493,7 +6506,7 @@ window.renderSubQuestion = function () {
         } else {
             btn.className = "quiz-option";
         }
-        
+
         btn.innerText = text;
         btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
         optsContainer.appendChild(btn);
@@ -7207,7 +7220,7 @@ window.setPomodoroDuration = function (mins) {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
     pomodoroTimeLeft = pomodoroDuration;
-    
+
     const btn = document.getElementById('pomodoro-btn');
     if (btn) {
         btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
@@ -7215,7 +7228,7 @@ window.setPomodoroDuration = function (mins) {
     }
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
-    
+
     const p15 = document.getElementById('pomodoro-preset-15');
     const p25 = document.getElementById('pomodoro-preset-25');
     if (p15 && p25) {
@@ -7251,7 +7264,7 @@ window.togglePomodoro = function () {
                     sessions++;
                     localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
                     window.updatePomodoroSessionsDisplay();
-                } catch(e) {
+                } catch (e) {
                     console.error("Error updating pomodoro sessions", e);
                 }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
@@ -7469,7 +7482,7 @@ const StorageManager = {
             const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App Mapp.AI.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
                 return;
             }
 
@@ -7550,7 +7563,7 @@ setInterval(() => {
 // Aggiungo il gestore lingue per i modali
 window.currentLanguage = localStorage.getItem('mappai_language') || 'it';
 
-window.changeLanguage = function (lang) {
+window.changeLanguage = function (lang, showToastMsg = true) {
     window.currentLanguage = lang;
     localStorage.setItem('mappai_language', lang);
     // Uso i nomi definiti nei file .js caricati
@@ -7665,7 +7678,27 @@ window.changeLanguage = function (lang) {
     // --- 3. LOCALIZZAZIONE MODALE GUIDA ---
     const guideContainer = document.getElementById('guide-modal-content');
     if (guideContainer) {
-        guideContainer.innerHTML = `
+        if (appState.studentMode) {
+            guideContainer.innerHTML = `
+                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                    <h3 class="font-black text-violet-700 text-sm mb-2">${t.guide_step5_title}</h3>
+                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step5_desc}</p>
+                </div>
+
+                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                    <h3 class="font-black text-sky-700 text-sm mb-2">${t.guide_step6_title}</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step6_desc}</p>
+                </div>
+
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                    <h3 class="font-black text-rose-700 text-sm mb-2">${t.guide_notes_title}</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_notes_desc}</p>
+                </div>
+
+                <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
+            `;
+        } else {
+            guideContainer.innerHTML = `
                 <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                     <h3 class="font-black text-indigo-700 text-sm mb-2">${t.guide_step1_title}</h3>
                     <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step1_desc}</p>
@@ -7702,7 +7735,8 @@ window.changeLanguage = function (lang) {
                 </div>
 
                 <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
-                `;
+            `;
+        }
     }
 
     // --- 4. FEEDBACK VISIVO BANDIERE ---
@@ -7723,7 +7757,7 @@ window.changeLanguage = function (lang) {
     }
 
     // Invia segnale di cambio lingua se necessario (es. per toast)
-    if (window.showToast) {
+    if (window.showToast && showToastMsg) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
 };
@@ -7740,7 +7774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Inizializza Lingua
-    window.changeLanguage(window.currentLanguage);
+    window.changeLanguage(window.currentLanguage, false);
 
     // Header Buttons
     const btnConfig = document.getElementById('btn-config-ai');
@@ -7815,9 +7849,9 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
     if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
     else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
-    
+
     document.getElementById('study-config-title').innerText = title;
-    
+
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
@@ -8147,7 +8181,7 @@ window.nextStudyItem = function (flashcardFeedback = null) {
 window.addStudyScore = function () {
     try {
         if (!window.studyResults) return;
-        
+
         const score = {
             title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
             correct: window.studyResults.correct,
@@ -8155,7 +8189,7 @@ window.addStudyScore = function () {
             type: window.studyResults.type || "Quiz",
             date: new Date().toISOString()
         };
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
@@ -8163,17 +8197,17 @@ window.addStudyScore = function () {
         } catch (e) {
             console.error("Error reading study scores", e);
         }
-        
+
         if (!Array.isArray(scores)) scores = [];
-        
+
         // Add to the beginning (newest first)
         scores.unshift(score);
-        
+
         // Keep at most 10
         if (scores.length > 10) {
             scores = scores.slice(0, 10);
         }
-        
+
         localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
         window.updateStudyScoresDisplay();
     } catch (err) {
@@ -8185,20 +8219,20 @@ window.updateStudyScoresDisplay = function () {
     try {
         const container = document.getElementById('study-scores-container');
         if (!container) return;
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
             if (raw) scores = JSON.parse(raw);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         if (!Array.isArray(scores) || scores.length === 0) {
             container.innerHTML = `
                 <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
             `;
             return;
         }
-        
+
         container.innerHTML = '';
         scores.forEach(s => {
             const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
@@ -8208,7 +8242,7 @@ window.updateStudyScoresDisplay = function () {
                 minute: '2-digit'
             });
             const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-            
+
             // Color based on performance
             let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
             let progressColor = "bg-rose-500";
@@ -8219,7 +8253,7 @@ window.updateStudyScoresDisplay = function () {
                 bgClass = "bg-amber-50 border-amber-100 text-amber-700";
                 progressColor = "bg-amber-500";
             }
-            
+
             const div = document.createElement('div');
             div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
             div.innerHTML = `
@@ -8237,7 +8271,7 @@ window.updateStudyScoresDisplay = function () {
             `;
             container.appendChild(div);
         });
-        
+
         // Add a "Cancella storico" button at the end
         const clearDiv = document.createElement('div');
         clearDiv.className = "pt-2 flex justify-end";
@@ -8247,7 +8281,7 @@ window.updateStudyScoresDisplay = function () {
             </button>
         `;
         container.appendChild(clearDiv);
-        
+
         if (window.safeCreateIcons) window.safeCreateIcons();
     } catch (err) {
         console.error("Error displaying study scores", err);
@@ -8444,11 +8478,11 @@ window.cycleLineHeight = function () {
 let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
 
-window.cycleTextZoom = function() {
+window.cycleTextZoom = function () {
     window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
 };
 
-window.applyTextZoom = function(idx) {
+window.applyTextZoom = function (idx) {
     currentZoomIdx = idx;
     localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
@@ -8460,21 +8494,25 @@ window.applyTextZoom = function(idx) {
     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
+    // Nella landing page, forza lo zoom a 1.0 per evitare corruzioni del layout
+    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = isLandingVisible ? 1.0 : z;
+
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
-    document.documentElement.style.setProperty('--app-zoom', z);
-    
-    if (z > 1.0) {
+    document.documentElement.style.setProperty('--app-zoom', effectiveZ);
+
+    if (effectiveZ > 1.0) {
         document.body.classList.add('a11y-zoomed-modals');
     } else {
         document.body.classList.remove('a11y-zoomed-modals');
     }
 
     document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
-    if (z === 1.0) {
+    if (effectiveZ === 1.0) {
         document.body.classList.add('a11y-zoom-x1');
-    } else if (z === 1.5) {
+    } else if (effectiveZ === 1.5) {
         document.body.classList.add('a11y-zoom-x15');
-    } else if (z === 2.0) {
+    } else if (effectiveZ === 2.0) {
         document.body.classList.add('a11y-zoom-x2');
     }
 
@@ -8510,28 +8548,28 @@ window.applyTextZoom = function(idx) {
     const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
     if (sourceBody) {
-        if (z === 1.0) sourceBody.style.removeProperty('font-size');
-        else sourceBody.style.setProperty('font-size', `${z * 16}px`, 'important');
+        if (effectiveZ === 1.0) sourceBody.style.removeProperty('font-size');
+        else sourceBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
     }
     if (aiBody) {
-        if (z === 1.0) aiBody.style.removeProperty('font-size');
-        else aiBody.style.setProperty('font-size', `${z * 16}px`, 'important');
+        if (effectiveZ === 1.0) aiBody.style.removeProperty('font-size');
+        else aiBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
     }
     if (flashcardFront) {
-        if (z === 1.0) flashcardFront.style.removeProperty('font-size');
-        else flashcardFront.style.setProperty('font-size', `${z * 24}px`, 'important');
+        if (effectiveZ === 1.0) flashcardFront.style.removeProperty('font-size');
+        else flashcardFront.style.setProperty('font-size', `${effectiveZ * 24}px`, 'important');
     }
     if (flashcardBack) {
-        if (z === 1.0) flashcardBack.style.removeProperty('font-size');
-        else flashcardBack.style.setProperty('font-size', `${z * 18}px`, 'important');
+        if (effectiveZ === 1.0) flashcardBack.style.removeProperty('font-size');
+        else flashcardBack.style.setProperty('font-size', `${effectiveZ * 18}px`, 'important');
     }
     if (quizQuestion) {
-        if (z === 1.0) quizQuestion.style.removeProperty('font-size');
-        else quizQuestion.style.setProperty('font-size', `${z * 20}px`, 'important');
+        if (effectiveZ === 1.0) quizQuestion.style.removeProperty('font-size');
+        else quizQuestion.style.setProperty('font-size', `${effectiveZ * 20}px`, 'important');
     }
     quizOptions.forEach(opt => {
-        if (z === 1.0) opt.style.removeProperty('font-size');
-        else opt.style.setProperty('font-size', `${z * 13}px`, 'important');
+        if (effectiveZ === 1.0) opt.style.removeProperty('font-size');
+        else opt.style.setProperty('font-size', `${effectiveZ * 13}px`, 'important');
     });
 
     // Ripristina root font size se era stato modificato
@@ -9282,10 +9320,10 @@ window.directLoadVault = async function (folderPath) {
             appState.activeVaultPath = folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             appState.rootNodeLabel = loadRes.data.rootNodeLabel || folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
+
             let nodesList = loadRes.data.nodes || [];
             let linksList = loadRes.data.links || [];
-            
+
             if (nodesList.length === 0) {
                 const rootId = "node_" + Math.random().toString(36).substr(2, 9);
                 nodesList = [{
@@ -9360,7 +9398,7 @@ window.directLoadVault = async function (folderPath) {
             }
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
