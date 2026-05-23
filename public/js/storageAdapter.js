@@ -593,23 +593,7 @@
                     });
                 }
 
-                // Se l'utente ha esplicitamente richiesto di salvare/esportare il vault, apri lo Share Sheet nativo di iOS
-                if (isExplicitExport) {
-                    try {
-                        const blob = new Blob([JSON.stringify(vaultData, null, 2)], { type: 'application/json' });
-                        const file = new File([blob], `${activeVault}_vault.json`, { type: 'application/json' });
-                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                files: [file],
-                                title: `Esporta Vault - ${activeVault}`,
-                                text: `Vault di MappAI: ${activeVault}`
-                            });
-                        }
-                    } catch (shareError) {
-                        console.error("[MappAI Adapter] Errore durante navigator.share:", shareError);
-                    }
-                }
-
+                // Salvataggio completato localmente senza richiedere lo Share Sheet nativo per evitare ambiguità.
                 return { success: true };
             } else {
                 // Su Web scriviamo su IndexedDB
@@ -845,7 +829,7 @@
                     const models = (parsed.data || []).map(m => ({
                         id: m.id,
                         displayName: m.id + ' (Swiss AI)',
-                        kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
+                        kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0.20, outputCost: 0.40, note: 'Infomaniak Cloud' }
                     }));
                     return models;
                 } catch (e) {
@@ -865,7 +849,7 @@
                 const models = (parsed.data || []).map(m => ({
                     id: m.id,
                     displayName: m.id + ' (Swiss AI)',
-                    kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
+                    kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0.20, outputCost: 0.40, note: 'Infomaniak Cloud' }
                 }));
                 return models;
             } catch (e) {
