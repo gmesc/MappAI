@@ -103,7 +103,7 @@ Aggiungere le medesime chiavi tradotte in lingua inglese.
 
 #### [MODIFY] [storageAdapter.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/storageAdapter.js)
 * Estendere la compatibilità su iPadOS per caricare le chiavi secure da Keychain o `localStorage`.
-* Simulare o implementare le funzioni di upload e download kDrive per l'iPad utilizando la libreria CapacitorHttp o fetch integrato (poiché non sono soggetti a CORS restrittivi nell'ambiente nativo iOS).
+* Simulare o implementare le funzioni di upload e download kDrive per l'iPad utilizzando la libreria CapacitorHttp o fetch integrato (poiché non sono soggetti a CORS restrittivi nell'ambiente nativo iOS).
 
 ---
 
@@ -116,7 +116,7 @@ Aggiungere le medesime chiavi tradotte in lingua inglese.
 * Implementare il gestore IPC `get-consolidated-vault`:
   * Caricare l'intero vault utilizzando la logica nativa di parsing (index.yaml, links.json, Nodi/*.md, chat_state, ecc.).
   * Per ciascun nodo, analizzare l'array `images`. Qualora contenga percorsi relativi della cartella `Allegati`, leggere l'immagine dal disco, convertirla in Base64 (data URI) e sovrascrivere il percorso relativo nel JSON restituito.
-* Aggiungere un proxy o abilitare la chiamata Axios nel backend se necessario, ma i client moderni possono richiamare direttamente le API di Infomaniak se non ci sono problemi CORS o qualora delegato interamente per semplicità al renderer (essendo Electron privo di limitazioni CORS strict se configurato con privileges appropriati o aggirabile tramite proxy).
+* Aggiungere un proxy o abilitare la chiamata Axios nel backend se necessario, ma i client moderni possono richiamare direttamente le API di Infomaniak se non ci sono problemi CORS o qualora delegato interamente per semplicità al renderer (essendo Electron privo di limitazioni CORS strict se configurato con privilegi appropriati o aggirabile tramite proxy).
 
 #### [MODIFY] [Info.plist](file:///Users/giacomomeschini/Antigravity/MappAI/ios/App/App/Info.plist)
 * Aggiungere le autorizzazioni per l'utilizzo della fotocamera:
@@ -124,6 +124,20 @@ Aggiungere le medesime chiavi tradotte in lingua inglese.
   <key>NSCameraUsageDescription</key>
   <string>MappAI necessita dell'accesso alla fotocamera per consentire la scansione dei QR code e l'importazione rapida dei Vault.</string>
   ```
+
+---
+
+### 5. Inizializzazione Struttura Demo Vault appiattita nel File System Destinazione
+* I nuovi vault demo all'interno della cartella `VAULT DEMO` sono stati riorganizzati in una struttura piatta di 7 cartelle (ciascuna contenente solo la sottocartella `Allegati`).
+* Per consentire a MappAI di rilevare questi vault vuoti come validi all'avvio, creiamo dinamicamente nel filesystem del dispositivo (Desktop e iPadOS) le cartelle corrispondenti e un file `index.yaml` predefinito.
+
+#### [MODIFY] [main.js](file:///Users/giacomomeschini/Antigravity/MappAI/main.js)
+* Implementare la funzione `initializeDesktopDemoVaults()` eseguita all'avvio in `app.whenReady()`.
+* Crea la cartella `Documents/Salvataggi MappAI` e, per ciascuno dei 7 vault demo, crea la cartella del vault, la cartella `Allegati` e genera un file `index.yaml` di default se mancante.
+
+#### [MODIFY] [storageAdapter.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/storageAdapter.js)
+* Aggiornare `initialVaultsList` con l'elenco dei 7 nuovi vault.
+* All'interno di `checkAndInitIPadDemoVaults()`, iterare sull'elenco per creare le cartelle nativamente con Capacitor `Filesystem.mkdir` e scrivere un `index.yaml` iniziale se mancante.
 
 ## Verification Plan
 
@@ -138,3 +152,5 @@ Aggiungere le medesime chiavi tradotte in lingua inglese.
 5. Inquadrare il QR code generato.
 6. Verificare che il Vault venga scaricato, salvato nel file system locale e mostrato nella lista dei Vault.
 7. Caricare il Vault appena importato e verificare che tutti i nodi e le immagini Base64 vengano caricati correttamente.
+8. **Verifica Vault Demo**: Avviare l'applicazione su Desktop ed iPad e verificare che i 7 nuovi Vault vuoti (es. "Invenzione Carta", "Storia Svizzera", "Robotica mindstorm gigetto 10 nodi") siano visualizzati correttamente nella lista dei Vault e che contengano le relative cartelle `Allegati` nel file system locale.
+
