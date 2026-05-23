@@ -2630,6 +2630,12 @@ Restituisci solo il JSON pulito.</pre>
                     <div id="admin-prompts-list" class="flex-1 overflow-y-auto pr-1 modal-scroll">
                         <!-- Populated by JS -->
                     </div>
+                    <div class="mt-4 pt-4 border-t border-slate-200 shrink-0">
+                        <button onclick="window.resetAllPrompts()"
+                            class="w-full py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-xs">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> <span id="admin-btn-reset-all-label">Ripristina Tutti i Prompt</span>
+                        </button>
+                    </div>
                 </div>
                 <!-- Main Editor -->
                 <div class="w-2/3 p-6 flex flex-col bg-white">
@@ -2646,6 +2652,10 @@ Restituisci solo il JSON pulito.</pre>
                             <button onclick="window.testPrompt()"
                                 class="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2">
                                 <i data-lucide="flask-conical" class="w-4 h-4"></i> Test Prompt
+                            </button>
+                            <button onclick="window.resetCurrentPrompt()"
+                                class="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> <span id="admin-btn-reset-label">Ripristina Default</span>
                             </button>
                         </div>
                         <button onclick="window.saveCurrentPrompt()"

@@ -98,6 +98,16 @@ window.openAdminDashboard = async function() {
     document.getElementById('admin-dashboard').classList.remove('hidden');
     document.getElementById('admin-dashboard').classList.add('flex');
     
+    // Configura le traduzioni dei bottoni di ripristino
+    const resetLabelEl = document.getElementById('admin-btn-reset-label');
+    if (resetLabelEl) {
+        resetLabelEl.innerText = window.getAdminTranslation('admin_btn_reset') || 'Ripristina Default';
+    }
+    const resetAllLabelEl = document.getElementById('admin-btn-reset-all-label');
+    if (resetAllLabelEl) {
+        resetAllLabelEl.innerText = window.getAdminTranslation('admin_btn_reset_all') || 'Ripristina Tutti i Prompt';
+    }
+    
     // Load config if empty
     if (Object.keys(window.systemPromptsConfig).length === 0) {
         await window.loadPromptsConfig();
@@ -264,6 +274,81 @@ window.runAIPromptTest = async function() {
         }
     } catch(err) {
         outputEl.value = "ERRORE: " + err.message;
+    }
+};
+
+window.resetCurrentPrompt = async function() {
+    if (!window.currentAdminPromptKey) return;
+    
+    const confirmMsg = window.getAdminTranslation('admin_confirm_reset_prompt') || 'Ripristinare questo prompt al valore originale di default?';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        const response = await fetch('./prompts_default.json');
+        if (response.ok) {
+            const defaultPrompts = await response.json();
+            const defaultVal = defaultPrompts[window.currentAdminPromptKey];
+            if (defaultVal !== undefined) {
+                document.getElementById('admin-prompt-editor').value = defaultVal;
+                
+                // Aggiorna la configurazione locale in memoria
+                window.systemPromptsConfig[window.currentAdminPromptKey] = defaultVal;
+                
+                // Salva le modifiche usando il canale adeguato
+                if (window.electronAPI && window.electronAPI.savePrompts) {
+                    await window.electronAPI.savePrompts(window.systemPromptsConfig);
+                } else if (window.storageAdapter && window.storageAdapter.savePrompts) {
+                    await window.storageAdapter.savePrompts(window.systemPromptsConfig);
+                } else {
+                    localStorage.setItem("mappai_custom_prompts", JSON.stringify(window.systemPromptsConfig));
+                }
+                
+                if (window.showToast) window.showToast('Prompt ripristinato al valore di default con successo!', 'success');
+                else alert('Ripristinato al valore di default!');
+            } else {
+                if (window.showToast) window.showToast('Nessun valore di default trovato per questo prompt.', 'error');
+                else alert('Nessun valore di default trovato.');
+            }
+        } else {
+            throw new Error("Impossibile caricare prompts_default.json");
+        }
+    } catch (err) {
+        console.error("Errore ripristino prompt:", err);
+        if (window.showToast) window.showToast('Errore durante il ripristino: ' + err.message, 'error');
+        else alert('Errore ripristino: ' + err.message);
+    }
+};
+
+window.resetAllPrompts = async function() {
+    const confirmMsg = window.getAdminTranslation('admin_confirm_reset_all_prompts') || 'Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default?';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        // Inviamo un oggetto vuoto per resettare le sovrascritture utente
+        if (window.electronAPI && window.electronAPI.savePrompts) {
+            await window.electronAPI.savePrompts({});
+        } else if (window.storageAdapter && window.storageAdapter.savePrompts) {
+            await window.storageAdapter.savePrompts({});
+        } else {
+            localStorage.setItem("mappai_custom_prompts", "{}");
+        }
+        
+        // Ricarichiamo la configurazione originale pulita
+        await window.loadPromptsConfig();
+        
+        // Se un prompt era selezionato, aggiorniamo l'editor
+        if (window.currentAdminPromptKey) {
+            document.getElementById('admin-prompt-editor').value = window.systemPromptsConfig[window.currentAdminPromptKey] || '';
+        }
+        
+        await window.renderAdminPromptsList();
+        
+        if (window.showToast) window.showToast('Tutti i prompt sono stati ripristinati ai valori di default!', 'success');
+        else alert('Tutti i prompt sono stati ripristinati ai valori di default!');
+    } catch (err) {
+        console.error("Errore ripristino totale prompt:", err);
+        if (window.showToast) window.showToast('Errore durante il ripristino totale: ' + err.message, 'error');
+        else alert('Errore ripristino totale: ' + err.message);
     }
 };
 
