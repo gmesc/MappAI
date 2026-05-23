@@ -865,7 +865,7 @@ ipcMain.handle('fetch-url', async (event, url) => {
 ipcMain.handle('load-prompts', async () => {
     try {
         // 1. Carica i prompt di sistema (default)
-        const defaultPromptsPath = path.join(__dirname, 'prompts_config.json');
+        const defaultPromptsPath = path.join(__dirname, 'prompts_default.json');
         let combinedPrompts = {};
         if (fs.existsSync(defaultPromptsPath)) {
             const data = fs.readFileSync(defaultPromptsPath, 'utf-8');
@@ -874,7 +874,7 @@ ipcMain.handle('load-prompts', async () => {
         
         // 2. Sovrapponi i prompt personalizzati dall'utente (se esistono)
         const userDataPath = app.getPath('userData');
-        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
+        const userPromptsPath = path.join(userDataPath, 'prompts_user.json');
         if (fs.existsSync(userPromptsPath)) {
             const userData = fs.readFileSync(userPromptsPath, 'utf-8');
             const overrides = JSON.parse(userData);
@@ -891,7 +891,7 @@ ipcMain.handle('load-prompts', async () => {
 ipcMain.handle('save-prompts', async (event, promptsData) => {
     try {
         const userDataPath = app.getPath('userData');
-        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
+        const userPromptsPath = path.join(userDataPath, 'prompts_user.json');
         
         fs.writeFileSync(userPromptsPath, JSON.stringify(promptsData, null, 4), 'utf-8');
         return { success: true };

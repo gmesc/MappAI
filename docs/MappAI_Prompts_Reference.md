@@ -170,7 +170,7 @@ Compito:
 Per consentirti di amministrare, ottimizzare e testare questi prompt senza dover ogni volta rimettere mano al codice sorgente di `app.js`, ecco un approccio ingegneristico elegante per MappAI:
 
 ### Fase 1: Estrazione e Centralizzazione
-1. **Creare un file di Configurazione JSON (`prompts_config.json`)**
+1. **Creare un file di Configurazione JSON (`prompts_default.json`)**
    Rimuoveremo i prompt cablati (hardcoded) in `app.js` e li sposteremo in un file JSON. Esempio:
    ```json
    {
@@ -188,7 +188,7 @@ Poiché l'app gira in Electron (desktop) e su Web, possiamo creare un ambiente r
    - Una barra laterale per selezionare il prompt (es. *Tutor Socratico, KG Builder, Flashcard Generator*).
    - Una descrizione del prompt selezionato e la sua funzione. 
    - Un grande campo `textarea` (o un editor Monaco/CodeMirror) per testare e modificare il prompt.
-   - Un bottone **"Salva"** che va a sovrascrivere il file `prompts_config.json` (usando IPC communication su Electron per scrivere su disco, oppure LocalStorage/Server per il web).
+   - Un bottone **"Salva"** che va a sovrascrivere il file `prompts_user.json` (usando IPC communication su Electron per scrivere su disco, oppure LocalStorage/Server per il web).
 3. **Sezione di A/B Testing Integrato:**
    Nella dashboard, puoi inserire dei valori di test (es. inserire un testo di prova e un nome finto per l'utente) e cliccare su **"Test Prompt"**, per vedere direttamente nella dashboard cosa restituisce Gemini, aiutandoti nell'ottimizzazione del prompt senza dover fare tutto il flusso utente per generare una mappa.
 

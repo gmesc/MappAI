@@ -184,6 +184,10 @@ const en_translations = {
     admin_explanation_kgraphs: "These prompts define the semantic network structure for the Knowledge Graph construction, setting up how the AI identifies nodes and cross-relations.",
     admin_explanation_tutor: "These prompts define the personality and pedagogical method of the AI Tutor. They regulate socratic tone, student error management, and step-by-step guidance.",
     admin_explanation_study: "These prompts handle the automatic generation of assessment materials. They define the format of Quizzes and Flashcards, ensuring they are based solely on concepts present in the map.",
+    admin_btn_reset: "Restore Default",
+    admin_confirm_reset_prompt: "Restore this prompt to its original default value?",
+    admin_btn_reset_all: "Restore All Prompts",
+    admin_confirm_reset_all_prompts: "Are you sure you want to restore ALL prompts to their default values? This will permanently delete all your customizations.",
 
     // Extra
     machine_id_desc: "Send the following <b>Machine ID</b> to Giacomo to receive your unique unlock code:",

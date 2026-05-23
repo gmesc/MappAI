@@ -191,7 +191,11 @@ const it_translations = {
     admin_prompt_desc_socratic_en: "Istruzioni AI Tutor Socratico (Inglese)",
     admin_prompt_desc_sota: "Espansione Contesto SOTA Second Brain",
     admin_prompt_desc_dynamic_quiz: "Generazione Verifiche Dinamiche",
-    admin_prompt_desc_flashcards: "Generazione Flashcards"
+    admin_prompt_desc_flashcards: "Generazione Flashcards",
+    admin_btn_reset: "Ripristina Default",
+    admin_confirm_reset_prompt: "Ripristinare questo prompt al valore originale di default?",
+    admin_btn_reset_all: "Ripristina Tutti i Prompt",
+    admin_confirm_reset_all_prompts: "Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default? Questa operazione eliminerà permanentemente tutte le tue personalizzazioni.",
     ,
     // Extra
     machine_id_desc: "Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:",
