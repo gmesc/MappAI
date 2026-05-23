@@ -227,6 +227,7 @@ body.a11y-zoom-x2 {
 #insegnai-drawer-tab {
     transform: scale(1.0) !important;
     width: 36px !important;
+    box-sizing: border-box !important;
     background-color: #4f46e5 !important;
     /* Indigo-600 */
     border: 1px solid #6366f1 !important;
@@ -249,6 +250,7 @@ body.a11y-zoom-x2 {
     text-orientation: mixed !important;
     white-space: nowrap !important;
     display: block !important;
+    text-transform: none !important; /* Mantiene il testo in minuscolo */
 }
 
 #insegnai-drawer-tab button {
@@ -366,6 +368,11 @@ body.a11y-zoom-x2 {
     border: 1px solid #10b981 !important;
     /* Green border color */
     font-size: 13.5px !important;
+    height: 36px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 #projects-bar button.absolute:hover {
