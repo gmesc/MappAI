@@ -6515,6 +6515,7 @@ window.loadStudySet = function (setId) {
         correct: 0,
         total: set.items.length,
         mistakes: [],
+        openAnswers: [],
         startTime: Date.now()
     };
     
@@ -8184,6 +8185,7 @@ window.startStudySession = async function () {
             correct: 0,
             total: window.activeStudySessionItems.length,
             mistakes: [],
+            openAnswers: [],
             startTime: Date.now()
         };
 
@@ -8330,6 +8332,8 @@ window.checkQuizAnswer = function (selected, item) {
 
 window.checkOpenAnswer = function () {
     const item = window.activeStudySessionItems[window.currentStudyItemIndex];
+    const userAnswer = document.getElementById('study-quiz-textarea').value || "";
+
     document.getElementById('study-quiz-open').classList.add('hidden');
     document.getElementById('study-quiz-open').classList.remove('flex');
 
@@ -8342,10 +8346,19 @@ window.checkOpenAnswer = function () {
 
     document.getElementById('study-quiz-feedback').classList.remove('hidden');
 
-    // In open answer we don't automatically record correct/wrong, 
-    // maybe we assume they are learning. Let's mark as 'incomplete' or similar.
+    // Inizializza openAnswers se non esiste per sicurezza
+    if (!window.studyResults.openAnswers) window.studyResults.openAnswers = [];
+    window.studyResults.openAnswers.push({
+        q: item.q,
+        userAnswer: userAnswer,
+        correctAnswer: item.correct,
+        explanation: item.explanation
+    });
+
+    // Registra comunque nei mistakes per visualizzazione riassunto, ma taggato come risposta aperta
     window.studyResults.mistakes.push({
         q: item.q,
+        userAnswer: userAnswer,
         correctAnswer: item.correct,
         explanation: item.explanation,
         isOpen: true
@@ -8498,11 +8511,54 @@ window.clearStudyScores = function () {
     }
 };
 
+window.autoSaveOpenQuizResponses = async function () {
+    if (!window.studyResults || !window.studyResults.openAnswers || window.studyResults.openAnswers.length === 0) return;
+    
+    const nickname = appState.userProfile.nickname || "Studente Anonimo";
+    const age = appState.userProfile.age || "-";
+    const grade = appState.userProfile.grade || "-";
+    const system = appState.userProfile.system || "-";
+    const title = window.activeStudySetTitle || "Quiz Aperto";
+    
+    let txt = `=== RISPOSTE QUIZ APERTO: ${title} ===\n`;
+    txt += `Data: ${new Date().toLocaleString()}\n`;
+    txt += `Studente: ${nickname} (Età: ${age}, Classe: ${grade}, Sistema: ${system})\n`;
+    txt += `--------------------------------------------------\n\n`;
+    
+    window.studyResults.openAnswers.forEach((ans, idx) => {
+        txt += `[Tutor]: Domanda ${idx + 1}: ${ans.q}\n`;
+        txt += `[Studente]: ${ans.userAnswer}\n`;
+        txt += `Risposta di riferimento: ${ans.correctAnswer}\n`;
+        if (ans.explanation) txt += `Spiegazione: ${ans.explanation}\n`;
+        txt += `\n`;
+    });
+    
+    txt += `--------------------------------------------------\n`;
+    txt += `Fine della sessione di quiz aperto.\n`;
+    
+    try {
+        if (window.electronAPI && window.electronAPI.saveQuizTextResponse) {
+            await window.electronAPI.saveQuizTextResponse({
+                title: title,
+                textContent: txt
+            });
+            window.showToast("Risposte salvate con successo nel tuo Vault!", "success");
+        }
+    } catch (e) {
+        console.error("Errore durante il salvataggio automatico delle risposte del quiz aperto:", e);
+    }
+};
+
 window.showStudySummary = function () {
     if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
 
     // Salva il punteggio nello storico
     window.addStudyScore();
+
+    // Se ci sono risposte aperte, salvale automaticamente come file di chat .txt nel Vault
+    if (window.studyResults && window.studyResults.openAnswers && window.studyResults.openAnswers.length > 0) {
+        window.autoSaveOpenQuizResponses();
+    }
 
     document.getElementById('study-flashcard-view').classList.add('hidden');
     document.getElementById('study-quiz-view').classList.add('hidden');

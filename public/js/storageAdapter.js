@@ -571,6 +571,21 @@
                     }
                 }
 
+                // 5. Salva Materiale Studio (Flashcards/Quiz)
+                if (mapData.studySets && mapData.studySets.length) {
+                    for (const set of mapData.studySets) {
+                        const safeTitle = (set.title || "Studio").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                        const fileName = `${safeTitle}_${set.id}.json`;
+                        await Filesystem.writeFile({
+                            path: `MappAI - Vault/${activeVault}/Materiale Studio/${fileName}`,
+                            data: JSON.stringify(set, null, 2),
+                            directory: Directory.Documents,
+                            encoding: 'utf8',
+                            recursive: true
+                        });
+                    }
+                }
+
                 // Aggiorna anche l'indice dei vault
                 let list = [];
                 try {
@@ -630,6 +645,28 @@
                 return { success: true };
             } else {
                 await setLocalItem(`vault_chat_${activeVault}_${filename}`, JSON.stringify(transcriptData));
+                return { success: true };
+            }
+        },
+
+        saveQuizTextResponse: async function (data) {
+            const { title, textContent } = data;
+            const activeVault = currentVirtualVault || "Default_Vault";
+            const safeTitle = (title || "Quiz").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const filename = `risposte_quiz_${safeTitle}_${Date.now()}.txt`;
+
+            if (isCapacitor) {
+                const { Filesystem, Directory } = window.Capacitor.Plugins;
+                await Filesystem.writeFile({
+                    path: `MappAI - Vault/${activeVault}/chats/${filename}`,
+                    data: textContent,
+                    directory: Directory.Documents,
+                    encoding: 'utf8',
+                    recursive: true
+                });
+                return { success: true };
+            } else {
+                await setLocalItem(`vault_quiz_txt_${activeVault}_${filename}`, textContent);
                 return { success: true };
             }
         },
