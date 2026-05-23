@@ -90,17 +90,22 @@ window.toggleInfomaniakProMode = function () {
 };
 
 window.applyStudentModeUI = function () {
+    // In modalità studente (sia sbloccata che bloccata), questi bottoni sono sempre nascosti per la versione Studente
     const btnUrl = document.getElementById('btn-src-url');
     const btnYoutube = document.getElementById('btn-src-youtube');
     const btnAudio = document.getElementById('btn-src-audio');
     const btnVideo = document.getElementById('btn-src-video');
 
-    const displayStyle = appState.studentMode ? 'none' : '';
+    if (btnUrl) btnUrl.style.display = 'none';
+    if (btnYoutube) btnYoutube.style.display = 'none';
+    if (btnAudio) btnAudio.style.display = 'none';
+    if (btnVideo) btnVideo.style.display = 'none';
 
-    if (btnUrl) btnUrl.style.display = displayStyle;
-    if (btnYoutube) btnYoutube.style.display = displayStyle;
-    if (btnAudio) btnAudio.style.display = displayStyle;
-    if (btnVideo) btnVideo.style.display = displayStyle;
+    // Assicurati che i bottoni per caricare documenti e testo siano visibili
+    const btnDoc = document.getElementById('btn-src-doc');
+    const btnText = document.getElementById('btn-src-text');
+    if (btnDoc) btnDoc.style.display = '';
+    if (btnText) btnText.style.display = '';
 
     const setupForm = document.getElementById('setup-form');
     if (setupForm) {
@@ -141,6 +146,40 @@ window.applyStudentModeUI = function () {
         }
     }
 };
+
+window.unlockStudentGenerator = function () {
+    appState.studentMode = false;
+    
+    // Sblocca il form di setup e il pulsante di configurazione AI
+    const setupForm = document.getElementById('setup-form');
+    if (setupForm) setupForm.classList.remove('hidden');
+    
+    const btnConfig = document.getElementById('btn-config-ai');
+    if (btnConfig) btnConfig.classList.remove('hidden');
+    
+    window.applyStudentModeUI();
+    window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
+};
+
+// Ascoltatore per la combinazione segreta di sblocco: CTRL + SHIFT + L + K + J + H
+let secretBuffer = [];
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey) {
+        const key = e.key.toUpperCase();
+        if (['L', 'K', 'J', 'H'].includes(key)) {
+            secretBuffer.push(key);
+            if (secretBuffer.length > 4) {
+                secretBuffer.shift();
+            }
+            if (secretBuffer.join('') === 'LKJH') {
+                window.unlockStudentGenerator();
+                secretBuffer = [];
+            }
+        }
+    } else {
+        secretBuffer = [];
+    }
+});
 
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
