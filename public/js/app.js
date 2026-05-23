@@ -46,7 +46,60 @@ const studentModeSecret = ['l', 'k', 'j', 'h'];
 let infomaniakProKeys = [];
 const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
+window.closeActiveModals = function () {
+    const modals = [
+        { id: 'config-ai-modal', close: () => window.closeConfigAIModal() },
+        { id: 'user-profile-modal', close: () => window.closeUserProfileModal() },
+        { id: 'app-guide-modal', close: () => window.closeAppGuide() },
+        { id: 'app-tutorial-modal', close: () => window.closeAppTutorial() },
+        { id: 'source-modal', close: () => window.closeSourceModal() },
+        { id: 'ai-modal', close: () => window.closeAIModal() },
+        { id: 'quiz-modal', close: () => window.closeQuizModal() },
+        { id: 'study-config-modal', close: () => window.closeStudyConfigModal() },
+        { id: 'study-player-modal', close: () => window.closeStudyPlayer() },
+        { id: 'contextual-ai-extension-modal', close: () => window.closeContextualAIModal() },
+        { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
+        { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
+        { id: 'validate-link-modal', close: () => window.closeValidateModal() },
+        { id: 'api-tutorial-modal', close: () => {
+            const m = document.getElementById('api-tutorial-modal');
+            if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
+        }},
+        { id: 'merge-confirm-modal', close: () => {
+            if (typeof window.cancelMerge === 'function') window.cancelMerge();
+            else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+        }},
+        { id: 'confirm-modal', close: () => {
+            const m = document.getElementById('confirm-modal');
+            if (m && !m.classList.contains('hidden')) {
+                const cancelBtn = document.getElementById('confirm-cancel');
+                if (cancelBtn) cancelBtn.click();
+                else m.classList.add('hidden');
+            }
+        }},
+        { id: 'image-lightbox', close: () => window.closeLightbox() },
+        { id: 'admin-dashboard', close: () => {
+            if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+            else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+        }}
+    ];
+
+    modals.forEach(m => {
+        const el = document.getElementById(m.id);
+        if (el && !el.classList.contains('hidden') && el.style.display !== 'none') {
+            try {
+                m.close();
+            } catch (err) {
+                console.error(`Error closing modal ${m.id}:`, err);
+            }
+        }
+    });
+};
+
 document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        window.closeActiveModals();
+    }
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
         
@@ -774,12 +827,30 @@ const MODEL_KB = {
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
 function matchModelKB(modelId) {
+    if (!modelId) return null;
     const id = modelId.toLowerCase().replace('models/', '');
-    // Try exact prefix match first
+
+    // 1. Try to find in currently available models (stored in localStorage)
+    const isInfomaniak = (window.appState && window.appState.aiProvider === 'infomaniak');
+    const storageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+    const savedModelsStr = localStorage.getItem(storageKey);
+    if (savedModelsStr) {
+        try {
+            const savedModels = JSON.parse(savedModelsStr);
+            const found = savedModels.find(m => m.id.toLowerCase() === modelId.toLowerCase() || m.id.toLowerCase().replace('models/', '') === id);
+            if (found && found.kb) {
+                return found.kb;
+            }
+        } catch (e) {
+            console.error("Error parsing saved models from localStorage:", e);
+        }
+    }
+
+    // 2. Try exact prefix match first in MODEL_KB
     for (const pattern of Object.keys(MODEL_KB)) {
         if (id.startsWith(pattern)) return MODEL_KB[pattern];
     }
-    // Fuzzy: strip preview/exp suffixes and try again
+    // 3. Fuzzy: strip preview/exp suffixes and try again
     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
     for (const pattern of Object.keys(MODEL_KB)) {
         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
@@ -891,6 +962,7 @@ window.refreshGeminiModels = async function () {
             statusEl.innerText = "Attesa inserimento API Key...";
             statusEl.classList.remove('hidden');
         }
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -901,6 +973,7 @@ window.refreshGeminiModels = async function () {
             if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
             window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
             if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
             return;
         }
     }
@@ -1007,6 +1080,7 @@ function updateModelCapabilities() {
     if (!kb) {
         capsEl.innerHTML = '';
         capsEl.classList.add('hidden');
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -1029,6 +1103,7 @@ function updateModelCapabilities() {
                     <span class="text-[10px] text-slate-400 italic">${kb.note}</span>
                 </div>`;
     capsEl.classList.remove('hidden');
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 // Funzioni sicure per il processing delle stringhe multilinea
@@ -1153,41 +1228,118 @@ window.updateCostDisplay = function () {
 }
 
 window.updateTokenCounter = function () {
-    const container = document.getElementById('token-counter-container');
-    const display = document.getElementById('token-count');
-    if (!container || !display) return;
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
+};
 
+window.updateTokenCostEstimator = function () {
+    const modelSelect = document.getElementById('model-select');
+    const tokensValEl = document.getElementById('estimator-tokens');
+    const costValEl = document.getElementById('estimator-cost');
+    const progressEl = document.getElementById('estimator-progress');
+    if (!tokensValEl || !costValEl || !progressEl) return;
+
+    const selectedModel = modelSelect ? modelSelect.value : '';
+    if (!selectedModel) {
+        tokensValEl.textContent = '0 / -- token';
+        costValEl.textContent = '--';
+        progressEl.style.width = '0%';
+        return;
+    }
+
+    // 1. Get model specs
+    const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
+    
+    // Determine context window
+    let maxContext = 1048576; // Default to 1M
+    const modelIdLower = selectedModel.toLowerCase();
+    
+    if (appState.aiProvider === 'infomaniak') {
+        if (modelIdLower.includes('gemma')) {
+            maxContext = 8192;
+        } else if (modelIdLower.includes('llama-3') || modelIdLower.includes('mixtral') || modelIdLower.includes('mistral')) {
+            maxContext = 32768; // 32k
+        } else {
+            maxContext = 32768; // Default for Infomaniak LLMs
+        }
+    } else {
+        if (modelIdLower.includes('gemma')) {
+            maxContext = 8192;
+        } else if (modelIdLower.includes('pro')) {
+            maxContext = 2097152; // 2M
+        } else if (modelIdLower.includes('flash')) {
+            maxContext = 1048576; // 1M
+        }
+    }
+
+    // 2. Count input tokens
     let totalChars = 0;
-
     // Sum contents from textarea sources
     const textareas = document.querySelectorAll('.landing-textarea');
     textareas.forEach(ta => {
         totalChars += ta.value.length;
     });
-
-    // Sum contents from appState (extracted from files/urls)
+    // Sum contents from appState (extracted files/urls)
     if (appState.sources) {
         appState.sources.forEach(s => {
             if (s.content) totalChars += s.content.length;
         });
     }
+    const inputTokens = Math.ceil(totalChars / 4);
 
-    if (totalChars > 0) {
-        container.classList.remove('hidden');
-        // Heuristic: ~4 chars per token
-        const tokens = Math.ceil(totalChars / 4);
-        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
-
-        // Visual feedback based on size
-        if (tokens > 30000) {
-            display.classList.add('text-rose-600', 'border-rose-200');
-            display.classList.remove('text-indigo-600', 'border-indigo-100');
-        } else {
-            display.classList.remove('text-rose-600', 'border-rose-200');
-            display.classList.add('text-indigo-600', 'border-indigo-100');
-        }
+    // 3. Estimate output tokens based on MM or KG and depth/branches/nodes
+    const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
+    let outputTokens = 0;
+    if (mode === 'mindmap') {
+        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+        // MM formula: N_nodes = 20 + maxBranches * 5
+        const nNodes = 20 + branchesVal * 5;
+        outputTokens = nNodes * 120;
     } else {
-        container.classList.add('hidden');
+        const kgNodesVal = parseInt(document.getElementById('kg-nodes-slider')?.value || '20', 10);
+        // KG formula: N_nodes = kgNodes
+        outputTokens = kgNodesVal * 150;
+    }
+
+    // 4. Calculate cost in cents
+    let costDisplay = '';
+    const isFree = kb.free || (kb.inputCost === 0 && kb.outputCost === 0);
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const freeText = t.estimator_free || (lang === 'en' ? 'Free (Free Tier)' : 'Gratuito (Piano Free)');
+
+    if (isFree) {
+        costDisplay = freeText;
+    } else {
+        // Cost per 1M tokens * (tokens / 1M) -> cost in dollars * 100 -> cost in cents
+        const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
+        const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
+        const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
+        
+        if (totalCostCents < 0.01) {
+            costDisplay = `<0.01 ¢`;
+        } else {
+            costDisplay = `${totalCostCents.toFixed(2)} ¢`;
+        }
+    }
+
+    // 5. Update UI
+    tokensValEl.textContent = `${inputTokens.toLocaleString()} / ${maxContext.toLocaleString()} token`;
+    costValEl.textContent = costDisplay;
+
+    // Progress bar calculation
+    const progressPercent = Math.min((inputTokens / maxContext) * 100, 100);
+    progressEl.style.width = `${progressPercent}%`;
+
+    // Colors: green (<50%), yellow (50-80%), red (>80%)
+    progressEl.className = 'h-full transition-all duration-500 rounded-full';
+    if (progressPercent < 50) {
+        progressEl.classList.add('bg-emerald-500');
+    } else if (progressPercent < 80) {
+        progressEl.classList.add('bg-amber-500');
+    } else {
+        progressEl.classList.add('bg-rose-500');
     }
 };
 
@@ -4580,6 +4732,7 @@ window.setMode = function (mode) {
         const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
         btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
     }
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 
@@ -4628,10 +4781,24 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    if (z > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
+
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
         '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
         '#projects-bar-content',
         '#source-modal-content-box',
@@ -4647,17 +4814,23 @@ window.applyDirectZoom = function (z) {
         '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
+        '#confirm-box',
         '#study-config-modal > div',
         '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
     ];
 
     zoomSelectors.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) {
-            el.style.zoom = z;
+            if (sel === '#projects-bar-content') {
+                el.style.zoom = Math.min(z, 1.5);
+            } else {
+                el.style.zoom = z;
+            }
         }
     });
 
@@ -7180,7 +7353,10 @@ window.changeLanguage = function (lang) {
         'label-api-key-desc': t.api_key_desc,
         'label-api-key-how': t.api_key_how,
         'label-ai-model': t.ai_model_label,
-        'label-refresh-models': t.refresh_models
+        'label-refresh-models': t.refresh_models,
+        'estimator-title-lbl': t.estimator_title,
+        'estimator-tokens-lbl': t.estimator_tokens_label,
+        'estimator-cost-lbl': t.estimator_cost_label
     };
 
     for (let id in els) {
@@ -7322,6 +7498,9 @@ window.changeLanguage = function (lang) {
     if (window.showToast) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
 };
 
 // Add auto-render projects on load
@@ -7376,6 +7555,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the UI for the current provider
     if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+
+    // Setup estimator events and initial display
+    if (selectEl) {
+        selectEl.addEventListener('change', () => {
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+        });
+    }
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 });
 
 window.globalQuizQueue = [];
@@ -7931,10 +8118,18 @@ window.applyTextZoom = function(idx) {
         document.body.classList.remove('a11y-zoomed-modals');
     }
 
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
         '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
         '#projects-bar-content',
         '#source-modal-content-box',
@@ -7950,17 +8145,23 @@ window.applyTextZoom = function(idx) {
         '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
+        '#confirm-box',
         '#study-config-modal > div',
         '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
     ];
 
     zoomSelectors.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) {
-            el.style.zoom = z;
+            if (sel === '#projects-bar-content') {
+                el.style.zoom = Math.min(z, 1.5);
+            } else {
+                el.style.zoom = z;
+            }
         }
     });
 
@@ -7982,10 +8183,11 @@ window.resetA11yTools = function () {
     if (btnZPanel) btnZPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> Testo x1`;
 
     document.documentElement.style.setProperty('--app-zoom', 1);
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2', 'a11y-zoomed-modals');
+    document.body.classList.add('a11y-zoom-x1');
 
     const zoomSelectors = [
         '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
         '#projects-bar-content',
         '#source-modal-content-box',
@@ -8001,11 +8203,13 @@ window.resetA11yTools = function () {
         '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
+        '#confirm-box',
         '#study-config-modal > div',
         '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
     ];
 
     zoomSelectors.forEach(sel => {

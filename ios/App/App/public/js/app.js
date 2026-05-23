@@ -46,7 +46,60 @@ const studentModeSecret = ['l', 'k', 'j', 'h'];
 let infomaniakProKeys = [];
 const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
+window.closeActiveModals = function () {
+    const modals = [
+        { id: 'config-ai-modal', close: () => window.closeConfigAIModal() },
+        { id: 'user-profile-modal', close: () => window.closeUserProfileModal() },
+        { id: 'app-guide-modal', close: () => window.closeAppGuide() },
+        { id: 'app-tutorial-modal', close: () => window.closeAppTutorial() },
+        { id: 'source-modal', close: () => window.closeSourceModal() },
+        { id: 'ai-modal', close: () => window.closeAIModal() },
+        { id: 'quiz-modal', close: () => window.closeQuizModal() },
+        { id: 'study-config-modal', close: () => window.closeStudyConfigModal() },
+        { id: 'study-player-modal', close: () => window.closeStudyPlayer() },
+        { id: 'contextual-ai-extension-modal', close: () => window.closeContextualAIModal() },
+        { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
+        { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
+        { id: 'validate-link-modal', close: () => window.closeValidateModal() },
+        { id: 'api-tutorial-modal', close: () => {
+            const m = document.getElementById('api-tutorial-modal');
+            if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
+        }},
+        { id: 'merge-confirm-modal', close: () => {
+            if (typeof window.cancelMerge === 'function') window.cancelMerge();
+            else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+        }},
+        { id: 'confirm-modal', close: () => {
+            const m = document.getElementById('confirm-modal');
+            if (m && !m.classList.contains('hidden')) {
+                const cancelBtn = document.getElementById('confirm-cancel');
+                if (cancelBtn) cancelBtn.click();
+                else m.classList.add('hidden');
+            }
+        }},
+        { id: 'image-lightbox', close: () => window.closeLightbox() },
+        { id: 'admin-dashboard', close: () => {
+            if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+            else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+        }}
+    ];
+
+    modals.forEach(m => {
+        const el = document.getElementById(m.id);
+        if (el && !el.classList.contains('hidden') && el.style.display !== 'none') {
+            try {
+                m.close();
+            } catch (err) {
+                console.error(`Error closing modal ${m.id}:`, err);
+            }
+        }
+    });
+};
+
 document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        window.closeActiveModals();
+    }
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
         
@@ -806,12 +859,30 @@ const MODEL_KB = {
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
 function matchModelKB(modelId) {
+    if (!modelId) return null;
     const id = modelId.toLowerCase().replace('models/', '');
-    // Try exact prefix match first
+
+    // 1. Try to find in currently available models (stored in localStorage)
+    const isInfomaniak = (window.appState && window.appState.aiProvider === 'infomaniak');
+    const storageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+    const savedModelsStr = localStorage.getItem(storageKey);
+    if (savedModelsStr) {
+        try {
+            const savedModels = JSON.parse(savedModelsStr);
+            const found = savedModels.find(m => m.id.toLowerCase() === modelId.toLowerCase() || m.id.toLowerCase().replace('models/', '') === id);
+            if (found && found.kb) {
+                return found.kb;
+            }
+        } catch (e) {
+            console.error("Error parsing saved models from localStorage:", e);
+        }
+    }
+
+    // 2. Try exact prefix match first in MODEL_KB
     for (const pattern of Object.keys(MODEL_KB)) {
         if (id.startsWith(pattern)) return MODEL_KB[pattern];
     }
-    // Fuzzy: strip preview/exp suffixes and try again
+    // 3. Fuzzy: strip preview/exp suffixes and try again
     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
     for (const pattern of Object.keys(MODEL_KB)) {
         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
@@ -923,6 +994,7 @@ window.refreshGeminiModels = async function () {
             statusEl.innerText = "Attesa inserimento API Key...";
             statusEl.classList.remove('hidden');
         }
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -933,6 +1005,7 @@ window.refreshGeminiModels = async function () {
             if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
             window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
             if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
             return;
         }
     }
@@ -1039,6 +1112,7 @@ function updateModelCapabilities() {
     if (!kb) {
         capsEl.innerHTML = '';
         capsEl.classList.add('hidden');
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -1061,6 +1135,7 @@ function updateModelCapabilities() {
                     <span class="text-[10px] text-slate-400 italic">${kb.note}</span>
                 </div>`;
     capsEl.classList.remove('hidden');
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 // Funzioni sicure per il processing delle stringhe multilinea
@@ -1211,12 +1286,23 @@ window.updateTokenCostEstimator = function () {
     // Determine context window
     let maxContext = 1048576; // Default to 1M
     const modelIdLower = selectedModel.toLowerCase();
-    if (modelIdLower.includes('gemma')) {
-        maxContext = 8192;
-    } else if (modelIdLower.includes('pro')) {
-        maxContext = 2097152; // 2M
-    } else if (modelIdLower.includes('flash')) {
-        maxContext = 1048576; // 1M
+    
+    if (appState.aiProvider === 'infomaniak') {
+        if (modelIdLower.includes('gemma')) {
+            maxContext = 8192;
+        } else if (modelIdLower.includes('llama-3') || modelIdLower.includes('mixtral') || modelIdLower.includes('mistral')) {
+            maxContext = 32768; // 32k
+        } else {
+            maxContext = 32768; // Default for Infomaniak LLMs
+        }
+    } else {
+        if (modelIdLower.includes('gemma')) {
+            maxContext = 8192;
+        } else if (modelIdLower.includes('pro')) {
+            maxContext = 2097152; // 2M
+        } else if (modelIdLower.includes('flash')) {
+            maxContext = 1048576; // 1M
+        }
     }
 
     // 2. Count input tokens
@@ -4871,6 +4957,12 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    if (z > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
+
     document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
     if (z === 1.0) {
         document.body.classList.add('a11y-zoom-x1');
@@ -4896,10 +4988,12 @@ window.applyDirectZoom = function (z) {
         '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
+        '#confirm-box',
         '#study-config-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
     ];
 
     // Rimozione applicazione zoom inline (gestito via variabili CSS/rem)
@@ -5076,58 +5170,6 @@ window.importGraph = function (event) {
     };
     reader.readAsText(file);
 }
-
-window.loadOfflineExample = async function (filename) {
-    try {
-        const response = await fetch('./esempi/' + filename);
-        if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
-        const rawData = await response.json();
-        const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
-        
-        if (!data.nodes || !data.links) throw new Error("JSON non valido.");
-
-        data.links.forEach(l => {
-            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
-            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
-        });
-        data.nodes.forEach(n => {
-            delete n.vx; delete n.vy;
-            delete n.fx; delete n.fy;
-        });
-
-        appState.db = { nodes: data.nodes, links: data.links };
-        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-        
-        if (data.generationUsage) {
-            appState.generationUsage = data.generationUsage;
-            if (window.updateCostDisplay) window.updateCostDisplay();
-        } else {
-            appState.generationUsage = null;
-        }
-        if (data.customColors) {
-            appState.db.customColors = data.customColors;
-        }
-
-        appState.db.sourcesDict = {};
-        (appState.db.nodes || []).forEach(n => {
-            if (n.chunks && n.chunks.length > 0) {
-                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
-                    title: "Estratto Fonte",
-                    source: "Dato Esempio",
-                    text: c
-                }));
-            }
-        });
-
-        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
-        simulation = null;
-        window.switchToMapLayout();
-        initD3Visualization();
-        
-        document.getElementById('insegnai-drawer').classList.add('-translate-x-[320px]');
-        window.showToast("Esempio caricato con successo", "success");
-    } catch (err) { window.showAlert("Errore", "Errore caricamento esempio: " + err.message); }
-};
 
 // ==========================================
 // SOTA: MARKDOWN VAULT LOGIC
@@ -8570,10 +8612,12 @@ window.applyTextZoom = function(idx) {
         '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
+        '#confirm-box',
         '#study-config-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
     ];
 
     // Applica inline style per bypassare bug di Safari su calc/CSS variables

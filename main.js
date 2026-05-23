@@ -25,7 +25,52 @@ function createWindow() {
     mainWindow.loadFile('public/index.html');
 }
 
+function copyRecursiveSync(src, dest) {
+    const exists = fs.existsSync(src);
+    const stats = exists && fs.statSync(src);
+    const isDirectory = exists && stats.isDirectory();
+    if (isDirectory) {
+        if (!fs.existsSync(dest)) {
+            fs.mkdirSync(dest, { recursive: true });
+        }
+        fs.readdirSync(src).forEach((childItemName) => {
+            copyRecursiveSync(path.join(src, childItemName),
+                              path.join(dest, childItemName));
+        });
+    } else {
+        fs.copyFileSync(src, dest);
+    }
+}
+
+function initDefaultVaultFolder() {
+    try {
+        const docPath = app.getPath('documents');
+        const vaultDir = path.join(docPath, 'MappAI - Vault');
+        
+        // 1. Crea la cartella se non esiste
+        if (!fs.existsSync(vaultDir)) {
+            fs.mkdirSync(vaultDir, { recursive: true });
+        }
+
+        // 2. Copia i file demo se presenti nel pacchetto
+        const demoBundledDir = path.join(__dirname, 'public', 'vault_demo');
+        if (fs.existsSync(demoBundledDir)) {
+            const items = fs.readdirSync(demoBundledDir);
+            items.forEach(item => {
+                const srcPath = path.join(demoBundledDir, item);
+                const destPath = path.join(vaultDir, item);
+                if (!fs.existsSync(destPath)) {
+                    copyRecursiveSync(srcPath, destPath);
+                }
+            });
+        }
+    } catch (err) {
+        console.error("Errore inizializzazione default vault:", err);
+    }
+}
+
 app.whenReady().then(() => {
+    initDefaultVaultFolder();
     createWindow();
 
     app.on('activate', () => {
@@ -246,7 +291,7 @@ ipcMain.handle('capture-page', async () => {
 ipcMain.handle('save-map-json', async (event, mapData) => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
@@ -274,7 +319,7 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
             chatDir = path.join(vaultPath, 'Chat');
         } else {
             const docPath = app.getPath('documents');
-            chatDir = path.join(docPath, 'Salvataggi MappAI', 'chat con il tutor');
+            chatDir = path.join(docPath, 'MappAI - Vault', 'chat con il tutor');
         }
 
         if (!fs.existsSync(chatDir)) {
@@ -627,7 +672,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
 ipcMain.handle('get-all-vaults', async () => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         if (!fs.existsSync(saveDir)) return [];
 
         const folders = fs.readdirSync(saveDir).filter(f => {
@@ -680,7 +725,7 @@ ipcMain.handle('pick-folder', async () => {
 // IPC Handler to open the specific folder in macOS Finder
 ipcMain.handle('open-save-folder', async () => {
     const docPath = app.getPath('documents');
-    const saveDir = path.join(docPath, 'Salvataggi MappAI');
+    const saveDir = path.join(docPath, 'MappAI - Vault');
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
     }

@@ -196,7 +196,7 @@
                     const { Filesystem, Directory } = window.Capacitor.Plugins;
                     // Su iPad leggiamo l'indice dei vault salvato in un file di configurazione
                     const result = await Filesystem.readFile({
-                        path: 'MappAI_Vaults/vaults_index.json',
+                        path: 'MappAI - Vault/vaults_index.json',
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
@@ -217,7 +217,7 @@
             if (isCapacitor) {
                 try {
                     const { Filesystem, Directory } = window.Capacitor.Plugins;
-                    const path = `MappAI_Vaults/${folderPath}/vault_data.json`;
+                    const path = `MappAI - Vault/${folderPath}/vault_data.json`;
                     const result = await Filesystem.readFile({
                         path: path,
                         directory: Directory.Documents,
@@ -247,7 +247,7 @@
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 
                 // 1. Salva il file monolitico vault_data.json per caricamento rapido dell'app
-                const path = `MappAI_Vaults/${activeVault}/vault_data.json`;
+                const path = `MappAI - Vault/${activeVault}/vault_data.json`;
                 await Filesystem.writeFile({
                     path: path,
                     data: JSON.stringify(vaultData),
@@ -269,7 +269,7 @@
                     return `${k}: ${v}`;
                 }).join('\n');
                 await Filesystem.writeFile({
-                    path: `MappAI_Vaults/${activeVault}/index.yaml`,
+                    path: `MappAI - Vault/${activeVault}/index.yaml`,
                     data: indexYaml,
                     directory: Directory.Documents,
                     encoding: 'utf8',
@@ -284,7 +284,7 @@
                     isCross: !!l.isCross
                 }));
                 await Filesystem.writeFile({
-                    path: `MappAI_Vaults/${activeVault}/links.json`,
+                    path: `MappAI - Vault/${activeVault}/links.json`,
                     data: JSON.stringify(linksData, null, 2),
                     directory: Directory.Documents,
                     encoding: 'utf8',
@@ -322,7 +322,7 @@
                         const content = node.content || "";
 
                         await Filesystem.writeFile({
-                            path: `MappAI_Vaults/${activeVault}/Nodi/${fileName}`,
+                            path: `MappAI - Vault/${activeVault}/Nodi/${fileName}`,
                             data: frontmatter + content,
                             directory: Directory.Documents,
                             encoding: 'utf8',
@@ -335,7 +335,7 @@
                 let list = [];
                 try {
                     const idxFile = await Filesystem.readFile({
-                        path: 'MappAI_Vaults/vaults_index.json',
+                        path: 'MappAI - Vault/vaults_index.json',
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
@@ -345,7 +345,7 @@
                 if (!list.includes(activeVault)) {
                     list.push(activeVault);
                     await Filesystem.writeFile({
-                        path: 'MappAI_Vaults/vaults_index.json',
+                        path: 'MappAI - Vault/vaults_index.json',
                         data: JSON.stringify(list),
                         directory: Directory.Documents,
                         encoding: 'utf8',
@@ -397,7 +397,7 @@
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 await Filesystem.writeFile({
-                    path: `MappAI_Vaults/${activeVault}/chats/${filename}`,
+                    path: `MappAI - Vault/${activeVault}/chats/${filename}`,
                     data: JSON.stringify(transcriptData),
                     directory: Directory.Documents,
                     encoding: 'utf8',
@@ -755,6 +755,110 @@
             }
         }
     };
+
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    async function checkAndInitIPadDemoVaults() {
+        if (!isCapacitor) return;
+        try {
+            const { Filesystem, Directory } = window.Capacitor.Plugins;
+            
+            // 1. Controlla se la cartella "MappAI - Vault" contiene già l'indice
+            let needsInit = false;
+            try {
+                const idxResult = await Filesystem.readFile({
+                    path: 'MappAI - Vault/vaults_index.json',
+                    directory: Directory.Documents,
+                    encoding: 'utf8'
+                });
+                const list = JSON.parse(idxResult.data);
+                if (!list || list.length === 0) {
+                    needsInit = true;
+                }
+            } catch (e) {
+                needsInit = true;
+            }
+
+            if (!needsInit) {
+                console.log("[MappAI Adapter] MappAI - Vault già popolata.");
+                return;
+            }
+
+            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault con file demo...");
+            
+            // 2. Leggi il manifest dei file demo
+            const manifestRes = await fetch('./vault_demo_manifest.json');
+            if (!manifestRes.ok) throw new Error("Manifest demo non trovato");
+            const files = await manifestRes.json();
+
+            // 3. Copia ogni file
+            for (const relPath of files) {
+                const srcUrl = `./vault_demo/${relPath}`;
+                const destPath = `MappAI - Vault/${relPath}`;
+                
+                try {
+                    const isBinary = relPath.toLowerCase().endsWith('.pdf');
+                    
+                    if (isBinary) {
+                        const fileRes = await fetch(srcUrl);
+                        const arrayBuffer = await fileRes.arrayBuffer();
+                        const base64Data = arrayBufferToBase64(arrayBuffer);
+                        await Filesystem.writeFile({
+                            path: destPath,
+                            data: base64Data,
+                            directory: Directory.Documents,
+                            recursive: true
+                        });
+                    } else {
+                        const fileRes = await fetch(srcUrl);
+                        const textData = await fileRes.text();
+                        await Filesystem.writeFile({
+                            path: destPath,
+                            data: textData,
+                            directory: Directory.Documents,
+                            encoding: 'utf8',
+                            recursive: true
+                        });
+                    }
+                } catch (err) {
+                    console.error(`[MappAI Adapter] Errore copia file ${relPath}:`, err);
+                }
+            }
+
+            // 4. Scrivi l'indice dei vault demo iniziale
+            const initialVaultsList = [
+                "Materiale di Storia/Storia Svizzera",
+                "Materiale Scienze/KG 01 liceo",
+                "Materiale Scienze/KG 02 liceo HD",
+                "Materiale Scienze/KG 03 1a media HD",
+                "Robotica/vault robotica mindstorm gigetto 10 nodi",
+                "Robotica/vault robotica mindstorm gigetto 20 nodi",
+                "Robotica/vault robotica mindstorm gigetto 35 nodi",
+                "Storia carta/Vault Carta"
+            ];
+            await Filesystem.writeFile({
+                path: 'MappAI - Vault/vaults_index.json',
+                data: JSON.stringify(initialVaultsList),
+                directory: Directory.Documents,
+                encoding: 'utf8',
+                recursive: true
+            });
+            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault completata con successo!");
+        } catch (err) {
+            console.error("[MappAI Adapter] Errore critico inizializzazione vault su iPad:", err);
+        }
+    }
+
+    // Avvia la routine di inizializzazione asincrona
+    checkAndInitIPadDemoVaults();
 
     // Disabilita lo zoom pinch nativo a livello di viewport su Safari/iPadOS
     document.addEventListener('gesturestart', function (e) {

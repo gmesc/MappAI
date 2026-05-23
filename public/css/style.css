@@ -94,8 +94,7 @@
     }
 
     /* Annulla lo zoom per elementi di controllo esterni */
-    #modal-a11y-toolbar,
-    #insegnai-drawer-tab {
+    #modal-a11y-toolbar {
         zoom: calc(1 / var(--app-zoom, 1)) !important;
     }
 
@@ -1136,11 +1135,14 @@
 /* ==========================================
    A11Y ZOOM MODALS FULLSCREEN
    ========================================== */
-body.a11y-zoomed-modals .fixed.inset-0 {
+body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) {
     padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
-body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) {
+body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) > div:not(#sidebar):not(#insegnai-drawer) {
     max-width: calc(100vw / var(--app-zoom, 1)) !important;
     width: calc(100vw / var(--app-zoom, 1)) !important;
     height: calc(100vh / var(--app-zoom, 1)) !important;
@@ -1153,7 +1155,7 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     overflow: hidden !important;
 }
 
-body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer) > * {
+body.a11y-zoomed-modals .fixed.inset-0:not(#admin-dashboard):not(#beta-lock-screen):not(.hidden) > div:not(#sidebar):not(#insegnai-drawer) > * {
     border-radius: 0 !important;
 }
 
@@ -1162,4 +1164,125 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         height: calc(100vh / var(--app-zoom, 1)) !important;
         max-height: calc(100vh / var(--app-zoom, 1)) !important;
     }
+
+    /* Token and Cost Estimator Card scaling */
+    #token-cost-estimator-card {
+        padding: calc(16px * var(--landing-zoom, 1)) !important;
+        border-radius: calc(12px * var(--landing-zoom, 1)) !important;
+        gap: calc(12px * var(--landing-zoom, 1)) !important;
+    }
+    #token-cost-estimator-card #estimator-title-lbl {
+        font-size: calc(12px * var(--landing-zoom, 1)) !important;
+    }
+    #token-cost-estimator-card #estimator-tokens-lbl,
+    #token-cost-estimator-card #estimator-cost-lbl {
+        font-size: calc(10px * var(--landing-zoom, 1)) !important;
+    }
+    #token-cost-estimator-card #estimator-tokens,
+    #token-cost-estimator-card #estimator-cost {
+        font-size: calc(10px * var(--landing-zoom, 1)) !important;
+    }
+    #token-cost-estimator-card .w-full.bg-slate-200.h-1.5 {
+        height: calc(6px * var(--landing-zoom, 1)) !important;
+    }
+}
+
+/* Map Control Card overrides for zoom x1.5 and x2 to keep it compact and on-screen */
+body.a11y-zoom-x15 #map-control-card,
+body.a11y-zoom-x2 #map-control-card {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    bottom: 16px !important;
+    border-radius: 14px !important;
+    max-width: 90vw !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]),
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) i,
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) svg,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) i,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) svg {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) span,
+body.a11y-zoom-x2 #map-control-card button:not([onclick^="window.changeDistance"]):not([onclick^="window.changeFontScale"]) span {
+    font-size: 8.5px !important;
+    margin-top: 2px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card .w-px,
+body.a11y-zoom-x2 #map-control-card .w-px {
+    height: 24px !important;
+}
+
+/* Adjuster containers & icons (Distanza / Testo) */
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center {
+    justify-content: center !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center i,
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center svg,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin-bottom: 2px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 4px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button i,
+body.a11y-zoom-x15 #map-control-card div.flex.flex-col.items-center button svg,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button i,
+body.a11y-zoom-x2 #map-control-card div.flex.flex-col.items-center button svg {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+/* Keep Min Link / Level sliders compact under zoom */
+body.a11y-zoom-x15 #map-control-card #level-filter-control,
+body.a11y-zoom-x2 #map-control-card #level-filter-control,
+body.a11y-zoom-x15 #map-control-card #min-link-control,
+body.a11y-zoom-x2 #map-control-card #min-link-control {
+    width: 100px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+body.a11y-zoom-x15 #map-control-card #level-filter-control span,
+body.a11y-zoom-x2 #map-control-card #level-filter-control span,
+body.a11y-zoom-x15 #map-control-card #min-link-control span,
+body.a11y-zoom-x2 #map-control-card #min-link-control span {
+    font-size: 8px !important;
+}
+
+/* Zoom overrides for Floating Actions Menu (Exit Menu) */
+body.a11y-zoom-x15 #floating-actions-menu {
+    min-width: 280px !important;
+}
+body.a11y-zoom-x2 #floating-actions-menu {
+    min-width: 340px !important;
+}
+body.a11y-zoom-x15 #floating-actions-menu button,
+body.a11y-zoom-x15 #floating-actions-menu label,
+body.a11y-zoom-x2 #floating-actions-menu button,
+body.a11y-zoom-x2 #floating-actions-menu label {
+    white-space: nowrap !important;
 }

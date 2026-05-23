@@ -70,28 +70,26 @@ window.fillPromptTemplate = function(promptKey, variables) {
     return text;
 };
 
-// Keyboard listener for CTRL+SHIFT+P+O+I+U
-const pressedKeys = new Set();
+// Keyboard listener for CTRL+SHIFT+P+O+I+U (sequential to prevent stuck keys)
+let adminKeys = [];
+const adminSecret = ['p', 'o', 'i', 'u'];
 document.addEventListener('keydown', (e) => {
-    pressedKeys.add(e.key.toUpperCase());
-    
-    // Check if ctrl, shift, P, O, I, U are all pressed
-    const hasCtrl = e.ctrlKey || e.metaKey;
-    const hasShift = e.shiftKey;
-    const hasP = pressedKeys.has('P');
-    const hasO = pressedKeys.has('O');
-    const hasI = pressedKeys.has('I');
-    const hasU = pressedKeys.has('U');
-    
-    if (hasCtrl && hasShift && hasP && hasO && hasI && hasU) {
-        window.openAdminDashboard();
-        // Prevent default browser behavior
-        e.preventDefault();
+    if (e.ctrlKey && e.shiftKey) {
+        const key = e.key.toLowerCase();
+        if (adminSecret.includes(key)) {
+            adminKeys.push(key);
+            if (adminKeys.length > 4) adminKeys.shift();
+            if (adminKeys.join('') === 'poiu') {
+                window.openAdminDashboard();
+                adminKeys = [];
+                e.preventDefault();
+            }
+        } else {
+            adminKeys = [];
+        }
+    } else {
+        adminKeys = [];
     }
-});
-
-document.addEventListener('keyup', (e) => {
-    pressedKeys.delete(e.key.toUpperCase());
 });
 
 window.openAdminDashboard = async function() {

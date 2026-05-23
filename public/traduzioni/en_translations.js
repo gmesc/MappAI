@@ -9,6 +9,10 @@ const en_translations = {
     new_kg_btn: "Generate Knowledge Graph",
 
     btn_blank_canvas_label: "Create Blank Canvas (Manual)",
+    estimator_title: "Document Analysis & Cost Estimate",
+    estimator_tokens_label: "Input / Model Max",
+    estimator_cost_label: "Estimated Cost",
+    estimator_free: "Free (Free Tier)",
     save_folder: "Save Folder",
     import_json: "Import JSON",
     ext_ai_guide: "External AI Guide",

@@ -1,0 +1,86 @@
+[
+  {
+    "source": "ROBOTICA",
+    "target": "CICLO_SENSE_PLAN_ACT",
+    "rel": "si basa su",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "ROBOTICA_EDUCATIVA",
+    "rel": "include",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "ROBOTICA_INDUSTRIALE",
+    "rel": "include",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "AUTOMI",
+    "rel": "evolve da",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "SENSORE",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "MICROCONTROLLORE",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "ATTUATORE",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_EDUCATIVA",
+    "target": "COSTRUZIONISMO",
+    "rel": "si fonda su",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_EDUCATIVA",
+    "target": "LEGO_MINDSTORMS",
+    "rel": "implementata tramite",
+    "isCross": false
+  },
+  {
+    "source": "COSTRUZIONISMO",
+    "target": "LEGO_MINDSTORMS",
+    "rel": "ispira",
+    "isCross": false
+  },
+  {
+    "source": "LEGO_MINDSTORMS",
+    "target": "SENSORE",
+    "rel": "integra",
+    "isCross": false
+  },
+  {
+    "source": "LEGO_MINDSTORMS",
+    "target": "MICROCONTROLLORE",
+    "rel": "integra",
+    "isCross": false
+  },
+  {
+    "source": "LEGO_MINDSTORMS",
+    "target": "ATTUATORE",
+    "rel": "integra",
+    "isCross": false
+  },
+  {
+    "source": "AUTOMI",
+    "target": "CICLO_SENSE_PLAN_ACT",
+    "rel": "non hanno",
+    "isCross": false
+  }
+]
