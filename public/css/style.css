@@ -2337,6 +2337,10 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     margin-top: 0 !important;
 }
 
+#landing-view .glass-card #setup-form.hidden {
+    display: none !important;
+}
+
 #landing-view .glass-card #setup-form > * {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
