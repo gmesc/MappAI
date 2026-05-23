@@ -186,25 +186,84 @@
         }
     }
 
+    async function scanVaultsRecursive(currentPath, depth = 0) {
+        if (depth > 2) return [];
+        const { Filesystem, Directory } = window.Capacitor.Plugins;
+        let vaults = [];
+        try {
+            const readResult = await Filesystem.readdir({
+                path: currentPath,
+                directory: Directory.Documents
+            });
+            for (const file of readResult.files) {
+                const name = typeof file === 'string' ? file : file.name;
+                if (name.startsWith('.')) continue;
+                const fullPath = `${currentPath}/${name}`;
+                let isVault = false;
+                let vaultInfo = null;
+                try {
+                    const indexFile = await Filesystem.readFile({
+                        path: `${fullPath}/index.yaml`,
+                        directory: Directory.Documents,
+                        encoding: 'utf8'
+                    });
+                    isVault = true;
+                    vaultInfo = {
+                        folderName: name,
+                        fullPath: fullPath.replace('MappAI - Vault/', '')
+                    };
+                    indexFile.data.split('\n').forEach(line => {
+                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                        if (line.startsWith('rootNodeLabel:')) vaultInfo.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
+                        if (line.startsWith('lastUpdated:')) vaultInfo.lastUpdated = line.split('lastUpdated:')[1].trim();
+                        if (line.startsWith('userProfile:')) {
+                            try {
+                                const profile = JSON.parse(line.substring(line.indexOf(':') + 1).trim());
+                                vaultInfo.nickname = profile.nickname;
+                                vaultInfo.age = profile.age;
+                            } catch(e) {}
+                        }
+                    });
+                } catch (e) {
+                    try {
+                        const dataFile = await Filesystem.readFile({
+                            path: `${fullPath}/vault_data.json`,
+                            directory: Directory.Documents,
+                            encoding: 'utf8'
+                        });
+                        isVault = true;
+                        const parsed = JSON.parse(dataFile.data);
+                        const mapData = parsed.db ? parsed.db : parsed;
+                        vaultInfo = {
+                            folderName: name,
+                            fullPath: fullPath.replace('MappAI - Vault/', ''),
+                            extractionMode: parsed.extractionMode || 'mindmap',
+                            rootNodeLabel: parsed.rootNodeLabel || name,
+                            lastUpdated: parsed.lastUpdated || new Date().toISOString()
+                        };
+                    } catch (err) {}
+                }
+                if (isVault && vaultInfo) {
+                    vaults.push(vaultInfo);
+                } else {
+                    const fileType = typeof file === 'string' ? null : file.type;
+                    if (fileType === 'directory' || fileType === null) {
+                        const subVaults = await scanVaultsRecursive(fullPath, depth + 1);
+                        vaults = vaults.concat(subVaults);
+                    }
+                }
+            }
+        } catch (err) {}
+        return vaults;
+    }
+
     // Creazione dell'oggetto fittizio window.electronAPI
     window.electronAPI = {
         // --- STORAGE & GESTIONE VAULT ---
 
         getAllVaults: async function () {
             if (isCapacitor) {
-                try {
-                    const { Filesystem, Directory } = window.Capacitor.Plugins;
-                    // Su iPad leggiamo l'indice dei vault salvato in un file di configurazione
-                    const result = await Filesystem.readFile({
-                        path: 'MappAI - Vault/vaults_index.json',
-                        directory: Directory.Documents,
-                        encoding: 'utf8'
-                    });
-                    return JSON.parse(result.data);
-                } catch (e) {
-                    // Se il file indice non esiste, restituiamo un array vuoto
-                    return [];
-                }
+                return await scanVaultsRecursive('MappAI - Vault', 0);
             } else {
                 // Su Web usiamo IndexedDB o localStorage
                 const saved = await getLocalItem("mappai_vaults_list");
@@ -223,15 +282,29 @@
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
-                    return JSON.parse(result.data);
+                    const parsed = JSON.parse(result.data);
+                    
+                    let mapData = parsed;
+                    if (parsed && parsed.mapData) {
+                        mapData = parsed.mapData;
+                    } else if (parsed && parsed.db) {
+                        mapData = parsed.db;
+                    }
+                    
+                    return { success: true, data: mapData };
                 } catch (e) {
                     console.warn("[MappAI Adapter] Errore caricamento vault nativo, inizializzo vuoto:", e);
-                    return { nodes: [], links: [], sourcesDict: {}, customColors: {} };
+                    return { success: true, data: { nodes: [], links: [], sourcesDict: {}, customColors: {} } };
                 }
             } else {
                 // Su Web leggiamo da IndexedDB
                 const data = await getLocalItem(`vault_content_${folderPath}`);
-                return data ? JSON.parse(data) : { nodes: [], links: [], sourcesDict: {}, customColors: {} };
+                const parsed = data ? JSON.parse(data) : null;
+                let mapData = parsed || { nodes: [], links: [], sourcesDict: {}, customColors: {} };
+                if (parsed && parsed.mapData) {
+                    mapData = parsed.mapData;
+                }
+                return { success: true, data: mapData };
             }
         },
 
@@ -250,7 +323,7 @@
                 const path = `MappAI - Vault/${activeVault}/vault_data.json`;
                 await Filesystem.writeFile({
                     path: path,
-                    data: JSON.stringify(vaultData),
+                    data: JSON.stringify(mapData),
                     directory: Directory.Documents,
                     encoding: 'utf8',
                     recursive: true
@@ -469,13 +542,60 @@
         // --- FILE SYSTEM, FILE PICKING & PARSING ---
 
         pickFolder: async function () {
-            // Su iPad/Web non possiamo selezionare cartelle reali di sistema.
-            // Creiamo un prompt o usiamo un nome fisso per simulare il selettore.
-            const vaultName = prompt("Inserisci il nome del nuovo Vault (o seleziona un nome esistente):", "Nuovo_Vault");
-            if (!vaultName) return { canceled: true };
-
-            currentVirtualVault = vaultName.replace(/[^a-zA-Z0-9_]/g, "_"); // Rimuoviamo caratteri non sicuri
-            return { canceled: false, folderPath: currentVirtualVault };
+            if (isCapacitor) {
+                return new Promise((resolve) => {
+                    const choice = confirm("Vuoi importare un file di Vault (.json) esistente?\n\n(Seleziona 'Annulla' per creare un nuovo Vault vuoto)");
+                    if (choice) {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.json';
+                        input.onchange = async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) {
+                                resolve({ canceled: true });
+                                return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = async (evt) => {
+                                try {
+                                    const parsed = JSON.parse(evt.target.result);
+                                    const data = parsed.db ? parsed.db : parsed;
+                                    if (!data.nodes || !data.links) {
+                                        alert("Il file selezionato non è un Vault di MappAI valido.");
+                                        resolve({ canceled: true });
+                                        return;
+                                    }
+                                    const baseName = file.name.replace('.json', '');
+                                    const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+                                    await window.electronAPI.saveVault({
+                                        folderPath: safeName,
+                                        mapData: parsed
+                                    });
+                                    resolve({ canceled: false, folderPath: safeName });
+                                } catch (err) {
+                                    alert("Errore durante la lettura del file: " + err.message);
+                                    resolve({ canceled: true });
+                                }
+                            };
+                            reader.readAsText(file);
+                        };
+                        input.click();
+                    } else {
+                        const vaultName = prompt("Inserisci il nome del nuovo Vault:", "Nuovo_Vault");
+                        if (!vaultName) {
+                            resolve({ canceled: true });
+                            return;
+                        }
+                        const safeName = vaultName.replace(/[^a-zA-Z0-9_]/g, "_");
+                        resolve({ canceled: false, folderPath: safeName });
+                    }
+                });
+            } else {
+                const vaultName = prompt("Inserisci il nome del nuovo Vault:", "Nuovo_Vault");
+                if (!vaultName) return { canceled: true };
+                const safeName = vaultName.replace(/[^a-zA-Z0-9_]/g, "_");
+                return { canceled: false, folderPath: safeName };
+            }
         },
 
         pickFile: async function () {
@@ -833,16 +953,15 @@
                 }
             }
 
-            // 4. Scrivi l'indice dei vault demo iniziale
+            // 4. Scrivi l'indice dei vault demo iniziale e crea le relative cartelle
             const initialVaultsList = [
-                "Materiale di Storia/Storia Svizzera",
-                "Materiale Scienze/KG 01 liceo",
-                "Materiale Scienze/KG 02 liceo HD",
-                "Materiale Scienze/KG 03 1a media HD",
-                "Robotica/vault robotica mindstorm gigetto 10 nodi",
-                "Robotica/vault robotica mindstorm gigetto 20 nodi",
-                "Robotica/vault robotica mindstorm gigetto 35 nodi",
-                "Storia carta/Vault Carta"
+                "Invenzione Carta",
+                "Robotica mindstorm gigetto 10 nodi",
+                "Robotica mindstorm gigetto 20 nodi",
+                "Robotica mindstorm gigetto 35 nodi",
+                "Sistema albero 1a media",
+                "Sistema albero Liceo",
+                "Storia Svizzera"
             ];
             await Filesystem.writeFile({
                 path: 'MappAI - Vault/vaults_index.json',
@@ -851,6 +970,50 @@
                 encoding: 'utf8',
                 recursive: true
             });
+
+            // Crea le cartelle e i file index.yaml di default per ogni vault demo se non esistono
+            for (const vaultName of initialVaultsList) {
+                const vaultPath = `MappAI - Vault/${vaultName}`;
+                try {
+                    await Filesystem.mkdir({
+                        path: vaultPath,
+                        directory: Directory.Documents,
+                        recursive: true
+                    });
+                } catch (e) {}
+
+                try {
+                    await Filesystem.mkdir({
+                        path: `${vaultPath}/Allegati`,
+                        directory: Directory.Documents,
+                        recursive: true
+                    });
+                } catch (e) {}
+
+                const indexPath = `${vaultPath}/index.yaml`;
+                let hasIndex = false;
+                try {
+                    await Filesystem.readFile({
+                        path: indexPath,
+                        directory: Directory.Documents,
+                        encoding: 'utf8'
+                    });
+                    hasIndex = true;
+                } catch (e) {
+                    hasIndex = false;
+                }
+
+                if (!hasIndex) {
+                    const defaultIndex = `extractionMode: mindmap\nrootNodeLabel: ${vaultName}\nlastUpdated: ${new Date().toISOString()}\n`;
+                    await Filesystem.writeFile({
+                        path: indexPath,
+                        data: defaultIndex,
+                        directory: Directory.Documents,
+                        encoding: 'utf8',
+                        recursive: true
+                    });
+                }
+            }
             console.log("[MappAI Adapter] Inizializzazione MappAI - Vault completata con successo!");
         } catch (err) {
             console.error("[MappAI Adapter] Errore critico inizializzazione vault su iPad:", err);

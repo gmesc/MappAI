@@ -25,7 +25,49 @@ function createWindow() {
     mainWindow.loadFile('public/index.html');
 }
 
+function initializeDesktopDemoVaults() {
+    try {
+        const docPath = app.getPath('documents');
+        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+
+        const initialVaultsList = [
+            "Invenzione Carta",
+            "Robotica mindstorm gigetto 10 nodi",
+            "Robotica mindstorm gigetto 20 nodi",
+            "Robotica mindstorm gigetto 35 nodi",
+            "Sistema albero 1a media",
+            "Sistema albero Liceo",
+            "Storia Svizzera"
+        ];
+
+        initialVaultsList.forEach(vaultName => {
+            const vaultPath = path.join(saveDir, vaultName);
+            if (!fs.existsSync(vaultPath)) {
+                fs.mkdirSync(vaultPath, { recursive: true });
+            }
+
+            const allegatiPath = path.join(vaultPath, 'Allegati');
+            if (!fs.existsSync(allegatiPath)) {
+                fs.mkdirSync(allegatiPath, { recursive: true });
+            }
+
+            const indexPath = path.join(vaultPath, 'index.yaml');
+            if (!fs.existsSync(indexPath)) {
+                const defaultIndex = `extractionMode: mindmap\nrootNodeLabel: ${vaultName}\nlastUpdated: ${new Date().toISOString()}\n`;
+                fs.writeFileSync(indexPath, defaultIndex, 'utf-8');
+            }
+        });
+        console.log("[MappAI Desktop] Demo vaults initialized in Salvataggi MappAI.");
+    } catch (err) {
+        console.error("[MappAI Desktop] Error initializing demo vaults:", err);
+    }
+}
+
 app.whenReady().then(() => {
+    initializeDesktopDemoVaults();
     createWindow();
 
     app.on('activate', () => {
