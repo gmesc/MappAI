@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>MappAI — Generatore AI di mappe e grafici di conoscenza</title>
 
     <!-- Google Fonts: Space Mono -->
@@ -108,10 +108,19 @@
     <script>
         const SECRET_SALT = "MAPPAI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
 
+        // Nascondi immediatamente lo schermo di blocco se siamo su Capacitor/iOS o se l'accesso è già garantito per evitare flash visivi
+        const isCapacitor = (window.Capacitor !== undefined) || (window.location.protocol === 'capacitor:');
+        if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
+            const style = document.createElement('style');
+            style.innerHTML = '#beta-lock-screen { display: none !important; }';
+            document.head.appendChild(style);
+        }
+
         document.addEventListener("DOMContentLoaded", async () => {
             const lockScreen = document.getElementById('beta-lock-screen');
-            if (localStorage.getItem('mappai_beta_access_granted') === 'true') {
+            if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
                 lockScreen.style.display = 'none';
+                return;
             }
 
             // Ottieni l'ID Hardware univoco da Electron
@@ -211,9 +220,9 @@
 
         <!-- Insegnai.ch Drawer -->
         <div id="insegnai-drawer"
-            class="fixed top-1/2 -translate-y-1/2 left-0 z-[100] flex items-center transition-transform duration-300 -translate-x-[288px]">
+            class="fixed top-1/2 -translate-y-1/2 left-0 z-[100] flex items-center transition-transform duration-300 -translate-x-[320px]">
             <div
-                class="bg-white/95 backdrop-blur-md shadow-2xl border-y border-r border-indigo-200/60 rounded-r-2xl p-6 w-72 flex flex-col pointer-events-auto">
+                class="bg-white/95 backdrop-blur-md shadow-2xl border-y border-r border-indigo-200/60 rounded-r-2xl p-6 w-80 max-h-[90vh] overflow-y-auto flex flex-col pointer-events-auto">
                 <h2 class="text-lg font-black text-indigo-900 mb-4 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -297,11 +306,48 @@
                             </div>
                         </button>
                     </div>
+
+                    <!-- Esempi Offline -->
+                    <div class="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-3">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-indigo-400 mb-1">Esempi Offline</h3>
+                        <button onclick="window.loadOfflineExample('carta.json')"
+                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-git-merge shrink-0">
+                                <circle cx="18" cy="18" r="3" />
+                                <circle cx="6" cy="6" r="3" />
+                                <path d="M6 9v12" />
+                                <path d="M18 15V9a9 9 0 0 0-9-9" />
+                            </svg>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-xs">Creazione della Carta</span>
+                                <span class="text-[10px] opacity-70">Mappa Mentale</span>
+                            </div>
+                        </button>
+                        <button onclick="window.loadOfflineExample('rete_elettrica.json')"
+                            class="flex items-center gap-3 text-left p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-network shrink-0">
+                                <rect x="16" y="16" width="6" height="6" rx="1" />
+                                <rect x="2" y="16" width="6" height="6" rx="1" />
+                                <rect x="9" y="2" width="6" height="6" rx="1" />
+                                <path d="M5 16v-6c0-1 1-2 2-2h10c1 0 2 1 2 2v6" />
+                                <path d="M12 8v3" />
+                                <path d="M12 14v2" />
+                            </svg>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-xs">Rete Elettrica</span>
+                                <span class="text-[10px] opacity-70">Knowledge Graph</span>
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
             <!-- Linguetta (Tab) -->
             <div id="insegnai-drawer-tab"
-                onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[288px]')"
+                onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
                 class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto cursor-pointer transition-all">
                 <span class="text-white font-bold tracking-widest text-[0.95rem] py-4 px-3"
                     style="writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; display: block; text-align: center;">
@@ -398,11 +444,28 @@
                             </div>
                         </div>
                     </button>
+                    <label for="landing-import"
+                        class="flex-1 p-5 bg-white border border-slate-100 rounded-3xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left group shadow-sm hover:shadow-md cursor-pointer">
+                        <div class="flex items-center gap-4">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all border border-slate-100">
+                                <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <span class="block font-black text-indigo-900 text-sm truncate"
+                                    id="label-import-json">Importa JSON</span>
+                                <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mappa
+                                    da file</span>
+                            </div>
+                        </div>
+                    </label>
+                    <input type="file" id="landing-import" accept=".json" class="hidden"
+                        onchange="window.importGraph(event)">
                 </div>
             </div>
 
             <!-- Form di Setup -->
-            <form id="setup-form" class="space-y-8 max-w-2xl mx-auto"
+            <form id="setup-form" class="space-y-8 max-w-2xl mx-auto hidden"
                 onsubmit="event.preventDefault(); window.startGeneration();">
 
                 <!-- STEP 1: Caricamento Fonti -->
@@ -412,7 +475,7 @@
                         <span id="label-step1" data-i18n="step1">Carica le tue Fonti</span>
                     </label>
 
-                    <div class="ml-10 flex flex-wrap gap-3 mb-4">
+                    <div class="flex flex-wrap gap-3 mb-4 source-buttons-container">
                         <div id="btn-src-url" class="source-type-btn" onclick="window.addSource('url')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -477,7 +540,7 @@
                         </div>
                     </div>
 
-                    <div id="sources-container" class="ml-10 space-y-3">
+                    <div id="sources-container" class="space-y-3">
                         <!-- Fonti qui -->
                     </div>
                 </div>
@@ -488,8 +551,8 @@
                         <span class="step-badge bg-green-500">2</span>
                         <span id="label-step2">Cosa desideri generare?</span>
                     </label>
-                    <div class="flex flex-col gap-4 ml-10">
-                        <div class="flex flex-wrap gap-4">
+                    <div class="flex flex-col gap-4">
+                        <div class="flex flex-wrap gap-4 mode-buttons-container">
                             <div class="mode-btn active" id="mode-mindmap" onclick="window.setMode('mindmap')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -515,25 +578,25 @@
                                 <span class="font-bold" id="label-mode-kg">Knowledge Graph</span>
                             </div>
                         </div>
-
-                        <!-- Root Node (Visibile solo per Mappe Mentali) -->
-                        <div id="step-root-container" class="space-y-2 mt-2 transition-all duration-300">
-                            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello
-                                Studio (Nodo Centrale):</p>
-                            <input type="text" id="root-node-name" class="landing-input w-full max-w-sm"
-                                placeholder="Es. Rivoluzione Francese, Fotosintesi...">
-                        </div>
                     </div>
                     <input type="hidden" id="extraction-mode" value="mindmap">
                 </div> <!-- STEP 3: Rami Principali / Super-Hubs -->
-                <div class="space-y-3">
+                <div class="space-y-3" id="step-3-container">
                     <label class="flex items-center gap-2 text-slate-700 font-bold mb-2">
                         <span class="step-badge bg-orange-500">3</span>
                         <span id="step-l1-title">Rami Principali (Livello 1)</span>
                     </label>
 
+                    <!-- Root Node (Visibile solo per Mappe Mentali) -->
+                    <div id="step-root-container" class="space-y-2 mt-2 transition-all duration-300">
+                        <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Oggetto dello
+                            Studio (Nodo Centrale):</p>
+                        <input type="text" id="root-node-name" class="landing-input w-full"
+                            placeholder="Es. Rivoluzione Francese, Fotosintesi...">
+                    </div>
+
                     <div id="input-l1-container"
-                        class="ml-10 space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                        class="space-y-2 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
                         <p class="text-xs text-slate-500 italic mb-2" id="step-l1-desc">Definisci i rami principali per
                             organizzare lo studio:</p>
                         <div id="l1-inputs-container" class="space-y-2">
@@ -566,7 +629,7 @@
                         </label>
                     </div>
 
-                    <div class="ml-10 mt-4 space-y-2 border-t border-indigo-200/40 pt-4">
+                    <div class="mt-4 space-y-2 border-t border-indigo-200/40 pt-4" id="focus-input-container">
                         <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Focus specifico
                             (Opzionale):</p>
                         <textarea id="focus-input" class="landing-input min-h-[60px]"
@@ -580,15 +643,15 @@
                         <span class="step-badge bg-yellow-500">4</span>
                         <span id="label-step4">Densità Diramazioni (L4 e L5)</span>
                     </label>
-                    <p class="text-xs text-slate-500 ml-10 mb-3">I rami L1-L2-L3 verranno generati sempre. Scegli
+                    <p class="text-xs text-slate-500 mb-3" id="label-step4-desc">I rami L1-L2-L3 verranno generati
+                        sempre. Scegli
                         quanti rami generare nei livelli più profondi (0 = si ferma a L3).</p>
 
-                    <div
-                        class="ml-10 flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                    <div class="flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
                         <span class="text-xs font-bold text-indigo-400">0</span>
                         <input type="range" id="branches-slider" min="0" max="5" value="2"
                             class="w-full outline-none accent-indigo-500 cursor-pointer"
-                            oninput="document.getElementById('branches-val').innerText = this.value">
+                            oninput="document.getElementById('branches-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
                         <span class="text-xs font-bold text-indigo-400">5</span>
                         <span id="branches-val"
                             class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">2</span>
@@ -601,13 +664,14 @@
                         <span class="step-badge bg-yellow-500">4</span>
                         <span id="label-step4-kg">Numero di Concetti/Entità (Livello 2)</span>
                     </label>
-                    <p class="text-xs text-slate-500 ml-10 mb-3" id="label-step4-kg-desc">Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).</p>
-                    <div
-                        class="ml-10 flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
+                    <p class="text-xs text-slate-500 mb-3" id="label-step4-kg-desc">Scegli quanti nodi concettuali
+                        generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per
+                        grafi completi).</p>
+                    <div class="flex items-center gap-4 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200/50">
                         <span class="text-xs font-bold text-indigo-400">10</span>
                         <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
                             class="w-full outline-none accent-indigo-500 cursor-pointer"
-                            oninput="document.getElementById('kg-nodes-val').innerText = this.value">
+                            oninput="document.getElementById('kg-nodes-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
                         <span class="text-xs font-bold text-indigo-400">35</span>
                         <span id="kg-nodes-val"
                             class="ml-2 font-bold text-white bg-indigo-500 px-3 py-1 rounded-lg text-sm shadow-md">20</span>
@@ -615,14 +679,16 @@
                 </div>
 
                 <!-- Generazione HD (Multi-Pass) -->
-                <div class="space-y-3 transition-all duration-300">
-                    <div class="ml-10 mt-3 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                <div class="space-y-3 transition-all duration-300" id="step-multipass-container">
+                    <div
+                        class="mt-3 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/60">
                         <div class="flex flex-col gap-0.5 max-w-[70%]">
                             <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
                                 Generazione HD (Multi-Pass)
                             </span>
-                            <span class="text-[10px] text-slate-400">Consigliato per mappe o grafi densi o con modelli come Qwen. Genera i rami/nodi in fasi sequenziali per evitare il taglio dei dati.</span>
+                            <span class="text-[10px] text-slate-400">Consigliato per mappe o grafi densi o con modelli
+                                come Qwen. Genera i rami/nodi in fasi sequenziali per evitare il taglio dei dati.</span>
                         </div>
                         <div class="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300/40 w-32 shrink-0">
                             <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
@@ -634,21 +700,36 @@
                 </div>
 
 
-                <!-- STEP 6 rimosso dal form — ora dentro il modale Configura AI -->
-                <div id="token-counter-container"
-                    class="ml-10 hidden flex items-center justify-between px-5 py-3 bg-indigo-50/40 border border-indigo-200/50 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
-                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Peso Documento
-                            (Stima)</span>
-                    </div>
-                    <span id="token-count"
-                        class="text-xs font-bold text-indigo-600 bg-white px-3 py-1 rounded-lg shadow-sm border border-indigo-100">0
-                        Tokens</span>
-                </div>
-
                 <!-- Pulsante Generate -->
                 <div class="pt-8 border-t border-indigo-200/40 flex flex-col gap-4">
+                    <!-- Estimatore Token e Costi in Tempo Reale -->
+                    <div id="token-cost-estimator-card"
+                        class="w-full bg-indigo-50/40 border border-indigo-200/50 p-4 rounded-xl flex flex-col gap-3 transition-all duration-300">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-700" id="estimator-title-lbl">Analisi Documento &
+                                Stima Costi</span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                                    id="estimator-tokens-lbl">Input / Max Modello</span>
+                                <span id="estimator-tokens" class="text-[10px] font-bold text-slate-700 font-mono">0 /
+                                    -- token</span>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                                    id="estimator-cost-lbl">Costo Stimato</span>
+                                <span id="estimator-cost"
+                                    class="text-[10px] font-bold text-indigo-600 font-mono">Gratuito</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div id="estimator-progress"
+                                class="bg-indigo-500 h-full w-0 transition-all duration-500 rounded-full"></div>
+                        </div>
+                    </div>
+
                     <button type="submit" id="generate-btn" class="generate-btn w-full">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -662,34 +743,10 @@
                         </svg>
                         <span id="btn-generate-label">Genera Nuova Mappa</span>
                     </button>
-                    <button type="button" onclick="window.createBlankCanvas()"
-                        class="w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="lucide lucide-square-dashed-bottom">
-                            <path d="M5 21a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2" />
-                            <path d="M9 21h1" />
-                            <path d="M14 21h1" />
-                        </svg>
-                        <span id="btn-blank-canvas-label">Oppure crea Canvas Vuoto (Manuale)</span>
-                    </button>
 
-                    <div class="flex flex-wrap items-center justify-end gap-4 py-2">
-
-                        <div class="flex gap-2">
-                            <button type="button" onclick="window.openExternalJSONInstructions()"
-                                class="py-2 px-4 bg-indigo-50 border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2">
-                                <i data-lucide="bot" class="w-3.5 h-3.5"></i> <span id="label-ext-guide">Guida AI
-                                    Esterna</span>
-                            </button>
-                            <label for="landing-import"
-                                class="py-2 px-4 bg-white border border-indigo-200 text-indigo-600 font-bold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-sm">
-                                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> <span
-                                    id="label-import-json">Importa JSON</span>
-                            </label>
-                            <input type="file" id="landing-import" accept=".json" class="hidden"
-                                onchange="window.importGraph(event)">
-                        </div>
+                    <div class="hidden">
+                        <input type="file" id="landing-import" accept=".json" class="hidden"
+                            onchange="window.importGraph(event)">
                     </div>
                 </div>
             </form>
@@ -794,7 +851,8 @@
                     <div class="text-center text-slate-400 mt-8 animate-pulse">
                         <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
                         <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
-                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i contenuti dei nodi e il tasto destro per modificarli.</p>
+                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i contenuti
+                            dei nodi e il tasto destro per modificarli.</p>
                     </div>
                 </div>
 
@@ -840,7 +898,7 @@
             </div>
 
             <!-- ═══ TAB: TUTOR AI ═══ -->
-            <div id="sidebar-panel-tutor"
+            <div id="sidebar-panel-tutor" style="display: none !important;"
                 class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col">
                 <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
                     <div class="flex justify-between items-center mb-3">
@@ -900,21 +958,40 @@
             <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
                 <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
                     <!-- Pomodoro Timer -->
-                    <div
-                        class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
-                            <span id="pomodoro-time"
-                                class="font-bold text-slate-800 text-lg font-mono tracking-wider">25:00</span>
+                    <div class="flex flex-col gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+                                <span id="pomodoro-time"
+                                    class="font-bold text-slate-800 text-lg font-mono tracking-wider">25:00</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="pomodoro-btn" onclick="window.togglePomodoro()"
+                                    class="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center">
+                                    <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                                </button>
+                                <button onclick="window.resetPomodoro()"
+                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
+                                    title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                            </div>
                         </div>
-                        <div class="flex gap-2">
-                            <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                class="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center">
-                                <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-                            </button>
-                            <button onclick="window.resetPomodoro()"
-                                class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
-                                title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                        <!-- Preset Duration Buttons & Session Badge -->
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                            <div class="flex gap-1">
+                                <button id="pomodoro-preset-15" onclick="window.setPomodoroDuration(15)"
+                                    class="px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold">15m</button>
+                                <button id="pomodoro-preset-25" onclick="window.setPomodoroDuration(25)"
+                                    class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold">25m</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="pomodoro-sessions-badge"
+                                    class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 shadow-sm transition-all duration-300">Sessioni:
+                                    0 🔥</span>
+                                <button onclick="window.resetPomodoroSessions()"
+                                    class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera sessioni">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <!-- Statistiche Progresso -->
@@ -950,7 +1027,7 @@
                     </div>
                     <!-- Azioni Studio -->
                     <div class="space-y-3 mt-2">
-                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl hidden">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
                                     grafico</span>
@@ -966,11 +1043,11 @@
                             </div>
                         </div>
 
-                        <button onclick="window.generateGlobalFlashcards()"
+                        <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
                             class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
                         </button>
-                        <button onclick="window.generateGlobalQuiz()"
+                        <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
                             class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
                             <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
                         </button>
@@ -984,12 +1061,23 @@
                     <div class="mt-4 border-t border-slate-200 pt-5">
                         <h3
                             class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="layers" class="w-4 h-4"></i> I tuoi Set di Studio
+                            <i data-lucide="layers" class="w-4 h-4"></i> Materiale di Studio (Flashcard e Quiz)
                         </h3>
                         <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Genera flashcard o
-                                quiz
-                                per visualizzarli qui.</p>
+                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
+                                flashcard o quiz pre-generati.</p>
+                        </div>
+                    </div>
+
+                    <!-- Storico Punteggi -->
+                    <div class="mt-4 border-t border-slate-200 pt-5">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi (Quiz)
+                        </h3>
+                        <div id="study-scores-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio
+                                registrato. Completa un quiz per iniziare!</p>
                         </div>
                     </div>
                 </div>
@@ -1003,7 +1091,7 @@
 
             <!-- Sidebar Toggle (Top Left) -->
             <div class="absolute top-6 left-6 z-[40]">
-                <button onclick="window.toggleSidebar()"
+                <button id="sidebar-toggle-btn" onclick="window.toggleSidebar()"
                     class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
                     title="Nascondi/Mostra Sidebar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -1022,17 +1110,9 @@
                 <div id="floating-actions-menu"
                     class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
                     <button onclick="window.exportNotesMarkdown()"
-                        class="w-full px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 flex items-center gap-3 transition-all"
+                        class="w-full px-4 py-2.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold hover:bg-emerald-200 flex items-center gap-3 transition-all"
                         title="Esporta Appunti MD">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="w-4 h-4">
-                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                            <path d="M10 9H8" />
-                            <path d="M16 13H8" />
-                            <path d="M16 17H8" />
-                        </svg> Esporta Appunti
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Esporta Appunti
                     </button>
                     <!-- SOTA: MARKDOWN VAULT ACTIONS -->
                     <button onclick="window.saveMapVault()"
@@ -1041,24 +1121,24 @@
                         <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
                     </button>
                     <button onclick="window.loadMapVault()"
-                        class="w-full px-4 py-2 bg-white border border-slate-100 rounded-xl text-[10px] font-bold text-slate-500 hover:bg-slate-50 flex items-center gap-2 transition-all"
+                        class="w-full px-4 py-2.5 bg-blue-100 text-blue-800 border border-blue-300 rounded-xl text-xs font-bold hover:bg-blue-200 flex items-center gap-3 transition-all"
                         title="Apri Cartella Vault Markdown">
-                        <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Importa dal Vault
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
                     </button>
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()"
-                        class="hidden w-full px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-[10px] font-bold hover:bg-indigo-100 items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                        class="hidden w-full px-4 py-2.5 bg-cyan-100 text-cyan-800 border border-cyan-300 rounded-xl text-xs font-bold hover:bg-cyan-200 flex items-center gap-3 transition-all shadow-sm active:scale-95"
                         title="Sincronizza modifiche nel Vault">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizza Vault
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizza Vault
                     </button>
                     <!-- Tasto Salva Snapshot Layout (discreto) -->
                     <button id="save-layout-btn" onclick="window.salvaLayout()"
-                        class="hidden w-full px-4 py-2 bg-slate-50 text-slate-500 border border-slate-100 rounded-xl text-[10px] font-bold hover:bg-slate-100 items-center justify-center gap-2 transition-all"
+                        class="hidden w-full px-4 py-2.5 bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-3 transition-all"
                         title="Salva la disposizione attuale come 'Personal'">
-                        <i data-lucide="camera" class="w-3.5 h-3.5"></i> Salva Layout Snapshot
+                        <i data-lucide="camera" class="w-4 h-4"></i> Salva Layout Snapshot
                     </button>
                     <label for="sidebar-merge"
-                        class="w-full px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-3 cursor-pointer mb-0 transition-all"
+                        class="w-full px-4 py-2.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 flex items-center gap-3 cursor-pointer mb-0 transition-all"
                         title="Unisci un altro JSON alla mappa corrente">
                         <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
                     </label>
@@ -1066,7 +1146,7 @@
                         onchange="window.mergeGraph(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()"
-                        class="w-full px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-3 transition-all"
+                        class="w-full px-4 py-2.5 bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-bold hover:bg-rose-200 flex items-center gap-3 transition-all"
                         title="Nuova Mappa">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
                     </button>
@@ -1135,7 +1215,7 @@
 
                 <!-- Distanza Nodi -->
                 <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest">Distanza</span>
+                    <i data-lucide="arrow-left-right" class="w-5 h-5 text-slate-500 mb-1" title="Distanza"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeDistance(-1)"
                             class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
@@ -1149,8 +1229,7 @@
 
                 <!-- Dimensione Testo Nodi -->
                 <div class="flex flex-col items-center">
-                    <span class="text-[9px] font-bold text-slate-500 mb-1 uppercase tracking-widest"
-                        data-i18n="lbl_size_text">Testo</span>
+                    <i data-lucide="type" class="w-5 h-5 text-slate-500 mb-1" title="Testo"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeFontScale(-1)"
                             class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
@@ -1276,7 +1355,8 @@
                 </button>
             </div>
 
-            <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl" id="source-modal-body">
+            <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl"
+                id="source-modal-body">
                 <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
             </div>
         </div>
@@ -1371,64 +1451,7 @@
         </div>
     </div>
 
-    <!-- Modale Istruzioni JSON Esterno -->
-    <div id="external-json-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[3000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div
-            class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300 overflow-hidden">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white">
-                <h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="bot"></i> Usa MappAI con
-                    ChatGPT/Claude</h3>
-                <button onclick="window.closeExternalJSONModal()"
-                    class="hover:bg-white/20 p-1 rounded-lg transition-colors">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto space-y-6 modal-scroll">
-                <div>
-                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">1. Copia il Prompt</h4>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
-                        <pre id="external-prompt-text"
-                            class="text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">Ti fornirò un testo. Analizzalo e crea una mappa mentale strutturata in formato JSON per MappAI.
-Usa esattamente questo schema:
-{
-  "nodes": [
-    {"id": "ROOT", "label": "Titolo Centrale", "level": 0, "content": "Descrizione..."},
-    {"id": "N1", "label": "Ramo Principale", "level": 1, "content": "..."},
-    {"id": "N1_1", "label": "Sottotema", "level": 2, "content": "..."}
-  ],
-  "links": [
-    {"source": "ROOT", "target": "N1", "rel": "include"},
-    {"source": "N1", "target": "N1_1", "rel": "include"}
-  ]
-}
-Restituisci solo il JSON pulito.</pre>
-                        <button onclick="window.copyExternalPrompt()"
-                            class="absolute top-2 right-2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-all">
-                            <i data-lucide="copy" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="text-sm font-bold text-slate-800 uppercase mb-2">2. Salva e Importa</h4>
-                    <p class="text-xs text-slate-600 leading-relaxed">
-                        Copia la risposta dell'AI, incollala in un file di testo e salvalo con estensione <span
-                            class="font-bold text-indigo-600">.json</span>.
-                        Poi usa il tasto "Importa JSON" o trascina il file direttamente qui dentro per visualizzare
-                        la
-                        tua mappa!
-                    </p>
-                </div>
-                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                    <p class="text-xs text-amber-700 font-medium">
-                        💡 Tip: Puoi chiedere a ChatGPT di aggiungere "content" dettagliati per ogni nodo per avere
-                        una
-                        mappa ricca di informazioni.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Modale Confirm Personalizzato -->
     <div id="confirm-modal"
@@ -1611,13 +1634,25 @@ Restituisci solo il JSON pulito.</pre>
                 </div>
             </div>
 
-            <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center shrink-0">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella: Documents/Salvataggi
-                    MappAI</p>
-                <button onclick="window.loadMapVault()"
-                    class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
-                </button>
+            <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-3 shrink-0">
+                <div class="flex justify-between items-center gap-2">
+                    <button onclick="window.loadDemoGraph('esempi/carta.json')"
+                        class="text-[11px] font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-2 rounded-lg flex-1 border border-amber-200 transition-colors flex justify-center items-center gap-1">
+                        <i data-lucide="file-text" class="w-3 h-3"></i> Esempio: La Carta (Quiz)
+                    </button>
+                    <button onclick="window.loadDemoGraph('esempi/rete_elettrica.json')"
+                        class="text-[11px] font-bold bg-sky-50 text-sky-600 hover:bg-sky-100 px-3 py-2 rounded-lg flex-1 border border-sky-200 transition-colors flex justify-center items-center gap-1">
+                        <i data-lucide="zap" class="w-3 h-3"></i> Esempio: Rete Elettrica
+                    </button>
+                </div>
+                <div class="flex justify-between items-center mt-2">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella:
+                        Documents/Salvataggi MappAI</p>
+                    <button onclick="window.loadMapVault()"
+                        class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1710,30 +1745,56 @@ Restituisci solo il JSON pulito.</pre>
                     <!-- Colore elemento -->
                     <div class="flex flex-col">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Colore elemento</label>
-                        <div class="flex flex-col items-center justify-center gap-5 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow">
+                        <div
+                            class="flex flex-col items-center justify-center gap-5 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow">
                             <!-- Main Picker -->
                             <div class="relative group">
                                 <input type="color" id="edit-n-color"
                                     class="w-24 h-24 rounded-2xl cursor-pointer border-0 p-0 bg-transparent shadow-sm group-hover:scale-105 transition-transform">
-                                <div class="absolute -bottom-1 -right-1 bg-white p-1 rounded-md shadow-sm border border-slate-100 pointer-events-none group-hover:scale-110 transition-transform">
+                                <div
+                                    class="absolute -bottom-1 -right-1 bg-white p-1 rounded-md shadow-sm border border-slate-100 pointer-events-none group-hover:scale-110 transition-transform">
                                     <i data-lucide="pipette" class="w-3 h-3 text-slate-400"></i>
                                 </div>
                             </div>
-                            
+
                             <!-- Power Palette -->
                             <div class="grid grid-cols-6 gap-2 mt-1">
-                                <div onclick="window.setEditColor('#00f2ff')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #00f2ff;" title="Cyber Cyan"></div>
-                                <div onclick="window.setEditColor('#3b82f6')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #3b82f6;" title="Electric Blue"></div>
-                                <div onclick="window.setEditColor('#8b5cf6')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #8b5cf6;" title="Neon Purple"></div>
-                                <div onclick="window.setEditColor('#d946ef')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #d946ef;" title="Hot Pink"></div>
-                                <div onclick="window.setEditColor('#f43f5e')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #f43f5e;" title="Power Red"></div>
-                                <div onclick="window.setEditColor('#f97316')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #f97316;" title="Cyber Orange"></div>
-                                <div onclick="window.setEditColor('#facc15')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #facc15;" title="Sunny Yellow"></div>
-                                <div onclick="window.setEditColor('#4ade80')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #4ade80;" title="Neon Green"></div>
-                                <div onclick="window.setEditColor('#2dd4bf')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #2dd4bf;" title="MappAI Teal"></div>
-                                <div onclick="window.setEditColor('#06b6d4')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #06b6d4;" title="Arctic Blue"></div>
-                                <div onclick="window.setEditColor('#64748b')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #64748b;" title="Steel Gray"></div>
-                                <div onclick="window.setEditColor('#1e293b')" class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm" style="background: #1e293b;" title="Dark Mode"></div>
+                                <div onclick="window.setEditColor('#00f2ff')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #00f2ff;" title="Cyber Cyan"></div>
+                                <div onclick="window.setEditColor('#3b82f6')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #3b82f6;" title="Electric Blue"></div>
+                                <div onclick="window.setEditColor('#8b5cf6')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #8b5cf6;" title="Neon Purple"></div>
+                                <div onclick="window.setEditColor('#d946ef')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #d946ef;" title="Hot Pink"></div>
+                                <div onclick="window.setEditColor('#f43f5e')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #f43f5e;" title="Power Red"></div>
+                                <div onclick="window.setEditColor('#f97316')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #f97316;" title="Cyber Orange"></div>
+                                <div onclick="window.setEditColor('#facc15')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #facc15;" title="Sunny Yellow"></div>
+                                <div onclick="window.setEditColor('#4ade80')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #4ade80;" title="Neon Green"></div>
+                                <div onclick="window.setEditColor('#2dd4bf')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #2dd4bf;" title="MappAI Teal"></div>
+                                <div onclick="window.setEditColor('#06b6d4')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #06b6d4;" title="Arctic Blue"></div>
+                                <div onclick="window.setEditColor('#64748b')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #64748b;" title="Steel Gray"></div>
+                                <div onclick="window.setEditColor('#1e293b')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #1e293b;" title="Dark Mode"></div>
                             </div>
 
                             <div class="text-[9px] text-slate-400 font-bold leading-tight text-center">
@@ -1745,7 +1806,8 @@ Restituisci solo il JSON pulito.</pre>
                     <!-- Icone Modifiche -->
                     <div class="flex flex-col">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Icone modifiche </label>
-                        <div class="flex flex-col gap-3 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow justify-center">
+                        <div
+                            class="flex flex-col gap-3 bg-slate-50 p-5 rounded-xl border border-slate-200 flex-grow justify-center">
                             <label
                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
                                 <div class="flex items-center gap-3">
@@ -2311,7 +2373,7 @@ Restituisci solo il JSON pulito.</pre>
                         <i data-lucide="key"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <input type="password" id="gemini-api-key-input"
-                            onblur="localStorage.setItem('gemini_api_key', this.value);"
+                            onblur="if(window.saveSecureKey) { window.saveSecureKey('gemini_api_key', this.value); } else { localStorage.setItem('gemini_api_key', this.value); }"
                             class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                             placeholder="Inserisci chiave Google Gemini...">
                     </div>
@@ -2333,7 +2395,7 @@ Restituisci solo il JSON pulito.</pre>
                             <i data-lucide="key"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                             <input type="password" id="infomaniak-api-key-input"
-                                onblur="localStorage.setItem('infomaniak_api_key', this.value);"
+                                onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); }"
                                 class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                                 placeholder="Inserisci token Infomaniak...">
                         </div>
@@ -2535,6 +2597,9 @@ Restituisci solo il JSON pulito.</pre>
     <script src="js/hypher.js"></script>
     <script src="js/it.js"></script>
     <script src="js/infomaniak_bridge.js"></script>
+    <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
+    <script src="js/storageAdapter.js"></script>
+
     <script src="js/app.js"></script>
     <script>
         window.toggleSidebar = function () {
@@ -2599,8 +2664,6 @@ Restituisci solo il JSON pulito.</pre>
             class="a11y-btn"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
         <button id="btn-text-zoom-panel" onclick="window.cycleTextZoom()" class="a11y-btn"><i data-lucide="zoom-in"
                 class="w-4 h-4"></i> Testo x1</button>
-        <button onclick="window.toggleMagnifier(); this.classList.toggle('active')" class="a11y-btn"><i
-                data-lucide="search" class="w-4 h-4"></i> Lente Ingrandimento</button>
     </div>
 
     <!-- ==========================================
@@ -2623,11 +2686,14 @@ Restituisci solo il JSON pulito.</pre>
                 <div class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col h-full overflow-hidden">
                     <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl shrink-0">
                         <button onclick="window.switchAdminTab('MINDMAPS')" data-tab="MINDMAPS"
-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe Mentali</button>
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe
+                            Mentali</button>
                         <button onclick="window.switchAdminTab('KGRAPHS')" data-tab="KGRAPHS"
-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Knowledge Graph</button>
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Knowledge
+                            Graph</button>
                         <button onclick="window.switchAdminTab('TUTOR')" data-tab="TUTOR"
-                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor AI</button>
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor
+                            AI</button>
                         <button onclick="window.switchAdminTab('STUDY')" data-tab="STUDY"
                             class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Studio</button>
                     </div>

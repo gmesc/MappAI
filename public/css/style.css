@@ -99,6 +99,66 @@
         zoom: calc(1 / var(--app-zoom, 1)) !important;
     }
 
+    #insegnai-drawer-tab {
+        transform: scale(1.0) !important;
+        width: 44px !important;
+        box-sizing: border-box !important;
+        background-color: #4f46e5 !important; /* Indigo-600 */
+        border: 1px solid #6366f1 !important;
+        border-left: none !important;
+        border-top-right-radius: 16px !important;
+        border-bottom-right-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        flex-shrink: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s ease !important;
+    }
+
+    #insegnai-drawer-tab:hover {
+        background-color: #4338ca !important; /* Indigo-700 */
+    }
+
+    #insegnai-drawer-tab span {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        letter-spacing: 0.05em !important;
+        font-size: 15.5px !important;
+        padding: 16px 12px !important;
+        writing-mode: vertical-rl !important;
+        text-orientation: mixed !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    #insegnai-drawer-tab svg,
+    #insegnai-drawer-tab i {
+        width: 18px !important;
+        height: 18px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        transition: color 0.2s ease !important;
+    }
+
+    #insegnai-drawer-tab:hover svg,
+    #insegnai-drawer-tab:hover i {
+        color: #ffffff !important;
+    }
+
+    #insegnai-drawer-tab > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 8px 16px 8px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
     #projects-bar h3,
     #insegnai-drawer h1,
     #insegnai-drawer h2,

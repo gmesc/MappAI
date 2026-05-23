@@ -35,8 +35,14 @@ const it_translations = {
     step5: "Stile Visualizzazione",
     step_density_title: "Densità Diramazioni (L4 e L5)",
     step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
+    step_density_desc_manual_l1: "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
     step_kg_density_title: "Numero di Concetti/Entità (Livello 2)",
     step_kg_density_desc: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).",
+    step_kg_density_desc_manual_l1: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.",
+    estimator_title: "Analisi Documento & Stima Costi",
+    estimator_tokens_label: "Input / Max Modello",
+    estimator_cost_label: "Costo Stimato",
+    estimator_free: "Gratuito (Piano Free)",
 
 
     // Placeholders
@@ -224,8 +230,7 @@ const it_translations = {
     quiz_next: "Avanti",
     about_desc1: "Ciao, mi chiamo Giacomo e sono lo sviluppatore di <strong>MappAI</strong>.",
     about_desc2: "Ho creato questo software come strumento di organizzazione e assistenza per lo studio.",
-    about_desc3: "Sono anche un docente di scuola media e da anni mi interesso all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo.",
-    about_desc4: "Spero che questo software possa esservi d'aiuto.",
+    about_desc3: "Sono anche un docente di scuola media e da anni mi interesso all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo. Spero che questo software possa esservi d'aiuto.",
     feedback_section: "Feedback & Bug",
     feedback_btn_title: "Segnalazione",
     feedback_btn_desc: "Invia feedback o bug",

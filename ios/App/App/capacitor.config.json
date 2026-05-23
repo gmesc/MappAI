@@ -1,0 +1,13 @@
+{
+	"appId": "com.gmesc.mappai",
+	"appName": "MappAI",
+	"webDir": "public",
+	"plugins": {
+		"CapacitorHttp": {
+			"enabled": true
+		}
+	},
+	"packageClassList": [
+		"FilesystemPlugin"
+	]
+}

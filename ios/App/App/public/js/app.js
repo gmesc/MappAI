@@ -32,7 +32,7 @@ let appState = {
     allProfiles: [],
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
-    studentMode: true,
+    studentMode: false,
     infomaniakAllModels: false,
     multiPassMode: false
 };
@@ -101,6 +101,45 @@ window.applyStudentModeUI = function () {
     if (btnYoutube) btnYoutube.style.display = displayStyle;
     if (btnAudio) btnAudio.style.display = displayStyle;
     if (btnVideo) btnVideo.style.display = displayStyle;
+
+    const setupForm = document.getElementById('setup-form');
+    if (setupForm) {
+        if (appState.studentMode) {
+            setupForm.classList.add('hidden');
+        } else {
+            setupForm.classList.remove('hidden');
+        }
+    }
+
+    const sidebarTabTutor = document.getElementById('sidebar-tab-tutor');
+    if (sidebarTabTutor) {
+        if (appState.studentMode) {
+            sidebarTabTutor.classList.add('hidden');
+            const panelTutor = document.getElementById('sidebar-panel-tutor');
+            if (panelTutor && !panelTutor.classList.contains('hidden')) {
+                window.switchSidebarTab('structure');
+            }
+        } else {
+            sidebarTabTutor.classList.remove('hidden');
+        }
+    }
+
+    const btnFlashcards = document.getElementById('btn-generate-flashcards');
+    const btnQuiz = document.getElementById('btn-generate-quiz');
+    if (btnFlashcards) {
+        if (appState.studentMode) {
+            btnFlashcards.classList.add('hidden');
+        } else {
+            btnFlashcards.classList.remove('hidden');
+        }
+    }
+    if (btnQuiz) {
+        if (appState.studentMode) {
+            btnQuiz.classList.add('hidden');
+        } else {
+            btnQuiz.classList.remove('hidden');
+        }
+    }
 };
 
 window.toggleStudentMode = function () {
@@ -353,21 +392,14 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
 
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
+    if (appState.studentMode) {
+        window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+        return;
+    }
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) {
-            m.classList.remove('hidden');
-            m.style.display = 'flex';
-            window.safeCreateIcons();
-
-            // Initialize Product ID
-            const productIdInput = document.getElementById('infomaniak-product-id');
-            if (productIdInput) productIdInput.value = appState.infomaniakProductId;
-
-            // Sync UI with current provider
-            window.switchAIProvider(appState.aiProvider);
-        }
-    } catch (e) { console.error('showConfigAIModal error:', e); }
+        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
+    } catch (e) { }
 };
 window.closeConfigAIModal = function () {
     try {
@@ -1080,7 +1112,7 @@ window.getSystemKey = function () {
     const inputEl = document.getElementById(inputId);
     let key = inputEl ? inputEl.value.trim() : "";
     if (!key || key === "") {
-        key = localStorage.getItem(storageKey) || "";
+        key = (window.secureKeys && window.secureKeys[storageKey]) || localStorage.getItem(storageKey) || "";
     }
     return key;
 };
@@ -1153,41 +1185,107 @@ window.updateCostDisplay = function () {
 }
 
 window.updateTokenCounter = function () {
-    const container = document.getElementById('token-counter-container');
-    const display = document.getElementById('token-count');
-    if (!container || !display) return;
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
+};
 
+window.updateTokenCostEstimator = function () {
+    const modelSelect = document.getElementById('model-select');
+    const tokensValEl = document.getElementById('estimator-tokens');
+    const costValEl = document.getElementById('estimator-cost');
+    const progressEl = document.getElementById('estimator-progress');
+    if (!tokensValEl || !costValEl || !progressEl) return;
+
+    const selectedModel = modelSelect ? modelSelect.value : '';
+    if (!selectedModel) {
+        tokensValEl.textContent = '0 / -- token';
+        costValEl.textContent = '--';
+        progressEl.style.width = '0%';
+        return;
+    }
+
+    // 1. Get model specs
+    const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
+    
+    // Determine context window
+    let maxContext = 1048576; // Default to 1M
+    const modelIdLower = selectedModel.toLowerCase();
+    if (modelIdLower.includes('gemma')) {
+        maxContext = 8192;
+    } else if (modelIdLower.includes('pro')) {
+        maxContext = 2097152; // 2M
+    } else if (modelIdLower.includes('flash')) {
+        maxContext = 1048576; // 1M
+    }
+
+    // 2. Count input tokens
     let totalChars = 0;
-
     // Sum contents from textarea sources
     const textareas = document.querySelectorAll('.landing-textarea');
     textareas.forEach(ta => {
         totalChars += ta.value.length;
     });
-
-    // Sum contents from appState (extracted from files/urls)
+    // Sum contents from appState (extracted files/urls)
     if (appState.sources) {
         appState.sources.forEach(s => {
             if (s.content) totalChars += s.content.length;
         });
     }
+    const inputTokens = Math.ceil(totalChars / 4);
 
-    if (totalChars > 0) {
-        container.classList.remove('hidden');
-        // Heuristic: ~4 chars per token
-        const tokens = Math.ceil(totalChars / 4);
-        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
-
-        // Visual feedback based on size
-        if (tokens > 30000) {
-            display.classList.add('text-rose-600', 'border-rose-200');
-            display.classList.remove('text-indigo-600', 'border-indigo-100');
-        } else {
-            display.classList.remove('text-rose-600', 'border-rose-200');
-            display.classList.add('text-indigo-600', 'border-indigo-100');
-        }
+    // 3. Estimate output tokens based on MM or KG and depth/branches/nodes
+    const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
+    let outputTokens = 0;
+    if (mode === 'mindmap') {
+        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+        // MM formula: N_nodes = 20 + maxBranches * 5
+        const nNodes = 20 + branchesVal * 5;
+        outputTokens = nNodes * 120;
     } else {
-        container.classList.add('hidden');
+        const kgNodesVal = parseInt(document.getElementById('kg-nodes-slider')?.value || '20', 10);
+        // KG formula: N_nodes = kgNodes
+        outputTokens = kgNodesVal * 150;
+    }
+
+    // 4. Calculate cost in cents
+    let costDisplay = '';
+    const isFree = kb.free || (kb.inputCost === 0 && kb.outputCost === 0);
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const freeText = t.estimator_free || (lang === 'en' ? 'Free (Free Tier)' : 'Gratuito (Piano Free)');
+
+    if (isFree) {
+        costDisplay = freeText;
+    } else {
+        // Cost per 1M tokens * (tokens / 1M) -> cost in dollars * 100 -> cost in cents
+        const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
+        const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
+        const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
+        
+        if (totalCostCents < 0.01) {
+            costDisplay = `<0.01 ¢`;
+        } else {
+            costDisplay = `${totalCostCents.toFixed(2)} ¢`;
+        }
+    }
+
+    // 5. Update UI
+    tokensValEl.textContent = `${inputTokens.toLocaleString()} / ${maxContext.toLocaleString()} token`;
+    costValEl.textContent = costDisplay;
+
+    // Progress bar calculation
+    const progressPercent = Math.min((inputTokens / maxContext) * 100, 100);
+    progressEl.style.width = `${progressPercent}%`;
+
+    // Colors: green (<50%), yellow (50-80%), red (>80%)
+    progressEl.className = 'h-full transition-all duration-500 rounded-full';
+    if (progressPercent < 50) {
+        progressEl.classList.add('bg-emerald-500');
+    } else if (progressPercent < 80) {
+        progressEl.classList.add('bg-amber-500');
+    } else {
+        progressEl.classList.add('bg-rose-500');
     }
 };
 
@@ -1395,7 +1493,11 @@ window.startGeneration = async function () {
     const inputKey = document.getElementById(inputId) ? document.getElementById(inputId).value.trim() : "";
 
     if (inputKey !== "") {
-        localStorage.setItem(storageKey, inputKey);
+        if (window.saveSecureKey) {
+            window.saveSecureKey(storageKey, inputKey);
+        } else {
+            localStorage.setItem(storageKey, inputKey);
+        }
     }
 
     const apiKey = window.getSystemKey();
@@ -3304,7 +3406,7 @@ function renderGraph() {
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
         .text(d => d.rel)
-        .attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        .style("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
@@ -3352,10 +3454,8 @@ function renderGraph() {
         .style("opacity", 0) // Cascading animation start
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
-        .on("contextmenu", (e, d) => window.showContextMenu(e, 'node', d))
-        .on("touchstart", (e, d) => handleTouchStart(e, 'node', d))
-        .on("touchend", handleTouchEnd)
-        .on("touchmove", handleTouchMove);
+        .on("dblclick", (e, d) => { e.stopPropagation(); window.openSourceModal(d.id); })
+        .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
     
@@ -3365,7 +3465,7 @@ function renderGraph() {
     nodeEnter.append("text").attr("class", "node-text")
         .attr("text-anchor", "middle")
         .attr("fill", "#0f172a")
-        .attr("font-size", d => {
+        .style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3580,17 +3680,105 @@ function tick() {
 }
 
 function drag(simulation) {
+    let dragStartPos = null;
+    let longPressTimer = null;
+    let longPressTriggered = false;
+    let hasMovedSignificant = false;
+
     function dragstarted(event) {
+        longPressTriggered = false;
+        hasMovedSignificant = false;
+        const sourceEvt = event.sourceEvent;
+
+        if (sourceEvt) {
+            const touch = sourceEvt.touches ? sourceEvt.touches[0] : sourceEvt;
+            dragStartPos = { x: touch.clientX, y: touch.clientY };
+        } else {
+            dragStartPos = { x: event.x, y: event.y };
+        }
+
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            window.ignoreNextNodeClick = true; // Prevents opening node sidebar/focus modal after long press release
+
+            let clientX = dragStartPos.x;
+            let clientY = dragStartPos.y;
+            let syntheticEvent = {
+                preventDefault: () => { if (sourceEvt && sourceEvt.preventDefault) sourceEvt.preventDefault(); },
+                stopPropagation: () => { if (sourceEvt && sourceEvt.stopPropagation) sourceEvt.stopPropagation(); },
+                clientX: clientX,
+                clientY: clientY
+            };
+
+            window.showContextMenu(syntheticEvent, 'node', event.subject);
+            longPressTimer = null;
+        }, 500); // 500ms long press threshold
+
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
     }
+
     function dragged(event) {
+        if (dragStartPos) {
+            const sourceEvt = event.sourceEvent;
+            let curX = event.x;
+            let curY = event.y;
+            if (sourceEvt) {
+                const touch = sourceEvt.touches ? sourceEvt.touches[0] : sourceEvt;
+                curX = touch.clientX;
+                curY = touch.clientY;
+            }
+            const dx = curX - dragStartPos.x;
+            const dy = curY - dragStartPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) { // 10px threshold for drag/move
+                hasMovedSignificant = true;
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+        }
+
+        if (longPressTriggered) return;
+
         event.subject.fx = event.x;
         event.subject.fy = event.y;
     }
+
     function dragended(event) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
         if (!event.active) simulation.alphaTarget(0);
+
+        if (longPressTriggered) {
+            longPressTriggered = false;
+            // Delay resetting ignoreNextNodeClick slightly so click handler filters it
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 100);
+            return;
+        }
+
+        // Se non si è mosso in modo significativo (tap veloce), gestiamo il click direttamente qui per evitare soppressione D3 su mobile
+        if (!hasMovedSignificant) {
+            // Ripristina la posizione originale se non era un drag reale
+            event.subject.fx = null;
+            event.subject.fy = null;
+            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; }
+
+            // Esegui la chiamata diretta al gestore click
+            window.handleNodeClick(event.sourceEvent, event.subject);
+
+            // Imposta ignoreNextNodeClick a true per il click nativo duplicato che arriverà asincronamente
+            window.ignoreNextNodeClick = true;
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 300);
+            return;
+        }
+
         if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
         if (event.subject.level > 1 && !attractionEnabled) {
             event.subject.fx = event.x; event.subject.fy = event.y;
@@ -3598,6 +3786,7 @@ function drag(simulation) {
             event.subject.fx = null; event.subject.fy = null;
         }
     }
+
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
 }
 
@@ -3649,7 +3838,7 @@ window.toggleAttraction = function () {
 window.changeFontScale = function (dir) {
     globalFontScale = Math.max(0.5, Math.min(2.5, globalFontScale + (dir * 0.1)));
     if (g) {
-        g.selectAll("text.node-text").attr("font-size", d => {
+        g.selectAll("text.node-text").style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3658,7 +3847,7 @@ window.changeFontScale = function (dir) {
             return (baseSize * globalFontScale) + "px";
         });
 
-        g.selectAll("text.link-label").attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        g.selectAll("text.link-label").style("font-size", (8 * globalFontScale * 0.765) + "px");
     }
 };
 
@@ -3670,7 +3859,7 @@ window.exportSnapshot = async function () {
         document.body.classList.add('is-snapshotting');
         
         // Attendi un frame per il reflow del layout
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
         
@@ -3679,12 +3868,28 @@ window.exportSnapshot = async function () {
 
         if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
 
-        const a = document.createElement("a");
-        a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
-        a.href = dataUrl;
-        a.click();
-        
-        window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const file = new File([blob], `MappAI_Snapshot_${new Date().getTime()}.png`, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta Snapshot",
+                    text: "Snapshot della mappa mentale creato con MappAI"
+                });
+                window.showToast("Snapshot condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione file non supportata da questo dispositivo");
+            }
+        } else {
+            const a = document.createElement("a");
+            a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
+            a.href = dataUrl;
+            a.click();
+            window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        }
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
         console.error("Errore Snapshot:", err);
@@ -4115,6 +4320,7 @@ window.switchToMapLayout = function () {
         if (minLinkControl) minLinkControl.classList.remove('hidden');
         if (sliderDivider) sliderDivider.classList.remove('hidden');
     }
+    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
 }
 
 window.backToLanding = function () {
@@ -4132,9 +4338,15 @@ window.zoomToNode = function (nodeId) {
     }
 };
 
+window.ignoreNextNodeClick = false;
+
 window.handleNodeClick = function (event, d) {
+    if (window.ignoreNextNodeClick) {
+        window.ignoreNextNodeClick = false;
+        return;
+    }
     try {
-        event.stopPropagation();
+        if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
 
         if (linkingState.active) {
@@ -4235,11 +4447,13 @@ window.handleNodeClick = function (event, d) {
                     ` : ''}
                     
                     <!-- AI QUIZ -->
+                    ${!appState.studentMode ? `
                     <div class="pt-4 border-t border-slate-200 space-y-4">
                         <button onclick="window.generateAIQuiz()" class="w-full bg-emerald-600 text-white font-bold p-2.5 rounded-lg shadow-md hover:bg-emerald-700 flex justify-center items-center gap-2 transition">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Mettiti alla prova (Genera Quiz)
                         </button>
                     </div>
+                    ` : ''}
             </div>
             `;
         document.getElementById('node-details').innerHTML = html;
@@ -4432,37 +4646,39 @@ window.openSourceModal = function (nodeId) {
         }
 
         // --- SEZIONE TUTOR AI ---
-        html += `
-        <div class="mt-8 border-t border-slate-200 pt-6">
-            <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
-                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
-                    <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
-                </label>
-                <div class="flex items-center gap-3">
-                    <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
-                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
-                </div>
-            </div>
-            <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
-                <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
-                    <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
-                    <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
-                        <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
-                    </button>
-                </div>
-                <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
-                    <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
-                    <div class="flex gap-2 mt-auto">
-                        <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
-                        <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+        if (!appState.studentMode) {
+            html += `
+            <div class="mt-8 border-t border-slate-200 pt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
+                    <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
+                        <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
+                        <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
                     </div>
                 </div>
-            </div>
-        </div>`;
+                <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
+                    <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
+                        <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
+                        <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
+                        </button>
+                    </div>
+                    <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
+                        <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
+                        <div class="flex gap-2 mt-auto">
+                            <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
+                            <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
 
         sourceModalBody.innerHTML = html;
         window.safeCreateIcons();
@@ -4532,6 +4748,30 @@ window.resetZoom = function () {
     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
 };
 
+window.updateStep4Display = function () {
+    const isMindmap = (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap';
+    const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle')?.checked ?? true;
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+
+    const descMM = document.getElementById('label-step4-desc');
+    const descKG = document.getElementById('label-step4-kg-desc');
+
+    if (isMindmap) {
+        if (descMM) {
+            descMM.innerText = autoGenerateL1 ? 
+                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") : 
+                (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
+        }
+    } else {
+        if (descKG) {
+            descKG.innerText = autoGenerateL1 ? 
+                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") : 
+                (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
+        }
+    }
+};
+
 window.setMode = function (mode) {
     const btnMindmap = document.getElementById('mode-mindmap');
     const btnKG = document.getElementById('mode-kg');
@@ -4580,6 +4820,9 @@ window.setMode = function (mode) {
         const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
         btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
     }
+
+    window.updateStep4Display();
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 
@@ -4628,12 +4871,18 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
-        '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
-        '#projects-bar-content',
         '#source-modal-content-box',
         '#ai-modal-content-box',
         '#study-player-modal > div',
@@ -4648,18 +4897,24 @@ window.applyDirectZoom = function (z) {
         '#alert-box',
         '#prompt-box',
         '#study-config-modal > div',
-        '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
         '#contextual-ai-extension-modal > div'
     ];
 
+    // Rimozione applicazione zoom inline (gestito via variabili CSS/rem)
     zoomSelectors.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) {
-            el.style.zoom = z;
+            el.style.removeProperty('zoom');
         }
     });
+
+    // Rimuove stili di zoom residui dagli elementi esclusi gestiti via CSS
+    const drawer = document.getElementById('insegnai-drawer');
+    if (drawer) drawer.style.removeProperty('zoom');
+    const pbarContent = document.getElementById('projects-bar-content');
+    if (pbarContent) pbarContent.style.removeProperty('zoom');
 
     document.documentElement.style.fontSize = '';
 
@@ -4772,7 +5027,8 @@ window.importGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
 
             // Normalize links: ensure source/target are string IDs, not objects
@@ -4787,7 +5043,7 @@ window.importGraph = function (event) {
             });
 
             appState.db = { nodes: data.nodes, links: data.links };
-            appState.extractionMode = data.mode || "mindmap";
+            appState.extractionMode = data.mode || data.extractionMode || "mindmap";
             
             if (data.generationUsage) {
                 appState.generationUsage = data.generationUsage;
@@ -4820,6 +5076,58 @@ window.importGraph = function (event) {
     };
     reader.readAsText(file);
 }
+
+window.loadOfflineExample = async function (filename) {
+    try {
+        const response = await fetch('./esempi/' + filename);
+        if (!response.ok) throw new Error("Impossibile caricare il file di esempio.");
+        const rawData = await response.json();
+        const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
+        
+        if (!data.nodes || !data.links) throw new Error("JSON non valido.");
+
+        data.links.forEach(l => {
+            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
+            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
+        });
+        data.nodes.forEach(n => {
+            delete n.vx; delete n.vy;
+            delete n.fx; delete n.fy;
+        });
+
+        appState.db = { nodes: data.nodes, links: data.links };
+        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
+        
+        if (data.generationUsage) {
+            appState.generationUsage = data.generationUsage;
+            if (window.updateCostDisplay) window.updateCostDisplay();
+        } else {
+            appState.generationUsage = null;
+        }
+        if (data.customColors) {
+            appState.db.customColors = data.customColors;
+        }
+
+        appState.db.sourcesDict = {};
+        (appState.db.nodes || []).forEach(n => {
+            if (n.chunks && n.chunks.length > 0) {
+                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    title: "Estratto Fonte",
+                    source: "Dato Esempio",
+                    text: c
+                }));
+            }
+        });
+
+        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
+        simulation = null;
+        window.switchToMapLayout();
+        initD3Visualization();
+        
+        document.getElementById('insegnai-drawer').classList.add('-translate-x-[320px]');
+        window.showToast("Esempio caricato con successo", "success");
+    } catch (err) { window.showAlert("Errore", "Errore caricamento esempio: " + err.message); }
+};
 
 // ==========================================
 // SOTA: MARKDOWN VAULT LOGIC
@@ -4884,6 +5192,72 @@ window.saveMapVault = async function () {
     }
 };
 
+window.loadDemoGraph = async function (url) {
+    try {
+        window.closeVaultManager();
+        window.showLoadingOverlay(true, "Caricamento Demo...");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("File demo non trovato.");
+        const data = await res.json();
+        
+        if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
+
+        data.links.forEach(l => {
+            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
+            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
+        });
+        data.nodes.forEach(n => {
+            delete n.vx; delete n.vy;
+            delete n.fx; delete n.fy;
+        });
+
+        appState.db = { nodes: data.nodes, links: data.links };
+        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
+        
+        if (data.generationUsage) {
+            appState.generationUsage = data.generationUsage;
+            if (window.updateCostDisplay) window.updateCostDisplay();
+        } else {
+            appState.generationUsage = null;
+        }
+
+        if (data.customColors) {
+            appState.db.customColors = data.customColors;
+        }
+
+        appState.db.sourcesDict = {};
+        (appState.db.nodes || []).forEach(n => {
+            if (n.chunks && n.chunks.length > 0) {
+                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    title: "Estratto Fonte",
+                    source: "Dato Demo",
+                    text: c
+                }));
+            }
+        });
+
+        if (data.tutorState) {
+            window.tutorState = data.tutorState;
+            localStorage.setItem('mappai_tutor_state', JSON.stringify(window.tutorState));
+        } else {
+            window.tutorState = { messages: [], mode: "tutor", flashcards: [], currentFlashcardIndex: 0 };
+            localStorage.removeItem('mappai_tutor_state');
+        }
+
+        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
+        
+        if (typeof simulation !== 'undefined') simulation = null;
+        window.switchToMapLayout();
+        if (typeof initD3Visualization === 'function') initD3Visualization();
+        
+        window.showLoadingOverlay(false);
+        window.showToast("Mappa dimostrativa caricata con successo!", "success");
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        console.error(err);
+        window.showAlert("Errore", "Impossibile caricare l'esempio: " + err.message);
+    }
+};
 window.loadMapVault = async function () {
     try {
         const result = await window.electronAPI.pickFolder();
@@ -4965,33 +5339,7 @@ window.addEventListener('drop', (e) => {
     }
 });
 
-// --- Gestione Istruzioni JSON Esterno ---
-window.openExternalJSONInstructions = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        setTimeout(() => modal.classList.add('opacity-100'), 10);
-        window.safeCreateIcons();
-    } catch (e) { console.error('openExternalJSONInstructions error:', e); }
-};
 
-window.closeExternalJSONModal = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('opacity-100');
-        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
-    } catch (e) { }
-};
-
-window.copyExternalPrompt = function () {
-    const text = document.getElementById('external-prompt-text').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        window.showToast("Prompt copiato negli appunti!", "success");
-    });
-};
 
 // ==========================================
 // MERGE / UNISCI SYSTEM
@@ -5012,7 +5360,8 @@ window.mergeGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
             pendingMergeData = data;
             pendingMergeFile = file.name;
@@ -5369,25 +5718,47 @@ window.closeLightbox = function () {
 // ==========================================
 let ctxTarget = null;
 let longPressTimer = null;
+let touchStartPos = null;
 
 function handleTouchStart(e, type, data) {
-    if (e.touches.length > 1) return; // ignore multi-touch
+    if (e.touches && e.touches.length > 1) return; // ignore multi-touch
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartPos = { x: touch.clientX, y: touch.clientY };
+
+    if (longPressTimer) clearTimeout(longPressTimer);
     longPressTimer = setTimeout(() => {
         let syntheticEvent = e;
         if (e.touches && e.touches[0]) {
             syntheticEvent = {
-                preventDefault: () => e.preventDefault(),
-                stopPropagation: () => e.stopPropagation(),
+                preventDefault: () => { if (e.preventDefault) e.preventDefault(); },
+                stopPropagation: () => { if (e.stopPropagation) e.stopPropagation(); },
                 clientX: e.touches[0].clientX,
                 clientY: e.touches[0].clientY
             };
         }
         window.showContextMenu(syntheticEvent, type, data);
-    }, 600);
+        longPressTimer = null;
+    }, 500); // reduced to 500ms for more responsive feel
 }
 
-function handleTouchEnd(e) { if (longPressTimer) clearTimeout(longPressTimer); }
-function handleTouchMove(e) { if (longPressTimer) clearTimeout(longPressTimer); }
+function handleTouchMove(e) {
+    if (!longPressTimer || !touchStartPos) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - touchStartPos.x;
+    const dy = touch.clientY - touchStartPos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 15) { // 15px threshold
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+function handleTouchEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
 
 window.showContextMenu = function (e, type, data) {
     e.preventDefault(); e.stopPropagation();
@@ -5395,6 +5766,19 @@ window.showContextMenu = function (e, type, data) {
     menu.innerHTML = ''; ctxTarget = { type, data };
 
     if (type === 'node') {
+        const expandAiHtml = !appState.studentMode ? `
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+        ` : '';
+
+        const spacedRepetitionHtml = !appState.studentMode ? `
+            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
+            <hr class="my-1 border-slate-200">
+        ` : '';
+
         menu.innerHTML = `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200">Stato di Studio</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
@@ -5402,18 +5786,13 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
-                    <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+                    ${expandAiHtml}
                     <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
                     <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
                     <hr class="my-1 border-slate-200">
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
-                    <hr class="my-1 border-slate-200">
+                    ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
                 `;
     } else if (type === 'link') {
@@ -5969,6 +6348,7 @@ window.loadStudySet = function (setId) {
     const set = appState.db.studySets.find(s => s.id === setId);
     if (!set) return;
 
+    window.activeStudySetTitle = set.title || 'Mappa';
     window.activeStudySessionItems = set.items;
     window.studyConfig = {
         mode: set.mode,
@@ -6855,8 +7235,36 @@ window.selectQuizAnswer = function (selectedIndex) {
 // POMODORO & STATS LOGIC
 // ==========================================
 let pomodoroInterval;
+let pomodoroDuration = 25 * 60;
 let pomodoroTimeLeft = 25 * 60;
 let isPomodoroRunning = false;
+
+window.setPomodoroDuration = function (mins) {
+    pomodoroDuration = mins * 60;
+    clearInterval(pomodoroInterval);
+    isPomodoroRunning = false;
+    pomodoroTimeLeft = pomodoroDuration;
+    
+    const btn = document.getElementById('pomodoro-btn');
+    if (btn) {
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
+    }
+    updatePomodoroDisplay();
+    if (window.safeCreateIcons) window.safeCreateIcons();
+    
+    const p15 = document.getElementById('pomodoro-preset-15');
+    const p25 = document.getElementById('pomodoro-preset-25');
+    if (p15 && p25) {
+        if (mins === 15) {
+            p15.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
+            p25.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+        } else {
+            p25.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
+            p15.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+        }
+    }
+};
 
 window.togglePomodoro = function () {
     const btn = document.getElementById('pomodoro-btn');
@@ -6875,6 +7283,14 @@ window.togglePomodoro = function () {
                 updatePomodoroDisplay();
             } else {
                 window.resetPomodoro();
+                try {
+                    let sessions = parseInt(localStorage.getItem('mappai_pomodoro_sessions') || '0', 10);
+                    sessions++;
+                    localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
+                    window.updatePomodoroSessionsDisplay();
+                } catch(e) {
+                    console.error("Error updating pomodoro sessions", e);
+                }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
             }
         }, 1000);
@@ -6885,7 +7301,7 @@ window.togglePomodoro = function () {
 window.resetPomodoro = function () {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
-    pomodoroTimeLeft = 25 * 60;
+    pomodoroTimeLeft = pomodoroDuration;
     const btn = document.getElementById('pomodoro-btn');
     btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
     btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
@@ -6899,6 +7315,31 @@ function updatePomodoroDisplay() {
     const pTime = document.getElementById('pomodoro-time');
     if (pTime) pTime.innerText = `${m}:${s}`;
 }
+
+window.updatePomodoroSessionsDisplay = function () {
+    try {
+        const count = localStorage.getItem('mappai_pomodoro_sessions') || '0';
+        const badge = document.getElementById('pomodoro-sessions-badge');
+        if (badge) {
+            badge.innerText = `Sessioni: ${count} 🔥`;
+        }
+    } catch (e) {
+        console.error("Error displaying pomodoro sessions", e);
+    }
+};
+
+window.resetPomodoroSessions = function () {
+    if (confirm("Sei sicuro di voler azzerare le sessioni di Pomodoro completate?")) {
+        try {
+            localStorage.setItem('mappai_pomodoro_sessions', '0');
+            window.updatePomodoroSessionsDisplay();
+            window.showToast("Sessioni azzerate", "info");
+        } catch (e) {
+            console.error("Error resetting pomodoro sessions", e);
+        }
+    }
+};
+
 
 window.updateStudyStats = function () {
     let done = 0, review = 0, todo = 0, total = 0;
@@ -7164,7 +7605,6 @@ window.changeLanguage = function (lang) {
         'label-mode-kg': t.step2_kg,
         'label-step4': t.step_density_title,
         'label-step4-kg': t.step_kg_density_title,
-        'label-step4-kg-desc': t.step_kg_density_desc,
         'btn-generate-label': (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap' ? t.new_map_btn : t.new_kg_btn,
 
 
@@ -7180,13 +7620,26 @@ window.changeLanguage = function (lang) {
         'label-api-key-desc': t.api_key_desc,
         'label-api-key-how': t.api_key_how,
         'label-ai-model': t.ai_model_label,
-        'label-refresh-models': t.refresh_models
+        'label-refresh-models': t.refresh_models,
+        'estimator-title-lbl': t.estimator_title,
+        'estimator-tokens-lbl': t.estimator_tokens_label,
+        'estimator-cost-lbl': t.estimator_cost_label,
+        'feedback-section-title': t.feedback_section,
+        'feedback-btn-title': t.feedback_btn_title,
+        'feedback-btn-desc': t.feedback_btn_desc,
+        'feedback-modal-title-lbl': t.feedback_modal_title,
+        'feedback-cat-label-lbl': t.feedback_cat_label,
+        'feedback-desc-label-lbl': t.feedback_desc_label,
+        'feedback-submit-btn-lbl': t.feedback_submit_btn
     };
 
     for (let id in els) {
         const el = document.getElementById(id);
         if (el) el.innerText = els[id];
     }
+
+    const feedbackText = document.getElementById('feedback-text');
+    if (feedbackText) feedbackText.placeholder = t.feedback_desc_placeholder;
 
     // Process data-i18n attributes automatically
     document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -7322,10 +7775,27 @@ window.changeLanguage = function (lang) {
     if (window.showToast) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
+
+    // Aggiorna dinamicamente le descrizioni di Step 4 in base a lingua e modalità
+    if (window.updateStep4Display) {
+        window.updateStep4Display();
+    }
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
 };
 
 // Add auto-render projects on load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Inizializza secure keys dal Keychain nativo se disponibile, o da localStorage
+    if (window.initSecureKeys) {
+        try {
+            await window.initSecureKeys();
+        } catch (e) {
+            console.error("[MappAI] Errore inizializzazione Secure Keys all'avvio:", e);
+        }
+    }
+
     // Inizializza Lingua
     window.changeLanguage(window.currentLanguage);
 
@@ -7338,17 +7808,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnGuide) btnGuide.addEventListener('click', () => { console.log("Open Guide"); window.showAppGuide(); });
     if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
 
+    const autoGenToggle = document.getElementById('l1-auto-generate-toggle');
+    if (autoGenToggle) {
+        autoGenToggle.addEventListener('change', () => {
+            if (window.updateStep4Display) window.updateStep4Display();
+        });
+    }
+
     StorageManager.renderRecentProjects();
 
     // Load Gemini Key
-    const savedGeminiKey = localStorage.getItem('gemini_api_key');
+    const savedGeminiKey = (window.secureKeys && window.secureKeys['gemini_api_key']) || localStorage.getItem('gemini_api_key');
     if (savedGeminiKey) {
         const geminiInput = document.getElementById('gemini-api-key-input');
         if (geminiInput) geminiInput.value = savedGeminiKey;
     }
 
     // Load Infomaniak Key
-    const savedInfomaniakKey = localStorage.getItem('infomaniak_api_key');
+    const savedInfomaniakKey = (window.secureKeys && window.secureKeys['infomaniak_api_key']) || localStorage.getItem('infomaniak_api_key');
     if (savedInfomaniakKey) {
         const infomaniakInput = document.getElementById('infomaniak-api-key-input');
         if (infomaniakInput) infomaniakInput.value = savedInfomaniakKey;
@@ -7376,6 +7853,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the UI for the current provider
     if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+
+    // Setup estimator events and initial display
+    if (selectEl) {
+        selectEl.addEventListener('change', () => {
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+        });
+    }
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 });
 
 window.globalQuizQueue = [];
@@ -7731,8 +8216,133 @@ window.nextStudyItem = function (flashcardFeedback = null) {
     }
 };
 
+window.addStudyScore = function () {
+    try {
+        if (!window.studyResults) return;
+        
+        const score = {
+            title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
+            correct: window.studyResults.correct,
+            total: window.studyResults.total,
+            type: window.studyResults.type || "Quiz",
+            date: new Date().toISOString()
+        };
+        
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) {
+            console.error("Error reading study scores", e);
+        }
+        
+        if (!Array.isArray(scores)) scores = [];
+        
+        // Add to the beginning (newest first)
+        scores.unshift(score);
+        
+        // Keep at most 10
+        if (scores.length > 10) {
+            scores = scores.slice(0, 10);
+        }
+        
+        localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
+        window.updateStudyScoresDisplay();
+    } catch (err) {
+        console.error("Error saving score to history", err);
+    }
+};
+
+window.updateStudyScoresDisplay = function () {
+    try {
+        const container = document.getElementById('study-scores-container');
+        if (!container) return;
+        
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) {}
+        
+        if (!Array.isArray(scores) || scores.length === 0) {
+            container.innerHTML = `
+                <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
+            `;
+            return;
+        }
+        
+        container.innerHTML = '';
+        scores.forEach(s => {
+            const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+            
+            // Color based on performance
+            let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
+            let progressColor = "bg-rose-500";
+            if (percent >= 80) {
+                bgClass = "bg-emerald-50 border-emerald-100 text-emerald-700";
+                progressColor = "bg-emerald-500";
+            } else if (percent >= 50) {
+                bgClass = "bg-amber-50 border-amber-100 text-amber-700";
+                progressColor = "bg-amber-500";
+            }
+            
+            const div = document.createElement('div');
+            div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="font-bold text-slate-800 truncate max-w-[140px]" title="${s.title}">${s.title}</div>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}">${s.correct}/${s.total} (${percent}%)</span>
+                </div>
+                <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="h-full ${progressColor}" style="width: ${percent}%"></div>
+                </div>
+                <div class="flex justify-between items-center text-[9px] text-slate-400">
+                    <span>${s.type}</span>
+                    <span>${dateStr}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        
+        // Add a "Cancella storico" button at the end
+        const clearDiv = document.createElement('div');
+        clearDiv.className = "pt-2 flex justify-end";
+        clearDiv.innerHTML = `
+            <button onclick="window.clearStudyScores()" class="text-[9px] text-slate-400 hover:text-slate-600 flex items-center gap-1 font-semibold transition">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Cancella Storico
+            </button>
+        `;
+        container.appendChild(clearDiv);
+        
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    } catch (err) {
+        console.error("Error displaying study scores", err);
+    }
+};
+
+window.clearStudyScores = function () {
+    if (confirm("Sei sicuro di voler cancellare tutto lo storico dei punteggi?")) {
+        try {
+            localStorage.removeItem('mappai_study_scores');
+            window.updateStudyScoresDisplay();
+            window.showToast("Storico cancellato", "info");
+        } catch (e) {
+            console.error("Error clearing scores", e);
+        }
+    }
+};
+
 window.showStudySummary = function () {
     if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+
+    // Salva il punteggio nello storico
+    window.addStudyScore();
 
     document.getElementById('study-flashcard-view').classList.add('hidden');
     document.getElementById('study-quiz-view').classList.add('hidden');
@@ -7922,21 +8532,31 @@ window.applyTextZoom = function(idx) {
     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
+    // On the landing page, force the zoom level to 1.0 to prevent any enlargement
+    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = isLandingVisible ? 1.0 : z;
+
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
-    document.documentElement.style.setProperty('--app-zoom', z);
+    document.documentElement.style.setProperty('--app-zoom', effectiveZ);
     
-    if (z > 1.0) {
+    if (effectiveZ > 1.0) {
         document.body.classList.add('a11y-zoomed-modals');
     } else {
         document.body.classList.remove('a11y-zoomed-modals');
     }
 
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (effectiveZ === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (effectiveZ === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (effectiveZ === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
     // Zoom per tutti i contenitori primari e modali con testo
     const zoomSelectors = [
-        '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
         '#sidebar',
-        '#projects-bar-content',
         '#source-modal-content-box',
         '#ai-modal-content-box',
         '#study-player-modal > div',
@@ -7951,21 +8571,50 @@ window.applyTextZoom = function(idx) {
         '#alert-box',
         '#prompt-box',
         '#study-config-modal > div',
-        '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
         '#contextual-ai-extension-modal > div'
     ];
 
-    zoomSelectors.forEach(sel => {
-        const el = document.querySelector(sel);
-        if (el) {
-            el.style.zoom = z;
-        }
+    // Applica inline style per bypassare bug di Safari su calc/CSS variables
+    const sourceBody = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
+
+    if (sourceBody) {
+        if (effectiveZ === 1.0) sourceBody.style.removeProperty('font-size');
+        else sourceBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
+    }
+    if (aiBody) {
+        if (effectiveZ === 1.0) aiBody.style.removeProperty('font-size');
+        else aiBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
+    }
+    if (flashcardFront) {
+        if (effectiveZ === 1.0) flashcardFront.style.removeProperty('font-size');
+        else flashcardFront.style.setProperty('font-size', `${effectiveZ * 24}px`, 'important');
+    }
+    if (flashcardBack) {
+        if (effectiveZ === 1.0) flashcardBack.style.removeProperty('font-size');
+        else flashcardBack.style.setProperty('font-size', `${effectiveZ * 18}px`, 'important');
+    }
+    if (quizQuestion) {
+        if (effectiveZ === 1.0) quizQuestion.style.removeProperty('font-size');
+        else quizQuestion.style.setProperty('font-size', `${effectiveZ * 20}px`, 'important');
+    }
+    quizOptions.forEach(opt => {
+        if (effectiveZ === 1.0) opt.style.removeProperty('font-size');
+        else opt.style.setProperty('font-size', `${effectiveZ * 13}px`, 'important');
     });
 
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
+
+    // Forza reflow su iOS Safari per aggiornare le variabili CSS nei fogli di stile
+    document.documentElement.classList.toggle('force-reflow');
+    const _reflow = document.documentElement.offsetHeight;
 
     window.safeCreateIcons();
 };
@@ -7982,43 +8631,36 @@ window.resetA11yTools = function () {
     if (btnZPanel) btnZPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> Testo x1`;
 
     document.documentElement.style.setProperty('--app-zoom', 1);
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2', 'a11y-zoomed-modals');
+    document.body.classList.add('a11y-zoom-x1');
 
-    const zoomSelectors = [
-        '.glass-card.max-w-3xl',
-        '#insegnai-drawer',
-        '#sidebar',
-        '#projects-bar-content',
-        '#source-modal-content-box',
-        '#ai-modal-content-box',
-        '#study-player-modal > div',
-        '#quiz-modal-content',
-        '#app-guide-modal > div',
-        '#app-tutorial-modal > div',
-        '#config-ai-modal > div',
-        '#merge-confirm-modal > div',
-        '#validate-link-modal > div',
-        '#user-profile-box',
-        '#api-tutorial-modal > div',
-        '#alert-box',
-        '#prompt-box',
-        '#study-config-modal > div',
-        '#external-json-modal > div',
-        '#vault-manager-box',
-        '#edit-node-box',
-        '#contextual-ai-extension-modal > div'
-    ];
-
-    zoomSelectors.forEach(sel => {
-        const el = document.querySelector(sel);
-        if (el) {
-            el.style.zoom = '';
-        }
-    });
-
+    const mainCard = document.querySelector('.glass-card.max-w-3xl');
     const body = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
+
+    if (mainCard) {
+        mainCard.style.transform = '';
+        mainCard.style.transformOrigin = '';
+        mainCard.style.zoom = '';
+    }
     if (body) {
         body.style.lineHeight = '';
+        body.style.zoom = '';
+        body.style.removeProperty('font-size');
     }
+    if (aiBody) {
+        aiBody.style.removeProperty('font-size');
+    }
+    if (flashcardFront) flashcardFront.style.removeProperty('font-size');
+    if (flashcardBack) flashcardBack.style.removeProperty('font-size');
+    if (quizQuestion) quizQuestion.style.removeProperty('font-size');
+    quizOptions.forEach(opt => {
+        opt.style.removeProperty('font-size');
+    });
     document.documentElement.style.fontSize = '';
 };
 
@@ -8222,35 +8864,7 @@ window.clearSuperFinder = function () {
 const oldFinder = document.getElementById('map-finder-input');
 if (oldFinder) oldFinder.remove();
 
-// === CANVAS VUOTO & ESPANSIONE CONTESTUALE ===
-window.createBlankCanvas = function () {
-    const mode = document.getElementById('extraction-mode').value;
-    appState.extractionMode = mode;
-    appState.db = { nodes: [], links: [] };
 
-    if (mode === 'mindmap') {
-        appState.db.nodes.push({
-            id: "ROOT",
-            label: "Nuovo Argomento",
-            content: "Inizia a scrivere...",
-            desc: "Inizia a scrivere...",
-            level: 0,
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
-            studyStatus: 'none',
-            chunks: []
-        });
-    }
-
-    appState.rootNodeLabel = "Mappa Manuale";
-    window.switchToMapLayout();
-
-    simulation = null;
-    initD3Visualization();
-    window.updateDegreeStats();
-    window.renderTreeView();
-    window.safeCreateIcons();
-};
 
 let contextualAITargetNode = null;
 
@@ -8883,7 +9497,7 @@ window.resetVaultState = function () {
         const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
         
         const appVersion = "1.0.0";
-        const osInfo = "macOS (Electron)";
+        const osInfo = "iOS / iPadOS (Capacitor)";
         const userAgent = navigator.userAgent;
         const model = document.getElementById('model-select')?.value || 'Non specificato';
         
@@ -8924,5 +9538,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Applica Modalità Studente al caricamento
     if (window.applyStudentModeUI) window.applyStudentModeUI();
+
+    // Inizializza grafici offline (Pomodoro sessioni e storico punteggi)
+    if (window.updatePomodoroSessionsDisplay) window.updatePomodoroSessionsDisplay();
+    if (window.updateStudyScoresDisplay) window.updateStudyScoresDisplay();
 });
 
