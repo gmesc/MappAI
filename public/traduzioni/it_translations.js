@@ -35,8 +35,14 @@ const it_translations = {
     step5: "Stile Visualizzazione",
     step_density_title: "Densità Diramazioni (L4 e L5)",
     step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
+    step_density_desc_manual_l1: "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
     step_kg_density_title: "Numero di Concetti/Entità (Livello 2)",
     step_kg_density_desc: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).",
+    step_kg_density_desc_manual_l1: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.",
+    estimator_title: "Analisi Documento & Stima Costi",
+    estimator_tokens_label: "Input / Max Modello",
+    estimator_cost_label: "Costo Stimato",
+    estimator_free: "Gratuito (Piano Free)",
 
 
     // Placeholders
@@ -65,7 +71,7 @@ const it_translations = {
     // Modals - App Guide
     modal_guide_title: "Come usare Mapp.AI",
     guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
-    guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.",
+    guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Puoi inserire la tua API Key di Google AI Studio (è gratuita!) o un API Token di Infomaniak. Nel tab di Infomaniak è preimpostato l'uso dei modelli open-source di Google gestiti sui server svizzeri di Infomaniak (per chi è interessato a sbloccare l'accesso agli altri modelli disponibili su Infomaniak può contattarmi). Con la API Google Studio, invece, sono visibili tutti i modelli di Gemini a disposizione che vengono spesso aggiornati e rimpiazzati.",
     guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
     guide_step2_desc: "Puoi caricare materiale da diverse fonti: PDF, URL Web, YouTube o Testo Libero.",
     guide_step3_title: "🎯 Passo 3 — Scegli la Struttura",
@@ -222,7 +228,16 @@ const it_translations = {
     btn_close: "Chiudi",
     btn_continue: "Continua",
     quiz_next: "Avanti",
-    about_desc1: "Ho creato <strong>MappAI</strong> come strumento di studio assistito e multimodale.",
-    about_desc2: "Tra i miei progetti c'è il portale <strong>insegnai.ch</strong>, dedicato a promuovere i temi dell'<em>AI literacy</em> e <em>fluency</em>."
+    about_desc1: "Ciao, mi chiamo Giacomo e sono lo sviluppatore di <strong>MappAI</strong>.",
+    about_desc2: "Ho creato questo software come strumento di organizzazione e assistenza per lo studio.",
+    about_desc3: "Sono anche un docente di scuola media e da anni mi interesso all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo. Spero che questo software possa esservi d'aiuto.",
+    feedback_section: "Feedback & Bug",
+    feedback_btn_title: "Segnalazione",
+    feedback_btn_desc: "Invia feedback o bug",
+    feedback_modal_title: "Invia Segnalazione",
+    feedback_cat_label: "Categoria della segnalazione",
+    feedback_desc_label: "Dettagli della segnalazione",
+    feedback_desc_placeholder: "Descrivi il problema riscontrato o la tua proposta per migliorare MappAI...",
+    feedback_submit_btn: "Invia Feedback via Email"
 
 };

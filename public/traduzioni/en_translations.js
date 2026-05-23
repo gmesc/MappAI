@@ -40,8 +40,14 @@ const en_translations = {
     step5: "Visualization Style",
     step_density_title: "Branch Density (L4 and L5)",
     step_density_desc: "L1-L2-L3 branches will always be generated. Choose how many branches to generate in deeper levels (0 = stops at L3).",
+    step_density_desc_manual_l1: "L2-L3 branches will always be generated (L1 defined by you). Choose how many branches to generate in deeper levels (0 = stops at L3).",
     step_kg_density_title: "Number of Concepts/Entities (Level 2)",
     step_kg_density_desc: "Choose how many conceptual nodes to generate within the relational graph (recommended 15-25 for neat graphs, up to 30+ for complete graphs).",
+    step_kg_density_desc_manual_l1: "Choose how many conceptual nodes to generate within the relational graph (recommended 15-25 for neat graphs, up to 30+ for complete graphs) based on the Super-Hubs defined by you.",
+    estimator_title: "Document Analysis & Cost Estimate",
+    estimator_tokens_label: "Input / Model Max",
+    estimator_cost_label: "Estimated Cost",
+    estimator_free: "Free (Free Tier)",
 
 
     // Placeholders
@@ -70,7 +76,7 @@ const en_translations = {
     // Modals - App Guide
     modal_guide_title: "How to use MappAI",
     guide_step1_title: "📌 Step 1 — Configure your API Key",
-    guide_step1_desc: "Click the 'AI Settings' button at the top right. Enter your Google AI Studio API Key (it's free!). Choose the AI model: Flash models are free and fast, Pro models are more precise but may have costs.",
+    guide_step1_desc: "Click the 'AI Settings' button at the top right. You can enter your Google AI Studio API Key (it's free!) or an Infomaniak API Token. In the Infomaniak tab, the use of Google's open-source models managed on Infomaniak's Swiss servers is pre-configured (if you are interested in unlocking access to other models available on Infomaniak, you can contact me). With the Google Studio API, instead, you can see all available Gemini models, which are frequently updated and replaced.",
     guide_step2_title: "📂 Step 2 — Upload your Sources",
     guide_step2_desc: "You can upload material from different sources: PDF, Web URL, YouTube, or Free Text.",
     guide_step3_title: "🎯 Step 3 — Choose Structure",
@@ -214,7 +220,16 @@ const en_translations = {
     btn_close: "Close",
     btn_continue: "Continue",
     quiz_next: "Next",
-    about_desc1: "I created <strong>MappAI</strong> as an assisted and multimodal study tool.",
-    about_desc2: "Among my projects there is the <strong>insegnai.ch</strong> portal, dedicated to promoting <em>AI literacy</em> and <em>fluency</em> topics."
+    about_desc1: "Hi, my name is Giacomo and I am the developer of <strong>MappAI</strong>.",
+    about_desc2: "I created this software as an organization and assistance tool for studying.",
+    about_desc3: "I am also a middle school teacher, and for years I have been interested in using Artificial Intelligence in education and beyond. I hope this software is helpful to you.",
+    feedback_section: "Feedback & Bug Reports",
+    feedback_btn_title: "Report Issue",
+    feedback_btn_desc: "Send feedback or bug",
+    feedback_modal_title: "Send Report / Feedback",
+    feedback_cat_label: "Category of the report",
+    feedback_desc_label: "Report details",
+    feedback_desc_placeholder: "Describe the issue or your proposal to improve MappAI...",
+    feedback_submit_btn: "Send Feedback via Email"
 
 };

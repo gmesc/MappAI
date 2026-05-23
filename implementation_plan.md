@@ -1,56 +1,88 @@
-# Piano di Implementazione - Aggiustamenti UI Landing Page per iPad (Docente/Studente)
+# Rimozione Pulsanti Ridondanti ed Estimatore Costi & Token in Tempo Reale
 
-Questo piano descrive le modifiche per ottimizzare l'interfaccia utente (UI) della landing page su iPadOS, con particolare attenzione alla visualizzazione per tutti i fattori di ingrandimento (zoom x1.5 e x2).
+Questo piano descrive le modifiche necessarie per:
+1. Rimuovere i pulsanti duplicati e obsoleti in fondo alla landing page ("Importa JSON" e "Guida AI Esterna" con rispettivo modale).
+2. Sostituire il pulsante "Crea canvas vuoto (Manuale)" con un pannello informativo dinamico che mostra in tempo reale:
+   - Numero di token del documento in input (stima heuristica basata sui caratteri).
+   - Limite massimo di token del modello AI selezionato.
+   - Costo stimato della generazione in base alla dimensione dell'input e al numero di nodi/livelli scelti tramite gli slider.
 
-## Modifiche Proposte
+## User Review Required
 
-### [Landing UI - Header e Elementi Fissi]
+> [!IMPORTANT]
+> - **Rimozione di "Crea canvas vuoto (Manuale)"**: Questo pulsante viene rimosso dal fondo del form di configurazione poiché è un doppione dell'azione rapida "Nuovo Progetto" presente all'inizio della landing page (entrambi creano un progetto vuoto).
+> - **Input dei file preservato**: Pur rimuovendo l'etichetta di importazione inferiore, l'input file nascosto `#landing-import` rimarrà attivo per non interrompere il funzionamento del pulsante "Importa JSON" in cima alla pagina.
+> - **Stima del costo**: L'algoritmo stimerà i token di output moltiplicando il numero teorico di nodi generati per 120 token (MM) o 150 token (KG), applicando i prezzi al milione di token definiti nella configurazione `MODEL_KB` per i modelli a pagamento, o mostrando "Gratuito" per i modelli Free.
 
-L'header deve rimanere uguale (non scalato e con layout orizzontale fisso) per tutti i livelli di ingrandimento. I 4 bottoni dei setting verranno ridisegnati con layout verticale (icona sopra, testo sotto) e con un font più grande e fisso. I label "insegnai.ch" e "mostra progetti" verranno ingranditi del 10% e rimarranno anch'essi a dimensione fissa.
+## Open Questions
 
-#### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
+> [!NOTE]
+> - La valuta utilizzata per la stima sarà espressa in centesimi di dollaro USD (¢).
+> - Se il costo stimato è inferiore a 0.01 ¢, mostreremo <0.01 ¢ per evitare costantemente valori a zero per testi molto corti.
 
-1. **Header Layout Fisso**:
-   - Neutralizzare le regole all'interno delle classi `body.a11y-zoom-x15` e `body.a11y-zoom-x2` che modificano il flex layout dell'header a `flex-direction: column`.
-   - Garantire che l'header mantenga sempre il layout orizzontale (`flex-direction: row !important; justify-content: space-between !important; align-items: center !important; gap: 24px !important;`).
-   - Assicurare che il titolo `h1` e il sottotitolo `#landing-subtitle` non scalino con `var(--landing-zoom)` ma abbiano una dimensione fissa (`40px` e `12px` rispettivamente).
+## Proposed Changes
 
-2. **Riorganizzazione Verticale e Ingrandimento 4 Bottoni Settings**:
-   - I 4 bottoni della landing header (`.btn-landing-secondary`) saranno disposti su un'unica riga orizzontale, senza andare a capo (`flex-wrap: nowrap !important;`).
-   - Ciascun bottone utilizzerà un layout verticale: `flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 6px !important;`.
-   - Aumentare la dimensione del font a `13px !important` e mantenerla fissa per tutti i livelli di zoom.
-   - Definire dimensioni fisse per i bottoni (es. `width: 96px !important; height: 80px !important;`) per mantenere consistenza, permettendo al testo di andare a capo su due righe (`white-space: normal !important`).
-   - Ingrandire l'icona interna (`svg` e `i`) a `22px !important; height: 22px !important;` per farla risaltare al centro dell'area del bottone.
+## Proposed Changes
 
-3. **Ingrandimento del 10% di "insegnai.ch" e "mostra progetti"**:
-   - Ingrandire il testo della linguetta del drawer `#insegnai-drawer-tab button` del 10% (da `14px` a `15.5px !important`).
-   - Ingrandire il bottone `#projects-bar button.absolute` e `#projects-bar #toggle-bar-text` del 10% (da `12px` a `13.5px !important`).
-   - Ingrandire l'icona del pulsante di toggle `#projects-bar #toggle-bar-icon` a `15.5px !important; height: 15.5px !important;`.
+### Translations
 
-4. **Allineamento Orizzontale Permanente per Sezione 1 e Sezione 2 (Versione Docente/AI)**:
-   - Forzare i contenitori dei bottoni di caricamento fonti (Sezione 1) e di modalità di estrazione (Sezione 2) a rimanere disposti orizzontalmente senza wrapping sotto zoom x1.5 e x2.
-   - Configurare `flex-wrap: nowrap !important; overflow-x: auto !important;` per consentire lo scroll orizzontale se necessario, nascondendo le scrollbar per pulizia estetica.
-   - Impostare `flex: 0 0 calc(105px * var(--landing-zoom)) !important` per i bottoni `.source-type-btn` per evitare il restringimento.
-   - Impostare `flex: 0 0 calc(200px * var(--landing-zoom)) !important` per i bottoni `.mode-btn` per preservarne la dimensione anche in layout orizzontale nowrap.
+#### [MODIFY] [it_translations.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/traduzioni/it_translations.js)
+* Aggiungere nuove etichette per l'estimatore:
+  - `estimator_title`: "Analisi Documento & Stima Costi"
+  - `estimator_tokens_label`: "Input / Max Modello"
+  - `estimator_cost_label`: "Costo Stimato"
+  - `estimator_free`: "Gratuito"
+
+#### [MODIFY] [en_translations.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/traduzioni/en_translations.js)
+* Aggiungere le stesse chiavi localizzate in inglese.
 
 ---
 
-## Piano di Verifica
+### UI & Layout
 
-### Verifica Manuale
-1. **Verifica Layout Header**:
-   - Cambiare la modalità di zoom su x1.5 e x2.
-   - Verificare che il logo, il titolo "MappAI" e il sottotitolo "Visualizzatore di conoscenza" non cambino dimensione e rimangano allineati a sinistra in orizzontale.
-2. **Verifica Bottoni Settings**:
-   - Verificare che i 4 bottoni (`Setup`, `Guida App`, `Studio Attivo`, `Chi sei`) siano allineati in una sola riga orizzontale a destra.
-   - Verificare che per ciascun bottone l'icona sia posizionata sopra il rispettivo testo.
-   - Verificare che il font size sia aumentato a `13px` e rimanga invariato a zoom x1.5 e x2.
-   - Verificare che l'icona occupi bene l'area.
-3. **Verifica Linguetta "insegnai.ch"**:
-   - Verificare che il testo della linguetta sia ingrandito a `15.5px` e sia stabile.
-4. **Verifica Pulsante "Mostra Progetti"**:
-   - Verificare che il pulsante in basso a destra sia ingrandito a `13.5px` e sia stabile.
-5. **Verifica Sezioni 1 e 2 (Versione Docente/AI)**:
-   - Attivare la modalità Docente (se disattivata, premendo `CTRL + SHIFT + L + K + J + H`).
-   - Verificare che i bottoni di caricamento fonti (Sezione 1) e di modalità (Sezione 2) siano disposti orizzontalmente.
-   - Attivare zoom x1.5 e x2 e verificare che rimangano in riga orizzontale, scorrendo eventualmente da destra a sinistra senza spezzare il layout verticalmente.
+#### [MODIFY] [index.html](file:///Users/giacomomeschini/Antigravity/MappAI/public/index.html)
+* Rimosso il codice HTML di `#external-json-modal` (Modale Istruzioni JSON Esterno).
+* Rimosso il pulsante "Guida AI Esterna" e l'etichetta duplicata "Importa JSON" in fondo al form.
+* Rimossa la barra di conteggio dei token provvisoria `#token-counter-container`.
+* Sostituito il tag `<button onclick="window.createBlankCanvas()">` con il nuovo pannello informativo `#token-cost-estimator-card` composto da:
+  - Titolo dell'analisi
+  - Visualizzazione token caricati rispetto alla finestra di contesto del modello selezionato
+  - Costo stimato
+  - Barra di progresso colorata (verde/giallo/rosso) che indica la saturazione del contesto del modello.
+
+#### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
+* Rimosse le regole CSS relative a `createBlankCanvas()`, `openExternalJSONInstructions()` e al vecchio `#token-counter-container`.
+
+---
+
+### Logic & Controllers
+
+#### [MODIFY] [app.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/app.js)
+* Rimozione delle funzioni obsolete:
+  - `window.createBlankCanvas`
+  - `window.openExternalJSONInstructions`
+  - `window.closeExternalJSONModal`
+  - `window.copyExternalPrompt`
+* Implementazione della funzione globale `window.updateTokenCostEstimator()`:
+  - Determina il modello attualmente selezionato ed estrae la finestra di contesto (es. 1.048.576 per Gemini 2.0 Flash, 2.097.152 per 1.5 Pro, 8.192 per Gemma).
+  - Somma i caratteri inseriti nelle textarea e nei file caricati in `appState.sources` e stima i token di input (caratteri / 4).
+  - Estrapola i token di output attesi in base alla modalità (MM o KG) e allo slider di densità o numero di nodi.
+  - Calcola il costo basandosi sulle tariffe al milione presenti in `MODEL_KB`.
+  - Aggiorna i testi del pannello e la barra di progresso dell'indicatore.
+* Integrazione dell'estimatore:
+  - Invocazione in `updateTokenCounter()` affinché si aggiorni ad ogni inserimento fonti.
+  - Invocazione in `setMode()` e `changeLanguage()`.
+  - Collegamento dell'evento `change` a `#model-select` su DOMContentLoaded per aggiornare le stime al cambio del modello AI.
+
+## Verification Plan
+
+### Automated Tests
+* Nessuno.
+
+### Manual Verification
+1. Aprire la landing page.
+2. Verificare che i bottoni duplicati in fondo a destra e il pulsante manuale siano spariti e sostituiti dal nuovo pannello di analisi dei token.
+3. Caricare un file di testo/PDF e verificare che il contatore indichi i token stimati corretti.
+4. Cambiare modello tra uno Free (es. `gemini-2.0-flash`) e uno a pagamento (es. `gemini-2.5-pro`) verificando l'adeguamento del limite massimo dei token e del costo stimato.
+5. Muovere gli slider di densità (MM) o numero nodi (KG) e accertare che la stima del costo si aggiorni dinamicamente in base alle dimensioni impostate.
+6. Eseguire `npx cap copy` per sincronizzare il build iOS.

@@ -216,6 +216,7 @@
     #insegnai-drawer-tab {
         transform: scale(1.0) !important;
         width: 44px !important;
+        box-sizing: border-box !important;
         background-color: #4f46e5 !important; /* Indigo-600 */
         border: 1px solid #6366f1 !important;
         border-left: none !important;
@@ -225,9 +226,15 @@
         flex-shrink: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s ease !important;
     }
 
-    #insegnai-drawer-tab button {
+    #insegnai-drawer-tab:hover {
+        background-color: #4338ca !important; /* Indigo-700 */
+    }
+
+    #insegnai-drawer-tab span {
         color: #ffffff !important;
         font-weight: bold !important;
         letter-spacing: 0.05em !important;
@@ -235,16 +242,11 @@
         padding: 16px 12px !important;
         writing-mode: vertical-rl !important;
         text-orientation: mixed !important;
-        border-top-right-radius: 16px !important;
-        background: transparent !important;
-        border: none !important;
-        outline: none !important;
-        cursor: pointer !important;
         white-space: nowrap !important;
-    }
-
-    #insegnai-drawer-tab button:hover {
-        background-color: #4338ca !important; /* Indigo-700 */
+        text-align: center !important;
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     #insegnai-drawer-tab svg,
@@ -252,10 +254,11 @@
         width: 18px !important;
         height: 18px !important;
         color: rgba(255, 255, 255, 0.8) !important;
+        transition: color 0.2s ease !important;
     }
 
-    #insegnai-drawer-tab svg:hover,
-    #insegnai-drawer-tab i:hover {
+    #insegnai-drawer-tab:hover svg,
+    #insegnai-drawer-tab:hover i {
         color: #ffffff !important;
     }
 
@@ -264,8 +267,10 @@
         flex-direction: column !important;
         align-items: center !important;
         gap: 12px !important;
-        padding: 12px 8px !important;
+        padding: 12px 8px 16px 8px !important;
         border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     /* Global A11y Panel Toggle Button and Panel lock */
@@ -462,16 +467,29 @@
         font-size: calc(13px * var(--landing-zoom)) !important;
     }
 
-    #landing-view .glass-card .generate-btn svg,
-    #landing-view .glass-card .mode-btn svg,
-    #landing-view .glass-card .source-type-btn svg {
+    #landing-view .glass-card .generate-btn svg {
         width: calc(20px * var(--landing-zoom)) !important;
         height: calc(20px * var(--landing-zoom)) !important;
     }
 
-    #landing-view .glass-card .source-type-btn svg {
-        width: calc(24px * var(--landing-zoom)) !important;
-        height: calc(24px * var(--landing-zoom)) !important;
+    #landing-view .glass-card .mode-btn svg,
+    #landing-view .glass-card .mode-btn i {
+        width: calc(26.45px * var(--landing-zoom)) !important;
+        height: calc(26.45px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .source-type-btn svg,
+    #landing-view .glass-card .source-type-btn i {
+        width: calc(31.74px * var(--landing-zoom)) !important;
+        height: calc(31.74px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .source-type-btn span {
+        font-size: calc(19px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .mode-btn span.font-bold {
+        font-size: calc(19px * var(--landing-zoom)) !important;
     }
 
     #landing-view .glass-card h1 {
@@ -510,11 +528,11 @@
 
     #landing-view .glass-card #label-step1,
     #landing-view .glass-card #label-step2,
-    #landing-view .glass-card #label-step3,
+    #landing-view .glass-card #step-l1-title,
     #landing-view .glass-card #label-step4,
     #landing-view .glass-card #label-step4-kg,
     #landing-view .glass-card label {
-        font-size: calc(16px * var(--landing-zoom)) !important;
+        font-size: calc(17.6px * var(--landing-zoom)) !important;
     }
 
     #landing-view .glass-card .landing-input {
@@ -540,18 +558,69 @@
     /* Target specific tailwind text classes within glass-card to scale with --landing-zoom */
     #landing-view .glass-card .text-xs {
         font-size: calc(12px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
     }
     #landing-view .glass-card .text-sm {
         font-size: calc(14px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
     }
     #landing-view .glass-card .text-base {
         font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
     }
     #landing-view .glass-card .text-lg {
         font-size: calc(18px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
     }
     #landing-view .glass-card .text-\[9px\] {
         font-size: calc(9px * var(--landing-zoom)) !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Incremented sizes (+4px) for Section 3 and 4 descriptions and placeholder/example texts */
+    #landing-view .glass-card #step-root-container p {
+        font-size: calc(15px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #step-l1-desc {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #label-auto-l1 {
+        font-size: calc(15px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #focus-input-container p {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #root-node-name,
+    #landing-view .glass-card #root-node-name::placeholder {
+        font-size: calc(20px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card .l1-topic-input,
+    #landing-view .glass-card .l1-topic-input::placeholder {
+        font-size: calc(18px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card #focus-input,
+    #landing-view .glass-card #focus-input::placeholder {
+        font-size: calc(20px * var(--landing-zoom)) !important;
+    }
+    #landing-view .glass-card #step-density-container p {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #label-step4-kg-desc {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #step-multipass-container span.font-bold {
+        font-size: calc(16px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
+    }
+    #landing-view .glass-card #step-multipass-container span.text-slate-400 {
+        font-size: calc(14px * var(--landing-zoom)) !important;
+        line-height: 1.7 !important;
     }
 
     /* Scale paddings and gap/margins inside card elements */
@@ -739,6 +808,7 @@
            1. LANDING PAGE – Luminous Theme
            ========================================== */
     #landing-view {
+        --landing-zoom: 1.2 !important;
         min-height: 100vh;
         background: #ffffff !important;
         position: relative;
@@ -1823,8 +1893,8 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] svg,
     #landing-view .glass-card button[onclick="window.showVaultManager()"] svg,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {
-        width: calc(28px * var(--landing-zoom)) !important;
-        height: calc(28px * var(--landing-zoom)) !important;
+        width: calc(32.2px * var(--landing-zoom)) !important;
+        height: calc(32.2px * var(--landing-zoom)) !important;
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
@@ -1891,23 +1961,23 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         font-size: calc(12.6px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card label.flex {
-        font-size: calc(16px * var(--landing-zoom)) !important;
+        font-size: calc(17.6px * var(--landing-zoom)) !important;
         margin-bottom: calc(12.6px * var(--landing-zoom)) !important;
     }
 
     /* Permanent horizontal layout for Section 1 and Section 2 under zoom */
-    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap,
-    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap,
-    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap,
-    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap {
+    body.a11y-zoom-x15 #landing-view .glass-card .source-buttons-container,
+    body.a11y-zoom-x2 #landing-view .glass-card .source-buttons-container,
+    body.a11y-zoom-x15 #landing-view .glass-card .mode-buttons-container,
+    body.a11y-zoom-x2 #landing-view .glass-card .mode-buttons-container {
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
         scrollbar-width: none !important; /* Firefox */
     }
-    body.a11y-zoom-x15 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
-    body.a11y-zoom-x2 #landing-view .glass-card .ml-10 .flex-wrap::-webkit-scrollbar,
-    body.a11y-zoom-x15 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar,
-    body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar {
+    body.a11y-zoom-x15 #landing-view .glass-card .source-buttons-container::-webkit-scrollbar,
+    body.a11y-zoom-x2 #landing-view .glass-card .source-buttons-container::-webkit-scrollbar,
+    body.a11y-zoom-x15 #landing-view .glass-card .mode-buttons-container::-webkit-scrollbar,
+    body.a11y-zoom-x2 #landing-view .glass-card .mode-buttons-container::-webkit-scrollbar {
         display: none !important; /* Chrome/Safari */
     }
 
@@ -1915,15 +1985,15 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     #landing-view .glass-card .source-type-btn {
         padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
         border-radius: calc(12.6px * var(--landing-zoom)) !important;
-        flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
     }
     #landing-view .glass-card .source-type-btn span {
-        font-size: calc(12px * var(--landing-zoom)) !important;
+        font-size: calc(19px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .source-type-btn svg,
     #landing-view .glass-card .source-type-btn i {
-        width: calc(22.6px * var(--landing-zoom)) !important;
-        height: calc(22.6px * var(--landing-zoom)) !important;
+        width: calc(29.9px * var(--landing-zoom)) !important;
+        height: calc(29.9px * var(--landing-zoom)) !important;
         margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
     }
 
@@ -1931,18 +2001,28 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     #landing-view .glass-card .mode-btn {
         padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
         border-radius: calc(14.6px * var(--landing-zoom)) !important;
-        flex: 0 0 calc(200px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
+    }
+
+    /* Prevent wrapping and allow scroll only under zoom modes */
+    body.a11y-zoom-x15 #landing-view .glass-card .source-type-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .source-type-btn {
+        flex: 0 0 calc(145px * var(--landing-zoom)) !important;
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .mode-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .mode-btn {
+        flex: 0 0 calc(270px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .mode-btn span.font-bold {
-        font-size: calc(12.6px * var(--landing-zoom)) !important;
+        font-size: calc(19px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .mode-btn span.text-[9px] {
         font-size: calc(8.6px * var(--landing-zoom)) !important;
     }
     #landing-view .glass-card .mode-btn svg,
     #landing-view .glass-card .mode-btn i {
-        width: calc(24px * var(--landing-zoom)) !important;
-        height: calc(24px * var(--landing-zoom)) !important;
+        width: calc(31.74px * var(--landing-zoom)) !important;
+        height: calc(31.74px * var(--landing-zoom)) !important;
         margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
     }
 
@@ -1956,15 +2036,6 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
     #landing-view .glass-card .generate-btn i {
         width: calc(17.3px * var(--landing-zoom)) !important;
         height: calc(17.3px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] {
-        padding: calc(11.3px * var(--landing-zoom)) !important;
-        font-size: calc(11.3px * var(--landing-zoom)) !important;
-        border-radius: calc(11.3px * var(--landing-zoom)) !important;
-    }
-    #landing-view .glass-card button[onclick="window.createBlankCanvas()"] svg {
-        width: calc(16px * var(--landing-zoom)) !important;
-        height: calc(16px * var(--landing-zoom)) !important;
     }
 
     /* Enlarge input fields, textareas, and source entries */
@@ -2013,26 +2084,25 @@ body.a11y-zoomed-modals .fixed.inset-0 > div:not(#sidebar):not(#insegnai-drawer)
         padding: calc(3.3px * var(--landing-zoom)) 0 !important;
     }
 
-    /* Bottom action buttons: Guida AI Esterna / Importa JSON */
-    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
-    #landing-view .glass-card label[for="landing-import"].py-2 {
-        font-size: calc(8px * var(--landing-zoom)) !important;
-        padding: calc(6.6px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+    /* Token and Cost Estimator Card scaling */
+    #token-cost-estimator-card {
+        padding: calc(12.3px * var(--landing-zoom)) !important;
         border-radius: calc(9.3px * var(--landing-zoom)) !important;
+        gap: calc(9.3px * var(--landing-zoom)) !important;
     }
-    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"] i,
-    #landing-view .glass-card label[for="landing-import"].py-2 i {
-        width: calc(11.3px * var(--landing-zoom)) !important;
-        height: calc(11.3px * var(--landing-zoom)) !important;
+    #token-cost-estimator-card #estimator-title-lbl {
+        font-size: calc(16px * var(--landing-zoom)) !important;
     }
-
-    /* Token count estimate bar */
-    #token-counter-container span {
-        font-size: calc(8px * var(--landing-zoom)) !important;
+    #token-cost-estimator-card #estimator-tokens-lbl,
+    #token-cost-estimator-card #estimator-cost-lbl {
+        font-size: calc(14px * var(--landing-zoom)) !important;
     }
-    #token-count {
-        font-size: calc(9.3px * var(--landing-zoom)) !important;
-        padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
+    #token-cost-estimator-card #estimator-tokens,
+    #token-cost-estimator-card #estimator-cost {
+        font-size: calc(14px * var(--landing-zoom)) !important;
+    }
+    #token-cost-estimator-card .w-full.bg-slate-200.h-1.5 {
+        height: calc(6px * var(--landing-zoom)) !important;
     }
 }
 
@@ -2189,8 +2259,8 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 }
 
 /* Permanent horizontal layout for Step 1 (Sources) and Step 2 (Mode) in Teacher version under Zoom */
-#setup-form .ml-10.flex.flex-wrap,
-#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap {
+#setup-form .source-buttons-container,
+#setup-form .mode-buttons-container {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
@@ -2203,15 +2273,100 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     scrollbar-width: none !important;
 }
 
-#setup-form .ml-10.flex.flex-wrap::-webkit-scrollbar,
-#setup-form .flex.flex-col.gap-4.ml-10 > .flex.flex-wrap::-webkit-scrollbar {
+#setup-form .source-buttons-container::-webkit-scrollbar,
+#setup-form .mode-buttons-container::-webkit-scrollbar {
     display: none !important;
 }
 
-#landing-view .glass-card .source-type-btn {
-    flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+/* ==========================================
+   HOMOGENEOUS PREMIUM SPACING SYSTEM
+   ========================================== */
+#landing-view .glass-card #setup-form {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(40px * var(--landing-zoom)) !important;
+    margin-top: 0 !important;
 }
 
-#landing-view .glass-card .mode-btn {
-    flex: 0 0 calc(200px * var(--landing-zoom)) !important;
+#landing-view .glass-card #setup-form > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
 }
+
+#landing-view .glass-card #setup-form > div:not(:last-child) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(16px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > div.hidden {
+    display: none !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > label {
+    margin-bottom: 0 !important;
+}
+
+/* Specific styling for Step 3 to ensure proper specificity and override standard step gap */
+#landing-view .glass-card #setup-form > #step-3-container {
+    gap: calc(24px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > #step-3-container > label {
+    margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #step-root-container,
+#landing-view .glass-card #input-l1-container,
+#landing-view .glass-card #focus-input-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(12px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #step-root-container > *,
+#landing-view .glass-card #input-l1-container > *,
+#landing-view .glass-card #focus-input-container > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #focus-input-container {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(20px * var(--landing-zoom)) !important;
+}
+
+/* Ensure step density description paragraphs use flex-gap instead of manual margins */
+#landing-view .glass-card #step-density-container p,
+#landing-view .glass-card #step-kg-density-container p {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Homogeneous space for Multi-Pass toggle container to align it closer to the density options */
+#landing-view .glass-card #setup-form > #step-multipass-container {
+    margin-top: calc(-16px * var(--landing-zoom)) !important; /* Reduces the gap of 40px to exactly 24px */
+}
+
+#landing-view .glass-card #setup-form > div:last-child {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(24px * var(--landing-zoom)) !important;
+    margin-top: 0 !important;
+}
+
+/* Scalabilità del titolo del progetto in sidebar per modalità a11y zoom x1.5 e x2 */
+#sidebar-subtitle {
+    font-size: calc(9px * var(--app-zoom, 1)) !important;
+}
+
+#edit-project-title-input {
+    font-size: calc(10px * var(--app-zoom, 1)) !important;
+}
+
+
+

@@ -1185,41 +1185,107 @@ window.updateCostDisplay = function () {
 }
 
 window.updateTokenCounter = function () {
-    const container = document.getElementById('token-counter-container');
-    const display = document.getElementById('token-count');
-    if (!container || !display) return;
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
+};
 
+window.updateTokenCostEstimator = function () {
+    const modelSelect = document.getElementById('model-select');
+    const tokensValEl = document.getElementById('estimator-tokens');
+    const costValEl = document.getElementById('estimator-cost');
+    const progressEl = document.getElementById('estimator-progress');
+    if (!tokensValEl || !costValEl || !progressEl) return;
+
+    const selectedModel = modelSelect ? modelSelect.value : '';
+    if (!selectedModel) {
+        tokensValEl.textContent = '0 / -- token';
+        costValEl.textContent = '--';
+        progressEl.style.width = '0%';
+        return;
+    }
+
+    // 1. Get model specs
+    const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
+    
+    // Determine context window
+    let maxContext = 1048576; // Default to 1M
+    const modelIdLower = selectedModel.toLowerCase();
+    if (modelIdLower.includes('gemma')) {
+        maxContext = 8192;
+    } else if (modelIdLower.includes('pro')) {
+        maxContext = 2097152; // 2M
+    } else if (modelIdLower.includes('flash')) {
+        maxContext = 1048576; // 1M
+    }
+
+    // 2. Count input tokens
     let totalChars = 0;
-
     // Sum contents from textarea sources
     const textareas = document.querySelectorAll('.landing-textarea');
     textareas.forEach(ta => {
         totalChars += ta.value.length;
     });
-
-    // Sum contents from appState (extracted from files/urls)
+    // Sum contents from appState (extracted files/urls)
     if (appState.sources) {
         appState.sources.forEach(s => {
             if (s.content) totalChars += s.content.length;
         });
     }
+    const inputTokens = Math.ceil(totalChars / 4);
 
-    if (totalChars > 0) {
-        container.classList.remove('hidden');
-        // Heuristic: ~4 chars per token
-        const tokens = Math.ceil(totalChars / 4);
-        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
-
-        // Visual feedback based on size
-        if (tokens > 30000) {
-            display.classList.add('text-rose-600', 'border-rose-200');
-            display.classList.remove('text-indigo-600', 'border-indigo-100');
-        } else {
-            display.classList.remove('text-rose-600', 'border-rose-200');
-            display.classList.add('text-indigo-600', 'border-indigo-100');
-        }
+    // 3. Estimate output tokens based on MM or KG and depth/branches/nodes
+    const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
+    let outputTokens = 0;
+    if (mode === 'mindmap') {
+        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+        // MM formula: N_nodes = 20 + maxBranches * 5
+        const nNodes = 20 + branchesVal * 5;
+        outputTokens = nNodes * 120;
     } else {
-        container.classList.add('hidden');
+        const kgNodesVal = parseInt(document.getElementById('kg-nodes-slider')?.value || '20', 10);
+        // KG formula: N_nodes = kgNodes
+        outputTokens = kgNodesVal * 150;
+    }
+
+    // 4. Calculate cost in cents
+    let costDisplay = '';
+    const isFree = kb.free || (kb.inputCost === 0 && kb.outputCost === 0);
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const freeText = t.estimator_free || (lang === 'en' ? 'Free (Free Tier)' : 'Gratuito (Piano Free)');
+
+    if (isFree) {
+        costDisplay = freeText;
+    } else {
+        // Cost per 1M tokens * (tokens / 1M) -> cost in dollars * 100 -> cost in cents
+        const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
+        const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
+        const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
+        
+        if (totalCostCents < 0.01) {
+            costDisplay = `<0.01 ¢`;
+        } else {
+            costDisplay = `${totalCostCents.toFixed(2)} ¢`;
+        }
+    }
+
+    // 5. Update UI
+    tokensValEl.textContent = `${inputTokens.toLocaleString()} / ${maxContext.toLocaleString()} token`;
+    costValEl.textContent = costDisplay;
+
+    // Progress bar calculation
+    const progressPercent = Math.min((inputTokens / maxContext) * 100, 100);
+    progressEl.style.width = `${progressPercent}%`;
+
+    // Colors: green (<50%), yellow (50-80%), red (>80%)
+    progressEl.className = 'h-full transition-all duration-500 rounded-full';
+    if (progressPercent < 50) {
+        progressEl.classList.add('bg-emerald-500');
+    } else if (progressPercent < 80) {
+        progressEl.classList.add('bg-amber-500');
+    } else {
+        progressEl.classList.add('bg-rose-500');
     }
 };
 
@@ -4254,6 +4320,7 @@ window.switchToMapLayout = function () {
         if (minLinkControl) minLinkControl.classList.remove('hidden');
         if (sliderDivider) sliderDivider.classList.remove('hidden');
     }
+    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
 }
 
 window.backToLanding = function () {
@@ -4681,6 +4748,30 @@ window.resetZoom = function () {
     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
 };
 
+window.updateStep4Display = function () {
+    const isMindmap = (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap';
+    const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle')?.checked ?? true;
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+
+    const descMM = document.getElementById('label-step4-desc');
+    const descKG = document.getElementById('label-step4-kg-desc');
+
+    if (isMindmap) {
+        if (descMM) {
+            descMM.innerText = autoGenerateL1 ? 
+                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") : 
+                (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
+        }
+    } else {
+        if (descKG) {
+            descKG.innerText = autoGenerateL1 ? 
+                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") : 
+                (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
+        }
+    }
+};
+
 window.setMode = function (mode) {
     const btnMindmap = document.getElementById('mode-mindmap');
     const btnKG = document.getElementById('mode-kg');
@@ -4729,6 +4820,9 @@ window.setMode = function (mode) {
         const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
         btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
     }
+
+    window.updateStep4Display();
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 
@@ -4803,7 +4897,6 @@ window.applyDirectZoom = function (z) {
         '#alert-box',
         '#prompt-box',
         '#study-config-modal > div',
-        '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
         '#contextual-ai-extension-modal > div'
@@ -5246,33 +5339,7 @@ window.addEventListener('drop', (e) => {
     }
 });
 
-// --- Gestione Istruzioni JSON Esterno ---
-window.openExternalJSONInstructions = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        setTimeout(() => modal.classList.add('opacity-100'), 10);
-        window.safeCreateIcons();
-    } catch (e) { console.error('openExternalJSONInstructions error:', e); }
-};
 
-window.closeExternalJSONModal = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('opacity-100');
-        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
-    } catch (e) { }
-};
-
-window.copyExternalPrompt = function () {
-    const text = document.getElementById('external-prompt-text').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        window.showToast("Prompt copiato negli appunti!", "success");
-    });
-};
 
 // ==========================================
 // MERGE / UNISCI SYSTEM
@@ -7538,7 +7605,6 @@ window.changeLanguage = function (lang) {
         'label-mode-kg': t.step2_kg,
         'label-step4': t.step_density_title,
         'label-step4-kg': t.step_kg_density_title,
-        'label-step4-kg-desc': t.step_kg_density_desc,
         'btn-generate-label': (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap' ? t.new_map_btn : t.new_kg_btn,
 
 
@@ -7554,13 +7620,26 @@ window.changeLanguage = function (lang) {
         'label-api-key-desc': t.api_key_desc,
         'label-api-key-how': t.api_key_how,
         'label-ai-model': t.ai_model_label,
-        'label-refresh-models': t.refresh_models
+        'label-refresh-models': t.refresh_models,
+        'estimator-title-lbl': t.estimator_title,
+        'estimator-tokens-lbl': t.estimator_tokens_label,
+        'estimator-cost-lbl': t.estimator_cost_label,
+        'feedback-section-title': t.feedback_section,
+        'feedback-btn-title': t.feedback_btn_title,
+        'feedback-btn-desc': t.feedback_btn_desc,
+        'feedback-modal-title-lbl': t.feedback_modal_title,
+        'feedback-cat-label-lbl': t.feedback_cat_label,
+        'feedback-desc-label-lbl': t.feedback_desc_label,
+        'feedback-submit-btn-lbl': t.feedback_submit_btn
     };
 
     for (let id in els) {
         const el = document.getElementById(id);
         if (el) el.innerText = els[id];
     }
+
+    const feedbackText = document.getElementById('feedback-text');
+    if (feedbackText) feedbackText.placeholder = t.feedback_desc_placeholder;
 
     // Process data-i18n attributes automatically
     document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -7696,6 +7775,14 @@ window.changeLanguage = function (lang) {
     if (window.showToast) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
+
+    // Aggiorna dinamicamente le descrizioni di Step 4 in base a lingua e modalità
+    if (window.updateStep4Display) {
+        window.updateStep4Display();
+    }
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
 };
 
 // Add auto-render projects on load
@@ -7720,6 +7807,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnConfig) btnConfig.addEventListener('click', () => { console.log("Open Config"); window.showConfigAIModal(); });
     if (btnGuide) btnGuide.addEventListener('click', () => { console.log("Open Guide"); window.showAppGuide(); });
     if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
+
+    const autoGenToggle = document.getElementById('l1-auto-generate-toggle');
+    if (autoGenToggle) {
+        autoGenToggle.addEventListener('change', () => {
+            if (window.updateStep4Display) window.updateStep4Display();
+        });
+    }
 
     StorageManager.renderRecentProjects();
 
@@ -7759,6 +7853,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize the UI for the current provider
     if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+
+    // Setup estimator events and initial display
+    if (selectEl) {
+        selectEl.addEventListener('change', () => {
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+        });
+    }
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 });
 
 window.globalQuizQueue = [];
@@ -8430,21 +8532,25 @@ window.applyTextZoom = function(idx) {
     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
+    // On the landing page, force the zoom level to 1.0 to prevent any enlargement
+    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = isLandingVisible ? 1.0 : z;
+
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
-    document.documentElement.style.setProperty('--app-zoom', z);
+    document.documentElement.style.setProperty('--app-zoom', effectiveZ);
     
-    if (z > 1.0) {
+    if (effectiveZ > 1.0) {
         document.body.classList.add('a11y-zoomed-modals');
     } else {
         document.body.classList.remove('a11y-zoomed-modals');
     }
 
     document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
-    if (z === 1.0) {
+    if (effectiveZ === 1.0) {
         document.body.classList.add('a11y-zoom-x1');
-    } else if (z === 1.5) {
+    } else if (effectiveZ === 1.5) {
         document.body.classList.add('a11y-zoom-x15');
-    } else if (z === 2.0) {
+    } else if (effectiveZ === 2.0) {
         document.body.classList.add('a11y-zoom-x2');
     }
 
@@ -8465,7 +8571,6 @@ window.applyTextZoom = function(idx) {
         '#alert-box',
         '#prompt-box',
         '#study-config-modal > div',
-        '#external-json-modal > div',
         '#vault-manager-box',
         '#edit-node-box',
         '#contextual-ai-extension-modal > div'
@@ -8480,28 +8585,28 @@ window.applyTextZoom = function(idx) {
     const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
     if (sourceBody) {
-        if (z === 1.0) sourceBody.style.removeProperty('font-size');
-        else sourceBody.style.setProperty('font-size', `${z * 16}px`, 'important');
+        if (effectiveZ === 1.0) sourceBody.style.removeProperty('font-size');
+        else sourceBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
     }
     if (aiBody) {
-        if (z === 1.0) aiBody.style.removeProperty('font-size');
-        else aiBody.style.setProperty('font-size', `${z * 16}px`, 'important');
+        if (effectiveZ === 1.0) aiBody.style.removeProperty('font-size');
+        else aiBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
     }
     if (flashcardFront) {
-        if (z === 1.0) flashcardFront.style.removeProperty('font-size');
-        else flashcardFront.style.setProperty('font-size', `${z * 24}px`, 'important');
+        if (effectiveZ === 1.0) flashcardFront.style.removeProperty('font-size');
+        else flashcardFront.style.setProperty('font-size', `${effectiveZ * 24}px`, 'important');
     }
     if (flashcardBack) {
-        if (z === 1.0) flashcardBack.style.removeProperty('font-size');
-        else flashcardBack.style.setProperty('font-size', `${z * 18}px`, 'important');
+        if (effectiveZ === 1.0) flashcardBack.style.removeProperty('font-size');
+        else flashcardBack.style.setProperty('font-size', `${effectiveZ * 18}px`, 'important');
     }
     if (quizQuestion) {
-        if (z === 1.0) quizQuestion.style.removeProperty('font-size');
-        else quizQuestion.style.setProperty('font-size', `${z * 20}px`, 'important');
+        if (effectiveZ === 1.0) quizQuestion.style.removeProperty('font-size');
+        else quizQuestion.style.setProperty('font-size', `${effectiveZ * 20}px`, 'important');
     }
     quizOptions.forEach(opt => {
-        if (z === 1.0) opt.style.removeProperty('font-size');
-        else opt.style.setProperty('font-size', `${z * 13}px`, 'important');
+        if (effectiveZ === 1.0) opt.style.removeProperty('font-size');
+        else opt.style.setProperty('font-size', `${effectiveZ * 13}px`, 'important');
     });
 
     // Ripristina root font size se era stato modificato
@@ -8759,35 +8864,7 @@ window.clearSuperFinder = function () {
 const oldFinder = document.getElementById('map-finder-input');
 if (oldFinder) oldFinder.remove();
 
-// === CANVAS VUOTO & ESPANSIONE CONTESTUALE ===
-window.createBlankCanvas = function () {
-    const mode = document.getElementById('extraction-mode').value;
-    appState.extractionMode = mode;
-    appState.db = { nodes: [], links: [] };
 
-    if (mode === 'mindmap') {
-        appState.db.nodes.push({
-            id: "ROOT",
-            label: "Nuovo Argomento",
-            content: "Inizia a scrivere...",
-            desc: "Inizia a scrivere...",
-            level: 0,
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
-            studyStatus: 'none',
-            chunks: []
-        });
-    }
-
-    appState.rootNodeLabel = "Mappa Manuale";
-    window.switchToMapLayout();
-
-    simulation = null;
-    initD3Visualization();
-    window.updateDegreeStats();
-    window.renderTreeView();
-    window.safeCreateIcons();
-};
 
 let contextualAITargetNode = null;
 
@@ -9348,6 +9425,104 @@ window.resetVaultState = function () {
             }
         } catch (e) { }
     }
+
+    // Gestione Segnalazioni e Feedback
+    let selectedFeedbackCategory = 'ui';
+
+    window.selectFeedbackCategory = function (cat) {
+        selectedFeedbackCategory = cat;
+        const categories = ['ui', 'ai', 'storage', 'bug', 'suggestion', 'other'];
+        categories.forEach(c => {
+            const btn = document.getElementById(`fb-cat-${c}`);
+            if (btn) {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+            }
+        });
+
+        const activeBtn = document.getElementById(`fb-cat-${cat}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+        }
+    };
+
+    window.openFeedbackModal = function () {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        if (!modal || !box) return;
+
+        document.getElementById('feedback-text').value = '';
+        window.selectFeedbackCategory('ui');
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeFeedbackModal = function () {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        if (!modal || !box) return;
+
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    window.submitFeedback = function () {
+        const text = document.getElementById('feedback-text').value.trim();
+        if (!text) {
+            if (window.showToast) window.showToast("Inserisci i dettagli della segnalazione", "warning");
+            return;
+        }
+
+        const catLabels = {
+            'ui': 'Interfaccia / UI',
+            'ai': 'Generazione AI',
+            'storage': 'Salvataggio / File',
+            'bug': 'Bug / Errore',
+            'suggestion': 'Suggerimento',
+            'other': 'Altro'
+        };
+
+        const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
+        const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
+        
+        const appVersion = "1.0.0";
+        const osInfo = "iOS / iPadOS (Capacitor)";
+        const userAgent = navigator.userAgent;
+        const model = document.getElementById('model-select')?.value || 'Non specificato';
+        
+        const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
+                          `========================================\n` +
+                          `Categoria: ${categoryLabel}\n` +
+                          `Dispositivo: ${osInfo}\n` +
+                          `Modello Selezionato: ${model}\n` +
+                          `Versione App: ${appVersion}\n` +
+                          `User Agent: ${userAgent}\n` +
+                          `========================================\n\n` +
+                          `DESCRIZIONE:\n${text}\n\n`;
+
+        navigator.clipboard.writeText(emailBody).then(() => {
+            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            window.location.href = mailtoUrl;
+            if (window.showToast) window.showToast("Segnalazione copiata e client email aperto!", "success");
+            window.closeFeedbackModal();
+        }).catch(err => {
+            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            window.location.href = mailtoUrl;
+            if (window.showToast) window.showToast("Email preparata!", "success");
+            window.closeFeedbackModal();
+        });
+    };
 
     // Inizializza i modelli all'avvio se c'è una chiave
     setTimeout(() => {
