@@ -38,33 +38,34 @@ let appState = {
 };
 
 // ==========================================
-// MODALITÀ INFOMANIAK PRO (SECRET SEQUENCE)
+// COMBINAZIONI SEGRETE (STUDENTE & PRO)
 // ==========================================
-let studentModeKeys = [];
-const studentModeSecret = ['l', 'k', 'j', 'h'];
-
+let secretBuffer = [];
 let infomaniakProKeys = [];
 const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey) {
-        const key = e.key.toLowerCase();
-
-        // Student Mode Handler
-        if (studentModeSecret.includes(key)) {
-            studentModeKeys.push(key);
-            if (studentModeKeys.length > 4) studentModeKeys.shift();
-            if (studentModeKeys.join('') === 'lkjh') {
+        const key = e.key.toUpperCase();
+        
+        // 1. Sblocco/Blocco Generatore Studente: CTRL + SHIFT + L + K + J + H
+        if (['L', 'K', 'J', 'H'].includes(key)) {
+            secretBuffer.push(key);
+            if (secretBuffer.length > 4) {
+                secretBuffer.shift();
+            }
+            if (secretBuffer.join('') === 'LKJH') {
                 window.toggleStudentMode();
-                studentModeKeys = [];
+                secretBuffer = [];
             }
         } else {
-            studentModeKeys = [];
+            secretBuffer = [];
         }
 
-        // Infomaniak Pro Mode Handler
-        if (infomaniakProSecret.includes(key)) {
-            infomaniakProKeys.push(key);
+        // 2. Infomaniak Pro Mode: CTRL + SHIFT + M + N + B + V
+        const keyLower = e.key.toLowerCase();
+        if (infomaniakProSecret.includes(keyLower)) {
+            infomaniakProKeys.push(keyLower);
             if (infomaniakProKeys.length > 4) infomaniakProKeys.shift();
             if (infomaniakProKeys.join('') === 'mnbv') {
                 window.toggleInfomaniakProMode();
@@ -74,7 +75,7 @@ document.addEventListener('keydown', (e) => {
             infomaniakProKeys = [];
         }
     } else {
-        studentModeKeys = [];
+        secretBuffer = [];
         infomaniakProKeys = [];
     }
 });
@@ -83,7 +84,6 @@ window.toggleInfomaniakProMode = function () {
     appState.infomaniakAllModels = !appState.infomaniakAllModels;
     const msg = appState.infomaniakAllModels ? "Modalità PRO (All Models) ATTIVATA" : "Modalità BETA (Google Models Only) ATTIVATA";
     window.showToast(msg, "success");
-    // Refresh models if provider is Infomaniak
     if (appState.aiProvider === 'infomaniak' && window.refreshGeminiModels) {
         window.refreshGeminiModels();
     }
@@ -113,6 +113,15 @@ window.applyStudentModeUI = function () {
             setupForm.classList.add('hidden');
         } else {
             setupForm.classList.remove('hidden');
+        }
+    }
+
+    const btnConfig = document.getElementById('btn-config-ai');
+    if (btnConfig) {
+        if (appState.studentMode) {
+            btnConfig.classList.add('hidden');
+        } else {
+            btnConfig.classList.remove('hidden');
         }
     }
 
@@ -147,43 +156,23 @@ window.applyStudentModeUI = function () {
     }
 };
 
-window.unlockStudentGenerator = function () {
-    appState.studentMode = false;
-    
-    // Sblocca il form di setup e il pulsante di configurazione AI
-    const setupForm = document.getElementById('setup-form');
-    if (setupForm) setupForm.classList.remove('hidden');
-    
-    const btnConfig = document.getElementById('btn-config-ai');
-    if (btnConfig) btnConfig.classList.remove('hidden');
-    
-    window.applyStudentModeUI();
-    window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
-};
-
-// Ascoltatore per la combinazione segreta di sblocco: CTRL + SHIFT + L + K + J + H
-let secretBuffer = [];
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey) {
-        const key = e.key.toUpperCase();
-        if (['L', 'K', 'J', 'H'].includes(key)) {
-            secretBuffer.push(key);
-            if (secretBuffer.length > 4) {
-                secretBuffer.shift();
-            }
-            if (secretBuffer.join('') === 'LKJH') {
-                window.unlockStudentGenerator();
-                secretBuffer = [];
-            }
-        }
-    } else {
-        secretBuffer = [];
-    }
-});
-
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
-    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
+    
+    // Mostra/Nascondi il setup-form e btn-config-ai in base allo stato
+    const setupForm = document.getElementById('setup-form');
+    const btnConfig = document.getElementById('btn-config-ai');
+    
+    if (appState.studentMode) {
+        if (setupForm) setupForm.classList.add('hidden');
+        if (btnConfig) btnConfig.classList.add('hidden');
+        window.showToast("Generatore BLOCCATO! Modalità Studente attiva.", "info");
+    } else {
+        if (setupForm) setupForm.classList.remove('hidden');
+        if (btnConfig) btnConfig.classList.remove('hidden');
+        window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
+    }
+    
     window.applyStudentModeUI();
 };
 
