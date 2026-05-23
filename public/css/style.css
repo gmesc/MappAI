@@ -249,7 +249,10 @@ body.a11y-zoom-x2 {
     writing-mode: vertical-rl !important;
     text-orientation: mixed !important;
     white-space: nowrap !important;
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
     text-transform: none !important; /* Mantiene il testo in minuscolo */
 }
 
