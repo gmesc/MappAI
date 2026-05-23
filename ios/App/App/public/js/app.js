@@ -5352,6 +5352,67 @@ window.loadMapVault = async function () {
     }
 };
 
+window.handleImportClick = function(event) {
+    const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+    if (isCapacitor) {
+        // Su iPadOS/Capacitor facciamo scattare direttamente il click sull'input file nascosto
+        // in modo sincrono per conservare la user gesture valida di WKWebView
+        const filePicker = document.getElementById('mappai-ipad-vault-file-picker');
+        if (filePicker) {
+            filePicker.click();
+        }
+    } else {
+        // Su desktop/electron chiamiamo il normale caricamento
+        window.loadMapVault();
+    }
+};
+
+window.handleIPadVaultFileSelected = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    window.showLoadingOverlay(true, "Importazione Vault in corso...");
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const parsed = JSON.parse(evt.target.result);
+            const data = parsed.db ? parsed.db : parsed;
+            if (!data.nodes || !data.links) {
+                window.showLoadingOverlay(false);
+                window.showAlert("Errore", "Il file selezionato non è un Vault di MappAI valido.");
+                return;
+            }
+            const baseName = file.name.replace('.json', '');
+            const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+            
+            // Salva il vault nativamente tramite il bridge
+            const saveRes = await window.electronAPI.saveVault({
+                folderPath: safeName,
+                mapData: parsed
+            });
+            
+            window.showLoadingOverlay(false);
+            if (saveRes && saveRes.success) {
+                window.showToast("Vault importato con successo!", "success");
+                // Ricarica la lista dei vault nel modale
+                if (typeof window.loadVaultList === 'function') {
+                    await window.loadVaultList();
+                }
+            } else {
+                window.showAlert("Errore", "Impossibile salvare il Vault nel dispositivo.");
+            }
+        } catch (err) {
+            window.showLoadingOverlay(false);
+            window.showAlert("Errore", "Errore durante la lettura del file JSON: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Resetta il valore dell'input per permettere di riselezionare lo stesso file
+    event.target.value = "";
+};
+
 window.startEmptyMap = function () {
     // Reset DB to a single root node
     const rootId = "node_" + Math.random().toString(36).substr(2, 9);
@@ -7903,6 +7964,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+
+    // Aggiorna dinamicamente l'etichetta del percorso cartella dei vault
+    const labelEl = document.getElementById('vault-manager-folder-path-label');
+    if (labelEl) {
+        labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
+    }
 });
 
 window.globalQuizQueue = [];
