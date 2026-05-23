@@ -2003,7 +2003,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view .glass-card .source-type-btn {
         padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
         border-radius: calc(12.6px * var(--landing-zoom)) !important;
-        flex: 0 0 calc(105px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
     }
 
     #landing-view .glass-card .source-type-btn span {
@@ -2021,7 +2021,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view .glass-card .mode-btn {
         padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
         border-radius: calc(14.6px * var(--landing-zoom)) !important;
-        flex: 0 0 calc(200px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
     }
 
     #landing-view .glass-card .mode-btn span.font-bold {
@@ -2037,6 +2037,16 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         width: calc(24px * var(--landing-zoom)) !important;
         height: calc(24px * var(--landing-zoom)) !important;
         margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Prevent wrapping and allow scroll only under zoom modes */
+    body.a11y-zoom-x15 #landing-view .glass-card .source-type-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .source-type-btn {
+        flex: 0 0 calc(145px * var(--landing-zoom)) !important;
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .mode-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .mode-btn {
+        flex: 0 0 calc(270px * var(--landing-zoom)) !important;
     }
 
     /* Enlarge "Genera Mappa" and "Canvas Vuoto" action buttons */
@@ -2402,12 +2412,4 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 
 #edit-project-title-input {
     font-size: calc(10px * var(--app-zoom, 1)) !important;
-}
-
-#landing-view .glass-card .source-type-btn {
-    flex: 0 0 calc(105px * var(--landing-zoom)) !important;
-}
-
-#landing-view .glass-card .mode-btn {
-    flex: 0 0 calc(200px * var(--landing-zoom)) !important;
 }
