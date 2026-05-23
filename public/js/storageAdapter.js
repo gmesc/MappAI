@@ -653,7 +653,7 @@
         loadPrompts: async function () {
             let defaultPrompts = {};
             try {
-                const response = await fetch('./prompts_config.json');
+                const response = await fetch('./prompts_default.json');
                 if (response.ok) {
                     defaultPrompts = await response.json();
                 }
@@ -667,7 +667,7 @@
                 try {
                     const { Filesystem, Directory } = window.Capacitor.Plugins;
                     const res = await Filesystem.readFile({
-                        path: 'MappAI_Config/prompts.json',
+                        path: 'MappAI_Config/prompts_user.json',
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
@@ -693,7 +693,7 @@
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 await Filesystem.writeFile({
-                    path: 'MappAI_Config/prompts.json',
+                    path: 'MappAI_Config/prompts_user.json',
                     data: JSON.stringify(config),
                     directory: Directory.Documents,
                     encoding: 'utf8',
