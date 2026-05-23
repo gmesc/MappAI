@@ -25,7 +25,53 @@ function createWindow() {
     mainWindow.loadFile('public/index.html');
 }
 
+function copyFolderSync(from, to) {
+    if (!fs.existsSync(to)) {
+        fs.mkdirSync(to, { recursive: true });
+    }
+    const files = fs.readdirSync(from);
+    for (const file of files) {
+        const fromPath = path.join(from, file);
+        const toPath = path.join(to, file);
+        if (fs.statSync(fromPath).isDirectory()) {
+            copyFolderSync(fromPath, toPath);
+        } else {
+            if (!fs.existsSync(toPath)) {
+                fs.copyFileSync(fromPath, toPath);
+            }
+        }
+    }
+}
+
+function initializeDesktopDemoVaults() {
+    try {
+        const docPath = app.getPath('documents');
+        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+
+        const srcDir = path.join(__dirname, 'public', 'Vault');
+        if (fs.existsSync(srcDir)) {
+            const items = fs.readdirSync(srcDir);
+            for (const item of items) {
+                const itemSrcPath = path.join(srcDir, item);
+                const itemDestPath = path.join(saveDir, item);
+                if (fs.statSync(itemSrcPath).isDirectory()) {
+                    if (!fs.existsSync(itemDestPath) || fs.readdirSync(itemDestPath).length === 0) {
+                        copyFolderSync(itemSrcPath, itemDestPath);
+                    }
+                }
+            }
+            console.log("[MappAI Desktop] Demo vaults copied/verified from public/Vault.");
+        }
+    } catch (err) {
+        console.error("[MappAI Desktop] Error initializing demo vaults:", err);
+    }
+}
+
 app.whenReady().then(() => {
+    initializeDesktopDemoVaults();
     createWindow();
 
     app.on('activate', () => {
