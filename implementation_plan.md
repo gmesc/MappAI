@@ -1,42 +1,45 @@
-# Piano di Implementazione - Aggiustamenti Sizing Label e Font Drawer insegnai.ch (Docente/Studente)
+# Piano di Implementazione - Rimozione Share Sheet iOS e Calibrazione Costi Gemma 4
 
-Questo piano descrive le modifiche per allineare geometricamente e tipograficamente il label "insegnai.ch" con il pulsante "MOSTRA/NASCONDI RECENTI" (pulsante di toggle dei progetti), assicurando che:
-1. La dimensione del font del label "insegnai.ch" sia identica al font del label dei progetti (`13.5px`).
-2. La larghezza della linguetta del drawer "insegnai.ch" (`36px`) sia esattamente uguale all'altezza del pulsante dei progetti.
-3. Il testo di "insegnai.ch" sia rigorosamente in minuscolo.
-4. I font della descrizione e della sezione segnalazioni del drawer siano incrementati del 15% (applicando gli stili già definiti con incrementi mirati rispetto ai valori base).
-5. Tali modifiche siano sincronizzate sia nell'app Studente (ramo `MappAI_iPad_studente`) sia nell'app Docente (ramo `MappAI_iPad`).
+Questo piano descrive le modifiche apportate per semplificare il salvataggio dei Vault locali su iOS ed allineare la stima dei costi del modello google/gemma-4-31b-it (Infomaniak) a quelli reali riscontrati in produzione.
 
 ## Modifiche Proposte
 
-### [Component: Web Assets - CSS / HTML]
+### 1. Semplificazione Esportazione Vault su iPadOS
+Attualmente, su Capacitor (iPad), quando l'utente sceglie di esportare un Vault, l'applicazione apre lo Share Sheet nativo di iOS (`navigator.share`). Questo menu nativo risulta ambiguo e poco chiaro per l'utente.
+* **Soluzione**: Rimuovere la chiamata a `navigator.share` in `saveVault` all'interno di `public/js/storageAdapter.js`. In questo modo, l'utente inserisce il nome desiderato per il Vault tramite il prompt, e il Vault viene salvato direttamente nella cartella dell'applicazione (`Directory.Documents/MappAI - Vault/${nome_vault}`) nel filesystem locale dell'iPad in modo trasparente e automatico, registrandosi anche in `vaults_index.json`.
 
-#### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
+### 2. Calibrazione e Allineamento Costi Gemma 4 (Infomaniak)
+I costi stimati per il modello Gemma 4 erano configurati a zero o sovrastimati a causa di una fall-back automatica sui costi Gemini.
+* **Modifiche in `public/js/app.js`**:
+  * Aggiornare `MODEL_KB` associando ai modelli `gemma-4`, `gemma`, `google/gemma-4`, e `google/gemma` la tariffa reale di Infomaniak: **inputCost: 0.20** CHF per milione di token, **outputCost: 0.40** CHF per milione di token, impostando il tier corretto su `'🇨🇭 Swiss Made'`.
+  * Modificare `window.updateCostDisplay` per usare i costi specifici ricavati da `matchModelKB()` anziché tariffe hardcoded e mostrare l'unità di misura in `CHF` se il provider attivo è Infomaniak.
+  * Aggiornare `window.showGenerationReport` per formattare e mostrare i costi stimati in `CHF` per il provider Infomaniak.
+* **Modifiche in `public/js/storageAdapter.js`**:
+  * Allineare i valori di `inputCost` e `outputCost` restituiti nel campo `kb` della funzione `listInfomaniakModels` a `0.20` e `0.40` rispettivamente.
+* **Modifiche sul Sito Web (`insegnai_sito/guida-infomaniak.html`)**:
+  * Ricalibrare i calcoli di convenienza del limite di spesa di 20 CHF/mese e la tabella dei costi medi per singola operazione (Chat, Quiz/Flashcard, Mappe Concettuali) basandosi sui parametri reali riscontrati (es. ~0.0012 CHF per mappa concettuale, ~0.0010 CHF per Quiz).
 
-1. **Allineamento Pulsante Progetti ("Mostra/Nascondi Progetti")**:
-   - Impostare un'altezza esplicita di `36px !important` su `#projects-bar button.absolute`.
-   - Aggiungere `box-sizing: border-box !important`, `display: flex !important`, `align-items: center !important`, e `justify-content: center !important` per centrare verticalmente l'icona e il testo all'interno dei 36px.
-   - Assicurare che `font-size` sia `13.5px !important` (per il bottone e il testo interno `#toggle-bar-text`).
+---
 
-2. **Allineamento Linguetta Drawer ("insegnai.ch")**:
-   - Assicurare che `#insegnai-drawer-tab` abbia larghezza fissa `width: 36px !important` e `box-sizing: border-box !important`.
-   - Per `#insegnai-drawer-tab span`, garantire `font-size: 13.5px !important` e forzare il testo in minuscolo tramite `text-transform: none !important;`.
+## Modifiche ai File
 
-3. **Verifica Incrementi Font del Drawer (15%)**:
-   - Assicurare che i testi descrittivi (`p`, `a`) abbiano `font-size: 15px !important;` (incremento da `13px`).
-   - Assicurare che il titolo sezione segnalazioni (`h3`) abbia `font-size: 13px !important;` (incremento da `11px`).
-   - Assicurare che le scritte nei bottoni interni abbiano `font-size: 14px !important;` (titolo) e `11.5px !important;` (descrizione), corrispondenti all'aumento del 15%.
+### [MODIFY] [storageAdapter.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/storageAdapter.js)
+* Rimozione di `navigator.share` in `saveVault` per Capacitor.
+* Aggiornamento costi modelli a 0.20 (input) e 0.40 (output) in `listInfomaniakModels`.
+
+### [MODIFY] [app.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/app.js)
+* Aggiornamento tariffe e chiavi in `MODEL_KB`.
+* Calcolo dinamico in `updateCostDisplay` e supporto valuta `CHF`.
+* Supporto valuta `CHF` in `showGenerationReport`.
+
+### [MODIFY] [guida-infomaniak.html](file:///Users/giacomomeschini/Antigravity/insegnai_sito/guida-infomaniak.html)
+* Ricalibrazione stime e tabella costi in base a metriche reali.
 
 ---
 
 ## Piano di Verifica
 
-### Sincronizzazione iOS (Capacitor)
-Per ciascun ramo (`MappAI_iPad_studente` e `MappAI_iPad`):
-1. Copiare i file modificati nella build iOS nativa usando:
-   `npx cap copy ios`
-2. Testare localmente su simulatore o dispositivo iPad per verificar che:
-   - La linguetta `insegnai.ch` abbia la stessa larghezza dell'altezza del pulsante verde in basso a destra.
-   - I font dei due label siano visivamente identici (`13.5px`).
-   - La linguetta `insegnai.ch` rimanga in minuscolo.
-   - Il testo della descrizione e dei pulsanti nel drawer sia nitido e proporzionato (+15%).
+### Verifica Funzionale
+1. Avviare l'applicazione e selezionare "Esporta Vault". Verificare che venga chiesto solo il nome e che il salvataggio locale avvenga senza l'apparizione dello Share Sheet iOS.
+2. Eseguire una generazione con Infomaniak Gemma 4 e verificare che il costo stimato a fine operazione e nella barra inferiore sia mostrato in `CHF` con valori coerenti (es. circa `0.0012 CHF` per la mappa generata).
+3. Aprire il file `guida-infomaniak.html` e verificare la correttezza visiva della tabella ricalibrata.

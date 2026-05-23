@@ -853,8 +853,10 @@ const MODEL_KB = {
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, note: 'Stabile, legacy' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Potente, legacy' },
     // ── Infomaniak (Limit to Google/Gemma) ──
-    'gemma-4': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
-    'gemma': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma)' },
+    'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
+    'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
+    'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
+    'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -1245,20 +1247,37 @@ window.fetchModelAPI = async function (payload, apiKey) {
 
 window.updateCostDisplay = function () {
     if (!appState.generationUsage) return;
-    const promptPrice = 0.10 / 1000000; // $ per token input (Flash 2.0)
-    const candidatePrice = 0.40 / 1000000; // $ per token output
+
+    const modelEl = document.getElementById('model-select');
+    const modelId = modelEl ? modelEl.value : '';
+    const kb = matchModelKB(modelId);
+
+    let promptPrice = 0.10 / 1000000; 
+    let candidatePrice = 0.40 / 1000000; 
+
+    if (kb) {
+        promptPrice = kb.inputCost / 1000000;
+        candidatePrice = kb.outputCost / 1000000;
+    }
 
     const cost = (appState.generationUsage.promptTokens * promptPrice) + (appState.generationUsage.candidateTokens * candidatePrice);
-    const costInCents = cost * 100;
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
 
     const costEl = document.getElementById('total-cost-display');
     const tokenEl = document.getElementById('total-tokens-display');
 
-    if (costEl) costEl.textContent = costInCents.toFixed(2) + ' ¢';
+    if (costEl) {
+        if (isInfomaniak) {
+            costEl.textContent = cost.toFixed(4) + ' CHF';
+        } else {
+            const costInCents = cost * 100;
+            costEl.textContent = costInCents.toFixed(2) + ' ¢';
+        }
+    }
     if (tokenEl) tokenEl.textContent = appState.generationUsage.totalTokens.toLocaleString();
-    const modelEl = document.getElementById('used-model-display');
-    if (modelEl && appState.generationUsage.usedModel) modelEl.textContent = appState.generationUsage.usedModel;
-}
+    const usedModelEl = document.getElementById('used-model-display');
+    if (usedModelEl && appState.generationUsage.usedModel) usedModelEl.textContent = appState.generationUsage.usedModel;
+};
 
 window.updateTokenCounter = function () {
     if (window.updateTokenCostEstimator) {
@@ -3227,7 +3246,8 @@ window.showGenerationReport = function () {
             (appState.generationUsage.candidateTokens / 1000000 * kb.outputCost);
     }
 
-    const costText = kb && kb.free ? "Gratuito (Piano Free)" : `$${totalCost.toFixed(4)}`;
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const costText = kb && kb.free ? "Gratuito (Piano Free)" : (isInfomaniak ? `${totalCost.toFixed(4)} CHF` : `$${totalCost.toFixed(4)}`);
     const tokens = appState.generationUsage.totalTokens.toLocaleString();
 
     window.showToast(`Generazione completata! Token: ${tokens} | Costo: ${costText}`, "success");
