@@ -9,6 +9,10 @@ const en_translations = {
     new_kg_btn: "Generate Knowledge Graph",
 
     btn_blank_canvas_label: "Create Blank Canvas (Manual)",
+    estimator_title: "Document Analysis & Cost Estimate",
+    estimator_tokens_label: "Input / Model Max",
+    estimator_cost_label: "Estimated Cost",
+    estimator_free: "Free (Free Tier)",
     save_folder: "Save Folder",
     import_json: "Import JSON",
     ext_ai_guide: "External AI Guide",
@@ -40,14 +44,8 @@ const en_translations = {
     step5: "Visualization Style",
     step_density_title: "Branch Density (L4 and L5)",
     step_density_desc: "L1-L2-L3 branches will always be generated. Choose how many branches to generate in deeper levels (0 = stops at L3).",
-    step_density_desc_manual_l1: "L2-L3 branches will always be generated (L1 defined by you). Choose how many branches to generate in deeper levels (0 = stops at L3).",
     step_kg_density_title: "Number of Concepts/Entities (Level 2)",
     step_kg_density_desc: "Choose how many conceptual nodes to generate within the relational graph (recommended 15-25 for neat graphs, up to 30+ for complete graphs).",
-    step_kg_density_desc_manual_l1: "Choose how many conceptual nodes to generate within the relational graph (recommended 15-25 for neat graphs, up to 30+ for complete graphs) based on the Super-Hubs defined by you.",
-    estimator_title: "Document Analysis & Cost Estimate",
-    estimator_tokens_label: "Input / Model Max",
-    estimator_cost_label: "Estimated Cost",
-    estimator_free: "Free (Free Tier)",
 
 
     // Placeholders
@@ -222,7 +220,8 @@ const en_translations = {
     quiz_next: "Next",
     about_desc1: "Hi, my name is Giacomo and I am the developer of <strong>MappAI</strong>.",
     about_desc2: "I created this software as an organization and assistance tool for studying.",
-    about_desc3: "I am also a middle school teacher, and for years I have been interested in using Artificial Intelligence in education and beyond. I hope this software is helpful to you.",
+    about_desc3: "I am also a middle school teacher, and for years I have been interested in using Artificial Intelligence in education and beyond.",
+    about_desc4: "I hope this software is helpful to you.",
     feedback_section: "Feedback & Bug Reports",
     feedback_btn_title: "Report Issue",
     feedback_btn_desc: "Send feedback or bug",
