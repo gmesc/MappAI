@@ -1,56 +1,42 @@
-# Piano di Implementazione - Aggiustamenti UI Landing Page per iPad (Docente/Studente)
+# Piano di Implementazione - Aggiustamenti Sizing Label e Font Drawer insegnai.ch (Docente/Studente)
 
-Questo piano descrive le modifiche per ottimizzare l'interfaccia utente (UI) della landing page su iPadOS, con particolare attenzione alla visualizzazione per tutti i fattori di ingrandimento (zoom x1.5 e x2).
+Questo piano descrive le modifiche per allineare geometricamente e tipograficamente il label "insegnai.ch" con il pulsante "MOSTRA/NASCONDI RECENTI" (pulsante di toggle dei progetti), assicurando che:
+1. La dimensione del font del label "insegnai.ch" sia identica al font del label dei progetti (`13.5px`).
+2. La larghezza della linguetta del drawer "insegnai.ch" (`36px`) sia esattamente uguale all'altezza del pulsante dei progetti.
+3. Il testo di "insegnai.ch" sia rigorosamente in minuscolo.
+4. I font della descrizione e della sezione segnalazioni del drawer siano incrementati del 15% (applicando gli stili già definiti con incrementi mirati rispetto ai valori base).
+5. Tali modifiche siano sincronizzate sia nell'app Studente (ramo `MappAI_iPad_studente`) sia nell'app Docente (ramo `MappAI_iPad`).
 
 ## Modifiche Proposte
 
-### [Landing UI - Header e Elementi Fissi]
-
-L'header deve rimanere uguale (non scalato e con layout orizzontale fisso) per tutti i livelli di ingrandimento. I 4 bottoni dei setting verranno ridisegnati con layout verticale (icona sopra, testo sotto) e con un font più grande e fisso. I label "insegnai.ch" e "mostra progetti" verranno ingranditi del 10% e rimarranno anch'essi a dimensione fissa.
+### [Component: Web Assets - CSS / HTML]
 
 #### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
 
-1. **Header Layout Fisso**:
-   - Neutralizzare le regole all'interno delle classi `body.a11y-zoom-x15` e `body.a11y-zoom-x2` che modificano il flex layout dell'header a `flex-direction: column`.
-   - Garantire che l'header mantenga sempre il layout orizzontale (`flex-direction: row !important; justify-content: space-between !important; align-items: center !important; gap: 24px !important;`).
-   - Assicurare che il titolo `h1` e il sottotitolo `#landing-subtitle` non scalino con `var(--landing-zoom)` ma abbiano una dimensione fissa (`40px` e `12px` rispettivamente).
+1. **Allineamento Pulsante Progetti ("Mostra/Nascondi Progetti")**:
+   - Impostare un'altezza esplicita di `36px !important` su `#projects-bar button.absolute`.
+   - Aggiungere `box-sizing: border-box !important`, `display: flex !important`, `align-items: center !important`, e `justify-content: center !important` per centrare verticalmente l'icona e il testo all'interno dei 36px.
+   - Assicurare che `font-size` sia `13.5px !important` (per il bottone e il testo interno `#toggle-bar-text`).
 
-2. **Riorganizzazione Verticale e Ingrandimento 4 Bottoni Settings**:
-   - I 4 bottoni della landing header (`.btn-landing-secondary`) saranno disposti su un'unica riga orizzontale, senza andare a capo (`flex-wrap: nowrap !important;`).
-   - Ciascun bottone utilizzerà un layout verticale: `flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 6px !important;`.
-   - Aumentare la dimensione del font a `13px !important` e mantenerla fissa per tutti i livelli di zoom.
-   - Definire dimensioni fisse per i bottoni (es. `width: 96px !important; height: 80px !important;`) per mantenere consistenza, permettendo al testo di andare a capo su due righe (`white-space: normal !important`).
-   - Ingrandire l'icona interna (`svg` e `i`) a `22px !important; height: 22px !important;` per farla risaltare al centro dell'area del bottone.
+2. **Allineamento Linguetta Drawer ("insegnai.ch")**:
+   - Assicurare che `#insegnai-drawer-tab` abbia larghezza fissa `width: 36px !important` e `box-sizing: border-box !important`.
+   - Per `#insegnai-drawer-tab span`, garantire `font-size: 13.5px !important` e forzare il testo in minuscolo tramite `text-transform: none !important;`.
 
-3. **Ingrandimento del 10% di "insegnai.ch" e "mostra progetti"**:
-   - Ingrandire il testo della linguetta del drawer `#insegnai-drawer-tab button` del 10% (da `14px` a `15.5px !important`).
-   - Ingrandire il bottone `#projects-bar button.absolute` e `#projects-bar #toggle-bar-text` del 10% (da `12px` a `13.5px !important`).
-   - Ingrandire l'icona del pulsante di toggle `#projects-bar #toggle-bar-icon` a `15.5px !important; height: 15.5px !important;`.
-
-4. **Allineamento Orizzontale Permanente per Sezione 1 e Sezione 2 (Versione Docente/AI)**:
-   - Forzare i contenitori dei bottoni di caricamento fonti (Sezione 1) e di modalità di estrazione (Sezione 2) a rimanere disposti orizzontalmente senza wrapping sotto zoom x1.5 e x2.
-   - Configurare `flex-wrap: nowrap !important; overflow-x: auto !important;` per consentire lo scroll orizzontale se necessario, nascondendo le scrollbar per pulizia estetica.
-   - Impostare `flex: 0 0 calc(105px * var(--landing-zoom)) !important` per i bottoni `.source-type-btn` per evitare il restringimento.
-   - Impostare `flex: 0 0 calc(200px * var(--landing-zoom)) !important` per i bottoni `.mode-btn` per preservarne la dimensione anche in layout orizzontale nowrap.
+3. **Verifica Incrementi Font del Drawer (15%)**:
+   - Assicurare che i testi descrittivi (`p`, `a`) abbiano `font-size: 15px !important;` (incremento da `13px`).
+   - Assicurare che il titolo sezione segnalazioni (`h3`) abbia `font-size: 13px !important;` (incremento da `11px`).
+   - Assicurare che le scritte nei bottoni interni abbiano `font-size: 14px !important;` (titolo) e `11.5px !important;` (descrizione), corrispondenti all'aumento del 15%.
 
 ---
 
 ## Piano di Verifica
 
-### Verifica Manuale
-1. **Verifica Layout Header**:
-   - Cambiare la modalità di zoom su x1.5 e x2.
-   - Verificare che il logo, il titolo "MappAI" e il sottotitolo "Visualizzatore di conoscenza" non cambino dimensione e rimangano allineati a sinistra in orizzontale.
-2. **Verifica Bottoni Settings**:
-   - Verificare che i 4 bottoni (`Setup`, `Guida App`, `Studio Attivo`, `Chi sei`) siano allineati in una sola riga orizzontale a destra.
-   - Verificare che per ciascun bottone l'icona sia posizionata sopra il rispettivo testo.
-   - Verificare che il font size sia aumentato a `13px` e rimanga invariato a zoom x1.5 e x2.
-   - Verificare che l'icona occupi bene l'area.
-3. **Verifica Linguetta "insegnai.ch"**:
-   - Verificare che il testo della linguetta sia ingrandito a `15.5px` e sia stabile.
-4. **Verifica Pulsante "Mostra Progetti"**:
-   - Verificare che il pulsante in basso a destra sia ingrandito a `13.5px` e sia stabile.
-5. **Verifica Sezioni 1 e 2 (Versione Docente/AI)**:
-   - Attivare la modalità Docente (se disattivata, premendo `CTRL + SHIFT + L + K + J + H`).
-   - Verificare che i bottoni di caricamento fonti (Sezione 1) e di modalità (Sezione 2) siano disposti orizzontalmente.
-   - Attivare zoom x1.5 e x2 e verificare che rimangano in riga orizzontale, scorrendo eventualmente da destra a sinistra senza spezzare il layout verticalmente.
+### Sincronizzazione iOS (Capacitor)
+Per ciascun ramo (`MappAI_iPad_studente` e `MappAI_iPad`):
+1. Copiare i file modificati nella build iOS nativa usando:
+   `npx cap copy ios`
+2. Testare localmente su simulatore o dispositivo iPad per verificar che:
+   - La linguetta `insegnai.ch` abbia la stessa larghezza dell'altezza del pulsante verde in basso a destra.
+   - I font dei due label siano visivamente identici (`13.5px`).
+   - La linguetta `insegnai.ch` rimanga in minuscolo.
+   - Il testo della descrizione e dei pulsanti nel drawer sia nitido e proporzionato (+15%).
