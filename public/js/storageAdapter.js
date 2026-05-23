@@ -292,6 +292,29 @@
                     } else if (parsed && parsed.db) {
                         mapData = parsed.db;
                     }
+                    
+                    // Carica anche i set di studio individuali se presenti nella cartella
+                    mapData.studySets = [];
+                    try {
+                        const studyRead = await Filesystem.readdir({
+                            path: `${vaultRoot}/Materiale Studio`,
+                            directory: Directory.Documents
+                        });
+                        for (const file of studyRead.files) {
+                            const fileName = typeof file === 'string' ? file : file.name;
+                            if (!fileName.endsWith('.json')) continue;
+                            try {
+                                const contentFile = await Filesystem.readFile({
+                                    path: `${vaultRoot}/Materiale Studio/${fileName}`,
+                                    directory: Directory.Documents,
+                                    encoding: 'utf8'
+                                });
+                                const set = JSON.parse(contentFile.data);
+                                mapData.studySets.push(set);
+                            } catch (err) {}
+                        }
+                    } catch (err) {}
+
                     return { success: true, data: mapData };
                 } catch (e) {
                     console.log("[MappAI Adapter] vault_data.json assente o corrotto. Caricamento analitico della cartella...");

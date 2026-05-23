@@ -5368,9 +5368,12 @@ window.loadMapVault = async function () {
             appState.db = {
                 nodes: nodesList,
                 links: linksList,
+                studySets: loadRes.data.studySets || [],
                 sourcesDict: {},
                 customColors: loadRes.data.customColors || {}
             };
+
+            if (window.renderStudySets) window.renderStudySets();
 
             appState.db.nodes.forEach(n => {
                 if (n.chunks && n.chunks.length > 0) {
@@ -9581,8 +9584,11 @@ window.directLoadVault = async function (folderPath) {
             appState.db = {
                 nodes: nodesList,
                 links: linksList,
+                studySets: loadRes.data.studySets || [],
                 sourcesDict: {}
             };
+
+            if (window.renderStudySets) window.renderStudySets();
 
             if (loadRes.data.userProfile) {
                 appState.userProfile = loadRes.data.userProfile;
