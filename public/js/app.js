@@ -5334,11 +5334,15 @@ window.loadMapVault = async function () {
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel || result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
+            appState.rootNodeLabel = result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+
             let nodesList = loadRes.data.nodes || [];
             let linksList = loadRes.data.links || [];
-            
+
+            const rootNode = nodesList.find(n => n.level === 0);
+            if (rootNode) {
+                rootNode.label = appState.rootNodeLabel;
+            }
             if (nodesList.length === 0) {
                 const rootId = "node_" + Math.random().toString(36).substr(2, 9);
                 nodesList = [{
@@ -9550,11 +9554,15 @@ window.directLoadVault = async function (folderPath) {
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel || folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
+            appState.rootNodeLabel = folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+
             let nodesList = loadRes.data.nodes || [];
             let linksList = loadRes.data.links || [];
-            
+
+            const rootNode = nodesList.find(n => n.level === 0);
+            if (rootNode) {
+                rootNode.label = appState.rootNodeLabel;
+            }
             if (nodesList.length === 0) {
                 const rootId = "node_" + Math.random().toString(36).substr(2, 9);
                 nodesList = [{
