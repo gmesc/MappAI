@@ -1611,12 +1611,14 @@
                     </button>
                 </div>
                 <div class="flex justify-between items-center mt-2">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cartella:
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest" id="vault-manager-folder-path-label">Cartella:
                         Documents/Salvataggi MappAI</p>
-                    <button onclick="window.loadMapVault()"
+                    <button onclick="window.handleImportClick(event)"
                         class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
                         <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
                     </button>
+                    <!-- Input file nascosto per importazione su iPad/iOS senza perdere il user gesture context -->
+                    <input type="file" id="mappai-ipad-vault-file-picker" accept=".json" style="display: none;" onchange="window.handleIPadVaultFileSelected(event)">
                 </div>
             </div>
         </div>

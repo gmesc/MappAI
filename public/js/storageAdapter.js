@@ -891,6 +891,16 @@
         try {
             const { Filesystem, Directory } = window.Capacitor.Plugins;
             
+            const initialVaultsList = [
+                "Invenzione Carta",
+                "Robotica mindstorm gigetto 10 nodi",
+                "Robotica mindstorm gigetto 20 nodi",
+                "Robotica mindstorm gigetto 35 nodi",
+                "Sistema albero 1a media",
+                "Sistema albero Liceo",
+                "Storia Svizzera"
+            ];
+
             // 1. Controlla se la cartella "MappAI - Vault" contiene già l'indice
             let needsInit = false;
             try {
@@ -907,71 +917,59 @@
                 needsInit = true;
             }
 
-            if (!needsInit) {
-                console.log("[MappAI Adapter] MappAI - Vault già popolata.");
-                return;
-            }
-
-            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault con file demo...");
-            
-            // 2. Leggi il manifest dei file demo
-            const manifestRes = await fetch('./vault_demo_manifest.json');
-            if (!manifestRes.ok) throw new Error("Manifest demo non trovato");
-            const files = await manifestRes.json();
-
-            // 3. Copia ogni file
-            for (const relPath of files) {
-                const srcUrl = `./vault_demo/${relPath}`;
-                const destPath = `MappAI - Vault/${relPath}`;
-                
+            // 2. Se è la prima inizializzazione, copia eventuali file demo dal manifest
+            if (needsInit) {
+                console.log("[MappAI Adapter] Inizializzazione MappAI - Vault con file demo...");
                 try {
-                    const isBinary = relPath.toLowerCase().endsWith('.pdf');
-                    
-                    if (isBinary) {
-                        const fileRes = await fetch(srcUrl);
-                        const arrayBuffer = await fileRes.arrayBuffer();
-                        const base64Data = arrayBufferToBase64(arrayBuffer);
-                        await Filesystem.writeFile({
-                            path: destPath,
-                            data: base64Data,
-                            directory: Directory.Documents,
-                            recursive: true
-                        });
-                    } else {
-                        const fileRes = await fetch(srcUrl);
-                        const textData = await fileRes.text();
-                        await Filesystem.writeFile({
-                            path: destPath,
-                            data: textData,
-                            directory: Directory.Documents,
-                            encoding: 'utf8',
-                            recursive: true
-                        });
+                    const manifestRes = await fetch('./vault_demo_manifest.json');
+                    if (manifestRes.ok) {
+                        const files = await manifestRes.json();
+                        for (const relPath of files) {
+                            const srcUrl = `./vault_demo/${relPath}`;
+                            const destPath = `MappAI - Vault/${relPath}`;
+                            try {
+                                const isBinary = relPath.toLowerCase().endsWith('.pdf');
+                                if (isBinary) {
+                                    const fileRes = await fetch(srcUrl);
+                                    const arrayBuffer = await fileRes.arrayBuffer();
+                                    const base64Data = arrayBufferToBase64(arrayBuffer);
+                                    await Filesystem.writeFile({
+                                        path: destPath,
+                                        data: base64Data,
+                                        directory: Directory.Documents,
+                                        recursive: true
+                                    });
+                                } else {
+                                    const fileRes = await fetch(srcUrl);
+                                    const textData = await fileRes.text();
+                                    await Filesystem.writeFile({
+                                        path: destPath,
+                                        data: textData,
+                                        directory: Directory.Documents,
+                                        encoding: 'utf8',
+                                        recursive: true
+                                    });
+                                }
+                            } catch (err) {
+                                console.error(`[MappAI Adapter] Errore copia file ${relPath}:`, err);
+                            }
+                        }
                     }
-                } catch (err) {
-                    console.error(`[MappAI Adapter] Errore copia file ${relPath}:`, err);
+                } catch (e) {
+                    console.warn("[MappAI Adapter] Errore caricamento file manifest:", e);
                 }
+
+                // Scrivi l'indice dei vault demo iniziale
+                await Filesystem.writeFile({
+                    path: 'MappAI - Vault/vaults_index.json',
+                    data: JSON.stringify(initialVaultsList),
+                    directory: Directory.Documents,
+                    encoding: 'utf8',
+                    recursive: true
+                });
             }
 
-            // 4. Scrivi l'indice dei vault demo iniziale e crea le relative cartelle
-            const initialVaultsList = [
-                "Invenzione Carta",
-                "Robotica mindstorm gigetto 10 nodi",
-                "Robotica mindstorm gigetto 20 nodi",
-                "Robotica mindstorm gigetto 35 nodi",
-                "Sistema albero 1a media",
-                "Sistema albero Liceo",
-                "Storia Svizzera"
-            ];
-            await Filesystem.writeFile({
-                path: 'MappAI - Vault/vaults_index.json',
-                data: JSON.stringify(initialVaultsList),
-                directory: Directory.Documents,
-                encoding: 'utf8',
-                recursive: true
-            });
-
-            // Crea le cartelle e i file index.yaml di default per ogni vault demo se non esistono
+            // 3. Garantisci SEMPRE che le cartelle e i file index.yaml di default per ogni vault demo esistano nel filesystem nativo
             for (const vaultName of initialVaultsList) {
                 const vaultPath = `MappAI - Vault/${vaultName}`;
                 try {
@@ -1014,7 +1012,7 @@
                     });
                 }
             }
-            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault completata con successo!");
+            console.log("[MappAI Adapter] Inizializzazione/Verifica cartelle demo completata.");
         } catch (err) {
             console.error("[MappAI Adapter] Errore critico inizializzazione vault su iPad:", err);
         }
