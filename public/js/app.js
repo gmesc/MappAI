@@ -5106,7 +5106,7 @@ window.saveMapVault = async function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
 
     try {
-        const result = await window.electronAPI.pickFolder();
+        const result = await window.electronAPI.pickFolder({ createOnly: true });
         if (result.canceled) return;
 
         window.showLoadingOverlay(true, "Esportazione Vault in corso...");
@@ -5229,7 +5229,7 @@ window.loadDemoGraph = async function (url) {
 };
 window.loadMapVault = async function () {
     try {
-        const result = await window.electronAPI.pickFolder();
+        const result = await window.electronAPI.pickFolder({ importOnly: true });
         if (result.canceled) return;
 
         window.showLoadingOverlay(true, "Caricamento Vault...");
