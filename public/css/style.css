@@ -2295,8 +2295,8 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 }
 
 /* Permanent horizontal layout for Step 1 (Sources) and Step 2 (Mode) in Teacher version under Zoom */
-#setup-form .ml-10.flex.flex-wrap,
-#setup-form .flex.flex-col.gap-4.ml-10>.flex.flex-wrap {
+#setup-form .source-buttons-container,
+#setup-form .mode-buttons-container {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
@@ -2309,9 +2309,99 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     scrollbar-width: none !important;
 }
 
-#setup-form .ml-10.flex.flex-wrap::-webkit-scrollbar,
-#setup-form .flex.flex-col.gap-4.ml-10>.flex.flex-wrap::-webkit-scrollbar {
+#setup-form .source-buttons-container::-webkit-scrollbar,
+#setup-form .mode-buttons-container::-webkit-scrollbar {
     display: none !important;
+}
+
+/* ==========================================
+   HOMOGENEOUS PREMIUM SPACING SYSTEM
+   ========================================== */
+#landing-view .glass-card #setup-form {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(40px * var(--landing-zoom)) !important;
+    margin-top: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(16px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > div.hidden {
+    display: none !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > label {
+    margin-bottom: 0 !important;
+}
+
+/* Specific styling for Step 3 to ensure proper specificity and override standard step gap */
+#landing-view .glass-card #setup-form > #step-3-container {
+    gap: calc(24px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > #step-3-container > label {
+    margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #step-root-container,
+#landing-view .glass-card #input-l1-container,
+#landing-view .glass-card #focus-input-container {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(12px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #step-root-container > *,
+#landing-view .glass-card #input-l1-container > *,
+#landing-view .glass-card #focus-input-container > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #focus-input-container {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(20px * var(--landing-zoom)) !important;
+}
+
+/* Ensure step density description paragraphs use flex-gap instead of manual margins */
+#landing-view .glass-card #step-density-container p,
+#landing-view .glass-card #step-kg-density-container p {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Homogeneous space for Multi-Pass toggle container to align it closer to the density options */
+#landing-view .glass-card #setup-form > #step-multipass-container {
+    margin-top: calc(-16px * var(--landing-zoom)) !important; /* Reduces the gap of 40px to exactly 24px */
+}
+
+#landing-view .glass-card #setup-form > div:last-child {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(24px * var(--landing-zoom)) !important;
+    margin-top: 0 !important;
+}
+
+/* Scalabilità del titolo del progetto in sidebar per modalità a11y zoom x1.5 e x2 */
+#sidebar-subtitle {
+    font-size: calc(9px * var(--app-zoom, 1)) !important;
+}
+
+#edit-project-title-input {
+    font-size: calc(10px * var(--app-zoom, 1)) !important;
 }
 
 #landing-view .glass-card .source-type-btn {
