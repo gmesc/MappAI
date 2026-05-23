@@ -1,42 +1,51 @@
-# Piano di Implementazione - Aggiustamenti Sizing Label e Font Drawer insegnai.ch (Docente/Studente)
+# Piano di Implementazione - Progettazione della Skill build-mappai-apps
 
-Questo piano descrive le modifiche per allineare geometricamente e tipograficamente il label "insegnai.ch" con il pulsante "MOSTRA/NASCONDI RECENTI" (pulsante di toggle dei progetti), assicurando che:
-1. La dimensione del font del label "insegnai.ch" sia identica al font del label dei progetti (`13.5px`).
-2. La larghezza della linguetta del drawer "insegnai.ch" (`36px`) sia esattamente uguale all'altezza del pulsante dei progetti.
-3. Il testo di "insegnai.ch" sia rigorosamente in minuscolo.
-4. I font della descrizione e della sezione segnalazioni del drawer siano incrementati del 15% (applicando gli stili già definiti con incrementi mirati rispetto ai valori base).
-5. Tali modifiche siano sincronizzate sia nell'app Studente (ramo `MappAI_iPad_studente`) sia nell'app Docente (ramo `MappAI_iPad`).
+Questo piano descrive la progettazione e la struttura della nuova skill **build-mappai-apps**, progettata per automatizzare il checkout dei branch git, la sincronizzazione degli asset e la compilazione/installazione delle applicazioni MappAI Studente e Docente su iPadOS.
 
-## Modifiche Proposte
+## Proposta di Design della Skill
 
-### [Component: Web Assets - CSS / HTML]
+### 1. Nome e Descrizione (YAML Frontmatter)
+* **Name**: `build-mappai-apps`
+* **Description**: "Automates checkouts, synchronization, and Xcode builds for MappAI Student and Teacher apps on connected iPad targets, logging errors to Xcode reports."
 
-#### [MODIFY] [style.css](file:///Users/giacomomeschini/Antigravity/MappAI/public/css/style.css)
+### 2. Struttura delle Cartelle
+I file della skill saranno organizzati come segue:
+* **Directory principale**: `/Users/giacomomeschini/.gemini/config/plugins/modern-web-guidance-plugin/skills/build-mappai-apps/`
+* **File principali**:
+  - `SKILL.md`: Documento di istruzioni per l'agente che descrive quando e come invocare la skill.
+  - `scripts/build_apps.py`: Script Python che gestisce l'intero workflow di build e la cattura degli errori.
 
-1. **Allineamento Pulsante Progetti ("Mostra/Nascondi Progetti")**:
-   - Impostare un'altezza esplicita di `36px !important` su `#projects-bar button.absolute`.
-   - Aggiungere `box-sizing: border-box !important`, `display: flex !important`, `align-items: center !important`, e `justify-content: center !important` per centrare verticalmente l'icona e il testo all'interno dei 36px.
-   - Assicurare che `font-size` sia `13.5px !important` (per il bottone e il testo interno `#toggle-bar-text`).
+---
 
-2. **Allineamento Linguetta Drawer ("insegnai.ch")**:
-   - Assicurare che `#insegnai-drawer-tab` abbia larghezza fissa `width: 36px !important` e `box-sizing: border-box !important`.
-   - Per `#insegnai-drawer-tab span`, garantire `font-size: 13.5px !important` e forzare il testo in minuscolo tramite `text-transform: none !important;`.
+### 3. Modifiche Proposte
 
-3. **Verifica Incrementi Font del Drawer (15%)**:
-   - Assicurare che i testi descrittivi (`p`, `a`) abbiano `font-size: 15px !important;` (incremento da `13px`).
-   - Assicurare che il titolo sezione segnalazioni (`h3`) abbia `font-size: 13px !important;` (incremento da `11px`).
-   - Assicurare che le scritte nei bottoni interni abbiano `font-size: 14px !important;` (titolo) e `11.5px !important;` (descrizione), corrispondenti all'aumento del 15%.
+#### [NEW] [SKILL.md](file:///Users/giacomomeschini/.gemini/config/plugins/modern-web-guidance-plugin/skills/build-mappai-apps/SKILL.md)
+Documento markdown che definisce i trigger della skill (es. quando l'utente scrive "lancia le build") e istruisce l'agente a eseguire lo script di automazione.
+
+#### [NEW] [build_apps.py](file:///Users/giacomomeschini/.gemini/config/plugins/modern-web-guidance-plugin/skills/build-mappai-apps/scripts/build_apps.py)
+Script Python che automatizza la build in modo sicuro:
+1. **Preservazione dello Stato**: Rileva il branch corrente ed esegue `git stash` se ci sono modifiche locali non committate.
+2. **Build Studente (ramo `MappAI_iPad_studente`)**:
+   - Sposta il workspace sul branch `MappAI_iPad_studente`.
+   - Esegue la build/run sul target iPad: `npx cap run ios --target <device-id> --scheme "MappAI Studente"`.
+   - In caso di errore, cattura l'output della console, crea il file `Xcode report GG-MM-AAAA.md` nella root del progetto, ripristina il branch originario, esegue `git stash pop` ed esce con codice d'errore.
+3. **Build Docente (ramo `MappAI_iPad`)**:
+   - Sposta il workspace sul branch `MappAI_iPad`.
+   - Esegue la build/run sul target iPad: `npx cap run ios --target <device-id> --scheme MappAI`.
+   - In caso di errore, cattura l'output, genera il report `Xcode report GG-MM-AAAA.md`, ripristina il branch originario, esegue `git stash pop` ed esce.
+4. **Finalizzazione**: Ripristina il branch di partenza ed esegue `git stash pop` per ripristinare lo stato esatto del workspace.
+
+---
+
+### 4. Strategia di Gestione degli Errori e Rate Limiting
+- **Rate Limiting**: Non applicabile (nessuna chiamata API esterna).
+- **Error Handling**: In caso di errore di `xcodebuild` o di Capacitor, lo stderr/stdout viene catturato e riversato nel file `Xcode report GG-MM-AAAA.md` con l'ora esatta e i dettagli del compiler, garantendo che lo stato di git non rimanga corrotto.
 
 ---
 
 ## Piano di Verifica
 
-### Sincronizzazione iOS (Capacitor)
-Per ciascun ramo (`MappAI_iPad_studente` e `MappAI_iPad`):
-1. Copiare i file modificati nella build iOS nativa usando:
-   `npx cap copy ios`
-2. Testare localmente su simulatore o dispositivo iPad per verificar che:
-   - La linguetta `insegnai.ch` abbia la stessa larghezza dell'altezza del pulsante verde in basso a destra.
-   - I font dei due label siano visivamente identici (`13.5px`).
-   - La linguetta `insegnai.ch` rimanga in minuscolo.
-   - Il testo della descrizione e dei pulsanti nel drawer sia nitido e proporzionato (+15%).
+### Test della Skill
+1. Invocare l'agente scrivendo "lancia le build".
+2. Verificare che l'agente esegua correttamente la build per entrambe le app.
+3. Simulare un errore di build (es. introducendo una sintassi errata nel Podfile o in un file nativo) e verificar la generazione del file `Xcode report GG-MM-AAAA.md` nella root.
