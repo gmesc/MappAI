@@ -5312,11 +5312,41 @@ window.loadMapVault = async function () {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
-            appState.extractionMode = loadRes.data.extractionMode;
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel || result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+            
+            let nodesList = loadRes.data.nodes || [];
+            let linksList = loadRes.data.links || [];
+            
+            if (nodesList.length === 0) {
+                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
+                nodesList = [{
+                    id: rootId,
+                    label: appState.rootNodeLabel,
+                    level: 0,
+                    group: 0,
+                    x: 640,
+                    y: 400,
+                    fx: 640,
+                    fy: 400
+                }];
+                linksList = [];
+                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
+                window.electronAPI.saveVault({
+                    folderPath: result.folderPath,
+                    mapData: {
+                        extractionMode: appState.extractionMode,
+                        rootNodeLabel: appState.rootNodeLabel,
+                        nodes: nodesList,
+                        links: linksList,
+                        customColors: {}
+                    }
+                });
+            }
+
             appState.db = {
-                nodes: loadRes.data.nodes || [],
-                links: loadRes.data.links || [],
+                nodes: nodesList,
+                links: linksList,
                 sourcesDict: {},
                 customColors: loadRes.data.customColors || {}
             };
@@ -9438,11 +9468,41 @@ window.directLoadVault = async function (folderPath) {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
-            appState.extractionMode = loadRes.data.extractionMode;
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel || folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+            
+            let nodesList = loadRes.data.nodes || [];
+            let linksList = loadRes.data.links || [];
+            
+            if (nodesList.length === 0) {
+                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
+                nodesList = [{
+                    id: rootId,
+                    label: appState.rootNodeLabel,
+                    level: 0,
+                    group: 0,
+                    x: 640,
+                    y: 400,
+                    fx: 640,
+                    fy: 400
+                }];
+                linksList = [];
+                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
+                window.electronAPI.saveVault({
+                    folderPath: folderPath,
+                    mapData: {
+                        extractionMode: appState.extractionMode,
+                        rootNodeLabel: appState.rootNodeLabel,
+                        nodes: nodesList,
+                        links: linksList,
+                        customColors: {}
+                    }
+                });
+            }
+
             appState.db = {
-                nodes: loadRes.data.nodes || [],
-                links: loadRes.data.links || [],
+                nodes: nodesList,
+                links: linksList,
                 sourcesDict: {}
             };
 

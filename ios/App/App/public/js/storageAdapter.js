@@ -274,27 +274,194 @@
         loadVault: async function (folderPath) {
             currentVirtualVault = folderPath;
             if (isCapacitor) {
+                const { Filesystem, Directory } = window.Capacitor.Plugins;
+                const vaultRoot = `MappAI - Vault/${folderPath}`;
+                
                 try {
-                    const { Filesystem, Directory } = window.Capacitor.Plugins;
-                    const path = `MappAI - Vault/${folderPath}/vault_data.json`;
+                    // Tenta prima di caricare il file monolitico vault_data.json (caricamento veloce)
+                    const dataPath = `${vaultRoot}/vault_data.json`;
                     const result = await Filesystem.readFile({
-                        path: path,
+                        path: dataPath,
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
                     const parsed = JSON.parse(result.data);
-                    
                     let mapData = parsed;
                     if (parsed && parsed.mapData) {
                         mapData = parsed.mapData;
                     } else if (parsed && parsed.db) {
                         mapData = parsed.db;
                     }
-                    
                     return { success: true, data: mapData };
                 } catch (e) {
-                    console.warn("[MappAI Adapter] Errore caricamento vault nativo, inizializzo vuoto:", e);
-                    return { success: true, data: { nodes: [], links: [], sourcesDict: {}, customColors: {} } };
+                    console.log("[MappAI Adapter] vault_data.json assente o corrotto. Caricamento analitico della cartella...");
+                    
+                    // Se vault_data.json manca, facciamo il parsing manuale di index.yaml, links.json, Nodi/*.md
+                    try {
+                        const mapData = {
+                            nodes: [],
+                            links: [],
+                            extractionMode: 'mindmap',
+                            rootNodeLabel: folderPath,
+                            customColors: {},
+                            studySets: []
+                        };
+
+                        // 1. Carica index.yaml
+                        try {
+                            const indexFile = await Filesystem.readFile({
+                                path: `${vaultRoot}/index.yaml`,
+                                directory: Directory.Documents,
+                                encoding: 'utf8'
+                            });
+                            indexFile.data.split('\n').forEach(line => {
+                                if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
+                                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
+                                if (line.startsWith('userProfile:')) {
+                                    try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
+                                }
+                                if (line.startsWith('customColors:')) {
+                                    try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
+                                }
+                                if (line.startsWith('generationUsage:')) {
+                                    try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
+                                }
+                            });
+                        } catch (err) {
+                            console.log("[MappAI Adapter] Nessun index.yaml trovato.");
+                        }
+
+                        // 2. Carica links.json
+                        try {
+                            const linksFile = await Filesystem.readFile({
+                                path: `${vaultRoot}/links.json`,
+                                directory: Directory.Documents,
+                                encoding: 'utf8'
+                            });
+                            const rawLinks = JSON.parse(linksFile.data);
+                            mapData.links = rawLinks.map(l => ({
+                                source: l.source,
+                                target: l.target,
+                                rel: l.rel || "include",
+                                isCross: !!l.isCross
+                            }));
+                        } catch (err) {
+                            console.log("[MappAI Adapter] Nessun links.json trovato.");
+                        }
+
+                        // 3. Carica i nodi da Nodi/*.md
+                        try {
+                            const nodesRead = await Filesystem.readdir({
+                                path: `${vaultRoot}/Nodi`,
+                                directory: Directory.Documents
+                            });
+                            for (const file of nodesRead.files) {
+                                const fileName = typeof file === 'string' ? file : file.name;
+                                if (!fileName.endsWith('.md')) continue;
+
+                                try {
+                                    const nodeFile = await Filesystem.readFile({
+                                        path: `${vaultRoot}/Nodi/${fileName}`,
+                                        directory: Directory.Documents,
+                                        encoding: 'utf8'
+                                    });
+                                    const parts = nodeFile.data.split('---');
+                                    if (parts.length >= 3) {
+                                        const fmLines = parts[1].trim().split('\n');
+                                        const node = { chunks: [] };
+                                        fmLines.forEach(l => {
+                                            const colonIdx = l.indexOf(':');
+                                            if (colonIdx === -1) return;
+                                            const k = l.substring(0, colonIdx).trim();
+                                            const v = l.substring(colonIdx + 1).trim();
+                                            const cleanV = v.replace(/^"(.*)"$/, '$1');
+                                            if (k === 'id') node.id = cleanV;
+                                            if (k === 'label') node.label = cleanV;
+                                            if (k === 'level') node.level = parseInt(cleanV);
+                                            if (k === 'group') node.group = parseInt(cleanV);
+                                            if (k === 'parent') node.parent = cleanV;
+                                            if (k === 'images') {
+                                                try { node.images = JSON.parse(v); } catch(err) {}
+                                            }
+                                            if (k === 'iconVisibility') {
+                                                try { node.iconVisibility = JSON.parse(v); } catch(err) {}
+                                            }
+                                            if (k === 'hasCustomText') node.hasCustomText = (cleanV === 'true');
+                                            if (k === 'hasCustomImage') node.hasCustomImage = (cleanV === 'true');
+                                            if (k === 'x') { node.x = parseFloat(cleanV); node.fx = node.x; }
+                                            if (k === 'y') { node.y = parseFloat(cleanV); node.fy = node.y; }
+                                            if (k === 'savedX') node.savedX = parseFloat(cleanV);
+                                            if (k === 'savedY') node.savedY = parseFloat(cleanV);
+                                        });
+
+                                        let body = parts.slice(2).join('---').trim();
+                                        body = body.replace(/!\[\[.*?\]\]\n\n/g, '');
+                                        
+                                        const fontiPart = body.split('## Fonti');
+                                        if (fontiPart.length > 1) {
+                                            node.desc = fontiPart[0].replace(/^# .*\n\n/, '').trim();
+                                            const fontiLines = fontiPart[1].trim().split('\n- ');
+                                            fontiLines.forEach(f => {
+                                                let cleanLine = f.replace(/^- /, '').trim();
+                                                const matchWithSource = cleanLine.match(/\[(.*?) \| (.*?)\]: (.*)/);
+                                                if (matchWithSource) {
+                                                    node.chunks.push({ title: matchWithSource[1], source: matchWithSource[2], text: matchWithSource[3] });
+                                                } else {
+                                                    const matchSimple = cleanLine.match(/\[(.*?)\]: (.*)/);
+                                                    if (matchSimple) {
+                                                        node.chunks.push({ title: matchSimple[1], source: 'Originale', text: matchSimple[2] });
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            node.desc = body.replace(/^# .*\n\n/, '').trim();
+                                        }
+                                        mapData.nodes.push(node);
+                                    }
+                                } catch (nodeErr) {
+                                    console.error(`[MappAI Adapter] Errore lettura nodo ${fileName}:`, nodeErr);
+                                }
+                            }
+                        } catch (err) {
+                            console.log("[MappAI Adapter] Nessuna cartella Nodi trovata o leggibile.");
+                        }
+
+                        // 4. Carica chat_state.json
+                        try {
+                            const chatStateFile = await Filesystem.readFile({
+                                path: `${vaultRoot}/chat_state.json`,
+                                directory: Directory.Documents,
+                                encoding: 'utf8'
+                            });
+                            mapData.tutorState = JSON.parse(chatStateFile.data);
+                        } catch (err) {}
+
+                        // 5. Carica Materiale Studio
+                        try {
+                            const studyRead = await Filesystem.readdir({
+                                path: `${vaultRoot}/Materiale Studio`,
+                                directory: Directory.Documents
+                            });
+                            for (const file of studyRead.files) {
+                                const fileName = typeof file === 'string' ? file : file.name;
+                                if (!fileName.endsWith('.json')) continue;
+                                try {
+                                    const contentFile = await Filesystem.readFile({
+                                        path: `${vaultRoot}/Materiale Studio/${fileName}`,
+                                        directory: Directory.Documents,
+                                        encoding: 'utf8'
+                                    });
+                                    const set = JSON.parse(contentFile.data);
+                                    mapData.studySets.push(set);
+                                } catch (err) {}
+                            }
+                        } catch (err) {}
+
+                        return { success: true, data: mapData };
+                    } catch (parseErr) {
+                        console.error("[MappAI Adapter] Errore critico nel parsing analitico del vault nativo:", parseErr);
+                        return { success: false, error: parseErr.message };
+                    }
                 }
             } else {
                 // Su Web leggiamo da IndexedDB
