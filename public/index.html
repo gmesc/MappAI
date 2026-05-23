@@ -2340,7 +2340,7 @@
                         <i data-lucide="key"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <input type="password" id="gemini-api-key-input"
-                            onblur="if(window.saveSecureKey) { window.saveSecureKey('gemini_api_key', this.value); } else { localStorage.setItem('gemini_api_key', this.value); }"
+                            onblur="if(window.saveSecureKey) { window.saveSecureKey('gemini_api_key', this.value); } else { localStorage.setItem('gemini_api_key', this.value); } if(window.refreshGeminiModels) window.refreshGeminiModels();"
                             class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                             placeholder="Inserisci chiave Google Gemini...">
                     </div>
@@ -2362,7 +2362,7 @@
                             <i data-lucide="key"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                             <input type="password" id="infomaniak-api-key-input"
-                                onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); }"
+                                onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); } if(window.refreshGeminiModels) window.refreshGeminiModels();"
                                 class="w-full bg-white border-1.5 border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                                 placeholder="Inserisci token Infomaniak...">
                         </div>
@@ -2374,7 +2374,7 @@
                             <i data-lucide="package"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                             <input type="text" id="infomaniak-product-id"
-                                onblur="if(window.updateInfomaniakProductId) window.updateInfomaniakProductId(this.value);"
+                                onblur="if(window.updateInfomaniakProductId) window.updateInfomaniakProductId(this.value); if(window.refreshGeminiModels) window.refreshGeminiModels();"
                                 class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition"
                                 placeholder="Es: 12345">
                         </div>

@@ -451,13 +451,13 @@ window.showConfigAIModal = function () {
     }
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) { m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
+        if (m) { m.style.display = ''; m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
     } catch (e) { }
 };
 window.closeConfigAIModal = function () {
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) { m.style.display = 'none'; m.classList.add('hidden'); }
+        if (m) { m.style.display = ''; m.classList.remove('flex'); m.classList.add('hidden'); }
     } catch (e) { }
 };
 
@@ -687,7 +687,7 @@ window.closeAppTutorial = function () {
 window.closeUserProfileModal = function () {
     try {
         const m = document.getElementById('user-profile-modal');
-        if (m) { m.style.display = 'none'; m.classList.add('hidden'); }
+        if (m) { m.style.display = ''; m.classList.remove('flex'); m.classList.add('hidden'); }
     } catch (e) { }
 };
 
@@ -1030,9 +1030,10 @@ window.refreshGeminiModels = async function () {
             rawModels = await window.electronAPI.listModels({ apiKey });
         }
 
-        if (!rawModels || rawModels.length === 0) {
-            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello trovato</option>';
-            if (statusEl) statusEl.innerText = "Nessun modello trovato.";
+        if (!rawModels || rawModels.error || !Array.isArray(rawModels)) {
+            const errMsg = (rawModels && rawModels.error) ? rawModels.error : "Risposta non valida o errore di connessione.";
+            if (selectEl) selectEl.innerHTML = `<option value="">Errore: ${errMsg}</option>`;
+            if (statusEl) statusEl.innerText = `Errore: ${errMsg}`;
             return;
         }
 
@@ -9311,6 +9312,7 @@ window.showUserProfileModal = function () {
         document.getElementById('up-grade').value = appState.userProfile.grade;
     }
 
+    modal.style.display = '';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => {

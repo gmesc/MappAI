@@ -838,6 +838,10 @@
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const parsed = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                    if (response.status < 200 || response.status >= 300) {
+                        const errMsg = parsed?.error?.message || parsed?.error || `Codice di stato HTTP ${response.status}`;
+                        return { error: errMsg };
+                    }
                     const models = (parsed.data || []).map(m => ({
                         id: m.id,
                         displayName: m.id + ' (Swiss AI)',
@@ -854,6 +858,10 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const parsed = await response.json();
+                if (!response.ok) {
+                    const errMsg = parsed?.error?.message || parsed?.error || `Codice di stato HTTP ${response.status}`;
+                    return { error: errMsg };
+                }
                 const models = (parsed.data || []).map(m => ({
                     id: m.id,
                     displayName: m.id + ' (Swiss AI)',
