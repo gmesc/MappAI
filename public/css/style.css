@@ -141,9 +141,8 @@ body.a11y-zoom-x2 {
 }
 
 #insegnai-drawer h1,
-#insegnai-drawer h2,
 #insegnai-drawer p {
-    font-size: 13px !important;
+    font-size: 15px !important;
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     word-break: break-word !important;
@@ -156,36 +155,41 @@ body.a11y-zoom-x2 {
 }
 
 #insegnai-drawer p {
-    font-size: 13px !important;
+    font-size: 15px !important;
     line-height: 1.625 !important;
     margin-bottom: 12px !important;
 }
 
 #insegnai-drawer a {
-    font-size: 13px !important;
+    font-size: 15px !important;
 }
 
 #insegnai-drawer h3 {
-    font-size: 11px !important;
+    font-size: 13px !important;
     margin-bottom: 4px !important;
     margin-top: 4px !important;
 }
 
 #insegnai-drawer button {
-    font-size: 13px !important;
+    font-size: 15px !important;
     padding: 8px !important;
     gap: 12px !important;
 }
 
 #insegnai-drawer button span.font-bold {
-    font-size: 12px !important;
+    font-size: 14px !important;
 }
 
 #insegnai-drawer button span.text-\[10px\],
 #insegnai-drawer span.text-\[10px\],
-#insegnai-drawer .text-\[10px\],
+#insegnai-drawer .text-\[10px\] {
+    font-size: 11.5px !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
 #insegnai-drawer span {
-    font-size: 10px !important;
+    font-size: 13px !important;
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
 }
@@ -222,7 +226,7 @@ body.a11y-zoom-x2 {
 
 #insegnai-drawer-tab {
     transform: scale(1.0) !important;
-    width: 44px !important;
+    width: 36px !important;
     background-color: #4f46e5 !important;
     /* Indigo-600 */
     border: 1px solid #6366f1 !important;
@@ -233,6 +237,18 @@ body.a11y-zoom-x2 {
     flex-shrink: 0 !important;
     display: flex !important;
     flex-direction: column !important;
+}
+
+#insegnai-drawer-tab span {
+    font-size: 13.5px !important;
+    font-weight: bold !important;
+    letter-spacing: 0.05em !important;
+    padding: 16px 0 !important;
+    text-align: center !important;
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    white-space: nowrap !important;
+    display: block !important;
 }
 
 #insegnai-drawer-tab button {
@@ -273,7 +289,7 @@ body.a11y-zoom-x2 {
     flex-direction: column !important;
     align-items: center !important;
     gap: 12px !important;
-    padding: 12px 8px !important;
+    padding: 12px 0 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
