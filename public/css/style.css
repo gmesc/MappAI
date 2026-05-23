@@ -1696,7 +1696,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
        ========================================== */
 /* 1. Force Solid White backgrounds and shadows for landing buttons/cards */
 #landing-view button[onclick="window.startEmptyMap()"],
-#landing-view button[onclick="window.showVaultManager()"],
+#landing-view button[onclick="window.loadMapVault()"],
 #landing-view label[for="landing-import"].rounded-3xl {
     background-color: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
@@ -1705,7 +1705,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 }
 
 #landing-view button[onclick="window.startEmptyMap()"]:hover,
-#landing-view button[onclick="window.showVaultManager()"]:hover,
+#landing-view button[onclick="window.loadMapVault()"]:hover,
 #landing-view label[for="landing-import"].rounded-3xl:hover {
     background-color: #f8fafc !important;
     border-color: #cbd5e1 !important;
@@ -1868,7 +1868,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 
     /* Enlarge and align Quick Action buttons and label as large, vertical action cards */
     #landing-view .glass-card button[onclick="window.startEmptyMap()"],
-    #landing-view .glass-card button[onclick="window.showVaultManager()"],
+    #landing-view .glass-card button[onclick="window.loadMapVault()"],
     #landing-view .glass-card label[for="landing-import"].rounded-3xl {
         display: flex !important;
         flex-direction: column !important;
@@ -1880,7 +1880,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"]>div,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"]>div,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"]>div,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl>div {
         flex-direction: column !important;
         align-items: center !important;
@@ -1890,7 +1890,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] .w-12,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] .w-12,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] .w-12,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl .w-12 {
         width: calc(64px * var(--landing-zoom)) !important;
         height: calc(64px * var(--landing-zoom)) !important;
@@ -1902,17 +1902,17 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] i,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] i,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] i,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl i,
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] svg,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] svg,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] svg,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {
         width: calc(28px * var(--landing-zoom)) !important;
         height: calc(28px * var(--landing-zoom)) !important;
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-sm,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-sm,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-sm {
         font-size: calc(17px * var(--landing-zoom)) !important;
         display: block !important;
@@ -1920,13 +1920,13 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     }
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-\[10px\],
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-\[10px\],
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-\[10px\],
     #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-\[10px\],
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-slate-400,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-slate-400,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-slate-400,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-slate-400,
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-indigo-500,
-    #landing-view .glass-card button[onclick="window.showVaultManager()"] span.text-indigo-500,
+    #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-indigo-500,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-indigo-500 {
         font-size: calc(11px * var(--landing-zoom)) !important;
         display: block !important;
