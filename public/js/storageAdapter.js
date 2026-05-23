@@ -752,11 +752,13 @@
 
         // --- FILE SYSTEM, FILE PICKING & PARSING ---
 
-        pickFolder: async function () {
+        pickFolder: async function (options = {}) {
             if (isCapacitor) {
                 return new Promise((resolve) => {
-                    const choice = confirm("Vuoi importare un file di Vault (.json) esistente?\n\n(Seleziona 'Annulla' per creare un nuovo Vault vuoto)");
-                    if (choice) {
+                    const importOnly = options.importOnly || false;
+                    const createOnly = options.createOnly || false;
+
+                    const triggerFilePicker = () => {
                         const input = document.createElement('input');
                         input.type = 'file';
                         input.accept = '.json';
@@ -791,7 +793,9 @@
                             reader.readAsText(file);
                         };
                         input.click();
-                    } else {
+                    };
+
+                    const triggerCreatePrompt = () => {
                         const vaultName = prompt("Inserisci il nome del nuovo Vault:", "Nuovo_Vault");
                         if (!vaultName) {
                             resolve({ canceled: true });
@@ -799,6 +803,19 @@
                         }
                         const safeName = vaultName.replace(/[^a-zA-Z0-9_]/g, "_");
                         resolve({ canceled: false, folderPath: safeName });
+                    };
+
+                    if (importOnly) {
+                        triggerFilePicker();
+                    } else if (createOnly) {
+                        triggerCreatePrompt();
+                    } else {
+                        const choice = confirm("Vuoi importare un file di Vault (.json) esistente?\n\n(Seleziona 'Annulla' per creare un nuovo Vault vuoto)");
+                        if (choice) {
+                            triggerFilePicker();
+                        } else {
+                            triggerCreatePrompt();
+                        }
                     }
                 });
             } else {
