@@ -1,34 +1,35 @@
-# Piano di Implementazione: Allineamento Applicazione Desktop (Docente e Studente)
+# Refactoring Architettura CSS e Nomenclatura Classi
 
-Questo piano descrive i passaggi per sincronizzare le modifiche apportate alla UI, alla gestione dei Vault (esportazione dei set di studio, risposte aperte come file di testo) e alle modalità di importazione/allineamento nomi progetto dalle versioni iPad alle versioni Desktop.
+Il CSS attuale di MappAI presenta classi ridondanti, tag sovrapposti per le aree di testo, e una nomenclatura non sempre logica. L'obiettivo di questo piano è districare questa matassa creando un sistema logico, semantico e scalabile.
 
 ## User Review Required
 
-> [!IMPORTANT]
-> Le modifiche del frontend (codice HTML, CSS e JS in `public/`) sono condivise tra iPad e Desktop tramite condizioni sulla presenza di Capacitor (`isCapacitor`). 
-> Per evitare di inquinare il ramo Desktop (`MappAI_main` e `MappAI_studente`) con le cartelle native iOS (`ios/`), i file di configurazione Capacitor e i certificati Apple Xcode, utilizzeremo una sincronizzazione mirata della cartella `public/` dai branch iPad ai rispettivi branch Desktop.
+Questo è un piano in più step. Il passo più importante richiede il tuo intervento sul documento di mappatura che andremo a creare. Solo quando sarai soddisfatto dei "nuovi nomi" proposti, procederemo con l'aggiornamento simultaneo dei file HTML e CSS.
 
 ## Proposed Changes
 
-La cartella `public/` (contenente la UI, i fogli di stile CSS, la logica JS e le traduzioni) verrà allineata direttamente dai rami iPad.
+### 1. Estrazione e Mappatura (Fase Analitica)
+Creerò un nuovo artefatto chiamato `css_mapping.md`. Analizzando il file `index.html` e `style.css` estrarremo:
+- I gruppi logici dell'interfaccia (es. Sidebar, Form, Modali, Mappa).
+- Le classi CSS attualmente assegnate a ciascun testo o componente.
+- Una proposta per il **Nuovo Nome Classe Logico** (es. da un generico `.text-sm .font-bold` a un più semantico `.sidebar-action-text` oppure da `.text-[40px]` a `.landing-hero-title`).
 
-### Sincronizzazione Ramo Docente Desktop (`MappAI_main`)
+### 2. Revisione Condivisa (Fase Interattiva)
+Potrai leggere il file `css_mapping.md` direttamente negli artefatti della chat. Insieme potremo:
+- Discutere e approvare i nuovi nomi.
+- Suggerire modifiche (es. "Chiamiamo questo `.sidebar-title` invece di `.nav-header`").
+- Sfoltire la lista accorpando più elementi sotto una singola classe logica (es. `.app-subtitle`).
 
-* Passaggio al branch `MappAI_main`.
-* Checkout selettivo di tutta la cartella `public/` dal branch `MappAI_iPad`.
-* Commit e push sul branch `MappAI_main`.
-
-### Sincronizzazione Ramo Studente Desktop (`MappAI_studente`)
-
-* Passaggio al branch `MappAI_studente`.
-* Checkout selettivo di tutta la cartella `public/` dal branch `MappAI_iPad_studente`.
-* Commit e push sul branch `MappAI_studente`.
-
----
+### 3. Allineamento HTML e CSS (Fase di Esecuzione)
+Una volta approvata la mappa delle classi:
+- **[MODIFY]** `public/index.html`: Sostituirò i vecchi nomi delle classi disordinati con i nuovi nomi logici.
+- **[MODIFY]** `public/css/style.css`: Aggiornerò tutti i selettori CSS per farli corrispondere ai nuovi nomi, ripulendo eventuali classi duplicate o regole orfane.
 
 ## Verification Plan
 
+### Automated Tests
+- Verifica integrità CSS.
+- I configuratori tipografici (`index_font_style_config.html` e `map_font_config.html`) verranno aggiornati con le nuove classi pulite per continuare a fare i test.
+
 ### Manual Verification
-- Verifica visiva dei bottoni della landing page su desktop (layout verticale, assenza di sottotitoli).
-- Verifica del caricamento di un vault su desktop, controllando che il nome della cartella diventi il nome del progetto.
-- Verifica del salvataggio e caricamento dei set di studio nel vault.
+- Test visivo completo dell'applicazione per assicurarsi che i font, le dimensioni, i margini e i colori siano rimasti identici (nessuna regressione visiva), ma con un codice sorgente profondamente ristrutturato.
