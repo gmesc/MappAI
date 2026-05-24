@@ -26,3 +26,14 @@ Thumbs.db
 *.log
 app_data/
 temp/
+
+# Graphify
+graphify-out/
+
+# Generated Artifacts and Reports
+implementation_plan.md
+ipad_compatibility_report.md
+xcode console.md
+Xcode report *
+*report*.md
+*console*.md
