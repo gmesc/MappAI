@@ -148,7 +148,7 @@ window.applyStudentModeUI = function () {
     const btnAudio = document.getElementById('btn-src-audio');
     const btnVideo = document.getElementById('btn-src-video');
 
-    const displayStyle = appState.studentMode ? 'none' : '';
+    const displayStyle = appState.studentMode ? 'none' : 'flex';
 
     if (btnUrl) btnUrl.style.display = displayStyle;
     if (btnYoutube) btnYoutube.style.display = displayStyle;
