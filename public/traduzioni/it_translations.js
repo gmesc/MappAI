@@ -1,7 +1,7 @@
 const it_translations = {
     // General
     landing_subtitle: "Visualizzatore di conoscenza",
-    btn_setup: "Setup",
+    btn_setup: "AI",
     btn_app_guide: "Guida App",
     btn_active_study: "Studio Attivo",
     recent_projects: "Progetti Recenti",
