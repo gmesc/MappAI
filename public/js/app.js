@@ -428,7 +428,14 @@ window.showConfigAIModal = function () {
     }
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) { m.style.display = ''; m.classList.remove('hidden'); m.classList.add('flex'); window.safeCreateIcons(); }
+        if (m) {
+            const productInput = document.getElementById('infomaniak-product-id');
+            if (productInput) productInput.value = appState.infomaniakProductId || '';
+            m.style.display = ''; 
+            m.classList.remove('hidden'); 
+            m.classList.add('flex'); 
+            window.safeCreateIcons(); 
+        }
     } catch (e) { }
 };
 window.closeConfigAIModal = function () {
@@ -7853,12 +7860,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const geminiInput = document.getElementById('gemini-api-key-input');
         if (geminiInput) geminiInput.value = savedGeminiKey;
     }
-
     // Load Infomaniak Key
     const savedInfomaniakKey = (window.secureKeys && window.secureKeys['infomaniak_api_key']) || localStorage.getItem('infomaniak_api_key');
     if (savedInfomaniakKey) {
         const infomaniakInput = document.getElementById('infomaniak-api-key-input');
         if (infomaniakInput) infomaniakInput.value = savedInfomaniakKey;
+    }
+
+    // Load Infomaniak Product ID
+    if (appState.infomaniakProductId) {
+        const productInput = document.getElementById('infomaniak-product-id');
+        if (productInput) productInput.value = appState.infomaniakProductId;
     }
 
     // Load saved models on boot
