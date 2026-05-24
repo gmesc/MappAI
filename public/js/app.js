@@ -96,10 +96,17 @@ window.applyStudentModeUI = function () {
     const btnAudio = document.getElementById('btn-src-audio');
     const btnVideo = document.getElementById('btn-src-video');
 
-    if (btnUrl) btnUrl.style.display = 'none';
-    if (btnYoutube) btnYoutube.style.display = 'none';
-    if (btnAudio) btnAudio.style.display = 'none';
-    if (btnVideo) btnVideo.style.display = 'none';
+    if (appState.studentMode) {
+        if (btnUrl) btnUrl.style.display = 'none';
+        if (btnYoutube) btnYoutube.style.display = 'none';
+        if (btnAudio) btnAudio.style.display = 'none';
+        if (btnVideo) btnVideo.style.display = 'none';
+    } else {
+        if (btnUrl) btnUrl.style.display = '';
+        if (btnYoutube) btnYoutube.style.display = '';
+        if (btnAudio) btnAudio.style.display = '';
+        if (btnVideo) btnVideo.style.display = '';
+    }
 
     // Assicurati che i bottoni per caricare documenti e testo siano visibili
     const btnDoc = document.getElementById('btn-src-doc');
