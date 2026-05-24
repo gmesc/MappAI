@@ -9,6 +9,10 @@ const en_translations = {
     new_kg_btn: "Generate Knowledge Graph",
 
     btn_blank_canvas_label: "Create Blank Canvas (Manual)",
+    estimator_title: "Document Analysis & Cost Estimate",
+    estimator_tokens_label: "Input / Model Max",
+    estimator_cost_label: "Estimated Cost",
+    estimator_free: "Free (Free Tier)",
     save_folder: "Save Folder",
     import_json: "Import JSON",
     ext_ai_guide: "External AI Guide",
@@ -70,7 +74,7 @@ const en_translations = {
     // Modals - App Guide
     modal_guide_title: "How to use MappAI",
     guide_step1_title: "📌 Step 1 — Configure your API Key",
-    guide_step1_desc: "Click the 'AI Settings' button at the top right. Enter your Google AI Studio API Key (it's free!). Choose the AI model: Flash models are free and fast, Pro models are more precise but may have costs.",
+    guide_step1_desc: "Click the 'AI Settings' button at the top right. You can enter your Google AI Studio API Key (it's free!) or an Infomaniak API Token. In the Infomaniak tab, the use of Google's open-source models managed on Infomaniak's Swiss servers is pre-configured (if you are interested in unlocking access to other models available on Infomaniak, you can contact me). With the Google Studio API, instead, you can see all available Gemini models, which are frequently updated and replaced.",
     guide_step2_title: "📂 Step 2 — Upload your Sources",
     guide_step2_desc: "You can upload material from different sources: PDF, Web URL, YouTube, or Free Text.",
     guide_step3_title: "🎯 Step 3 — Choose Structure",
@@ -180,6 +184,10 @@ const en_translations = {
     admin_explanation_kgraphs: "These prompts define the semantic network structure for the Knowledge Graph construction, setting up how the AI identifies nodes and cross-relations.",
     admin_explanation_tutor: "These prompts define the personality and pedagogical method of the AI Tutor. They regulate socratic tone, student error management, and step-by-step guidance.",
     admin_explanation_study: "These prompts handle the automatic generation of assessment materials. They define the format of Quizzes and Flashcards, ensuring they are based solely on concepts present in the map.",
+    admin_btn_reset: "Restore Default",
+    admin_confirm_reset_prompt: "Restore this prompt to its original default value?",
+    admin_btn_reset_all: "Restore All Prompts",
+    admin_confirm_reset_all_prompts: "Are you sure you want to restore ALL prompts to their default values? This will permanently delete all your customizations.",
 
     // Extra
     machine_id_desc: "Send the following <b>Machine ID</b> to Giacomo to receive your unique unlock code:",
@@ -214,7 +222,17 @@ const en_translations = {
     btn_close: "Close",
     btn_continue: "Continue",
     quiz_next: "Next",
-    about_desc1: "I created <strong>MappAI</strong> as an assisted and multimodal study tool.",
-    about_desc2: "Among my projects there is the <strong>insegnai.ch</strong> portal, dedicated to promoting <em>AI literacy</em> and <em>fluency</em> topics."
+    about_desc1: "Hi, my name is Giacomo and I am the developer of <strong>MappAI</strong>.",
+    about_desc2: "I created this software as an organization and assistance tool for studying.",
+    about_desc3: "I am also a middle school teacher, and for years I have been interested in using Artificial Intelligence in education and beyond.",
+    about_desc4: "I hope this software is helpful to you.",
+    feedback_section: "Feedback & Bug Reports",
+    feedback_btn_title: "Report Issue",
+    feedback_btn_desc: "Send feedback or bug",
+    feedback_modal_title: "Send Report / Feedback",
+    feedback_cat_label: "Category of the report",
+    feedback_desc_label: "Report details",
+    feedback_desc_placeholder: "Describe the issue or your proposal to improve MappAI...",
+    feedback_submit_btn: "Send Feedback via Email"
 
 };

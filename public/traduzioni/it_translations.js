@@ -9,6 +9,10 @@ const it_translations = {
     new_kg_btn: "Genera Knowledge Graph",
 
     btn_blank_canvas_label: "Crea Canvas Vuoto (Manuale)",
+    estimator_title: "Analisi Documento & Stima Costi",
+    estimator_tokens_label: "Input / Max Modello",
+    estimator_cost_label: "Costo Stimato",
+    estimator_free: "Gratuito (Piano Free)",
     save_folder: "Cartella Salvataggi",
     import_json: "Importa JSON",
     ext_ai_guide: "Guida AI Esterna",
@@ -65,7 +69,7 @@ const it_translations = {
     // Modals - App Guide
     modal_guide_title: "Come usare MappAI",
     guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
-    guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Inserisci la tua API Key di Google AI Studio (è gratuita!). Scegli il modello AI: i modelli Flash sono gratuiti e veloci, i Pro sono più precisi ma a pagamento.",
+    guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Puoi inserire la tua API Key di Google AI Studio (è gratuita!) o un API Token di Infomaniak. Nel tab di Infomaniak è preimpostato l'uso dei modelli open-source di Google gestiti sui server svizzeri di Infomaniak (per chi è interessato a sbloccare l'accesso agli altri modelli disponibili su Infomaniak può contattarmi). Con la API Google Studio, invece, sono visibili tutti i modelli di Gemini a disposizione che vengono spesso aggiornati e rimpiazzati.",
     guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
     guide_step2_desc: "Puoi caricare materiale da diverse fonti: PDF, URL Web, YouTube o Testo Libero.",
     guide_step3_title: "🎯 Passo 3 — Scegli la Struttura",
@@ -187,8 +191,12 @@ const it_translations = {
     admin_prompt_desc_socratic_en: "Istruzioni AI Tutor Socratico (Inglese)",
     admin_prompt_desc_sota: "Espansione Contesto SOTA Second Brain",
     admin_prompt_desc_dynamic_quiz: "Generazione Verifiche Dinamiche",
-    admin_prompt_desc_flashcards: "Generazione Flashcards"
-    ,
+    admin_prompt_desc_flashcards: "Generazione Flashcards",
+    admin_btn_reset: "Ripristina Default",
+    admin_confirm_reset_prompt: "Ripristinare questo prompt al valore originale di default?",
+    admin_btn_reset_all: "Ripristina Tutti i Prompt",
+    admin_confirm_reset_all_prompts: "Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default? Questa operazione eliminerà permanentemente tutte le tue personalizzazioni.",
+    
     // Extra
     machine_id_desc: "Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:",
     src_web: "URL Web",
@@ -222,7 +230,17 @@ const it_translations = {
     btn_close: "Chiudi",
     btn_continue: "Continua",
     quiz_next: "Avanti",
-    about_desc1: "Ho creato <strong>MappAI</strong> come strumento di studio assistito e multimodale.",
-    about_desc2: "Tra i miei progetti c'è il portale <strong>insegnai.ch</strong>, dedicato a promuovere i temi dell'<em>AI literacy</em> e <em>fluency</em>."
+    about_desc1: "Ciao, mi chiamo Giacomo e sono lo sviluppatore di <strong>MappAI</strong>.",
+    about_desc2: "Ho creato questo software come strumento di organizzazione e assistenza per lo studio.",
+    about_desc3: "Sono anche un docente di scuola media e da anni mi interesso all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo.",
+    about_desc4: "Spero che questo software possa esservi d'aiuto.",
+    feedback_section: "Feedback & Bug",
+    feedback_btn_title: "Segnalazione",
+    feedback_btn_desc: "Invia feedback o bug",
+    feedback_modal_title: "Invia Segnalazione",
+    feedback_cat_label: "Categoria della segnalazione",
+    feedback_desc_label: "Dettagli della segnalazione",
+    feedback_desc_placeholder: "Descrivi il problema riscontrato o la tua proposta per migliorare MappAI...",
+    feedback_submit_btn: "Invia Feedback via Email"
 
 };

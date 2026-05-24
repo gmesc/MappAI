@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - global
+      - MappAI-iPad
   workflow_dispatch:
 
 env:
