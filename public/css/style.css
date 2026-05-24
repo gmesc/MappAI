@@ -1530,8 +1530,23 @@ body:not(.font-dyslexic) #ai-modal-body {
            12. FORMS & SELECT
            ========================================== */
 select {
-    background-position: right 1.25rem center !important;
-    padding-right: 5rem !important;
+    background-position: right 1rem center !important;
+    padding-right: 2.25rem !important;
+}
+
+/* Fix focus outline/ring clipping in all data entry modals */
+#user-profile-modal input:focus,
+#user-profile-modal select:focus,
+#config-ai-modal input:focus,
+#config-ai-modal select:focus,
+#edit-node-modal input:focus,
+#edit-node-modal select:focus,
+#validate-rel-modal input:focus,
+#validate-rel-modal select:focus {
+    outline: 2px solid #6366f1 !important;
+    outline-offset: -1px !important;
+    box-shadow: none !important;
+    border-color: #6366f1 !important;
 }
 
 /* ==========================================
