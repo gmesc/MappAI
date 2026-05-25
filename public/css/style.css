@@ -417,7 +417,9 @@ body.a11y-zoom-x2 {
     margin-top: 0 !important;
 }
 
-.btn_a11y_tool {
+.btn_a11y_tool,
+#floating-actions-menu button,
+#floating-actions-menu label {
     display: flex !important;
     align-items: center !important;
     width: 100% !important;
@@ -426,7 +428,7 @@ body.a11y-zoom-x2 {
     gap: 8px !important;
     font-size: 18px !important;
     font-weight: 500 !important;
-    font-family: 'Space Mono', system-ui, -apple-systemt;
+    font-family: 'Space Mono', system-ui, -apple-system;
     background-color: #34d399 !important;
     color: #334155 !important;
     cursor: pointer !important;
@@ -434,19 +436,26 @@ body.a11y-zoom-x2 {
     text-align: left !important;
 }
 
-.btn_a11y_tool:hover {
+.btn_a11y_tool:hover,
+#floating-actions-menu button:hover,
+#floating-actions-menu label:hover {
     background-color: #fbbf24 !important;
     font-weight: bold !important;
-
 }
 
-.btn_a11y_tool.active {
+.btn_a11y_tool.active,
+#floating-actions-menu button.active,
+#floating-actions-menu label.active {
     background-color: #4f46e5 !important;
     color: #ffffff !important;
 }
 
 .btn_a11y_tool svg,
-.btn_a11y_tool i {
+.btn_a11y_tool i,
+#floating-actions-menu button svg,
+#floating-actions-menu button i,
+#floating-actions-menu label svg,
+#floating-actions-menu label i {
     width: 25px !important;
     height: 25px !important;
     flex-shrink: 0 !important;
