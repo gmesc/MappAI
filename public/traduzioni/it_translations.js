@@ -82,12 +82,12 @@ const it_translations = {
     guide_step4_title: "✍️ Personalizza e Guida l'AI",
     guide_step4_desc: "Inserisci il nome del Nodo Centrale. Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus specifico e regolare la densità delle diramazioni.",
     guide_step5_title: "🗺️ Interagisci con la Mappa",
-    guide_step5_desc: "Doppio tap su un nodo per leggere/modificare note. Pinch per lo zoom. Drag per spostare. Long press (tieni premuto) per il menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
+    guide_step5_desc: "Doppio click o tap su un nodo per leggere/modificare note. Scroll o pinch per lo zoom. Drag per spostare. Click destro o pressione prolungata per il menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
     guide_step6_title: "💾 Salva e Riprendi",
-    guide_step6_desc: "Le mappe vengono salvate automaticamente. I progetti recenti appaiono nella barra della landing page. Puoi importare/esportare file JSON. Condividi intere cartelle vault tramite l'app File usando AirDrop.",
+    guide_step6_desc: "Le mappe vengono salvate automaticamente (nella cartella 'Salvataggi Mapp.AI' in Documenti su Mac, o nei Vault dell'app File su iPad). Puoi importare/esportare file JSON e condividere i progetti via AirDrop.",
     guide_notes_title: "📓 Raccoglitore Appunti",
     guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
-    guide_footer: "MappAI salva tutto localmente sul tuo Mac. I tuoi dati non lasciano mai il dispositivo.",
+    guide_footer: "MappAI salva tutto localmente sul tuo dispositivo. I tuoi dati non lo lasciano mai.",
 
     // Modals - Active Study (Tutorial)
     modal_study_title: "Metodo di Studio Attivo",

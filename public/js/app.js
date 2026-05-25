@@ -160,7 +160,6 @@ window.applyStudentModeUI = function () {
 
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
-
     // Mostra/Nascondi il setup-form e btn-config-ai in base allo stato
     const setupForm = document.getElementById('setup-form');
     const btnConfig = document.getElementById('btn-config-ai');
@@ -7905,7 +7904,6 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     if (iconElem) {
         iconElem.setAttribute('data-lucide', iconName);
     }
-
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
