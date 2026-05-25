@@ -1120,46 +1120,32 @@
             <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
                 <!-- Popover Menu -->
                 <div id="floating-actions-menu" class="hidden">
-                    <button onclick="window.exportNotesMarkdown()"
-                        class="w-full px-4 py-2.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-200 flex items-center gap-3 transition-all"
-                        title="Esporta Appunti MD">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> Esporta Appunti
+                    <button onclick="window.exportNotesMarkdown()" title="Esporta Appunti MD">
+                        <i data-lucide="file-text"></i> Esporta Appunti
                     </button>
                     <!-- SOTA: MARKDOWN VAULT ACTIONS -->
-                    <button onclick="window.saveMapVault()"
-                        class="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-3 transition-all shadow-sm"
-                        title="Salva come Vault Markdown">
-                        <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
+                    <button onclick="window.saveMapVault()" title="Salva come Vault Markdown">
+                        <i data-lucide="archive"></i> Esporta nel Vault
                     </button>
-                    <button onclick="window.loadMapVault()"
-                        class="w-full px-4 py-2.5 bg-blue-100 text-blue-800 rounded-xl text-xs font-bold hover:bg-blue-200 flex items-center gap-3 transition-all"
-                        title="Apri Vault Vault Markdown">
-                        <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
+                    <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown">
+                        <i data-lucide="folder-open"></i> Importa dal Vault
                     </button>
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
-                    <button id="sync-vault-btn" onclick="window.saveMapVault()"
-                        class="hidden w-full px-4 py-2.5 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-bold hover:bg-cyan-200 flex items-center gap-3 transition-all shadow-sm active:scale-95"
-                        title="Sincronizza modifiche nel Vault">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizza Vault
+                    <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden" title="Sincronizza modifiche nel Vault">
+                        <i data-lucide="refresh-cw"></i> Sincronizza Vault
                     </button>
                     <!-- Tasto Salva Snapshot Layout (discreto) -->
-                    <button id="save-layout-btn" onclick="window.salvaLayout()"
-                        class="hidden w-full px-4 py-2.5 bg-slate-100 text-slate-800 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-3 transition-all"
-                        title="Salva la disposizione attuale come 'Personal'">
-                        <i data-lucide="camera" class="w-4 h-4"></i> Salva Layout Snapshot
+                    <button id="save-layout-btn" onclick="window.salvaLayout()" class="hidden" title="Salva la disposizione attuale come 'Personal'">
+                        <i data-lucide="camera"></i> Salva Layout Snapshot
                     </button>
-                    <label for="sidebar-merge"
-                        class="w-full px-4 py-2.5 bg-amber-100 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-200 flex items-center gap-3 cursor-pointer mb-0 transition-all"
-                        title="Unisci un altro JSON alla mappa corrente">
-                        <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
+                    <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente">
+                        <i data-lucide="merge"></i> Unisci Mappe
                     </label>
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
-                    <button onclick="window.backToLanding()"
-                        class="w-full px-4 py-2.5 bg-rose-100 text-rose-800 rounded-xl text-xs font-bold hover:bg-rose-200 flex items-center gap-3 transition-all"
-                        title="Nuovo Progetto">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
+                    <button onclick="window.backToLanding()" title="Nuovo Progetto">
+                        <i data-lucide="arrow-left"></i> Torna alla Home
                     </button>
                 </div>
 
