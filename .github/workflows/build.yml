@@ -2,9 +2,11 @@ name: Build/Release
 on:
   push:
     branches:
-      - main
+      - MappAI_main
+      - MappAI_studente
       - global
-      - MappAI-iPad
+      - MappAI_iPad
+      - MappAI_iPad_studente
   workflow_dispatch:
 
 env:
