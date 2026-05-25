@@ -253,7 +253,8 @@ body.a11y-zoom-x2 {
     align-items: center !important;
     justify-content: center !important;
     width: 100% !important;
-    text-transform: none !important; /* Mantiene il testo in minuscolo */
+    text-transform: none !important;
+    /* Mantiene il testo in minuscolo */
 }
 
 #insegnai-drawer-tab button {
@@ -300,15 +301,41 @@ body.a11y-zoom-x2 {
 
 /* Global A11y Panel Toggle Button and Panel lock */
 #a11y-panel-toggle {
+    position: fixed !important;
+    top: 24px !important;
+    right: 24px !important;
     width: 48px !important;
     height: 48px !important;
     padding: 12px !important;
-    top: 24px !important;
-    right: 24px !important;
     border-radius: 9999px !important;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.2s ease !important;
+    z-index: 999999 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    outline: none !important;
 }
 
-#a11y-panel-toggle svg {
+#a11y-panel-toggle:hover {
+    background-color: #f8fafc !important;
+    color: #fbbf24 !important;
+}
+
+/* Rimuove l'anello di focus persistente al click */
+#a11y-panel-toggle:focus,
+#a11y-panel-toggle:active,
+#a11y-panel-toggle:focus-visible {
+    outline: none !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+#a11y-panel-toggle svg,
+#a11y-panel-toggle i {
     width: 24px !important;
     height: 24px !important;
 }
@@ -316,7 +343,7 @@ body.a11y-zoom-x2 {
 #a11y-panel {
     top: 80px !important;
     right: 24px !important;
-    width: 220px !important;
+    width: 350px !important;
     padding: 12px !important;
     gap: 8px !important;
     border-radius: 12px !important;
@@ -336,14 +363,13 @@ body.a11y-zoom-x2 {
     display: flex !important;
     align-items: center !important;
     width: 100% !important;
-    padding: 8px 12px !important;
+    padding: 8px 18px !important;
     border-radius: 8px !important;
     gap: 8px !important;
-    font-size: 12px !important;
+    font-size: 18px !important;
     font-weight: 500 !important;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
-    background-color: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
+    font-family: 'Space Mono', system-ui, -apple-systemt;
+    background-color: #34d399 !important;
     color: #334155 !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
@@ -351,21 +377,20 @@ body.a11y-zoom-x2 {
 }
 
 .btn_a11y_tool:hover {
-    background-color: #eef2ff !important;
-    border-color: #818cf8 !important;
-    color: #4f46e5 !important;
+    background-color: #fbbf24 !important;
+    font-weight: bold !important;
+
 }
 
 .btn_a11y_tool.active {
     background-color: #4f46e5 !important;
     color: #ffffff !important;
-    border-color: #4f46e5 !important;
 }
 
 .btn_a11y_tool svg,
 .btn_a11y_tool i {
-    width: 16px !important;
-    height: 16px !important;
+    width: 25px !important;
+    height: 25px !important;
     flex-shrink: 0 !important;
 }
 
@@ -2087,6 +2112,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     body.a11y-zoom-x2 #landing-view .glass-card .source-type-btn {
         flex: 0 0 calc(145px * var(--landing-zoom)) !important;
     }
+
     body.a11y-zoom-x15 #landing-view .glass-card .mode-btn,
     body.a11y-zoom-x2 #landing-view .glass-card .mode-btn {
         flex: 0 0 calc(270px * var(--landing-zoom)) !important;
@@ -2381,36 +2407,36 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     display: none !important;
 }
 
-#landing-view .glass-card #setup-form > * {
+#landing-view .glass-card #setup-form>* {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
 }
 
-#landing-view .glass-card #setup-form > div:not(:last-child) {
+#landing-view .glass-card #setup-form>div:not(:last-child) {
     display: flex !important;
     flex-direction: column !important;
     gap: calc(16px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #setup-form > div.hidden {
+#landing-view .glass-card #setup-form>div.hidden {
     display: none !important;
 }
 
-#landing-view .glass-card #setup-form > div:not(:last-child) > * {
+#landing-view .glass-card #setup-form>div:not(:last-child)>* {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
 }
 
-#landing-view .glass-card #setup-form > div:not(:last-child) > label {
+#landing-view .glass-card #setup-form>div:not(:last-child)>label {
     margin-bottom: 0 !important;
 }
 
 /* Specific styling for Step 3 to ensure proper specificity and override standard step gap */
-#landing-view .glass-card #setup-form > #step-3-container {
+#landing-view .glass-card #setup-form>#step-3-container {
     gap: calc(24px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #setup-form > #step-3-container > label {
+#landing-view .glass-card #setup-form>#step-3-container>label {
     margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
 }
 
@@ -2422,9 +2448,9 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     gap: calc(12px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #step-root-container > *,
-#landing-view .glass-card #input-l1-container > *,
-#landing-view .glass-card #focus-input-container > * {
+#landing-view .glass-card #step-root-container>*,
+#landing-view .glass-card #input-l1-container>*,
+#landing-view .glass-card #focus-input-container>* {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
 }
@@ -2442,11 +2468,12 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 }
 
 /* Homogeneous space for Multi-Pass toggle container to align it closer to the density options */
-#landing-view .glass-card #setup-form > #step-multipass-container {
-    margin-top: calc(-16px * var(--landing-zoom)) !important; /* Reduces the gap of 40px to exactly 24px */
+#landing-view .glass-card #setup-form>#step-multipass-container {
+    margin-top: calc(-16px * var(--landing-zoom)) !important;
+    /* Reduces the gap of 40px to exactly 24px */
 }
 
-#landing-view .glass-card #setup-form > div:last-child {
+#landing-view .glass-card #setup-form>div:last-child {
     border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
     padding-top: calc(24px * var(--landing-zoom)) !important;
     margin-top: 0 !important;
