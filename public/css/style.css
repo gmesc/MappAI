@@ -301,7 +301,8 @@ body.a11y-zoom-x2 {
 
 /* Global A11y Panel Toggle & Floating Actions Toggle Button */
 #a11y-panel-toggle,
-#floating-actions-toggle {
+#floating-actions-toggle,
+#sidebar-toggle-btn {
     width: 48px !important;
     height: 48px !important;
     padding: 12px !important;
@@ -330,7 +331,8 @@ body.a11y-zoom-x2 {
 }
 
 #a11y-panel-toggle:hover,
-#floating-actions-toggle:hover {
+#floating-actions-toggle:hover,
+#sidebar-toggle-btn:hover {
     background-color: #f8fafc !important;
     color: #334155 !important;
     outline: #334155 10px solid !important;
@@ -344,7 +346,10 @@ body.a11y-zoom-x2 {
 #a11y-panel-toggle:focus-visible,
 #floating-actions-toggle:focus,
 #floating-actions-toggle:active,
-#floating-actions-toggle:focus-visible {
+#floating-actions-toggle:focus-visible,
+#sidebar-toggle-btn:focus,
+#sidebar-toggle-btn:active,
+#sidebar-toggle-btn:focus-visible {
     outline: none !important;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
@@ -352,7 +357,9 @@ body.a11y-zoom-x2 {
 #a11y-panel-toggle svg,
 #a11y-panel-toggle i,
 #floating-actions-toggle svg,
-#floating-actions-toggle i {
+#floating-actions-toggle i,
+#sidebar-toggle-btn svg,
+#sidebar-toggle-btn i {
     width: 24px !important;
     height: 24px !important;
 }
