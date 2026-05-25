@@ -1,11 +1,11 @@
 const it_translations = {
     // General
-    landing_subtitle: "Visualizzatore di conoscenza",
+    landing_subtitle: "Orienta il sapere",
     btn_setup: "AI",
-    btn_app_guide: "Guida App",
-    btn_active_study: "Studio Attivo",
+    btn_app_guide: "Guida",
+    btn_active_study: "Studio",
     recent_projects: "Progetti Recenti",
-    new_map_btn: "Genera Nuova Mappa",
+    new_map_btn: "Genera Mappa",
     new_kg_btn: "Genera Knowledge Graph",
 
     btn_blank_canvas_label: "Crea Canvas Vuoto (Manuale)",
@@ -23,6 +23,11 @@ const it_translations = {
 
     // Setup Steps
     step1: "Carica le tue Fonti",
+    admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",
+    admin_prompt_desc_mm_full: "Generazione Mappa Mentale (Single-Pass)",
+    admin_prompt_desc_kg_full: "Generazione Knowledge Graph (Single-Pass)",
+    admin_prompt_desc_branch: "Costruzione strutturata dei Rami della Mappa Mentale",
+    admin_prompt_desc_kg: "Generazione Knowledge Graph Iterativa (Deprecata)",
     step1_desc: "Carica il tuo materiale da diverse fonti:",
     step2: "Oggetto dello Studio",
     step2_mindmap: "Mappa Mentale",
@@ -37,10 +42,10 @@ const it_translations = {
     step3_focus_placeholder: "Su cosa deve concentrarsi Gemini?",
     step4: "Modello e Lingua",
     step5: "Stile Visualizzazione",
-    step_density_title: "Densità Diramazioni (L4 e L5)",
-    step_density_desc: "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).",
-    step_kg_density_title: "Numero di Concetti/Entità (Livello 2)",
-    step_kg_density_desc: "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).",
+    step_density_title: "Densità Diramazioni",
+    step_density_desc: "I rami fino a L3 verranno sempre generati.",
+    step_kg_density_title: "Numero di Concetti/Entità",
+    step_kg_density_desc: "Scegli quanti nodi generare all'interno del grafo relazionale: 15-25 per grafi ordinati, 30-35 per grafi complessi.",
 
 
     // Placeholders
@@ -50,7 +55,7 @@ const it_translations = {
 
     // Loading
     loading_processing: "MappAI sta elaborando...",
-    loading_sources: "Interpretazione delle fonti con Gemini",
+    loading_sources: "Il large language model sta interpretando le tue fonti",
 
     // Modals - AI Config
     modal_config_title: "Configurazione AI",
@@ -68,17 +73,17 @@ const it_translations = {
 
     // Modals - App Guide
     modal_guide_title: "Come usare MappAI",
-    guide_step1_title: "📌 Passo 1 — Configura la tua API Key",
+    guide_step1_title: "📌 Configura la tua API Key",
     guide_step1_desc: "Clicca il bottone 'Configura AI' in alto a destra. Puoi inserire la tua API Key di Google AI Studio (è gratuita!) o un API Token di Infomaniak. Nel tab di Infomaniak è preimpostato l'uso dei modelli open-source di Google gestiti sui server svizzeri di Infomaniak (per chi è interessato a sbloccare l'accesso agli altri modelli disponibili su Infomaniak può contattarmi). Con la API Google Studio, invece, sono visibili tutti i modelli di Gemini a disposizione che vengono spesso aggiornati e rimpiazzati.",
-    guide_step2_title: "📂 Passo 2 — Carica le tue Fonti",
+    guide_step2_title: "📂 Carica le tue Fonti",
     guide_step2_desc: "Puoi caricare materiale da diverse fonti: PDF, URL Web, YouTube o Testo Libero.",
-    guide_step3_title: "🎯 Passo 3 — Scegli la Struttura",
+    guide_step3_title: "🎯 Scegli la Struttura",
     guide_step3_desc: "Mappa Mentale: Struttura gerarchica (L0→L5) perfetta per lo studio. Knowledge Graph: Rete di relazioni tra concetti, ideale per visualizzare connessioni trasversali.",
-    guide_step4_title: "✍️ Passo 4 — Personalizza e Guida l'AI",
+    guide_step4_title: "✍️ Personalizza e Guida l'AI",
     guide_step4_desc: "Inserisci il nome del Nodo Centrale. Puoi suggerire i rami L1, attivare la generazione automatica, definire il focus specifico e regolare la densità delle diramazioni.",
-    guide_step5_title: "🗺️ Passo 5 — Interagisci con la Mappa",
+    guide_step5_title: "🗺️ Interagisci con la Mappa",
     guide_step5_desc: "Doppio tap su un nodo per leggere/modificare note. Pinch per lo zoom. Drag per spostare. Long press (tieni premuto) per il menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
-    guide_step6_title: "💾 Passo 6 — Salva e Riprendi",
+    guide_step6_title: "💾 Salva e Riprendi",
     guide_step6_desc: "Le mappe vengono salvate automaticamente. I progetti recenti appaiono nella barra della landing page. Puoi importare/esportare file JSON. Condividi intere cartelle vault tramite l'app File usando AirDrop.",
     guide_notes_title: "📓 Raccoglitore Appunti",
     guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
@@ -102,7 +107,7 @@ const it_translations = {
     study_footer: "I nodi modificati ricevono icone speciali: (testo), (immagini), (link) e (file locali). Più personalizzi, più lo studio diventa efficace!",
 
     // Map View UI
-    back_to_home: "Torna alla Home",
+    back_to_home: "Home",
     floating_actions: "Azioni Rapide",
     a11y_tools: "Strumenti Compensativi",
     a11y_invert: "Inverti Colori",
@@ -179,24 +184,11 @@ const it_translations = {
     admin_explanation_kgraphs: "Questi prompt definiscono la struttura a rete semantica per la costruzione del Knowledge Graph, impostando come l'AI identifica nodi e relazioni trasversali.",
     admin_explanation_tutor: "Questi prompt definiscono la personalità e il metodo pedagogico dell'AI Tutor. Regolano il tono socratico, la gestione degli errori dello studente e la guida passo-passo nello studio.",
     admin_explanation_study: "Questi prompt gestiscono la creazione automatica di materiali di verifica. Definiscono il formato di Quiz e Flashcard, assicurando che siano basati esclusivamente sui concetti presenti nella mappa.",
-    admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",
-    admin_prompt_desc_mm_full: "Generazione Mappa Mentale (Single-Pass)",
-    admin_prompt_desc_kg_full: "Generazione Knowledge Graph (Single-Pass)",
-    admin_prompt_desc_branch: "Costruzione strutturata dei Rami della Mappa Mentale",
-    admin_prompt_desc_kg: "Generazione Knowledge Graph Iterativa (Deprecata)",
-    admin_prompt_desc_merge: "Correlazione Semantica tra Mappe (Merge)",
-    admin_prompt_desc_quiz_flash: "Generazione Quiz Multipli (Flashcards)",
-    admin_prompt_desc_quiz_tutor: "Generazione Quiz Singolo (AI Tutor)",
-    admin_prompt_desc_socratic_it: "Istruzioni AI Tutor Socratico (Italiano)",
-    admin_prompt_desc_socratic_en: "Istruzioni AI Tutor Socratico (Inglese)",
-    admin_prompt_desc_sota: "Espansione Contesto SOTA Second Brain",
-    admin_prompt_desc_dynamic_quiz: "Generazione Verifiche Dinamiche",
-    admin_prompt_desc_flashcards: "Generazione Flashcards",
     admin_btn_reset: "Ripristina Default",
     admin_confirm_reset_prompt: "Ripristinare questo prompt al valore originale di default?",
     admin_btn_reset_all: "Ripristina Tutti i Prompt",
     admin_confirm_reset_all_prompts: "Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default? Questa operazione eliminerà permanentemente tutte le tue personalizzazioni.",
-    
+
     // Extra
     machine_id_desc: "Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:",
     src_web: "URL Web",

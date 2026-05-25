@@ -47,7 +47,7 @@ const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toUpperCase();
-        
+
         // 1. Sblocco/Blocco Generatore Studente: CTRL + SHIFT + L + K + J + H
         if (['L', 'K', 'J', 'H'].includes(key)) {
             secretBuffer.push(key);
@@ -160,11 +160,11 @@ window.applyStudentModeUI = function () {
 
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
-    
+
     // Mostra/Nascondi il setup-form e btn-config-ai in base allo stato
     const setupForm = document.getElementById('setup-form');
     const btnConfig = document.getElementById('btn-config-ai');
-    
+
     if (appState.studentMode) {
         if (setupForm) setupForm.classList.add('hidden');
         if (btnConfig) btnConfig.classList.add('hidden');
@@ -174,7 +174,7 @@ window.toggleStudentMode = function () {
         if (btnConfig) btnConfig.classList.remove('hidden');
         window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
     }
-    
+
     window.applyStudentModeUI();
 };
 
@@ -431,10 +431,10 @@ window.showConfigAIModal = function () {
         if (m) {
             const productInput = document.getElementById('infomaniak-product-id');
             if (productInput) productInput.value = appState.infomaniakProductId || '';
-            m.style.display = ''; 
-            m.classList.remove('hidden'); 
-            m.classList.add('flex'); 
-            window.safeCreateIcons(); 
+            m.style.display = '';
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            window.safeCreateIcons();
         }
     } catch (e) { }
 };
@@ -1215,8 +1215,8 @@ window.updateCostDisplay = function () {
     const modelId = modelEl ? modelEl.value : '';
     const kb = matchModelKB(modelId);
 
-    let promptPrice = 0.10 / 1000000; 
-    let candidatePrice = 0.40 / 1000000; 
+    let promptPrice = 0.10 / 1000000;
+    let candidatePrice = 0.40 / 1000000;
 
     if (kb) {
         promptPrice = kb.inputCost / 1000000;
@@ -2301,6 +2301,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
+        const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
 
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
@@ -2312,18 +2313,18 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
 
             const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
-Hai il compito di sviluppare il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
+Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi di Livello 2 e Livello 3 che appartengono a questa macro-area.
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
-   - "level": assegna 2 per sotto-rami di dettaglio primario, 3 per concetti di approfondimento/foglia.
+   - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
-3. Definisci i collegamenti ("links") collegando i nodi generati in un albero gerarchico. Ogni nodo di livello 2 deve avere come sorgente ("source") l'ID di partenza "${branch.id}". Ogni nodo di livello 3 deve avere come sorgente ("source") il rispettivo nodo di livello 2. Non creare connessioni trasversali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
 
 Restituisci SOLO un oggetto JSON con chiavi "nodes" e "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
@@ -3890,6 +3891,65 @@ window.exportSnapshot = async function () {
     }
 };
 
+window.exportPDF = async function () {
+    try {
+        window.showToast("Generazione PDF in corso...", "info");
+
+        // Attiva modalità snapshot (nasconde l'UI)
+        document.body.classList.add('is-snapshotting');
+
+        // Attendi un frame per il reflow del layout
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        const dataUrl = await window.electronAPI.capturePage();
+
+        // Ripristina UI
+        document.body.classList.remove('is-snapshotting');
+
+        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
+
+        // Utilizziamo jsPDF (già incluso nell'app)
+        const { jsPDF } = window.jspdf;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Crea il documento PDF con orientamento dinamico e dimensioni della finestra
+        const pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height]
+        });
+
+        // Inserisce l'immagine catturata nel PDF
+        pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            // Su iPadOS (Capacitor), esportiamo come Blob e usiamo navigator.share per il foglio di condivisione nativo
+            const blob = pdf.output('blob');
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta PDF",
+                    text: "Mappa mentale creata con MappAI"
+                });
+                window.showToast("PDF condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione PDF non supportata da questo dispositivo");
+            }
+        } else {
+            // Su Desktop (Electron/Browser), salva direttamente sul filesystem
+            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            window.showToast("Esportazione PDF completata!", "success");
+        }
+    } catch (err) {
+        document.body.classList.remove('is-snapshotting');
+        console.error("Errore esportazione PDF:", err);
+        window.showToast("Errore durante l'esportazione: " + err.message, "error");
+    }
+};
+
 window.changeDistance = function (dir) {
     forceDistMult = Math.max(0.5, Math.min(3, forceDistMult + (dir * 0.2)));
     forceChargeMult = Math.max(0.5, Math.min(3, forceChargeMult + (dir * 0.2)));
@@ -4763,10 +4823,10 @@ window.setMode = function (mode) {
         if (containerKGDensity) containerKGDensity.classList.add('hidden');
         if (containerRoot) containerRoot.classList.remove('hidden');
 
-        if (l1Title) l1Title.innerText = "Rami Principali (Livello 1)";
-        if (l1Desc) l1Desc.innerText = "Definisci i rami principali per organizzare lo studio:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Nodo L1";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri nodi L1 in automatico";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
+        if (l1Desc) l1Desc.innerText = "Inserisci le macro-aree tematiche che ti interessano:";
+        if (l1BtnText) l1BtnText.innerText = "Nuova macro-area";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altre macro-aree in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Cause, Conseguenze...");
     } else {
         btnMindmap.classList.remove('active');
@@ -4775,10 +4835,10 @@ window.setMode = function (mode) {
         if (containerKGDensity) containerKGDensity.classList.remove('hidden');
         if (containerRoot) containerRoot.classList.add('hidden');
 
-        if (l1Title) l1Title.innerText = "Super-Hubs relazionali";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
         if (l1Desc) l1Desc.innerText = "Definisci i concetti chiave attorno a cui costruire le relazioni:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Super-Hub";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri Super-Hub in automatico";
+        if (l1BtnText) l1BtnText.innerText = "Aggiungi hub tematico";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri hub tematici in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Trattative, Eredità...");
     }
 
@@ -5809,7 +5869,7 @@ window.showContextMenu = function (e, type, data) {
 
     if (type === 'node') {
         const expandAiHtml = !appState.studentMode ? `
-            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> Espandi da Fonte</div>
         ` : '';
 
         const spacedRepetitionHtml = !appState.studentMode ? `
@@ -5829,10 +5889,10 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
                     ${expandAiHtml}
-                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
-                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
-                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
+                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> Edit Contenuto</div>
+                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
+                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
+                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
                     <hr class="my-1 border-slate-200">
                     ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
@@ -5855,13 +5915,13 @@ window.showContextMenu = function (e, type, data) {
     } else if (type === 'bg') {
         if (appState.extractionMode === 'kg') {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Super-Hub Isolato</div>
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
             `;
         } else {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
             `;
         }
@@ -6509,6 +6569,11 @@ window.openQuizModal = function (node) {
     correctSubAnswersCount = 0;
     window.renderSubQuestion();
 
+    const iconElem = document.getElementById('quiz-modal-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', 'graduation-cap');
+    }
+
     const modal = document.getElementById('quiz-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -6517,6 +6582,7 @@ window.openQuizModal = function (node) {
         modal.classList.remove('opacity-0');
         box.classList.remove('scale-95');
     }, 10);
+    window.safeCreateIcons();
 };
 
 window.closeQuizModal = function () {
@@ -7690,119 +7756,24 @@ window.changeLanguage = function (lang, showToastMsg = true) {
     if (pricingPaid) pricingPaid.innerHTML = t.pricing_paid;
     if (pricingNote) pricingNote.innerHTML = t.pricing_note;
 
-    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Study) ---
+    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Recall, ecc) ---
     const studyContainer = document.getElementById('study-modal-content');
-    if (studyContainer) {
-        studyContainer.innerHTML = `
-                <p class="mb-4 text-sm leading-relaxed">${t.study_intro}</p>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔁</span> ${t.study_sr_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_sr_desc}</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🧠</span> ${t.study_ar_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_ar_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">👨‍🏫</span> ${t.study_feynman_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_feynman_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔀</span> ${t.study_interleaving_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_interleaving_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">❓</span> ${t.study_elaboration_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_elaboration_desc}</p>
-                </div>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">📂</span> ${t.study_local_files_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_local_files_desc}</p>
-                </div>
-
-                <p class="font-bold text-indigo-600 mt-6 text-center text-[11px] leading-relaxed">${t.study_footer}</p>
-                `;
-    }
+    // Il contenuto è ora statico nell'HTML, la traduzione avviene tramite data-i18n.
 
     // --- 3. LOCALIZZAZIONE MODALE GUIDA ---
     const guideContainer = document.getElementById('guide-modal-content');
     if (guideContainer) {
-        if (appState.studentMode) {
-            guideContainer.innerHTML = `
-                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <h3 class="font-black text-violet-700 text-sm mb-2">${t.guide_step5_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step5_desc}</p>
-                </div>
+        const normalGuide = document.getElementById('guide-normal-content');
+        const studentGuide = document.getElementById('guide-student-content');
 
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2">${t.guide_step6_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step6_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2">${t.guide_notes_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_notes_desc}</p>
-                </div>
-
-                <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
-            `;
-        } else {
-            guideContainer.innerHTML = `
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2">${t.guide_step1_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step1_desc}</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2">${t.guide_step2_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step2_desc}</p>
-                </div>
-
-                <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4">
-                    <h3 class="font-black text-fuchsia-700 text-sm mb-2">${t.guide_step3_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step3_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2">${t.guide_step4_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step4_desc}</p>
-                </div>
-
-                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <h3 class="font-black text-violet-700 text-sm mb-2">${t.guide_step5_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step5_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2">${t.guide_step6_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step6_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2">${t.guide_notes_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_notes_desc}</p>
-                </div>
-
-                <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
-            `;
+        if (normalGuide && studentGuide) {
+            if (appState.studentMode) {
+                normalGuide.classList.add('hidden');
+                studentGuide.classList.remove('hidden');
+            } else {
+                normalGuide.classList.remove('hidden');
+                studentGuide.classList.add('hidden');
+            }
         }
     }
 
@@ -7923,6 +7894,17 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
 
     document.getElementById('study-config-title').innerText = title;
+
+    let iconName = 'brain-circuit';
+    if (mode === 'quiz') {
+        iconName = scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-config-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
 
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
@@ -8084,6 +8066,17 @@ window.openStudyPlayer = function () {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+    let iconName = 'brain-circuit';
+    if (window.studyConfig.mode === 'quiz') {
+        iconName = window.studyConfig.scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = window.studyConfig.scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-player-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
 
     const timerContainer = document.getElementById('study-player-timer-container');
     if (window.studyConfig.timer) {
@@ -8386,18 +8379,18 @@ window.clearStudyScores = function () {
 
 window.autoSaveOpenQuizResponses = async function () {
     if (!window.studyResults || !window.studyResults.openAnswers || window.studyResults.openAnswers.length === 0) return;
-    
+
     const nickname = appState.userProfile.nickname || "Studente Anonimo";
     const age = appState.userProfile.age || "-";
     const grade = appState.userProfile.grade || "-";
     const system = appState.userProfile.system || "-";
     const title = window.activeStudySetTitle || "Quiz Aperto";
-    
+
     let txt = `=== RISPOSTE QUIZ APERTO: ${title} ===\n`;
     txt += `Data: ${new Date().toLocaleString()}\n`;
     txt += `Studente: ${nickname} (Età: ${age}, Classe: ${grade}, Sistema: ${system})\n`;
     txt += `--------------------------------------------------\n\n`;
-    
+
     window.studyResults.openAnswers.forEach((ans, idx) => {
         txt += `[Tutor]: Domanda ${idx + 1}: ${ans.q}\n`;
         txt += `[Studente]: ${ans.userAnswer}\n`;
@@ -8405,10 +8398,10 @@ window.autoSaveOpenQuizResponses = async function () {
         if (ans.explanation) txt += `Spiegazione: ${ans.explanation}\n`;
         txt += `\n`;
     });
-    
+
     txt += `--------------------------------------------------\n`;
     txt += `Fine della sessione di quiz aperto.\n`;
-    
+
     try {
         if (window.electronAPI && window.electronAPI.saveQuizTextResponse) {
             await window.electronAPI.saveQuizTextResponse({
@@ -8997,9 +8990,11 @@ window.openContextualAIExtensionModal = function (nodeData) {
 
     const modal = document.getElementById('contextual-ai-extension-modal');
     modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     setTimeout(() => {
         modal.classList.remove('opacity-0');
-        modal.querySelector('div').classList.remove('scale-95');
+        if (box) box.classList.remove('scale-95');
     }, 10);
 };
 
@@ -9162,9 +9157,13 @@ window.handleCtxPDFSelect = function (input) {
 window.closeContextualAIModal = function () {
     const modal = document.getElementById('contextual-ai-extension-modal');
     if (!modal) return;
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     modal.classList.add('opacity-0');
-    modal.querySelector('div').classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    if (box) box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
 };
 
 window.ctxExpansionSourceType = 'text';
