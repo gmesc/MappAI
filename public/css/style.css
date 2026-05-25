@@ -38,6 +38,11 @@ html {
     font-family: 'Space Mono', monospace !important;
 }
 
+body.font-dyslexic *:not(button):not(button *):not(.source-type-btn):not(.source-type-btn *):not(.mode-btn):not(.mode-btn *):not(.generate-btn):not(.generate-btn *):not(#projects-bar):not(#projects-bar *):not(#insegnai-drawer):not(#insegnai-drawer *) {
+    font-family: 'OpenDyslexic', sans-serif !important;
+    line-height: 1.65 !important;
+}
+
 html.font-dyslexic {}
 
 .tts-button {
@@ -72,6 +77,24 @@ html.font-dyslexic {}
 body {
     margin: 0;
     background-color: #f0f4ff;
+}
+
+/* ==========================================
+       LOCK UI CONTROLS (Non scalano con lo zoom testo)
+       ========================================== */
+#projects-bar,
+#insegnai-drawer,
+#sidebar-header,
+#modal-a11y-toolbar,
+.a11y-panel,
+button,
+.tts-button,
+.a11y-btn,
+.generate-btn,
+.mode-btn,
+.source-type-btn {
+    font-size: 13px !important;
+    /* Forza dimensione fissa */
 }
 
 :root {
@@ -309,16 +332,41 @@ body.a11y-zoom-x2 {
     margin-top: 0 !important;
 }
 
-#a11y-panel button {
-    font-size: 12px !important;
+.btn_a11y_tool {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
     padding: 8px 12px !important;
     border-radius: 8px !important;
     gap: 8px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-align: left !important;
 }
 
-#a11y-panel button svg {
+.btn_a11y_tool:hover {
+    background-color: #eef2ff !important;
+    border-color: #818cf8 !important;
+    color: #4f46e5 !important;
+}
+
+.btn_a11y_tool.active {
+    background-color: #4f46e5 !important;
+    color: #ffffff !important;
+    border-color: #4f46e5 !important;
+}
+
+.btn_a11y_tool svg,
+.btn_a11y_tool i {
     width: 16px !important;
     height: 16px !important;
+    flex-shrink: 0 !important;
 }
 
 #modal-a11y-toolbar {
@@ -481,12 +529,44 @@ body.a11y-zoom-x2 {
     /* Icon color in white */
 }
 
+/* ==========================================
+       LANDING CARD TEXT ZOOM (Bypassa transform: scale)
+       ========================================== */
+#landing-view .glass-card button,
+#landing-view .glass-card .generate-btn,
+#landing-view .glass-card .mode-btn,
+#landing-view .glass-card .source-type-btn {
+    font-size: calc(13px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .generate-btn svg,
+#landing-view .glass-card .mode-btn svg,
+#landing-view .glass-card .source-type-btn svg {
+    width: calc(20px * var(--landing-zoom)) !important;
+    height: calc(20px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .source-type-btn svg {
+    width: calc(24px * var(--landing-zoom)) !important;
+    height: calc(24px * var(--landing-zoom)) !important;
+}
+
 #landing-view .glass-card h1 {
     font-size: 40px !important;
 }
 
 #landing-view .glass-card #landing-subtitle {
     font-size: 12px !important;
+}
+
+#landing-view .glass-card .btn-landing-secondary {
+    font-size: 13.5px !important;
+}
+
+#landing-view .glass-card .btn-landing-secondary svg,
+#landing-view .glass-card .btn-landing-secondary i {
+    width: 22px !important;
+    height: 22px !important;
 }
 
 #landing-view .glass-card span[data-i18n="btn_new_project"],
@@ -499,6 +579,12 @@ body.a11y-zoom-x2 {
     font-size: calc(10px * var(--landing-zoom)) !important;
 }
 
+#landing-view .glass-card .step-badge {
+    width: calc(32px * var(--landing-zoom)) !important;
+    height: calc(32px * var(--landing-zoom)) !important;
+    font-size: calc(14px * var(--landing-zoom)) !important;
+}
+
 #landing-view .glass-card #label-step1,
 #landing-view .glass-card #label-step2,
 #landing-view .glass-card #label-step3,
@@ -506,6 +592,12 @@ body.a11y-zoom-x2 {
 #landing-view .glass-card #label-step4-kg,
 #landing-view .glass-card label {
     font-size: calc(16px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .landing-input {
+    font-size: calc(16px * var(--landing-zoom)) !important;
+    padding: calc(14px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+    border-radius: calc(12px * var(--landing-zoom)) !important;
 }
 
 #landing-view .glass-card textarea {
@@ -547,6 +639,17 @@ body.a11y-zoom-x2 {
 #landing-view .glass-card .level-btn {
     padding: calc(16px * var(--landing-zoom)) calc(12px * var(--landing-zoom)) !important;
     border-radius: calc(12px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .mode-btn {
+    padding: calc(16px * var(--landing-zoom)) !important;
+    border-radius: calc(14px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card .source-type-btn {
+    padding: calc(14px * var(--landing-zoom)) calc(8px * var(--landing-zoom)) !important;
+    border-radius: calc(12px * var(--landing-zoom)) !important;
+    gap: calc(6px * var(--landing-zoom)) !important;
 }
 
 #landing-view .glass-card .generate-btn {
@@ -744,6 +847,42 @@ body:not(.font-dyslexic) #ai-modal-body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
 }
 
+.step-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.landing-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1.5px solid #c7d2fe;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #1e293b;
+    font-size: 16px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.landing-input::placeholder {
+    color: #94a3b8;
+}
+
+.landing-input:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15);
+    background: #ffffff;
+}
+
 .landing-textarea {
     min-height: 100px;
     resize: vertical;
@@ -772,6 +911,67 @@ body:not(.font-dyslexic) #ai-modal-body {
     border-color: #818cf8;
     color: #3730a3;
     box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+}
+
+/* Mode Buttons */
+.mode-btn {
+    flex: 1 1 200px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid #e0e7ff;
+    border-radius: 14px;
+    padding: 16px;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mode-btn:hover {
+    background: #ffffff;
+    border-color: #a5b4fc;
+    color: #3730a3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
+}
+
+.mode-btn.active {
+    background: linear-gradient(135deg, #eef2ff, #e8e0ff);
+    border-color: #818cf8;
+    color: #3730a3;
+    box-shadow: 0 4px 24px rgba(99, 102, 241, 0.15);
+}
+
+.mode-btn i {
+    transition: transform 0.3s ease;
+}
+
+.mode-btn.active i {
+    transform: scale(1.1);
+}
+
+.source-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1.5px solid #e0e7ff;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1 1 100px;
+}
+
+.source-type-btn:hover {
+    background: #ffffff;
+    border-color: #a5b4fc;
+    color: #4338ca;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
 }
 
 .source-entry {
@@ -1534,7 +1734,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 /* ==========================================
        IPAD/DESKTOP FULL WHITE & BUTTON TEXT WRAPPING OPTIMIZATIONS
        ========================================== */
-/* 1. Force Solid White backgrounds and shadows for landing buttons/cards - DISATTIVATO PER NUOVO DESIGN BTN_SELEZIONE_INPUT
+/* 1. Force Solid White backgrounds and shadows for landing buttons/cards */
 #landing-view button[onclick="window.startEmptyMap()"],
 #landing-view button[onclick="window.loadMapVault()"],
 #landing-view label[for="landing-import"].rounded-3xl {
@@ -1551,7 +1751,35 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     border-color: #cbd5e1 !important;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04) !important;
 }
-*/
+
+/* Inactive states for source and mode buttons in landing card */
+#landing-view .glass-card .mode-btn,
+#landing-view .glass-card .source-type-btn {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #475569 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.01) !important;
+}
+
+#landing-view .glass-card .mode-btn:hover,
+#landing-view .glass-card .source-type-btn:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #121824 !important;
+}
+
+#landing-view .glass-card .mode-btn.active {
+    background: #ffffff !important;
+    border-color: #10b981 !important;
+    /* Premium green matching projects bar */
+    color: #10b981 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1) !important;
+}
+
+#landing-view .glass-card .mode-btn.active svg,
+#landing-view .glass-card .mode-btn.active i {
+    color: #10b981 !important;
+}
 
 /* 2. Utility Buttons Flexbox grid layout and no wrapping */
 #landing-view .glass-card .grid-cols-2 {
@@ -1559,6 +1787,51 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     gap: 8px !important;
+}
+
+#landing-view .glass-card .btn-landing-secondary {
+    flex: 0 0 auto !important;
+    white-space: normal !important;
+    padding: 8px 6px !important;
+    width: 96px !important;
+    height: 80px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border-radius: 12px !important;
+    text-align: center !important;
+    font-size: 13.5px !important;
+    font-weight: bold !important;
+}
+
+#landing-view .glass-card .btn-landing-secondary svg,
+#landing-view .glass-card .btn-landing-secondary i {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+#landing-view .glass-card .btn-landing-secondary:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+/* 3. Text Wrapping Prevention */
+#landing-view button,
+#landing-view label.cursor-pointer,
+#landing-view .source-type-btn,
+#landing-view .source-type-btn span,
+#landing-view .mode-btn,
+#landing-view .mode-btn span {
+    white-space: nowrap !important;
 }
 
 @media (min-width: 768px) {
@@ -1628,9 +1901,12 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         font-size: 12px !important;
     }
 
+    #landing-view .glass-card img[alt="MappAI Icon"] {
+        width: 70px !important;
+        height: 70px !important;
+    }
 
-
-    /* Enlarge and align Quick Action buttons and label as large, vertical action cards - DISATTIVATO PER NUOVO DESIGN BTN_SELEZIONE_INPUT
+    /* Enlarge and align Quick Action buttons and label as large, vertical action cards */
     #landing-view .glass-card button[onclick="window.startEmptyMap()"],
     #landing-view .glass-card button[onclick="window.loadMapVault()"],
     #landing-view .glass-card label[for="landing-import"].rounded-3xl {
@@ -1697,7 +1973,21 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         text-align: center !important;
         margin-top: calc(4px * var(--landing-zoom)) !important;
     }
-    */
+
+    /* Enlarge Utility buttons (Setup, Guida, Studio, Chi sei) - Gentler scaling - REMOVED SCALING */
+    #landing-view .glass-card .btn-landing-secondary {
+        font-size: 13.5px !important;
+        padding: 8px 6px !important;
+        border-radius: 12px !important;
+        width: 96px !important;
+        height: 80px !important;
+    }
+
+    #landing-view .glass-card .btn-landing-secondary svg,
+    #landing-view .glass-card .btn-landing-secondary i {
+        width: 22px !important;
+        height: 22px !important;
+    }
 
     /* Centratura Header e Prevenzione Collisioni a Zoom Elevato (x1.5 e x2) - MODIFIED TO STAY IN A ROW */
     body.a11y-zoom-x15 #landing-view .glass-card .border-b>div,
@@ -1719,6 +2009,13 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         margin: 0 !important;
         max-width: none !important;
         width: auto !important;
+    }
+
+    /* Enlarge Step indicators and section labels */
+    #landing-view .glass-card .step-badge {
+        width: calc(30.6px * var(--landing-zoom)) !important;
+        height: calc(30.6px * var(--landing-zoom)) !important;
+        font-size: calc(12.6px * var(--landing-zoom)) !important;
     }
 
     #landing-view .glass-card label.flex {
@@ -1743,6 +2040,56 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     body.a11y-zoom-x2 #landing-view .glass-card .ml-10.flex-wrap::-webkit-scrollbar {
         display: none !important;
         /* Chrome/Safari */
+    }
+
+    /* Enlarge Source Type buttons */
+    #landing-view .glass-card .source-type-btn {
+        padding: calc(17.3px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
+        border-radius: calc(12.6px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
+    }
+
+    #landing-view .glass-card .source-type-btn span {
+        font-size: calc(12px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .source-type-btn svg,
+    #landing-view .glass-card .source-type-btn i {
+        width: calc(22.6px * var(--landing-zoom)) !important;
+        height: calc(22.6px * var(--landing-zoom)) !important;
+        margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Enlarge Generation Mode buttons */
+    #landing-view .glass-card .mode-btn {
+        padding: calc(19.3px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
+        border-radius: calc(14.6px * var(--landing-zoom)) !important;
+        flex: 1 1 0% !important;
+    }
+
+    #landing-view .glass-card .mode-btn span.font-bold {
+        font-size: calc(12.6px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .mode-btn span.text-[9px] {
+        font-size: calc(8.6px * var(--landing-zoom)) !important;
+    }
+
+    #landing-view .glass-card .mode-btn svg,
+    #landing-view .glass-card .mode-btn i {
+        width: calc(24px * var(--landing-zoom)) !important;
+        height: calc(24px * var(--landing-zoom)) !important;
+        margin-bottom: calc(4.6px * var(--landing-zoom)) !important;
+    }
+
+    /* Prevent wrapping and allow scroll only under zoom modes */
+    body.a11y-zoom-x15 #landing-view .glass-card .source-type-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .source-type-btn {
+        flex: 0 0 calc(145px * var(--landing-zoom)) !important;
+    }
+    body.a11y-zoom-x15 #landing-view .glass-card .mode-btn,
+    body.a11y-zoom-x2 #landing-view .glass-card .mode-btn {
+        flex: 0 0 calc(270px * var(--landing-zoom)) !important;
     }
 
     /* Enlarge "Genera Mappa" and "Canvas Vuoto" action buttons */
@@ -1812,13 +2159,12 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         border-radius: calc(6.6px * var(--landing-zoom)) !important;
     }
 
-    /* Multi-pass ON/OFF buttons 
+    /* Multi-pass ON/OFF buttons */
     #multipass-off,
     #multipass-on {
         font-size: calc(8px * var(--landing-zoom)) !important;
         padding: calc(3.3px * var(--landing-zoom)) 0 !important;
     }
-    */
 
     /* Bottom action buttons: Guida AI Esterna / Importa JSON */
     #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
@@ -2035,6 +2381,39 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     display: none !important;
 }
 
+#landing-view .glass-card #setup-form > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: calc(16px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > div.hidden {
+    display: none !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#landing-view .glass-card #setup-form > div:not(:last-child) > label {
+    margin-bottom: 0 !important;
+}
+
+/* Specific styling for Step 3 to ensure proper specificity and override standard step gap */
+#landing-view .glass-card #setup-form > #step-3-container {
+    gap: calc(24px * var(--landing-zoom)) !important;
+}
+
+#landing-view .glass-card #setup-form > #step-3-container > label {
+    margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
+}
+
 #landing-view .glass-card #step-root-container,
 #landing-view .glass-card #input-l1-container,
 #landing-view .glass-card #focus-input-container {
@@ -2055,7 +2434,23 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     padding-top: calc(20px * var(--landing-zoom)) !important;
 }
 
+/* Ensure step density description paragraphs use flex-gap instead of manual margins */
+#landing-view .glass-card #step-density-container p,
+#landing-view .glass-card #step-kg-density-container p {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
 
+/* Homogeneous space for Multi-Pass toggle container to align it closer to the density options */
+#landing-view .glass-card #setup-form > #step-multipass-container {
+    margin-top: calc(-16px * var(--landing-zoom)) !important; /* Reduces the gap of 40px to exactly 24px */
+}
+
+#landing-view .glass-card #setup-form > div:last-child {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(24px * var(--landing-zoom)) !important;
+    margin-top: 0 !important;
+}
 
 /* Scalabilità del titolo del progetto in sidebar per modalità a11y zoom x1.5 e x2 */
 #sidebar-subtitle {

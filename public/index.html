@@ -2763,7 +2763,6 @@
 
     <!-- A11y Panel per OpenDyslexic (Global) -->
     <div id="a11y-panel" class="a11y-panel hidden-panel">
-        <span class="modal_section_title">Strumenti Visivi</span>
         <button onclick="document.documentElement.classList.toggle('a11y-invert'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
         <button
@@ -2774,12 +2773,10 @@
             class="btn_a11y_tool"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
         <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
-        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="btn_a11y_tool"><i
-                data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
-
-        <span class="modal_section_title mt-2">Strumenti di Lettura</span>
-        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="btn_a11y_tool"><i
-                data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
+        <button id="btn-line-height" onclick="window.cycleLineHeight()"
+            class="btn_a11y_tool"><i data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
+        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
         <button
             onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
