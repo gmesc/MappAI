@@ -299,21 +299,18 @@ body.a11y-zoom-x2 {
     border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Global A11y Panel Toggle Button and Panel lock */
-#a11y-panel-toggle {
-    position: fixed !important;
-    top: 24px !important;
-    right: 24px !important;
+/* Global A11y Panel Toggle & Floating Actions Toggle Button */
+#a11y-panel-toggle,
+#floating-actions-toggle {
     width: 48px !important;
     height: 48px !important;
     padding: 12px !important;
     border-radius: 9999px !important;
     background-color: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
-    color: #334155 !important;
+    color: #fbbf24 !important;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-    transition: all 0.2s ease !important;
-    z-index: 999999 !important;
+    transition: all 0.1s ease !important;
     cursor: pointer !important;
     display: flex !important;
     align-items: center !important;
@@ -321,23 +318,55 @@ body.a11y-zoom-x2 {
     outline: none !important;
 }
 
-#a11y-panel-toggle:hover {
+#a11y-panel-toggle {
+    position: fixed !important;
+    top: 24px !important;
+    right: 24px !important;
+    z-index: 999999 !important;
+}
+
+#floating-actions-toggle {
+    position: relative !important;
+}
+
+#a11y-panel-toggle:hover,
+#floating-actions-toggle:hover {
     background-color: #f8fafc !important;
-    color: #fbbf24 !important;
+    color: #334155 !important;
+    outline: #334155 10px solid !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
+    transition: all 0.2s ease !important;
 }
 
 /* Rimuove l'anello di focus persistente al click */
 #a11y-panel-toggle:focus,
 #a11y-panel-toggle:active,
-#a11y-panel-toggle:focus-visible {
+#a11y-panel-toggle:focus-visible,
+#floating-actions-toggle:focus,
+#floating-actions-toggle:active,
+#floating-actions-toggle:focus-visible {
     outline: none !important;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
 #a11y-panel-toggle svg,
-#a11y-panel-toggle i {
+#a11y-panel-toggle i,
+#floating-actions-toggle svg,
+#floating-actions-toggle i {
     width: 24px !important;
     height: 24px !important;
+}
+
+/* Effetto di rotazione personalizzato per l'icona logout del menu di salvataggio/uscita */
+#floating-actions-toggle i,
+#floating-actions-toggle svg {
+    transform: scaleX(-1) !important;
+    transition: transform 0.2s ease !important;
+}
+
+#floating-actions-toggle:hover i,
+#floating-actions-toggle:hover svg {
+    transform: scaleX(-1) rotate(12deg) !important;
 }
 
 #a11y-panel {
