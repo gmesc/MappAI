@@ -20,7 +20,6 @@ const en_translations = {
     tab_structure: "Structure",
     tab_notes: "Notes",
     tab_study: "Study",
-    tree_collapse_expand: "Collapse/Expand",
 
     // Setup Steps
     step1: "Upload your Sources",

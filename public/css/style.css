@@ -2514,21 +2514,24 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #step-root-container:not(.hidden),
-#landing-view .glass-card #input-l1-container {
+#landing-view .glass-card #step-root-container,
+#landing-view .glass-card #input-l1-container,
+#landing-view .glass-card #focus-input-container {
     display: flex !important;
     flex-direction: column !important;
     gap: calc(12px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #step-root-container:not(.hidden)>*,
-#landing-view .glass-card #input-l1-container>* {
+#landing-view .glass-card #step-root-container>*,
+#landing-view .glass-card #input-l1-container>*,
+#landing-view .glass-card #focus-input-container>* {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
 }
 
-.hidden {
-    display: none !important;
+#landing-view .glass-card #focus-input-container {
+    border-top: 1px solid rgba(199, 210, 254, 0.4) !important;
+    padding-top: calc(20px * var(--landing-zoom)) !important;
 }
 
 /* Ensure step density description paragraphs use flex-gap instead of manual margins */

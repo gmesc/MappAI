@@ -829,8 +829,9 @@ window.renderTreeView = function () {
 
         let childHtml = `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
         children.forEach(c => {
-            const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
-                c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
+            const cColor = (appState.db.customColors && appState.db.customColors[c.group])
+                ? appState.db.customColors[c.group]
+                : (colorScale[c.group] || colorScale[c.level !== undefined ? c.level : 1] || '#4f46e5');
             
             const hasKids = hasChildNodes(c.id);
             const cCollapsed = window.collapsedTreeNodes.has(c.id);
@@ -847,11 +848,11 @@ window.renderTreeView = function () {
             }
             childHtml += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
             if (hasKids) {
-                childHtml += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
+                childHtml += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-2.5 h-2.5 flex-shrink-0 cursor-pointer hover:scale-125 transition" style="color: ${cColor}; stroke: ${cColor};" title="${treeCollapseTitle}"></i>`;
             } else {
-                childHtml += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
+                childHtml += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: ${cColor}; stroke: ${cColor};"></i>`;
             }
-            childHtml += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+            childHtml += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" ondblclick="event.stopPropagation(); window.openEditModal(appState.db.nodes.find(n => n.id === '${c.id.replace(/'/g, "\\'")}'))" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
             childHtml += `${c.label}`;
             childHtml += `</button>`;
             childHtml += `</div>`;
@@ -869,8 +870,9 @@ window.renderTreeView = function () {
 
     let html = '';
     rootNodes.forEach(rn => {
-        const statusColor = rn.studyStatus === 'done' ? 'text-emerald-500' :
-            rn.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-300';
+        const mColor = (appState.db.customColors && appState.db.customColors[rn.group])
+            ? appState.db.customColors[rn.group]
+            : (colorScale[rn.group] || colorScale[rn.level !== undefined ? rn.level : 1] || '#4f46e5');
         const degreeInfo = !isMindmap ? ` <span class="text-[9px] text-indigo-400">(${rn.degree} conn.)</span>` : '';
 
         const hasKids = hasChildNodes(rn.id);
@@ -888,11 +890,11 @@ window.renderTreeView = function () {
         }
         html += `<div class="flex-grow py-1.5 pr-2 flex items-center gap-2 truncate text-left">`;
         if (hasKids) {
-            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
+            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 flex-shrink-0 cursor-pointer hover:scale-125 transition" style="color: ${mColor}; stroke: ${mColor};" title="${treeCollapseTitle}"></i>`;
         } else {
-            html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
+            html += `<i data-lucide="circle" class="w-3 h-3 flex-shrink-0" style="color: ${mColor}; stroke: ${mColor};"></i>`;
         }
-        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
+        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" ondblclick="event.stopPropagation(); window.openEditModal(appState.db.nodes.find(n => n.id === '${rn.id.replace(/'/g, "\\'")}'))" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
         html += `${rn.label}${degreeInfo}`;
         html += `</button>`;
         html += `</div>`;
@@ -3662,7 +3664,7 @@ function renderGraph() {
         .style("opacity", 0) // Cascading animation start
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
-        .on("dblclick", (e, d) => { e.stopPropagation(); window.openSourceModal(d.id); })
+        .on("dblclick", (e, d) => { e.stopPropagation(); window.openEditModal(d); })
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
