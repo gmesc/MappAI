@@ -15,7 +15,7 @@
   "build": {
     "asar": true,
     "appId": "com.mappai.generatore",
-    "productName": "MappAI Swiss",
+    "productName": "MappAI",
     "mac": {
       "target": [
         {
