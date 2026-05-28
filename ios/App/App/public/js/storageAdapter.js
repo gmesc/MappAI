@@ -186,84 +186,25 @@
         }
     }
 
-    async function scanVaultsRecursive(currentPath, depth = 0) {
-        if (depth > 2) return [];
-        const { Filesystem, Directory } = window.Capacitor.Plugins;
-        let vaults = [];
-        try {
-            const readResult = await Filesystem.readdir({
-                path: currentPath,
-                directory: Directory.Documents
-            });
-            for (const file of readResult.files) {
-                const name = typeof file === 'string' ? file : file.name;
-                if (name.startsWith('.')) continue;
-                const fullPath = `${currentPath}/${name}`;
-                let isVault = false;
-                let vaultInfo = null;
-                try {
-                    const indexFile = await Filesystem.readFile({
-                        path: `${fullPath}/index.yaml`,
-                        directory: Directory.Documents,
-                        encoding: 'utf8'
-                    });
-                    isVault = true;
-                    vaultInfo = {
-                        folderName: name,
-                        fullPath: fullPath.replace('MappAI - Vault/', '')
-                    };
-                    indexFile.data.split('\n').forEach(line => {
-                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
-                        if (line.startsWith('rootNodeLabel:')) vaultInfo.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                        if (line.startsWith('lastUpdated:')) vaultInfo.lastUpdated = line.split('lastUpdated:')[1].trim();
-                        if (line.startsWith('userProfile:')) {
-                            try {
-                                const profile = JSON.parse(line.substring(line.indexOf(':') + 1).trim());
-                                vaultInfo.nickname = profile.nickname;
-                                vaultInfo.age = profile.age;
-                            } catch(e) {}
-                        }
-                    });
-                } catch (e) {
-                    try {
-                        const dataFile = await Filesystem.readFile({
-                            path: `${fullPath}/vault_data.json`,
-                            directory: Directory.Documents,
-                            encoding: 'utf8'
-                        });
-                        isVault = true;
-                        const parsed = JSON.parse(dataFile.data);
-                        const mapData = parsed.db ? parsed.db : parsed;
-                        vaultInfo = {
-                            folderName: name,
-                            fullPath: fullPath.replace('MappAI - Vault/', ''),
-                            extractionMode: parsed.extractionMode || 'mindmap',
-                            rootNodeLabel: parsed.rootNodeLabel || name,
-                            lastUpdated: parsed.lastUpdated || new Date().toISOString()
-                        };
-                    } catch (err) {}
-                }
-                if (isVault && vaultInfo) {
-                    vaults.push(vaultInfo);
-                } else {
-                    const fileType = typeof file === 'string' ? null : file.type;
-                    if (fileType === 'directory' || fileType === null) {
-                        const subVaults = await scanVaultsRecursive(fullPath, depth + 1);
-                        vaults = vaults.concat(subVaults);
-                    }
-                }
-            }
-        } catch (err) {}
-        return vaults;
-    }
-
     // Creazione dell'oggetto fittizio window.electronAPI
     window.electronAPI = {
         // --- STORAGE & GESTIONE VAULT ---
 
         getAllVaults: async function () {
             if (isCapacitor) {
-                return await scanVaultsRecursive('MappAI - Vault', 0);
+                try {
+                    const { Filesystem, Directory } = window.Capacitor.Plugins;
+                    // Su iPad leggiamo l'indice dei vault salvato in un file di configurazione
+                    const result = await Filesystem.readFile({
+                        path: 'MappAI - Vault/vaults_index.json',
+                        directory: Directory.Documents,
+                        encoding: 'utf8'
+                    });
+                    return JSON.parse(result.data);
+                } catch (e) {
+                    // Se il file indice non esiste, restituiamo un array vuoto
+                    return [];
+                }
             } else {
                 // Su Web usiamo IndexedDB o localStorage
                 const saved = await getLocalItem("mappai_vaults_list");
@@ -274,204 +215,23 @@
         loadVault: async function (folderPath) {
             currentVirtualVault = folderPath;
             if (isCapacitor) {
-                const { Filesystem, Directory } = window.Capacitor.Plugins;
-                const vaultRoot = `MappAI - Vault/${folderPath}`;
-                
                 try {
-                    // Tenta prima di caricare il file monolitico vault_data.json (caricamento veloce)
-                    const dataPath = `${vaultRoot}/vault_data.json`;
+                    const { Filesystem, Directory } = window.Capacitor.Plugins;
+                    const path = `MappAI - Vault/${folderPath}/vault_data.json`;
                     const result = await Filesystem.readFile({
-                        path: dataPath,
+                        path: path,
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
-                    const parsed = JSON.parse(result.data);
-                    let mapData = parsed;
-                    if (parsed && parsed.mapData) {
-                        mapData = parsed.mapData;
-                    } else if (parsed && parsed.db) {
-                        mapData = parsed.db;
-                    }
-                    return { success: true, data: mapData };
+                    return JSON.parse(result.data);
                 } catch (e) {
-                    console.log("[MappAI Adapter] vault_data.json assente o corrotto. Caricamento analitico della cartella...");
-                    
-                    // Se vault_data.json manca, facciamo il parsing manuale di index.yaml, links.json, Nodi/*.md
-                    try {
-                        const mapData = {
-                            nodes: [],
-                            links: [],
-                            extractionMode: 'mindmap',
-                            rootNodeLabel: folderPath,
-                            customColors: {},
-                            studySets: []
-                        };
-
-                        // 1. Carica index.yaml
-                        try {
-                            const indexFile = await Filesystem.readFile({
-                                path: `${vaultRoot}/index.yaml`,
-                                directory: Directory.Documents,
-                                encoding: 'utf8'
-                            });
-                            indexFile.data.split('\n').forEach(line => {
-                                if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
-                                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                                if (line.startsWith('userProfile:')) {
-                                    try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
-                                }
-                                if (line.startsWith('customColors:')) {
-                                    try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
-                                }
-                                if (line.startsWith('generationUsage:')) {
-                                    try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(err) {}
-                                }
-                            });
-                        } catch (err) {
-                            console.log("[MappAI Adapter] Nessun index.yaml trovato.");
-                        }
-
-                        // 2. Carica links.json
-                        try {
-                            const linksFile = await Filesystem.readFile({
-                                path: `${vaultRoot}/links.json`,
-                                directory: Directory.Documents,
-                                encoding: 'utf8'
-                            });
-                            const rawLinks = JSON.parse(linksFile.data);
-                            mapData.links = rawLinks.map(l => ({
-                                source: l.source,
-                                target: l.target,
-                                rel: l.rel || "include",
-                                isCross: !!l.isCross
-                            }));
-                        } catch (err) {
-                            console.log("[MappAI Adapter] Nessun links.json trovato.");
-                        }
-
-                        // 3. Carica i nodi da Nodi/*.md
-                        try {
-                            const nodesRead = await Filesystem.readdir({
-                                path: `${vaultRoot}/Nodi`,
-                                directory: Directory.Documents
-                            });
-                            for (const file of nodesRead.files) {
-                                const fileName = typeof file === 'string' ? file : file.name;
-                                if (!fileName.endsWith('.md')) continue;
-
-                                try {
-                                    const nodeFile = await Filesystem.readFile({
-                                        path: `${vaultRoot}/Nodi/${fileName}`,
-                                        directory: Directory.Documents,
-                                        encoding: 'utf8'
-                                    });
-                                    const parts = nodeFile.data.split('---');
-                                    if (parts.length >= 3) {
-                                        const fmLines = parts[1].trim().split('\n');
-                                        const node = { chunks: [] };
-                                        fmLines.forEach(l => {
-                                            const colonIdx = l.indexOf(':');
-                                            if (colonIdx === -1) return;
-                                            const k = l.substring(0, colonIdx).trim();
-                                            const v = l.substring(colonIdx + 1).trim();
-                                            const cleanV = v.replace(/^"(.*)"$/, '$1');
-                                            if (k === 'id') node.id = cleanV;
-                                            if (k === 'label') node.label = cleanV;
-                                            if (k === 'level') node.level = parseInt(cleanV);
-                                            if (k === 'group') node.group = parseInt(cleanV);
-                                            if (k === 'parent') node.parent = cleanV;
-                                            if (k === 'images') {
-                                                try { node.images = JSON.parse(v); } catch(err) {}
-                                            }
-                                            if (k === 'iconVisibility') {
-                                                try { node.iconVisibility = JSON.parse(v); } catch(err) {}
-                                            }
-                                            if (k === 'hasCustomText') node.hasCustomText = (cleanV === 'true');
-                                            if (k === 'hasCustomImage') node.hasCustomImage = (cleanV === 'true');
-                                            if (k === 'x') { node.x = parseFloat(cleanV); node.fx = node.x; }
-                                            if (k === 'y') { node.y = parseFloat(cleanV); node.fy = node.y; }
-                                            if (k === 'savedX') node.savedX = parseFloat(cleanV);
-                                            if (k === 'savedY') node.savedY = parseFloat(cleanV);
-                                        });
-
-                                        let body = parts.slice(2).join('---').trim();
-                                        body = body.replace(/!\[\[.*?\]\]\n\n/g, '');
-                                        
-                                        const fontiPart = body.split('## Fonti');
-                                        if (fontiPart.length > 1) {
-                                            node.desc = fontiPart[0].replace(/^# .*\n\n/, '').trim();
-                                            const fontiLines = fontiPart[1].trim().split('\n- ');
-                                            fontiLines.forEach(f => {
-                                                let cleanLine = f.replace(/^- /, '').trim();
-                                                const matchWithSource = cleanLine.match(/\[(.*?) \| (.*?)\]: (.*)/);
-                                                if (matchWithSource) {
-                                                    node.chunks.push({ title: matchWithSource[1], source: matchWithSource[2], text: matchWithSource[3] });
-                                                } else {
-                                                    const matchSimple = cleanLine.match(/\[(.*?)\]: (.*)/);
-                                                    if (matchSimple) {
-                                                        node.chunks.push({ title: matchSimple[1], source: 'Originale', text: matchSimple[2] });
-                                                    }
-                                                }
-                                            });
-                                        } else {
-                                            node.desc = body.replace(/^# .*\n\n/, '').trim();
-                                        }
-                                        mapData.nodes.push(node);
-                                    }
-                                } catch (nodeErr) {
-                                    console.error(`[MappAI Adapter] Errore lettura nodo ${fileName}:`, nodeErr);
-                                }
-                            }
-                        } catch (err) {
-                            console.log("[MappAI Adapter] Nessuna cartella Nodi trovata o leggibile.");
-                        }
-
-                        // 4. Carica chat_state.json
-                        try {
-                            const chatStateFile = await Filesystem.readFile({
-                                path: `${vaultRoot}/chat_state.json`,
-                                directory: Directory.Documents,
-                                encoding: 'utf8'
-                            });
-                            mapData.tutorState = JSON.parse(chatStateFile.data);
-                        } catch (err) {}
-
-                        // 5. Carica Materiale Studio
-                        try {
-                            const studyRead = await Filesystem.readdir({
-                                path: `${vaultRoot}/Materiale Studio`,
-                                directory: Directory.Documents
-                            });
-                            for (const file of studyRead.files) {
-                                const fileName = typeof file === 'string' ? file : file.name;
-                                if (!fileName.endsWith('.json')) continue;
-                                try {
-                                    const contentFile = await Filesystem.readFile({
-                                        path: `${vaultRoot}/Materiale Studio/${fileName}`,
-                                        directory: Directory.Documents,
-                                        encoding: 'utf8'
-                                    });
-                                    const set = JSON.parse(contentFile.data);
-                                    mapData.studySets.push(set);
-                                } catch (err) {}
-                            }
-                        } catch (err) {}
-
-                        return { success: true, data: mapData };
-                    } catch (parseErr) {
-                        console.error("[MappAI Adapter] Errore critico nel parsing analitico del vault nativo:", parseErr);
-                        return { success: false, error: parseErr.message };
-                    }
+                    console.warn("[MappAI Adapter] Errore caricamento vault nativo, inizializzo vuoto:", e);
+                    return { nodes: [], links: [], sourcesDict: {}, customColors: {} };
                 }
             } else {
                 // Su Web leggiamo da IndexedDB
                 const data = await getLocalItem(`vault_content_${folderPath}`);
-                const parsed = data ? JSON.parse(data) : null;
-                let mapData = parsed || { nodes: [], links: [], sourcesDict: {}, customColors: {} };
-                if (parsed && parsed.mapData) {
-                    mapData = parsed.mapData;
-                }
-                return { success: true, data: mapData };
+                return data ? JSON.parse(data) : { nodes: [], links: [], sourcesDict: {}, customColors: {} };
             }
         },
 
@@ -490,7 +250,7 @@
                 const path = `MappAI - Vault/${activeVault}/vault_data.json`;
                 await Filesystem.writeFile({
                     path: path,
-                    data: JSON.stringify(mapData),
+                    data: JSON.stringify(vaultData),
                     directory: Directory.Documents,
                     encoding: 'utf8',
                     recursive: true
@@ -653,7 +413,7 @@
         loadPrompts: async function () {
             let defaultPrompts = {};
             try {
-                const response = await fetch('./prompts_default.json');
+                const response = await fetch('./prompts_config.json');
                 if (response.ok) {
                     defaultPrompts = await response.json();
                 }
@@ -667,7 +427,7 @@
                 try {
                     const { Filesystem, Directory } = window.Capacitor.Plugins;
                     const res = await Filesystem.readFile({
-                        path: 'MappAI_Config/prompts_user.json',
+                        path: 'MappAI_Config/prompts.json',
                         directory: Directory.Documents,
                         encoding: 'utf8'
                     });
@@ -693,7 +453,7 @@
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 await Filesystem.writeFile({
-                    path: 'MappAI_Config/prompts_user.json',
+                    path: 'MappAI_Config/prompts.json',
                     data: JSON.stringify(config),
                     directory: Directory.Documents,
                     encoding: 'utf8',
@@ -709,60 +469,13 @@
         // --- FILE SYSTEM, FILE PICKING & PARSING ---
 
         pickFolder: async function () {
-            if (isCapacitor) {
-                return new Promise((resolve) => {
-                    const choice = confirm("Vuoi importare un file di Vault (.json) esistente?\n\n(Seleziona 'Annulla' per creare un nuovo Vault vuoto)");
-                    if (choice) {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = '.json';
-                        input.onchange = async (e) => {
-                            const file = e.target.files[0];
-                            if (!file) {
-                                resolve({ canceled: true });
-                                return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = async (evt) => {
-                                try {
-                                    const parsed = JSON.parse(evt.target.result);
-                                    const data = parsed.db ? parsed.db : parsed;
-                                    if (!data.nodes || !data.links) {
-                                        alert("Il file selezionato non è un Vault di MappAI valido.");
-                                        resolve({ canceled: true });
-                                        return;
-                                    }
-                                    const baseName = file.name.replace('.json', '');
-                                    const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
-                                    await window.electronAPI.saveVault({
-                                        folderPath: safeName,
-                                        mapData: parsed
-                                    });
-                                    resolve({ canceled: false, folderPath: safeName });
-                                } catch (err) {
-                                    alert("Errore durante la lettura del file: " + err.message);
-                                    resolve({ canceled: true });
-                                }
-                            };
-                            reader.readAsText(file);
-                        };
-                        input.click();
-                    } else {
-                        const vaultName = prompt("Inserisci il nome del nuovo Vault:", "Nuovo_Vault");
-                        if (!vaultName) {
-                            resolve({ canceled: true });
-                            return;
-                        }
-                        const safeName = vaultName.replace(/[^a-zA-Z0-9_]/g, "_");
-                        resolve({ canceled: false, folderPath: safeName });
-                    }
-                });
-            } else {
-                const vaultName = prompt("Inserisci il nome del nuovo Vault:", "Nuovo_Vault");
-                if (!vaultName) return { canceled: true };
-                const safeName = vaultName.replace(/[^a-zA-Z0-9_]/g, "_");
-                return { canceled: false, folderPath: safeName };
-            }
+            // Su iPad/Web non possiamo selezionare cartelle reali di sistema.
+            // Creiamo un prompt o usiamo un nome fisso per simulare il selettore.
+            const vaultName = prompt("Inserisci il nome del nuovo Vault (o seleziona un nome esistente):", "Nuovo_Vault");
+            if (!vaultName) return { canceled: true };
+
+            currentVirtualVault = vaultName.replace(/[^a-zA-Z0-9_]/g, "_"); // Rimuoviamo caratteri non sicuri
+            return { canceled: false, folderPath: currentVirtualVault };
         },
 
         pickFile: async function () {
@@ -1058,16 +771,6 @@
         try {
             const { Filesystem, Directory } = window.Capacitor.Plugins;
             
-            const initialVaultsList = [
-                "KG Struttura Albero 1 media",
-                "KG Struttura albero Liceo",
-                "KG robotica mindstorm gigetto 10 nodi",
-                "KG robotica mindstorm gigetto 20 nodi",
-                "KG robotica mindstorm gigetto 35 nodi",
-                "MM Carta",
-                "MM Nascita della Svizzera"
-            ];
-
             // 1. Controlla se la cartella "MappAI - Vault" contiene già l'indice
             let needsInit = false;
             try {
@@ -1084,102 +787,71 @@
                 needsInit = true;
             }
 
-            // 2. Se è la prima inizializzazione, copia eventuali file demo dal manifest
-            if (needsInit) {
-                console.log("[MappAI Adapter] Inizializzazione MappAI - Vault con file demo...");
+            if (!needsInit) {
+                console.log("[MappAI Adapter] MappAI - Vault già popolata.");
+                return;
+            }
+
+            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault con file demo...");
+            
+            // 2. Leggi il manifest dei file demo
+            const manifestRes = await fetch('./vault_demo_manifest.json');
+            if (!manifestRes.ok) throw new Error("Manifest demo non trovato");
+            const files = await manifestRes.json();
+
+            // 3. Copia ogni file
+            for (const relPath of files) {
+                const srcUrl = `./vault_demo/${relPath}`;
+                const destPath = `MappAI - Vault/${relPath}`;
+                
                 try {
-                    const manifestRes = await fetch('./vault_demo_manifest.json');
-                    if (manifestRes.ok) {
-                        const files = await manifestRes.json();
-                        for (const relPath of files) {
-                            const srcUrl = `./Vault/${relPath}`;
-                            const destPath = `MappAI - Vault/${relPath}`;
-                            try {
-                                const isBinary = relPath.toLowerCase().endsWith('.pdf');
-                                if (isBinary) {
-                                    const fileRes = await fetch(srcUrl);
-                                    const arrayBuffer = await fileRes.arrayBuffer();
-                                    const base64Data = arrayBufferToBase64(arrayBuffer);
-                                    await Filesystem.writeFile({
-                                        path: destPath,
-                                        data: base64Data,
-                                        directory: Directory.Documents,
-                                        recursive: true
-                                    });
-                                } else {
-                                    const fileRes = await fetch(srcUrl);
-                                    const textData = await fileRes.text();
-                                    await Filesystem.writeFile({
-                                        path: destPath,
-                                        data: textData,
-                                        directory: Directory.Documents,
-                                        encoding: 'utf8',
-                                        recursive: true
-                                    });
-                                }
-                            } catch (err) {
-                                console.error(`[MappAI Adapter] Errore copia file ${relPath}:`, err);
-                            }
-                        }
+                    const isBinary = relPath.toLowerCase().endsWith('.pdf');
+                    
+                    if (isBinary) {
+                        const fileRes = await fetch(srcUrl);
+                        const arrayBuffer = await fileRes.arrayBuffer();
+                        const base64Data = arrayBufferToBase64(arrayBuffer);
+                        await Filesystem.writeFile({
+                            path: destPath,
+                            data: base64Data,
+                            directory: Directory.Documents,
+                            recursive: true
+                        });
+                    } else {
+                        const fileRes = await fetch(srcUrl);
+                        const textData = await fileRes.text();
+                        await Filesystem.writeFile({
+                            path: destPath,
+                            data: textData,
+                            directory: Directory.Documents,
+                            encoding: 'utf8',
+                            recursive: true
+                        });
                     }
-                } catch (e) {
-                    console.warn("[MappAI Adapter] Errore caricamento file manifest:", e);
-                }
-
-                // Scrivi l'indice dei vault demo iniziale
-                await Filesystem.writeFile({
-                    path: 'MappAI - Vault/vaults_index.json',
-                    data: JSON.stringify(initialVaultsList),
-                    directory: Directory.Documents,
-                    encoding: 'utf8',
-                    recursive: true
-                });
-            }
-
-            // 3. Garantisci SEMPRE che le cartelle e i file index.yaml di default per ogni vault demo esistano nel filesystem nativo
-            for (const vaultName of initialVaultsList) {
-                const vaultPath = `MappAI - Vault/${vaultName}`;
-                try {
-                    await Filesystem.mkdir({
-                        path: vaultPath,
-                        directory: Directory.Documents,
-                        recursive: true
-                    });
-                } catch (e) {}
-
-                try {
-                    await Filesystem.mkdir({
-                        path: `${vaultPath}/Allegati`,
-                        directory: Directory.Documents,
-                        recursive: true
-                    });
-                } catch (e) {}
-
-                const indexPath = `${vaultPath}/index.yaml`;
-                let hasIndex = false;
-                try {
-                    await Filesystem.readFile({
-                        path: indexPath,
-                        directory: Directory.Documents,
-                        encoding: 'utf8'
-                    });
-                    hasIndex = true;
-                } catch (e) {
-                    hasIndex = false;
-                }
-
-                if (!hasIndex) {
-                    const defaultIndex = `extractionMode: mindmap\nrootNodeLabel: ${vaultName}\nlastUpdated: ${new Date().toISOString()}\n`;
-                    await Filesystem.writeFile({
-                        path: indexPath,
-                        data: defaultIndex,
-                        directory: Directory.Documents,
-                        encoding: 'utf8',
-                        recursive: true
-                    });
+                } catch (err) {
+                    console.error(`[MappAI Adapter] Errore copia file ${relPath}:`, err);
                 }
             }
-            console.log("[MappAI Adapter] Inizializzazione/Verifica cartelle demo completata.");
+
+            // 4. Scrivi l'indice dei vault demo iniziale
+            const initialVaultsList = [
+                "Materiale di Storia/Storia Svizzera",
+                "Materiale Scienze/KG 01 liceo",
+                "Materiale Scienze/KG 02 liceo HD",
+                "Materiale Scienze/KG 03 1a media HD",
+                "Robotica/vault robotica mindstorm gigetto 10 nodi",
+                "Robotica/vault robotica mindstorm gigetto 20 nodi",
+                "Robotica/vault robotica mindstorm gigetto 35 nodi",
+                "Storia carta/Vault Carta"
+            ];
+            await Filesystem.writeFile({
+                path: 'MappAI - Vault/vaults_index.json',
+                data: JSON.stringify(initialVaultsList),
+                directory: Directory.Documents,
+                encoding: 'utf8',
+                recursive: true
+            });
+            console.log("[MappAI Adapter] Inizializzazione MappAI - Vault completata con successo!");
         } catch (err) {
             console.error("[MappAI Adapter] Errore critico inizializzazione vault su iPad:", err);
         }

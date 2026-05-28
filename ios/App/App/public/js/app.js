@@ -5312,41 +5312,11 @@ window.loadMapVault = async function () {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
-            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel || result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
-            let nodesList = loadRes.data.nodes || [];
-            let linksList = loadRes.data.links || [];
-            
-            if (nodesList.length === 0) {
-                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
-                nodesList = [{
-                    id: rootId,
-                    label: appState.rootNodeLabel,
-                    level: 0,
-                    group: 0,
-                    x: 640,
-                    y: 400,
-                    fx: 640,
-                    fy: 400
-                }];
-                linksList = [];
-                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
-                window.electronAPI.saveVault({
-                    folderPath: result.folderPath,
-                    mapData: {
-                        extractionMode: appState.extractionMode,
-                        rootNodeLabel: appState.rootNodeLabel,
-                        nodes: nodesList,
-                        links: linksList,
-                        customColors: {}
-                    }
-                });
-            }
-
+            appState.extractionMode = loadRes.data.extractionMode;
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
             appState.db = {
-                nodes: nodesList,
-                links: linksList,
+                nodes: loadRes.data.nodes || [],
+                links: loadRes.data.links || [],
                 sourcesDict: {},
                 customColors: loadRes.data.customColors || {}
             };
@@ -5380,67 +5350,6 @@ window.loadMapVault = async function () {
         console.error(e);
         window.showAlert("Errore", e.message);
     }
-};
-
-window.handleImportClick = function(event) {
-    const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
-    if (isCapacitor) {
-        // Su iPadOS/Capacitor facciamo scattare direttamente il click sull'input file nascosto
-        // in modo sincrono per conservare la user gesture valida di WKWebView
-        const filePicker = document.getElementById('mappai-ipad-vault-file-picker');
-        if (filePicker) {
-            filePicker.click();
-        }
-    } else {
-        // Su desktop/electron chiamiamo il normale caricamento
-        window.loadMapVault();
-    }
-};
-
-window.handleIPadVaultFileSelected = async function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    window.showLoadingOverlay(true, "Importazione Vault in corso...");
-    
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-        try {
-            const parsed = JSON.parse(evt.target.result);
-            const data = parsed.db ? parsed.db : parsed;
-            if (!data.nodes || !data.links) {
-                window.showLoadingOverlay(false);
-                window.showAlert("Errore", "Il file selezionato non è un Vault di MappAI valido.");
-                return;
-            }
-            const baseName = file.name.replace('.json', '');
-            const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
-            
-            // Salva il vault nativamente tramite il bridge
-            const saveRes = await window.electronAPI.saveVault({
-                folderPath: safeName,
-                mapData: parsed
-            });
-            
-            window.showLoadingOverlay(false);
-            if (saveRes && saveRes.success) {
-                window.showToast("Vault importato con successo!", "success");
-                // Ricarica la lista dei vault nel modale
-                if (typeof window.loadVaultList === 'function') {
-                    await window.loadVaultList();
-                }
-            } else {
-                window.showAlert("Errore", "Impossibile salvare il Vault nel dispositivo.");
-            }
-        } catch (err) {
-            window.showLoadingOverlay(false);
-            window.showAlert("Errore", "Errore durante la lettura del file JSON: " + err.message);
-        }
-    };
-    reader.readAsText(file);
-    
-    // Resetta il valore dell'input per permettere di riselezionare lo stesso file
-    event.target.value = "";
 };
 
 window.startEmptyMap = function () {
@@ -7994,12 +7903,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
-
-    // Aggiorna dinamicamente l'etichetta del percorso cartella dei vault
-    const labelEl = document.getElementById('vault-manager-folder-path-label');
-    if (labelEl) {
-        labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
-    }
 });
 
 window.globalQuizQueue = [];
@@ -9468,41 +9371,11 @@ window.directLoadVault = async function (folderPath) {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
-            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel || folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
-            
-            let nodesList = loadRes.data.nodes || [];
-            let linksList = loadRes.data.links || [];
-            
-            if (nodesList.length === 0) {
-                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
-                nodesList = [{
-                    id: rootId,
-                    label: appState.rootNodeLabel,
-                    level: 0,
-                    group: 0,
-                    x: 640,
-                    y: 400,
-                    fx: 640,
-                    fy: 400
-                }];
-                linksList = [];
-                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
-                window.electronAPI.saveVault({
-                    folderPath: folderPath,
-                    mapData: {
-                        extractionMode: appState.extractionMode,
-                        rootNodeLabel: appState.rootNodeLabel,
-                        nodes: nodesList,
-                        links: linksList,
-                        customColors: {}
-                    }
-                });
-            }
-
+            appState.extractionMode = loadRes.data.extractionMode;
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
             appState.db = {
-                nodes: nodesList,
-                links: linksList,
+                nodes: loadRes.data.nodes || [],
+                links: loadRes.data.links || [],
                 sourcesDict: {}
             };
 

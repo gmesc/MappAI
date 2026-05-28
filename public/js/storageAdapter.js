@@ -681,7 +681,7 @@
             if (isCapacitor) {
                 const { Filesystem, Directory } = window.Capacitor.Plugins;
                 await Filesystem.writeFile({
-                    path: `MappAI - Vault/${activeVault}/chats/${filename}`,
+                    path: `MappAI - Vault/${activeVault}/Quiz e Flashcard/${filename}`,
                     data: textContent,
                     directory: Directory.Documents,
                     encoding: 'utf8',

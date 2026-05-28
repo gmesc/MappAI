@@ -197,7 +197,20 @@ window.applyStudentModeUI = function () {
 
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
-    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
+    // Mostra/Nascondi il setup-form e btn-config-ai in base allo stato
+    const setupForm = document.getElementById('setup-form');
+    const btnConfig = document.getElementById('btn-config-ai');
+
+    if (appState.studentMode) {
+        if (setupForm) setupForm.classList.add('hidden');
+        if (btnConfig) btnConfig.classList.add('hidden');
+        window.showToast("Generatore BLOCCATO! Modalità Studente attiva.", "info");
+    } else {
+        if (setupForm) setupForm.classList.remove('hidden');
+        if (btnConfig) btnConfig.classList.remove('hidden');
+        window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
+    }
+
     window.applyStudentModeUI();
 };
 
@@ -454,10 +467,10 @@ window.showConfigAIModal = function () {
         if (m) {
             const productInput = document.getElementById('infomaniak-product-id');
             if (productInput) productInput.value = appState.infomaniakProductId || '';
-            m.style.display = ''; 
-            m.classList.remove('hidden'); 
-            m.classList.add('flex'); 
-            window.safeCreateIcons(); 
+            m.style.display = '';
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            window.safeCreateIcons();
         }
     } catch (e) { }
 };
@@ -724,11 +737,26 @@ window.switchSidebarTab = function (tab) {
     if (tab === 'notes') window.updateUserNotesSidebar();
 }
 
-// ── Tree View (Macro-areas / Super-hubs) ──────────────────────
+// Inizializza Set globale per i nodi collassati se non esiste
+window.collapsedTreeNodes = window.collapsedTreeNodes || new Set();
+
+window.toggleTreeCollapse = function (nodeId) {
+    if (window.collapsedTreeNodes.has(nodeId)) {
+        window.collapsedTreeNodes.delete(nodeId);
+    } else {
+        window.collapsedTreeNodes.add(nodeId);
+    }
+    window.renderTreeView();
+};
+
 window.renderTreeView = function () {
     const container = document.getElementById('tree-view-container');
     const titleEl = document.getElementById('tree-view-title');
     if (!container || !appState.db.nodes.length) return;
+
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const treeCollapseTitle = t.tree_collapse_expand || "Collassa/Espandi";
 
     const isMindmap = appState.extractionMode === 'mindmap';
     if (titleEl) titleEl.textContent = isMindmap ? 'Macro-aree' : 'Super-hub';
@@ -736,7 +764,7 @@ window.renderTreeView = function () {
     let rootNodes = [];
 
     if (isMindmap) {
-        // For mindmaps: show L1 nodes with their L2 children
+        // For mindmaps: show L1 nodes
         rootNodes = appState.db.nodes.filter(n => n.level === 1);
     } else {
         // For KG: find super-hubs (top N nodes by degree)
@@ -759,22 +787,124 @@ window.renderTreeView = function () {
         return;
     }
 
+    // Funzione helper per verificare se un nodo ha discendenti
+    function hasChildNodes(nodeId) {
+        const hasDirectParentRef = appState.db.nodes.some(n => n.parent === nodeId);
+        if (hasDirectParentRef) return true;
+
+        return appState.db.links.some(l => {
+            const sid = typeof l.source === 'object' ? l.source.id : l.source;
+            const tid = typeof l.target === 'object' ? l.target.id : l.target;
+            return sid === nodeId || tid === nodeId;
+        }) && appState.db.nodes.some(n => (n.parent === nodeId || appState.db.links.some(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return (s === nodeId && t === n.id) || (t === nodeId && s === n.id);
+        })) && n.level === (appState.db.nodes.find(parent => parent.id === nodeId)?.level || 0) + 1);
+    }
+
+    // Funzione ricorsiva per renderizzare tutti i discendenti fino al livello 5
+    function renderChildrenNodes(parentNode) {
+        const parentId = parentNode.id;
+        const currentLevel = parentNode.level || 0;
+        if (currentLevel >= 5) return ''; // Stop al livello 5
+
+        const childIds = new Set();
+        appState.db.links.forEach(l => {
+            const sid = typeof l.source === 'object' ? l.source.id : l.source;
+            const tid = typeof l.target === 'object' ? l.target.id : l.target;
+            if (sid === parentId) childIds.add(tid);
+            if (tid === parentId) childIds.add(sid);
+        });
+
+        // Aggiungi anche nodi che hanno esplicitamente parent uguale a parentId
+        appState.db.nodes.forEach(n => {
+            if (n.parent === parentId) {
+                childIds.add(n.id);
+            }
+        });
+
+        const children = appState.db.nodes.filter(n => childIds.has(n.id) && (n.level === currentLevel + 1 || (n.parent === parentId && !n.level)));
+        if (children.length === 0) return '';
+
+        let childHtml = `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
+        children.forEach(c => {
+            const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
+                c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
+            
+            const hasKids = hasChildNodes(c.id);
+            const cCollapsed = window.collapsedTreeNodes.has(c.id);
+            const arrowIcon = cCollapsed ? 'chevron-right' : 'chevron-down';
+
+            childHtml += `<div class="w-full">`;
+            childHtml += `<div class="w-full flex items-center rounded hover:bg-slate-50 group transition">`;
+            if (hasKids) {
+                childHtml += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-indigo-500 transition shrink-0" title="${treeCollapseTitle}">`;
+                childHtml += `<i data-lucide="${arrowIcon}" class="w-3 h-3 flex-shrink-0"></i>`;
+                childHtml += `</button>`;
+            } else {
+                childHtml += `<div class="w-5 h-5 flex-shrink-0"></div>`;
+            }
+            childHtml += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
+            if (hasKids) {
+                childHtml += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
+            } else {
+                childHtml += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
+            }
+            childHtml += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+            childHtml += `${c.label}`;
+            childHtml += `</button>`;
+            childHtml += `</div>`;
+            childHtml += `</div>`;
+            
+            // Chiamata ricorsiva per renderizzare i figli di questo nodo se non è collassato
+            if (!cCollapsed) {
+                childHtml += renderChildrenNodes(c);
+            }
+            childHtml += `</div>`;
+        });
+        childHtml += `</div>`;
+        return childHtml;
+    }
+
     let html = '';
     rootNodes.forEach(rn => {
-        // Find children
-        let children = [];
-        if (isMindmap) {
-            // Children are L2 nodes connected to this L1
-            const childIds = new Set();
-            appState.db.links.forEach(l => {
-                const sid = typeof l.source === 'object' ? l.source.id : l.source;
-                const tid = typeof l.target === 'object' ? l.target.id : l.target;
-                if (sid === rn.id) childIds.add(tid);
-                if (tid === rn.id) childIds.add(sid);
-            });
-            children = appState.db.nodes.filter(n => childIds.has(n.id) && n.level === 2);
+        const statusColor = rn.studyStatus === 'done' ? 'text-emerald-500' :
+            rn.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-300';
+        const degreeInfo = !isMindmap ? ` <span class="text-[9px] text-indigo-400">(${rn.degree} conn.)</span>` : '';
+
+        const hasKids = hasChildNodes(rn.id);
+        const isCollapsed = window.collapsedTreeNodes.has(rn.id);
+        const arrowIcon = isCollapsed ? 'chevron-right' : 'chevron-down';
+
+        html += `<div class="mb-1 w-full">`;
+        html += `<div class="w-full flex items-center rounded-lg hover:bg-indigo-50/50 group transition">`;
+        if (isMindmap && hasKids) {
+            html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="${treeCollapseTitle}">`;
+            html += `<i data-lucide="${arrowIcon}" class="w-3.5 h-3.5 flex-shrink-0"></i>`;
+            html += `</button>`;
         } else {
-            // For KG: connected nodes
+            html += `<div class="w-7.5 h-7.5 flex-shrink-0"></div>`;
+        }
+        html += `<div class="flex-grow py-1.5 pr-2 flex items-center gap-2 truncate text-left">`;
+        if (hasKids) {
+            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
+        } else {
+            html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
+        }
+        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
+        html += `${rn.label}${degreeInfo}`;
+        html += `</button>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        if (isMindmap) {
+            // Per mappe mentali, renderizza ricorsivamente tutti i sottonodi fino a L5 se non collassato
+            if (!isCollapsed) {
+                html += renderChildrenNodes(rn);
+            }
+        } else {
+            // Per KG, mostra un livello di nodi connessi (max 6)
             const connIds = new Set();
             appState.db.links.forEach(l => {
                 const sid = typeof l.source === 'object' ? l.source.id : l.source;
@@ -782,60 +912,24 @@ window.renderTreeView = function () {
                 if (sid === rn.id) connIds.add(tid);
                 if (tid === rn.id) connIds.add(sid);
             });
-            children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
-        }
-
-        const statusColor = rn.studyStatus === 'done' ? 'text-emerald-500' :
-            rn.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-300';
-        const degreeInfo = !isMindmap ? ` <span class="text-[9px] text-indigo-400">(${rn.degree} conn.)</span>` : '';
-
-        html += `<div class="mb-1">`;
-        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1.5 px-2 rounded-lg hover:bg-indigo-50 transition flex items-center gap-2 group">`;
-        html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
-        html += `<span class="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate">${rn.label}${degreeInfo}</span>`;
-        html += `</button>`;
-
-        if (children.length > 0) {
-            html += `<div class="ml-5 pl-2 border-l-2 border-slate-200/60 space-y-0.5">`;
-            children.forEach(c => {
-                const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
-                    c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
-                html += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
-                html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
-                html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
-                html += `</button>`;
-            });
-            html += `</div>`;
+            const children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
+            if (children.length > 0) {
+                html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
+                children.forEach(c => {
+                    const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
+                        c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
+                    html += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
+                    html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
+                    html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
+                    html += `</button>`;
+                });
+                html += `</div>`;
+            }
         }
         html += `</div>`;
     });
 
     container.innerHTML = html;
-
-    // Aggiorna anche la lista macro-aree in fondo se presente
-    const macroContainer = document.getElementById('macro-areas-container');
-    if (macroContainer) {
-        macroContainer.innerHTML = "";
-        const macroNodes = appState.db.nodes.filter(n => n.level === 1);
-        if (macroNodes.length === 0) {
-            macroContainer.innerHTML = '<p class="text-[10px] text-slate-400 italic">Nessuna macro-area definita.</p>';
-        } else {
-            macroNodes.forEach(n => {
-                const div = document.createElement('div');
-                div.className = "p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition flex items-center gap-2 group";
-                div.onclick = () => window.handleNodeClick({ stopPropagation: () => { } }, n);
-                let mColor = (appState.db.customColors && appState.db.customColors[n.group])
-                    ? appState.db.customColors[n.group]
-                    : (colorScale[n.group] || '#4f46e5');
-                div.innerHTML = `
-                            <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${mColor}"></div>
-                            <span class="text-[13px] font-bold text-slate-600 group-hover:text-indigo-600 transition truncate">${n.label}</span>
-                        `;
-                macroContainer.appendChild(div);
-            });
-        }
-    }
-
     setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
 }
 
@@ -864,6 +958,7 @@ const MODEL_KB = {
     'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
     'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
     'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
+    'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Apertus)' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -1048,12 +1143,12 @@ window.refreshGeminiModels = async function () {
 
         let filteredModels = [];
         if (isInfomaniak) {
-            // Include only Google models (Gemma) unless Pro mode is active
+            // Include Google (Gemma) and Apertus models unless Pro mode is active
             filteredModels = rawModels.filter(m => {
                 const id = m.id.toLowerCase();
                 if (id.includes('embed')) return false;
                 if (appState.infomaniakAllModels) return true; // Pro mode shows everything
-                return (id.includes('gemma') || id.includes('google'));
+                return (id.includes('gemma') || id.includes('google') || id.includes('apertus'));
             });
         } else {
             // Filter out unsupported models for Gemini
@@ -1259,8 +1354,8 @@ window.updateCostDisplay = function () {
     const modelId = modelEl ? modelEl.value : '';
     const kb = matchModelKB(modelId);
 
-    let promptPrice = 0.10 / 1000000; 
-    let candidatePrice = 0.40 / 1000000; 
+    let promptPrice = 0.10 / 1000000;
+    let candidatePrice = 0.40 / 1000000;
 
     if (kb) {
         promptPrice = kb.inputCost / 1000000;
@@ -2422,7 +2517,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
-        
+        const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
+
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
             lastNodeInBranch[n.id.toUpperCase()] = { 1: n.id };
@@ -2433,18 +2529,18 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
 
             const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
-Hai il compito di sviluppare il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
+Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi di Livello 2 e Livello 3 che appartengono a questa macro-area.
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
-   - "level": assegna 2 per sotto-rami di dettaglio primario, 3 per concetti di approfondimento/foglia.
+   - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
-3. Definisci i collegamenti ("links") collegando i nodi generati in un albero gerarchico. Ogni nodo di livello 2 deve avere come sorgente ("source") l'ID di partenza "${branch.id}". Ogni nodo di livello 3 deve avere come sorgente ("source") il rispettivo nodo di livello 2. Non creare connessioni trasversali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
 
 Restituisci SOLO un oggetto JSON con chiavi "nodes" e "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
@@ -4011,6 +4107,65 @@ window.exportSnapshot = async function () {
     }
 };
 
+window.exportPDF = async function () {
+    try {
+        window.showToast("Generazione PDF in corso...", "info");
+
+        // Attiva modalità snapshot (nasconde l'UI)
+        document.body.classList.add('is-snapshotting');
+
+        // Attendi un frame per il reflow del layout
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        const dataUrl = await window.electronAPI.capturePage();
+
+        // Ripristina UI
+        document.body.classList.remove('is-snapshotting');
+
+        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
+
+        // Utilizziamo jsPDF (già incluso nell'app)
+        const { jsPDF } = window.jspdf;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Crea il documento PDF con orientamento dinamico e dimensioni della finestra
+        const pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height]
+        });
+
+        // Inserisce l'immagine catturata nel PDF
+        pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            // Su iPadOS (Capacitor), esportiamo come Blob e usiamo navigator.share per il foglio di condivisione nativo
+            const blob = pdf.output('blob');
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta PDF",
+                    text: "Mappa mentale creata con MappAI"
+                });
+                window.showToast("PDF condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione PDF non supportata da questo dispositivo");
+            }
+        } else {
+            // Su Desktop (Electron/Browser), salva direttamente sul filesystem
+            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            window.showToast("Esportazione PDF completata!", "success");
+        }
+    } catch (err) {
+        document.body.classList.remove('is-snapshotting');
+        console.error("Errore esportazione PDF:", err);
+        window.showToast("Errore durante l'esportazione: " + err.message, "error");
+    }
+};
+
 window.changeDistance = function (dir) {
     forceDistMult = Math.max(0.5, Math.min(3, forceDistMult + (dir * 0.2)));
     forceChargeMult = Math.max(0.5, Math.min(3, forceChargeMult + (dir * 0.2)));
@@ -4332,46 +4487,26 @@ window.showLoadingOverlay = function (show, text, mode = 'default') {
 };
 
 window.startEditingTitle = function () {
-    const container = document.getElementById('project-title-container');
-    if (!container || container.querySelector('input')) return;
-
     const currentTitle = appState.rootNodeLabel || 'Mappa Senza Nome';
-
-    // Fermiamo la propagazione per evitare loop sul click del container
-    container.onclick = null;
-
-    container.innerHTML = `
-        <input type="text" id="edit-project-title-input" 
-            class="w-full bg-white border border-indigo-300 rounded px-2 py-1 text-[10px] font-mono uppercase outline-none focus:ring-1 focus:ring-indigo-500" 
-            value="${currentTitle}">
-    `;
-
-    const input = document.getElementById('edit-project-title-input');
-    input.focus();
-    input.select();
-
-    const save = () => {
-        const newTitle = input.value.trim();
-        appState.rootNodeLabel = newTitle || currentTitle;
-
-        // Ripristina l'HTML originale
-        container.innerHTML = `
-            <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
-                Progetto: ${appState.rootNodeLabel}</p>
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
-                <i data-lucide="edit-3" class="w-3 h-3"></i>
-            </div>
-        `;
-
-        // Riattiva il click per la prossima volta
-        setTimeout(() => {
-            container.onclick = window.startEditingTitle;
-        }, 100);
-
-        if (window.safeCreateIcons) window.safeCreateIcons();
-
+    
+    window.showPrompt("Modifica nome del progetto:", currentTitle, (newTitle) => {
         if (newTitle && newTitle !== currentTitle) {
-            // Update root node if mindmap
+            appState.rootNodeLabel = newTitle;
+            
+            // Ripristina/Aggiorna l'HTML del contenitore
+            const container = document.getElementById('project-title-container');
+            if (container) {
+                container.innerHTML = `
+                    <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
+                        Progetto: ${appState.rootNodeLabel}</p>
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
+                        <i data-lucide="edit-3" class="w-3 h-3"></i>
+                    </div>
+                `;
+                if (window.safeCreateIcons) window.safeCreateIcons();
+            }
+
+            // Aggiorna il nodo radice se in modalità mappa mentale
             if (appState.extractionMode === 'mindmap' && appState.db.nodes.length > 0) {
                 const rootNode = appState.db.nodes.find(n => n.id === 'root');
                 if (rootNode) {
@@ -4380,18 +4515,15 @@ window.startEditingTitle = function () {
                     if (window.renderTreeView) window.renderTreeView();
                 }
             }
-            window.showToast("Titolo aggiornato", "success");
-        }
-    };
 
-    input.onblur = save;
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') save();
-        if (e.key === 'Escape') {
-            input.value = currentTitle;
-            save();
+            // Forza il salvataggio del progetto con il nuovo nome nel LocalStorage e nel Vault
+            if (window.StorageManager && typeof window.StorageManager.saveCurrentProject === 'function') {
+                window.StorageManager.saveCurrentProject();
+            }
+
+            window.showToast("Titolo aggiornato e salvato", "success");
         }
-    };
+    }, "Inserisci il nuovo nome da assegnare al progetto:");
 };
 
 window.switchToMapLayout = function () {
@@ -4505,7 +4637,7 @@ window.handleNodeClick = function (event, d) {
 
         if (d.x !== undefined && d.y !== undefined && !isNaN(d.x) && !isNaN(d.y) && typeof svg !== 'undefined' && svg) {
             try {
-                svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5).scale(1.5));
+                svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5 + 120).scale(1.5));
             } catch (e) { console.warn("Zoom error:", e); }
         }
 
@@ -4909,10 +5041,10 @@ window.setMode = function (mode) {
         if (containerKGDensity) containerKGDensity.classList.add('hidden');
         if (containerRoot) containerRoot.classList.remove('hidden');
 
-        if (l1Title) l1Title.innerText = "Rami Principali (Livello 1)";
-        if (l1Desc) l1Desc.innerText = "Definisci i rami principali per organizzare lo studio:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Nodo L1";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri nodi L1 in automatico";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
+        if (l1Desc) l1Desc.innerText = "Inserisci le macro-aree tematiche che ti interessano:";
+        if (l1BtnText) l1BtnText.innerText = "Nuova macro-area";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altre macro-aree in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Cause, Conseguenze...");
     } else {
         btnMindmap.classList.remove('active');
@@ -4921,10 +5053,10 @@ window.setMode = function (mode) {
         if (containerKGDensity) containerKGDensity.classList.remove('hidden');
         if (containerRoot) containerRoot.classList.add('hidden');
 
-        if (l1Title) l1Title.innerText = "Super-Hubs relazionali";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
         if (l1Desc) l1Desc.innerText = "Definisci i concetti chiave attorno a cui costruire le relazioni:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Super-Hub";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri Super-Hub in automatico";
+        if (l1BtnText) l1BtnText.innerText = "Aggiungi hub tematico";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri hub tematici in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Trattative, Eredità...");
     }
 
@@ -5935,7 +6067,7 @@ window.showContextMenu = function (e, type, data) {
 
     if (type === 'node') {
         const expandAiHtml = !appState.studentMode ? `
-            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> Espandi da Fonte</div>
         ` : '';
 
         const spacedRepetitionHtml = !appState.studentMode ? `
@@ -5955,10 +6087,10 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
                     ${expandAiHtml}
-                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
-                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
-                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
+                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> Edit Contenuto</div>
+                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
+                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
+                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
                     <hr class="my-1 border-slate-200">
                     ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
@@ -5981,13 +6113,13 @@ window.showContextMenu = function (e, type, data) {
     } else if (type === 'bg') {
         if (appState.extractionMode === 'kg') {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Super-Hub Isolato</div>
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
             `;
         } else {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
             `;
         }
@@ -6635,6 +6767,11 @@ window.openQuizModal = function (node) {
     correctSubAnswersCount = 0;
     window.renderSubQuestion();
 
+    const iconElem = document.getElementById('quiz-modal-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', 'graduation-cap');
+    }
+
     const modal = document.getElementById('quiz-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -6643,6 +6780,7 @@ window.openQuizModal = function (node) {
         modal.classList.remove('opacity-0');
         box.classList.remove('scale-95');
     }, 10);
+    window.safeCreateIcons();
 };
 
 window.closeQuizModal = function () {
@@ -7828,99 +7966,24 @@ window.changeLanguage = function (lang) {
     if (pricingPaid) pricingPaid.innerHTML = t.pricing_paid;
     if (pricingNote) pricingNote.innerHTML = t.pricing_note;
 
-    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Study) ---
+    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Recall, ecc) ---
     const studyContainer = document.getElementById('study-modal-content');
-    if (studyContainer) {
-        studyContainer.innerHTML = `
-                <p class="mb-4 text-sm leading-relaxed">${t.study_intro}</p>
+    // Il contenuto è ora statico nell'HTML, la traduzione avviene tramite data-i18n.
 
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔁</span> ${t.study_sr_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_sr_desc}</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🧠</span> ${t.study_ar_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_ar_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">👨‍🏫</span> ${t.study_feynman_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_feynman_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔀</span> ${t.study_interleaving_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_interleaving_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">❓</span> ${t.study_elaboration_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_elaboration_desc}</p>
-                </div>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">📂</span> ${t.study_local_files_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_local_files_desc}</p>
-                </div>
-
-                <p class="font-bold text-indigo-600 mt-6 text-center text-[11px] leading-relaxed">${t.study_footer}</p>
-                `;
-    }
-
-    // --- 3. LOCALIZZAZIONE MODALE GUIDA ---
     const guideContainer = document.getElementById('guide-modal-content');
     if (guideContainer) {
-        guideContainer.innerHTML = `
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2">${t.guide_step1_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step1_desc}</p>
-                </div>
+        const normalGuide = document.getElementById('guide-normal-content');
+        const studentGuide = document.getElementById('guide-student-content');
 
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2">${t.guide_step2_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step2_desc}</p>
-                </div>
-
-                <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4">
-                    <h3 class="font-black text-fuchsia-700 text-sm mb-2">${t.guide_step3_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step3_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2">${t.guide_step4_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step4_desc}</p>
-                </div>
-
-                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <h3 class="font-black text-violet-700 text-sm mb-2">${t.guide_step5_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step5_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2">${t.guide_step6_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step6_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2">${t.guide_notes_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_notes_desc}</p>
-                </div>
-
-                <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
-                `;
+        if (normalGuide && studentGuide) {
+            if (appState.studentMode) {
+                normalGuide.classList.add('hidden');
+                studentGuide.classList.remove('hidden');
+            } else {
+                normalGuide.classList.remove('hidden');
+                studentGuide.classList.add('hidden');
+            }
+        }
     }
 
     // --- 4. FEEDBACK VISIVO BANDIERE ---
@@ -8070,6 +8133,16 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     
     document.getElementById('study-config-title').innerText = title;
     
+    let iconName = 'brain-circuit';
+    if (mode === 'quiz') {
+        iconName = scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-config-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
@@ -8230,6 +8303,17 @@ window.openStudyPlayer = function () {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+    let iconName = 'brain-circuit';
+    if (window.studyConfig.mode === 'quiz') {
+        iconName = window.studyConfig.scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = window.studyConfig.scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-player-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
 
     const timerContainer = document.getElementById('study-player-timer-container');
     if (window.studyConfig.timer) {
@@ -8532,18 +8616,18 @@ window.clearStudyScores = function () {
 
 window.autoSaveOpenQuizResponses = async function () {
     if (!window.studyResults || !window.studyResults.openAnswers || window.studyResults.openAnswers.length === 0) return;
-    
+
     const nickname = appState.userProfile.nickname || "Studente Anonimo";
     const age = appState.userProfile.age || "-";
     const grade = appState.userProfile.grade || "-";
     const system = appState.userProfile.system || "-";
     const title = window.activeStudySetTitle || "Quiz Aperto";
-    
+
     let txt = `=== RISPOSTE QUIZ APERTO: ${title} ===\n`;
     txt += `Data: ${new Date().toLocaleString()}\n`;
     txt += `Studente: ${nickname} (Età: ${age}, Classe: ${grade}, Sistema: ${system})\n`;
     txt += `--------------------------------------------------\n\n`;
-    
+
     window.studyResults.openAnswers.forEach((ans, idx) => {
         txt += `[Tutor]: Domanda ${idx + 1}: ${ans.q}\n`;
         txt += `[Studente]: ${ans.userAnswer}\n`;
@@ -8551,15 +8635,16 @@ window.autoSaveOpenQuizResponses = async function () {
         if (ans.explanation) txt += `Spiegazione: ${ans.explanation}\n`;
         txt += `\n`;
     });
-    
+
     txt += `--------------------------------------------------\n`;
     txt += `Fine della sessione di quiz aperto.\n`;
-    
+
     try {
         if (window.electronAPI && window.electronAPI.saveQuizTextResponse) {
             await window.electronAPI.saveQuizTextResponse({
                 title: title,
-                textContent: txt
+                textContent: txt,
+                vaultPath: appState.activeVaultPath
             });
             window.showToast("Risposte salvate con successo nel tuo Vault!", "success");
         }
@@ -8650,7 +8735,8 @@ window.saveStudyReport = async function () {
             projectName: projectName,
             targetName: `Report_Studio_${window.studyResults.mode}`,
             textContent: reportText,
-            vaultPath: appState.activeVaultPath
+            vaultPath: appState.activeVaultPath,
+            subFolder: 'Quiz e Flashcard'
         });
 
         if (res.success) {
@@ -9116,9 +9202,11 @@ window.openContextualAIExtensionModal = function (nodeData) {
 
     const modal = document.getElementById('contextual-ai-extension-modal');
     modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     setTimeout(() => {
         modal.classList.remove('opacity-0');
-        modal.querySelector('div').classList.remove('scale-95');
+        if (box) box.classList.remove('scale-95');
     }, 10);
 };
 
@@ -9281,9 +9369,13 @@ window.handleCtxPDFSelect = function (input) {
 window.closeContextualAIModal = function () {
     const modal = document.getElementById('contextual-ai-extension-modal');
     if (!modal) return;
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     modal.classList.add('opacity-0');
-    modal.querySelector('div').classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    if (box) box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
 };
 
 window.ctxExpansionSourceType = 'text';

@@ -1,39 +1,34 @@
-# Piano di Implementazione: Aggiornamento UI App iPad Docente
+# Piano di Implementazione: Allineamento Applicazione Desktop (Docente e Studente)
 
-Questo piano descrive i passi per portare le ultime modifiche di stile, layout e logica dell'interfaccia utente (nuova UI) presenti nel branch `MappAI_iPad_studente` all'interno del branch dell'app Docente (`MappAI_iPad`), salvaguardando le configurazioni specifiche del Docente (come `studentMode: false`).
+Questo piano descrive i passaggi per sincronizzare le modifiche apportate alla UI, alla gestione dei Vault (esportazione dei set di studio, risposte aperte come file di testo) e alle modalità di importazione/allineamento nomi progetto dalle versioni iPad alle versioni Desktop.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> - Durante il merge, ripristineremo `studentMode: false` in `public/js/app.js` e verificheremo che la sequenza segreta di sblocco/switch modalità per il docente rimanga funzionante.
-> - La build finale verrà verificata compilando l'app Docente per iPad.
+> Le modifiche del frontend (codice HTML, CSS e JS in `public/`) sono condivise tra iPad e Desktop tramite condizioni sulla presenza di Capacitor (`isCapacitor`). 
+> Per evitare di inquinare il ramo Desktop (`MappAI_main` e `MappAI_studente`) con le cartelle native iOS (`ios/`), i file di configurazione Capacitor e i certificati Apple Xcode, utilizzeremo una sincronizzazione mirata della cartella `public/` dai branch iPad ai rispettivi branch Desktop.
 
 ## Proposed Changes
 
-### 1. Merge del Branch Studente su Docente
-#### [MODIFY] [MappAI_iPad](file:///Users/giacomomeschini/Antigravity/MappAI)
-- Esecuzione del merge da `MappAI_iPad_studente` a `MappAI_iPad`.
-- Risoluzione di eventuali conflitti su `public/index.html`, `public/js/app.js` e `public/css/style.css`.
+La cartella `public/` (contenente la UI, i fogli di stile CSS, la logica JS e le traduzioni) verrà allineata direttamente dai rami iPad.
 
-### 2. Configurazione Specifica Docente
-#### [MODIFY] [app.js](file:///Users/giacomomeschini/Antigravity/MappAI/public/js/app.js)
-- Ripristino della variabile `studentMode: false` all'inizio del file (riga ~35).
-- Verifica del corretto ripristino del meccanismo di sblocco con tasti segreti per l'app docente:
-  ```javascript
-  let studentModeKeys = [];
-  const studentModeSecret = ['l', 'k', 'j', 'h'];
-  ```
+### Sincronizzazione Ramo Docente Desktop (`MappAI_main`)
 
-### 3. Sincronizzazione e Build per iPad
-#### [BUILD] [Capacitor Sync](file:///Users/giacomomeschini/Antigravity/MappAI)
-- Sincronizzazione delle risorse con `npx cap sync ios`.
-- Compilazione e installazione su iPad tramite Xcode (`npx cap run ios`).
+* Passaggio al branch `MappAI_main`.
+* Checkout selettivo di tutta la cartella `public/` dal branch `MappAI_iPad`.
+* Commit e push sul branch `MappAI_main`.
+
+### Sincronizzazione Ramo Studente Desktop (`MappAI_studente`)
+
+* Passaggio al branch `MappAI_studente`.
+* Checkout selettivo di tutta la cartella `public/` dal branch `MappAI_iPad_studente`.
+* Commit e push sul branch `MappAI_studente`.
+
+---
 
 ## Verification Plan
 
-### Automated Tests
-- Rigenerazione del grafo di conoscenza tramite `python3 -m graphify update .`.
-- Esecuzione dello script di build dell'applicazione per validare la correttezza sintattica.
-
 ### Manual Verification
-- Controllo su iPad che l'app Docente si avvii correttamente mostrando la nuova UI e mantenendo l'accesso alle funzionalità da docente (pannelli di sblocco e configurazioni).
+- Verifica visiva dei bottoni della landing page su desktop (layout verticale, assenza di sottotitoli).
+- Verifica del caricamento di un vault su desktop, controllando che il nome della cartella diventi il nome del progetto.
+- Verifica del salvataggio e caricamento dei set di studio nel vault.
