@@ -754,6 +754,10 @@ window.renderTreeView = function () {
     const titleEl = document.getElementById('tree-view-title');
     if (!container || !appState.db.nodes.length) return;
 
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const treeCollapseTitle = t.tree_collapse_expand || "Collassa/Espandi";
+
     const isMindmap = appState.extractionMode === 'mindmap';
     if (titleEl) titleEl.textContent = isMindmap ? 'Macro-aree' : 'Super-hub';
 
@@ -835,7 +839,7 @@ window.renderTreeView = function () {
             childHtml += `<div class="w-full">`;
             childHtml += `<div class="w-full flex items-center rounded hover:bg-slate-50 group transition">`;
             if (hasKids) {
-                childHtml += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-indigo-500 transition shrink-0" title="Collassa/Espandi">`;
+                childHtml += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" class="p-1 text-slate-400 hover:text-indigo-500 transition shrink-0" title="${treeCollapseTitle}">`;
                 childHtml += `<i data-lucide="${arrowIcon}" class="w-3 h-3 flex-shrink-0"></i>`;
                 childHtml += `</button>`;
             } else {
@@ -843,7 +847,7 @@ window.renderTreeView = function () {
             }
             childHtml += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
             if (hasKids) {
-                childHtml += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="Collassa/Espandi"></i>`;
+                childHtml += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${c.id.replace(/'/g, "\\'")}')" data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
             } else {
                 childHtml += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
             }
@@ -876,7 +880,7 @@ window.renderTreeView = function () {
         html += `<div class="mb-1 w-full">`;
         html += `<div class="w-full flex items-center rounded-lg hover:bg-indigo-50/50 group transition">`;
         if (isMindmap && hasKids) {
-            html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="Collassa/Espandi">`;
+            html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="${treeCollapseTitle}">`;
             html += `<i data-lucide="${arrowIcon}" class="w-3.5 h-3.5 flex-shrink-0"></i>`;
             html += `</button>`;
         } else {
@@ -884,7 +888,7 @@ window.renderTreeView = function () {
         }
         html += `<div class="flex-grow py-1.5 pr-2 flex items-center gap-2 truncate text-left">`;
         if (hasKids) {
-            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="Collassa/Espandi"></i>`;
+            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0 cursor-pointer hover:scale-125 transition" title="${treeCollapseTitle}"></i>`;
         } else {
             html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
         }
