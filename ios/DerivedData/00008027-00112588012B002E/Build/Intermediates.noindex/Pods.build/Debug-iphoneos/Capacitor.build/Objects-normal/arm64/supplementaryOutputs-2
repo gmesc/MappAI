@@ -1,0 +1,37 @@
+{
+  "/Users/giacomomeschini/Antigravity/MappAI/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPApplicationDelegateProxy.swift" : {
+    "const-values" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPApplicationDelegateProxy.swiftconstvalues",
+    "dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPApplicationDelegateProxy.d",
+    "diagnostics" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPApplicationDelegateProxy.dia",
+    "object" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPApplicationDelegateProxy.o",
+    "swift-dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPApplicationDelegateProxy.swiftdeps"
+  },
+  "/Users/giacomomeschini/Antigravity/MappAI/node_modules/@capacitor/ios/Capacitor/Capacitor/CAPBridge.swift" : {
+    "const-values" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPBridge.swiftconstvalues",
+    "dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPBridge.d",
+    "diagnostics" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPBridge.dia",
+    "object" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPBridge.o",
+    "swift-dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CAPBridge.swiftdeps"
+  },
+  "/Users/giacomomeschini/Antigravity/MappAI/node_modules/@capacitor/ios/Capacitor/Capacitor/CapacitorExtension.swift" : {
+    "const-values" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorExtension.swiftconstvalues",
+    "dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorExtension.d",
+    "diagnostics" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorExtension.dia",
+    "object" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorExtension.o",
+    "swift-dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorExtension.swiftdeps"
+  },
+  "/Users/giacomomeschini/Antigravity/MappAI/node_modules/@capacitor/ios/Capacitor/Capacitor/Plugins/CapacitorHttp.swift" : {
+    "const-values" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorHttp.swiftconstvalues",
+    "dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorHttp.d",
+    "diagnostics" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorHttp.dia",
+    "object" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorHttp.o",
+    "swift-dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorHttp.swiftdeps"
+  },
+  "/Users/giacomomeschini/Antigravity/MappAI/node_modules/@capacitor/ios/Capacitor/Capacitor/Plugins/CapacitorUrlRequest.swift" : {
+    "const-values" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorUrlRequest.swiftconstvalues",
+    "dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorUrlRequest.d",
+    "diagnostics" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorUrlRequest.dia",
+    "object" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorUrlRequest.o",
+    "swift-dependencies" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/Capacitor.build/Objects-normal/arm64/CapacitorUrlRequest.swiftdeps"
+  }
+}

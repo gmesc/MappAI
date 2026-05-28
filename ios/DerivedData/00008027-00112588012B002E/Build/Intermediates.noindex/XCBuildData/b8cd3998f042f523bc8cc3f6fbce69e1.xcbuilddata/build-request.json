@@ -1,0 +1,72 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "0ca3007d900a678c2b4d53418799ee3d34df47fa015b7e467e67e9235d8a1297"
+    }
+  ],
+  "containerPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/App/App.xcworkspace",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "arm64",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : false,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphoneos",
+      "sdk" : "iphoneos26.4",
+      "sdkVariant" : "iphoneos",
+      "supportedArchitectures" : [
+        "arm64e",
+        "arm64"
+      ],
+      "targetArchitecture" : "arm64"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products",
+      "derivedDataPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E",
+      "indexDataStoreFolderPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_MODEL" : "iPad8,5",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_OS_VERSION" : "26.5",
+          "ASSETCATALOG_FILTER_FOR_THINNING_DEVICE_CONFIGURATION" : "iPad8,5",
+          "BUILD_ACTIVE_RESOURCES_ONLY" : "YES",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "ONLY_ACTIVE_ARCH" : "YES",
+          "TARGET_DEVICE_IDENTIFIER" : "00008027-00112588012B002E",
+          "TARGET_DEVICE_MODEL" : "iPad8,5",
+          "TARGET_DEVICE_OS_VERSION" : "26.5",
+          "TARGET_DEVICE_PLATFORM_NAME" : "iphoneos"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pickFile: () => ipcRenderer.invoke('pick-file'),
     getMachineId: () => ipcRenderer.invoke('get-machine-id'),
     saveChatTranscript: (data) => ipcRenderer.invoke('save-chat-transcript', data),
+    saveQuizTextResponse: (data) => ipcRenderer.invoke('save-quiz-text-response', data),
     saveVault: (data) => ipcRenderer.invoke('save-vault', data),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
     pickFolder: () => ipcRenderer.invoke('pick-folder'),

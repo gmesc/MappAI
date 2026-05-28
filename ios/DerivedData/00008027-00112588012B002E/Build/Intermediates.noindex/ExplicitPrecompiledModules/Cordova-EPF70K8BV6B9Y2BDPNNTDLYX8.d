@@ -1,0 +1,23 @@
+moduledependenciestarget: \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Modules/module.modulemap \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CapacitorCordova.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Modules/module.modulemap \
+  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/Foundation.framework/Modules/module.modulemap \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/AppDelegate.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVViewController.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDV.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVAvailability.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVPlugin.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVPluginResult.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVCommandDelegate.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVInvokedUrlCommand.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/WebKit.framework/Modules/module.modulemap \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVURLProtocol.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVScreenOrientationDelegate.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVWebViewProcessPoolFactory.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVAvailabilityDeprecated.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVCommandDelegateImpl.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVPluginManager.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVConfigParser.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/CDVPlugin+Resources.h \
+  /Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorCordova/Cordova.framework/Headers/NSDictionary+CordovaPreferences.h

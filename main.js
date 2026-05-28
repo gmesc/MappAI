@@ -312,14 +312,15 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
 });
 
 // IPC Handler to save chat transcripts
-ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath }) => {
+ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
         let chatDir;
+        const targetSubFolder = subFolder || 'Chat';
         if (vaultPath && fs.existsSync(vaultPath)) {
-            chatDir = path.join(vaultPath, 'Chat');
+            chatDir = path.join(vaultPath, targetSubFolder);
         } else {
             const docPath = app.getPath('documents');
-            chatDir = path.join(docPath, 'MappAI - Vault', 'chat con il tutor');
+            chatDir = path.join(docPath, 'MappAI - Vault', targetSubFolder);
         }
 
         if (!fs.existsSync(chatDir)) {
@@ -336,6 +337,32 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
         
         // Append textContent, add header ONLY if new file
         fs.appendFileSync(filePath, (exists ? "" : header) + textContent + '\n\n', 'utf-8');
+        return { success: true, path: filePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to save quiz text response
+ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, vaultPath }) => {
+    try {
+        let quizDir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            quizDir = path.join(vaultPath, 'Quiz e Flashcard');
+        } else {
+            const docPath = app.getPath('documents');
+            quizDir = path.join(docPath, 'MappAI - Vault', 'Quiz e Flashcard');
+        }
+
+        if (!fs.existsSync(quizDir)) {
+            fs.mkdirSync(quizDir, { recursive: true });
+        }
+
+        const safeTitle = (title || "Quiz").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const filename = `risposte_quiz_${safeTitle}_${Date.now()}.txt`;
+        const filePath = path.join(quizDir, filename);
+
+        fs.writeFileSync(filePath, textContent, 'utf-8');
         return { success: true, path: filePath };
     } catch (err) {
         return { success: false, error: err.message };
