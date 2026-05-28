@@ -1719,19 +1719,17 @@ window.startGeneration = async function () {
         window.showToast("Inserisci il nome del nodo centrale per la mappa.", "error");
         return;
     }
-    // For KG: fallback to keywords or focus if root name is empty
+    // For KG: fallback to keywords if root name is empty
     if (appState.extractionMode !== 'mindmap' && !rootName) {
         const kgKeywords = document.getElementById('kg-keywords-input')?.value.trim();
-        const focusVal = document.getElementById('focus-input')?.value.trim();
-        rootName = kgKeywords || focusVal || '';
+        rootName = kgKeywords || '';
         if (!rootName) {
-            window.showToast("Inserisci l'oggetto dello studio o le keyword nel campo Guida AI.", "error");
+            window.showToast("Inserisci le keyword nel campo Guida AI.", "error");
             return;
         }
     }
 
     appState.rootNodeLabel = rootName;
-    appState.focusTopic = document.getElementById('focus-input')?.value.trim();
 
     var textParts = [];
     var fileParts = [];
@@ -5037,9 +5035,9 @@ window.setMode = function (mode) {
     if (mode === 'mindmap') {
         btnMindmap.classList.add('active');
         btnKG.classList.remove('active');
-        if (containerDensity) containerDensity.classList.remove('hidden');
-        if (containerKGDensity) containerKGDensity.classList.add('hidden');
-        if (containerRoot) containerRoot.classList.remove('hidden');
+        if (containerDensity) { containerDensity.classList.remove('hidden'); containerDensity.style.display = ''; }
+        if (containerKGDensity) { containerKGDensity.classList.add('hidden'); containerKGDensity.style.display = 'none'; }
+        if (containerRoot) { containerRoot.classList.remove('hidden'); containerRoot.style.display = ''; }
 
         if (l1Title) l1Title.innerText = "Caricamento Fonti";
         if (l1Desc) l1Desc.innerText = "Inserisci le macro-aree tematiche che ti interessano:";
@@ -5049,9 +5047,9 @@ window.setMode = function (mode) {
     } else {
         btnMindmap.classList.remove('active');
         btnKG.classList.add('active');
-        if (containerDensity) containerDensity.classList.add('hidden');
-        if (containerKGDensity) containerKGDensity.classList.remove('hidden');
-        if (containerRoot) containerRoot.classList.add('hidden');
+        if (containerDensity) { containerDensity.classList.add('hidden'); containerDensity.style.display = 'none'; }
+        if (containerKGDensity) { containerKGDensity.classList.remove('hidden'); containerKGDensity.style.display = ''; }
+        if (containerRoot) { containerRoot.classList.add('hidden'); containerRoot.style.display = 'none'; }
 
         if (l1Title) l1Title.innerText = "Caricamento Fonti";
         if (l1Desc) l1Desc.innerText = "Definisci i concetti chiave attorno a cui costruire le relazioni:";
