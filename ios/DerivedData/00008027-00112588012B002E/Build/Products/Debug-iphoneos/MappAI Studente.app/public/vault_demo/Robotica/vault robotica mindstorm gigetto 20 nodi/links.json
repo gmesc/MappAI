@@ -1,0 +1,140 @@
+[
+  {
+    "source": "ROBOTICA",
+    "target": "CICLO_SENSE_PLAN_ACT",
+    "rel": "si basa su",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "LEI_ASIMOV",
+    "rel": "definita da",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "ROBOTICA_INDUSTRIALE",
+    "rel": "comprende",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "ROBOTICA_EDUCATIVA",
+    "rel": "comprende",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "AUTOMI",
+    "rel": "evolve da",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "SENSORI",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "MICROCONTROLLORE",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "CICLO_SENSE_PLAN_ACT",
+    "target": "ATTUATORI",
+    "rel": "richiede",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_INDUSTRIALE",
+    "target": "UNIMATE",
+    "rel": "ha come esempio",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA",
+    "target": "ROVER_SPAZIALI",
+    "rel": "applica in",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_EDUCATIVA",
+    "target": "SEYMOUR_PAPERT",
+    "rel": "promossa da",
+    "isCross": false
+  },
+  {
+    "source": "SEYMOUR_PAPERT",
+    "target": "COSTRUZIONISMO",
+    "rel": "sviluppa",
+    "isCross": false
+  },
+  {
+    "source": "SEYMOUR_PAPERT",
+    "target": "LINGUAGGIO_LOGO",
+    "rel": "crea",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_EDUCATIVA",
+    "target": "PENSERO_COMPUTAZIONALE",
+    "rel": "sviluppa",
+    "isCross": false
+  },
+  {
+    "source": "ROBOTICA_EDUCATIVA",
+    "target": "LEGO_MINDSTORMS",
+    "rel": "implementata in",
+    "isCross": false
+  },
+  {
+    "source": "LEGO_MINDSTORMS",
+    "target": "EV3",
+    "rel": "evolve in",
+    "isCross": false
+  },
+  {
+    "source": "EV3",
+    "target": "MICROCONTROLLORE",
+    "rel": "contiene",
+    "isCross": false
+  },
+  {
+    "source": "EV3",
+    "target": "SENSORE_ULTRASUONI",
+    "rel": "utilizza",
+    "isCross": false
+  },
+  {
+    "source": "EV3",
+    "target": "GIROSCOPIO",
+    "rel": "utilizza",
+    "isCross": false
+  },
+  {
+    "source": "EV3",
+    "target": "MOTORI_SERVO",
+    "rel": "utilizza",
+    "isCross": false
+  },
+  {
+    "source": "SENSORI",
+    "target": "SENSORE_ULTRASUONI",
+    "rel": "include",
+    "isCross": false
+  },
+  {
+    "source": "SENSORI",
+    "target": "GIROSCOPIO",
+    "rel": "include",
+    "isCross": false
+  },
+  {
+    "source": "ATTUATORI",
+    "target": "MOTORI_SERVO",
+    "rel": "include",
+    "isCross": false
+  }
+]

@@ -20,6 +20,7 @@ const it_translations = {
     tab_structure: "Struttura",
     tab_notes: "Appunti",
     tab_study: "Studio",
+    tree_collapse_expand: "Collassa/Espandi",
 
     // Setup Steps
     step1: "Carica le tue Fonti",

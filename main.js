@@ -25,53 +25,52 @@ function createWindow() {
     mainWindow.loadFile('public/index.html');
 }
 
-function copyFolderSync(from, to) {
-    if (!fs.existsSync(to)) {
-        fs.mkdirSync(to, { recursive: true });
-    }
-    const files = fs.readdirSync(from);
-    for (const file of files) {
-        const fromPath = path.join(from, file);
-        const toPath = path.join(to, file);
-        if (fs.statSync(fromPath).isDirectory()) {
-            copyFolderSync(fromPath, toPath);
-        } else {
-            if (!fs.existsSync(toPath)) {
-                fs.copyFileSync(fromPath, toPath);
-            }
+function copyRecursiveSync(src, dest) {
+    const exists = fs.existsSync(src);
+    const stats = exists && fs.statSync(src);
+    const isDirectory = exists && stats.isDirectory();
+    if (isDirectory) {
+        if (!fs.existsSync(dest)) {
+            fs.mkdirSync(dest, { recursive: true });
         }
+        fs.readdirSync(src).forEach((childItemName) => {
+            copyRecursiveSync(path.join(src, childItemName),
+                              path.join(dest, childItemName));
+        });
+    } else {
+        fs.copyFileSync(src, dest);
     }
 }
 
-function initializeDesktopDemoVaults() {
+function initDefaultVaultFolder() {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
-        if (!fs.existsSync(saveDir)) {
-            fs.mkdirSync(saveDir, { recursive: true });
+        const vaultDir = path.join(docPath, 'MappAI - Vault');
+        
+        // 1. Crea la cartella se non esiste
+        if (!fs.existsSync(vaultDir)) {
+            fs.mkdirSync(vaultDir, { recursive: true });
         }
 
-        const srcDir = path.join(__dirname, 'public', 'Vault');
-        if (fs.existsSync(srcDir)) {
-            const items = fs.readdirSync(srcDir);
-            for (const item of items) {
-                const itemSrcPath = path.join(srcDir, item);
-                const itemDestPath = path.join(saveDir, item);
-                if (fs.statSync(itemSrcPath).isDirectory()) {
-                    if (!fs.existsSync(itemDestPath) || fs.readdirSync(itemDestPath).length === 0) {
-                        copyFolderSync(itemSrcPath, itemDestPath);
-                    }
+        // 2. Copia i file demo se presenti nel pacchetto
+        const demoBundledDir = path.join(__dirname, 'public', 'vault_demo');
+        if (fs.existsSync(demoBundledDir)) {
+            const items = fs.readdirSync(demoBundledDir);
+            items.forEach(item => {
+                const srcPath = path.join(demoBundledDir, item);
+                const destPath = path.join(vaultDir, item);
+                if (!fs.existsSync(destPath)) {
+                    copyRecursiveSync(srcPath, destPath);
                 }
-            }
-            console.log("[MappAI Desktop] Demo vaults copied/verified from public/Vault.");
+            });
         }
     } catch (err) {
-        console.error("[MappAI Desktop] Error initializing demo vaults:", err);
+        console.error("Errore inizializzazione default vault:", err);
     }
 }
 
 app.whenReady().then(() => {
-    initializeDesktopDemoVaults();
+    initDefaultVaultFolder();
     createWindow();
 
     app.on('activate', () => {
@@ -292,7 +291,7 @@ ipcMain.handle('capture-page', async () => {
 ipcMain.handle('save-map-json', async (event, mapData) => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
@@ -313,14 +312,15 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
 });
 
 // IPC Handler to save chat transcripts
-ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath }) => {
+ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
         let chatDir;
+        const targetSubFolder = subFolder || 'Chat';
         if (vaultPath && fs.existsSync(vaultPath)) {
-            chatDir = path.join(vaultPath, 'Chat');
+            chatDir = path.join(vaultPath, targetSubFolder);
         } else {
             const docPath = app.getPath('documents');
-            chatDir = path.join(docPath, 'Salvataggi MappAI', 'chat con il tutor');
+            chatDir = path.join(docPath, 'MappAI - Vault', targetSubFolder);
         }
 
         if (!fs.existsSync(chatDir)) {
@@ -337,6 +337,32 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
         
         // Append textContent, add header ONLY if new file
         fs.appendFileSync(filePath, (exists ? "" : header) + textContent + '\n\n', 'utf-8');
+        return { success: true, path: filePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to save quiz text response
+ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, vaultPath }) => {
+    try {
+        let quizDir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            quizDir = path.join(vaultPath, 'Quiz e Flashcard');
+        } else {
+            const docPath = app.getPath('documents');
+            quizDir = path.join(docPath, 'MappAI - Vault', 'Quiz e Flashcard');
+        }
+
+        if (!fs.existsSync(quizDir)) {
+            fs.mkdirSync(quizDir, { recursive: true });
+        }
+
+        const safeTitle = (title || "Quiz").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const filename = `risposte_quiz_${safeTitle}_${Date.now()}.txt`;
+        const filePath = path.join(quizDir, filename);
+
+        fs.writeFileSync(filePath, textContent, 'utf-8');
         return { success: true, path: filePath };
     } catch (err) {
         return { success: false, error: err.message };
@@ -673,7 +699,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
 ipcMain.handle('get-all-vaults', async () => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         if (!fs.existsSync(saveDir)) return [];
 
         const folders = fs.readdirSync(saveDir).filter(f => {
@@ -726,7 +752,7 @@ ipcMain.handle('pick-folder', async () => {
 // IPC Handler to open the specific folder in macOS Finder
 ipcMain.handle('open-save-folder', async () => {
     const docPath = app.getPath('documents');
-    const saveDir = path.join(docPath, 'Salvataggi MappAI');
+    const saveDir = path.join(docPath, 'MappAI - Vault');
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
     }
@@ -865,7 +891,7 @@ ipcMain.handle('fetch-url', async (event, url) => {
 ipcMain.handle('load-prompts', async () => {
     try {
         // 1. Carica i prompt di sistema (default)
-        const defaultPromptsPath = path.join(__dirname, 'prompts_default.json');
+        const defaultPromptsPath = path.join(__dirname, 'prompts_config.json');
         let combinedPrompts = {};
         if (fs.existsSync(defaultPromptsPath)) {
             const data = fs.readFileSync(defaultPromptsPath, 'utf-8');
@@ -874,7 +900,7 @@ ipcMain.handle('load-prompts', async () => {
         
         // 2. Sovrapponi i prompt personalizzati dall'utente (se esistono)
         const userDataPath = app.getPath('userData');
-        const userPromptsPath = path.join(userDataPath, 'prompts_user.json');
+        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
         if (fs.existsSync(userPromptsPath)) {
             const userData = fs.readFileSync(userPromptsPath, 'utf-8');
             const overrides = JSON.parse(userData);
@@ -891,7 +917,7 @@ ipcMain.handle('load-prompts', async () => {
 ipcMain.handle('save-prompts', async (event, promptsData) => {
     try {
         const userDataPath = app.getPath('userData');
-        const userPromptsPath = path.join(userDataPath, 'prompts_user.json');
+        const userPromptsPath = path.join(userDataPath, 'prompts_config.json');
         
         fs.writeFileSync(userPromptsPath, JSON.stringify(promptsData, null, 4), 'utf-8');
         return { success: true };
