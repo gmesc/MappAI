@@ -61,27 +61,35 @@ window.closeActiveModals = function () {
         { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
         { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
         { id: 'validate-link-modal', close: () => window.closeValidateModal() },
-        { id: 'api-tutorial-modal', close: () => {
-            const m = document.getElementById('api-tutorial-modal');
-            if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
-        }},
-        { id: 'merge-confirm-modal', close: () => {
-            if (typeof window.cancelMerge === 'function') window.cancelMerge();
-            else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
-        }},
-        { id: 'confirm-modal', close: () => {
-            const m = document.getElementById('confirm-modal');
-            if (m && !m.classList.contains('hidden')) {
-                const cancelBtn = document.getElementById('confirm-cancel');
-                if (cancelBtn) cancelBtn.click();
-                else m.classList.add('hidden');
+        {
+            id: 'api-tutorial-modal', close: () => {
+                const m = document.getElementById('api-tutorial-modal');
+                if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
             }
-        }},
+        },
+        {
+            id: 'merge-confirm-modal', close: () => {
+                if (typeof window.cancelMerge === 'function') window.cancelMerge();
+                else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+            }
+        },
+        {
+            id: 'confirm-modal', close: () => {
+                const m = document.getElementById('confirm-modal');
+                if (m && !m.classList.contains('hidden')) {
+                    const cancelBtn = document.getElementById('confirm-cancel');
+                    if (cancelBtn) cancelBtn.click();
+                    else m.classList.add('hidden');
+                }
+            }
+        },
         { id: 'image-lightbox', close: () => window.closeLightbox() },
-        { id: 'admin-dashboard', close: () => {
-            if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
-            else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
-        }}
+        {
+            id: 'admin-dashboard', close: () => {
+                if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+                else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+            }
+        }
     ];
 
     modals.forEach(m => {
@@ -98,11 +106,16 @@ window.closeActiveModals = function () {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        const layoutModal = document.getElementById('layout-manager-modal');
+        if (layoutModal && !layoutModal.classList.contains('hidden')) {
+            window.showLayoutExitConfirmModal();
+            return;
+        }
         window.closeActiveModals();
     }
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
-        
+
         // Student Mode Handler
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
@@ -216,10 +229,10 @@ window.toggleStudentMode = function () {
 
 window.setMultiPassMode = function (enabled) {
     appState.multiPassMode = enabled;
-    
+
     const btnOff = document.getElementById('multipass-off');
     const btnOn = document.getElementById('multipass-on');
-    
+
     if (btnOff && btnOn) {
         if (enabled) {
             btnOn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
@@ -233,7 +246,7 @@ window.setMultiPassMode = function (enabled) {
             btnOn.classList.add('text-slate-400', 'hover:text-slate-600');
         }
     }
-    
+
     window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
@@ -448,10 +461,10 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     btnOk.onclick = () => { cleanup(); onConfirm(input.value.trim()); };
 
     input.onkeydown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            cleanup(); 
-            onConfirm(input.value.trim()); 
+            cleanup();
+            onConfirm(input.value.trim());
         }
     };
 }
@@ -509,7 +522,7 @@ window.toggleMagnifier = function () {
         magnifierLens.style.display = 'block';
         window.refreshMagnifier();
         document.addEventListener('mousemove', window.handleMagnifierMove);
-        
+
         // Sincronizza dinamicamente la lente con i cambiamenti della UI (es. apertura modali)
         magnifierObserver = new MutationObserver((mutations) => {
             let shouldRefresh = false;
@@ -517,7 +530,7 @@ window.toggleMagnifier = function () {
                 // Ignora i cambiamenti della lente stessa per evitare loop infiniti
                 if (m.target.id === 'magnifier-lens' || m.target.id === 'magnifier-content') continue;
                 if (m.target.closest && m.target.closest('#magnifier-lens')) continue;
-                
+
                 // Ignora aggiornamenti continui e leggeri (es. animazioni svg/d3, input testo rapido)
                 if (m.target.tagName === 'line' || m.target.tagName === 'circle' || m.target.tagName === 'path' || m.target.tagName === 'text') continue;
                 if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'transform') continue;
@@ -526,7 +539,7 @@ window.toggleMagnifier = function () {
                 shouldRefresh = true;
                 break;
             }
-            
+
             if (shouldRefresh) {
                 clearTimeout(magnifierDebounceTimer);
                 magnifierDebounceTimer = setTimeout(() => {
@@ -534,13 +547,13 @@ window.toggleMagnifier = function () {
                 }, 300); // 300ms debounce per non bloccare la UI
             }
         });
-        
+
         // Osserva i cambiamenti rilevanti nel DOM
-        magnifierObserver.observe(document.body, { 
-            childList: true, 
-            subtree: true, 
-            attributes: true, 
-            attributeFilter: ['class', 'style'] 
+        magnifierObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
         });
 
     } else {
@@ -852,7 +865,7 @@ window.renderTreeView = function () {
             } else {
                 childHtml += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: ${cColor}; stroke: ${cColor};"></i>`;
             }
-            childHtml += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" ondblclick="event.stopPropagation(); window.openEditModal(appState.db.nodes.find(n => n.id === '${c.id.replace(/'/g, "\\'")}'))" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+            childHtml += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
             childHtml += `${c.label}`;
             childHtml += `</button>`;
             childHtml += `</div>`;
@@ -894,7 +907,7 @@ window.renderTreeView = function () {
         } else {
             html += `<i data-lucide="circle" class="w-3 h-3 flex-shrink-0" style="color: ${mColor}; stroke: ${mColor};"></i>`;
         }
-        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" ondblclick="event.stopPropagation(); window.openEditModal(appState.db.nodes.find(n => n.id === '${rn.id.replace(/'/g, "\\'")}'))" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
+        html += `<button onclick="window.onSidebarNodeClick(event, '${rn.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${rn.id.replace(/'/g, "\\'")}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
         html += `${rn.label}${degreeInfo}`;
         html += `</button>`;
         html += `</div>`;
@@ -920,7 +933,7 @@ window.renderTreeView = function () {
                 children.forEach(c => {
                     const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
                         c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
-                    html += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
+                    html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
                     html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
                     html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
                     html += `</button>`;
@@ -933,7 +946,180 @@ window.renderTreeView = function () {
 
     container.innerHTML = html;
     setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
-}
+};
+
+let sidebarClickTimeout = null;
+window.onSidebarNodeClick = function (event, nodeId) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    if (sidebarClickTimeout) {
+        clearTimeout(sidebarClickTimeout);
+        sidebarClickTimeout = null;
+        return;
+    }
+    sidebarClickTimeout = setTimeout(() => {
+        sidebarClickTimeout = null;
+        window.executeSidebarSingleClick(nodeId);
+    }, 250);
+};
+
+window.onSidebarNodeDblClick = function (event, nodeId) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    if (sidebarClickTimeout) {
+        clearTimeout(sidebarClickTimeout);
+        sidebarClickTimeout = null;
+    }
+    const node = appState.db.nodes.find(n => n.id === nodeId);
+    if (node) {
+        window.openEditModal(node);
+    }
+};
+
+window.zoomToFitNodes = function (nodeList) {
+    if (typeof svg === 'undefined' || !svg || typeof zoom === 'undefined' || !zoom || !nodeList || nodeList.length === 0) return;
+
+    const validNodes = nodeList.filter(n => n.x !== undefined && n.y !== undefined && !isNaN(n.x) && !isNaN(n.y));
+    if (validNodes.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    validNodes.forEach(n => {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+    });
+
+    const boxWidth = maxX - minX;
+    const boxHeight = maxY - minY;
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    const svgEl = document.getElementById("map-svg");
+    const width = svgEl ? svgEl.clientWidth || 800 : 800;
+    const height = svgEl ? svgEl.clientHeight || 600 : 600;
+
+    const padding = 100;
+    const scaleX = (width - padding * 2) / (boxWidth || 1);
+    const scaleY = (height - padding * 2) / (boxHeight || 1);
+    let scale = Math.min(scaleX, scaleY);
+    scale = Math.max(0.4, Math.min(1.5, scale));
+
+    const tx = -centerX * scale;
+    const ty = -centerY * scale;
+
+    svg.transition().duration(850).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+};
+
+window.executeSidebarSingleClick = function (nodeId) {
+    const node = appState.db.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const isMindmap = appState.extractionMode === 'mindmap';
+    const rootNode = appState.db.nodes.find(n => n.level === 0 || n.isRoot);
+
+    // Funzione interna per trovare il genitore di livello 1 (macro-area) per qualsiasi nodo
+    function getL1ParentNode(n) {
+        if (!n) return null;
+        if (n.level === 1) return n;
+        if (n.level === 0) return null;
+
+        let current = n;
+        let limit = 0;
+        while (current && current.level > 1 && limit < 15) {
+            limit++;
+            let parent = null;
+            appState.db.links.forEach(l => {
+                const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                if (sid === current.id) {
+                    const conn = appState.db.nodes.find(nodeItem => nodeItem.id === tid);
+                    if (conn && conn.level < current.level) parent = conn;
+                }
+                if (tid === current.id) {
+                    const conn = appState.db.nodes.find(nodeItem => nodeItem.id === sid);
+                    if (conn && conn.level < current.level) parent = conn;
+                }
+            });
+            if (parent) {
+                current = parent;
+            } else {
+                break;
+            }
+        }
+        return current.level === 1 ? current : null;
+    }
+
+    // Funzione interna per raccogliere ricorsivamente tutti i nodi discendenti (L2, L3, L4, L5)
+    function getDescendantIds(startNodeId) {
+        const descendants = new Set();
+        const queue = [startNodeId];
+        let limit = 0;
+
+        while (queue.length > 0 && limit < 500) {
+            limit++;
+            const currentId = queue.shift();
+            appState.db.links.forEach(l => {
+                const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                if (sid === currentId && !descendants.has(tid)) {
+                    const targetNode = appState.db.nodes.find(nodeItem => nodeItem.id === tid);
+                    const currentNode = appState.db.nodes.find(nodeItem => nodeItem.id === currentId);
+                    if (targetNode && currentNode && targetNode.level > currentNode.level) {
+                        descendants.add(tid);
+                        queue.push(tid);
+                    }
+                }
+                if (tid === currentId && !descendants.has(sid)) {
+                    const sourceNode = appState.db.nodes.find(nodeItem => nodeItem.id === sid);
+                    const currentNode = appState.db.nodes.find(nodeItem => nodeItem.id === currentId);
+                    if (sourceNode && currentNode && sourceNode.level > currentNode.level) {
+                        descendants.add(sid);
+                        queue.push(sid);
+                    }
+                }
+            });
+        }
+        return descendants;
+    }
+
+    // Trova la macro-area (L1) corrispondente al nodo cliccato
+    let macroNode = node;
+    if (isMindmap) {
+        const parentL1 = getL1ParentNode(node);
+        if (parentL1) macroNode = parentL1;
+    }
+
+    // Costruisci il set di nodi evidenziati (ROOT + L1 della macroarea + tutti i discendenti L2, L3, L4, L5)
+    const highlightedIds = new Set();
+    if (rootNode) highlightedIds.add(rootNode.id);
+
+    if (macroNode) {
+        highlightedIds.add(macroNode.id);
+        const descendants = getDescendantIds(macroNode.id);
+        descendants.forEach(id => highlightedIds.add(id));
+    }
+
+    // Applica l'effetto dimmed escludendo la macro-area intera e il ROOT
+    if (typeof g !== 'undefined' && g) {
+        g.selectAll(".node-group").classed("dimmed", n => !highlightedIds.has(n.id)).classed("highlighted", n => highlightedIds.has(n.id));
+        g.selectAll(".link-group").classed("dimmed", l => {
+            const sid = typeof l.source === 'object' ? l.source.id : l.source;
+            const tid = typeof l.target === 'object' ? l.target.id : l.target;
+            // Un link non è dimmed se collega due nodi entrambi evidenziati
+            return !(highlightedIds.has(sid) && highlightedIds.has(tid));
+        });
+    }
+
+    // Calcola il framing perfetto inquadrando tutti i nodi della macro-area e il ROOT
+    const nodesToFit = appState.db.nodes.filter(n => highlightedIds.has(n.id));
+    window.zoomToFitNodes(nodesToFit);
+
+    // Esegue il click singolo aggiornando la sidebar ma SENZA zoomare sul singolo nodo o aprire il modale
+    window.handleNodeClick({ stopPropagation: () => { } }, node, true, true);
+};
 
 // Modal functions moved to top section
 
@@ -1406,11 +1592,11 @@ window.updateTokenCostEstimator = function () {
 
     // 1. Get model specs
     const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
-    
+
     // Determine context window
     let maxContext = 1048576; // Default to 1M
     const modelIdLower = selectedModel.toLowerCase();
-    
+
     if (appState.aiProvider === 'infomaniak') {
         if (modelIdLower.includes('gemma')) {
             maxContext = 8192;
@@ -1472,7 +1658,7 @@ window.updateTokenCostEstimator = function () {
         const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
         const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
         const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
-        
+
         if (totalCostCents < 0.01) {
             costDisplay = `<0.01 ¢`;
         } else {
@@ -1948,7 +2134,7 @@ REGOLE TASSATIVE DI OUTPUT:
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
-        
+
         window.resetVaultState();
 
         appState.db = {
@@ -1988,16 +2174,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -2030,15 +2216,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
             // Assegniamo un gruppo unico (idx + 1) per garantire colori diversi agli Hub
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2126,15 +2312,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const extractL1Branch = (nodeId) => {
                     if (!nodeId) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     // 1. Formato esplicito L1_X (es. L1_3, L1_3_L2_A)
                     const m1 = cleanId.match(/L1_(\d+)/);
                     if (m1) return `L1_${m1[1]}`;
-                    
+
                     // 2. Formato implicito LX_Y_... (es. L2_3_2, L3_3_2_1)
                     const m2 = cleanId.match(/^L\d+_(\d+)/);
                     if (m2) return `L1_${m2[1]}`;
-                    
+
                     return null;
                 };
 
@@ -2142,7 +2328,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const findParentIdByIdStructure = (nodeId, level) => {
                     if (!nodeId || level <= 1) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     const match = cleanId.match(/^L\d+_([\d_]+)$/);
                     if (match) {
                         const parts = match[1].split('_');
@@ -2150,7 +2336,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             parts.pop();
                             const parentLevel = level - 1;
                             const parentId = `L${parentLevel}_${parts.join('_')}`;
-                            
+
                             const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
                             if (parentExists) return parentId;
                         }
@@ -2195,15 +2381,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             aiToRealIdMap[n.id] = n.id;
                             let nodeLevel = parseInt(n.level);
                             if (isNaN(nodeLevel)) nodeLevel = 2;
-                            
+
                             const desc = n.desc || n.content || "";
-                            appState.db.nodes.push({ 
-                                ...n, 
-                                level: nodeLevel, 
-                                studyStatus: 'none', 
-                                desc, 
-                                aiDesc: desc, 
-                                chunks: n.chunks || [] 
+                            appState.db.nodes.push({
+                                ...n,
+                                level: nodeLevel,
+                                studyStatus: 'none',
+                                desc,
+                                aiDesc: desc,
+                                chunks: n.chunks || []
                             });
                         }
 
@@ -2231,32 +2417,32 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         }
                     });
                 }
-                
+
                 if (branchData.links && Array.isArray(branchData.links)) {
                     const findNodeId = (idOrLabel) => {
                         if (!idOrLabel) return null;
                         const cleaned = idOrLabel.toString().trim();
                         const upper = cleaned.toUpperCase();
-                        
+
                         // 1. Cerca per ID esatto
                         let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                         if (found) return found.id;
-                        
+
                         // 2. Cerca tramite mappatura aiToRealIdMap
                         if (aiToRealIdMap[upper]) {
                             let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                             if (mappedNode) return mappedNode.id;
                         }
-                        
+
                         // 3. Cerca per Etichetta (Label) normalizzata
                         const norm = normalizeLabel(cleaned);
                         found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                         if (found) return found.id;
-                        
+
                         // 4. Cerca per ID normalizzato
                         found = appState.db.nodes.find(n => normalizeLabel(n.id) === norm);
                         if (found) return found.id;
-                        
+
                         return null;
                     };
 
@@ -2264,15 +2450,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         if (l.source && l.target) {
                             let s = findNodeId(l.source);
                             let t = findNodeId(l.target);
-                            
+
                             // Fallback se il resolver semantico fallisce
                             if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                             if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                            
+
                             if (s && t && s !== t) {
                                 const sExists = appState.db.nodes.some(nx => nx.id === s);
                                 const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                
+
                                 if (sExists && tExists) {
                                     // Evita duplicati di link
                                     const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
@@ -2313,10 +2499,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             }
 
                             if (parentId && parentId !== node.id) {
-                                appState.db.links.push({ 
-                                    source: parentId, 
-                                    target: node.id, 
-                                    rel: "include" 
+                                appState.db.links.push({
+                                    source: parentId,
+                                    target: node.id,
+                                    rel: "include"
                                 });
                                 console.log(`Failsafe Link Creato: ${parentId} -> ${node.id}`);
                             }
@@ -2327,7 +2513,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
                 const hubGroupMap = {};
                 appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-                
+
                 appState.db.nodes.forEach(node => {
                     if (node.level > 1 && (!node.group || node.group === 0)) {
                         // Cerca l'Hub L1 più vicino tramite i link
@@ -2412,16 +2598,16 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -2452,15 +2638,15 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2514,7 +2700,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         const totalBranches = l1NodesData.length;
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
-        
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
         const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
@@ -2599,15 +2785,15 @@ ${textParts.join('\n\n')}`;
                                 aiToRealIdMap[n.id] = n.id;
                                 let nodeLevel = parseInt(n.level);
                                 if (isNaN(nodeLevel)) nodeLevel = 2;
-                                
+
                                 const desc = n.desc || n.content || "";
-                                appState.db.nodes.push({ 
-                                    ...n, 
-                                    level: nodeLevel, 
-                                    studyStatus: 'none', 
-                                    desc, 
-                                    aiDesc: desc, 
-                                    chunks: n.chunks || [] 
+                                appState.db.nodes.push({
+                                    ...n,
+                                    level: nodeLevel,
+                                    studyStatus: 'none',
+                                    desc,
+                                    aiDesc: desc,
+                                    chunks: n.chunks || []
                                 });
                             }
 
@@ -2631,19 +2817,19 @@ ${textParts.join('\n\n')}`;
                             if (!idOrLabel) return null;
                             const cleaned = idOrLabel.toString().trim();
                             const upper = cleaned.toUpperCase();
-                            
+
                             let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                             if (found) return found.id;
-                            
+
                             if (aiToRealIdMap[upper]) {
                                 let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                                 if (mappedNode) return mappedNode.id;
                             }
-                            
+
                             const norm = normalizeLabel(cleaned);
                             found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                             if (found) return found.id;
-                            
+
                             return null;
                         };
 
@@ -2651,14 +2837,14 @@ ${textParts.join('\n\n')}`;
                             if (l.source && l.target) {
                                 let s = findNodeId(l.source);
                                 let t = findNodeId(l.target);
-                                
+
                                 if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                                 if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                                
+
                                 if (s && t && s !== t) {
                                     const sExists = appState.db.nodes.some(nx => nx.id === s);
                                     const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                    
+
                                     if (sExists && tExists) {
                                         const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
                                         if (!linkExists) {
@@ -2738,10 +2924,10 @@ ${textParts.join('\n\n')}`;
                     }
 
                     if (parentId && parentId !== node.id) {
-                        appState.db.links.push({ 
-                            source: parentId, 
-                            target: node.id, 
-                            rel: "include" 
+                        appState.db.links.push({
+                            source: parentId,
+                            target: node.id,
+                            rel: "include"
                         });
                     }
                 }
@@ -2751,7 +2937,7 @@ ${textParts.join('\n\n')}`;
         // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
         const hubGroupMap = {};
         appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-        
+
         appState.db.nodes.forEach(node => {
             if (node.level > 1 && (!node.group || node.group === 0)) {
                 const visited = new Set([node.id]);
@@ -2854,9 +3040,9 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { 
-            temperature: 0.2, 
-            responseMimeType: "application/json", 
+        generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json",
             responseSchema: schema,
             maxOutputTokens: 8192
         }
@@ -2870,27 +3056,27 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
-        
+
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
-        
+
         if (rawData.nodes) {
             rawData.nodes.forEach(n => {
                 n.studyStatus = 'none';
-                
+
                 // 1. Se è un Hub manuale dell'utente -> Forza L1 (sempre)
                 // 2. Se l'IA ha proposto un Hub (L1) -> Permetti L1
                 // 3. Altrimenti (L2, L3, L4...) -> Forza L2 per pulizia KG
                 const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
                 const aiWantsHub = (parseInt(n.level) === 1);
-                
+
                 if (isManualHub || aiWantsHub) {
                     n.level = 1;
                 } else {
-                    n.level = 2; 
+                    n.level = 2;
                 }
-                
+
                 if (!n.desc) n.desc = n.content || "";
                 n.aiDesc = n.desc;
             });
@@ -3391,10 +3577,10 @@ function getNodeRadius(d) {
             // Level 0 (absolute Root/Theme): always the maximum primary size
             return 45;
         }
-        
+
         const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
         const degree = d.degree || 0;
-        
+
         if (d.level === 1) {
             // Level 1 (Super-Hub): ranges from 30px to 40px depending on degree
             const minR = 30, maxR = 40;
@@ -3444,7 +3630,7 @@ function initD3Visualization() {
             g.attr("transform", event.transform);
             // Raddoppiato lo spessore dell'outline bianca dei testi (richiesta utente)
             const k = event.transform.k;
-            const strokeW = Math.max(1.2, (2.4 / k)); 
+            const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
         });
     svg.call(zoom);
@@ -3635,7 +3821,7 @@ function renderGraph() {
                 links.forEach(l => {
                     const source = typeof l.source === 'object' ? l.source : nodes.find(x => x.id === l.source);
                     const target = typeof l.target === 'object' ? l.target : nodes.find(x => x.id === l.target);
-                    
+
                     if (!source || !target) return;
 
                     // Se connesso direttamente a un hub
@@ -3668,7 +3854,7 @@ function renderGraph() {
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
-    
+
     // Contenitore per gli archi segmentati (solo KG)
     nodeEnter.append("g").attr("class", "node-segments");
 
@@ -3737,14 +3923,14 @@ function renderGraph() {
         });
 
     // Gestione segmenti colorati per KG
-    nodeMerge.select(".node-segments").each(function(d) {
+    nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
-        
+
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
             const strokeW = 4; // Spessore bordo segmentato più evidente
-            
+
             if (d.hubColors && d.hubColors.length > 0) {
                 const colors = d.hubColors;
                 const arcCount = colors.length;
@@ -3756,7 +3942,7 @@ function renderGraph() {
                         .outerRadius(r + strokeW) // Spessore verso l'esterno
                         .startAngle(i * angleStep)
                         .endAngle((i + 1) * angleStep);
-                    
+
                     container.append("path")
                         .attr("d", arc)
                         .attr("fill", color);
@@ -3783,7 +3969,7 @@ function renderGraph() {
             let lines = getLabelLines(labelStr);
             const vis = d.iconVisibility || { text: true, image: true, link: true };
             const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
-            
+
             textEl.text('');
             lines.forEach((line, i) => {
                 // Center logic: 
@@ -3864,7 +4050,7 @@ function renderGraph() {
     // Animazione a cascata per svelamento progressivo (Strategia 4)
     // Link appaiono tutti insieme con delay
     linkEnter.transition().duration(800).delay(500).style("opacity", 1);
-    
+
     // I nodi vecchi (merge senza enter) devono mantenere opacità 1
     // Per sicurezza impostiamo a 1 tutto ciò che era già presente
     nodeSelection.style("opacity", 1);
@@ -4063,16 +4249,20 @@ window.changeFontScale = function (dir) {
 
 window.exportSnapshot = async function () {
     try {
+        if (!window.electronAPI || !window.electronAPI.capturePage) {
+            throw new Error("La cattura PNG non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+        }
+
         window.showToast("Cattura immagine pulita in corso...", "info");
-        
+
         // Attiva modalità snapshot (nasconde UI)
         document.body.classList.add('is-snapshotting');
-        
+
         // Attendi un frame per il reflow del layout
         await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
-        
+
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
@@ -4103,12 +4293,16 @@ window.exportSnapshot = async function () {
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
         console.error("Errore Snapshot:", err);
-        window.showToast("Errore durante lo snapshot: " + err.message, "error");
+        window.showToast(err.message, "error");
     }
 };
 
 window.exportPDF = async function () {
     try {
+        if (!window.electronAPI || !window.electronAPI.capturePage) {
+            throw new Error("La cattura PDF non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+        }
+
         window.showToast("Generazione PDF in corso...", "info");
 
         // Attiva modalità snapshot (nasconde l'UI)
@@ -4162,7 +4356,75 @@ window.exportPDF = async function () {
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
         console.error("Errore esportazione PDF:", err);
-        window.showToast("Errore durante l'esportazione: " + err.message, "error");
+        window.showToast(err.message, "error");
+    }
+};
+
+window.exportSVG = async function () {
+    try {
+        window.showToast("Generazione SVG in corso...", "info");
+        const svgElement = document.getElementById("map-svg");
+        if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
+
+        // Clona l'SVG per non influenzare la vista corrente
+        const clonedSvg = svgElement.cloneNode(true);
+
+        // Rimuove eventuali listener o elementi di controllo inutili se presenti
+        clonedSvg.removeAttribute("class");
+
+        // Estrae tutti gli stili CSS globali e li incorpora nell'SVG per mantenere colori e stili dei nodi/linee
+        let cssStyles = "";
+        try {
+            for (const sheet of document.styleSheets) {
+                try {
+                    const rules = sheet.cssRules || sheet.rules;
+                    for (const rule of rules) {
+                        if (rule.cssText && (rule.cssText.includes(".node") || rule.cssText.includes(".link") || rule.cssText.includes("svg") || rule.cssText.includes("text"))) {
+                            cssStyles += rule.cssText + "\n";
+                        }
+                    }
+                } catch (e) {
+                    // Ignora errori di fogli di stile cross-origin (es. Google Fonts)
+                }
+            }
+        } catch (e) {
+            console.warn("Impossibile leggere alcuni fogli di stile:", e);
+        }
+
+        const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleElem.textContent = cssStyles;
+        clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+
+        // Serializza l'SVG in formato stringa XML
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(clonedSvg);
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            // Su iPadOS, usa navigator.share per condividere o salvare nei File
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.svg`, { type: 'image/svg+xml' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta SVG",
+                    text: "Esporta mappa mentale in vettoriale"
+                });
+                window.showToast("SVG condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione non supportata su questo dispositivo. Prova a salvare.");
+            }
+        } else {
+            // Su Desktop/Browser scarica il file
+            const a = document.createElement("a");
+            a.download = `MappAI_Mappa_${new Date().getTime()}.svg`;
+            a.href = URL.createObjectURL(blob);
+            a.click();
+            window.showToast("Esportazione SVG completata con successo!", "success");
+        }
+    } catch (err) {
+        console.error("Errore esportazione SVG:", err);
+        window.showToast("Errore esportazione: " + err.message, "error");
     }
 };
 
@@ -4182,17 +4444,29 @@ window.toggleLayout = function () {
     const btn = document.getElementById('card-btn-layout');
     const span = document.getElementById('layout-label-text');
     const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
+    const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
 
-    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal)
+    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal) -> (Custom Layouts)
     if (appState.layoutMode === 'default') {
         appState.layoutMode = 'orbit';
     } else if (appState.layoutMode === 'orbit') {
         appState.layoutMode = isMindmap ? 'radial' : 'separated';
     } else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
         if (hasSnapshot) appState.layoutMode = 'personal';
+        else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
         else appState.layoutMode = 'default';
     } else if (appState.layoutMode === 'personal') {
-        appState.layoutMode = 'default';
+        if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
+        else appState.layoutMode = 'default';
+    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+        const currentId = appState.layoutMode.replace('custom_', '');
+        const layouts = appState.savedLayouts || [];
+        const idx = layouts.findIndex(l => l.id === currentId);
+        if (idx >= 0 && idx < layouts.length - 1) {
+            appState.layoutMode = 'custom_' + layouts[idx + 1].id;
+        } else {
+            appState.layoutMode = 'default';
+        }
     } else {
         appState.layoutMode = 'default';
     }
@@ -4207,6 +4481,28 @@ window.toggleLayout = function () {
             }
         });
         window.showToast("Layout Personale Ripristinato", "success");
+    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+        const layoutId = appState.layoutMode.replace('custom_', '');
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (layout) {
+            appState.db.nodes.forEach(n => {
+                const savedPos = layout.positions[n.id];
+                if (savedPos) {
+                    n.x = savedPos.x; n.y = savedPos.y;
+                    n.fx = savedPos.fx; n.fy = savedPos.fy;
+                    n.pinned = savedPos.pinned;
+                }
+            });
+            // Applica inquadratura zoom e pan
+            const svgEl = document.getElementById("map-svg");
+            if (svgEl && typeof d3 !== 'undefined' && zoom) {
+                d3.select("#map-svg").transition().duration(750).call(
+                    zoom.transform,
+                    d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+                );
+            }
+            window.showToast(`Layout "${layout.name}" Ripristinato`, "success");
+        }
     }
 
     if (btn) {
@@ -4217,6 +4513,11 @@ window.toggleLayout = function () {
             if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
             if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
             if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
+            if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+                const layoutId = appState.layoutMode.replace('custom_', '');
+                const layout = appState.savedLayouts.find(l => l.id === layoutId);
+                span.innerText = layout ? layout.keyword : 'CUSTOM';
+            }
         } else {
             btn.classList.remove('bg-indigo-100', 'text-indigo-600');
             btn.classList.add('bg-slate-100', 'text-slate-600');
@@ -4224,7 +4525,7 @@ window.toggleLayout = function () {
         }
     }
 
-    if (appState.layoutMode !== 'personal') {
+    if (appState.layoutMode !== 'personal' && (!appState.layoutMode || !appState.layoutMode.startsWith('custom_'))) {
         window.applyLayoutForces();
     } else {
         simulation.alpha(0.3).restart();
@@ -4530,7 +4831,8 @@ window.switchToMapLayout = function () {
     document.getElementById('landing-view').style.display = 'none';
     const mapView = document.getElementById('map-view');
     mapView.classList.add('active');
-    document.getElementById('sidebar-subtitle').innerText = `Progetto: ${appState.rootNodeLabel || 'Mappa Senza Nome'}`;
+    const subtitleEl = document.getElementById('sidebar-subtitle');
+    if (subtitleEl) subtitleEl.innerText = `${appState.rootNodeLabel || 'Mappa Senza Nome'}`;
 
     // Nascondi la barra dei progetti recenti quando si entra nella mappa
     const projectsBar = document.getElementById('projects-bar');
@@ -4586,7 +4888,7 @@ window.zoomToNode = function (nodeId) {
 
 window.ignoreNextNodeClick = false;
 
-window.handleNodeClick = function (event, d) {
+window.handleNodeClick = function (event, d, preventZoom = false, preventModal = false) {
     if (window.ignoreNextNodeClick) {
         window.ignoreNextNodeClick = false;
         return;
@@ -4621,24 +4923,27 @@ window.handleNodeClick = function (event, d) {
         }
 
         currentNode = d;
-        const linked = new Set([d.id]);
-        appState.db.links.forEach(l => {
-            let s = typeof l.source === 'object' ? l.source.id : l.source;
-            let t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (s === d.id) linked.add(t); if (t === d.id) linked.add(s);
-        });
 
-        g.selectAll(".node-group").classed("dimmed", n => !linked.has(n.id)).classed("highlighted", n => linked.has(n.id));
-        g.selectAll(".link-group").classed("dimmed", l => {
-            let sid = typeof l.source === 'object' ? l.source.id : l.source;
-            let tid = typeof l.target === 'object' ? l.target.id : l.target;
-            return sid !== d.id && tid !== d.id;
-        });
+        if (!preventZoom) {
+            const linked = new Set([d.id]);
+            appState.db.links.forEach(l => {
+                let s = typeof l.source === 'object' ? l.source.id : l.source;
+                let t = typeof l.target === 'object' ? l.target.id : l.target;
+                if (s === d.id) linked.add(t); if (t === d.id) linked.add(s);
+            });
 
-        if (d.x !== undefined && d.y !== undefined && !isNaN(d.x) && !isNaN(d.y) && typeof svg !== 'undefined' && svg) {
-            try {
-                svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5 + 120).scale(1.5));
-            } catch (e) { console.warn("Zoom error:", e); }
+            g.selectAll(".node-group").classed("dimmed", n => !linked.has(n.id)).classed("highlighted", n => linked.has(n.id));
+            g.selectAll(".link-group").classed("dimmed", l => {
+                let sid = typeof l.source === 'object' ? l.source.id : l.source;
+                let tid = typeof l.target === 'object' ? l.target.id : l.target;
+                return sid !== d.id && tid !== d.id;
+            });
+
+            if (d.x !== undefined && d.y !== undefined && !isNaN(d.x) && !isNaN(d.y) && typeof svg !== 'undefined' && svg) {
+                try {
+                    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5 + 120).scale(1.5));
+                } catch (e) { console.warn("Zoom error:", e); }
+            }
         }
 
         let imgHtml = d.image ? `<img src="${d.image}" class="w-full rounded-lg mb-4 border border-slate-200 cursor-pointer" onclick="window.openLightbox('${d.image}')" onerror="this.style.display='none'">` : '';
@@ -4706,7 +5011,9 @@ window.handleNodeClick = function (event, d) {
         window.safeCreateIcons();
 
         // Apriamo automaticamente il modale delle fonti come richiesto (stile mappatura_tutor)
-        window.openSourceModal(d.id);
+        if (!preventModal) {
+            window.openSourceModal(d.id);
+        }
     } catch (e) {
         const errDiv = document.createElement('div');
         errDiv.style = "position:fixed; top:50px; left:50px; background:red; color:white; z-index:99999; padding:20px; font-size: 20px; max-width:80%; word-wrap: break-word;";
@@ -4819,7 +5126,7 @@ window.openSourceModal = function (nodeId) {
                 let displayUrl = u;
                 if (isLocal) {
                     displayUrl = displayUrl.split(/[/\\]/).pop();
-                    try { displayUrl = decodeURIComponent(displayUrl); } catch(e) {}
+                    try { displayUrl = decodeURIComponent(displayUrl); } catch (e) { }
                 } else if (displayUrl.length > 60) {
                     displayUrl = displayUrl.substring(0, 60) + "...";
                 }
@@ -5005,14 +5312,14 @@ window.updateStep4Display = function () {
 
     if (isMindmap) {
         if (descMM) {
-            descMM.innerText = autoGenerateL1 ? 
-                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") : 
+            descMM.innerText = autoGenerateL1 ?
+                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") :
                 (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
         }
     } else {
         if (descKG) {
-            descKG.innerText = autoGenerateL1 ? 
-                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") : 
+            descKG.innerText = autoGenerateL1 ?
+                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") :
                 (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
         }
     }
@@ -5198,7 +5505,7 @@ window.removeL1Input = function (btn) {
 
 window.riordinaMappa = function () {
     if (!simulation) return;
-    
+
     // Se ci sono nodi pinnati o salvati, chiedi conferma
     const pinnedNodes = appState.db.nodes.filter(n => n.fx !== null && n.fx !== undefined);
     if (pinnedNodes.length > 0) {
@@ -5211,7 +5518,7 @@ window.riordinaMappa = function () {
     } else {
         applyDefaultLayout();
     }
-    
+
     function applyDefaultLayout() {
         appState.db.nodes.forEach(d => {
             if (d.level > 0 && !d.pinned) {
@@ -5226,7 +5533,7 @@ window.riordinaMappa = function () {
 
 window.salvaLayout = function () {
     if (!appState || !appState.db || !appState.db.nodes) return;
-    
+
     appState.db.nodes.forEach(n => {
         if (n.x !== undefined && n.y !== undefined) {
             n.fx = n.x;
@@ -5236,12 +5543,12 @@ window.salvaLayout = function () {
             n.savedY = n.y;
         }
     });
-    
+
     // Forza salvataggio immediato
     if (StorageManager.currentProjectId) {
         StorageManager.saveCurrentProject();
     }
-    
+
     window.showToast("Layout Salvato (Snapshot creato)!", "success");
 };
 
@@ -5298,7 +5605,7 @@ window.importGraph = function (event) {
 
             appState.db = { nodes: data.nodes, links: data.links };
             appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-            
+
             if (data.generationUsage) {
                 appState.generationUsage = data.generationUsage;
                 if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5363,7 +5670,7 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
-            
+
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
                 saveRes.upgrades.forEach(up => {
@@ -5382,7 +5689,7 @@ window.saveMapVault = async function () {
                 syncBtn.classList.remove('hidden');
                 syncBtn.classList.add('flex');
             }
-            
+
             window.showToast("Vault creato e collegato!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
@@ -5401,7 +5708,7 @@ window.loadDemoGraph = async function (url) {
         const res = await fetch(url);
         if (!res.ok) throw new Error("File demo non trovato.");
         const data = await res.json();
-        
+
         if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
 
         data.links.forEach(l => {
@@ -5415,7 +5722,7 @@ window.loadDemoGraph = async function (url) {
 
         appState.db = { nodes: data.nodes, links: data.links };
         appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-        
+
         if (data.generationUsage) {
             appState.generationUsage = data.generationUsage;
             if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5447,11 +5754,11 @@ window.loadDemoGraph = async function (url) {
         }
 
         appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
-        
+
         if (typeof simulation !== 'undefined') simulation = null;
         window.switchToMapLayout();
         if (typeof initD3Visualization === 'function') initD3Visualization();
-        
+
         window.showLoadingOverlay(false);
         window.showToast("Mappa dimostrativa caricata con successo!", "success");
     } catch (err) {
@@ -5529,7 +5836,7 @@ window.loadMapVault = async function () {
             });
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -5549,7 +5856,7 @@ window.loadMapVault = async function () {
     }
 };
 
-window.handleImportClick = function(event) {
+window.handleImportClick = function (event) {
     const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
     if (isCapacitor) {
         // Su iPadOS/Capacitor facciamo scattare direttamente il click sull'input file nascosto
@@ -5564,12 +5871,12 @@ window.handleImportClick = function(event) {
     }
 };
 
-window.handleIPadVaultFileSelected = async function(event) {
+window.handleIPadVaultFileSelected = async function (event) {
     const file = event.target.files[0];
     if (!file) return;
 
     window.showLoadingOverlay(true, "Importazione Vault in corso...");
-    
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
         try {
@@ -5582,13 +5889,13 @@ window.handleIPadVaultFileSelected = async function(event) {
             }
             const baseName = file.name.replace('.json', '');
             const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
-            
+
             // Salva il vault nativamente tramite il bridge
             const saveRes = await window.electronAPI.saveVault({
                 folderPath: safeName,
                 mapData: parsed
             });
-            
+
             window.showLoadingOverlay(false);
             if (saveRes && saveRes.success) {
                 window.showToast("Vault importato con successo!", "success");
@@ -5605,7 +5912,7 @@ window.handleIPadVaultFileSelected = async function(event) {
         }
     };
     reader.readAsText(file);
-    
+
     // Resetta il valore dell'input per permettere di riselezionare lo stesso file
     event.target.value = "";
 };
@@ -6001,6 +6308,619 @@ window.exportNotesMarkdown = function () {
     dl.click();
 }
 
+window.printAllNodeLabels = async function () {
+    const nodes = appState.db.nodes || [];
+    if (nodes.length === 0) {
+        window.showToast("Nessun nodo presente nella mappa.", "warning");
+        return;
+    }
+
+    const projectTitle = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Progetto MappAI";
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    let fontName = "courier";
+    try {
+        const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
+        const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+
+        const [regRes, boldRes] = await Promise.all([
+            fetch(regularUrl).then(res => res.arrayBuffer()),
+            fetch(boldUrl).then(res => res.arrayBuffer())
+        ]);
+
+        const arrayBufferToBase64 = (buffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        };
+
+        const regBase64 = arrayBufferToBase64(regRes);
+        const boldBase64 = arrayBufferToBase64(boldRes);
+
+        doc.addFileToVFS('SpaceMono-Regular.ttf', regBase64);
+        doc.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+
+        doc.addFileToVFS('SpaceMono-Bold.ttf', boldBase64);
+        doc.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+
+        fontName = "Space Mono";
+    } catch (err) {
+        console.warn("Impossibile caricare Space Mono, uso Courier come fallback:", err);
+    }
+
+    const marginX = 10;
+    const marginY = 15;
+    const pageWidth = 297;
+    const pageHeight = 210;
+    const cols = 4;
+    const colWidth = (pageWidth - 2 * marginX) / cols;
+    const rowHeight = 35;
+    const rowsPerPage = 5;
+
+    let currentNodeIndex = 0;
+
+    doc.setFont(fontName, "normal");
+    doc.setFontSize(18);
+
+    while (currentNodeIndex < nodes.length) {
+        if (currentNodeIndex > 0) {
+            doc.addPage();
+        }
+
+        for (let r = 0; r < rowsPerPage; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (currentNodeIndex >= nodes.length) break;
+
+                const node = nodes[currentNodeIndex];
+                currentNodeIndex++;
+
+                const x = marginX + c * colWidth;
+                const y = marginY + r * rowHeight;
+
+                // Disegna card con bordo tratteggiato
+                doc.setDrawColor(0, 128, 255); // #6b8cd0ff
+                doc.setLineWidth(0.3);
+                if (typeof doc.setLineDashPattern === 'function') {
+                    doc.setLineDashPattern([1, 1], 0);
+                }
+                doc.roundedRect(x, y, colWidth, rowHeight, 3, 3, 'D');
+
+                if (typeof doc.setLineDashPattern === 'function') {
+                    doc.setLineDashPattern([], 0);
+                }
+
+                // Testo del label
+                const labelText = cleanLabel(node.label);
+                doc.setTextColor(0, 0, 0); // #000000ff
+
+                const maxTextWidth = colWidth - 8;
+                const lines = doc.splitTextToSize(labelText, maxTextWidth);
+
+                const fontHeight = doc.getFontSize() * 0.352778; // pt to mm
+                const lineHeight = fontHeight * 1.3;
+                const totalTextHeight = lines.length * lineHeight;
+
+                // Centratura verticale
+                let currentY = y + (rowHeight - totalTextHeight) / 2 + fontHeight - (lineHeight - fontHeight) / 2;
+
+                lines.forEach(line => {
+                    doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
+                    currentY += lineHeight;
+                });
+            }
+            if (currentNodeIndex >= nodes.length) break;
+        }
+    }
+
+    doc.save(`Label-${projectTitle}.pdf`);
+    window.showToast("Download PDF delle etichette avviato!", "success");
+};
+
+window.printAllNodeDossiers = function () {
+    window.openDossierPrintModal();
+};
+
+window.openDossierPrintModal = function () {
+    const modal = document.getElementById('dossier-print-modal');
+    const box = document.getElementById('dossier-print-box');
+    if (!modal || !box) return;
+
+    const isMM = appState.extractionMode === 'mindmap';
+    const mmOpts = document.getElementById('print-mm-options');
+    const kgOpts = document.getElementById('print-kg-options');
+
+    // Reset select inputs
+    const selectId = isMM ? 'print-mm-node-select' : 'print-kg-node-select';
+    const selectEl = document.getElementById(selectId);
+
+    // Clear select options, keep the first 'all' option
+    selectEl.innerHTML = `<option value="all">${isMM ? 'Tutta la mappa (Tutti i nodi)' : 'Tutta la mappa (Tutti i nodi)'}</option>`;
+
+    // Sort and add nodes to the select dropdown
+    const sortedNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+    sortedNodes.forEach(n => {
+        const option = document.createElement('option');
+        option.value = n.id;
+        option.innerText = `[L${n.level || 0}] ${cleanLabel(n.label)}`;
+        selectEl.appendChild(option);
+    });
+
+    if (isMM) {
+        mmOpts.classList.remove('hidden');
+        kgOpts.classList.add('hidden');
+        document.getElementById('print-mm-scope-container').classList.add('hidden');
+        document.getElementById('print-mm-ascii-diagram').checked = true;
+    } else {
+        kgOpts.classList.remove('hidden');
+        mmOpts.classList.add('hidden');
+        document.getElementById('print-kg-scope-container').classList.add('hidden');
+        document.getElementById('print-kg-relations').checked = true;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+    }, 10);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+};
+
+window.closeDossierPrintModal = function () {
+    const modal = document.getElementById('dossier-print-modal');
+    const box = document.getElementById('dossier-print-box');
+    if (!modal || !box) return;
+    modal.classList.add('opacity-0');
+    box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+};
+
+window.onDossierNodeChange = function (mode) {
+    const select = document.getElementById(`print-${mode}-node-select`);
+    const container = document.getElementById(`print-${mode}-scope-container`);
+    if (!select || !container) return;
+
+    if (select.value === 'all') {
+        container.classList.add('hidden');
+    } else {
+        container.classList.remove('hidden');
+    }
+};
+
+window.generateDossierPDFFromOptions = function () {
+    const isMM = appState.extractionMode === 'mindmap';
+    const selectId = isMM ? 'print-mm-node-select' : 'print-kg-node-select';
+    const selectedNodeId = document.getElementById(selectId).value;
+
+    let targetNodes = [];
+    let asciiTree = "";
+
+    // Recursive function for descendants (MM)
+    function getDescendants(nodeId) {
+        let list = [];
+        const node = appState.db.nodes.find(n => n.id === nodeId);
+        if (node) list.push(node);
+
+        const childrenLinks = appState.db.links.filter(l => {
+            const sId = (l.source && l.source.id) ? l.source.id : l.source;
+            return sId === nodeId;
+        });
+
+        childrenLinks.forEach(link => {
+            const tId = (link.target && link.target.id) ? link.target.id : link.target;
+            list.push(...getDescendants(tId));
+        });
+        return list;
+    }
+
+    // Recursive function to build ASCII relation tree (MM)
+    function buildASCIITree(nodeId, prefix = "") {
+        let lines = [];
+        const outgoingLinks = appState.db.links.filter(l => {
+            const sId = (l.source && l.source.id) ? l.source.id : l.source;
+            return sId === nodeId;
+        });
+
+        outgoingLinks.forEach((link, idx) => {
+            const isLast = idx === outgoingLinks.length - 1;
+            const tId = (link.target && link.target.id) ? link.target.id : link.target;
+            const targetNode = appState.db.nodes.find(n => n.id === tId);
+            if (targetNode) {
+                const connector = isLast ? "└── " : "├── ";
+                const nextPrefix = prefix + (isLast ? "    " : "│   ");
+                const relText = link.rel ? `[${link.rel}] ──> ` : "";
+                lines.push(prefix + connector + relText + cleanLabel(targetNode.label));
+
+                const childTree = buildASCIITree(tId, nextPrefix);
+                if (childTree) {
+                    lines.push(childTree);
+                }
+            }
+        });
+        return lines.join("\n");
+    }
+
+    if (selectedNodeId === 'all') {
+        targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+    } else {
+        const selectedNode = appState.db.nodes.find(n => n.id === selectedNodeId);
+        if (!selectedNode) {
+            window.showToast("Nodo non trovato", "error");
+            return;
+        }
+
+        if (isMM) {
+            const scope = document.querySelector('input[name="print-mm-scope"]:checked').value;
+            if (scope === 'single') {
+                targetNodes = [selectedNode];
+            } else {
+                targetNodes = getDescendants(selectedNodeId);
+            }
+
+            const includeAscii = document.getElementById('print-mm-ascii-diagram').checked;
+            if (includeAscii) {
+                asciiTree = cleanLabel(selectedNode.label) + "\n" + buildASCIITree(selectedNodeId);
+            }
+        } else {
+            const scope = document.querySelector('input[name="print-kg-scope"]:checked').value;
+            if (scope === 'single') {
+                targetNodes = [selectedNode];
+            } else {
+                targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+            }
+        }
+    }
+
+    if (targetNodes.length === 0) {
+        window.showToast("Nessun nodo selezionato da stampare.", "warning");
+        return;
+    }
+
+    const projectTitle = appState.db.title || "Progetto MappAI";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+        window.showToast("Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser.", "error");
+        return;
+    }
+
+    // Costruisci le schede dossier
+    const dossierCardsHtml = targetNodes.map(n => {
+        const chunksHtml = (n.chunks && n.chunks.length > 0)
+            ? n.chunks.map(c => `<blockquote class="chunk-quote">${cleanLabel(c)}</blockquote>`).join('')
+            : `<p class="no-chunks">Nessuna citazione verbatim associata.</p>`;
+
+        // Se KG e relazioni abilitate, genera l'elenco A ed elenco B per ciascun nodo
+        let relationsHtml = "";
+        if (!isMM && document.getElementById('print-kg-relations').checked) {
+            // Elenco A: da nodo protagonista a target
+            const outgoing = appState.db.links.filter(l => {
+                const sId = (l.source && l.source.id) ? l.source.id : l.source;
+                return sId === n.id;
+            }).map(l => {
+                const tId = (l.target && l.target.id) ? l.target.id : l.target;
+                const targetNode = appState.db.nodes.find(node => node.id === tId);
+                return targetNode ? `<li><span class="rel-arrow">--&gt;</span> <span class="rel-word">[${l.rel || 'collega'}]</span> <span class="rel-arrow">--&gt;</span> <strong class="rel-target">[${cleanLabel(targetNode.label)}]</strong></li>` : '';
+            }).filter(h => h !== '').join('');
+
+            // Elenco B: da target a nodo protagonista
+            const incoming = appState.db.links.filter(l => {
+                const tId = (l.target && l.target.id) ? l.target.id : l.target;
+                return tId === n.id;
+            }).map(l => {
+                const sId = (l.source && l.source.id) ? l.source.id : l.source;
+                const sourceNode = appState.db.nodes.find(node => node.id === sId);
+                return sourceNode ? `<li><span class="rel-arrow">--&gt;</span> <strong class="rel-target">[${cleanLabel(sourceNode.label)}]</strong> <span class="rel-arrow">--&gt;</span> <span class="rel-word">[${l.rel || 'collega'}]</span> <span class="rel-arrow">--&gt;</span></li>` : '';
+            }).filter(h => h !== '').join('');
+
+            if (outgoing || incoming) {
+                relationsHtml = `
+                    <h3 class="dossier-section-title">Relazioni del Nodo</h3>
+                    <div class="kg-relations">
+                        ${outgoing ? `
+                            <div class="kg-relations-list">
+                                <strong>Elenco A) Uscenti (Da questo nodo ad altri):</strong>
+                                <ul>${outgoing}</ul>
+                            </div>
+                        ` : ''}
+                        ${incoming ? `
+                            <div class="kg-relations-list">
+                                <strong>Elenco B) Entranti (Da altri nodi a questo):</strong>
+                                <ul>${incoming}</ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        return `
+            <div class="dossier-card">
+                <div class="dossier-header">
+                    <span class="dossier-tag">Livello ${n.level || 0}</span>
+                    <h2 class="dossier-title">${cleanLabel(n.label)}</h2>
+                </div>
+                <div class="dossier-body">
+                    <h3 class="dossier-section-title">Sintesi del Concetto</h3>
+                    <p class="dossier-desc">${cleanLabel(n.desc || n.content || 'Nessuna descrizione presente.')}</p>
+                    
+                    <h3 class="dossier-section-title">Estratti e Citazioni delle Fonti</h3>
+                    <div class="chunks-container">
+                        ${chunksHtml}
+                    </div>
+
+                    ${relationsHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    let asciiSectionHtml = "";
+    if (isMM && asciiTree) {
+        asciiSectionHtml = `
+            <div class="dossier-card ascii-diagram-card">
+                <div class="dossier-header">
+                    <span class="dossier-tag">Diagramma</span>
+                    <h2 class="dossier-title">Diagramma ASCII delle Relazioni del Ramo</h2>
+                </div>
+                <div class="dossier-body">
+                    <pre class="ascii-tree">${asciiTree}</pre>
+                </div>
+            </div>
+        `;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dossier Fonti A4 - ${projectTitle}</title>
+            <style>
+                :root {
+                    /* ======================================================== */
+                    /* CONFIGURAZIONE DI LAYOUT E STAMPA (FACILMENTE MODIFICABILE) */
+                    /* ======================================================== */
+                    --pdf-margin-top: 15mm;
+                    --pdf-margin-bottom: 15mm;
+                    --pdf-margin-left: 15mm;
+                    --pdf-margin-right: 15mm;
+                    
+                    /* TIPOGRAFIA */
+                    --pdf-font-family: system-ui, -apple-system, sans-serif;
+                    --pdf-base-font-size: 14px;
+                    --pdf-line-height: 1.6;
+                    --pdf-title-font-size: 24px;
+                    --pdf-subtitle-font-size: 18px;
+                    --pdf-section-title-size: 11px;
+                    
+                    /* COLORI E DISPOSIZIONE */
+                    --pdf-primary-color: #312e81; /* Colore primario intestazioni */
+                    --pdf-accent-color: #6366f1;  /* Colore dei bordi e tag */
+                    --pdf-bg-quote: #f8fafc;      /* Colore sfondo citazioni */
+                    --pdf-card-padding: 24px;
+                    --pdf-card-border-radius: 12px;
+                    --pdf-spacing-between-cards: 24px;
+                }
+
+                @media print {
+                    body { 
+                        margin: 0; 
+                        padding: var(--pdf-margin-top) var(--pdf-margin-right) var(--pdf-margin-bottom) var(--pdf-margin-left); 
+                    }
+                    .no-print { display: none !important; }
+                    .dossier-card { 
+                        page-break-inside: avoid; 
+                        margin-bottom: var(--pdf-spacing-between-cards); 
+                    }
+                }
+
+                body {
+                    font-family: var(--pdf-font-family);
+                    color: #1e293b;
+                    background: #fff;
+                    padding: 30px;
+                    line-height: var(--pdf-line-height);
+                    font-size: var(--pdf-base-font-size);
+                }
+
+                .header {
+                    margin-bottom: 30px;
+                    padding-bottom: 16px;
+                    border-bottom: 2px solid #e2e8f0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .header h1 {
+                    font-size: var(--pdf-title-font-size);
+                    margin: 0;
+                    font-weight: 800;
+                    color: var(--pdf-primary-color);
+                }
+
+                .btn-print {
+                    background: #4f46e5;
+                    color: #fff;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+
+                .btn-print:hover {
+                    background: #4338ca;
+                }
+
+                .dossier-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--pdf-spacing-between-cards);
+                }
+
+                .dossier-card {
+                    border: 1px solid #e2e8f0;
+                    border-radius: var(--pdf-card-border-radius);
+                    background: #fff;
+                    padding: var(--pdf-card-padding);
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                    page-break-inside: avoid;
+                }
+
+                .dossier-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 16px;
+                    border-bottom: 1px solid #f1f5f9;
+                    padding-bottom: 12px;
+                }
+
+                .dossier-tag {
+                    font-size: 10px;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    background: #e0e7ff;
+                    color: var(--pdf-accent-color);
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                }
+
+                .dossier-title {
+                    font-size: var(--pdf-subtitle-font-size);
+                    font-weight: 700;
+                    margin: 0;
+                    color: #1e1b4b;
+                }
+
+                .dossier-section-title {
+                    font-size: var(--pdf-section-title-size);
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    color: #64748b;
+                    margin: 20px 0 8px 0;
+                    letter-spacing: 0.05em;
+                }
+
+                .dossier-desc {
+                    color: #334155;
+                    margin: 0;
+                    white-space: pre-wrap;
+                }
+
+                .chunk-quote {
+                    font-family: 'Space Mono', monospace;
+                    font-size: 12px;
+                    background: var(--pdf-bg-quote);
+                    border-left: 4px solid var(--pdf-accent-color);
+                    padding: 12px;
+                    margin: 8px 0;
+                    color: #475569;
+                    border-radius: 0 8px 8px 0;
+                    white-space: pre-wrap;
+                }
+
+                .no-chunks {
+                    font-size: 13px;
+                    color: #94a3b8;
+                    font-style: italic;
+                    margin: 0;
+                }
+
+                .ascii-tree {
+                    font-family: 'Space Mono', monospace;
+                    font-size: 12px;
+                    background: #f8fafc;
+                    padding: 16px;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                    overflow-x: auto;
+                    margin: 0;
+                }
+
+                /* Stili per le relazioni KG */
+                .kg-relations {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    margin-top: 12px;
+                }
+
+                .kg-relations-list {
+                    background: #fdfdfd;
+                    border: 1px solid #f1f5f9;
+                    padding: 12px;
+                    border-radius: 8px;
+                }
+
+                .kg-relations-list strong {
+                    font-size: 12px;
+                    color: #475569;
+                    display: block;
+                    margin-bottom: 6px;
+                }
+
+                .kg-relations-list ul {
+                    margin: 0;
+                    padding-left: 16px;
+                    list-style-type: none;
+                }
+
+                .kg-relations-list li {
+                    font-size: 13px;
+                    color: #334155;
+                    margin-bottom: 4px;
+                    font-family: 'Space Mono', monospace;
+                }
+
+                .rel-arrow {
+                    color: #94a3b8;
+                }
+
+                .rel-word {
+                    color: #6366f1;
+                    font-weight: bold;
+                }
+
+                .rel-target {
+                    color: #0f172a;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header no-print">
+                <h1>Dossier Concetti (A4): ${projectTitle}</h1>
+                <button class="btn-print" onclick="window.print()">Stampa Dossier</button>
+            </div>
+            <div class="dossier-container">
+                ${asciiSectionHtml}
+                ${dossierCardsHtml}
+            </div>
+            <script>
+                setTimeout(() => { window.print(); }, 400);
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    window.closeDossierPrintModal();
+};
+
 
 
 
@@ -6116,11 +7036,15 @@ window.showContextMenu = function (e, type, data) {
                 <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
                 <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                <hr class="my-1 border-slate-200">
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.ctxAction('fissa_layout')"><i data-lucide="map"></i> Fissa Layout</div>
             `;
         } else {
             menu.innerHTML = `
                 <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                <hr class="my-1 border-slate-200">
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.ctxAction('fissa_layout')"><i data-lucide="map"></i> Fissa Layout</div>
             `;
         }
     }
@@ -6147,6 +7071,10 @@ window.ctxAction = function (action) {
     const data = ctxTarget.data;
     hideContextMenu();
 
+    if (action === 'fissa_layout') {
+        window.openLayoutModal();
+        return;
+    }
     if (action === 'expand_ai') {
         window.openContextualAIExtensionModal(data);
         return;
@@ -6462,6 +7390,7 @@ window.saveEditNode = function () {
 
     window.closeEditModal();
     renderGraph();
+    window.renderTreeView();
     window.updateUserNotesSidebar();
     StorageManager.saveCurrentProject();
     if (currentNode && currentNode.id === editTarget.id) window.handleNodeClick({ stopPropagation: () => { } }, currentNode);
@@ -6502,13 +7431,13 @@ window.updateUserNotesSidebar = function () {
                 if (isLocal) {
                     try {
                         displayUrl = decodeURIComponent(u.split('/').pop());
-                    } catch(e) {
+                    } catch (e) {
                         displayUrl = u.split('/').pop();
                     }
                 } else {
                     displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
                 }
-                
+
                 html += `
                     <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
                         <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
@@ -6567,7 +7496,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         const items = JSON.parse(cleanText);
         node.flashcardTest = items;
         node.nextReview = Date.now(); // Available right away
-        
+
         if (!isBranch) {
             appState.db.studySets = appState.db.studySets || [];
             const isKG = appState.db.extractionMode === 'knowledge_graph';
@@ -6581,7 +7510,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
                 date: new Date().toISOString()
             });
         }
-        
+
         if (!silent) {
             window.showLoadingOverlay(false);
             window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
@@ -6664,7 +7593,7 @@ window.loadStudySet = function (setId) {
         openAnswers: [],
         startTime: Date.now()
     };
-    
+
     window.currentStudyItemIndex = 0;
     window.openStudyPlayer();
 };
@@ -6825,7 +7754,7 @@ window.renderSubQuestion = function () {
     optionsArray.forEach(val => {
         let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
         let btn = document.createElement('div');
-        
+
         if (isTrueFalse) {
             btn.className = "quiz-option flex-1 text-center";
             const lowerText = text.toLowerCase();
@@ -6837,7 +7766,7 @@ window.renderSubQuestion = function () {
         } else {
             btn.className = "quiz-option";
         }
-        
+
         btn.innerText = text;
         btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
         optsContainer.appendChild(btn);
@@ -7551,24 +8480,24 @@ window.setPomodoroDuration = function (mins) {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
     pomodoroTimeLeft = pomodoroDuration;
-    
+
     const btn = document.getElementById('pomodoro-btn');
     if (btn) {
         btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
-        btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
+        btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
     }
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
-    
+
     const p15 = document.getElementById('pomodoro-preset-15');
     const p25 = document.getElementById('pomodoro-preset-25');
     if (p15 && p25) {
         if (mins === 15) {
-            p15.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
-            p25.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+            p15.className = "px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 transition font-bold";
+            p25.className = "px-2.5 py-1 text-slate-500 rounded-md hover:bg-slate-50 transition font-bold";
         } else {
-            p25.className = "px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold";
-            p15.className = "px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold";
+            p25.className = "px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 transition font-bold";
+            p15.className = "px-2.5 py-1 text-slate-500 rounded-md hover:bg-slate-50 transition font-bold";
         }
     }
 };
@@ -7595,7 +8524,7 @@ window.togglePomodoro = function () {
                     sessions++;
                     localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
                     window.updatePomodoroSessionsDisplay();
-                } catch(e) {
+                } catch (e) {
                     console.error("Error updating pomodoro sessions", e);
                 }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
@@ -7611,7 +8540,7 @@ window.resetPomodoro = function () {
     pomodoroTimeLeft = pomodoroDuration;
     const btn = document.getElementById('pomodoro-btn');
     btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
-    btn.className = "p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center";
+    btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
 };
@@ -7628,7 +8557,7 @@ window.updatePomodoroSessionsDisplay = function () {
         const count = localStorage.getItem('mappai_pomodoro_sessions') || '0';
         const badge = document.getElementById('pomodoro-sessions-badge');
         if (badge) {
-            badge.innerText = `Sessioni: ${count} 🔥`;
+            badge.innerText = `Sessioni: ${count}`;
         }
     } catch (e) {
         console.error("Error displaying pomodoro sessions", e);
@@ -7813,7 +8742,7 @@ const StorageManager = {
             const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App Mapp.AI.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
                 return;
             }
 
@@ -8130,9 +9059,9 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
     if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
     else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
-    
+
     document.getElementById('study-config-title').innerText = title;
-    
+
     let iconName = 'brain-circuit';
     if (mode === 'quiz') {
         iconName = scope === 'branch' ? 'layers' : 'graduation-cap';
@@ -8495,7 +9424,7 @@ window.nextStudyItem = function (flashcardFeedback = null) {
 window.addStudyScore = function () {
     try {
         if (!window.studyResults) return;
-        
+
         const score = {
             title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
             correct: window.studyResults.correct,
@@ -8503,7 +9432,7 @@ window.addStudyScore = function () {
             type: window.studyResults.type || "Quiz",
             date: new Date().toISOString()
         };
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
@@ -8511,17 +9440,17 @@ window.addStudyScore = function () {
         } catch (e) {
             console.error("Error reading study scores", e);
         }
-        
+
         if (!Array.isArray(scores)) scores = [];
-        
+
         // Add to the beginning (newest first)
         scores.unshift(score);
-        
+
         // Keep at most 10
         if (scores.length > 10) {
             scores = scores.slice(0, 10);
         }
-        
+
         localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
         window.updateStudyScoresDisplay();
     } catch (err) {
@@ -8533,20 +9462,20 @@ window.updateStudyScoresDisplay = function () {
     try {
         const container = document.getElementById('study-scores-container');
         if (!container) return;
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
             if (raw) scores = JSON.parse(raw);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         if (!Array.isArray(scores) || scores.length === 0) {
             container.innerHTML = `
-                <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
+                <p class="text-[14px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
             `;
             return;
         }
-        
+
         container.innerHTML = '';
         scores.forEach(s => {
             const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
@@ -8556,7 +9485,7 @@ window.updateStudyScoresDisplay = function () {
                 minute: '2-digit'
             });
             const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-            
+
             // Color based on performance
             let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
             let progressColor = "bg-rose-500";
@@ -8567,7 +9496,7 @@ window.updateStudyScoresDisplay = function () {
                 bgClass = "bg-amber-50 border-amber-100 text-amber-700";
                 progressColor = "bg-amber-500";
             }
-            
+
             const div = document.createElement('div');
             div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
             div.innerHTML = `
@@ -8585,7 +9514,7 @@ window.updateStudyScoresDisplay = function () {
             `;
             container.appendChild(div);
         });
-        
+
         // Add a "Cancella storico" button at the end
         const clearDiv = document.createElement('div');
         clearDiv.className = "pt-2 flex justify-end";
@@ -8595,7 +9524,7 @@ window.updateStudyScoresDisplay = function () {
             </button>
         `;
         container.appendChild(clearDiv);
-        
+
         if (window.safeCreateIcons) window.safeCreateIcons();
     } catch (err) {
         console.error("Error displaying study scores", err);
@@ -8837,11 +9766,11 @@ window.cycleLineHeight = function () {
 let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
 
-window.cycleTextZoom = function() {
+window.cycleTextZoom = function () {
     window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
 };
 
-window.applyTextZoom = function(idx) {
+window.applyTextZoom = function (idx) {
     currentZoomIdx = idx;
     localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
@@ -8859,7 +9788,7 @@ window.applyTextZoom = function(idx) {
 
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
     document.documentElement.style.setProperty('--app-zoom', effectiveZ);
-    
+
     if (effectiveZ > 1.0) {
         document.body.classList.add('a11y-zoomed-modals');
     } else {
@@ -9744,7 +10673,7 @@ window.directLoadVault = async function (folderPath) {
             }
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -9862,21 +10791,21 @@ window.resetVaultState = function () {
 
         const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
         const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
-        
+
         const appVersion = "1.0.0";
         const osInfo = "iOS / iPadOS (Capacitor)";
         const userAgent = navigator.userAgent;
         const model = document.getElementById('model-select')?.value || 'Non specificato';
-        
+
         const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
-                          `========================================\n` +
-                          `Categoria: ${categoryLabel}\n` +
-                          `Dispositivo: ${osInfo}\n` +
-                          `Modello Selezionato: ${model}\n` +
-                          `Versione App: ${appVersion}\n` +
-                          `User Agent: ${userAgent}\n` +
-                          `========================================\n\n` +
-                          `DESCRIZIONE:\n${text}\n\n`;
+            `========================================\n` +
+            `Categoria: ${categoryLabel}\n` +
+            `Dispositivo: ${osInfo}\n` +
+            `Modello Selezionato: ${model}\n` +
+            `Versione App: ${appVersion}\n` +
+            `User Agent: ${userAgent}\n` +
+            `========================================\n\n` +
+            `DESCRIZIONE:\n${text}\n\n`;
 
         navigator.clipboard.writeText(emailBody).then(() => {
             const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
@@ -9897,6 +10826,995 @@ window.resetVaultState = function () {
             if (window.refreshGeminiModels) window.refreshGeminiModels();
         }
     }, 1000);
+
+    // ==========================================================
+    // SEZIONE LAYOUT PERSONALIZZATI (FISSA)
+    // ==========================================================
+    window.currentEditingLayoutId = null;
+
+    window.openLayoutModal = async function () {
+        const modal = document.getElementById('layout-manager-modal');
+        const box = document.getElementById('layout-manager-box');
+        if (!modal || !box) return;
+
+        // Reset edit state
+        window.currentEditingLayoutId = null;
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        if (editIndicator) editIndicator.classList.add('hidden');
+
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.setAttribute('disabled', 'true');
+            editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Reset campi input
+        document.getElementById('layout-new-title').value = '';
+        document.getElementById('layout-new-keyword').value = '';
+        document.getElementById('layout-new-desc').value = '';
+
+        // Reset minimized & resized state
+        box.classList.remove('minimized-layout-box');
+        box.style.width = '';
+        box.style.height = '';
+        box.style.left = '';
+        box.style.top = '';
+        box.style.transform = '';
+
+        const minBtn = document.getElementById('layout-minimize-btn');
+        if (minBtn) {
+            minBtn.innerHTML = `<i data-lucide="minimize-2" class="w-6 h-6"></i>`;
+        }
+
+        // Renderizza lista dei layout salvati
+        window.renderSavedLayoutsList();
+
+        // Mostra modale
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+
+        // Genera l'anteprima in tempo reale
+        await window.updateLayoutPreviewDirect();
+    };
+
+    window.updateLayoutPreviewDirect = async function () {
+        const previewContainer = document.getElementById('layout-current-preview-container');
+        if (!previewContainer) return;
+        previewContainer.innerHTML = `
+            <div class="text-center text-slate-400 text-xs flex flex-col items-center gap-1">
+                <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-indigo-500"></i>
+                Cattura anteprima...
+            </div>
+        `;
+        if (window.safeCreateIcons) window.safeCreateIcons();
+
+        try {
+            const previewData = await getSVGPreviewDataURL();
+            if (previewData && previewData.preview) {
+                previewContainer.innerHTML = `<img src="${previewData.preview}" class="w-full h-full object-contain" id="layout-current-preview-img" data-svg-markup="${encodeURIComponent(previewData.svgMarkup)}" />`;
+            } else {
+                previewContainer.innerHTML = `<div class="text-xs text-slate-400">Anteprima non disponibile</div>`;
+            }
+        } catch (e) {
+            console.error(e);
+            previewContainer.innerHTML = `<div class="text-xs text-slate-400">Errore anteprima</div>`;
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeLayoutModal = function () {
+        const modal = document.getElementById('layout-manager-modal');
+        const box = document.getElementById('layout-manager-box');
+        if (!modal || !box) return;
+
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    // Funzione interna per generare l'immagine PNG a partire dal tag SVG corrente della mappa
+    async function getSVGPreviewDataURL() {
+        const svgElement = document.getElementById("map-svg");
+        if (!svgElement) return null;
+
+        const clonedSvg = svgElement.cloneNode(true);
+        clonedSvg.removeAttribute("class");
+
+        // Rimuove gli elementi foreignObject (es. icone lucide con HTML) che bloccano il rendering di sicurezza dell'immagine SVG
+        const foreignObjects = clonedSvg.querySelectorAll("foreignObject");
+        foreignObjects.forEach(fo => fo.remove());
+
+        // Assicura la presenza del namespace SVG corretto
+        if (!clonedSvg.getAttribute("xmlns")) {
+            clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        }
+
+        // Imposta larghezza e altezza assolute per permettere il rendering corretto in un tag Image
+        const rect = svgElement.getBoundingClientRect();
+        const svgW = rect.width || svgElement.clientWidth || 800;
+        const svgH = rect.height || svgElement.clientHeight || 600;
+        clonedSvg.setAttribute("width", svgW);
+        clonedSvg.setAttribute("height", svgH);
+
+        if (!clonedSvg.getAttribute("viewBox")) {
+            clonedSvg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
+        }
+
+        // Estrae e inietta gli stili CSS per rendere i colori fedeli
+        let cssStyles = `
+            .node-circle { stroke-width: 2px; }
+            .node-text { font-family: system-ui, -apple-system, sans-serif; font-weight: 500; pointer-events: none; }
+            .link { stroke: #cbd5e1; stroke-opacity: 0.6; stroke-width: 2px; fill: none; }
+            .link-active { stroke: #6366f1; stroke-width: 3px; }
+            .arrowhead { fill: #94a3b8; }
+        `;
+        try {
+            if (document.styleSheets) {
+                for (let i = 0; i < document.styleSheets.length; i++) {
+                    const sheet = document.styleSheets[i];
+                    try {
+                        const rules = sheet.cssRules || sheet.rules;
+                        if (!rules) continue;
+                        for (let j = 0; j < rules.length; j++) {
+                            const rule = rules[j];
+                            if (rule.cssText && (
+                                rule.cssText.includes(".node") ||
+                                rule.cssText.includes(".link") ||
+                                rule.cssText.includes("svg") ||
+                                rule.cssText.includes("text") ||
+                                rule.cssText.includes("marker")
+                            )) {
+                                cssStyles += rule.cssText + "\n";
+                            }
+                        }
+                    } catch (e) {
+                        // Ignora restrizioni CORS
+                    }
+                }
+            }
+        } catch (e) { }
+
+        const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleElem.textContent = cssStyles;
+        clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(clonedSvg);
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = function () {
+                const canvas = document.createElement("canvas");
+                canvas.width = 400;
+                canvas.height = 300;
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Ritaglio proporzionale (Cover) senza deformare/stretchare l'immagine
+                const canvasRatio = canvas.width / canvas.height;
+                const imgRatio = img.width / img.height;
+                let sx = 0, sy = 0, sw = img.width, sh = img.height;
+                if (imgRatio > canvasRatio) {
+                    sw = img.height * canvasRatio;
+                    sx = (img.width - sw) / 2;
+                } else {
+                    sh = img.width / canvasRatio;
+                    sy = (img.height - sh) / 2;
+                }
+
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                resolve({
+                    preview: canvas.toDataURL("image/png"),
+                    svgMarkup: svgString
+                });
+            };
+            img.onerror = function (err) {
+                console.error("SVG preview render failed:", err);
+                URL.revokeObjectURL(url);
+                // Tentativo alternativo usando encoding base64 diretto della stringa SVG
+                try {
+                    const fallbackUrl = "data:image/svg+xml;utf8," + encodeURIComponent(svgString);
+                    const fallbackImg = new Image();
+                    fallbackImg.onload = function () {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = 400;
+                        canvas.height = 300;
+                        const ctx = canvas.getContext("2d");
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Ritaglio proporzionale (Cover)
+                        const canvasRatio = canvas.width / canvas.height;
+                        const imgRatio = fallbackImg.width / fallbackImg.height;
+                        let sx = 0, sy = 0, sw = fallbackImg.width, sh = fallbackImg.height;
+                        if (imgRatio > canvasRatio) {
+                            sw = fallbackImg.height * canvasRatio;
+                            sx = (fallbackImg.width - sw) / 2;
+                        } else {
+                            sh = fallbackImg.width / canvasRatio;
+                            sy = (fallbackImg.height - sh) / 2;
+                        }
+
+                        ctx.drawImage(fallbackImg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+                        resolve({
+                            preview: canvas.toDataURL("image/png"),
+                            svgMarkup: svgString
+                        });
+                    };
+                    fallbackImg.onerror = function () {
+                        resolve({
+                            preview: null,
+                            svgMarkup: svgString
+                        });
+                    };
+                    fallbackImg.src = fallbackUrl;
+                } catch (fallbackErr) {
+                    console.error("Fallback rendering failed:", fallbackErr);
+                    resolve({
+                        preview: null,
+                        svgMarkup: svgString
+                    });
+                }
+            };
+            img.src = url;
+        });
+    }
+
+    window.saveCurrentLayout = async function () {
+        const title = document.getElementById('layout-new-title').value.trim();
+        const keyword = document.getElementById('layout-new-keyword').value.trim();
+        const desc = document.getElementById('layout-new-desc').value.trim();
+
+        if (!title || !keyword) {
+            window.showToast("Titolo e Keyword sono richiesti per salvare il layout", "warning");
+            return;
+        }
+
+        if (!appState.savedLayouts) {
+            appState.savedLayouts = [];
+        }
+
+        // Check limit only when creating a new layout
+        if (!window.currentEditingLayoutId && appState.savedLayouts.length >= 5) {
+            window.showToast("Hai raggiunto il limite massimo di 5 layout salvati. Cancellane uno prima di procedere.", "error");
+            return;
+        }
+
+        window.showToast("Cattura in corso...", "info");
+
+        // 1. Cattura anteprima immagine e markup SVG
+        const previewImg = document.getElementById('layout-current-preview-img');
+        let previewDataUrl = previewImg ? previewImg.src : null;
+        let svgMarkup = previewImg ? decodeURIComponent(previewImg.getAttribute('data-svg-markup') || '') : '';
+
+        if (!previewDataUrl || !svgMarkup) {
+            const previewData = await getSVGPreviewDataURL();
+            if (previewData) {
+                previewDataUrl = previewData.preview;
+                svgMarkup = previewData.svgMarkup;
+            }
+        }
+
+        // 2. Cattura coordinate nodi
+        const nodePositions = {};
+        appState.db.nodes.forEach(n => {
+            nodePositions[n.id] = { x: n.x, y: n.y, fx: n.fx, fy: n.fy, pinned: n.pinned };
+        });
+
+        // 3. Cattura zoom e pan
+        let viewState = { x: 0, y: 0, k: 1 };
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined') {
+            const trans = d3.zoomTransform(svgEl);
+            viewState = { x: trans.x, y: trans.y, k: trans.k };
+        }
+
+        if (window.currentEditingLayoutId) {
+            // Aggiorna layout esistente
+            const idx = appState.savedLayouts.findIndex(l => l.id === window.currentEditingLayoutId);
+            if (idx !== -1) {
+                appState.savedLayouts[idx].name = title;
+                appState.savedLayouts[idx].keyword = keyword.toUpperCase();
+                appState.savedLayouts[idx].desc = desc;
+                appState.savedLayouts[idx].preview = previewDataUrl;
+                appState.savedLayouts[idx].svgMarkup = svgMarkup;
+                appState.savedLayouts[idx].positions = nodePositions;
+                appState.savedLayouts[idx].viewState = viewState;
+                window.showToast(`Layout "${title}" aggiornato correttamente!`, "success");
+            } else {
+                window.currentEditingLayoutId = null;
+            }
+        }
+
+        if (!window.currentEditingLayoutId) {
+            // Crea nuovo layout
+            const newLayout = {
+                id: 'layout_' + Date.now(),
+                name: title,
+                keyword: keyword.toUpperCase(),
+                desc: desc,
+                preview: previewDataUrl,
+                svgMarkup: svgMarkup,
+                positions: nodePositions,
+                viewState: viewState
+            };
+            appState.savedLayouts.push(newLayout);
+            window.showToast(`Layout "${title}" salvato correttamente!`, "success");
+        }
+
+        StorageManager.saveCurrentProject();
+        window.renderSavedLayoutsList();
+
+        // Reset indicator state after saving
+        window.resetLayoutModalToNew();
+    };
+
+    window.renderSavedLayoutsList = function () {
+        const container = document.getElementById('layout-saved-list');
+        if (!container) return;
+
+        const layouts = appState.savedLayouts || [];
+        if (layouts.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun layout salvato in questo progetto.</p>';
+            return;
+        }
+
+        container.innerHTML = layouts.map((lay, idx) => {
+            return `
+                <div class="layout-card">
+                    <div class="layout-thumb bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        ${lay.preview ? `<img src="${lay.preview}" />` : `<i data-lucide="image" class="w-8 h-8 text-slate-300"></i>`}
+                    </div>
+                    <div class="flex-grow flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase">${lay.keyword}</span>
+                                <h4 class="text-sm font-bold text-slate-800">${lay.name}</h4>
+                            </div>
+                            <p class="text-xs text-slate-500 line-clamp-2">${lay.desc || 'Nessuna descrizione.'}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-2">
+                            <button onclick="window.applySavedLayout('${lay.id}')" class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg text-xs hover:bg-indigo-700 transition flex items-center gap-1">
+                                <i data-lucide="play" class="w-3 h-3"></i> Applica
+                            </button>
+                            <button onclick="window.editSavedLayout('${lay.id}')" class="px-3 py-1.5 bg-amber-500 text-white font-bold rounded-lg text-xs hover:bg-amber-600 transition flex items-center gap-1" title="Modifica layout">
+                                <i data-lucide="edit-3" class="w-3 h-3"></i> Modifica
+                            </button>
+                            <button onclick="window.exportLayoutPDF('${lay.id}')" class="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-lg text-xs hover:bg-slate-200 transition flex items-center gap-1" title="Esporta scheda in PDF">
+                                <i data-lucide="file-text" class="w-3 h-3"></i> PDF
+                            </button>
+                            <button onclick="window.deleteSavedLayout('${lay.id}')" class="p-1.5 text-slate-300 hover:text-red-500 transition ml-auto" title="Elimina Layout">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.editSavedLayout = function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        window.currentEditingLayoutId = layoutId;
+
+        // Popola form
+        document.getElementById('layout-new-title').value = layout.name || '';
+        document.getElementById('layout-new-keyword').value = layout.keyword || '';
+        document.getElementById('layout-new-desc').value = layout.desc || '';
+
+        // Mostra indicatore di modifica
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        const editName = document.getElementById('layout-edit-name');
+        if (editIndicator && editName) {
+            editName.innerText = layout.name;
+            editIndicator.classList.remove('hidden');
+            editIndicator.classList.add('flex');
+        }
+
+        // Abilita il bottone di conferma modifica "Salva"
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.removeAttribute('disabled');
+            editBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Applica posizioni temporanee sulla mappa per consentire all'utente di vederle/modificarle
+        appState.db.nodes.forEach(n => {
+            const savedPos = layout.positions[n.id];
+            if (savedPos) {
+                n.x = savedPos.x;
+                n.y = savedPos.y;
+                n.fx = savedPos.fx;
+                n.fy = savedPos.fy;
+                n.pinned = savedPos.pinned;
+            }
+        });
+
+        // Applica inquadratura zoom e pan
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined' && zoom) {
+            d3.select("#map-svg").transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+            );
+        }
+
+        renderGraph();
+
+        // Forza aggiornamento anteprima nel modale dopo il completamento della transizione
+        setTimeout(() => {
+            window.updateLayoutPreviewDirect();
+        }, 850);
+    };
+
+    window.resetLayoutModalToNew = function () {
+        window.currentEditingLayoutId = null;
+        document.getElementById('layout-new-title').value = '';
+        document.getElementById('layout-new-keyword').value = '';
+        document.getElementById('layout-new-desc').value = '';
+
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        if (editIndicator) {
+            editIndicator.classList.add('hidden');
+            editIndicator.classList.remove('flex');
+        }
+
+        // Disabilita il bottone di conferma modifica "Salva"
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.setAttribute('disabled', 'true');
+            editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        window.updateLayoutPreviewDirect();
+    };
+
+    window.saveCurrentLayoutEditConfirm = async function () {
+        if (!window.currentEditingLayoutId) {
+            window.showToast("Nessun layout in fase di modifica da aggiornare.", "warning");
+            return;
+        }
+        await window.saveCurrentLayout();
+    };
+
+    window.toggleMinimizeLayoutModal = function () {
+        const box = document.getElementById('layout-manager-box');
+        const minBtn = document.getElementById('layout-minimize-btn');
+        if (!box) return;
+
+        const isMinimized = box.classList.toggle('minimized-layout-box');
+
+        if (minBtn) {
+            if (isMinimized) {
+                // Riduci
+                minBtn.innerHTML = `<i data-lucide="maximize-2" class="w-6 h-6"></i>`;
+                // Pulisci stili di resize per applicare quelli fissi da CSS
+                box.style.width = '';
+                box.style.height = '';
+            } else {
+                // Ripristina
+                minBtn.innerHTML = `<i data-lucide="minimize-2" class="w-6 h-6"></i>`;
+                box.style.width = '';
+                box.style.height = '';
+                box.style.left = '';
+                box.style.top = '';
+                box.style.transform = '';
+            }
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.applySavedLayout = function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        // Applica posizioni ai nodi
+        appState.db.nodes.forEach(n => {
+            const savedPos = layout.positions[n.id];
+            if (savedPos) {
+                n.x = savedPos.x;
+                n.y = savedPos.y;
+                n.fx = savedPos.fx;
+                n.fy = savedPos.fy;
+                n.pinned = savedPos.pinned;
+            }
+        });
+
+        // Applica inquadratura zoom e pan
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined' && zoom) {
+            d3.select("#map-svg").transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+            );
+        }
+
+        // Imposta layoutMode a custom_layoutId per il ciclo
+        appState.layoutMode = 'custom_' + layoutId;
+        const btn = document.getElementById('card-btn-layout');
+        const span = document.getElementById('layout-label-text');
+        if (btn && span) {
+            btn.classList.add('bg-indigo-100', 'text-indigo-600');
+            btn.classList.remove('bg-slate-100', 'text-slate-600');
+            span.innerText = layout.keyword;
+        }
+
+        renderGraph();
+        window.closeLayoutModal();
+        window.showToast(`Layout "${layout.name}" applicato!`, "success");
+    };
+
+    window.deleteSavedLayout = function (layoutId) {
+        if (!confirm("Sei sicuro di voler eliminare questo layout?")) return;
+
+        appState.savedLayouts = appState.savedLayouts.filter(l => l.id !== layoutId);
+        StorageManager.saveCurrentProject();
+        window.showToast("Layout eliminato", "info");
+        window.renderSavedLayoutsList();
+    };
+
+    window.exportLayoutPDF = async function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        try {
+            window.showToast("Esportazione PDF scheda in corso...", "info");
+            const pdf = await window.buildLayoutPDFDocument({
+                title: layout.name,
+                keyword: layout.keyword,
+                desc: layout.desc,
+                svgMarkup: layout.svgMarkup,
+                previewDataUrl: layout.preview
+            });
+
+            const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+            if (isCapacitor) {
+                const blob = pdf.output('blob');
+                const file = new File([blob], `Scheda_Layout_${layout.keyword}.pdf`, { type: 'application/pdf' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: `Scheda Layout ${layout.name}`,
+                        text: `Scheda esportata del layout ${layout.name}`
+                    });
+                    window.showToast("Scheda condivisa con successo!", "success");
+                } else {
+                    throw new Error("Condivisione non supportata.");
+                }
+            } else {
+                pdf.save(`Scheda_Layout_${layout.keyword}.pdf`);
+                window.showToast("Scheda PDF salvata con successo!", "success");
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF: " + e.message, "error");
+        }
+    };
+
+    window.exportCurrentLayoutPDFDirect = async function () {
+        const title = document.getElementById('layout-new-title').value.trim() || "Layout Corrente";
+        const keyword = document.getElementById('layout-new-keyword').value.trim() || "";
+        const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
+
+        try {
+            window.showToast("Generazione PDF scheda in corso...", "info");
+            const previewData = await getSVGPreviewDataURL();
+            if (!previewData) throw new Error("Impossibile catturare l'anteprima");
+
+            const pdf = await window.buildLayoutPDFDocument({
+                title: title,
+                keyword: keyword,
+                desc: desc,
+                svgMarkup: previewData.svgMarkup,
+                previewDataUrl: previewData.preview
+            });
+
+            const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+            if (isCapacitor) {
+                const blob = pdf.output('blob');
+                const file = new File([blob], `Scheda_Layout_${title.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: `Scheda Layout ${title}`,
+                        text: `Scheda esportata del layout ${title}`
+                    });
+                    window.showToast("Scheda condivisa con successo!", "success");
+                } else {
+                    throw new Error("Condivisione non supportata.");
+                }
+            } else {
+                pdf.save(`Scheda_Layout_${title.replace(/\s+/g, '_')}.pdf`);
+                window.showToast("Scheda PDF salvata con successo!", "success");
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF: " + e.message, "error");
+        }
+    };
+
+    window.exportCurrentLayoutPDFToVault = async function () {
+        const title = document.getElementById('layout-new-title').value.trim() || "Layout Corrente";
+        const keyword = document.getElementById('layout-new-keyword').value.trim() || "LAYOUT";
+        const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
+
+        if (!appState.activeVaultPath) {
+            window.showToast("Nessun Vault attivo. Collega o crea un Vault per salvare.", "warning");
+            return;
+        }
+
+        try {
+            window.showToast("Generazione ed esportazione PDF nel Vault in corso...", "info");
+            const previewData = await getSVGPreviewDataURL();
+            if (!previewData) throw new Error("Impossibile catturare l'anteprima");
+
+            const pdf = await window.buildLayoutPDFDocument({
+                title: title,
+                keyword: keyword,
+                desc: desc,
+                svgMarkup: previewData.svgMarkup,
+                previewDataUrl: previewData.preview
+            });
+
+            // Get base64 string from PDF
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            const fileName = `Scheda_Layout_${keyword.replace(/\s+/g, '_') || Date.now()}.pdf`;
+
+            const res = await window.electronAPI.savePDFToVault({
+                base64Data: pdfBase64,
+                fileName: fileName,
+                vaultPath: appState.activeVaultPath
+            });
+
+            if (res.success) {
+                window.showToast(`Scheda PDF esportata con successo nel Vault: ${fileName}`, "success");
+            } else {
+                throw new Error(res.error);
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF nel Vault: " + e.message, "error");
+        }
+    };
+
+    // Helper functions for PDF fonts and images loading
+    async function loadSpaceMonoFont(pdf) {
+        try {
+            const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
+            const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+
+            const [regRes, boldRes] = await Promise.all([
+                fetch(regularUrl).then(res => res.arrayBuffer()),
+                fetch(boldUrl).then(res => res.arrayBuffer())
+            ]);
+
+            const regBase64 = arrayBufferToBase64(regRes);
+            const boldBase64 = arrayBufferToBase64(boldRes);
+
+            pdf.addFileToVFS('SpaceMono-Regular.ttf', regBase64);
+            pdf.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+
+            pdf.addFileToVFS('SpaceMono-Bold.ttf', boldBase64);
+            pdf.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+        } catch (err) {
+            console.error("Failed to load Space Mono font from GitHub, using default fallback:", err);
+        }
+    }
+
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    async function loadMappaiIconBase64() {
+        try {
+            const response = await fetch('MappAI_icon.png');
+            const blob = await response.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error("Failed to load Mappai logo:", e);
+            return null;
+        }
+    }
+
+    window.buildLayoutPDFDocument = async function ({ title, keyword, desc, svgMarkup, previewDataUrl }) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        // Register fonts
+        await loadSpaceMonoFont(pdf);
+
+        // Load and add MappAI logo icon
+        const logoBase64 = await loadMappaiIconBase64();
+        if (logoBase64) {
+            pdf.addImage(logoBase64, 'PNG', 15, 10, 12, 12);
+        }
+
+        pdf.setFont("Space Mono", "bold");
+        pdf.setFontSize(16);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text("MappAI", 30, 18);
+
+        pdf.setFont("Space Mono", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("Scheda Studio Vettoriale", 30, 22);
+
+        const projectName = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Mappa Senza Nome";
+        pdf.text(`Progetto: ${projectName}`, 15, 29);
+        pdf.text(`Data creazione: ${new Date().toLocaleDateString()}`, 15, 34);
+
+        if (appState.userProfile && appState.userProfile.nickname) {
+            let profileInfo = `Autore: ${appState.userProfile.nickname}`;
+            if (appState.userProfile.grade) {
+                profileInfo += ` - Classe: ${appState.userProfile.grade}`;
+            }
+            pdf.text(profileInfo, 140, 29);
+        }
+
+        pdf.setLineWidth(0.2);
+        pdf.setDrawColor(226, 232, 240);
+        pdf.line(15, 38, 195, 38);
+
+        // Titolo Layout
+        pdf.setFont("Space Mono", "bold");
+        pdf.setFontSize(14);
+        pdf.setTextColor(30, 41, 59);
+        const titleText = keyword ? `${title} [${keyword}]` : title;
+        pdf.text(titleText, 15, 46);
+
+        // Descrizione
+        pdf.setFont("Space Mono", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(51, 65, 85);
+        const descriptionLines = pdf.splitTextToSize(desc || "Nessuna descrizione inserita.", 180);
+        let y = 53;
+        for (let i = 0; i < descriptionLines.length; i++) {
+            if (y > 270) {
+                pdf.addPage();
+                y = 20;
+            }
+            pdf.text(descriptionLines[i], 15, y);
+            y += 5;
+        }
+
+        // Image size calculations
+        let svgW = 800;
+        let svgH = 600;
+        let finalImageSrc = previewDataUrl;
+
+        if (svgMarkup) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+                const svgEl = doc.documentElement;
+                svgW = parseFloat(svgEl.getAttribute("width")) || 800;
+                svgH = parseFloat(svgEl.getAttribute("height")) || 600;
+
+                const highResImg = await new Promise((resolveHighRes, rejectHighRes) => {
+                    const img = new Image();
+                    const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    img.onload = function () {
+                        const canvas = document.createElement("canvas");
+                        const aspect = svgW / svgH;
+                        canvas.width = 1600;
+                        canvas.height = 1600 / aspect;
+
+                        const ctx = canvas.getContext("2d");
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(url);
+                        resolveHighRes(canvas.toDataURL("image/png"));
+                    };
+                    img.onerror = function (err) {
+                        URL.revokeObjectURL(url);
+                        rejectHighRes(err);
+                    };
+                    img.src = url;
+                });
+
+                finalImageSrc = highResImg;
+            } catch (err) {
+                console.error("High res SVG render failed:", err);
+            }
+        }
+
+        const aspect = svgW / svgH;
+        let imgW, imgH, x;
+
+        if (aspect >= 0.95) {
+            imgW = 180;
+            imgH = 180 / aspect;
+            x = 15;
+        } else {
+            imgH = 178.2;
+            imgW = imgH * aspect;
+            if (imgW > 180) {
+                imgW = 180;
+                imgH = 180 / aspect;
+            }
+            x = 15 + (180 - imgW) / 2;
+        }
+
+        if (y + 10 + imgH > 270) {
+            pdf.addPage();
+            y = 20;
+        } else {
+            y += 10;
+        }
+
+        if (svgMarkup) {
+            try {
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgMarkup, "image/svg+xml");
+                const svgEl = svgDoc.documentElement;
+                await pdf.svg(svgEl, {
+                    x: x,
+                    y: y,
+                    width: imgW,
+                    height: imgH
+                });
+            } catch (svgErr) {
+                console.error("svg2pdf failed, falling back to PNG addImage:", svgErr);
+                if (finalImageSrc) {
+                    pdf.addImage(finalImageSrc, 'PNG', x, y, imgW, imgH);
+                }
+            }
+        } else if (finalImageSrc) {
+            pdf.addImage(finalImageSrc, 'PNG', x, y, imgW, imgH);
+        }
+
+        return pdf;
+    };
+
+    window.makeModalDraggable = function () {
+        const modalBox = document.getElementById('layout-manager-box');
+        const dragHandle = modalBox ? modalBox.querySelector('.modal-drag-handle') : null;
+        if (!modalBox || !dragHandle) return;
+
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        const dragStart = (e) => {
+            if (e.target.closest('input, textarea, button')) return;
+
+            isDragging = true;
+            dragHandle.style.cursor = 'grabbing';
+            modalBox.style.cursor = 'grabbing';
+
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+            startX = clientX;
+            startY = clientY;
+
+            const rect = modalBox.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            modalBox.style.position = 'fixed';
+            modalBox.style.margin = '0';
+            modalBox.style.left = `${initialLeft}px`;
+            modalBox.style.top = `${initialTop}px`;
+            modalBox.style.transform = 'none';
+        };
+
+        const dragMove = (e) => {
+            if (!isDragging) return;
+
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            let nextLeft = initialLeft + dx;
+            let nextTop = initialTop + dy;
+
+            // Limiti per evitare che il modale esca dallo schermo
+            const boxWidth = modalBox.offsetWidth || 1200;
+            const maxW = window.innerWidth;
+            const maxH = window.innerHeight;
+
+            const minLeft = -boxWidth + 150;
+            const maxLeft = maxW - 150;
+            const minTop = 0; // Impedisce di trascinare il modale sopra la barra superiore dello schermo
+            const maxTop = maxH - 100; // Impedisce che il modale sparisca del tutto in basso
+
+            nextLeft = Math.max(minLeft, Math.min(nextLeft, maxLeft));
+            nextTop = Math.max(minTop, Math.min(nextTop, maxTop));
+
+            modalBox.style.left = `${nextLeft}px`;
+            modalBox.style.top = `${nextTop}px`;
+        };
+
+        const dragEnd = () => {
+            if (isDragging) {
+                isDragging = false;
+                dragHandle.style.cursor = 'move';
+                modalBox.style.cursor = 'grab';
+            }
+        };
+
+        dragHandle.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', dragEnd);
+
+        dragHandle.addEventListener('touchstart', dragStart, { passive: true });
+        document.addEventListener('touchmove', dragMove, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+    };
+
+    // Gestione modale di conferma d'uscita (Escape) per il Fissa Layout
+    window.showLayoutExitConfirmModal = function () {
+        const modal = document.getElementById('layout-exit-confirm-modal');
+        const box = document.getElementById('layout-exit-confirm-box');
+        if (!modal || !box) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeExitConfirmModal = function () {
+        const modal = document.getElementById('layout-exit-confirm-modal');
+        const box = document.getElementById('layout-exit-confirm-box');
+        if (!modal || !box) return;
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    window.closeLayoutModalDirectWithoutSaving = function () {
+        window.closeExitConfirmModal();
+        window.closeLayoutModal();
+    };
+
+    window.saveLayoutAndClose = async function () {
+        const saved = await window.saveCurrentLayout();
+        // Se il salvataggio va a buon fine, chiudiamo i modali
+        if (saved !== false) {
+            window.closeExitConfirmModal();
+            window.closeLayoutModal();
+        }
+    };
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9909,5 +11827,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inizializza grafici offline (Pomodoro sessioni e storico punteggi)
     if (window.updatePomodoroSessionsDisplay) window.updatePomodoroSessionsDisplay();
     if (window.updateStudyScoresDisplay) window.updateStudyScoresDisplay();
+
+    // Rende il modale layout trascinabile
+    if (window.makeModalDraggable) window.makeModalDraggable();
 });
 

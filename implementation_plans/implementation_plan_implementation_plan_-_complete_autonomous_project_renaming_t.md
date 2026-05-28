@@ -33,7 +33,7 @@ This includes updating file contents, Electron configuration, localized strings,
 
 #### [MODIFY] [main.js](file:///Users/giacomomeschini/Antigravity/Mapp_AI_Infomaniak/main.js)
 * Update window `title` configuration from `"MappAI Swiss"` to `"MappAI"`.
-* Update auto-save folder names from `"Salvataggi MappAI"` and `"Salvataggi Mapp.AI"` to `"Salvataggi MappAI"` to keep paths clean and unified.
+* Update auto-save folder names from `"Salvataggi MappAI"` and `"Salvataggi MappAI"` to `"Salvataggi MappAI"` to keep paths clean and unified.
 
 ---
 

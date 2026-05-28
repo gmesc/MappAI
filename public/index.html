@@ -60,8 +60,8 @@
         /* ==========================================================================
            1. TIPOGRAFIA & ELEMENTI DI INTESTAZIONE (LANDING & HEADER)
            ========================================================================== */
-        .hero_title { @apply text-[40px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" usato nel blocco sblocco/login */
-        .hero_title_main { @apply text-[60px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" gigante sulla landing page */
+        .hero_title { @apply text-[60px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" usato nel blocco sblocco/login */
+        .hero_title_main { @apply text-[100px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" gigante sulla landing page */
         .hero_subtitle { @apply text-slate-500 text-xs font-bold uppercase tracking-widest mt-1; } /* Sottotitolo "Visualizzatore di conoscenza" in alto a sinistra */
         .nav_util_btn { @apply w-32 h-24 bg-white border border-slate-200 text-slate-600 shadow-sm flex flex-col items-center justify-center gap-1.5 rounded-xl text-center text-[13.5px] font-bold shrink-0 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all; } /* Pulsanti utility nell'header (AI, Guida, Studio, Chi sei) */
         .nav_util_icon { @apply w-[25px] h-[25px] shrink-0; } /* Dimensioni delle icone nei pulsanti utility in alto */
@@ -78,16 +78,15 @@
            ========================================================================== */
         .step_container { @apply flex items-center gap-2 mb-2; } /* Contenitore del titolo numerato di ogni step del form */
         .step_badge { @apply inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xl font-bold shrink-0; } /* Cerchietto contenente il numero dello step (1, 2, 3, 4) */
-        .step_badge_blue { @apply bg-blue-500; } /* Colore di sfondo per il badge dello Step 1 (Carica Fonti) */
-        .step_badge_green { @apply bg-green-500; } /* Colore di sfondo per il badge dello Step 2 (Scelta Generazione/Modalità) */
-        .step_badge_orange { @apply bg-orange-500; } /* Colore di sfondo per il badge dello Step 3 (Rami Principali L1) */
-        .step_badge_yellow { @apply bg-yellow-500; } /* Colore di sfondo per il badge dello Step 4 (Densità Diramazioni) */
+        .step_badge_blue { @apply bg-purple-500; } /* Colore di sfondo per il badge dello Step 1 (Carica Fonti) */
+        .step_badge_green { @apply bg-violet-500; } /* Colore di sfondo per il badge dello Step 2 (Scelta Generazione/Modalità) */
+        .step_badge_orange { @apply bg-indigo-500; } /* Colore di sfondo per il badge dello Step 3 (Rami Principali L1) */
+        .step_badge_yellow { @apply bg-blue-500; } /* Colore di sfondo per il badge dello Step 4 (Densità Diramazioni) */
         .step_title { @apply text-[24px] tracking-[0.05em] text-slate-600 font-bold; } /* Titolo testuale dello step (es. "Carica le tue Fonti") */
 
         /* ==========================================================================
            4. SELETTORI SORGENTE & MODALITÀ DI ESTRAZIONE (SOURCE & MODE BUTTONS)
            ========================================================================== */
-        .btn_selezione_input { @apply px-8 text-[18px] text-slate-500 font-bold tracking-[0.2em] bg-slate-100 rounded-xl hover:bg-emerald-400 hover:text-white shadow-sm flex items-center justify-center gap-2 h-48; } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
         .mode_btn { @apply flex-1 basis-[120px] flex flex-col items-center justify-center gap-2 p-4 border-2 border-slate-200 rounded-2xl cursor-pointer bg-white/80 transition-all text-slate-600 text-center; } /* Pulsanti di opzione modalità ("Mappa Mentale" e "Knowledge Graph") nello Step 2 */
         .mode_btn.active { @apply border-indigo-600 bg-indigo-50 text-indigo-600; } /* Stato attivo/selezionato del pulsante modalità */
 
@@ -104,27 +103,33 @@
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
         .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
         .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
+        .source_btn_text { @apply text-[20px] text-slate-400 font-bold tracking-[0.25em]; } /* Testo dei pulsanti di caricamento fonti */ 
 
         /* ==========================================================================
            6. CAMPI DI INSERIMENTO DATI (INPUT & TEXTAREA FIELDS)
            ========================================================================== */
-        .form_input { @apply w-full px-4 py-3 text-[12px] border border-slate-200 rounded-xl bg-white text-slate-800 outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500; } /* Input di testo standard per URL, API Key e campi del form */
+        .form_input { @apply w-full px-4 py-3 text-[12px] border border-slate-200 rounded-xl bg-white text-slate-800 transition-all focus_ring_standard; } /* Input di testo standard per URL, API Key e campi del form */
         .textarea_form_input { @apply min-h-[60px]; } /* Variante per le caselle di testo multilinea (Focus specifico, Descrizioni) */
 
         /* ==========================================================================
            7. BOTTONI D'AZIONE, CONFERMA E PULSANTI GENERALI (BUTTONS & ACTIONS)
            ========================================================================== */
         .btn_header_setting { @apply px-8 text-[12px] text-slate-500 uppercase tracking-[0.2em] bg-slate-100 rounded-xl hover:bg-emerald-400 hover:text-white transition-all shadow-sm hover:shadow-emerald-400 flex items-center justify-center gap-2 h-20; } /* Bottoni piccoli per impostazioni e pulsanti utility header */
-        .btn_load_source { @apply px-8 text-[12px] text-white uppercase tracking-[0.2em] bg-slate-200 rounded-xl hover:bg-emerald-400 hover:font-bold hover:text-sm transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Bottone per caricamento della fonte selezionata */
-        .btn_confirm_action { @apply px-8 text-[14px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
-        .btn_salva_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
-        .btn_mode_selector { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsanti di selezione modalità nei modali */
-        .mode-buttons-container .btn_mode_selector:not(.active) { @apply bg-slate-100 hover:bg-emerald-200 text-slate-600 shadow-none; } /* Stato non attivo per il selettore di modalità studio/quiz */
-        .btn_annulla_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
-        .btn_generate { @apply w-full py-4 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold rounded-2xl transition-colors hover:bg-indigo-700; } /* Bottone principale di avvio generazione mappa in fondo al form */
+        .btn_selezione_input { @apply text-[20px] flex flex-1 flex-col items-center justify-center px-8 text-[18px] text-slate-400 font-bold tracking-[0.2em] bg-slate-100 rounded-2xl hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
+
+        .btn_mode_selector { @apply px-8 text-[20px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsanti di selezione modalità nei modali */
+        .mode-buttons-container .btn_mode_selector:not(.active) { @apply bg-slate-100 hover:bg-emerald-200 text-slate-500 shadow-none; } /* Stato non attivo per il selettore di modalità studio/quiz */
         .btn_secondary_action { @apply w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm cursor-pointer; } /* Pulsante secondario ad ampia larghezza (es. "Pulisci Form") */
         .btn_primary { @apply px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md border-none cursor-pointer; } /* Bottone standard primario per dialoghi o pulsante "Ho capito" */
         .link_primary { @apply text-[12px] font-bold text-indigo-500 cursor-pointer hover:underline; } /* Collegamento ipertestuale primario azzurro */
+        .btn_quick_action { @apply px-8 text-[20px] flex flex-1 flex-col items-center justify-center text-slate-500 text-center font-bold tracking-[0.2em] bg-slate-100 rounded-2xl hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; }    
+
+        .btn_generate { @apply w-full py-4 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold rounded-2xl transition-colors hover:bg-indigo-700; } /* Bottone principale di avvio generazione mappa in fondo al form */
+
+        .btn_confirm_action { @apply px-8 text-[14px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
+        .btn_salva_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
+        .btn_annulla_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
+
 
         /* ==========================================================================
            8. ELEMENTI DEL DRAWER LATERALE (INFO PANELS)
@@ -141,9 +146,24 @@
            ========================================================================== */
         .error_title { @apply text-lg font-bold text-slate-800 mb-2 flex items-center gap-2; } /* Titolo all'interno dei modali di allarme o errore */
         .error_body_text { @apply text-sm text-slate-600 mb-6 leading-relaxed max-h-[40vh] overflow-y-auto; } /* Testo descrittivo con l'errore di sistema o eccezione */
+
+        /* ==========================================================================
+           10. CLASSI UTILITY (FOCUS RINGS)
+           ========================================================================== */
+        .focus_ring_standard { @apply outline-none focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow; }
+
+        input, textarea, select {
+            @apply focus_ring_standard;
+        }
       }
     </style>
 </head>
+
+<!-- =========================================================================-->
+
+
+
+
 
 <body>
     <!-- ==========================================
@@ -170,7 +190,7 @@
                 </button>
             </div>
             <input type="password" id="beta-access-code"
-                class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-300"
+                class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg placeholder:text-slate-300 focus_ring_standard"
                 placeholder="INSERISCI SBLOCCO">
             <button onclick="window.checkBetaCode()"
                 class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca
@@ -260,6 +280,9 @@
             setTimeout(() => { btn.innerHTML = originalIcon; window.safeCreateIcons(); }, 2000);
         };
     </script>
+
+    <!-- ========================================================================================================================================== -->
+
     <!-- TOAST CONTAINER -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2"></div>
 
@@ -413,14 +436,11 @@
             <div class="border-b border-indigo-200/60 pb-6 mb-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-6">
                     <!-- Brand -->
-                    <div class="flex items-center gap-4">
-                        <img src="MappAI_icon.png"
-                            class="w-20 h-20 md:w-[120px] md:h-[120px] object-contain rounded-2xl shrink-0"
-                            alt="MappAI Icon">
+                    <div class="flex flex-row items-center gap-5">
+                        <img src="MappAI_icon.png" class="pt-2 w-[110px] h-[110px]" alt="MappAI Icon">
                         <div class="flex flex-col">
                             <h1 class="hero_title_main">MappAI</h1>
-                            <p id="landing-subtitle" class="hero_subtitle">Visualizzatore
-                                di conoscenza</p>
+
                         </div>
                     </div>
 
@@ -428,23 +448,25 @@
                     <div class="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
                         <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
                             class="btn_header_setting">
-                            <i data-lucide="bot" class="nav_util_icon"></i> <span data-i18n="btn_setup">AI</span>
+                            <i data-lucide="bot" class="nav_util_icon"></i>
+                            <!--<span data-i18n="btn_setup">AI</span>-->
                         </button>
                         <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
                             class="btn_header_setting">
-                            <i data-lucide="book-open" class="nav_util_icon"></i> <span
-                                data-i18n="btn_app_guide">Guida</span>
+                            <i data-lucide="help-circle" class="nav_util_icon"></i>
+                            <!--<span
+                                data-i18n="btn_app_guide">Guida</span>-->
                         </button>
                         <button type="button" onclick="window.showAppTutorial()" id="btn-app-tutorial"
                             class="btn_header_setting">
-                            <i data-lucide="brain-circuit" class="nav_util_icon"></i> <span
-                                data-i18n="btn_active_study">Studio</span>
+                            <i data-lucide="book-open" class="nav_util_icon"></i> <!--<span
+                                data-i18n="btn_active_study">Studio</span>-->
                         </button>
                         <button type="button" onclick="window.showUserProfileModal()" id="btn-user-profile"
                             class="btn_header_setting">
-                            <i data-lucide="user-circle" class="nav_util_icon"></i> <span
+                            <i data-lucide="user-circle" class="nav_util_icon"></i> <!--<span
                                 data-i18n="btn_who_are_you">Chi
-                                sei</span>
+                                sei</span>-->
                         </button>
                     </div>
                 </div>
@@ -462,8 +484,9 @@
                         <span id="step-l1-title" class="step_title">Carica le tue Fonti</span>
                     </label>
 
-                    <div class="flex flex-wrap gap-3 mb-4 source-buttons-container">
-                        <div id="btn-src-url" class="btn_selezione_input" onclick="window.addSource('url')">
+                    <div class="flex source-buttons-container">
+                        <div id="btn-src-url" class="btn_selezione_input" onclick="window.addSource('url')"
+                            style="color: slate-900">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-link">
@@ -495,7 +518,7 @@
                         <div id="btn-src-doc" class="btn_selezione_input" onclick="window.addSource('doc')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-file-spreadsheet">
+                                stroke-linejoin="round" class="lucide file-spreadsheet">
                                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                                 <polyline points="14.5 2 14.5 7.5 20 7.5" />
                                 <path d="M8 13h2" />
@@ -572,7 +595,7 @@
                     <div id="step-root-container" class="space-y-2 transition-all duration-300">
                         <p class="landing_label_primary">Nodo Centrale:</p>
                         <input type="text" id="root-node-name"
-                            class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition"
+                            class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition focus_ring_standard"
                             placeholder="Es. Rivoluzione Francese, Fotosintesi...">
                     </div>
 
@@ -614,7 +637,7 @@
                         <div>
                             <p class="pt-4 landing_label_primary">Focus specifico (Opzionale):</p>
                             <textarea id="focus-input"
-                                class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition mt-1"
+                                class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition mt-1 focus_ring_standard"
                                 placeholder="Su cosa deve concentrarsi l'AI?"></textarea>
                         </div>
                     </div>
@@ -674,7 +697,7 @@
                                 Costi</span>
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 bg-white p-3 rounded-xl border border-slate-200/60">
+                        <div class="grid grid-cols-1 gap-4 bg-white p-3 rounded-xl border border-slate-200/60">
                             <div class="flex flex-col gap-0.5">
                                 <span class="text-[18px] font-bold text-slate-400 tracking-[0.05em]"
                                     id="estimator-tokens-lbl">Input / Max Modello</span>
@@ -682,7 +705,7 @@
                                     class="text-[18px] pt-2 font-mono font-bold text-slate-700">0 /
                                     -- token</span>
                             </div>
-                            <div class="flex flex-col gap-0.5">
+                            <div class="flex flex-col gap-0.5 hidden">
                                 <span class="text-[18px] font-bold text-slate-400 tracking-[0.05em]"
                                     id="estimator-cost-lbl">Costo Stimato</span>
                                 <span id="estimator-cost"
@@ -703,21 +726,22 @@
                         <div class="flex items-center justify-between">
                             <div class="flex flex-col gap-0.5 max-w-[70%]">
                                 <span class="landing_label_primary mb-0">Generazione Multi-Pass</span>
-                                <span class="landing_label_secondary">Genera rami e nodi in fasi sequenziali per evitare
+                                <span class="landing_label_secondary">Genera rami e nodi in fasi sequenziali per
+                                    evitare
                                     di saturare la memoria.</span>
                             </div>
-                            <div class="flex bg-slate-200 p-1 rounded-full w-36 h-16 shrink-0">
+                            <div class="flex bg-orange-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
-                                    class="flex-1 py-2 text-[16px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">OFF</button>
+                                    class="flex-1 text-[14px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-500">OFF</button>
                                 <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
-                                    class="flex-1 py-2 text-[16px] font-bold rounded-full transition-all text-slate-400 hover:text-slate-600">ON</button>
+                                    class="flex-1 text-[14px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">ON</button>
                             </div>
                         </div>
 
                     </div>
                     <!-- Pulsante Generate -->
                     <button type="submit" id="generate-btn" class="btn_salva_action w-full !h-32">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-sparkles">
                             <path
@@ -727,7 +751,7 @@
                             <path d="M3 5h4" />
                             <path d="M17 19h4" />
                         </svg>
-                        <span id="btn-generate-label">Genera Nuova Mappa</span>
+                        <span class="text-[32px]" id="btn-generate-label">Genera Mappa</span>
                     </button>
 
                     <div class="hidden">
@@ -743,20 +767,19 @@
         <!-- QUICK ACTIONS SOTA -->
         <div class="max-w-2xl mx-auto mt-12 mb-12">
             <div class="flex flex-col sm:flex-row gap-4">
-                <button onclick="window.startEmptyMap()" class="flex-1 btn_selezione_input">
-                    <i data-lucide="plus-circle" class="w-8 h-8 shrink-0"></i>
-                    <span data-i18n="btn_new_project">Nuovo Grafo</span>
+                <button onclick="window.startEmptyMap()" class="btn_quick_action">
+                    <i data-lucide="plus-circle" class="w-[61px] h-[61px] shrink-0"></i>
+                    <span class="source_btn_text" data-i18n="btn_new_project">Nuovo Grafo</span>
                 </button>
-                <button onclick="window.loadMapVault()" class="flex-1 btn_selezione_input">
-                    <i data-lucide="folder-open" class="w-8 h-8 shrink-0"></i>
-                    <span data-i18n="btn_open_vault">Apri Vault</span>
+                <button onclick="window.loadMapVault()" class="btn_quick_action">
+                    <i data-lucide="folder-open" class="w-[61px] h-[61px] shrink-0"></i>
+                    <span class="source_btn_text" data-i18n="btn_open_vault">Apri Vault</span>
                 </button>
-                <label for="landing-import" class="flex-1 btn_selezione_input cursor-pointer">
-                    <i data-lucide="upload-cloud" class="w-8 h-8 shrink-0"></i>
-                    <span class="truncate" id="label-import-json">Importa JSON</span>
-                </label>
-                <input type="file" id="landing-import" accept=".json" class="hidden"
-                    onchange="window.importGraph(event)">
+                <button onclick="window.openJSONUploader()" class="btn_quick_action">
+                    <i data-lucide="file-text" class="w-[61px] h-[61px] shrink-0"></i>
+                    <span class="source_btn_text" data-i18n="btn_open_json">Apri JSON</span>
+                </button>
+
             </div>
         </div>
 
@@ -767,7 +790,7 @@
     </div>
 
     <!-- Storico Progetti — Barra fissa in fondo -->
-    <div class="fixed bottom-0 left-0 right-0 z-20 transition-all duration-300" id="projects-bar">
+    <div class="overflow-visible fixed bottom-0 left-0 right-0 z-20 transition-all duration-400" id="projects-bar">
         <!-- Contenitore Unificato -->
         <div class="relative w-full bg-white shadow-[0_-10px_30px_rgba(99,102,241,0.08)]">
             <!-- Pulsante "fuso" con la struttura -->
@@ -801,21 +824,23 @@
         <aside id="sidebar"
             class="w-full app-sidebar shrink-0 bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out overflow-hidden">
             <!-- Header -->
-            <div class="p-4 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-2 shrink-0">
+            <div class="p-4 pl-4bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-2 shrink-0">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                            <img src="MappAI_icon.png" class="w-8 h-8 object-contain rounded-lg" alt="MappAI Icon">
+                        <h1 class="text-3xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                            <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg" alt="MappAI Icon">
                             MappAI
                         </h1>
-                        <div id="project-title-container" class="group flex items-start gap-2 mt-0.5 cursor-pointer"
+                        <div id="project-title-container"
+                            class="group flex items-center justify-between items-start gap-2 cursor-pointer"
                             onclick="window.startEditingTitle()">
-                            <p class="text-slate-500 text-[9px] font-mono uppercase tracking-wider break-words flex-grow"
-                                id="sidebar-subtitle" style="line-height: 1.4;">
-                                Visualizzatore di conoscenza</p>
+                            <p class="text-slate-700 text-xl font-bold uppercase tracking-wider break-words flex-grow"
+                                id="sidebar-subtitle"
+                                style="margin-top: 4px; margin-left: 4px; line-height: 1.8em; font-size: 18px !important; color: rgb(88, 88, 88) !important;">
+                                Mappa Senza Nome</p>
                             <div
-                                class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
-                                <i data-lucide="edit-3" class="w-3 h-3"></i>
+                                class="opacity-30 group-hover:opacity-100 transition-opacity text-slate-400 p-0.5 mt-0.5 shrink-0 rounded">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </div>
                         </div>
                     </div>
@@ -878,14 +903,14 @@
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
                         <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
-                            class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
+                            class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm focus_ring_standard"
                             oninput="window.performSuperSearch(this.value)">
                         <button id="super-finder-clear" onclick="window.clearSuperFinder()"
                             class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                    <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
+                    <p class="text-[14px] text-slate-400 mt-2 italic">Cerca in
                         etichette,
                         descrizioni, citazioni e fonti esterne.</p>
                 </div>
@@ -899,7 +924,7 @@
             </div>
 
             <!-- ═══ TAB: TUTOR AI ═══ -->
-            <div id="sidebar-panel-tutor" style="display: none !important;"
+            <div id="sidebar-panel-tutor"
                 class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col">
                 <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
                     <div class="flex justify-between items-center mb-3">
@@ -928,7 +953,7 @@
                 <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
                     <div class="flex flex-col gap-2">
                         <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
-                            class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                            class="w-full border border-slate-300 rounded-lg p-3 text-sm shadow-sm focus_ring_standard"
                             onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
                         <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
                             class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
@@ -944,14 +969,13 @@
             <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
                 <div class="px-5 pt-5 pb-2">
                     <h3
-                        class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
+                        class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
+                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore
                     </h3>
                 </div>
                 <div id="user-notes-container" class="space-y-3 px-5 pb-5">
-                    <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
-                        Modifica i
-                        nodi con doppio click per aggiungere appunti e immagini.</p>
+                    <p class="text-[14px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                    </p>
                 </div>
             </div>
 
@@ -968,11 +992,11 @@
                             </div>
                             <div class="flex gap-2">
                                 <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                    class="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center">
+                                    class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center">
                                     <i data-lucide="play" class="w-4 h-4 fill-current"></i>
                                 </button>
                                 <button onclick="window.resetPomodoro()"
-                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
+                                    class="p-2 text-slate-400 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
                                     title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
                             </div>
                         </div>
@@ -980,16 +1004,16 @@
                         <div class="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
                             <div class="flex gap-1">
                                 <button id="pomodoro-preset-15" onclick="window.setPomodoroDuration(15)"
-                                    class="px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold">15m</button>
+                                    class="px-2.5 py-1 text-slate-500 rounded-md hover:bg-slate-50 transition font-bold">15m</button>
                                 <button id="pomodoro-preset-25" onclick="window.setPomodoroDuration(25)"
-                                    class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold">25m</button>
+                                    class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 transition font-bold">25m</button>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span id="pomodoro-sessions-badge"
-                                    class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 shadow-sm transition-all duration-300">Sessioni:
-                                    0 🔥</span>
+                                    class="font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md shadow-sm transition-all duration-300">Sessioni:
+                                    0</span>
                                 <button onclick="window.resetPomodoroSessions()"
-                                    class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera sessioni">
+                                    class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera">
                                     <i data-lucide="trash-2" class="w-3 h-3"></i>
                                 </button>
                             </div>
@@ -1045,27 +1069,27 @@
                         </div>
 
                         <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
+                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
+                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Flashcard Mappa
                         </button>
                         <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
-                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
+                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
+                            <i data-lucide="graduation-cap" class="w-5 h-5"></i> Quiz Mappa
                         </button>
                         <button onclick="window.showAppTutorial()"
-                            class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Metodo Studio Attivo
+                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
+                            <i data-lucide="book-open" class="w-5 h-5"></i> Consigli di Studio
                         </button>
                     </div>
 
                     <!-- Set Flashcard Generati -->
                     <div class="mt-4 border-t border-slate-200 pt-5">
                         <h3
-                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="layers" class="w-4 h-4"></i> Materiale di Studio (Flashcard e Quiz)
+                            class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="layers" class="w-4 h-4"></i> Set di Studio
                         </h3>
                         <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
+                            <p class="text-[14px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
                                 flashcard o quiz pre-generati.</p>
                         </div>
                     </div>
@@ -1073,12 +1097,13 @@
                     <!-- Storico Punteggi -->
                     <div class="mt-4 border-t border-slate-200 pt-5">
                         <h3
-                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi (Quiz)
+                            class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi
                         </h3>
                         <div id="study-scores-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio
-                                registrato. Completa un quiz per iniziare!</p>
+                            <p class="!text-[14px] text-slate-400 italic" id="empty-scores-hint"> Nessun punteggio
+                                registrato.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1092,11 +1117,9 @@
 
             <!-- Sidebar Toggle (Top Left) -->
             <div class="absolute top-6 left-6 z-[40]">
-                <button id="sidebar-toggle-btn" onclick="window.toggleSidebar()"
-                    title="Nascondi/Mostra Sidebar">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        id="sidebar-toggle-icon">
+                <button id="sidebar-toggle-btn" onclick="window.toggleSidebar()" title="Nascondi/Mostra Sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="sidebar-toggle-icon">
                         <rect width="18" height="18" x="3" y="3" rx="2" />
                         <path d="M9 3v18" />
                         <path d="m16 15-3-3 3-3" />
@@ -1119,11 +1142,13 @@
                         <i data-lucide="folder-open"></i> Importa dal Vault
                     </button>
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
-                    <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden" title="Sincronizza modifiche nel Vault">
+                    <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
+                        title="Sincronizza modifiche nel Vault">
                         <i data-lucide="refresh-cw"></i> Sincronizza Vault
                     </button>
                     <!-- Tasto Salva Snapshot Layout (discreto) -->
-                    <button id="save-layout-btn" onclick="window.salvaLayout()" class="hidden" title="Salva la disposizione attuale come 'Personal'">
+                    <button id="save-layout-btn" onclick="window.salvaLayout()" class="hidden"
+                        title="Salva la disposizione attuale come 'Personal'">
                         <i data-lucide="camera"></i> Salva Layout Snapshot
                     </button>
                     <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente">
@@ -1131,6 +1156,13 @@
                     </label>
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
+                    <div class="h-px bg-slate-100 my-1"></div>
+                    <button onclick="window.printAllNodeLabels()" title="Foglio nodi con forbici">
+                        <i data-lucide="scissors"></i> Foglio nodi
+                    </button>
+                    <button onclick="window.openDossierPrintModal()" title="Stampa dossier">
+                        <i data-lucide="files"></i> Stampa dossier
+                    </button>
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto">
                         <i data-lucide="arrow-left"></i> Torna alla Home
@@ -1147,7 +1179,7 @@
 
 
 
-            <!-- Control Card Fluttuante -->
+            <!-- Control Card NAVIGAZIONE MAPPA -->
             <div id="map-control-card"
                 class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
 
@@ -1266,19 +1298,19 @@
 
                 <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
 
-                <!-- Snapshot -->
-                <button onclick="window.exportSnapshot()"
+                <!-- SVG -->
+                <button onclick="window.exportSVG()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta Snapshot PNG della mappa">
-                    <i data-lucide="camera" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">FOTO</span>
+                    title="Esporta mappa in formato vettoriale SVG">
+                    <i data-lucide="file-code" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">SVG</span>
                 </button>
-                <!-- PDF -->
-                <button onclick="window.exportPDF()"
+                <!-- FISSA -->
+                <button onclick="window.openLayoutModal()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta mappa in formato PDF">
-                    <i data-lucide="file-text" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">PDF</span>
+                    title="Gestisci e Fissa i Layout della mappa">
+                    <i data-lucide="map" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">FISSA</span>
                 </button>
             </div>
 
@@ -1352,26 +1384,47 @@
         </div>
     </div>
 
-    <!-- Modale Prompt Personalizzato -->
+    <!----------------------------------> <!-- Modale Prompt Personalizzato -->
     <div id="prompt-modal"
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[600px] p-8 transform scale-95 transition-transform duration-200 relative"
             id="prompt-box">
-            <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title" data-i18n="prompt_title">Inserisci
-                valore</h3>
-            <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
-            <p class="text-xs text-slate-400 mb-2 font-medium italic" data-i18n="prompt_hint">Premi Invio per
-                salvare,
-                Shift+Invio per andare a capo.</p>
-            <textarea id="prompt-input" rows="2"
-                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6 resize-none"></textarea>
-            <div class="flex justify-end gap-3">
-                <button id="prompt-cancel"
-                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors"><span
-                        data-i18n="btn_cancel">Annulla</span></button>
-                <button id="prompt-ok"
-                    class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"><span
-                        data-i18n="btn_save">Salva</span></button>
+
+            <!-- X Button -->
+            <button onclick="document.getElementById('prompt-cancel').click()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <!-- Title Icon -->
+            <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
+
+            <!-- Content Box -->
+            <div class="space-y-6 pl-4 pr-4">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <!-- old prompt-title is now modal_field_title -->
+                        <label class="modal_field_title" id="prompt-title" data-i18n="prompt_title">Inserisci
+                            valore</label>
+                    </div>
+
+                    <p class="text-sm text-slate-500 mb-2 font-medium hidden" id="prompt-desc"></p>
+
+                    <textarea id="prompt-input" rows="2"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus_ring_standard"></textarea>
+                    <p class="input_label_xs text-slate-400 mt-2 tracking-[0.1em]" data-i18n="prompt_hint">Premi Invio
+                        per salvare, Shift+Invio per andare a capo.</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-8 flex gap-3 justify-end h-11">
+                    <button id="prompt-cancel" class="btn_annulla_action">
+                        <span data-i18n="btn_cancel">Annulla</span>
+                    </button>
+                    <button id="prompt-ok" class="btn_salva_action">
+                        <span data-i18n="btn_save">Salva</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1392,14 +1445,14 @@
                     class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
             <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
                 <h3 id="study-config-title" class="text-xl font-black text-slate-800">Configura Sessione</h3>
-                <p class="text-sm text-slate-500 font-medium mt-1">Scegli come vuoi studiare questo materiale.</p>
+                <p class="text-sm text-slate-500 font-medium mt-1">Come vuoi Studiare?</p>
             </div>
 
             <div id="quiz-type-container" class="mb-5 text-left hidden">
                 <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Tipo di
                     Quiz</label>
                 <select id="study-quiz-type"
-                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3 outline-none">
+                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl block p-3 focus_ring_standard">
                     <option value="Risposta Multipla">Risposta Multipla (A/B/C/D)</option>
                     <option value="Vero o Falso">Vero o Falso</option>
                     <option value="Risposta Aperta">Risposta Aperta Breve</option>
@@ -1407,7 +1460,7 @@
             </div>
 
             <div class="mb-6 text-left">
-                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Quantità
+                <label class="block text-[14px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Quantità
                     (Domande/Card)</label>
                 <div class="grid grid-cols-4 gap-3">
                     <button onclick="window.selectStudyQuantity(5)"
@@ -1439,11 +1492,11 @@
             </div>
 
             <div class="flex gap-3 justify-end mt-6">
-                <button onclick="window.closeStudyConfigModal()" class="btn_annulla_action flex-1">
+                <button onclick="window.closeStudyConfigModal()" class="btn_annulla_action">
                     <span data-i18n="btn_cancel">Annulla</span>
                 </button>
-                <button onclick="window.startStudySession()" class="btn_salva_action flex-1">
-                    Inizia Sessione
+                <button onclick="window.startStudySession()" class="btn_salva_action">
+                    Start
                 </button>
             </div>
         </div>
@@ -1489,7 +1542,7 @@
                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
                             Salvati</label>
                         <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 text-indigo-700 font-bold">
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-slate-50 text-indigo-700 font-bold focus_ring_standard">
                             <option value="">+ Nuovo Profilo</option>
                         </select>
                     </div>
@@ -1497,20 +1550,20 @@
                         <label
                             class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
                         <input type="text" id="up-nickname" placeholder="Come ti chiami?"
-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all focus_ring_standard">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
                                 class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
                             <input type="number" id="up-age" placeholder="Es. 15"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all focus_ring_standard">
                         </div>
                         <div>
                             <label
                                 class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
                             <select id="up-grade"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
                                 <!-- Populated dynamically -->
                             </select>
                         </div>
@@ -1519,7 +1572,7 @@
                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
                             data-i18n="profile_system">Sistema Scolastico</label>
                         <select id="up-system" onchange="window.updateGradeOptions()"
-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
                             <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
                             <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
                             <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
@@ -1659,6 +1712,281 @@
         </div>
     </div>
 
+    <!-- MODALE MODIFICA TITOLO PROGETTO -->
+    <div id="edit-project-title-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[600px] p-8 transform scale-95 transition-transform duration-200 relative"
+            id="edit-project-title-box">
+
+            <!-- X Button -->
+            <button onclick="window.closeEditTitleModal()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <!-- Title Icon -->
+            <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
+
+            <!-- Content Box -->
+            <div class="space-y-6 pl-4 pr-4">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="modal_field_title" data-i18n="lbl_edit_project_title">Modifica Titolo
+                            Progetto</label>
+                    </div>
+                    <input type="text" id="edit-project-title-input"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-8 flex gap-3 justify-end h-11">
+                    <button onclick="window.closeEditTitleModal()" class="btn_annulla_action">
+                        <span data-i18n="btn_cancel">Annulla</span>
+                    </button>
+                    <button onclick="window.saveProjectTitleFromModal()" class="btn_salva_action">
+                        <span data-i18n="btn_salva">Salva</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE FISSA LAYOUT (TRASCINABILE) -->
+    <div id="layout-manager-modal"
+        class="fixed inset-0 z-[1000] hidden pointer-events-none items-center justify-center p-4 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 pointer-events-auto relative cursor-grab select-none border border-slate-200"
+            id="layout-manager-box" style="transform: scale(0.95); transition: transform 0.2s;">
+            <!-- Drag Handle Bar at top -->
+            <div
+                class="modal-drag-handle absolute top-0 left-0 right-0 h-10 rounded-t-2xl bg-slate-50 border-b border-slate-100 flex items-center justify-center cursor-move">
+                <div class="w-16 h-1.5 bg-slate-300 rounded-full"></div>
+            </div>
+
+            <div class="absolute top-12 right-8 flex items-center gap-3 z-10">
+                <button onclick="window.toggleMinimizeLayoutModal()" id="layout-minimize-btn"
+                    class="text-slate-400 hover:text-indigo-600 transition-colors" title="Riduci/Ingrandisci finestra">
+                    <i data-lucide="minimize-2" class="w-6 h-6"></i>
+                </button>
+                <button onclick="window.closeLayoutModal()"
+                    class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="mt-8 space-y-6 max-h-[70vh] overflow-y-auto pl-4 pr-4 modal-scroll select-text">
+                <h3 class="modal_title flex items-center gap-3"><i data-lucide="map"
+                        class="w-16 h-16 text-indigo-600"></i> Fissa Layout</h3>
+
+                <div id="layout-edit-indicator" class="hidden items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-lg">
+                    <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
+                    <span>Stai modificando il layout salvato: <strong id="layout-edit-name"></strong></span>
+                    <button onclick="window.resetLayoutModalToNew()" class="underline font-bold hover:text-amber-950 ml-auto">Crea invece un nuovo layout</button>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- 1. Campo input "Titolo layout" -->
+                    <div>
+                        <label class="modal_field_title block mb-1">Titolo del Layout</label>
+                        <input type="text" id="layout-new-title"
+                            placeholder="Inserisci il titolo della disposizione..."
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
+                    </div>
+
+                    <!-- 2. Anteprima mappa -->
+                    <div class="flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner hide-on-minimize">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Anteprima della Mappa</span>
+                        <div id="layout-current-preview-container"
+                            class="w-full aspect-[4/3] max-h-[300px] bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-100 relative">
+                            <div class="text-center text-slate-400 text-xs flex flex-col items-center gap-1">
+                                <i data-lucide="image" class="w-8 h-8 opacity-40"></i>
+                                Generazione anteprima...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Bottoni di Azione Layout -->
+                    <div class="space-y-3">
+                        <div class="flex gap-4">
+                            <button onclick="window.saveCurrentLayout()"
+                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Salva come nuovo layout">
+                                <i data-lucide="plus-circle" class="w-5 h-5"></i> Salva Nuovo Layout
+                            </button>
+                            <button onclick="window.saveCurrentLayoutEditConfirm()" id="layout-confirm-edit-btn"
+                                class="btn_confirm_action bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                                <i data-lucide="check" class="w-5 h-5"></i> Salva
+                            </button>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="window.exportCurrentLayoutPDFDirect()"
+                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Scarica scheda studio PDF">
+                                <i data-lucide="download" class="w-5 h-5"></i> Esporta Scheda
+                            </button>
+                            <button onclick="window.exportCurrentLayoutPDFToVault()"
+                                class="btn_confirm_action bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Salva scheda PDF direttamente nel Vault">
+                                <i data-lucide="archive" class="w-5 h-5"></i> Esporta scheda
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Campo input "keyword" -->
+                    <div>
+                        <label class="modal_field_title block mb-1">Keyword</label>
+                        <input type="text" id="layout-new-keyword" placeholder="Es. VISTA1, HUB..."
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
+                    </div>
+
+                    <!-- 5. Campo input "descrizione" -->
+                    <div>
+                        <label class="modal_field_title block mb-1">Descrizione della Disposizione</label>
+                        <textarea id="layout-new-desc" rows="5"
+                            placeholder="Inserisci una descrizione di questa inquadratura e dei concetti chiave..."
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"></textarea>
+                    </div>
+
+                    <!-- 6. Box scroll di selezione layout salvati -->
+                    <div class="hide-on-minimize">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Layout Salvati (Max 5)</h4>
+                        <div id="layout-saved-list"
+                            class="space-y-3 max-h-[550px] overflow-y-auto pr-2 modal-scroll">
+                            <!-- Lista dei layout salvati -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE OPZIONI STAMPA DOSSIER (A4) -->
+    <div id="dossier-print-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[550px] p-8 transform scale-95 transition-transform duration-200 relative text-left"
+            id="dossier-print-box">
+            
+            <button onclick="window.closeDossierPrintModal()"
+                class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <div class="space-y-6">
+                <h3 class="modal_title flex items-center gap-3"><i data-lucide="files"
+                        class="w-8 h-8 text-indigo-600"></i> Opzioni Stampa Dossier</h3>
+
+                <!-- MM Options Group -->
+                <div id="print-mm-options" class="hidden space-y-4">
+                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full">Modalità: Mappa Mentale (MM)</span>
+                    
+                    <div>
+                        <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
+                        <select id="print-mm-node-select" onchange="window.onDossierNodeChange('mm')"
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
+                            <option value="all">Tutta la mappa (Tutti i nodi)</option>
+                        </select>
+                    </div>
+
+                    <div id="print-mm-scope-container" class="hidden">
+                        <label class="modal_field_title block mb-2">Ambito di Stampa</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="print-mm-scope" value="single" checked class="accent-indigo-600">
+                                Solo il nodo selezionato
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="print-mm-scope" value="branch" class="accent-indigo-600">
+                                Il nodo selezionato e tutto il suo sotto-ramo
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="print-mm-ascii-diagram" checked class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
+                            Includi diagramma ASCII delle relazioni del ramo con linking word
+                        </label>
+                    </div>
+                </div>
+
+                <!-- KG Options Group -->
+                <div id="print-kg-options" class="hidden space-y-4">
+                    <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full">Modalità: Knowledge Graph (KG)</span>
+
+                    <div>
+                        <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
+                        <select id="print-kg-node-select" onchange="window.onDossierNodeChange('kg')"
+                            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
+                            <option value="all">Tutta la mappa (Tutti i nodi)</option>
+                        </select>
+                    </div>
+
+                    <div id="print-kg-scope-container" class="hidden">
+                        <label class="modal_field_title block mb-2">Ambito di Stampa</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="print-kg-scope" value="single" checked class="accent-indigo-600">
+                                Solo i contenuti di questo singolo nodo/hub
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="print-kg-scope" value="all" class="accent-indigo-600">
+                                Tutta la mappa
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="print-kg-relations" checked class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
+                            Includi elenco relazioni (Elenco A e Elenco B)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-4 pt-4 border-t border-slate-100">
+                    <button onclick="window.closeDossierPrintModal()"
+                        class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">
+                        Annulla
+                    </button>
+                    <button onclick="window.generateDossierPDFFromOptions()"
+                        class="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition flex items-center gap-2">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Stampa / Esporta PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CONFERMA CHIUSURA LAYOUT (ESC) -->
+    <div id="layout-exit-confirm-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[500px] p-8 transform scale-95 transition-transform duration-200 relative text-center"
+            id="layout-exit-confirm-box">
+
+            <button onclick="window.closeExitConfirmModal()"
+                class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <h3 class="modal_title flex items-center justify-center gap-3 mb-4">
+                <i data-lucide="help-circle" class="w-10 h-10 text-indigo-500"></i> Conferma Uscita
+            </h3>
+
+            <p class="text-sm text-slate-600 mb-8 leading-relaxed">
+                Vuoi salvare la disposizione corrente prima di uscire, o preferisci chiudere senza salvare?
+            </p>
+
+            <div class="flex gap-4 justify-center">
+                <!-- Bottone Rosso: Annulla (Chiudi senza salvare) -->
+                <button onclick="window.closeLayoutModalDirectWithoutSaving()"
+                    class="btn_annulla_action !h-12 !px-8 flex items-center justify-center gap-2">
+                    <i data-lucide="x" class="w-5 h-5"></i> Annulla
+                </button>
+                <!-- Bottone Verde: Salva (Salva ed esci) -->
+                <button onclick="window.saveLayoutAndClose()"
+                    class="btn_salva_action !h-12 !px-8 flex items-center justify-center gap-2">
+                    <i data-lucide="check" class="w-5 h-5"></i> Salva
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALE EDITING NODO -->
     <div id="edit-node-modal"
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
@@ -1675,7 +2003,7 @@
                         <label class="modal_field_title" data-i18n="lbl_node_name">Nome nodo</label>
                     </div>
                     <textarea id="edit-n-label" rows="2"
-                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus_ring_standard"></textarea>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
@@ -1685,7 +2013,7 @@
                                 data-i18n="btn_restore_ai">Ripristina Testo AI</span></button>
                     </div>
                     <textarea id="edit-n-content" rows="4"
-                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"></textarea>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
@@ -1699,7 +2027,7 @@
                             <i data-lucide="link"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                             <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
-                                class="w-full border border-slate-300 rounded-lg pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500 h-full">
+                                class="w-full border border-slate-300 rounded-lg pl-10 text-sm h-full focus_ring_standard">
                         </div>
                         <button onclick="window.handlePickLocalFileForEdit()" class="btn_load_source">
                             <i data-lucide="folder-open" class="w-4 h-4 text-slate-600"></i>
@@ -1716,7 +2044,7 @@
                     </div>
                     <div class="space-y-4 bg-slate-100 p-5 rounded-2xl">
                         <input type="url" id="edit-n-image-url-input" placeholder="Incolla URL immagine..."
-                            class="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white transition-all placeholder:text-slate-300">
+                            class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white transition-all placeholder:text-slate-300 focus_ring_standard">
 
                         <div class="flex items-center gap-3">
                             <div class="h-[1px] flex-grow bg-slate-200"></div>
@@ -1810,7 +2138,7 @@
                                     <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Testo</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-text"
-                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                    class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
                             </label>
                             <label
                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
@@ -1820,7 +2148,7 @@
                                         class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Immagini</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-image"
-                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                    class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
                             </label>
                             <label
                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
@@ -1829,7 +2157,7 @@
                                     <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Link</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-link"
-                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                    class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
                             </label>
                             <label
                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
@@ -1838,7 +2166,7 @@
                                     <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">File</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-file"
-                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                                    class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
                             </label>
                         </div>
                     </div>
@@ -1892,7 +2220,7 @@
                         contenuto
                         o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.</p>
                     <textarea id="contextual-ai-input"
-                        class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400"
+                        class="w-full border border-slate-200 rounded-lg p-3 text-sm min-h-[140px] placeholder:text-slate-400 focus_ring_standard"
                         placeholder="Incolla qui testo o URL..."></textarea>
                 </div>
 
@@ -2005,7 +2333,7 @@
                 <!-- Open Answer -->
                 <div id="study-quiz-open" class="hidden w-full flex-col gap-4 mb-6">
                     <textarea id="study-quiz-textarea"
-                        class="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        class="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none text-slate-700 focus_ring_standard"
                         placeholder="Scrivi la tua risposta qui..."></textarea>
                     <button onclick="window.checkOpenAnswer()"
                         class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Verifica
@@ -2065,7 +2393,7 @@
 
     </div>
     </div>
-
+    <!---- QUIZ MODAL ---->
     <div id="quiz-modal"
         class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-8 transform scale-95 transition-transform duration-300 flex flex-col relative"
@@ -2330,7 +2658,7 @@
                 class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
             <h2 class="text-xl font-black text-slate-800 mb-2 flex items-center justify-between flex-shrink-0">
                 <span class="flex items-center gap-2">
-                    <i data-lucide="bot" class="text-indigo-500"></i> <span id="modal-setup-title">Configura
+                    <i data-lucide="bot" class="text-indigo-500"></i> <span id="modal-setup-title">Setup
                         AI</span>
                 </span>
             </h2>
@@ -2425,7 +2753,7 @@
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <select id="model-select"
                             onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); if(window.appState && window.appState.aiProvider === 'infomaniak') { localStorage.setItem('infomaniak_selected_model', this.value); } else { localStorage.setItem('gemini_selected_model', this.value); }"
-                            class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 outline-none appearance-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
+                            class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 appearance-none cursor-pointer focus_ring_standard">
                             <option value="">Caricamento modelli in corso...</option>
                         </select>
                     </div>
@@ -2453,7 +2781,7 @@
             <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
                 <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
                     <i data-lucide="brain-circuit" class="text-indigo-500"></i> <span
-                        id="modal-study-title-label">Metodo di Studio Attivo</span>
+                        id="modal-study-title-label">Metodi di Studio Attivo</span>
                 </h2>
                 <div class="flex items-center gap-2">
                     <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button"
@@ -2663,7 +2991,7 @@
                 <div>
                     <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Relazione</label>
                     <input type="text" id="validate-rel-input"
-                        class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none">
+                        class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus_ring_standard">
                 </div>
                 <div>
                     <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Nodo B</label>
@@ -2743,10 +3071,10 @@
             class="btn_a11y_tool"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
         <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
-        <button id="btn-line-height" onclick="window.cycleLineHeight()"
-            class="btn_a11y_tool"><i data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
-        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
+        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="btn_a11y_tool"><i
+                data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
+        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="btn_a11y_tool"><i
+                data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
         <button
             onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
@@ -2814,7 +3142,7 @@
                         appariranno qui.</p>
 
                     <textarea id="admin-prompt-editor"
-                        class="flex-1 w-full bg-slate-900 text-emerald-400 font-mono text-sm p-4 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                        class="flex-1 w-full bg-slate-900 text-emerald-400 font-mono text-sm p-4 rounded-xl border border-slate-700 shadow-inner focus_ring_standard"
                         spellcheck="false" placeholder="Il testo del prompt..."></textarea>
 
                     <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">

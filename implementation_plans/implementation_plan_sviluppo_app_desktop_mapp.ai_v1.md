@@ -1,4 +1,4 @@
-# Sviluppo App Desktop "Mapp.AI" (v1)
+# Sviluppo App Desktop "MappAI" (v1)
 
 Questo documento definisce il piano definitivo per l'App Desktop Nativa macOS (.dmg) focalizzata su Google Gemini, con le migliorìe dell'interfaccia e l'archiviazione dati.
 *(Approvato dall'utente)*
@@ -11,14 +11,14 @@ Questo documento definisce il piano definitivo per l'App Desktop Nativa macOS (.
 #### [NEW] /Mapp_AI_v1/package.json & main.js
 - **Installazione NVM / Node.js**: Verrà eseguita sul sistema del Mac per rendere agibile la compilazione.
 - **main.js**: Core Electron per aggirare i limiti CORS e gestire il File System.
-- **Salvataggio JSON & Bottoni Rapidi**: Ricezione dell'IPC per generare un file `.json` in `Documenti/Salvataggi Mapp.AI/`.
+- **Salvataggio JSON & Bottoni Rapidi**: Ricezione dell'IPC per generare un file `.json` in `Documenti/Salvataggi MappAI/`.
 - Un bottone **"Apri Cartella Salvataggi"** nel frontend invierà un comando ad Electron per aprire la cartella `.json` originaria nel Finder nativo di macOS.
 
 ---
 
 ### UI / Frontend
 #### [NEW] /Mapp_AI_v1/public/index.html
-- **Header "Mapp.AI"**: Nuovo design pulito. API limitate solo a Google e AI Studio.
+- **Header "MappAI"**: Nuovo design pulito. API limitate solo a Google e AI Studio.
 - **Mini-Guida API (Modal)**: Box illustrativo per recuperare token API su AI Studio.
 - **Modal Tutorial App ("Metodo di Studio Attivo")**: Un pulsante/modal dedicato che spiega come funziona l'applicazione, e incentiva attivamente lo studente a rifinire manualmente le mappe.
 - **Sidebar "Note Utente"**: Nuova tab laterale che funge da *raccoglitore* visualizzando sotto forma di feed tutte le immagini e le note digitate/appese dallo studente sui nodi della mappa.

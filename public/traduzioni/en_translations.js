@@ -84,16 +84,16 @@ const en_translations = {
     guide_step5_title: "🗺️ Step 5 — Interact with the Map",
     guide_step5_desc: "Double click a node to read/edit notes. Scroll to zoom. Drag to move. Right click for context menu (quiz, expand, flashcards). Use 'Pin' to lock positions.",
     guide_step6_title: "💾 Step 6 — Save and Resume",
-    guide_step6_desc: "Maps are automatically saved in the 'Mapp.AI Saves' folder in your Documents. You can import/export JSON files. Recent projects appear on the landing page bar.",
+    guide_step6_desc: "Maps are automatically saved in the 'MappAI Saves' folder in your Documents. You can import/export JSON files. Recent projects appear on the landing page bar.",
     guide_notes_title: "📓 Notes Collector",
     guide_notes_desc: "In the sidebar you'll find the Notes Collector: view all notes and images added to nodes. It's your digital notebook connected to the map!",
-    guide_footer: "Mapp.AI saves everything locally on your Mac. Your data never leaves your device.",
+    guide_footer: "MappAI saves everything locally on your Mac. Your data never leaves your device.",
 
     // Modals - Active Study (Tutorial)
     modal_study_title: "Active Study Method",
-    study_intro: "Mapp.AI is not just a diagram generator: it's an active learning environment. The AI-generated map is your starting point — real study begins when you customize it.",
+    study_intro: "MappAI is not just a diagram generator: it's an active learning environment. The AI-generated map is your starting point — real study begins when you customize it.",
     study_sr_title: "🔁 Spaced Repetition",
-    study_sr_desc: "Don't repeat everything in one day. Review flashcards at increasing intervals (1d → 3d → 7d → 14d). Mapp.AI integrates a spaced repetition system: right-click nodes to generate and review flashcards!",
+    study_sr_desc: "Don't repeat everything in one day. Review flashcards at increasing intervals (1d → 3d → 7d → 14d). MappAI integrates a spaced repetition system: right-click nodes to generate and review flashcards!",
     study_ar_title: "🧠 Active Recall",
     study_ar_desc: "Don't read passively: close your notes and try to write what you remember. Double click a map node, empty the content and rewrite in your own words. Retrieving from memory is 2-3x more effective than re-reading.",
     study_feynman_title: "👨‍🏫 Feynman Technique",
@@ -174,7 +174,7 @@ const en_translations = {
     vault_manager_subtitle: "Second Brain Knowledge Management",
     last_saved: "Last saved",
     student: "Student",
-    
+
     // Admin Dashboard
     admin_tab_mindmaps: "Mind Maps",
     admin_tab_kgraphs: "Knowledge Graph",

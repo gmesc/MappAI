@@ -7,7 +7,10 @@
  */
 
 (function () {
-    const isElectron = typeof window !== 'undefined' && window.process && window.process.type === 'renderer';
+    const isElectron = typeof window !== 'undefined' && (
+        (window.process && window.process.type === 'renderer') ||
+        (window.electronAPI && typeof window.electronAPI.generateGemini === 'function')
+    );
 
     if (isElectron) {
         console.log("[MappAI Adapter] Rilevato ambiente Electron nativo. Utilizzo IPC standard.");

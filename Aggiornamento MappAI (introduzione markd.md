@@ -1,6 +1,6 @@
 Aggiornamento MappAI (introduzione markdown vault)
 
-Ho completato la Fase 3 del piano, trasformando Mapp.AI in uno strumento di "Augmented Intelligence" estremamente sofisticato. Ecco le novità principali:
+Ho completato la Fase 3 del piano, trasformando MappAI in uno strumento di "Augmented Intelligence" estremamente sofisticato. Ecco le novità principali:
 
 ### 1. Iniezione Mirata SOTA (Espandi Nodo)
 Ho riscritto completamente il prompt e la logica di espansione dei nodi (Click Destro -> Espandi con IA).

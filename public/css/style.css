@@ -382,7 +382,7 @@ body.a11y-zoom-x2 {
     width: 350px !important;
     padding: 12px !important;
     gap: 8px !important;
-    border-radius: 12px !important;
+    border-radius: 30px !important;
 }
 
 /* Floating Actions Menu mirroring a11y panel styling */
@@ -395,7 +395,7 @@ body.a11y-zoom-x2 {
     background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(8px) !important;
     border: 1px solid #e0e7ff !important;
-    border-radius: 12px !important;
+    border-radius: 30px !important;
     padding: 12px !important;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
     z-index: 99999 !important;
@@ -431,12 +431,12 @@ body.a11y-zoom-x2 {
     align-items: center !important;
     width: 100% !important;
     padding: 8px 18px !important;
-    border-radius: 8px !important;
+    border-radius: 9999px !important;
     gap: 8px !important;
     font-size: 18px !important;
     font-weight: 500 !important;
     font-family: 'Space Mono', system-ui, -apple-system;
-    background-color: #34d399 !important;
+    background-color: #eeeeee !important;
     color: #334155 !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
@@ -446,15 +446,16 @@ body.a11y-zoom-x2 {
 .btn_a11y_tool:hover,
 #floating-actions-menu button:hover,
 #floating-actions-menu label:hover {
-    background-color: #fbbf24 !important;
+    background-color: #ffe62a !important;
     font-weight: bold !important;
 }
 
 .btn_a11y_tool.active,
 #floating-actions-menu button.active,
 #floating-actions-menu label.active {
-    background-color: #4f46e5 !important;
-    color: #ffffff !important;
+    background-color: #34d399 !important;
+    font-weight: bold !important;
+    font-size: 20px !important;
 }
 
 .btn_a11y_tool svg,
@@ -473,133 +474,191 @@ body.a11y-zoom-x2 {
 }
 
 /* ==========================================
-       PROJECTS BAR (Completamente statica in pixel absolute)
-       ========================================== */
+   BARRA DEI PROGETTI RECENTI
+   ========================================== */
+
+/* ==========================================
+   1. CONTENITORI PRINCIPALI E VARIABILI
+   ========================================== */
 #projects-bar {
     font-size: 13px !important;
 }
 
-#projects-bar button.absolute {
-    right: 24px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+#projects-bar-content {
     padding-top: 8px !important;
-    padding-bottom: 8px !important;
-    border-top-left-radius: 16px !important;
-    border-top-right-radius: 16px !important;
-    gap: 8px !important;
-    background-color: #10b981 !important;
-    /* Green background fill */
-    color: #ffffff !important;
-    /* White text color */
-    border: 1px solid #10b981 !important;
-    /* Green border color */
-    font-size: 13.5px !important;
-    height: 36px !important;
-    box-sizing: border-box !important;
+    padding-bottom: 12px !important;
+    --project-bar-zoom: var(--scale-factor, 1.8);
+    zoom: var(--project-bar-zoom);
+}
+
+/* ==========================================
+   4. TIPOGRAFIA GLOBALE DELLA BARRA
+   ========================================== */
+/* Titolo di sezione ("Progetti Recenti") */
+
+#projects-bar h3 svg {
+    width: 18px !important;
+    height: 18px !important;
+    color: #47556959 !important;
+}
+
+#projects-bar h3 {
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
+    gap: 5px !important;
+    margin: 0 0 1px 32px !important;
+    /* top, right, bottom, left */
+    padding: 0 !important;
+    background-color: transparent !important;
+    color: #47556959 !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
 }
 
-#projects-bar button.absolute:hover {
-    background-color: #059669 !important;
-    /* Darker green on hover */
-    border-color: #059669 !important;
-    color: #ffffff !important;
-}
 
-#projects-bar-content {
-    padding-top: 16px !important;
-    padding-bottom: 16px !important;
-}
 
+/* ==========================================
+   2. GESTIONE DELLE CARD DEI PROGETTI
+   Qui controlli il layout orizzontale e gli spazi interni
+   ========================================== */
 #recent-projects-container {
-    gap: 12px !important;
-    padding-bottom: 4px !important;
+    gap: 0px !important;
+    padding-top: 2px !important;
+    /* Spazio per l'ombra superiore */
+    padding-bottom: 2px !important;
     padding-left: 32px !important;
     padding-right: 32px !important;
 }
 
+/* Modifiche agli spazi interni delle singole card */
 #recent-projects-container>div {
     width: 220px !important;
-    padding: 14px !important;
+    /* Larghezza aumentata */
+    border: none !important;
+    /* Elimina bordo/outline */
+    background-color: #e5e5e548 !important;
+    padding: 18px !important;
     border-radius: 14px !important;
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+#recent-projects-container>div:hover {
+    background-color: #a7ffa87f !important;
+    /* Colore di sfondo all'hover */
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
 }
 
 #recent-projects-container>div .mb-1 {
-    margin-bottom: 4px !important;
+    margin-bottom: 15px !important;
 }
 
-#recent-projects-container>div .mt-2 {
-    margin-top: 8px !important;
-}
-
-#recent-projects-container>div .gap-1\.5 {
-    gap: 6px !important;
-}
-
+#recent-projects-container>div .gap-1\.5,
 #recent-projects-container>div .gap-1 {
-    gap: 4px !important;
+    gap: 5px !important;
 }
 
-#projects-bar h3,
-#projects-bar h4,
-#projects-bar span,
-#projects-bar p,
-#projects-bar button {
-    font-size: 14px !important;
-}
-
-#projects-bar h3 {
-    font-size: 22px !important;
-    /* Keep large font size */
-    color: #475569 !important;
-    /* Revert to clean slate color */
-    background-color: transparent !important;
-    /* Transparent background */
+/* ==========================================
+   3. BOTTONE TOGGLE (Nascondi/Mostra)
+   ========================================== */
+#projects-bar button.absolute {
     display: flex !important;
     align-items: center !important;
-    margin-bottom: 16px !important;
-    margin-left: 32px !important;
-    gap: 10px !important;
-    font-weight: bold !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    right: 24px !important;
+    height: 36px !important;
+    padding: 8px 16px !important;
+    /* Shorthand per top/bottom 8px, left/right 16px */
+    gap: 8px !important;
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    border: 1px solid #10b981 !important;
+    border-radius: 16px 16px 0 0 !important;
+    /* Shorthand: top-left, top-right, bottom-right, bottom-left */
+    font-size: 13.5px !important;
 }
 
-#projects-bar h3 svg,
-#projects-bar h3 i {
-    color: #6366f1 !important;
-    /* Indigo icon */
-    width: 22px !important;
-    height: 22px !important;
+#projects-bar button.absolute:hover {
+    background-color: #059669 !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
 }
+
+/* ==========================================
+/* Testi interni alle card */
+/* ==========================================
+
+/* 1. Icona della tipologia (Mappa Mentale / git-merge) */
+#recent-projects-container>div svg.lucide-git-merge,
+#recent-projects-container>div i[data-lucide="git-merge"] {
+    color: #10b981 !important;
+    /* Verde per le mappe mentali */
+}
+
+/* 2. Icona della tipologia (Knowledge Graph / network) */
+#recent-projects-container>div svg.lucide-network,
+#recent-projects-container>div i[data-lucide="network"] {
+    color: #f59e0b !important;
+    /* Arancione per i knowledge graph */
+}
+
+/* 3. Icona Play ("Riprendi") */
+#recent-projects-container>div svg.lucide-play-circle,
+#recent-projects-container>div i[data-lucide="play-circle"] {
+    color: #3b82f6 !important;
+    /* Blu per l'icona play */
+}
+
+/* 4. Icona Cestino ("Elimina") */
+#recent-projects-container>div svg.lucide-trash,
+#recent-projects-container>div i[data-lucide="trash"] {
+    color: #ef4444 !important;
+    /* Rosso per l'icona elimina */
+}
+
+
+
+
+/* Testo della categoria ("MAPPA MENTALE" o "KNOWLEDGE GRAPH") */
+#projects-bar span.text-\[8px\] {
+    font-size: 12px !important;
+    letter-spacing: 0.05em !important;
+    font-weight: bold !important;
+    color: #1e293b !important;
+    /* <--- MODIFICA QUESTO COLORE (es: Viola) */
+}
+
+
+/* Testo "Riprendi" (e contenitore dell'icona play) */
+#projects-bar span.text-\[9px\] {
+    color: #3b82f6 !important;
+    /* <--- MODIFICA QUESTO COLORE (es: Indigo) */
+}
+
+
+
+#projects-bar span.text-\[8px\] {
+    font-size: 12px !important;
+    letter-spacing: 0.05em !important;
+    font-weight: bold !important;
+}
+
 
 #projects-bar h4 {
-    font-size: 14px !important;
+    font-size: 18px !important;
+    /* Attenzione: 80px è enorme per una barra! */
     color: #1e293b !important;
     font-weight: bold !important;
 }
 
-#projects-bar p.text-xs {
-    font-size: 11px !important;
-    color: #64748b !important;
-}
-
 #projects-bar p.text-\[9px\] {
-    font-size: 11px !important;
-    color: #64748b !important;
-}
-
-#projects-bar span.text-\[8px\] {
-    font-size: 10px !important;
+    font-size: 12px !important;
+    color: #279b66 !important;
+    font-weight: bold !important;
+    padding-bottom: 2px !important;
 }
 
 #projects-bar span.text-\[9px\],
@@ -609,23 +668,28 @@ body.a11y-zoom-x2 {
     overflow-wrap: break-word !important;
 }
 
-#projects-bar #toggle-bar-text {
-    font-size: 13.5px !important;
-    /* Enlarge text size by 20% (10px -> 12px) */
-    color: #ffffff !important;
-    /* Text color in white */
+
+
+/* ==========================================
+   5. ICONE (SVG e Tag i)
+   ========================================== */
+#projects-bar h3 i {
+    width: 18px !important;
+    height: 18px !important;
+    color: #48ff00 !important;
 }
 
-#projects-bar svg {
-    width: 13.5px !important;
-    height: 13.5px !important;
+
+
+#projects-bar #toggle-bar-text {
+    font-size: 13.5px !important;
+    color: #ffffff !important;
 }
 
 #projects-bar #toggle-bar-icon {
-    width: 15.5px !important;
-    height: 15.5px !important;
+    width: 18px !important;
+    height: 18px !important;
     color: #ffffff !important;
-    /* Icon color in white */
 }
 
 /* ==========================================
@@ -634,9 +698,7 @@ body.a11y-zoom-x2 {
 #landing-view .glass-card button,
 #landing-view .glass-card .generate-btn,
 #landing-view .glass-card .mode-btn,
-#landing-view .glass-card .source-type-btn {
-    font-size: calc(13px * var(--landing-zoom)) !important;
-}
+#landing-view .glass-card .source-type-btn {}
 
 #landing-view .glass-card .generate-btn svg,
 #landing-view .glass-card .mode-btn svg,
@@ -650,7 +712,7 @@ body.a11y-zoom-x2 {
     height: calc(24px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card h1 {
+#landing-view .glass-card h1:not(.hero_title_main) {
     font-size: 40px !important;
 }
 
@@ -669,9 +731,7 @@ body.a11y-zoom-x2 {
 }
 
 #landing-view .glass-card span[data-i18n="btn_new_project"],
-#landing-view .glass-card span[data-i18n="btn_open_vault"] {
-    font-size: calc(14px * var(--landing-zoom)) !important;
-}
+#landing-view .glass-card span[data-i18n="btn_open_vault"] {}
 
 #landing-view .glass-card span.tracking-wider.uppercase,
 #landing-view .glass-card span.tracking-wider {
@@ -1755,7 +1815,7 @@ body.is-snapshotting *::after {
 
 /* ==========================================
        13. SIDEBAR RESPONSIVE WIDTH & ZOOM
-       ========================================== */
+========================================== */
 .app-sidebar {
     width: 100%;
 }
@@ -1763,13 +1823,89 @@ body.is-snapshotting *::after {
 @media (min-width: 768px) {
     .app-sidebar {
         width: calc(28% * var(--app-zoom, 1)) !important;
+        min-width: 280px !important;
+        max-width: 450px !important;
+    }
+
+    body.a11y-zoom-x15 .app-sidebar {
+        width: calc(28% * var(--app-zoom, 1) * 1.15) !important;
+        max-width: calc(450px * 1.15) !important;
+    }
+
+    body.a11y-zoom-x2 .app-sidebar {
+        width: calc(28% * var(--app-zoom, 1) * 1.15 * 1.15) !important;
+        max-width: calc(450px * 1.15 * 1.5) !important;
     }
 }
 
 @media (min-width: 1024px) {
     .app-sidebar {
         width: calc(19% * var(--app-zoom, 1)) !important;
+        min-width: 320px !important;
+        max-width: 450px !important;
     }
+
+    body.a11y-zoom-x15 .app-sidebar {
+        width: calc(19% * var(--app-zoom, 1) * 1.15) !important;
+        max-width: calc(450px * 1.2) !important;
+    }
+
+    body.a11y-zoom-x2 .app-sidebar {
+        width: calc(19% * var(--app-zoom, 1) * 1.15 * 1.2) !important;
+        max-width: calc(450px * 1.15 * 1.5) !important;
+    }
+}
+
+/* Padding e stili personalizzabili per gli elementi della treeview in sidebar */
+.treeview-parent {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+.treeview-children-container {
+    position: relative;
+    margin-left: 24px !important;
+    padding-left: 0px !important;
+}
+
+.treeview-child {
+    position: relative;
+    margin-left: 0px !important;
+    padding-left: 16px !important;
+    /* Spazio per la linea di diramazione */
+    padding-right: 12px !important;
+}
+
+/* Connettore a forma di L curva per tutti i sotto-nodi (child) */
+.treeview-child::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: -6px;
+    /* Allungato di altri 2px verso l'alto */
+    /* Inizia leggermente più in alto per collegarsi al precedente */
+    width: 14px;
+    height: calc(50% + 6px);
+    /* Compensato l'altezza di 2px */
+    border-left: 1.5px solid #cfd6df;
+    /* slate-300 */
+    border-bottom: 1.5px solid #cfd6df;
+    border-bottom-left-radius: 4px;
+    /* Curve deliziose */
+    pointer-events: none;
+}
+
+/* Linea verticale dritta per connettere al figlio successivo (escluso l'ultimo) */
+.treeview-child:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    bottom: -6px;
+    /* Allungato di altri 2px in basso */
+    /* Si estende in basso per saldarsi al figlio successivo */
+    border-left: 1.5px solid #cfd6df;
+    pointer-events: none;
 }
 
 /* ==========================================
@@ -1833,23 +1969,8 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 /* ==========================================
        IPAD/DESKTOP FULL WHITE & BUTTON TEXT WRAPPING OPTIMIZATIONS
        ========================================== */
-/* 1. Force Solid White backgrounds and shadows for landing buttons/cards */
-#landing-view button[onclick="window.startEmptyMap()"],
-#landing-view button[onclick="window.loadMapVault()"],
-#landing-view label[for="landing-import"].rounded-3xl {
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
-    transition: all 0.3s ease !important;
-}
+/* 1. Force Solid White backgrounds and shadows for landing buttons/cards (removed startEmptyMap/loadMapVault overrides to allow slate-100/emerald hover) */
 
-#landing-view button[onclick="window.startEmptyMap()"]:hover,
-#landing-view button[onclick="window.loadMapVault()"]:hover,
-#landing-view label[for="landing-import"].rounded-3xl:hover {
-    background-color: #f8fafc !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04) !important;
-}
 
 /* Inactive states for source and mode buttons in landing card */
 #landing-view .glass-card .mode-btn,
@@ -1992,7 +2113,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     }
 
     /* Enlarge brand header typography & logo - REMOVED SCALING */
-    #landing-view .glass-card h1 {
+    #landing-view .glass-card h1:not(.hero_title_main) {
         font-size: 40px !important;
     }
 
@@ -2000,23 +2121,10 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
         font-size: 12px !important;
     }
 
-    #landing-view .glass-card img[alt="MappAI Icon"] {
-        width: 70px !important;
-        height: 70px !important;
-    }
-
     /* Enlarge and align Quick Action buttons and label as large, vertical action cards */
     #landing-view .glass-card button[onclick="window.startEmptyMap()"],
     #landing-view .glass-card button[onclick="window.loadMapVault()"],
-    #landing-view .glass-card label[for="landing-import"].rounded-3xl {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        text-align: center !important;
-        padding: calc(32px * var(--landing-zoom)) calc(24px * var(--landing-zoom)) !important;
-        border-radius: calc(24px * var(--landing-zoom)) !important;
-    }
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl {}
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"]>div,
     #landing-view .glass-card button[onclick="window.loadMapVault()"]>div,
@@ -2045,10 +2153,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view .glass-card label[for="landing-import"].rounded-3xl i,
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] svg,
     #landing-view .glass-card button[onclick="window.loadMapVault()"] svg,
-    #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {
-        width: calc(28px * var(--landing-zoom)) !important;
-        height: calc(28px * var(--landing-zoom)) !important;
-    }
+    #landing-view .glass-card label[for="landing-import"].rounded-3xl svg {}
 
     #landing-view .glass-card button[onclick="window.startEmptyMap()"] span.text-sm,
     #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-sm,
@@ -2262,23 +2367,12 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     /* Multi-pass ON/OFF buttons */
     #multipass-off,
     #multipass-on {
-        font-size: calc(8px * var(--landing-zoom)) !important;
+        font-size: calc(12px * var(--landing-zoom)) !important;
         padding: calc(3.3px * var(--landing-zoom)) 0 !important;
     }
 
     /* Bottom action buttons: Guida AI Esterna / Importa JSON */
-    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"],
-    #landing-view .glass-card label[for="landing-import"].py-2 {
-        font-size: calc(8px * var(--landing-zoom)) !important;
-        padding: calc(6.6px * var(--landing-zoom)) calc(12.6px * var(--landing-zoom)) !important;
-        border-radius: calc(9.3px * var(--landing-zoom)) !important;
-    }
 
-    #landing-view .glass-card button[onclick="window.openExternalJSONInstructions()"] i,
-    #landing-view .glass-card label[for="landing-import"].py-2 i {
-        width: calc(11.3px * var(--landing-zoom)) !important;
-        height: calc(11.3px * var(--landing-zoom)) !important;
-    }
 
     /* Token count estimate bar */
     #token-counter-container span {
@@ -2514,7 +2608,7 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     margin-bottom: calc(16px * var(--landing-zoom) - 24px * var(--landing-zoom)) !important;
 }
 
-#landing-view .glass-card #step-root-container,
+#landing-view .glass-card #step-root-container:not(.hidden),
 #landing-view .glass-card #input-l1-container,
 #landing-view .glass-card #focus-input-container {
     display: flex !important;
@@ -2559,5 +2653,72 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 }
 
 #edit-project-title-input {
-    font-size: calc(10px * var(--app-zoom, 1)) !important;
+    font-size: calc(18px * var(--app-zoom, 1)) !important;
+}
+
+/* ==========================================
+   15. GESTIONE LAYOUT PERSONALIZZATI
+   ========================================== */
+#layout-manager-modal .layout-card {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
+    transition: all 0.2s ease-in-out;
+}
+
+#layout-manager-modal .layout-card:hover {
+    border-color: #cbd5e1;
+    background-color: #f1f5f9;
+}
+
+#layout-manager-modal .layout-thumb {
+    width: 140px;
+    height: 105px;
+    /* aspect-ratio 4:3 */
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+#layout-manager-modal .layout-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Resize & Minimize layout-manager-box */
+#layout-manager-box {
+    resize: both !important;
+    overflow: auto !important;
+    min-width: 320px !important;
+    min-height: 250px !important;
+    max-width: 95vw !important;
+    max-height: 95vh !important;
+}
+
+#layout-manager-box.minimized-layout-box {
+    width: 380px !important;
+    height: auto !important;
+    max-height: 80vh !important;
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 24px !important;
+    top: auto !important;
+    left: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 1010 !important;
+}
+
+#layout-manager-box.minimized-layout-box .hide-on-minimize {
+    display: none !important;
 }

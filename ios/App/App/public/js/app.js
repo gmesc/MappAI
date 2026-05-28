@@ -61,27 +61,35 @@ window.closeActiveModals = function () {
         { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
         { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
         { id: 'validate-link-modal', close: () => window.closeValidateModal() },
-        { id: 'api-tutorial-modal', close: () => {
-            const m = document.getElementById('api-tutorial-modal');
-            if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
-        }},
-        { id: 'merge-confirm-modal', close: () => {
-            if (typeof window.cancelMerge === 'function') window.cancelMerge();
-            else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
-        }},
-        { id: 'confirm-modal', close: () => {
-            const m = document.getElementById('confirm-modal');
-            if (m && !m.classList.contains('hidden')) {
-                const cancelBtn = document.getElementById('confirm-cancel');
-                if (cancelBtn) cancelBtn.click();
-                else m.classList.add('hidden');
+        {
+            id: 'api-tutorial-modal', close: () => {
+                const m = document.getElementById('api-tutorial-modal');
+                if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
             }
-        }},
+        },
+        {
+            id: 'merge-confirm-modal', close: () => {
+                if (typeof window.cancelMerge === 'function') window.cancelMerge();
+                else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+            }
+        },
+        {
+            id: 'confirm-modal', close: () => {
+                const m = document.getElementById('confirm-modal');
+                if (m && !m.classList.contains('hidden')) {
+                    const cancelBtn = document.getElementById('confirm-cancel');
+                    if (cancelBtn) cancelBtn.click();
+                    else m.classList.add('hidden');
+                }
+            }
+        },
         { id: 'image-lightbox', close: () => window.closeLightbox() },
-        { id: 'admin-dashboard', close: () => {
-            if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
-            else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
-        }}
+        {
+            id: 'admin-dashboard', close: () => {
+                if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+                else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+            }
+        }
     ];
 
     modals.forEach(m => {
@@ -102,7 +110,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
-        
+
         // Student Mode Handler
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
@@ -203,10 +211,10 @@ window.toggleStudentMode = function () {
 
 window.setMultiPassMode = function (enabled) {
     appState.multiPassMode = enabled;
-    
+
     const btnOff = document.getElementById('multipass-off');
     const btnOn = document.getElementById('multipass-on');
-    
+
     if (btnOff && btnOn) {
         if (enabled) {
             btnOn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
@@ -220,7 +228,7 @@ window.setMultiPassMode = function (enabled) {
             btnOn.classList.add('text-slate-400', 'hover:text-slate-600');
         }
     }
-    
+
     window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
@@ -435,10 +443,10 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     btnOk.onclick = () => { cleanup(); onConfirm(input.value.trim()); };
 
     input.onkeydown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            cleanup(); 
-            onConfirm(input.value.trim()); 
+            cleanup();
+            onConfirm(input.value.trim());
         }
     };
 }
@@ -489,7 +497,7 @@ window.toggleMagnifier = function () {
         magnifierLens.style.display = 'block';
         window.refreshMagnifier();
         document.addEventListener('mousemove', window.handleMagnifierMove);
-        
+
         // Sincronizza dinamicamente la lente con i cambiamenti della UI (es. apertura modali)
         magnifierObserver = new MutationObserver((mutations) => {
             let shouldRefresh = false;
@@ -497,7 +505,7 @@ window.toggleMagnifier = function () {
                 // Ignora i cambiamenti della lente stessa per evitare loop infiniti
                 if (m.target.id === 'magnifier-lens' || m.target.id === 'magnifier-content') continue;
                 if (m.target.closest && m.target.closest('#magnifier-lens')) continue;
-                
+
                 // Ignora aggiornamenti continui e leggeri (es. animazioni svg/d3, input testo rapido)
                 if (m.target.tagName === 'line' || m.target.tagName === 'circle' || m.target.tagName === 'path' || m.target.tagName === 'text') continue;
                 if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'transform') continue;
@@ -506,7 +514,7 @@ window.toggleMagnifier = function () {
                 shouldRefresh = true;
                 break;
             }
-            
+
             if (shouldRefresh) {
                 clearTimeout(magnifierDebounceTimer);
                 magnifierDebounceTimer = setTimeout(() => {
@@ -514,13 +522,13 @@ window.toggleMagnifier = function () {
                 }, 300); // 300ms debounce per non bloccare la UI
             }
         });
-        
+
         // Osserva i cambiamenti rilevanti nel DOM
-        magnifierObserver.observe(document.body, { 
-            childList: true, 
-            subtree: true, 
-            attributes: true, 
-            attributeFilter: ['class', 'style'] 
+        magnifierObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
         });
 
     } else {
@@ -1282,11 +1290,11 @@ window.updateTokenCostEstimator = function () {
 
     // 1. Get model specs
     const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
-    
+
     // Determine context window
     let maxContext = 1048576; // Default to 1M
     const modelIdLower = selectedModel.toLowerCase();
-    
+
     if (appState.aiProvider === 'infomaniak') {
         if (modelIdLower.includes('gemma')) {
             maxContext = 8192;
@@ -1348,7 +1356,7 @@ window.updateTokenCostEstimator = function () {
         const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
         const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
         const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
-        
+
         if (totalCostCents < 0.01) {
             costDisplay = `<0.01 ¢`;
         } else {
@@ -1826,7 +1834,7 @@ REGOLE TASSATIVE DI OUTPUT:
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
-        
+
         window.resetVaultState();
 
         appState.db = {
@@ -1866,16 +1874,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -1908,15 +1916,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
             // Assegniamo un gruppo unico (idx + 1) per garantire colori diversi agli Hub
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2004,15 +2012,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const extractL1Branch = (nodeId) => {
                     if (!nodeId) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     // 1. Formato esplicito L1_X (es. L1_3, L1_3_L2_A)
                     const m1 = cleanId.match(/L1_(\d+)/);
                     if (m1) return `L1_${m1[1]}`;
-                    
+
                     // 2. Formato implicito LX_Y_... (es. L2_3_2, L3_3_2_1)
                     const m2 = cleanId.match(/^L\d+_(\d+)/);
                     if (m2) return `L1_${m2[1]}`;
-                    
+
                     return null;
                 };
 
@@ -2020,7 +2028,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const findParentIdByIdStructure = (nodeId, level) => {
                     if (!nodeId || level <= 1) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     const match = cleanId.match(/^L\d+_([\d_]+)$/);
                     if (match) {
                         const parts = match[1].split('_');
@@ -2028,7 +2036,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             parts.pop();
                             const parentLevel = level - 1;
                             const parentId = `L${parentLevel}_${parts.join('_')}`;
-                            
+
                             const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
                             if (parentExists) return parentId;
                         }
@@ -2073,15 +2081,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             aiToRealIdMap[n.id] = n.id;
                             let nodeLevel = parseInt(n.level);
                             if (isNaN(nodeLevel)) nodeLevel = 2;
-                            
+
                             const desc = n.desc || n.content || "";
-                            appState.db.nodes.push({ 
-                                ...n, 
-                                level: nodeLevel, 
-                                studyStatus: 'none', 
-                                desc, 
-                                aiDesc: desc, 
-                                chunks: n.chunks || [] 
+                            appState.db.nodes.push({
+                                ...n,
+                                level: nodeLevel,
+                                studyStatus: 'none',
+                                desc,
+                                aiDesc: desc,
+                                chunks: n.chunks || []
                             });
                         }
 
@@ -2109,32 +2117,32 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         }
                     });
                 }
-                
+
                 if (branchData.links && Array.isArray(branchData.links)) {
                     const findNodeId = (idOrLabel) => {
                         if (!idOrLabel) return null;
                         const cleaned = idOrLabel.toString().trim();
                         const upper = cleaned.toUpperCase();
-                        
+
                         // 1. Cerca per ID esatto
                         let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                         if (found) return found.id;
-                        
+
                         // 2. Cerca tramite mappatura aiToRealIdMap
                         if (aiToRealIdMap[upper]) {
                             let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                             if (mappedNode) return mappedNode.id;
                         }
-                        
+
                         // 3. Cerca per Etichetta (Label) normalizzata
                         const norm = normalizeLabel(cleaned);
                         found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                         if (found) return found.id;
-                        
+
                         // 4. Cerca per ID normalizzato
                         found = appState.db.nodes.find(n => normalizeLabel(n.id) === norm);
                         if (found) return found.id;
-                        
+
                         return null;
                     };
 
@@ -2142,15 +2150,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         if (l.source && l.target) {
                             let s = findNodeId(l.source);
                             let t = findNodeId(l.target);
-                            
+
                             // Fallback se il resolver semantico fallisce
                             if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                             if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                            
+
                             if (s && t && s !== t) {
                                 const sExists = appState.db.nodes.some(nx => nx.id === s);
                                 const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                
+
                                 if (sExists && tExists) {
                                     // Evita duplicati di link
                                     const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
@@ -2191,10 +2199,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             }
 
                             if (parentId && parentId !== node.id) {
-                                appState.db.links.push({ 
-                                    source: parentId, 
-                                    target: node.id, 
-                                    rel: "include" 
+                                appState.db.links.push({
+                                    source: parentId,
+                                    target: node.id,
+                                    rel: "include"
                                 });
                                 console.log(`Failsafe Link Creato: ${parentId} -> ${node.id}`);
                             }
@@ -2205,7 +2213,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
                 const hubGroupMap = {};
                 appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-                
+
                 appState.db.nodes.forEach(node => {
                     if (node.level > 1 && (!node.group || node.group === 0)) {
                         // Cerca l'Hub L1 più vicino tramite i link
@@ -2290,16 +2298,16 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -2330,15 +2338,15 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2392,10 +2400,10 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         const totalBranches = l1NodesData.length;
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
-        
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
-        
+
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
             lastNodeInBranch[n.id.toUpperCase()] = { 1: n.id };
@@ -2476,15 +2484,15 @@ ${textParts.join('\n\n')}`;
                                 aiToRealIdMap[n.id] = n.id;
                                 let nodeLevel = parseInt(n.level);
                                 if (isNaN(nodeLevel)) nodeLevel = 2;
-                                
+
                                 const desc = n.desc || n.content || "";
-                                appState.db.nodes.push({ 
-                                    ...n, 
-                                    level: nodeLevel, 
-                                    studyStatus: 'none', 
-                                    desc, 
-                                    aiDesc: desc, 
-                                    chunks: n.chunks || [] 
+                                appState.db.nodes.push({
+                                    ...n,
+                                    level: nodeLevel,
+                                    studyStatus: 'none',
+                                    desc,
+                                    aiDesc: desc,
+                                    chunks: n.chunks || []
                                 });
                             }
 
@@ -2508,19 +2516,19 @@ ${textParts.join('\n\n')}`;
                             if (!idOrLabel) return null;
                             const cleaned = idOrLabel.toString().trim();
                             const upper = cleaned.toUpperCase();
-                            
+
                             let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                             if (found) return found.id;
-                            
+
                             if (aiToRealIdMap[upper]) {
                                 let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                                 if (mappedNode) return mappedNode.id;
                             }
-                            
+
                             const norm = normalizeLabel(cleaned);
                             found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                             if (found) return found.id;
-                            
+
                             return null;
                         };
 
@@ -2528,14 +2536,14 @@ ${textParts.join('\n\n')}`;
                             if (l.source && l.target) {
                                 let s = findNodeId(l.source);
                                 let t = findNodeId(l.target);
-                                
+
                                 if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                                 if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                                
+
                                 if (s && t && s !== t) {
                                     const sExists = appState.db.nodes.some(nx => nx.id === s);
                                     const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                    
+
                                     if (sExists && tExists) {
                                         const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
                                         if (!linkExists) {
@@ -2615,10 +2623,10 @@ ${textParts.join('\n\n')}`;
                     }
 
                     if (parentId && parentId !== node.id) {
-                        appState.db.links.push({ 
-                            source: parentId, 
-                            target: node.id, 
-                            rel: "include" 
+                        appState.db.links.push({
+                            source: parentId,
+                            target: node.id,
+                            rel: "include"
                         });
                     }
                 }
@@ -2628,7 +2636,7 @@ ${textParts.join('\n\n')}`;
         // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
         const hubGroupMap = {};
         appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-        
+
         appState.db.nodes.forEach(node => {
             if (node.level > 1 && (!node.group || node.group === 0)) {
                 const visited = new Set([node.id]);
@@ -2731,9 +2739,9 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { 
-            temperature: 0.2, 
-            responseMimeType: "application/json", 
+        generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json",
             responseSchema: schema,
             maxOutputTokens: 8192
         }
@@ -2747,27 +2755,27 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
-        
+
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
-        
+
         if (rawData.nodes) {
             rawData.nodes.forEach(n => {
                 n.studyStatus = 'none';
-                
+
                 // 1. Se è un Hub manuale dell'utente -> Forza L1 (sempre)
                 // 2. Se l'IA ha proposto un Hub (L1) -> Permetti L1
                 // 3. Altrimenti (L2, L3, L4...) -> Forza L2 per pulizia KG
                 const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
                 const aiWantsHub = (parseInt(n.level) === 1);
-                
+
                 if (isManualHub || aiWantsHub) {
                     n.level = 1;
                 } else {
-                    n.level = 2; 
+                    n.level = 2;
                 }
-                
+
                 if (!n.desc) n.desc = n.content || "";
                 n.aiDesc = n.desc;
             });
@@ -3267,10 +3275,10 @@ function getNodeRadius(d) {
             // Level 0 (absolute Root/Theme): always the maximum primary size
             return 45;
         }
-        
+
         const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
         const degree = d.degree || 0;
-        
+
         if (d.level === 1) {
             // Level 1 (Super-Hub): ranges from 30px to 40px depending on degree
             const minR = 30, maxR = 40;
@@ -3320,7 +3328,7 @@ function initD3Visualization() {
             g.attr("transform", event.transform);
             // Raddoppiato lo spessore dell'outline bianca dei testi (richiesta utente)
             const k = event.transform.k;
-            const strokeW = Math.max(1.2, (2.4 / k)); 
+            const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
         });
     svg.call(zoom);
@@ -3511,7 +3519,7 @@ function renderGraph() {
                 links.forEach(l => {
                     const source = typeof l.source === 'object' ? l.source : nodes.find(x => x.id === l.source);
                     const target = typeof l.target === 'object' ? l.target : nodes.find(x => x.id === l.target);
-                    
+
                     if (!source || !target) return;
 
                     // Se connesso direttamente a un hub
@@ -3544,7 +3552,7 @@ function renderGraph() {
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
-    
+
     // Contenitore per gli archi segmentati (solo KG)
     nodeEnter.append("g").attr("class", "node-segments");
 
@@ -3613,14 +3621,14 @@ function renderGraph() {
         });
 
     // Gestione segmenti colorati per KG
-    nodeMerge.select(".node-segments").each(function(d) {
+    nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
-        
+
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
             const strokeW = 4; // Spessore bordo segmentato più evidente
-            
+
             if (d.hubColors && d.hubColors.length > 0) {
                 const colors = d.hubColors;
                 const arcCount = colors.length;
@@ -3632,7 +3640,7 @@ function renderGraph() {
                         .outerRadius(r + strokeW) // Spessore verso l'esterno
                         .startAngle(i * angleStep)
                         .endAngle((i + 1) * angleStep);
-                    
+
                     container.append("path")
                         .attr("d", arc)
                         .attr("fill", color);
@@ -3659,7 +3667,7 @@ function renderGraph() {
             let lines = getLabelLines(labelStr);
             const vis = d.iconVisibility || { text: true, image: true, link: true };
             const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
-            
+
             textEl.text('');
             lines.forEach((line, i) => {
                 // Center logic: 
@@ -3740,7 +3748,7 @@ function renderGraph() {
     // Animazione a cascata per svelamento progressivo (Strategia 4)
     // Link appaiono tutti insieme con delay
     linkEnter.transition().duration(800).delay(500).style("opacity", 1);
-    
+
     // I nodi vecchi (merge senza enter) devono mantenere opacità 1
     // Per sicurezza impostiamo a 1 tutto ciò che era già presente
     nodeSelection.style("opacity", 1);
@@ -3940,15 +3948,15 @@ window.changeFontScale = function (dir) {
 window.exportSnapshot = async function () {
     try {
         window.showToast("Cattura immagine pulita in corso...", "info");
-        
+
         // Attiva modalità snapshot (nasconde UI)
         document.body.classList.add('is-snapshotting');
-        
+
         // Attendi un frame per il reflow del layout
         await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
-        
+
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
@@ -4314,7 +4322,7 @@ window.startEditingTitle = function () {
 
     container.innerHTML = `
         <input type="text" id="edit-project-title-input" 
-            class="w-full bg-white border border-indigo-300 rounded px-2 py-1 text-[10px] font-mono uppercase outline-none focus:ring-1 focus:ring-indigo-500" 
+            class="w-full bg-white border border-indigo-300 rounded px-2 py-1 text-[16px] font-mono uppercase outline-none focus:ring-1 focus:ring-indigo-500" 
             value="${currentTitle}">
     `;
 
@@ -4659,7 +4667,7 @@ window.openSourceModal = function (nodeId) {
                 let displayUrl = u;
                 if (isLocal) {
                     displayUrl = displayUrl.split(/[/\\]/).pop();
-                    try { displayUrl = decodeURIComponent(displayUrl); } catch(e) {}
+                    try { displayUrl = decodeURIComponent(displayUrl); } catch (e) { }
                 } else if (displayUrl.length > 60) {
                     displayUrl = displayUrl.substring(0, 60) + "...";
                 }
@@ -4845,14 +4853,14 @@ window.updateStep4Display = function () {
 
     if (isMindmap) {
         if (descMM) {
-            descMM.innerText = autoGenerateL1 ? 
-                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") : 
+            descMM.innerText = autoGenerateL1 ?
+                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") :
                 (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
         }
     } else {
         if (descKG) {
-            descKG.innerText = autoGenerateL1 ? 
-                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") : 
+            descKG.innerText = autoGenerateL1 ?
+                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") :
                 (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
         }
     }
@@ -5038,7 +5046,7 @@ window.removeL1Input = function (btn) {
 
 window.riordinaMappa = function () {
     if (!simulation) return;
-    
+
     // Se ci sono nodi pinnati o salvati, chiedi conferma
     const pinnedNodes = appState.db.nodes.filter(n => n.fx !== null && n.fx !== undefined);
     if (pinnedNodes.length > 0) {
@@ -5051,7 +5059,7 @@ window.riordinaMappa = function () {
     } else {
         applyDefaultLayout();
     }
-    
+
     function applyDefaultLayout() {
         appState.db.nodes.forEach(d => {
             if (d.level > 0 && !d.pinned) {
@@ -5066,7 +5074,7 @@ window.riordinaMappa = function () {
 
 window.salvaLayout = function () {
     if (!appState || !appState.db || !appState.db.nodes) return;
-    
+
     appState.db.nodes.forEach(n => {
         if (n.x !== undefined && n.y !== undefined) {
             n.fx = n.x;
@@ -5076,12 +5084,12 @@ window.salvaLayout = function () {
             n.savedY = n.y;
         }
     });
-    
+
     // Forza salvataggio immediato
     if (StorageManager.currentProjectId) {
         StorageManager.saveCurrentProject();
     }
-    
+
     window.showToast("Layout Salvato (Snapshot creato)!", "success");
 };
 
@@ -5138,7 +5146,7 @@ window.importGraph = function (event) {
 
             appState.db = { nodes: data.nodes, links: data.links };
             appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-            
+
             if (data.generationUsage) {
                 appState.generationUsage = data.generationUsage;
                 if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5203,7 +5211,7 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
-            
+
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
                 saveRes.upgrades.forEach(up => {
@@ -5222,7 +5230,7 @@ window.saveMapVault = async function () {
                 syncBtn.classList.remove('hidden');
                 syncBtn.classList.add('flex');
             }
-            
+
             window.showToast("Vault creato e collegato!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
@@ -5241,7 +5249,7 @@ window.loadDemoGraph = async function (url) {
         const res = await fetch(url);
         if (!res.ok) throw new Error("File demo non trovato.");
         const data = await res.json();
-        
+
         if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
 
         data.links.forEach(l => {
@@ -5255,7 +5263,7 @@ window.loadDemoGraph = async function (url) {
 
         appState.db = { nodes: data.nodes, links: data.links };
         appState.extractionMode = data.mode || data.extractionMode || "mindmap";
-        
+
         if (data.generationUsage) {
             appState.generationUsage = data.generationUsage;
             if (window.updateCostDisplay) window.updateCostDisplay();
@@ -5287,11 +5295,11 @@ window.loadDemoGraph = async function (url) {
         }
 
         appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
-        
+
         if (typeof simulation !== 'undefined') simulation = null;
         window.switchToMapLayout();
         if (typeof initD3Visualization === 'function') initD3Visualization();
-        
+
         window.showLoadingOverlay(false);
         window.showToast("Mappa dimostrativa caricata con successo!", "success");
     } catch (err) {
@@ -5332,7 +5340,7 @@ window.loadMapVault = async function () {
             });
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -6244,13 +6252,13 @@ window.updateUserNotesSidebar = function () {
                 if (isLocal) {
                     try {
                         displayUrl = decodeURIComponent(u.split('/').pop());
-                    } catch(e) {
+                    } catch (e) {
                         displayUrl = u.split('/').pop();
                     }
                 } else {
                     displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
                 }
-                
+
                 html += `
                     <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
                         <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
@@ -6309,7 +6317,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         const items = JSON.parse(cleanText);
         node.flashcardTest = items;
         node.nextReview = Date.now(); // Available right away
-        
+
         if (!isBranch) {
             appState.db.studySets = appState.db.studySets || [];
             const isKG = appState.db.extractionMode === 'knowledge_graph';
@@ -6323,7 +6331,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
                 date: new Date().toISOString()
             });
         }
-        
+
         if (!silent) {
             window.showLoadingOverlay(false);
             window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
@@ -6405,7 +6413,7 @@ window.loadStudySet = function (setId) {
         mistakes: [],
         startTime: Date.now()
     };
-    
+
     window.currentStudyItemIndex = 0;
     window.openStudyPlayer();
 };
@@ -6560,7 +6568,7 @@ window.renderSubQuestion = function () {
     optionsArray.forEach(val => {
         let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
         let btn = document.createElement('div');
-        
+
         if (isTrueFalse) {
             btn.className = "quiz-option flex-1 text-center";
             const lowerText = text.toLowerCase();
@@ -6572,7 +6580,7 @@ window.renderSubQuestion = function () {
         } else {
             btn.className = "quiz-option";
         }
-        
+
         btn.innerText = text;
         btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
         optsContainer.appendChild(btn);
@@ -7286,7 +7294,7 @@ window.setPomodoroDuration = function (mins) {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
     pomodoroTimeLeft = pomodoroDuration;
-    
+
     const btn = document.getElementById('pomodoro-btn');
     if (btn) {
         btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
@@ -7294,7 +7302,7 @@ window.setPomodoroDuration = function (mins) {
     }
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
-    
+
     const p15 = document.getElementById('pomodoro-preset-15');
     const p25 = document.getElementById('pomodoro-preset-25');
     if (p15 && p25) {
@@ -7330,7 +7338,7 @@ window.togglePomodoro = function () {
                     sessions++;
                     localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
                     window.updatePomodoroSessionsDisplay();
-                } catch(e) {
+                } catch (e) {
                     console.error("Error updating pomodoro sessions", e);
                 }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
@@ -7548,7 +7556,7 @@ const StorageManager = {
             const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App Mapp.AI.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
                 return;
             }
 
@@ -7929,9 +7937,9 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
     if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
     else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
-    
+
     document.getElementById('study-config-title').innerText = title;
-    
+
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
@@ -8261,7 +8269,7 @@ window.nextStudyItem = function (flashcardFeedback = null) {
 window.addStudyScore = function () {
     try {
         if (!window.studyResults) return;
-        
+
         const score = {
             title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
             correct: window.studyResults.correct,
@@ -8269,7 +8277,7 @@ window.addStudyScore = function () {
             type: window.studyResults.type || "Quiz",
             date: new Date().toISOString()
         };
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
@@ -8277,17 +8285,17 @@ window.addStudyScore = function () {
         } catch (e) {
             console.error("Error reading study scores", e);
         }
-        
+
         if (!Array.isArray(scores)) scores = [];
-        
+
         // Add to the beginning (newest first)
         scores.unshift(score);
-        
+
         // Keep at most 10
         if (scores.length > 10) {
             scores = scores.slice(0, 10);
         }
-        
+
         localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
         window.updateStudyScoresDisplay();
     } catch (err) {
@@ -8299,20 +8307,20 @@ window.updateStudyScoresDisplay = function () {
     try {
         const container = document.getElementById('study-scores-container');
         if (!container) return;
-        
+
         let scores = [];
         try {
             const raw = localStorage.getItem('mappai_study_scores');
             if (raw) scores = JSON.parse(raw);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         if (!Array.isArray(scores) || scores.length === 0) {
             container.innerHTML = `
                 <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
             `;
             return;
         }
-        
+
         container.innerHTML = '';
         scores.forEach(s => {
             const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
@@ -8322,7 +8330,7 @@ window.updateStudyScoresDisplay = function () {
                 minute: '2-digit'
             });
             const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-            
+
             // Color based on performance
             let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
             let progressColor = "bg-rose-500";
@@ -8333,7 +8341,7 @@ window.updateStudyScoresDisplay = function () {
                 bgClass = "bg-amber-50 border-amber-100 text-amber-700";
                 progressColor = "bg-amber-500";
             }
-            
+
             const div = document.createElement('div');
             div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
             div.innerHTML = `
@@ -8351,7 +8359,7 @@ window.updateStudyScoresDisplay = function () {
             `;
             container.appendChild(div);
         });
-        
+
         // Add a "Cancella storico" button at the end
         const clearDiv = document.createElement('div');
         clearDiv.className = "pt-2 flex justify-end";
@@ -8361,7 +8369,7 @@ window.updateStudyScoresDisplay = function () {
             </button>
         `;
         container.appendChild(clearDiv);
-        
+
         if (window.safeCreateIcons) window.safeCreateIcons();
     } catch (err) {
         console.error("Error displaying study scores", err);
@@ -8558,11 +8566,11 @@ window.cycleLineHeight = function () {
 let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
 
-window.cycleTextZoom = function() {
+window.cycleTextZoom = function () {
     window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
 };
 
-window.applyTextZoom = function(idx) {
+window.applyTextZoom = function (idx) {
     currentZoomIdx = idx;
     localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
@@ -8580,7 +8588,7 @@ window.applyTextZoom = function(idx) {
 
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
     document.documentElement.style.setProperty('--app-zoom', effectiveZ);
-    
+
     if (effectiveZ > 1.0) {
         document.body.classList.add('a11y-zoomed-modals');
     } else {
@@ -9421,7 +9429,7 @@ window.directLoadVault = async function (folderPath) {
             }
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -9539,21 +9547,21 @@ window.resetVaultState = function () {
 
         const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
         const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
-        
+
         const appVersion = "1.0.0";
         const osInfo = "iOS / iPadOS (Capacitor)";
         const userAgent = navigator.userAgent;
         const model = document.getElementById('model-select')?.value || 'Non specificato';
-        
+
         const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
-                          `========================================\n` +
-                          `Categoria: ${categoryLabel}\n` +
-                          `Dispositivo: ${osInfo}\n` +
-                          `Modello Selezionato: ${model}\n` +
-                          `Versione App: ${appVersion}\n` +
-                          `User Agent: ${userAgent}\n` +
-                          `========================================\n\n` +
-                          `DESCRIZIONE:\n${text}\n\n`;
+            `========================================\n` +
+            `Categoria: ${categoryLabel}\n` +
+            `Dispositivo: ${osInfo}\n` +
+            `Modello Selezionato: ${model}\n` +
+            `Versione App: ${appVersion}\n` +
+            `User Agent: ${userAgent}\n` +
+            `========================================\n\n` +
+            `DESCRIZIONE:\n${text}\n\n`;
 
         navigator.clipboard.writeText(emailBody).then(() => {
             const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;

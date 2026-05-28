@@ -197,6 +197,7 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {
         const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/models`;
+        console.log(`[MappAI] Fetching Infomaniak models from: ${url}`);
 
         const req = https.request(url, {
             method: 'GET',
@@ -208,9 +209,11 @@ ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) =>
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
+                console.log(`[MappAI] Infomaniak response status: ${res.statusCode}`);
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
                         const parsed = JSON.parse(data);
+                        console.log(`[MappAI] Infomaniak parsed models count:`, parsed.data ? parsed.data.length : 'no data array');
                         const models = (parsed.data || []).map(m => ({
                             id: m.id,
                             displayName: m.id + ' (Swiss AI)',
@@ -218,16 +221,25 @@ ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) =>
                         }));
                         resolve(models);
                     } catch(e) {
+                        console.error(`[MappAI] Infomaniak JSON parsing error. Raw data:`, data);
                         reject(new Error("Errore parsing lista modelli Infomaniak"));
                     }
                 } else {
+                    console.error(`[MappAI] Infomaniak server error ${res.statusCode}. Raw data:`, data);
                     reject(new Error(`Errore Server Infomaniak ${res.statusCode}: ${data}`));
                 }
             });
         });
 
-        req.on('error', (e) => reject(e));
-        req.setTimeout(30000, () => { req.abort(); reject(new Error("Timeout API Infomaniak")); });
+        req.on('error', (e) => {
+            console.error(`[MappAI] Infomaniak request error:`, e);
+            reject(e);
+        });
+        req.setTimeout(30000, () => { 
+            console.error(`[MappAI] Infomaniak request timeout`);
+            req.abort(); 
+            reject(new Error("Timeout API Infomaniak")); 
+        });
         req.end();
     });
 });
@@ -306,6 +318,30 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
 
         fs.writeFileSync(filePath, JSON.stringify(mapData, null, 2), 'utf-8');
         return { success: true, path: filePath, folder: saveDir };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to save PDF binary files directly to the Vault
+ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultPath }) => {
+    try {
+        let destDir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            destDir = vaultPath;
+        } else {
+            const docPath = app.getPath('documents');
+            destDir = path.join(docPath, 'MappAI - Vault');
+        }
+
+        if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        const filePath = path.join(destDir, fileName);
+        const buffer = Buffer.from(base64Data, 'base64');
+        fs.writeFileSync(filePath, buffer);
+        return { success: true, path: filePath };
     } catch (err) {
         return { success: false, error: err.message };
     }

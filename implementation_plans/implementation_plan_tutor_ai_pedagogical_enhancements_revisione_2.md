@@ -9,7 +9,7 @@ Di seguito il piano di implementazione aggiornato in base alle tue direttive.
 ### Modale del Nodo (Tutor Locale)
 # Evoluzione SOTA: Verso un Second Brain basato su Markdown
 
-L'obiettivo di questo piano è analizzare e proporre una roadmap tecnica per far evolvere Mapp.AI da uno strumento basato su mappe JSON monolitiche a un ecosistema "Second Brain" basato su un file system di documenti Markdown interconnessi (stile Obsidian/Logseq), mantenendo però la potenza visuale e generativa dell'AI.
+L'obiettivo di questo piano è analizzare e proporre una roadmap tecnica per far evolvere MappAI da uno strumento basato su mappe JSON monolitiche a un ecosistema "Second Brain" basato su un file system di documenti Markdown interconnessi (stile Obsidian/Logseq), mantenendo però la potenza visuale e generativa dell'AI.
 
 ## 1. Analisi dei Dubbi Iniziali
 
@@ -27,14 +27,14 @@ Il JSON è fantastico per forzare il LLM a generare strutture rigide (es. l'arra
 **Fork o Refactoring?**
 Il passaggio a una struttura "a cartelle" (Vault) rispetto a un "singolo file" (JSON) è un cambiamento architetturale profondo (gestione dei file recenti, caricamento, salvataggio).
 > [!TIP]
-> **Consiglio:** Meglio un **Branch di Refactoring** pesante o un vero e proprio **Fork (Mapp.AI Brain)**. Questo permette di non rompere l'app attuale finché la nuova architettura non è stabile.
+> **Consiglio:** Meglio un **Branch di Refactoring** pesante o un vero e proprio **Fork (MappAI Brain)**. Questo permette di non rompere l'app attuale finché la nuova architettura non è stabile.
 
 ## 2. Nuova Architettura Dati (Il Vault)
 
 Invece di salvare un singolo `Mappa_Concetto.json`, il progetto salverà una cartella (il Vault) strutturata così:
 
 ```text
-📁 Mapp.AI_Vault_Storia
+📁 MappAI_Vault_Storia
    📄 index.yaml (Configurazioni globali della mappa)
    📁 Nodi
       📄 Impero_Romano.md

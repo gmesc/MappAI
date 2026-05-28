@@ -1,0 +1,23 @@
+{
+  "version": 0,
+  "use-external-names": false,
+  "case-sensitive": false,
+  "roots": [{
+    "type": "directory",
+    "name": "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorFilesystem/CapacitorFilesystem.framework/Modules",
+    "contents": [{
+      "type": "file",
+      "name": "module.modulemap",
+      "external-contents": "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/CapacitorFilesystem.build/unextended-module.modulemap",
+    }]
+    },
+    {
+    "type": "directory",
+    "name": "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Products/Debug-iphoneos/CapacitorFilesystem/CapacitorFilesystem.framework/Headers",
+    "contents": [{
+      "type": "file",
+      "name": "CapacitorFilesystem-Swift.h",
+      "external-contents": "/Users/giacomomeschini/Antigravity/MappAI/ios/DerivedData/00008027-00112588012B002E/Build/Intermediates.noindex/Pods.build/Debug-iphoneos/CapacitorFilesystem.build/unextended-interface-header.h",
+    }]
+  }]
+}

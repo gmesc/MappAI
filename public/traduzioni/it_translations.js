@@ -58,8 +58,8 @@ const it_translations = {
     loading_sources: "Il large language model sta interpretando le tue fonti",
 
     // Modals - AI Config
-    modal_config_title: "Configurazione AI",
-    btn_save_config: "Salva Configurazione",
+    modal_config_title: "Setup AI",
+    btn_save_config: "Salva",
     api_key_label: "API Key (Google AI Studio)",
     api_key_label_google: "API Key (Google AI Studio)",
     api_key_label_infomaniak: "API Token (Infomaniak)",
@@ -84,16 +84,16 @@ const it_translations = {
     guide_step5_title: "🗺️ Interagisci con la Mappa",
     guide_step5_desc: "Doppio click o tap su un nodo per leggere/modificare note. Scroll o pinch per lo zoom. Drag per spostare. Click destro o pressione prolungata per il menu contestuale (quiz, espansione, flashcard). Usa 'Pin' per bloccare le posizioni.",
     guide_step6_title: "💾 Salva e Riprendi",
-    guide_step6_desc: "Le mappe vengono salvate automaticamente (nella cartella 'Salvataggi Mapp.AI' in Documenti su Mac, o nei Vault dell'app File su iPad). Puoi importare/esportare file JSON e condividere i progetti via AirDrop.",
+    guide_step6_desc: "Le mappe vengono salvate automaticamente (nella cartella 'Salvataggi MappAI' in Documenti su Mac, o nei Vault dell'app File su iPad). Puoi importare/esportare file JSON e condividere i progetti via AirDrop.",
     guide_notes_title: "📓 Raccoglitore Appunti",
     guide_notes_desc: "Nella sidebar trovi il Raccoglitore Appunti: visualizza tutte le note e immagini aggiunte ai nodi. È il tuo quaderno digitale collegato alla mappa!",
     guide_footer: "MappAI salva tutto localmente sul tuo dispositivo. I tuoi dati non lo lasciano mai.",
 
     // Modals - Active Study (Tutorial)
-    modal_study_title: "Metodo di Studio Attivo",
+    modal_study_title: "Metodi di Studio Attivo",
     study_intro: "MappAI non è solo un generatore di schemi: è un ambiente di apprendimento attivo. La mappa generata dall'AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.",
     study_sr_title: "🔁 Ripasso Dilazionato (Spaced Repetition)",
-    study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). Mapp.AI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
+    study_sr_desc: "Non ripetere tutto in un giorno. Ripassa le flashcard a intervalli crescenti (1g → 3g → 7g → 14g). MappAI integra un sistema di ripetizione spaziata: usa il tasto destro sui nodi per generare e ripassare le flashcard!",
     study_ar_title: "🧠 Active Recall (Richiamo Attivo)",
     study_ar_desc: "Non rileggere passivamente: chiudi gli appunti e prova a riscrivere cosa ricordi. Fai doppio click su un nodo della mappa, svuota il contenuto e riscrivi con parole tue. Recuperare dalla memoria è 2-3x più efficace della rilettura.",
     study_feynman_title: "👨‍🏫 Metodo Feynman",
@@ -134,11 +134,13 @@ const it_translations = {
     sidebar_empty_notes: "Nessun appunto raccolto. Inizia a studiare!",
 
     // Context Menu
-    ctx_edit: "Modifica Contenuto",
-    ctx_add_child: "Aggiungi Nodo Figlio",
+    ctx_edit: "Edit Contenuto",
+    ctx_add_child: "Aggiungi Figlio",
     ctx_expand: "Espandi con AI",
-    ctx_quiz: "Avvia Quiz",
-    ctx_flashcard: "Visualizza Flashcard",
+    ctx_quiz_nodo: "Genera Quiz (Nodo)",
+    ctx_quiz_ramo: "Genera Quiz (Ramo)",
+    ctx_flashcard_nodo: "Crea Flashcard (Nodo)",
+    ctx_flashcard_ramo: "Crea Flashcard (Ramo)",
     ctx_delete: "Elimina Nodo",
     ctx_connect: "Collega a...",
 
@@ -190,7 +192,7 @@ const it_translations = {
     admin_confirm_reset_all_prompts: "Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default? Questa operazione eliminerà permanentemente tutte le tue personalizzazioni.",
 
     // Extra
-    machine_id_desc: "Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo codice di sblocco univoco:",
+    machine_id_desc: "Invia il seguente <b>ID Macchina</b> a [EMAIL_ADDRESS] per ricevere il tuo codice di sblocco univoco:",
     src_web: "URL Web",
     src_yt: "YouTube",
     src_audio: "Audio",
@@ -202,12 +204,12 @@ const it_translations = {
     btn_cancel: "Annulla",
     btn_save: "Salva",
     btn_save_changes: "Salva Modifiche",
-    lbl_node_name: "Nome Nodo (Label)",
-    lbl_node_info: "Contenuto Info",
+    lbl_node_name: "Nome Nodo/Hub",
+    lbl_node_info: "Contenuto",
     btn_restore_ai: "Ripristina Testo AI",
-    ctx_exp_title: "Espansione Contestuale IA",
+    ctx_exp_title: "Espansione con AI",
     ctx_exp_tab_text: "Testo / URL",
-    ctx_exp_desc_text: "Incolla qui il contenuto o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.",
+    ctx_exp_desc_text: "Inserisci qui il contenuto o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.",
     ctx_exp_ph_text: "Incolla qui testo o URL...",
     btn_save_vault: "Salva nel Vault",
     lbl_size_text: "Testo",
@@ -233,6 +235,6 @@ const it_translations = {
     feedback_cat_label: "Categoria della segnalazione",
     feedback_desc_label: "Dettagli della segnalazione",
     feedback_desc_placeholder: "Descrivi il problema riscontrato o la tua proposta per migliorare MappAI...",
-    feedback_submit_btn: "Invia Feedback via Email"
+    feedback_submit_btn: "Invia Feedback"
 
 };
