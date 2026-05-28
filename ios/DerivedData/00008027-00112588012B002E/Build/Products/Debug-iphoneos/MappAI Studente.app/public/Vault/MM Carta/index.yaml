@@ -1,6 +1,0 @@
-extractionMode: mindmap
-rootNodeLabel: La CARTA
-userProfile: {"nickname":"Gigetto","age":"11","grade":"1a Media","system":"Ticino"}
-customColors: {"0":"#0f172a"}
-generationUsage: {"promptTokens":33477,"candidateTokens":12543,"totalTokens":46020,"usedModel":"google/gemma-4-31B-it"}
-lastUpdated: 2026-05-23T12:20:21.040Z

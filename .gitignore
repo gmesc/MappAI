@@ -37,3 +37,16 @@ xcode console.md
 Xcode report *
 *report*.md
 *console*.md
+
+# IDE Antigravity — regole e workflow agente (non appartengono all'app)
+.agents/
+
+# iOS / Xcode / Capacitor — file di build (da rigenerare localmente)
+ios/DerivedData/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+
+# File di backup generati durante lo sviluppo
+*.bak
+*.bak_*

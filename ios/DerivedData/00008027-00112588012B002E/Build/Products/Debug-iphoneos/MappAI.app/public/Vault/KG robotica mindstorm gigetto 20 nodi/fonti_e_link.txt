@@ -1,4 +1,0 @@
-INDICE FONTI E LINK - Robotica IV media 20 nodi
-================================================
-
-- [Robotica] (ROBOTICA): file:///Users/giacomomeschini/Documents/robotica/Introduzione alla Robotica.pdf
