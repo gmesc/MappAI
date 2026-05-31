@@ -50,3 +50,11 @@ ios/App/App.xcodeproj/xcuserdata/
 # File di backup generati durante lo sviluppo
 *.bak
 *.bak_*
+prompts_config_backup_*.json
+
+# File workspace IDE
+*.code-workspace
+
+# File di sessione Claude (briefing, non appartengono al repo)
+CONTEXT.md
+brain/
