@@ -1,5 +1,33 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 31 maggio 2026 (sessione pomeriggio).
+> Priorità in ordine decrescente. Aggiornato: 1 giugno 2026.
+
+---
+
+## 🔍 DA INVESTIGARE (emerso da graphify)
+
+### A. Spiegare connessione checkAndInitIPadDemoVaults → arrayBufferToBase64()
+Graphify ha segnalato questo accoppiamento come "sorprendente". Da chiarire:
+- `checkAndInitIPadDemoVaults` (in `storageAdapter.js`) inizializza i vault demo
+  al primo avvio su iPad — legge i file dal bundle e li scrive nell'IndexedDB.
+- `arrayBufferToBase64()` viene chiamata **dentro** questa funzione per convertire
+  i file binari (PDF, immagini degli allegati nei vault demo) in stringhe base64
+  prima di salvarli in IndexedDB, che non supporta ArrayBuffer nativamente.
+- L'accoppiamento è "non ovvio" perché sembra un'inizializzazione dati ma include
+  una pipeline di encoding binario nascosta.
+- **Da verificare**: questa logica regge se i vault demo crescono di dimensione?
+  C'è un limite alla quantità di dati base64 in IndexedDB su iPad?
+
+### B. Tracciare flusso: _assignHubGroup + dedupeNodesAsCrossLinks + translatePayload
+Query graphify da eseguire nella prossima sessione:
+`graphify query "Come sono collegati _assignHubGroup, dedupeNodesAsCrossLinks e translatePayload al flusso di generazione principale in app.js?"`
+**Risposta attesa**: queste tre funzioni operano in sequenze separate —
+- `translatePayload` (bridge) trasforma il payload Gemini → OpenAI prima della chiamata API
+- `_assignHubGroup` (post-processing) assegna il gruppo colore a ogni nodo L2 dopo
+  aver ricevuto la risposta AI
+- `dedupeNodesAsCrossLinks` (post-processing) rimuove duplicati cross-ramo dopo
+  la generazione multipass
+Nessuna delle tre chiama le altre direttamente. Il collegamento passa per `fetchModelAPI`
+→ risposta AI → `initD3Visualization`.
 
 ---
 
