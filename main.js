@@ -7,6 +7,7 @@ const cheerio = require('cheerio');
 const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
+const yaml = require('js-yaml');
 
 let mainWindow;
 
@@ -23,6 +24,13 @@ function createWindow() {
     });
 
     mainWindow.loadFile('public/index.html');
+
+    // Permette window.open() dal renderer (usato per Stampa Dossier)
+    // Senza questo, in Electron 30+ con contextIsolation:true i popup
+    // vengono bloccati → window.open() ritorna null → il dossier non si apre
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        return { action: 'allow' };
+    });
 }
 
 function copyRecursiveSync(src, dest) {
@@ -146,8 +154,9 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
                         try {
                             const dataObj = JSON.parse(dataStr);
                             lastChunk = dataObj;
-                            if (dataObj.choices && dataObj.choices[0].delta && dataObj.choices[0].delta.content) {
-                                fullText += dataObj.choices[0].delta.content;
+                            const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
+                            if (delta && delta.content) {
+                                fullText += delta.content;
                             }
                         } catch (e) {
                             // ignora errori di parsing parziali
@@ -157,6 +166,15 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
             });
 
             response.data.on('end', () => {
+                // Diagnostica: stream vuoto = problema lato provider (param rifiutati, ecc.)
+                if (!fullText) {
+                    console.warn('[Infomaniak] Stream VUOTO. finish_reason:',
+                        lastChunk?.choices?.[0]?.finish_reason,
+                        '| lastChunk:', JSON.stringify(lastChunk));
+                    console.warn('[Infomaniak] Payload inviato (max_tokens, model):',
+                        payload.max_tokens, payload.model,
+                        '| response_format:', JSON.stringify(payload.response_format));
+                }
                 // Ricostruisci il formato standard atteso da InfomaniakBridge
                 resolve({
                     id: lastChunk?.id || 'stream',
@@ -184,9 +202,22 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
 
     } catch (error) {
         let errorMsg = error.message;
-        if (error.response && error.response.data) {
-            console.error("Infomaniak Full Error Data:", error.response.data);
-            errorMsg = `Infomaniak Error (${error.response.status}): ${JSON.stringify(error.response.data)}`;
+        if (error.response) {
+            const status = error.response.status;
+            // Con responseType:'stream', error.response.data è uno stream — non serializzabile.
+            // Leggiamo il body come testo.
+            try {
+                const bodyText = await new Promise((resolve) => {
+                    let buf = '';
+                    error.response.data.on('data', c => buf += c.toString());
+                    error.response.data.on('end', () => resolve(buf));
+                    error.response.data.on('error', () => resolve(''));
+                });
+                console.error("Infomaniak Full Error Data:", bodyText);
+                errorMsg = `Infomaniak Error (${status}): ${bodyText}`;
+            } catch (_) {
+                errorMsg = `Infomaniak Error (${status}): ${error.message}`;
+            }
         }
         console.error("Infomaniak API Error:", errorMsg);
         throw new Error(errorMsg);
@@ -415,19 +446,16 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.mkdirSync(folderPath, { recursive: true });
         }
         
-        // 1. Save index.yaml (Global Map Config)
+        // 1. Save index.yaml (Global Map Config) — serializzato con js-yaml
         const indexData = {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
-            userProfile: mapData.userProfile,
+            userProfile: mapData.userProfile || null,
             customColors: mapData.customColors || {},
             generationUsage: mapData.generationUsage || null,
             lastUpdated: new Date().toISOString()
         };
-        const indexYaml = Object.entries(indexData).map(([k,v]) => {
-            if (typeof v === 'object' && v !== null) return `${k}: ${JSON.stringify(v)}`;
-            return `${k}: ${v}`;
-        }).join('\n');
+        const indexYaml = yaml.dump(indexData, { lineWidth: -1, quotingType: '"', forceQuotes: false });
         fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
 
         // 2. Save Links (Relationship index)
@@ -605,7 +633,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
     try {
         if (!fs.existsSync(folderPath)) throw new Error("Cartella non trovata");
 
-        // Load index.yaml
+        // Load index.yaml — parsing robusto con js-yaml
         const indexPath = path.join(folderPath, 'index.yaml');
         const mapData = {
             nodes: [],
@@ -614,20 +642,26 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
             rootNodeLabel: ''
         };
         if (fs.existsSync(indexPath)) {
-            const indexContent = fs.readFileSync(indexPath, 'utf-8');
-            indexContent.split('\n').forEach(line => {
-                if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
-                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                if (line.startsWith('userProfile:')) {
-                    try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
-                }
-                if (line.startsWith('customColors:')) {
-                    try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
-                }
-                if (line.startsWith('generationUsage:')) {
-                    try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
-                }
-            });
+            try {
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                const parsed = yaml.load(indexContent) || {};
+                if (parsed.extractionMode)  mapData.extractionMode  = parsed.extractionMode;
+                if (parsed.rootNodeLabel)   mapData.rootNodeLabel   = parsed.rootNodeLabel;
+                if (parsed.userProfile)     mapData.userProfile     = parsed.userProfile;
+                if (parsed.customColors)    mapData.customColors    = parsed.customColors;
+                if (parsed.generationUsage !== undefined) mapData.generationUsage = parsed.generationUsage;
+            } catch(e) {
+                console.warn('[MappAI] Errore parsing index.yaml con js-yaml, fallback manuale:', e.message);
+                // Fallback legacy per vault creati con il vecchio formato
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                indexContent.split('\n').forEach(line => {
+                    if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
+                    if (line.startsWith('rootNodeLabel:'))  mapData.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith('userProfile:'))    { try { mapData.userProfile     = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                    if (line.startsWith('customColors:'))   { try { mapData.customColors    = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                    if (line.startsWith('generationUsage:')){ try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                });
+            }
         }
 
         // Load Tutor State
@@ -748,19 +782,29 @@ ipcMain.handle('get-all-vaults', async () => {
             const indexPath = path.join(vaultPath, 'index.yaml');
             if (fs.existsSync(indexPath)) {
                 const vaultInfo = { folderName: f, fullPath: vaultPath };
-                const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                indexContent.split('\n').forEach(line => {
-                    if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
-                    if (line.startsWith('rootNodeLabel:')) vaultInfo.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                    if (line.startsWith('lastUpdated:')) vaultInfo.lastUpdated = line.split('lastUpdated:')[1].trim();
-                    if (line.startsWith('userProfile:')) {
-                        try { 
-                            const profile = JSON.parse(line.substring(line.indexOf(':') + 1).trim());
-                            vaultInfo.nickname = profile.nickname;
-                            vaultInfo.age = profile.age;
-                        } catch(e) {}
+                try {
+                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                    const parsed = yaml.load(indexContent) || {};
+                    vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
+                    vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || f;
+                    vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
+                    if (parsed.userProfile) {
+                        vaultInfo.nickname = parsed.userProfile.nickname;
+                        vaultInfo.age      = parsed.userProfile.age;
                     }
-                });
+                } catch(e) {
+                    console.warn(`[MappAI] Errore parsing index.yaml in ${f}:`, e.message);
+                    // Fallback legacy
+                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                    indexContent.split('\n').forEach(line => {
+                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                        if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                        if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
+                        if (line.startsWith('userProfile:')) {
+                            try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
+                        }
+                    });
+                }
                 vaults.push(vaultInfo);
             }
         });

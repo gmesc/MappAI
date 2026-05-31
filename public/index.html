@@ -157,6 +157,14 @@
         }
       }
     </style>
+    <!-- KaTeX — rendering formule matematiche LaTeX -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
+          crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
+            crossorigin="anonymous"></script>
 </head>
 
 <!-- =========================================================================-->
@@ -485,8 +493,7 @@
                     </label>
 
                     <div class="flex source-buttons-container">
-                        <div id="btn-src-url" class="btn_selezione_input" onclick="window.addSource('url')"
-                            style="color: slate-900">
+                        <div id="btn-src-url" class="btn_selezione_input" onclick="window.addSource('url')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-link">
@@ -639,6 +646,21 @@
                             <textarea id="focus-input"
                                 class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition mt-1 focus_ring_standard"
                                 placeholder="Su cosa deve concentrarsi l'AI?"></textarea>
+                            <!-- PANNELLO LENSES -->
+                            <div class="mt-3">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        Extraction Lenses
+                                    </span>
+                                    <span class="text-xs text-slate-400">— attiva i filtri per guidare l'AI</span>
+                                    <button type="button"
+                                            onclick="document.getElementById('lenses-panel').classList.toggle('hidden')"
+                                            class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+                                        mostra/nascondi
+                                    </button>
+                                </div>
+                                <div id="lenses-panel" class="hidden"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1146,11 +1168,6 @@
                         title="Sincronizza modifiche nel Vault">
                         <i data-lucide="refresh-cw"></i> Sincronizza Vault
                     </button>
-                    <!-- Tasto Salva Snapshot Layout (discreto) -->
-                    <button id="save-layout-btn" onclick="window.salvaLayout()" class="hidden"
-                        title="Salva la disposizione attuale come 'Personal'">
-                        <i data-lucide="camera"></i> Salva Layout Snapshot
-                    </button>
                     <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente">
                         <i data-lucide="merge"></i> Unisci Mappe
                     </label>
@@ -1162,6 +1179,10 @@
                     </button>
                     <button onclick="window.openDossierPrintModal()" title="Stampa dossier">
                         <i data-lucide="files"></i> Stampa dossier
+                    </button>
+                    <button onclick="window.openTimelineGeneratorModal()"
+                            title="Genera timeline cronologica con AI">
+                        <i data-lucide="gantt-chart"></i> Crea Timeline
                     </button>
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto">
@@ -1311,6 +1332,16 @@
                     title="Gestisci e Fissa i Layout della mappa">
                     <i data-lucide="map" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1">FISSA</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+                <!-- Timeline spostata nel menu Stampa -->
+                <!-- GLOSSARIO -->
+                <button id="card-btn-glossary"
+                    onclick="window.openGlossaryView()"
+                    class="hidden flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
+                    title="Glossario termini disciplinari">
+                    <i data-lucide="book-open" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1 uppercase">Glossario</span>
                 </button>
             </div>
 
@@ -1777,24 +1808,34 @@
                 <h3 class="modal_title flex items-center gap-3"><i data-lucide="map"
                         class="w-16 h-16 text-indigo-600"></i> Fissa Layout</h3>
 
-                <div id="layout-edit-indicator" class="hidden items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-lg">
+                <div id="layout-edit-indicator"
+                    class="hidden items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-lg">
                     <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
                     <span>Stai modificando il layout salvato: <strong id="layout-edit-name"></strong></span>
-                    <button onclick="window.resetLayoutModalToNew()" class="underline font-bold hover:text-amber-950 ml-auto">Crea invece un nuovo layout</button>
+                    <button onclick="window.resetLayoutModalToNew()"
+                        class="underline font-bold hover:text-amber-950 ml-auto">Crea invece un nuovo layout</button>
                 </div>
 
                 <div class="space-y-6">
                     <!-- 1. Campo input "Titolo layout" -->
                     <div>
                         <label class="modal_field_title block mb-1">Titolo del Layout</label>
-                        <input type="text" id="layout-new-title"
-                            placeholder="Inserisci il titolo della disposizione..."
+                        <input type="text" id="layout-new-title" placeholder="Inserisci il titolo della disposizione..."
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
                     </div>
 
                     <!-- 2. Anteprima mappa -->
-                    <div class="flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner hide-on-minimize">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Anteprima della Mappa</span>
+                    <div
+                        class="flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner hide-on-minimize">
+                        <div class="flex items-center justify-between w-full mb-2 px-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Anteprima della
+                                Mappa</span>
+                            <button onclick="window.updateLayoutPreviewDirect()"
+                                class="text-[10px] bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded flex items-center gap-1 shadow-sm transition-colors"
+                                title="Aggiorna l'inquadratura">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Aggiorna
+                            </button>
+                        </div>
                         <div id="layout-current-preview-container"
                             class="w-full aspect-[4/3] max-h-[300px] bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-100 relative">
                             <div class="text-center text-slate-400 text-xs flex flex-col items-center gap-1">
@@ -1808,22 +1849,26 @@
                     <div class="space-y-3">
                         <div class="flex gap-4">
                             <button onclick="window.saveCurrentLayout()"
-                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Salva come nuovo layout">
+                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
+                                title="Salva come nuovo layout">
                                 <i data-lucide="plus-circle" class="w-5 h-5"></i> Salva Nuovo Layout
                             </button>
                             <button onclick="window.saveCurrentLayoutEditConfirm()" id="layout-confirm-edit-btn"
-                                class="btn_confirm_action bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                                class="btn_confirm_action bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+                                disabled>
                                 <i data-lucide="check" class="w-5 h-5"></i> Salva
                             </button>
                         </div>
                         <div class="flex gap-4">
                             <button onclick="window.exportCurrentLayoutPDFDirect()"
-                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Scarica scheda studio PDF">
-                                <i data-lucide="download" class="w-5 h-5"></i> Esporta Scheda
+                                class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
+                                title="Scarica scheda studio PDF">
+                                <i data-lucide="download" class="w-5 h-5"></i> Scarica Scheda
                             </button>
                             <button onclick="window.exportCurrentLayoutPDFToVault()"
-                                class="btn_confirm_action bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2" title="Salva scheda PDF direttamente nel Vault">
-                                <i data-lucide="archive" class="w-5 h-5"></i> Esporta scheda
+                                class="btn_confirm_action bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
+                                title="Salva scheda PDF direttamente nel Vault">
+                                <i data-lucide="archive" class="w-5 h-5"></i> Salva nel Vault
                             </button>
                         </div>
                     </div>
@@ -1837,7 +1882,7 @@
 
                     <!-- 5. Campo input "descrizione" -->
                     <div>
-                        <label class="modal_field_title block mb-1">Descrizione della Disposizione</label>
+                        <label class="modal_field_title block mb-1">Commenti Mappa</label>
                         <textarea id="layout-new-desc" rows="5"
                             placeholder="Inserisci una descrizione di questa inquadratura e dei concetti chiave..."
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"></textarea>
@@ -1845,9 +1890,9 @@
 
                     <!-- 6. Box scroll di selezione layout salvati -->
                     <div class="hide-on-minimize">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Layout Salvati (Max 5)</h4>
-                        <div id="layout-saved-list"
-                            class="space-y-3 max-h-[550px] overflow-y-auto pr-2 modal-scroll">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Layout Salvati (Max
+                            5)</h4>
+                        <div id="layout-saved-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-2 modal-scroll">
                             <!-- Lista dei layout salvati -->
                         </div>
                     </div>
@@ -1861,7 +1906,7 @@
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[550px] p-8 transform scale-95 transition-transform duration-200 relative text-left"
             id="dossier-print-box">
-            
+
             <button onclick="window.closeDossierPrintModal()"
                 class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">
                 <i data-lucide="x" class="w-6 h-6"></i>
@@ -1873,8 +1918,9 @@
 
                 <!-- MM Options Group -->
                 <div id="print-mm-options" class="hidden space-y-4">
-                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full">Modalità: Mappa Mentale (MM)</span>
-                    
+                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full">Modalità:
+                        Mappa Mentale (MM)</span>
+
                     <div>
                         <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
                         <select id="print-mm-node-select" onchange="window.onDossierNodeChange('mm')"
@@ -1887,7 +1933,8 @@
                         <label class="modal_field_title block mb-2">Ambito di Stampa</label>
                         <div class="space-y-2">
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                <input type="radio" name="print-mm-scope" value="single" checked class="accent-indigo-600">
+                                <input type="radio" name="print-mm-scope" value="single" checked
+                                    class="accent-indigo-600">
                                 Solo il nodo selezionato
                             </label>
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -1899,7 +1946,8 @@
 
                     <div class="pt-2">
                         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                            <input type="checkbox" id="print-mm-ascii-diagram" checked class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
+                            <input type="checkbox" id="print-mm-ascii-diagram" checked
+                                class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
                             Includi diagramma ASCII delle relazioni del ramo con linking word
                         </label>
                     </div>
@@ -1907,7 +1955,8 @@
 
                 <!-- KG Options Group -->
                 <div id="print-kg-options" class="hidden space-y-4">
-                    <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full">Modalità: Knowledge Graph (KG)</span>
+                    <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full">Modalità:
+                        Knowledge Graph (KG)</span>
 
                     <div>
                         <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
@@ -1921,7 +1970,8 @@
                         <label class="modal_field_title block mb-2">Ambito di Stampa</label>
                         <div class="space-y-2">
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                <input type="radio" name="print-kg-scope" value="single" checked class="accent-indigo-600">
+                                <input type="radio" name="print-kg-scope" value="single" checked
+                                    class="accent-indigo-600">
                                 Solo i contenuti di questo singolo nodo/hub
                             </label>
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -1933,8 +1983,36 @@
 
                     <div class="pt-2">
                         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                            <input type="checkbox" id="print-kg-relations" checked class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
+                            <input type="checkbox" id="print-kg-relations" checked
+                                class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
                             Includi elenco relazioni (Elenco A e Elenco B)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Selettore Grandezza Testo (comune a MM e KG) -->
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <label class="modal_field_title block mb-1">Grandezza del testo</label>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="print-font-scale" value="0.82" class="sr-only peer">
+                            <span
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Piccolo</span>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="print-font-scale" value="1.0" checked class="sr-only peer">
+                            <span
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Normale</span>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="print-font-scale" value="1.15" class="sr-only peer">
+                            <span
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Grande</span>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="print-font-scale" value="1.3" class="sr-only peer">
+                            <span
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">XL</span>
                         </label>
                     </div>
                 </div>
@@ -3021,6 +3099,12 @@
     <script src="js/storageAdapter.js"></script>
 
     <script src="js/app.js"></script>
+     <!-- Moduli MappAI estesi -->
+     <script src="js/mappai-latex.js"></script>
+     <script src="js/mappai-lenses.js"></script>
+     <script src="js/mappai-timeline.js"></script>
+     <script src="js/mappai-glossary.js"></script>
+     <script src="js/mappai-quiz-print.js"></script>
     <script>
         window.toggleSidebar = function () {
             const mapView = document.getElementById('map-view');
