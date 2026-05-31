@@ -2001,9 +2001,9 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     color: #10b981 !important;
 }
 
-/* 2. Utility Buttons Flexbox grid layout and no wrapping */
+/* 2. Utility Buttons layout and no wrapping */
+/* FIX: rimosso display:flex !important che sovrascriveva display:grid di Tailwind */
 #landing-view .glass-card .grid-cols-2 {
-    display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     gap: 8px !important;
@@ -2173,7 +2173,8 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view .glass-card button[onclick="window.loadMapVault()"] span.text-indigo-500,
     #landing-view .glass-card label[for="landing-import"].rounded-3xl span.text-indigo-500 {
         font-size: calc(11px * var(--landing-zoom)) !important;
-        display: block !important;
+        /* FIX: rimosso display:block !important — .text-indigo-500 è classe colore Tailwind,
+           non deve sovrascrivere display. Se serve block, usare classe dedicata. */
         text-align: center !important;
         margin-top: calc(4px * var(--landing-zoom)) !important;
     }
