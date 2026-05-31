@@ -15,8 +15,8 @@ window.MAPPAI_LENSES = {
         label: 'Date e Periodi',
         group: 'narrative',
         color: '#dc2626',
-        prompt: '[DATE]: NON creare nodi separati per anni/date. Incorpora la data nel label del nodo evento: scrivi "ANNO Evento" (es. "1968 Primavera di Praga", "1947 Piano Marshall", "1961 Muro di Berlino"). Per i personaggi, inserisci gli anni di carica/vita nel campo content, non come nodi separati.',
-        tooltip: 'Le date vengono incorporate nel label del nodo evento (es. "1968 Primavera di Praga"), non come nodi separati'
+        prompt: '[DATE]: NON creare nodi separati per anni/date. Incorpora la data nel label del nodo evento: scrivi "ANNO Evento" (es. "1968 Primavera di Praga", "1947 Piano Marshall", "1961 Muro di Berlino"). REGOLA CRITICA: la data va SEMPRE all\'inizio del label, mai alla fine — scrivi "1968 Crisi Cecoslovacchia" e NON "Crisi Cecoslovacchia 1968". Per i personaggi, inserisci gli anni di carica/vita nel campo content, non come nodi separati.',
+        tooltip: 'Le date vengono incorporate all\'inizio del label del nodo evento (es. "1968 Primavera di Praga"), non come nodi separati'
     },
     people: {
         id: 'people',
