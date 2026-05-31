@@ -825,10 +825,12 @@ window.renderTreeView = function () {
 
     let html = '';
     rootNodes.forEach(rn => {
-        const mColor = (appState.db.customColors && appState.db.customColors[rn.group])
+        const isRootL1 = rn.level === 1;
+        const baseColor = (appState.db.customColors && appState.db.customColors[rn.group])
             ? appState.db.customColors[rn.group]
             : (colorScale[rn.group] || colorScale[rn.level !== undefined ? rn.level : 1] || '#4f46e5');
-        const degreeInfo = !isMindmap ? ` <span class="text-[9px] text-indigo-400">(${rn.degree} conn.)</span>` : '';
+        const mColor = (!isMindmap && !isRootL1) ? '#94a3b8' : baseColor; // slate-400 per hub non-L1 nel KG
+        const degreeInfo = !isMindmap ? ` <span class="text-[9px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${rn.degree} conn.)</span>` : '';
 
         const hasKids = hasChildNodes(rn.id);
         const isCollapsed = window.collapsedTreeNodes.has(rn.id);
@@ -836,7 +838,7 @@ window.renderTreeView = function () {
 
         html += `<div class="mb-1 w-full">`;
         html += `<div class="w-full flex items-center rounded-lg hover:bg-indigo-50/50 group transition">`;
-        if (isMindmap && hasKids) {
+        if (hasKids) {
             html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="${treeCollapseTitle}">`;
             html += `<i data-lucide="${arrowIcon}" class="w-3.5 h-3.5 flex-shrink-0"></i>`;
             html += `</button>`;
@@ -872,7 +874,7 @@ window.renderTreeView = function () {
                         html += `<div class="w-full flex items-center rounded hover:bg-slate-50 group transition">`;
                         html += `<div class="w-5 h-5 flex-shrink-0"></div>`; // no chevron button for flat child
                         html += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
-                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: ${cColor}; stroke: ${cColor}; fill: ${cColor};"></i>`;
+                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
                         html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
                         html += `<span class="font-semibold text-indigo-400 mr-1">L${c.level}</span> ${c.label}`;
                         html += `</button>`;
@@ -884,25 +886,25 @@ window.renderTreeView = function () {
             }
         } else {
             // Per KG, mostra un livello di nodi connessi (max 6)
-            const connIds = new Set();
-            appState.db.links.forEach(l => {
-                const sid = typeof l.source === 'object' ? l.source.id : l.source;
-                const tid = typeof l.target === 'object' ? l.target.id : l.target;
-                if (sid === rn.id) connIds.add(tid);
-                if (tid === rn.id) connIds.add(sid);
-            });
-            const children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
-            if (children.length > 0) {
-                html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
-                children.forEach(c => {
-                    const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
-                        c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
-                    html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
-                    html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
-                    html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
-                    html += `</button>`;
+            if (!isCollapsed) {
+                const connIds = new Set();
+                appState.db.links.forEach(l => {
+                    const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                    const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (sid === rn.id) connIds.add(tid);
+                    if (tid === rn.id) connIds.add(sid);
                 });
-                html += `</div>`;
+                const children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
+                if (children.length > 0) {
+                    html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
+                    children.forEach(c => {
+                        html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
+                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
+                        html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
+                        html += `</button>`;
+                    });
+                    html += `</div>`;
+                }
             }
         }
         html += `</div>`;
