@@ -33,7 +33,7 @@ let appState = {
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
-    infomaniakAllModels: false,
+    infomaniakAllModels: true,
     multiPassMode: false
 };
 
@@ -1309,11 +1309,11 @@ window.refreshGeminiModels = async function () {
 
         let filteredModels = [];
         if (isInfomaniak) {
-            // Include Google (Gemma) and Apertus models unless Pro mode is active
+            // Default (All Models): mostra tutto eccetto embed. Modalità BETA: solo Gemma/Apertus.
             filteredModels = rawModels.filter(m => {
                 const id = m.id.toLowerCase();
                 if (id.includes('embed')) return false;
-                if (appState.infomaniakAllModels) return true; // Pro mode shows everything
+                if (appState.infomaniakAllModels) return true;
                 return (id.includes('gemma') || id.includes('google') || id.includes('apertus'));
             });
         } else {
@@ -5881,34 +5881,26 @@ window.setMode = function (mode) {
     window.updateStep4Display();
     if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 
-    // Auto-selezione modello ottimale per Infomaniak in base alla modalità
-    if (appState.aiProvider === 'infomaniak') {
+    // Auto-selezione modello per Infomaniak: solo se il modello corrente è Apertus (non supporta KG)
+    if (appState.aiProvider === 'infomaniak' && mode === 'kg') {
         const selectEl = document.getElementById('model-select');
-        if (selectEl && selectEl.options.length > 0) {
+        if (selectEl && selectEl.options.length > 0 && selectEl.value.toLowerCase().includes('apertus')) {
             const options = [...selectEl.options].map(o => o.value.toLowerCase());
+            const preferred = ['gemma-4', 'gemma4', 'qwen', 'kimi'];
+            let bestIdx = -1;
+            for (const keyword of preferred) {
+                bestIdx = options.findIndex(v => v.includes(keyword));
+                if (bestIdx !== -1) break;
+            }
+            if (bestIdx === -1) bestIdx = options.findIndex(v => !v.includes('apertus'));
 
-            // Per KG: preferisci Gemma 4 > Qwen > Kimi > qualsiasi altro (escludi Apertus)
-            // Per MM: Apertus va bene, mantieni la selezione corrente
-            if (mode === 'kg') {
-                const preferred = ['gemma-4', 'gemma4', 'qwen', 'kimi'];
-                let bestIdx = -1;
-                for (const keyword of preferred) {
-                    bestIdx = options.findIndex(v => v.includes(keyword));
-                    if (bestIdx !== -1) break;
-                }
-                // Fallback: primo modello non-Apertus
-                if (bestIdx === -1) {
-                    bestIdx = options.findIndex(v => !v.includes('apertus'));
-                }
-
-                if (bestIdx !== -1 && selectEl.options[bestIdx].value !== selectEl.value) {
-                    const previousModel = selectEl.value;
-                    selectEl.value = selectEl.options[bestIdx].value;
-                    localStorage.setItem('infomaniak_selected_model', selectEl.value);
-                    if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
-                    window.showToast(`Modello cambiato a ${selectEl.options[bestIdx].text} (ottimale per KG)`, 'info');
-                    console.info(`[MappAI] Auto-selezione modello KG: ${previousModel} → ${selectEl.value}`);
-                }
+            if (bestIdx !== -1) {
+                const previousModel = selectEl.value;
+                selectEl.value = selectEl.options[bestIdx].value;
+                localStorage.setItem('infomaniak_selected_model', selectEl.value);
+                if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
+                window.showToast(`Apertus non supporta KG — cambiato a ${selectEl.options[bestIdx].text}`, 'info');
+                console.info(`[MappAI] Auto-selezione modello KG (Apertus→altro): ${previousModel} → ${selectEl.value}`);
             }
         }
     }
