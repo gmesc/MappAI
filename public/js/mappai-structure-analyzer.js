@@ -20,7 +20,14 @@
         unbalancedMaxRatio: 0.4,
         misplacedMinExternalRatio: 0.6, // >60% link verso un'altra macro-area
         misplacedMinLinks: 3,
-        leafIsolationMinSiblings: 4
+        leafIsolationMinSiblings: 4,
+        // Leaf isolation per-livello (vedi ROADMAP §1.1 + analisi 2026-06-01)
+        leafL2Severity: 'high',        // L2 isolato = macro-area non sviluppata
+        leafL3Severity: 'medium',      // L3 isolato = candidato cross-link
+        leafDetailMaxLevel: 5,         // L4-L5 = dettagli terminali (consolidabili)
+        leafConsolidateMinSiblings: 3, // soglia per suggerire consolidamento foglie-dettaglio
+        leafCrossLinkCap: 5,           // max card di tipo cross-link suggerite
+        lowConnectivityRatio: 1.1      // sotto questa densità link/nodi → meta-suggerimento
     };
 
     // ── Tipi di suggerimento ────────────────────────────────
@@ -29,7 +36,10 @@
         MISPLACED: 'misplaced',
         UNDERUTILIZED: 'underutilized',
         UNBALANCED: 'unbalanced',
-        LEAF_ISOLATION: 'leaf_isolation'
+        UNDEVELOPED_BRANCH: 'undeveloped_branch', // L2 isolato senza figli
+        SUGGEST_CROSSLINK: 'suggest_crosslink',    // L3 isolato → ponte tematico
+        CONSOLIDATE_LEAVES: 'consolidate_leaves',  // L4-L5 dettagli sparsi
+        LOW_CONNECTIVITY: 'low_connectivity'       // meta: mappa troppo ad albero
     };
 
     // ── Helpers ─────────────────────────────────────────────
@@ -68,6 +78,19 @@
         const m = new Map();
         nodes.forEach(n => m.set(n.id, n));
         return m;
+    }
+
+    /**
+     * Estrae il livello gerarchico di un nodo.
+     * Preferisce n.level; in fallback legge l'ID (es. "L1_0_L2_A_L3_A1" → 3).
+     */
+    function getLevel(node) {
+        if (typeof node.level === 'number') return node.level;
+        const matches = String(node.id || '').match(/L(\d+)/g);
+        if (!matches || !matches.length) return 1;
+        return matches
+            .map(m => parseInt(m.slice(1), 10))
+            .reduce((max, v) => Math.max(max, v), 1);
     }
 
     // ── 1. God nodes: top-N per degree centrality ───────────
@@ -165,35 +188,97 @@
         return suggestions;
     }
 
-    // ── 4. Foglie isolate (senza cross-link) ────────────────
+    // ── 4. Foglie isolate, differenziate per livello ────────
+    //
+    // In una MindMap gerarchica una foglia con un solo vicino (il parent) è la
+    // NORMA, non un'anomalia. Segnalarle tutte (17/34 sul corpus GF GEMMA STORIA)
+    // è rumore. La diagnosi utile dipende dal LIVELLO della foglia:
+    //   - L2 isolato  → macro-area annunciata ma non sviluppata (anomalia vera)
+    //   - L3 isolato  → concetto-ponte: candidato ideale a cross-link tematico
+    //   - L4-L5 sparsi → dettagli terminali: consolidabili per leggibilità BES/DSA
     function detectLeafIsolation(nodes, links) {
         const adj = buildAdjacency(nodes, links);
         const nMap = nodeMap(nodes);
-        const groups = groupByMacroArea(nodes);
         const suggestions = [];
+        const crossLinkCandidates = [];
+        const detailLeavesByParent = new Map();
 
         nodes.forEach(n => {
             const neighbors = adj.get(n.id);
-            if (!neighbors || neighbors.size === 0) return;
+            if (!neighbors || neighbors.size !== 1) return; // solo foglie pure
 
-            const sameGroup = groups.get(n.group || '__ungrouped__') || [];
-            if (sameGroup.length < CONFIG.leafIsolationMinSiblings) return;
+            const parent = nMap.get([...neighbors][0]);
+            const level = getLevel(n);
 
-            // foglia = un solo vicino (il parent), tutto nella stessa area
-            if (neighbors.size !== 1) return;
-            const onlyNeighbor = nMap.get([...neighbors][0]);
-            if (!onlyNeighbor || onlyNeighbor.group !== n.group) return;
+            if (level <= 2) {
+                // L1/L2 foglia = ramo non sviluppato
+                suggestions.push({
+                    type: SUGGESTION_TYPES.UNDEVELOPED_BRANCH,
+                    nodeId: n.id,
+                    severity: CONFIG.leafL2Severity,
+                    message: `"${n.label}" è a livello L${level} ma non ha sotto-nodi né collegamenti. È una macro-area annunciata e non sviluppata: aggiungi figli o declassala se è un dettaglio.`,
+                    data: { level, parent: parent?.label || null }
+                });
+            } else if (level === 3) {
+                // L3 foglia = concetto-ponte, raccolto per cap successivo
+                crossLinkCandidates.push({ node: n, parent, level });
+            } else {
+                // L4-L5 foglia = dettaglio, raggruppato per parent
+                const key = parent?.id || '__noparent__';
+                if (!detailLeavesByParent.has(key)) {
+                    detailLeavesByParent.set(key, { parent, leaves: [] });
+                }
+                detailLeavesByParent.get(key).leaves.push(n);
+            }
+        });
 
+        // L3 → suggerimenti cross-link (cap per evitare rumore)
+        crossLinkCandidates
+            .slice(0, CONFIG.leafCrossLinkCap)
+            .forEach(({ node, level }) => {
+                suggestions.push({
+                    type: SUGGESTION_TYPES.SUGGEST_CROSSLINK,
+                    nodeId: node.id,
+                    severity: CONFIG.leafL3Severity,
+                    message: `"${node.label}" (L${level}) è un concetto isolato. Collegalo ad altre aree per renderlo un ponte tematico (es. relazioni di causa/effetto cross-ramo).`,
+                    data: { level }
+                });
+            });
+
+        // L4-L5 → consolidamento solo dove ci sono molte foglie sotto lo stesso parent
+        detailLeavesByParent.forEach(({ parent, leaves }) => {
+            if (leaves.length < CONFIG.leafConsolidateMinSiblings) return;
             suggestions.push({
-                type: SUGGESTION_TYPES.LEAF_ISOLATION,
-                nodeId: n.id,
+                type: SUGGESTION_TYPES.CONSOLIDATE_LEAVES,
+                nodeId: parent?.id || null,
                 severity: 'low',
-                message: `"${n.label}" è una foglia isolata in "${n.group}". Potrebbe beneficiare di un cross-link tematico.`,
-                data: { parent: onlyNeighbor.label }
+                message: `"${parent?.label || '?'}" ha ${leaves.length} dettagli terminali sparsi. Valuta di consolidarli per ridurre il carico cognitivo (utile BES/DSA).`,
+                data: {
+                    parent: parent?.label || null,
+                    count: leaves.length,
+                    leaves: leaves.map(l => l.label)
+                }
             });
         });
 
         return suggestions;
+    }
+
+    // ── 5. Connettività globale (meta-suggerimento) ─────────
+    // Se la mappa è quasi un albero puro (densità link/nodi bassa) il valore
+    // cognitivo dei collegamenti trasversali è assente. Una sola card "high"
+    // vale più di N foglie isolate.
+    function detectLowConnectivity(nodes, links) {
+        if (nodes.length < 5) return [];
+        const ratio = links.length / nodes.length;
+        if (ratio >= CONFIG.lowConnectivityRatio) return [];
+        return [{
+            type: SUGGESTION_TYPES.LOW_CONNECTIVITY,
+            nodeId: null,
+            severity: 'high',
+            message: `La mappa ha pochi collegamenti trasversali (${links.length} link per ${nodes.length} nodi, densità ${ratio.toFixed(2)}). È quasi un albero puro: aggiungi cross-link tra concetti di aree diverse per evidenziare cause, contrasti e continuità.`,
+            data: { ratio, links: links.length, nodes: nodes.length }
+        }];
     }
 
     // ── Orchestratore ───────────────────────────────────────
@@ -203,6 +288,7 @@
         }
 
         const suggestions = [
+            ...detectLowConnectivity(nodes, links),
             ...analyzeGodNodes(nodes, links),
             ...detectMisplacedNodes(nodes, links),
             ...detectUnderutilizedClusters(nodes, links),
@@ -243,6 +329,7 @@
         detectMisplacedNodes,
         detectUnderutilizedClusters,
         detectLeafIsolation,
+        detectLowConnectivity,
         analyzeStructure,
         analyzeCurrentMap
     };
