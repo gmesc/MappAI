@@ -95,6 +95,21 @@
             .reduce((max, v) => Math.max(max, v), 1);
     }
 
+    /**
+     * Rileva se il grafo è una MindMap (gerarchica) o un KG (relazionale).
+     * Le analisi per-livello (undeveloped_branch, suggest_crosslink per livello,
+     * consolidate_leaves) hanno senso SOLO su MindMap. Su un KG il "level" è solo
+     * un attributo di layout, non una gerarchia semantica → vanno disattivate.
+     *
+     * Euristica: nelle MindMap gli ID codificano il percorso (es. "L1_0_L2_A");
+     * nei KG gli ID sono semantici (es. "FOTOSINTESI", "CLOROPLASTO").
+     */
+    function detectMode(nodes) {
+        if (!nodes.length) return 'mindmap';
+        const pathLike = nodes.filter(n => /L\d+_/.test(String(n.id || ''))).length;
+        return (pathLike / nodes.length) >= 0.5 ? 'mindmap' : 'kg';
+    }
+
     // ── 1. God nodes: top-N per degree centrality ───────────
     function analyzeGodNodes(nodes, links) {
         const adj = buildAdjacency(nodes, links);
@@ -471,26 +486,31 @@
     }
 
     // ── Orchestratore ───────────────────────────────────────
-    function analyzeStructure(nodes, links) {
+    function analyzeStructure(nodes, links, options = {}) {
         if (!Array.isArray(nodes) || !Array.isArray(links)) {
             return { suggestions: [], stats: { nodes: 0, links: 0 } };
         }
 
-        // La densità decide quali analisi sono SIGNIFICATIVE.
-        // Su un albero puro (density < soglia) Tarjan e betweenness degenerano:
-        // ogni arco è un ponte, ogni nodo interno è un'articolazione, la
-        // betweenness premia solo la root. → rumore. Vanno attivate SOLO quando
-        // i cross-link creano cicli che le rendono discriminanti.
+        // Due assi indipendenti decidono quali analisi sono SIGNIFICATIVE:
+        //
+        // 1) MODALITÀ (mindmap vs kg): le analisi per-livello (rami non
+        //    sviluppati, cross-link per livello, consolidamento) hanno senso solo
+        //    sulle MindMap. Su un KG il "level" è solo layout → vanno disattivate.
+        // 2) DENSITÀ (tree-like vs networked): Tarjan e betweenness degenerano su
+        //    un albero (ogni arco è un ponte, ecc.) → attive solo con cross-link.
+        const mode = options.mode || detectMode(nodes);
         const ratio = nodes.length ? links.length / nodes.length : 0;
         const isTreeLike = ratio < CONFIG.lowConnectivityRatio;
+        const isMindMap = mode === 'mindmap';
 
         const suggestions = [
-            // Sempre valide (struttura gerarchica):
+            // Sempre valide (qualsiasi grafo):
             ...detectLowConnectivity(nodes, links),
             ...analyzeGodNodes(nodes, links),
             ...detectMisplacedNodes(nodes, links),
             ...detectUnderutilizedClusters(nodes, links),
-            ...detectLeafIsolation(nodes, links),
+            // Gerarchiche: solo MindMap (sui KG il "level" non è semantico):
+            ...(isMindMap ? detectLeafIsolation(nodes, links) : []),
             // Topologiche "vere": solo se il grafo ha cross-link (non-albero):
             ...(isTreeLike ? [] : detectStructuralKeystones(nodes, links)),
             ...(isTreeLike ? [] : detectMeaningHubs(nodes, links))
@@ -506,6 +526,7 @@
                 links: links.length,
                 groups: groupByMacroArea(nodes).size,
                 density: Number(ratio.toFixed(2)),
+                mode,
                 topology: isTreeLike ? 'tree-like' : 'networked'
             }
         };
@@ -521,7 +542,12 @@
             console.warn('[structure-analyzer] appState.db non disponibile');
             return { suggestions: [], stats: { nodes: 0, links: 0 } };
         }
-        return analyzeStructure(db.nodes || [], db.links || []);
+        // Usa la modalità dichiarata dall'app se disponibile; altrimenti
+        // analyzeStructure la deduce dalla forma degli ID (detectMode).
+        const declaredMode = state?.extractionMode === 'kg' ? 'kg'
+            : state?.extractionMode === 'mindmap' ? 'mindmap'
+            : undefined;
+        return analyzeStructure(db.nodes || [], db.links || [], { mode: declaredMode });
     }
 
     // ── Export ──────────────────────────────────────────────
@@ -537,6 +563,7 @@
         detectStructuralKeystones,
         computeBetweenness,
         detectMeaningHubs,
+        detectMode,
         analyzeStructure,
         analyzeCurrentMap
     };
