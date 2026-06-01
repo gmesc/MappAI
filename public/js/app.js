@@ -2181,6 +2181,14 @@ REGOLE TASSATIVE DI OUTPUT:
 9. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
 `;
 
+// Inietta il system prompt disciplinare (se attivo) nel systemInstruction base.
+// Chiamato da tutti i punti di costruzione payload per MM e KG.
+function buildSystemInstruction(base) {
+    const disciplinePrompt = window.buildDisciplineSystemPrompt && window.buildDisciplineSystemPrompt();
+    if (!disciplinePrompt) return base;
+    return base + '\n\n--- FOCUS DISCIPLINARE ---\n' + disciplinePrompt;
+}
+
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
@@ -2344,7 +2352,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         const payloadTree = {
             contents: [{ parts: [...fileParts, { text: promptFullTree }] }],
-            systemInstruction: { parts: [{ text: MIND_MAP_SYSTEM_INSTRUCTION }] },
+            systemInstruction: { parts: [{ text: buildSystemInstruction(MIND_MAP_SYSTEM_INSTRUCTION) }] },
             generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(8192) }
         };
 
@@ -2807,7 +2815,7 @@ ${textParts.join('\n\n')}`;
 
             const payloadBranch = {
                 contents: [{ parts: [...fileParts, { text: promptBranch }] }],
-                systemInstruction: { parts: [{ text: "Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema." }] },
+                systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
                 generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
             };
 
@@ -3401,7 +3409,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
-        systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
+        systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
         generationConfig: {
             temperature: 0.2,
             responseMimeType: "application/json",
@@ -11278,7 +11286,7 @@ window.executeContextualAIExtension = async function () {
 
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
-            systemInstruction: { parts: [{ text: appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
+            systemInstruction: { parts: [{ text: buildSystemInstruction(appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
             generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
         }, apiKey);
 

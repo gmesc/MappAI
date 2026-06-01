@@ -1,5 +1,11 @@
 window.systemPromptsConfig = {};
 window.systemPromptsDescriptions = {
+    "DISCIPLINE_STORIA": "System prompt disciplinare: Storia",
+    "DISCIPLINE_SCIENZE": "System prompt disciplinare: Scienze Naturali",
+    "DISCIPLINE_LETTERATURA": "System prompt disciplinare: Letteratura / Italiano",
+    "DISCIPLINE_MATEMATICA": "System prompt disciplinare: Matematica",
+    "DISCIPLINE_GEOGRAFIA": "System prompt disciplinare: Geografia",
+    "DISCIPLINE_FILOSOFIA": "System prompt disciplinare: Filosofia",
     "L1_MACRO_CATEGORIES": "admin_prompt_desc_l1",
     "MIND_MAP_FULL_TREE": "admin_prompt_desc_mm_full",
     "KNOWLEDGE_GRAPH_FULL_TREE": "admin_prompt_desc_kg_full",
@@ -24,7 +30,8 @@ window.systemPromptsCategories = {
     "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "MIND_MAP_BRANCH"],
     "KGRAPHS": ["KNOWLEDGE_GRAPH_FULL_TREE", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
-    "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"]
+    "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"],
+    "DISCIPLINES": ["DISCIPLINE_STORIA", "DISCIPLINE_SCIENZE", "DISCIPLINE_LETTERATURA", "DISCIPLINE_MATEMATICA", "DISCIPLINE_GEOGRAFIA", "DISCIPLINE_FILOSOFIA"]
 };
 
 // Helper per ottenere la traduzione corrente
