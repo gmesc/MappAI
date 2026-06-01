@@ -193,6 +193,25 @@ caricati in `index.html` DOPO `app.js` e PRIMA di `admin_prompts.js`:
 - `window.printAllStudySets()` — stampa tutti i set
 - Bottone "stampa" aggiunto a ogni set in `renderStudySets`
 
+### `mappai-structure-analyzer.js` (NUOVO — sessione 1 giugno 2026)
+- Analisi strutturale DETERMINISTICA del grafo (zero AI calls). Base del
+  Piano 1 "modalità Studente" (vedi `ROADMAP_graphify.md`).
+- Caricato in `index.html` dopo `mappai-quiz-print.js`.
+- Namespace: `window.MappAIStructureAnalyzer`. Uso rapido da console:
+  `MappAIStructureAnalyzer.analyzeCurrentMap()` → `{ suggestions, stats }`.
+- **Auto-adattivo su due assi** (design chiave):
+  - MODALITÀ (`mindmap`/`kg`, da `appState.extractionMode` o `detectMode`):
+    le analisi gerarchiche (rami non sviluppati, leaf isolation) girano solo
+    sulle MindMap; sui KG il `level` non è semantico.
+  - DENSITÀ (`tree-like`/`networked`, soglia `lowConnectivityRatio=1.1`):
+    Tarjan (ponti/articolazioni) e betweenness degenerano su un albero (ogni
+    arco è un ponte) → attivi solo su grafi con cross-link.
+- Analisi: `analyzeGodNodes`, `detectMisplacedNodes`, `detectUnderutilizedClusters`,
+  `detectLeafIsolation` (per-livello), `detectLowConnectivity`,
+  `detectStructuralKeystones` (Tarjan), `detectMeaningHubs` (betweenness Brandes).
+- `stats` include `density`, `mode`, `topology` — usabili come diagnostica del
+  motore di generazione (un KG con density < 1.5 è "ad albero", poco utile).
+
 ---
 
 ## 7. MODELLI INFOMANIAK — VALUTAZIONE (1 giugno 2026)
@@ -217,14 +236,24 @@ non vuoto potrebbe troncare il testo sorgente. Vedere TODO punto 9.
 
 ## 8. BUG NOTI E PROBLEMI APERTI
 
-### 🔴 Bug critico: KG scarso con Infomaniak
-**Sintomo:** KG generato con Infomaniak ha densità ~1.1 (vs 2.3 Google NO LENTI).
-Anomalia specifica: KG GEMMA + lenti → 37K token prompt (metà del normale).
-**Causa ipotizzata:** `responseMimeType: "application/json"` + possibile troncamento
-con `focusTopic` non vuoto in `extractKnowledgeGraphSinglePass`.
-- `extractKnowledgeGraphSinglePass` e `MultiPass` in `app.js`
-- `InfomaniakBridge.translatePayload` in `infomaniak_bridge.js`
-**Fix proposto:** rimuovere `responseMimeType` dal payload KG per Infomaniak
+### 🟢→🟠 KG povero: causa template RISOLTA, causa C (Infomaniak) ISOLATA
+**Sintomo originale:** KG a "stella" — densità ~1.1, 0 cross-link, 68% relazioni
+generiche "correlato a". Grafo povero di spunti di ragionamento.
+**Diagnosi (1 giugno 2026, con `mappai-structure-analyzer.js`):** due cause.
+- **Causa A+B (template) — RISOLTA ✅:** `KNOWLEDGE_GRAPH_SINGLE_IT` chiedeva solo
+  link concetto→hub (stella) e non tipizzava le relazioni. Riscritto con blocco
+  "RELAZIONI — IL CUORE DEL GRAFO" (link laterali concetto↔concetto obbligatori +
+  vocabolario di relazioni di ragionamento + divieto di "correlato a"). Aggiunta
+  `window.markKgCrossLinks()` in `app.js` per marcare `isCross` sui link laterali.
+  - Risultato Google: densità 1.09→**2.0**, generiche 68%→**0%**, 55 tipi relazione.
+  - Backup: `prompts_config.json.bak`, `public/prompts_default.json.bak`.
+- **Causa C (Infomaniak) — APERTA 🟠, confermata dai dati:** stesso template,
+  Infomaniak GEMMA arriva solo a densità **1.31**, 36% generiche. Aderisce al
+  prompt a metà perché `responseMimeType:"application/json"` (payload KG in
+  `app.js` ~3438) viene convertito dal bridge in reminder testuale (§10.6).
+  **PROSSIMA AZIONE:** branch per rimuovere `responseMimeType`+`responseSchema`
+  quando `aiProvider==='infomaniak'`, affidando il parsing a `salvageTruncatedJSON`.
+**Da fare ancora:** mirror template su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` + `_EN`.
 
 ### 🟠 Bug: Gemini Pro tronca risposta KG
 **Sintomo:** `"Unexpected end of JSON input"` con modelli Pro

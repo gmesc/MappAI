@@ -3,6 +3,36 @@
 
 ---
 
+## ☀️ DOMANI INIZIA QUI (handoff 1 giugno, sera)
+
+**Dove eravamo:** abbiamo creato `mappai-structure-analyzer.js` (analisi strutturale
+deterministica del grafo) e, usandolo come diagnostica, abbiamo scoperto e in gran
+parte risolto il problema dei KG "a stella" poveri di relazioni.
+
+**Cosa è FATTO e VALIDATO oggi:**
+- ✅ `mappai-structure-analyzer.js` completo: 6 analisi, auto-adattivo su modalità
+  (MM/KG) e densità (tree/networked). Cablato in `index.html`. Test da console:
+  `MappAIStructureAnalyzer.analyzeCurrentMap()`.
+- ✅ Template KG riscritto → relazioni laterali + tipizzate. Google: densità 2.0,
+  0% generiche. Infomaniak GEMMA: 1.31, 36% generiche (migliorato ma non al pari).
+- ✅ `window.markKgCrossLinks()` in `app.js` (marca isCross sui link laterali).
+- ✅ Refinement ponti-foglia nell'analizzatore.
+
+**3 strade aperte (scegliere domani, in ordine di priorità suggerito):**
+1. **Fix Causa C** — rimuovere `responseMimeType` dal payload KG per Infomaniak
+   (`app.js` ~3438). È il pezzo che porta i provider svizzeri (GDPR) al livello di
+   Google. Modifica isolata. → dettagli nella sezione "DA TESTARE SUBITO" sotto.
+2. **Mirror template** su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` + `_EN` (copre la
+   modalità studente, target BES/DSA). Modifica già validata, basso rischio.
+3. **UI Piano 1.2** — pannello `#structural-suggestions-panel` con le card dei
+   suggerimenti + primitiva `highlightSubgraph` per studio guidato dei percorsi.
+   Keystone/meaning_hub ora validati su 2 provider → si può costruire con fiducia.
+
+**Nota minore da rifinire:** il messaggio di `god_node` dice "sposta a L1/L2" anche
+sui KG dove il nodo è già hub L1 → riformulare per modalità KG.
+
+---
+
 ## 🧪 DA TESTARE SUBITO (modifica 1 giugno 2026 — ricchezza relazionale KG)
 
 > Origine: l'analizzatore strutturale ha rivelato che i KG GEMMA/Infomaniak
