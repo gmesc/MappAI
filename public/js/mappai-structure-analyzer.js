@@ -226,7 +226,8 @@
      * Wrapper che legge appState.db. Comodo per uso da console / UI.
      */
     function analyzeCurrentMap() {
-        const db = window.appState?.db;
+        const state = (typeof appState !== 'undefined') ? appState : window.appState;
+        const db = state?.db;
         if (!db) {
             console.warn('[structure-analyzer] appState.db non disponibile');
             return { suggestions: [], stats: { nodes: 0, links: 0 } };
