@@ -39,7 +39,9 @@
         UNDEVELOPED_BRANCH: 'undeveloped_branch', // L2 isolato senza figli
         SUGGEST_CROSSLINK: 'suggest_crosslink',    // L3 isolato → ponte tematico
         CONSOLIDATE_LEAVES: 'consolidate_leaves',  // L4-L5 dettagli sparsi
-        LOW_CONNECTIVITY: 'low_connectivity'       // meta: mappa troppo ad albero
+        LOW_CONNECTIVITY: 'low_connectivity',      // meta: mappa troppo ad albero
+        KEYSTONE: 'keystone',                      // ponte / punto di articolazione
+        MEANING_HUB: 'meaning_hub'                 // alta betweenness centrality
     };
 
     // ── Helpers ─────────────────────────────────────────────
@@ -281,6 +283,193 @@
         }];
     }
 
+    // ── 6. Ponti e punti di articolazione (Tarjan) ─────────
+    //
+    // Un PONTE è un arco la cui rimozione disconnette il grafo.
+    // Un PUNTO DI ARTICOLAZIONE è un nodo la cui rimozione disconnette il grafo.
+    // Pedagogicamente: il concetto-cardine che tiene insieme due aree.
+    // Distinto dai god node — un nodo può avere grado alto SENZA essere un ponte.
+    //
+    // Implementazione: DFS con discovery-time e low-link (Tarjan), iterativa
+    // per evitare stack overflow su grafi grandi.
+    function findBridgesAndArticulations(nodes, links) {
+        const adj = buildAdjacency(nodes, links);
+        const ids = nodes.map(n => n.id);
+        const disc = new Map();   // discovery time
+        const low = new Map();    // low-link value
+        const parent = new Map();
+        const articulation = new Set();
+        const bridges = [];
+        let timer = 0;
+
+        ids.forEach(id => { disc.set(id, -1); low.set(id, -1); parent.set(id, null); });
+
+        // DFS iterativa: stack di {node, neighborIterator, childCount}
+        ids.forEach(start => {
+            if (disc.get(start) !== -1) return;
+            const stack = [{ u: start, it: [...(adj.get(start) || [])], i: 0, children: 0 }];
+            disc.set(start, timer); low.set(start, timer); timer++;
+
+            while (stack.length) {
+                const frame = stack[stack.length - 1];
+                const u = frame.u;
+
+                if (frame.i < frame.it.length) {
+                    const v = frame.it[frame.i++];
+                    if (disc.get(v) === -1) {
+                        parent.set(v, u);
+                        frame.children++;
+                        disc.set(v, timer); low.set(v, timer); timer++;
+                        stack.push({ u: v, it: [...(adj.get(v) || [])], i: 0, children: 0 });
+                    } else if (v !== parent.get(u)) {
+                        low.set(u, Math.min(low.get(u), disc.get(v)));
+                    }
+                } else {
+                    // pop: propaga low-link al parent
+                    stack.pop();
+                    const p = parent.get(u);
+                    if (p !== null) {
+                        low.set(p, Math.min(low.get(p), low.get(u)));
+                        // articolazione (caso non-root)
+                        if (parent.get(p) !== null && low.get(u) >= disc.get(p)) {
+                            articulation.add(p);
+                        }
+                        // ponte
+                        if (low.get(u) > disc.get(p)) {
+                            bridges.push([p, u]);
+                        }
+                    }
+                }
+            }
+            // root è articolazione se ha >1 figlio nel DFS
+            // (children del frame root: ricalcolato sotto)
+        });
+
+        // root articulation: una root con ≥2 figli DFS è articolazione
+        const rootChildren = new Map();
+        ids.forEach(id => {
+            const p = parent.get(id);
+            if (p !== null && parent.get(p) === null) {
+                rootChildren.set(p, (rootChildren.get(p) || 0) + 1);
+            }
+        });
+        rootChildren.forEach((c, root) => { if (c >= 2) articulation.add(root); });
+
+        return { bridges, articulationPoints: [...articulation] };
+    }
+
+    // Suggerimenti pedagogici derivati da ponti/articolazioni
+    function detectStructuralKeystones(nodes, links) {
+        const nMap = nodeMap(nodes);
+        const { bridges, articulationPoints } = findBridgesAndArticulations(nodes, links);
+        const suggestions = [];
+
+        articulationPoints.forEach(id => {
+            const n = nMap.get(id);
+            if (!n) return;
+            suggestions.push({
+                type: SUGGESTION_TYPES.KEYSTONE,
+                nodeId: id,
+                severity: 'medium',
+                message: `"${n.label}" è un concetto-cardine: collega parti del grafo che altrimenti resterebbero separate. Studialo per primo — è la chiave di volta tra le aree.`,
+                data: { kind: 'articulation' }
+            });
+        });
+
+        bridges.forEach(([a, b]) => {
+            const na = nMap.get(a), nb = nMap.get(b);
+            if (!na || !nb) return;
+            suggestions.push({
+                type: SUGGESTION_TYPES.KEYSTONE,
+                nodeId: null,
+                severity: 'low',
+                message: `Il collegamento "${na.label}" ↔ "${nb.label}" è l'unico ponte tra due porzioni della mappa. Se si spezza, il discorso perde coerenza.`,
+                data: { kind: 'bridge', from: a, to: b }
+            });
+        });
+
+        return suggestions;
+    }
+
+    // ── 7. Betweenness centrality (Brandes) ─────────────────
+    //
+    // Misura quanti percorsi minimi passano ATTRAVERSO un nodo.
+    // Diversa dal degree: trova i concetti-snodo (alta betweenness, anche con
+    // grado basso) — i "ponti di significato" che il degree non vede.
+    function computeBetweenness(nodes, links) {
+        const adj = buildAdjacency(nodes, links);
+        const ids = nodes.map(n => n.id);
+        const CB = new Map();
+        ids.forEach(id => CB.set(id, 0));
+
+        ids.forEach(s => {
+            const stack = [];
+            const pred = new Map();
+            const sigma = new Map();
+            const dist = new Map();
+            ids.forEach(t => { pred.set(t, []); sigma.set(t, 0); dist.set(t, -1); });
+            sigma.set(s, 1); dist.set(s, 0);
+
+            const queue = [s];
+            while (queue.length) {
+                const v = queue.shift();
+                stack.push(v);
+                (adj.get(v) || new Set()).forEach(w => {
+                    if (dist.get(w) < 0) { queue.push(w); dist.set(w, dist.get(v) + 1); }
+                    if (dist.get(w) === dist.get(v) + 1) {
+                        sigma.set(w, sigma.get(w) + sigma.get(v));
+                        pred.get(w).push(v);
+                    }
+                });
+            }
+
+            const delta = new Map();
+            ids.forEach(t => delta.set(t, 0));
+            while (stack.length) {
+                const w = stack.pop();
+                pred.get(w).forEach(v => {
+                    const c = (sigma.get(v) / sigma.get(w)) * (1 + delta.get(w));
+                    delta.set(v, delta.get(v) + c);
+                });
+                if (w !== s) CB.set(w, CB.get(w) + delta.get(w));
+            }
+        });
+
+        // normalizza (grafo non orientato → /2) e ordina
+        const result = ids.map(id => ({ id, score: CB.get(id) / 2 }));
+        result.sort((a, b) => b.score - a.score);
+        return result;
+    }
+
+    function detectMeaningHubs(nodes, links) {
+        const nMap = nodeMap(nodes);
+        const adj = buildAdjacency(nodes, links);
+        const ranked = computeBetweenness(nodes, links).filter(r => r.score > 0);
+        if (!ranked.length) return [];
+
+        const maxScore = ranked[0].score;
+        const suggestions = [];
+
+        ranked.slice(0, 3).forEach(r => {
+            const n = nMap.get(r.id);
+            const degree = adj.get(r.id)?.size || 0;
+            if (!n) return;
+            // segnala solo gli "snodi nascosti": betweenness alta MA grado modesto
+            const isHidden = degree <= 3 && r.score >= maxScore * 0.5;
+            suggestions.push({
+                type: SUGGESTION_TYPES.MEANING_HUB,
+                nodeId: r.id,
+                severity: isHidden ? 'medium' : 'low',
+                message: isHidden
+                    ? `"${n.label}" ha pochi collegamenti diretti ma vi passano molti percorsi: è uno snodo di significato nascosto. Vale più di quanto la sua posizione suggerisca.`
+                    : `"${n.label}" è uno snodo centrale del ragionamento: molti percorsi concettuali lo attraversano.`,
+                data: { betweenness: Number(r.score.toFixed(2)), degree }
+            });
+        });
+
+        return suggestions;
+    }
+
     // ── Orchestratore ───────────────────────────────────────
     function analyzeStructure(nodes, links) {
         if (!Array.isArray(nodes) || !Array.isArray(links)) {
@@ -292,7 +481,9 @@
             ...analyzeGodNodes(nodes, links),
             ...detectMisplacedNodes(nodes, links),
             ...detectUnderutilizedClusters(nodes, links),
-            ...detectLeafIsolation(nodes, links)
+            ...detectLeafIsolation(nodes, links),
+            ...detectStructuralKeystones(nodes, links),
+            ...detectMeaningHubs(nodes, links)
         ];
 
         const severityRank = { high: 0, medium: 1, low: 2 };
@@ -330,6 +521,10 @@
         detectUnderutilizedClusters,
         detectLeafIsolation,
         detectLowConnectivity,
+        findBridgesAndArticulations,
+        detectStructuralKeystones,
+        computeBetweenness,
+        detectMeaningHubs,
         analyzeStructure,
         analyzeCurrentMap
     };

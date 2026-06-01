@@ -3,6 +3,28 @@
 
 ---
 
+## 🔮 IDEE FUTURE (riprendere dopo Piano 1 + Piano 2)
+
+### Diff strutturale temporale — valutazione formativa
+> Origine: analisi topologica `mappai-structure-analyzer.js` (1 giugno 2026).
+> Da riprendere SOLO dopo aver completato il pannello suggerimenti (Piano 1)
+> e l'auto-restructure OPI (Piano 2).
+
+**Idea**: salvare snapshot dello stato del grafo nel tempo e misurare come la
+rete concettuale dello studente cresce sessione dopo sessione.
+
+- Metriche da tracciare per snapshot: densità (link/nodi), profondità media,
+  n° cross-link, n° community (Louvain), betweenness dei concetti-cardine.
+- Output: grafico di crescita + delta tra due snapshot ("hai aggiunto 4
+  cross-link e 1 catena causale rispetto alla scorsa settimana").
+- **Valore pedagogico**: strumento di valutazione formativa per l'OPI —
+  evidenza oggettiva del progredire della comprensione, non solo del contenuto.
+- Dipendenze: riusa `analyzeStructure()` + `computeBetweenness()` già presenti
+  nel modulo. Serve persistenza snapshot nel vault (es. `Snapshots/*.json`).
+- Allineato alla filosofia BES/DSA: misura il percorso, non solo il risultato.
+
+---
+
 ## 🔍 DA INVESTIGARE (emerso da graphify)
 
 ### A. Spiegare connessione checkAndInitIPadDemoVaults → arrayBufferToBase64()
