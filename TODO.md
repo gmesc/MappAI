@@ -24,10 +24,20 @@
 - [ ] Rigenerare lo stesso KG (fotosintesi 4aMEDIA) su **Google** e verificare
   densità > 1.5 e presenza di `isCross:true`. Confronto con `analyzeCurrentMap()`.
 - [ ] Rigenerare su **Infomaniak GEMMA** (rule §10.8: test su entrambi i provider).
-- [ ] **Causa C ancora aperta**: `responseMimeType:"application/json"` nel payload
-  KG (`app.js` ~3415) viola §10.6 per Infomaniak — il bridge lo converte in
-  reminder testuale che degrada il rispetto del prompt. Valutare branch per
-  rimuoverlo quando `aiProvider === 'infomaniak'`.
+- [x] **Test Google (Gemini)**: densità 2.0, cross-link 45%, generiche 0%, 55 tipi
+  di relazione. ✅ Fix template pienamente efficace su Google.
+- [x] **Test Infomaniak (GEMMA)**: densità 1.31 (da 1.09), cross-link 30% (da 0%),
+  generiche 36% (da 68%), 20 tipi. ✅ Migliorato MA nettamente sotto Google.
+- [ ] **CAUSA C CONFERMATA (non più ipotesi)**: il confronto Google vs Infomaniak
+  sullo stesso prompt mostra che Infomaniak rispetta il template solo a metà
+  (36% generiche residue, densità 1.31 vs 2.0). Il colpevole è
+  `responseMimeType:"application/json"` nel payload KG (`app.js` ~3438) che il
+  bridge converte in reminder testuale (viola §10.6). **PROSSIMA AZIONE**: branch
+  per rimuovere `responseMimeType`+`responseSchema` quando `aiProvider==='infomaniak'`
+  e affidarsi a `salvageTruncatedJSON` per il parsing.
+- [x] **Refinement analizzatore**: `detectStructuralKeystones` ora scarta i ponti
+  verso foglie (grado 1, trivali) e li limita a `bridgeCap=4`. Riduce il rumore su
+  grafi networked a densità borderline (~1.3).
 - [ ] Mirror della stessa modifica su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` e
   varianti `_EN` una volta validato il comportamento IT.
 

@@ -27,7 +27,9 @@
         leafDetailMaxLevel: 5,         // L4-L5 = dettagli terminali (consolidabili)
         leafConsolidateMinSiblings: 3, // soglia per suggerire consolidamento foglie-dettaglio
         leafCrossLinkCap: 5,           // max card di tipo cross-link suggerite
-        lowConnectivityRatio: 1.1      // sotto questa densità link/nodi → meta-suggerimento
+        lowConnectivityRatio: 1.1,     // sotto questa densità link/nodi → meta-suggerimento
+        bridgeMinEndpointDegree: 2,    // un ponte verso una foglia (grado 1) è triviale → scartato
+        bridgeCap: 4                   // max ponti significativi segnalati
     };
 
     // ── Tipi di suggerimento ────────────────────────────────
@@ -376,6 +378,7 @@
     // Suggerimenti pedagogici derivati da ponti/articolazioni
     function detectStructuralKeystones(nodes, links) {
         const nMap = nodeMap(nodes);
+        const adj = buildAdjacency(nodes, links);
         const { bridges, articulationPoints } = findBridgesAndArticulations(nodes, links);
         const suggestions = [];
 
@@ -391,17 +394,28 @@
             });
         });
 
-        bridges.forEach(([a, b]) => {
-            const na = nMap.get(a), nb = nMap.get(b);
-            if (!na || !nb) return;
-            suggestions.push({
-                type: SUGGESTION_TYPES.KEYSTONE,
-                nodeId: null,
-                severity: 'low',
-                message: `Il collegamento "${na.label}" ↔ "${nb.label}" è l'unico ponte tra due porzioni della mappa. Se si spezza, il discorso perde coerenza.`,
-                data: { kind: 'bridge', from: a, to: b }
-            });
+        // Un ponte è interessante SOLO se separa due parti non banali. Un ponte
+        // verso una foglia terminale (grado 1) è triviale ("se togli l'unico link
+        // a X, X si scollega") → rumore. Filtriamo questi e mettiamo un cap.
+        const meaningfulBridges = bridges.filter(([a, b]) => {
+            const da = adj.get(a)?.size || 0;
+            const db = adj.get(b)?.size || 0;
+            return Math.min(da, db) >= CONFIG.bridgeMinEndpointDegree;
         });
+
+        meaningfulBridges
+            .slice(0, CONFIG.bridgeCap)
+            .forEach(([a, b]) => {
+                const na = nMap.get(a), nb = nMap.get(b);
+                if (!na || !nb) return;
+                suggestions.push({
+                    type: SUGGESTION_TYPES.KEYSTONE,
+                    nodeId: null,
+                    severity: 'low',
+                    message: `Il collegamento "${na.label}" ↔ "${nb.label}" è l'unico ponte tra due porzioni sostanziali della mappa. Se si spezza, il discorso perde coerenza.`,
+                    data: { kind: 'bridge', from: a, to: b }
+                });
+            });
 
         return suggestions;
     }
