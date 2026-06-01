@@ -476,14 +476,24 @@
             return { suggestions: [], stats: { nodes: 0, links: 0 } };
         }
 
+        // La densità decide quali analisi sono SIGNIFICATIVE.
+        // Su un albero puro (density < soglia) Tarjan e betweenness degenerano:
+        // ogni arco è un ponte, ogni nodo interno è un'articolazione, la
+        // betweenness premia solo la root. → rumore. Vanno attivate SOLO quando
+        // i cross-link creano cicli che le rendono discriminanti.
+        const ratio = nodes.length ? links.length / nodes.length : 0;
+        const isTreeLike = ratio < CONFIG.lowConnectivityRatio;
+
         const suggestions = [
+            // Sempre valide (struttura gerarchica):
             ...detectLowConnectivity(nodes, links),
             ...analyzeGodNodes(nodes, links),
             ...detectMisplacedNodes(nodes, links),
             ...detectUnderutilizedClusters(nodes, links),
             ...detectLeafIsolation(nodes, links),
-            ...detectStructuralKeystones(nodes, links),
-            ...detectMeaningHubs(nodes, links)
+            // Topologiche "vere": solo se il grafo ha cross-link (non-albero):
+            ...(isTreeLike ? [] : detectStructuralKeystones(nodes, links)),
+            ...(isTreeLike ? [] : detectMeaningHubs(nodes, links))
         ];
 
         const severityRank = { high: 0, medium: 1, low: 2 };
@@ -494,7 +504,9 @@
             stats: {
                 nodes: nodes.length,
                 links: links.length,
-                groups: groupByMacroArea(nodes).size
+                groups: groupByMacroArea(nodes).size,
+                density: Number(ratio.toFixed(2)),
+                topology: isTreeLike ? 'tree-like' : 'networked'
             }
         };
     }
