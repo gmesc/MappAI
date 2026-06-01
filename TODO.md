@@ -1,5 +1,5 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 1 giugno 2026.
+> Priorità in ordine decrescente. Aggiornato: 1 giugno 2026 (sera).
 
 ---
 
@@ -33,7 +33,49 @@ Nessuna delle tre chiama le altre direttamente. Il collegamento passa per `fetch
 
 ## 🔴 PRIORITÀ ALTA
 
-### 1. Chunking map-reduce Fase 1 MM (lost-in-the-middle)
+### 1. Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti (analisi 1 giugno)
+**Origine**: analisi comparativa GEMMA vs MISTRAL sulla Guerra Fredda con `/analyze-mm`.
+Graphify ha confermato che quasi tutti i problemi strutturali di MISTRAL sono prompt-addressable.
+
+**Regole da aggiungere in `MIND_MAP_BRANCH_IT` e `MIND_MAP_BRANCH_INFOMANIAK_IT`:**
+
+1. **Anti-date nei label**: *"Non includere date nei label dei nodi — le date vanno nel
+   campo 'content' (max 10 parole), mai nel label stesso"*
+2. **Anti-lista nei label**: *"Un label non deve mai contenere elenchi di nomi separati
+   da virgole — se ci sono più elementi, crea nodi figli separati"*
+3. **Anti-duplicato cross-ramo**: *"Verifica che ogni concetto NON sia già presente come
+   label in un'altra macro-area — se esiste un concetto simile altrove, crea un link,
+   non un nuovo nodo"*
+4. **Concetti pivotali a L2**: *"Se un concetto è menzionato nella macro-area con ruolo
+   centrale (es. un piano, un trattato, un evento scatenante), posizionalo a Livello 2,
+   non a L3 o L4"*
+
+**Cap nodi per Infomaniak già presente ma da rafforzare**: aggiungere anche nel template
+standard (non solo Infomaniak): `"Genera MASSIMO 35 nodi totali per questa mappa"`
+
+**File da modificare**: `prompts_config.json` e `public/prompts_default.json`
+**Note**: queste 4 regole avrebbero eliminato ~15 dei problemi rilevati in MISTRAL.
+
+### 2. Nuovo template `MIND_MAP_BRANCH_IT` profilo Liceo (Mistral-optimized)
+**Origine**: analisi ha mostrato che Mistral Small ha potenziale per profili Liceo
+(profondità L5, copertura più ampia, 200K context) ma serve un template dedicato.
+
+**Da creare**: `MIND_MAP_BRANCH_LICEO_IT` e `MIND_MAP_BRANCH_LICEO_EN` con:
+- Cap 40 nodi (più generoso del 35 per 4a Media)
+- Profondità L5 esplicitamente incoraggiata per concetti tecnici/scientifici
+- Regola link di contrappeso: *"Se il concetto ha un OPPOSTO diretto nel documento
+  (es. NATO/Patto Varsavia, Capitalismo/Socialismo), inserisci un link con rel
+  'si contrappone a'"*
+- Regola causa-effetto: *"Per ogni evento che causa un altro, crea un link con rel
+  'causa' o 'porta a'"*
+- Regola simmetria bipolare (per storia): *"Per documenti che descrivono contrapposizioni,
+  crea nodi simmetrici per ciascun lato (es. 'Blocco Occidentale' e 'Blocco Orientale'
+  come nodi distinti con link 'si contrappone a')"*
+
+**Logica di selezione**: il template viene scelto in base al profilo allievo
+(`userProfile.grade` contiene "Liceo").
+
+### 3. Chunking map-reduce Fase 1 MM (lost-in-the-middle)
 **Problema**: il documento viene passato **intero** in ogni chiamata AI (Fase 1 L1
 e ogni ramo Fase 3). Per Infomaniak con context 65K-100K questo causa overflow o
 perdita di contenuto. Per Google (1M+ context) non urgente.
@@ -46,7 +88,7 @@ perdita di contenuto. Per Google (1M+ context) non urgente.
 - Fase 3 rami: mini-retrieval — ogni ramo riceve solo i chunk rilevanti (match keyword)
 - **Solo per Infomaniak**: Google Gemini non ne ha bisogno
 
-### 2. Verifica fix prompts_config.json in userData
+### 4. Verifica fix prompts_config.json in userData
 **Problema**: la copia in `userData` sovrascrive i fix del repo se l'utente ha
 personalizzato i prompt in precedenza.
 - Rigenerare KG → verificare ≥2 link per nodo L2
@@ -57,20 +99,20 @@ personalizzato i prompt in precedenza.
 
 ## 🟠 PRIORITÀ MEDIA
 
-### 3. Testare Kimi-K2.6 (256K context)
+### 5. Testare Kimi-K2.6 (256K context)
 - Generare MM e KG con Kimi-K2.6
 - Verificare che `json_schema` funzioni
 - Se funziona: aggiornarlo come alternativa a Gemma 4 per doc molto lunghi
 
-### 4. Aggiungere `dedupeNodesAsCrossLinks` al MM single-pass
+### 6. Aggiungere `dedupeNodesAsCrossLinks` al MM single-pass
 Attualmente solo nel multipass HD. Punto di inserimento: prima di `initD3Visualization`
 in `extractMindMapIterative`.
 
-### 5. Avviso UI per Apertus in modalità KG
+### 7. Avviso UI per Apertus in modalità KG
 Warning quando utente seleziona Apertus con KG attivo. Punto: `window.setMode`
 o `window.fetchModelAPI` con provider=infomaniak, modello=apertus, mode=kg.
 
-### 6. Verifica visiva label con date sui nodi
+### 8. Verifica visiva label con date sui nodi
 Date badge rimosso, ora data+nome sono nello stesso tspan. Verificare:
 - Centramento verticale corretto per vari livelli di nodo
 - `DATE_GAP = 1.5em` è sufficiente come spazio tra data e nome?
@@ -78,28 +120,88 @@ Date badge rimosso, ora data+nome sono nello stesso tspan. Verificare:
 
 ---
 
+---
+
 ## 🟡 PRIORITÀ BASSA / BACKLOG
 
-### 7. Dedup cross-ramo: test su mappa reale
+### 9. Investigare anomalia token KG GEMMA con lenti attive (37K vs 65K)
+**Sintomo**: KG GEMMA LENTI 4aMEDIA → 37K token prompt, solo 13 nodi generati.
+Senza lenti → 65K token, 34 nodi. Le lenti dovrebbero aumentare il prompt, non dimezzarlo.
+**Causa ipotizzata**: con `focusTopic` non vuoto, qualcosa in `extractKnowledgeGraphSinglePass`
+tronca il testo sorgente.
+**Punto di ingresso**: `extractKnowledgeGraphSinglePass` in `app.js`, confronta payload
+con `focusTopic` vuoto vs non vuoto.
+
+### 10. Validazione post-gen nodi vuoti
+MISTRAL genera occasionalmente nodi con body vuoto (es. "1947 Effetti Piano Marshall" a L3).
+**Fix**: dopo parsing risposta AI, scartare nodi con `desc` e `content` < 5 parole.
+Segnalare con warning toast.
+
+### 11. Dedup cross-ramo: test su mappa reale
 Validare `dedupeNodesAsCrossLinks` su più mappe reali — la regex conservativa
 (singolare/plurale, sort parole) è progettata per essere sicura ma non testata
 estensivamente.
 
-### 8. Pulizia log diagnostici temporanei
+### 12. Pulizia log diagnostici temporanei
 Solo warning utili da tenere: `[Infomaniak] Stream VUOTO` e `[MappAI] Rimossi N nodi garbage`.
 
-### 9. Refactoring CSS (703 `!important`)
+### 13. Refactoring CSS (703 `!important`)
 Guerra di specificità con Tailwind. Non urgente ma degrada la manutenibilità.
 
-### 10. Decomposizione `app.js`
+### 14. Decomposizione `app.js`
 ~13.000+ righe. Candidati a separazione: funzioni KG, MM, D3, vault, UI landing.
 
-### 11. Pulizia root progetto
+### 15. Pulizia root progetto
 ~20 script Python e file `.bak` nella root. Non toccare ora.
 
 ---
 
-## ✅ COMPLETATO IN QUESTA SESSIONE (31 maggio 2026, pomeriggio)
+## ✅ COMPLETATO IN QUESTA SESSIONE (1 giugno 2026)
+
+### Analisi comparativa MM/KG — Google vs Infomaniak
+- Analisi strutturale e semantica di 16 vault (8 Google, 8 Infomaniak) su documento
+  "L'Albero come Sistema Vivente" — profilo 4a Media, con e senza lenti, 4 modelli
+- Strumento: skill `/analyze-mm` + pipeline graphify per confronto semantico
+- **Finding principale**: le lenti funzionano bene per MM (label L1 più precisi)
+  ma creano KG sparsi perché aggiungono nodi niche senza generare cross-link
+
+### Fix `L1_MACRO_CATEGORIES_IT` e `_EN` — regola domain-specific
+- Aggiunta regola: label devono essere SPECIFICI DEL DOMINIO (non generici)
+- Esempi espliciti nel template: "Trasporto Vascolare" non "Sistemi di Trasporto"
+- Aggiunto `{{focusTopic}}` al template EN che ne era privo (lenti non funzionavano in EN)
+- **Causa risolta**: Mistral Small allucinava su "Sistemi di Trasporto" perché il label
+  era ambiguo — il modello espandeva il ramo in senso letterale invece che botanico
+- **File modificati**: `prompts_config.json` e `public/prompts_default.json`
+
+### Analisi comparativa MM Guerra Fredda — GEMMA vs MISTRAL con lenti
+- Vault analizzati: "MM GF GEMMA LENTI e 4 NODI MANUALI - 4aMEDIA" vs "MM GF MISTRAL LENTI 4aMEDIA"
+- Graphify ha identificato 7 cluster semantici naturali vs struttura generata da MappAI
+- **GEMMA**: produzione superiore per 4a Media (100% fonti, label puliti, nessun duplicato)
+- **MISTRAL**: problemi di frammentazione e label lunghi — tutti prompt-addressable
+  - 4 regole mancanti identificate (anti-date, anti-lista, anti-duplicato, pivotali a L2)
+  - Potenziale superiore per profili Liceo (profondità L5, 200K context)
+- **Concetti mancanti identificati**: Dottrina Truman, Comecon, Maccartismo, Détente
+- **God nodes identificati da graphify**: Piano Marshall (deg.7), Stati Satelliti (deg.7),
+  Conflitti Locali (deg.6) — nessuno dei tre posizionato correttamente in nessuna MM
+
+### Skill `/analyze-mm` creata
+- File: `~/.claude/skills/analyze-mm/SKILL.md`
+- Pipeline: lettura vault → graphify re-analisi contenuto → confronto strutturale → report
+- Due modalità: analisi singola (auto-detect vault) + analisi comparativa (2 vault)
+- Output: sezione tecnica (metriche + anomalie + raccomandazioni template) +
+  sezione didattica (valutazione pedagogica per docente/OPI)
+- Registrata in `~/.claude/CLAUDE.md` per disponibilità in tutte le sessioni
+
+### Valutazione modelli Infomaniak per MM/KG
+| Modello | MM qualità | KG qualità | Raccomandazione |
+|---------|-----------|-----------|-----------------|
+| Gemma-4 31B | ✅ Buona | ⚠️ Scarsa (density ~1.1) | Baseline per 4a Media |
+| Mistral Small 119B | ⚠️ Troppi nodi, fix needed | ⚠️ Scarsa (density ~1.2) | Potenziale per Liceo |
+| Ministral 3B | ⚠️ Troppi nodi | 🔴 7-13 nodi (troppo piccolo) | Non adatto per KG |
+
+---
+
+## ✅ COMPLETATO IN SESSIONE PRECEDENTE (31 maggio 2026, pomeriggio)
 
 ### Extraction Lenses — KG
 - Fix critico: lenses non arrivavano ai prompt KG (né single-pass né multipass)

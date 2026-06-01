@@ -195,13 +195,33 @@ caricati in `index.html` DOPO `app.js` e PRIMA di `admin_prompts.js`:
 
 ---
 
-## 7. BUG NOTI E PROBLEMI APERTI
+## 7. MODELLI INFOMANIAK — VALUTAZIONE (1 giugno 2026)
+
+### Raccomandazione per profilo
+| Modello | Profilo ottimale | MM | KG | Note |
+|---------|-----------------|----|----|------|
+| **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti, 100% fonti. KG scarso con lenti (anomalia token). |
+| **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ (fix pending) | ⚠️ | Profondità L5, 200K context. Problemi label prompt-addressable. |
+| **Ministral 3B** | Non adatto per KG | ⚠️ | 🔴 | Troppo piccolo. IDs con markdown, auto-relazioni. |
+| **Apertus 70B** | Solo MM semplici | ⚠️ | ❌ | NO function calling. Nessun KG. |
+
+### Problemi Mistral Small (tutti correggibili con template)
+4 regole da aggiungere a `MIND_MAP_BRANCH_IT`: no-date-in-label, no-lista-in-label,
+no-duplicato-cross-ramo, concetti-pivotali-a-L2. Vedere TODO punti 1-2.
+
+### Anomalia da investigare: KG GEMMA + lenti → 37K token (atteso 65K)
+Solo 13 nodi generati. Causa: `extractKnowledgeGraphSinglePass` con `focusTopic`
+non vuoto potrebbe troncare il testo sorgente. Vedere TODO punto 9.
+
+---
+
+## 8. BUG NOTI E PROBLEMI APERTI
 
 ### 🔴 Bug critico: KG scarso con Infomaniak
-**Sintomo:** KG generato con Infomaniak ha ~16K token di prompt
-vs ~38K con Google sullo stesso documento.
-**Causa ipotizzata:** `responseMimeType: "application/json"` nel payload KG
-causa comportamenti diversi tra i due provider. Da investigare in:
+**Sintomo:** KG generato con Infomaniak ha densità ~1.1 (vs 2.3 Google NO LENTI).
+Anomalia specifica: KG GEMMA + lenti → 37K token prompt (metà del normale).
+**Causa ipotizzata:** `responseMimeType: "application/json"` + possibile troncamento
+con `focusTopic` non vuoto in `extractKnowledgeGraphSinglePass`.
 - `extractKnowledgeGraphSinglePass` e `MultiPass` in `app.js`
 - `InfomaniakBridge.translatePayload` in `infomaniak_bridge.js`
 **Fix proposto:** rimuovere `responseMimeType` dal payload KG per Infomaniak
@@ -227,7 +247,7 @@ mai dopo. Verificare in `prompts_default.json`.
 
 ---
 
-## 8. PATTERN DI CODICE IMPORTANTI
+## 9. PATTERN DI CODICE IMPORTANTI
 
 ### Salvataggio file nel vault (Electron)
 ```javascript
@@ -274,7 +294,23 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ---
 
-## 9. REGOLE DI SVILUPPO
+## 9. SKILL DI ANALISI DISPONIBILI
+
+### `/analyze-mm` — analisi metacognitiva vault MindMap
+- File: `~/.claude/skills/analyze-mm/SKILL.md`
+- **Uso**: `/analyze-mm` (auto-detect) | `/analyze-mm <vault>` | `/analyze-mm <v1> <v2>`
+- **Pipeline**: lettura nodi/link → graphify re-analisi → confronto strutturale → report
+- **Output sezione tecnica**: metriche strutturali, anomalie, raccomandazioni template
+- **Output sezione didattica**: valutazione pedagogica per docente/OPI
+- Vault base: `~/Documents/MappAI - Vault/`
+
+### `/graphify` — knowledge graph da qualsiasi input
+- File: `~/.claude/skills/graphify/SKILL.md`
+- Usato dalla skill analyze-mm per ottenere il "ground truth" semantico dei vault
+
+---
+
+## 10. REGOLE DI SVILUPPO
 
 1. **MAI usare `appState.nodes`** — usare sempre `appState.db.nodes`
 2. **Nuovi file JS** → caricare in `index.html` dopo `app.js`, prima di `admin_prompts.js`
@@ -287,17 +323,18 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ---
 
-## 10. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### Da risolvere subito
-1. **KG scarso con Infomaniak** — causa principale del problema
-2. **rootNodeLabel vuoto nel KG** — usare `focus-input` come fallback titolo
+### Da fare subito (prossima sessione)
+1. **4 regole mancanti in `MIND_MAP_BRANCH_IT`** — TODO punto 1
+2. **Template Liceo per Mistral Small** — TODO punto 2
+3. **Anomalia token KG GEMMA + lenti** — TODO punto 9
 
 ### Da fare dopo
-3. Revisione logica Extraction Lenses
-4. Refactoring CSS (703 `!important`)
-5. Pulizia root progetto (20 script Python, file .bak)
-6. Decomposizione `app.js` in moduli separati
+4. Chunking map-reduce per Infomaniak (TODO punto 3)
+5. Refactoring CSS (703 `!important`)
+6. Pulizia root progetto (20 script Python, file .bak)
+7. Decomposizione `app.js` in moduli separati
 
 ### Non toccare ora
 - Sistema di licensing (machine-id)
@@ -306,7 +343,7 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ---
 
-## 11. COMANDI UTILI
+## 12. COMANDI UTILI
 
 ```bash
 # Avvia l'app in sviluppo
@@ -324,7 +361,7 @@ grep -rn "pattern" public/js/ --include="*.js"
 
 ---
 
-## 12. CONTESTO PERSONALE
+## 13. CONTESTO PERSONALE
 
 Giacomo è un ex insegnante in malattia per burnout autistico.
 MappAI è il suo progetto principale — ha investito ~900 ore.
