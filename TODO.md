@@ -3,6 +3,36 @@
 
 ---
 
+## 🧪 DA TESTARE SUBITO (modifica 1 giugno 2026 — ricchezza relazionale KG)
+
+> Origine: l'analizzatore strutturale ha rivelato che i KG GEMMA/Infomaniak
+> hanno densità ~1.09 con **0 cross-link** e 68% relazioni "correlato a".
+> Causa: il template chiedeva solo link concetto→hub (grafo a stella), senza
+> relazioni laterali di ragionamento né vocabolario tipizzato.
+
+**Modifiche applicate (reversibili — backup in `*.bak`):**
+1. `KNOWLEDGE_GRAPH_SINGLE_IT` (in `prompts_config.json` + `prompts_default.json`):
+   - Aggiunto blocco "RELAZIONI — IL CUORE DEL GRAFO": richiede link LATERALI
+     concetto↔concetto, non solo verso gli hub (≥ tanti link laterali quanti nodi).
+   - Aggiunto vocabolario di relazioni di ragionamento (causa, produce, dipende
+     da, si oppone a, precede…) e DIVIETO esplicito di "correlato a"/"relativo a".
+2. `app.js` → nuova `window.markKgCrossLinks(nodes, links)`: marca `isCross=true`
+   i link laterali (concetto↔concetto / hub↔hub), distinguendoli dall'ancoraggio
+   gerarchico. Chiamata in `extractKnowledgeGraphSinglePass` e `MultiPass`.
+
+**Da fare:**
+- [ ] Rigenerare lo stesso KG (fotosintesi 4aMEDIA) su **Google** e verificare
+  densità > 1.5 e presenza di `isCross:true`. Confronto con `analyzeCurrentMap()`.
+- [ ] Rigenerare su **Infomaniak GEMMA** (rule §10.8: test su entrambi i provider).
+- [ ] **Causa C ancora aperta**: `responseMimeType:"application/json"` nel payload
+  KG (`app.js` ~3415) viola §10.6 per Infomaniak — il bridge lo converte in
+  reminder testuale che degrada il rispetto del prompt. Valutare branch per
+  rimuoverlo quando `aiProvider === 'infomaniak'`.
+- [ ] Mirror della stessa modifica su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` e
+  varianti `_EN` una volta validato il comportamento IT.
+
+---
+
 ## 🔮 IDEE FUTURE (riprendere dopo Piano 1 + Piano 2)
 
 ### Diff strutturale temporale — valutazione formativa

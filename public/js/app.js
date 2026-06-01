@@ -3084,6 +3084,30 @@ ${textParts.join('\n\n')}`;
  * un singolo link errato verso l'hub sbagliato, i vicini corretti spostano il voto
  * verso l'hub giusto. Fallback: BFS verso l'hub più vicino, poi group 1.
  */
+/**
+ * Marca i link laterali di un KG come cross-link (isCross=true).
+ * Un link è GERARCHICO (ancoraggio a un hub) se collega esattamente un Super-Hub
+ * (level 1) a un concetto. È LATERALE / di RAGIONAMENTO (concetto↔concetto o
+ * hub↔hub) in tutti gli altri casi: sono questi i collegamenti che danno
+ * ricchezza riflessiva al grafo e che vanno distinti dalla gerarchia per il
+ * rendering (childrenOf usa !isCross) e per l'analisi strutturale.
+ * Preserva gli isCross già impostati (es. da dedupeNodesAsCrossLinks).
+ */
+window.markKgCrossLinks = function (nodes, links) {
+    const levelOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+    (links || []).forEach(l => {
+        if (l.isCross === true) return; // già marcato altrove
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sHub = levelOf[sId] === 1;
+        const tHub = levelOf[tId] === 1;
+        const hierarchical = (sHub !== tHub); // XOR: esattamente uno è hub
+        l.isCross = !hierarchical;
+    });
+    return links;
+};
+
 window._assignHubGroup = function (nodeId, links, hubGroupMap) {
     const votes = {};
     const neighbors = [];
@@ -3495,6 +3519,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
@@ -3847,6 +3872,8 @@ ${textParts.join('\n\n')}`;
                 }
             });
         }
+
+        window.markKgCrossLinks(finalNodes, finalLinks);
 
         appState.db = {
             nodes: finalNodes,
