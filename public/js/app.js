@@ -4111,7 +4111,7 @@ function initD3Visualization() {
         .on("touchmove", handleTouchMove);
 
     svg.append("defs").selectAll("marker").data(["arrowhead"]).enter().append("marker")
-        .attr("id", String).attr("viewBox", "0 -5 10 10").attr("refX", 25).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+        .attr("id", String).attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
         .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
 
     g = svg.append("g");
@@ -4703,12 +4703,19 @@ function renderGraph() {
 }
 
 function tick() {
-    g.selectAll(".link")
-        .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    g.selectAll(".link").each(function(d) {
+        const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
+        const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
+        const ux = (tx - sx) / len, uy = (ty - sy) / len;
+        const rs = getNodeRadius(d.source);
+        const rt = getNodeRadius(d.target);
+        d3.select(this)
+            .attr("x1", sx + ux * rs).attr("y1", sy + uy * rs)
+            .attr("x2", tx - ux * rt).attr("y2", ty - uy * rt);
+    });
     g.selectAll(".link-label")
-        .attr("x", d => (d.source.x + d.target.x) / 2)
-        .attr("y", d => (d.source.y + d.target.y) / 2);
+        .attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.75)
+        .attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.75);
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
