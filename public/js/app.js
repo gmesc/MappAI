@@ -955,7 +955,7 @@ window.onSidebarNodeDblClick = function (event, nodeId) {
     }
     const node = appState.db.nodes.find(n => n.id === nodeId);
     if (node) {
-        window.handleNodeClick({ stopPropagation: () => {} }, node);
+        window.handleNodeClick({ stopPropagation: () => { } }, node);
     }
 };
 
@@ -1123,27 +1123,37 @@ window.executeSidebarSingleClick = function (nodeId) {
 // ── Curated model knowledge base ──────────────────────
 // Maps model ID patterns to capabilities, pricing, and categories.
 // Capabilities: pdf, url, youtube (video), audio, text, json (structured output)
+// IMPORTANTE: le chiavi PIÙ SPECIFICHE (più lunghe) vanno prima di quelle generiche.
+// matchModelKB usa prefix-match — "gemini-2.5-flash-lite" deve precedere "gemini-2.5-flash"
+// altrimenti flash-lite verrebbe riconosciuto come flash (match sbagliato).
 const MODEL_KB = {
-    // ── Gemini 3 series ──
-    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship, massima qualità' },
-    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Ottimo rapporto qualità/prezzo' },
-    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Ultra-economico' },
-    // ── Gemini 2.5 series ──
-    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning' },
-    'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Più economico di tutti' },
-    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato' },
-    // ── Gemini 2.0 series ──
-    'gemini-2.0-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Versatile e gratuito' },
-    'gemini-2.0-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, note: 'Leggero' },
-    // ── Gemini 1.5 series ──
-    'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, note: 'Stabile, legacy' },
-    'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Potente, legacy' },
+    // ── Gemini 3.5 (testato 2/6/26 — JSON fix applicato) ──
+    'gemini-3.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.5 · KG da testare' },
+    // ── Gemini 3.1 ──
+    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density ~1.9, MM ok (test 2/6/26)' },
+    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship 3.1 (preview)' },
+    // ── Gemini 3.0 ──
+    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.0 (preview)' },
+    'gemini-3-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Pro 3.0 (preview)' },
+    // ── Gemini 2.5 — flash-lite PRIMA di flash (prefix più specifico) ──
+    'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density 1.59, 41 nodi, 43% cross-link (test 2/6/26)' },
+    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning · da testare KG' },
+    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato · da testare KG' },
+    // ── Alias senza versione (-latest) ──
+    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite-latest (KG ~1.9, test 2/6/26)' },
+    'gemini-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Alias gemini-flash-latest' },
+    'gemini-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Alias gemini-pro-latest' },
+    // ── Deprecated (nascosti nel dropdown) ──
+    'gemini-2.0-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
+    'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
+    'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
+    'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
     // ── Infomaniak (Limit to Google/Gemma) ──
-    'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
-    'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
-    'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
-    'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Gemma)' },
-    'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak Cloud (Apertus)' },
+    'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
+    'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa google/gemma-4 (versione specifica)' },
+    'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
+    'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa gemma-4 (versione specifica)' },
+    'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -1167,13 +1177,15 @@ function matchModelKB(modelId) {
         }
     }
 
-    // 2. Try exact prefix match first in MODEL_KB
-    for (const pattern of Object.keys(MODEL_KB)) {
+    // 2. Prefix match — ordina per lunghezza decrescente: pattern più specifici prima.
+    // Es: "gemini-2.5-flash-lite" deve matchare PRIMA di "gemini-2.5-flash".
+    const kbPatterns = Object.keys(MODEL_KB).sort((a, b) => b.length - a.length);
+    for (const pattern of kbPatterns) {
         if (id.startsWith(pattern)) return MODEL_KB[pattern];
     }
-    // 3. Fuzzy: strip preview/exp suffixes and try again
+    // 3. Fuzzy: strip preview/exp/latest e riprova con lo stesso ordine
     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
-    for (const pattern of Object.keys(MODEL_KB)) {
+    for (const pattern of kbPatterns) {
         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
     }
 
@@ -1232,6 +1244,12 @@ function renderModelSelect(models, selectEl, currentValue) {
 
     tierOrder.forEach(tier => {
         if (!groups[tier] || groups[tier].length === 0) return;
+        // Stabili prima di preview/exp — l'API restituisce spesso varianti multiple
+        groups[tier].sort((a, b) => {
+            const stableA = (a.id.includes('preview') || a.id.includes('exp') ? 0 : 1);
+            const stableB = (b.id.includes('preview') || b.id.includes('exp') ? 0 : 1);
+            return stableB - stableA;
+        });
         const optgroup = document.createElement('optgroup');
         optgroup.label = tier;
         groups[tier].forEach(m => {
@@ -1341,7 +1359,10 @@ window.refreshGeminiModels = async function () {
             filteredModels = rawModels.filter(m => {
                 const id = m.id.toLowerCase();
                 if (excludePatterns.some(p => id.includes(p))) return false;
-                if (!id.includes('gemini')) return false; // Ensure it's a Gemini LLM
+                if (!id.includes('gemini')) return false;
+                // Escludi modelli marcati deprecated nel KB (discontinued o legacy nascosto)
+                const kb = matchModelKB(m.id);
+                if (kb && kb.deprecated) return false;
                 return true;
             });
         }
@@ -1437,7 +1458,7 @@ function cleanLabel(str) {
     // Evita problemi di encoding PDF (jsPDF non codifica correttamente U+2018/U+2019)
     // e garantisce coerenza del testo (es. ''89' non diventa 'SQ' nel PDF).
     s = s.replace(/[‘’‛ʼ]/g, "'")  // ' ' ‛ ʼ → '
-          .replace(/[“”‟]/g, '"');        // " " ‟ → "
+        .replace(/[“”‟]/g, '"');        // " " ‟ → "
 
     // Rimuove decorazioni markdown che alcuni modelli (es. Mistral) iniettano
     // nelle label: grassetto/corsivo, marcatori di lista/heading, virgolette enfatiche.
@@ -1527,13 +1548,21 @@ window.getSystemKey = function () {
 };
 
 // Restituisce il maxOutputTokens ottimale per il modello attivo.
-// Modelli grandi Infomaniak (Qwen, Kimi) producono output molto più lunghi.
-window.getMaxOutputTokens = function(baseTokens) {
-    if (appState.aiProvider !== 'infomaniak') return baseTokens;
+// Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
+// output più lunghi — scala il budget per evitare troncamenti.
+window.getMaxOutputTokens = function (baseTokens) {
     const modelEl = document.getElementById('model-select');
     const model = (modelEl ? modelEl.value : '').toLowerCase();
-    if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
-        return Math.max(baseTokens, 16384);
+    if (appState.aiProvider === 'infomaniak') {
+        if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
+            return Math.max(baseTokens, 16384);
+        }
+        return baseTokens;
+    }
+    // Gemini 2.5+ e 3.x sono più verbosi nelle descrizioni e nei chunk —
+    // raddoppia il budget, cap 16384, per evitare "Unexpected end of JSON".
+    if (model.includes('gemini-2.5') || model.includes('gemini-3')) {
+        return Math.min(baseTokens * 2, 16384);
     }
     return baseTokens;
 };
@@ -2782,7 +2811,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         // Senza questa iniezione le lenses agivano solo sulle macro-aree (Fase 1).
         const focusInjection = appState.focusTopic
             ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE (applica a OGNI sotto-nodo del ramo):\n' +
-              appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+            appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
             : '';
 
         const totalBranches = l1NodesData.length;
@@ -3432,6 +3461,27 @@ function salvageTruncatedJSON(text) {
     throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
 }
 
+// Estrae il testo dalla risposta AI in modo sicuro.
+// Gestisce: candidates mancanti, thinking mode (Gemini 2.5+ restituisce
+// parts[0] con thought:true prima del testo reale), safety blocks.
+function extractResponseText(response) {
+    const candidate = response?.candidates?.[0];
+    if (!candidate?.content?.parts?.length) {
+        const reason = response?.promptFeedback?.blockReason
+            || candidate?.finishReason
+            || 'candidates vuoti o assenti';
+        throw new Error(`Risposta AI non valida (${reason}). Riprova o cambia modello.`);
+    }
+    // Gemini 2.5 thinking mode: la prima part può avere thought:true (reasoning interno).
+    // Cerchiamo la prima part con testo non-reasoning.
+    const textPart = candidate.content.parts.find(p => !p.thought && p.text != null)
+        ?? candidate.content.parts[0];
+    const text = textPart?.text;
+    if (!text) throw new Error('Risposta AI: nessun testo nelle parts. Riprova o cambia modello.');
+    return text;
+}
+
+
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
@@ -3482,7 +3532,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     try {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
         const data = await window.fetchModelAPI(payload, apiKey);
-        let rawText = data.candidates[0].content.parts[0].text;
+        let rawText = extractResponseText(data);
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
@@ -3590,7 +3640,7 @@ async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
 
     const focusInjection = appState.focusTopic
         ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE:\n' +
-          appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
         : '';
 
     try {
@@ -3647,7 +3697,7 @@ ${textParts.join('\n\n')}`;
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
-        let p1Raw = p1Response.candidates[0].content.parts[0].text;
+        let p1Raw = extractResponseText(p1Response);
         let p1Clean = p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p1Data = salvageTruncatedJSON(p1Clean);
 
@@ -3720,7 +3770,7 @@ ${textParts.join('\n\n')}`;
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
-        let p2Raw = p2Response.candidates[0].content.parts[0].text;
+        let p2Raw = extractResponseText(p2Response);
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
 
@@ -3817,12 +3867,12 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(5000) }
             };
 
             try {
                 const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
-                let p3Raw = p3Response.candidates[0].content.parts[0].text;
+                let p3Raw = extractResponseText(p3Response);
                 let p3Clean = p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let p3Data = salvageTruncatedJSON(p3Clean);
 
@@ -4696,57 +4746,37 @@ function renderGraph() {
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
-    // ── Calcolo influenza hub per KG (BFS pesato, max 3 hop) ────────────────
-    // Peso per hop h: 1.0 (diretto), 0.5 (1 hop), 0.25 (2 hop).
-    // I segmenti colorati della circonferenza sono proporzionali al peso normalizzato.
+    // ── Stile KG per ruolo strutturale + bridge marking (1-hop) ─────────────
+    // Vedi public/js/mappai-node-styling.js. Annota _role, _bridgeInfo,
+    // _opacity, _strokeW su ogni nodo per ridurre la dispersione visiva.
     if (appState.extractionMode === 'kg') {
-        // Lista di adiacenza bidirezionale
-        const adj = {};
-        nodes.forEach(n => { adj[n.id] = []; });
-        links.forEach(l => {
-            const s = typeof l.source === 'object' ? l.source.id : l.source;
-            const t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (adj[s]) adj[s].push(t);
-            if (adj[t]) adj[t].push(s);
-        });
-
-        // Colore di ogni super-hub
-        const hubColorOf = {};
+        const groupColors = {};
         nodes.filter(n => n.level === 1).forEach(h => {
-            hubColorOf[h.id] = (appState.db.customColors && appState.db.customColors[h.group])
+            groupColors[h.group] = (appState.db.customColors && appState.db.customColors[h.group])
                 ? appState.db.customColors[h.group]
                 : (colorScale[h.group] || colorScale[1] || "#ef4444");
         });
+        if (appState.db.customColors && appState.db.customColors[0] !== undefined) {
+            groupColors[0] = appState.db.customColors[0];
+        } else if (colorScale[0]) {
+            groupColors[0] = colorScale[0];
+        }
 
-        const MAX_HOPS = 3;
+        if (window.MappAINodeStyling) {
+            window.MappAINodeStyling.annotate(nodes, links, groupColors);
+        }
 
+        // Compat: alcuni punti del codice leggono hubColors/hubWeights.
+        // Manteniamo le chiavi vuote per i nodi che non avranno segmenti hub-based.
         nodes.forEach(n => {
-            if (n.level <= 1) { n.hubWeights = {}; n.hubColors = []; return; }
-
-            const weights = {}; // color → peso massimo trovato
-            const visited = new Set([n.id]);
-            let frontier = [n.id];
-
-            for (let hop = 1; hop <= MAX_HOPS; hop++) {
-                const next = [];
-                const w = Math.pow(0.5, hop - 1); // 1 → 0.5 → 0.25
-                frontier.forEach(id => {
-                    (adj[id] || []).forEach(nbId => {
-                        if (visited.has(nbId)) return;
-                        visited.add(nbId);
-                        next.push(nbId);
-                        if (hubColorOf[nbId]) {
-                            const col = hubColorOf[nbId];
-                            weights[col] = Math.max(weights[col] || 0, w);
-                        }
-                    });
-                });
-                frontier = next;
-                if (!frontier.length) break;
+            if (n._bridgeInfo && n._bridgeInfo.segments) {
+                n.hubColors = n._bridgeInfo.segments.map(s => s.color);
+                n.hubWeights = {};
+                n._bridgeInfo.segments.forEach(s => { n.hubWeights[s.color] = s.fraction; });
+            } else {
+                n.hubColors = [];
+                n.hubWeights = {};
             }
-
-            n.hubWeights = weights;
-            n.hubColors = Object.keys(weights); // compat con altri punti del codice
         });
     }
 
@@ -4830,35 +4860,30 @@ function renderGraph() {
             return 2; // Outline base visibile
         });
 
-    // Gestione segmenti colorati per KG
+    // Gestione anello colorato KG (bridge marking + role-based thickness)
     nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
 
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
-            const strokeW = 4; // Spessore bordo segmentato più evidente
+            const strokeW = (d._strokeW !== undefined) ? d._strokeW : 3;
+            const segs = window.MappAINodeStyling
+                ? window.MappAINodeStyling.getRingSegments(d)
+                : null;
 
-            const hw = d.hubWeights;
-            if (hw && Object.keys(hw).length > 0) {
-                // Archi proporzionali al peso: diretto=1.0 → arco grande, indiretto→ arco piccolo
-                const entries = Object.entries(hw).sort((a, b) => b[1] - a[1]);
-                const totalW = entries.reduce((s, [, w]) => s + w, 0);
+            if (segs && segs.length) {
                 let cumAngle = 0;
-
-                entries.forEach(([color, weight]) => {
-                    const fraction = weight / totalW;
-                    const outerR = r + strokeW * (0.5 + weight * 0.5); // spessore scala col peso
+                segs.forEach(s => {
                     const arc = d3.arc()
                         .innerRadius(r)
-                        .outerRadius(outerR)
+                        .outerRadius(r + strokeW)
                         .startAngle(cumAngle)
-                        .endAngle(cumAngle + fraction * 2 * Math.PI);
-                    container.append("path").attr("d", arc).attr("fill", color);
-                    cumAngle += fraction * 2 * Math.PI;
+                        .endAngle(cumAngle + s.fraction * 2 * Math.PI);
+                    container.append("path").attr("d", arc).attr("fill", s.color);
+                    cumAngle += s.fraction * 2 * Math.PI;
                 });
             } else {
-                // Se non collegato a hub, bordo grigio semplice per non lasciare il nodo nudo
                 container.append("circle")
                     .attr("r", r + 1.5)
                     .attr("fill", "none")
@@ -5007,18 +5032,18 @@ function renderGraph() {
     // Link appaiono tutti insieme con delay
     linkEnter.transition().duration(800).delay(500).style("opacity", 1);
 
-    // I nodi vecchi (merge senza enter) devono mantenere opacità 1
-    // Per sicurezza impostiamo a 1 tutto ciò che era già presente
-    nodeSelection.style("opacity", 1);
+    // I nodi vecchi (merge senza enter) mantengono opacità modulata per ruolo
+    // (foglie attenuate a 0.65 in KG, vedi mappai-node-styling.js)
+    nodeSelection.style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
     linkSelection.style("opacity", 1);
 
-    // I nodi nuovi appaiono a scaglioni in base al livello
+    // I nodi nuovi appaiono a scaglioni in base al livello, target = _opacity
     nodeEnter.transition().duration(600).delay(d => {
         if (d.level === 0) return 0;
         if (d.level === 1) return 400;
         if (d.level === 2) return 800;
         return 1200;
-    }).style("opacity", 1);
+    }).style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
 }
 
 // Calcola il punto di controllo della bezier quadratica per link curvi.
@@ -7795,13 +7820,141 @@ window.generateDossierPDFFromOptions = async function () {
             dossierCardsHtml = buildNodeCard(n, true, citationsHtml, notesCount, relationsHtml);
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // MODO B: RAMO / TUTTA LA MAPPA
+            // MODO C: TUTTA LA MAPPA (Organizzata per Macro-Aree)
+            // ═══════════════════════════════════════════════════════════════════════════
+        } else if (scope === 'all' || selectedNodeId === 'all') {
+            const rootNode = appState.db.nodes.find(n => n.level === 0) || targetNodes[0];
+            const rootColor = getNodeColor(rootNode);
+
+            // 1) Diagramma ASCII globale
+            _visitedASCII.clear();
+            const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
+            dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
+            <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
+            <div class="dossier-header">
+                <div>
+                    <h2 class="dossier-title">Diagramma ad Albero Globale</h2>
+                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Tutta la mappa</span>
+                </div>
+            </div>
+            <div class="dossier-divider"></div>
+            <pre class="ascii-tree">${treeText}</pre>
+        </div>`;
+
+            // Stampa la card del Root Node
+            dossierCardsHtml += buildNodeCard(rootNode, false, '', 0, '');
+
+            const printedNodes = new Set([rootNode.id]);
+            const l1Nodes = appState.db.nodes.filter(n => n.level === 1).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            // 2) Ciclo sulle Macro-Aree
+            l1Nodes.forEach(l1 => {
+                _visitedDesc.clear();
+                const branchNodes = getDescendants(l1.id);
+                if (branchNodes.length === 0) branchNodes.push(l1);
+                branchNodes.sort((a, b) => (a.level || 0) - (b.level || 0));
+
+                const l1Color = getNodeColor(l1);
+
+                // A) Stampa card di tutti i nodi di questa Macro-Area
+                branchNodes.forEach(n => {
+                    if (!printedNodes.has(n.id)) {
+                        dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
+                        printedNodes.add(n.id);
+                    }
+                });
+
+                // B) Costruisce le citazioni della Macro-Area
+                let perNodeHtml = '';
+                let groupIdx = 1;
+                branchNodes.forEach(n => {
+                    const nodeSources = appState.db.sourcesDict?.[n.id] || [];
+                    if (nodeSources.length === 0) return;
+                    const nodeColor = getNodeColor(n);
+                    perNodeHtml += `<div class="node-citations-group">
+                    <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
+                        <span class="node-group-dot" style="background:${nodeColor};"></span>
+                        <span class="node-group-label">${cleanLabel(n.label)}</span>
+                        <span class="node-group-count">${nodeSources.length} cit.</span>
+                    </div>`;
+                    nodeSources.forEach(s => {
+                        const row = buildCitationRow({ ...s, nodeId: n.id }, groupIdx - 1, false);
+                        if (row) { perNodeHtml += row; groupIdx++; }
+                    });
+                    perNodeHtml += `</div>`;
+                });
+
+                if (!perNodeHtml) {
+                    perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata a questa macro-area.</p>`;
+                }
+
+                // C) Sezione aggregata (getInheritedDatabase per questo specifico L1)
+                const allInherited = (typeof window.getInheritedDatabase === 'function')
+                    ? window.getInheritedDatabase(l1.id)
+                    : [];
+
+                let aggregateHtml = '';
+                if (allInherited.length > 0) {
+                    aggregateHtml = allInherited.map((s, idx) => {
+                        const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
+                        const sourceText = s.text ? cleanLabel(s.text) : '';
+                        if (!sourceText) return '';
+                        const originNode = (s.nodeId && appState.db.nodes) ? appState.db.nodes.find(nd => nd.id === s.nodeId) : null;
+                        const originLabel = originNode ? cleanLabel(originNode.label) : '';
+                        const nodeColor = originNode ? getNodeColor(originNode) : l1Color;
+                        const nodeTag = originLabel ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>` : '';
+                        return `<div class="citation-row">
+                        <div class="citation-num">${idx + 1}</div>
+                        <div class="citation-content">
+                            <div class="citation-meta">
+                                <span class="citation-type-tag">TESTO DI ORIGINE</span>
+                                ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
+                                <span class="citation-sep">&mdash;</span>
+                                <span class="citation-source">${sourceName}</span>
+                            </div>
+                            <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                        </div>
+                    </div>`;
+                    }).filter(Boolean).join('');
+                } else {
+                    aggregateHtml = `<p class="no-chunks">Nessuna citazione aggregata trovata per questo ramo.</p>`;
+                }
+
+                const totalCount = allInherited.length || 0;
+
+                // Stampiamo la scheda finale delle citazioni del ramo
+                dossierCardsHtml += `<div class="dossier-card citations-master-card">
+                <div class="dossier-card-top-bar" style="background:${l1Color};"></div>
+                <div class="dossier-header">
+                    <div class="dossier-header-icon">&#128218;</div>
+                    <div>
+                        <h2 class="dossier-title">Fonti e Note: ${cleanLabel(l1.label)}</h2>
+                        <span class="dossier-tag">Tutte le citazioni del ramo (Macro-Area)</span>
+                    </div>
+                </div>
+                <div class="dossier-divider"></div>
+                <div class="citations-by-node-section">${perNodeHtml}</div>
+                <div class="citations-section-divider">
+                    <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI DEL RAMO) &mdash; ${totalCount} citazioni totali</span>
+                </div>
+                <div class="citations-container citations-aggregate">${aggregateHtml}</div>
+                </div>`;
+            });
+
+            // Eventuali nodi orfani
+            const orfani = targetNodes.filter(n => !printedNodes.has(n.id) && n.level > 0);
+            if (orfani.length > 0) {
+                orfani.forEach(n => { dossierCardsHtml += buildNodeCard(n, false, '', 0, ''); });
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // MODO B: RAMO SINGOLO
             // ═══════════════════════════════════════════════════════════════════════════
         } else {
             const rootNode = targetNodes[0];
             const rootColor = getNodeColor(rootNode);
 
-            // 1) Diagramma ASCII del ramo ─────────────────────────────────────────
+            _visitedASCII.clear();
             const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
             dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
             <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
@@ -7815,21 +7968,12 @@ window.generateDossierPDFFromOptions = async function () {
             <pre class="ascii-tree">${treeText}</pre>
         </div>`;
 
-            // 2) Scheda per ogni nodo della genealogia (header + descrizione) ──────
             targetNodes.forEach(n => {
                 dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
             });
 
-            // 3) Sezione unificata citazioni ──────────────────────────────────────
-            //    Struttura ultima card:
-            //    A) Gruppi per nodo  (● Nodo A — [1] TESTO DI ORIGINE — file.pdf — "testo")
-            //    B) Sezione aggregata finale ▌▌ FONTI E NOTE APPROFONDITE (TUTTI I NODI)
-            //       via getInheritedDatabase(rootNode.id)
-
-            // ── A) Citazioni raggruppate per nodo ──────────────────────────────
             let perNodeHtml = '';
             let groupIdx = 1;
-
             targetNodes.forEach(n => {
                 const nodeSources = appState.db.sourcesDict?.[n.id] || [];
                 if (nodeSources.length === 0) return;
@@ -7851,7 +7995,6 @@ window.generateDossierPDFFromOptions = async function () {
                 perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata ai nodi di questo ramo.</p>`;
             }
 
-            // ── B) Sezione aggregata tramite getInheritedDatabase ──────────────
             const allInherited = (typeof window.getInheritedDatabase === 'function')
                 ? window.getInheritedDatabase(rootNode.id)
                 : [];
@@ -7862,7 +8005,6 @@ window.generateDossierPDFFromOptions = async function () {
                     const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
                     const sourceText = s.text ? cleanLabel(s.text) : '';
                     if (!sourceText) return '';
-                    // Nodo di appartenenza
                     const originNode = (s.nodeId && appState.db.nodes)
                         ? appState.db.nodes.find(nd => nd.id === s.nodeId)
                         : null;
@@ -7900,18 +8042,12 @@ window.generateDossierPDFFromOptions = async function () {
                 </div>
             </div>
             <div class="dossier-divider"></div>
-
-            <!-- Sezione A: per nodo -->
             <div class="citations-by-node-section">
                 ${perNodeHtml}
             </div>
-
-            <!-- Separatore tra le due sezioni -->
             <div class="citations-section-divider">
                 <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI) &mdash; ${totalCount} citazioni totali</span>
             </div>
-
-            <!-- Sezione B: aggregato completo via getInheritedDatabase -->
             <div class="citations-container citations-aggregate">
                 ${aggregateHtml}
             </div>
@@ -7944,30 +8080,40 @@ window.generateDossierPDFFromOptions = async function () {
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
                 :root {
-                    /* TIPOGRAFIA — fattore scala ${fontScale} applicato */
+                    /* --- MODIFICHE GLOBALI DI LAYOUT (Variabili CSS) --- */
+                    /* Puoi modificare questi valori per cambiare rapidamente l'aspetto di tutto il dossier */
+
+                    /* TIPOGRAFIA — fattore scala ${fontScale} applicato in automatico */
                     --pdf-scale: ${fontScale};
-                    --pdf-font-family: 'Space Mono', monospace;
-                    --pdf-base-font-size: calc(13px * ${fontScale});
-                    --pdf-title-font-size: calc(17px * ${fontScale});
-                    --pdf-section-title-size: calc(9.5px * ${fontScale});
-                    --pdf-citation-font-size: calc(11.5px * ${fontScale});
-                    --pdf-small-font-size: calc(9px * ${fontScale});
+                    --pdf-font-family: 'Space Mono', monospace; /* Cambia qui il font del dossier */
+                    --pdf-base-font-size: calc(13px * ${fontScale}); /* Dimensione testo normale */
+                    --pdf-title-font-size: calc(17px * ${fontScale}); /* Dimensione titolo principale */
+                    --pdf-section-title-size: calc(9.5px * ${fontScale}); /* Dimensione titoli sezioni */
+                    --pdf-citation-font-size: calc(11.5px * ${fontScale}); /* Dimensione testo citazioni */
+                    --pdf-small-font-size: calc(9px * ${fontScale}); /* Dimensione testi piccoli e metadati */
                     
-                    /* COLORI */
-                    --pdf-primary-color: #0f172a;
-                    --pdf-accent-color: #38bdf8;  /* cyan – uguale al modale */
-                    --pdf-accent-dark: #0369a1;
-                    --pdf-bg-citation: #f0f9ff;
-                    --pdf-card-padding: calc(20px * ${fontScale});
-                    --pdf-card-border-radius: 10px;
-                    --pdf-spacing-between-cards: calc(28px * ${fontScale});
+                    /* COLORI E SPAZIATURE */
+                    --pdf-primary-color: #0f172a; /* Colore del testo principale */
+                    --pdf-accent-color: #38bdf8;  /* cyan – colore di accento (barre e dettagli) */
+                    --pdf-accent-dark: #0369a1; /* Colore di accento scuro per testi */
+                    --pdf-bg-citation: #f0f9ff; /* Colore di sfondo delle citazioni */
+                    
+                    /* Spaziature interne delle card (i riquadri dei nodi) */
+                    --pdf-card-padding: calc(20px * ${fontScale}); /* Margine interno delle card */
+                    --pdf-card-border-radius: 10px; /* Arrotondamento angoli delle card */
+                    --pdf-spacing-between-cards: calc(28px * ${fontScale}); /* Spazio verticale tra una card e l'altra */
                 }
 
                 @media print {
+                    /* --- REGOLE DI STAMPA A4 --- */
                     @page {
+                        /* Formato della pagina. Puoi usare 'A4 landscape' per orizzontale */
                         size: A4 portrait;
-                        margin: 20mm 18mm; /* laterali ridotti del 10%: 20mm → 18mm */
-                        /* Footer automatico su ogni pagina stampata */
+                        
+                        /* Margini della pagina fisica (Sopra/Sotto Destra/Sinistra) */
+                        margin: 20mm 18mm; 
+                        
+                        /* Footer automatico su ogni pagina stampata - Modifica qui il testo a piè di pagina */
                         @bottom-left { content: "MappAI — insegnai.ch"; font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
                         @bottom-right { content: counter(page); font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
                     }
@@ -7976,9 +8122,11 @@ window.generateDossierPDFFromOptions = async function () {
                         padding: 0;
                     }
                     .no-print { display: none !important; }
+                    
+                    /* Comportamento dei riquadri (card) durante l'impaginazione */
                     .dossier-card { 
-                        page-break-after: always;
-                        page-break-inside: avoid;
+                        page-break-after: always; /* Forza una nuova pagina dopo ogni card (se non lo vuoi, commenta questa riga) */
+                        page-break-inside: avoid; /* Evita che una card venga spezzata su due pagine */
                         break-after: page;
                         box-shadow: none !important;
                         border: none !important;
@@ -8056,14 +8204,16 @@ window.generateDossierPDFFromOptions = async function () {
                     gap: var(--pdf-spacing-between-cards);
                 }
 
-                /* ── Card principale ─────────────────────── */
+                /* ── Card principale (riquadro di ogni Nodo) ─────────────────────── */
                 .dossier-card {
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: var(--pdf-card-border-radius);
+                    background: #fff; /* Colore di sfondo della card (di default bianco) */
+                    border: 1px solid #e2e8f0; /* Colore e spessore del bordo grigio chiaro */
+                    border-radius: var(--pdf-card-border-radius); /* Smussatura degli angoli (vedi variabili :root in alto) */
                     padding: var(--pdf-card-padding);
                     overflow: hidden;
                     position: relative;
+                    /* Se vuoi aggiungere un'ombra visuale a schermo (viene rimossa in stampa in automatico): */
+                    /* box-shadow: 0 4px 6px rgba(0,0,0,0.1); */
                 }
 
                 /* Banda colorata in cima alla card (come il modale) */
@@ -8206,6 +8356,8 @@ window.generateDossierPDFFromOptions = async function () {
                     border-radius: 0;
                     padding: 8pt 10pt;
                     margin-bottom: 6pt;          /* spazio tra fonti: 6pt */
+                    page-break-inside: avoid;    /* Evita di spezzare la card tra due pagine */
+                    break-inside: avoid;
                 }
 
                 .citation-num {
@@ -8407,15 +8559,18 @@ window.generateDossierPDFFromOptions = async function () {
                 /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
                 .dossier-footer {
                     position: fixed;
-                    bottom: 0;
+                    /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
+                    bottom: 0mm; 
                     left: 0;
                     right: 0;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 6px 0;
+                    padding: 4px 0 40px;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
+                    /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
+                    background-color: white; 
                 }
                 .dossier-footer-left {
                     display: flex;

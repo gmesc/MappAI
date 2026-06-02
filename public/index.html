@@ -160,6 +160,58 @@
         input, textarea, select {
             @apply focus_ring_standard;
         }
+
+        /* ==========================================================================
+           11. PROMPT-MODAL — Gerarchia tipografica condivisa
+           Prefisso: pm- (prompt-modal)
+           Usata da: dossier-print-modal, timeline-generator-modal
+           In futuro: estendere agli altri prompt-modal dell'applicazione.
+
+           Struttura tipo:
+             pm-icon-wrap  →  riquadro icona header (top-left)
+             pm-title      →  titolo principale del modale
+             pm-subtitle   →  contesto sotto il titolo (es. nome progetto)
+             pm-body-text  →  paragrafo descrittivo
+             pm-badge      →  etichetta informativa inline
+             pm-section    →  riquadro grigio per raggruppare opzioni
+             pm-section-title → intestazione di una sezione opzioni
+             pm-option     →  riga singola radio/checkbox
+             pm-option-label  → testo principale dell'opzione
+             pm-option-desc   → testo secondario descrittivo dell'opzione
+             pm-btn-cancel    → bottone annulla footer
+             pm-btn-primary   → bottone conferma footer
+           ========================================================================== */
+
+        /* Icona header */
+        .pm-icon-wrap { @apply w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0; }
+
+        /* Titolo e sottotitolo */
+        .pm-title    { @apply text-[15px] font-extrabold text-slate-800 leading-snug; }
+        .pm-subtitle { @apply text-[11px] text-slate-400 leading-snug; }
+
+        /* Corpo descrittivo */
+        .pm-body-text { @apply text-[12px] text-slate-500 leading-relaxed; }
+
+        /* Badge informativi */
+        .pm-badge          { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold; }
+        .pm-badge-info     { @apply bg-indigo-50 text-indigo-700; }
+        .pm-badge-ok       { @apply bg-emerald-50 text-emerald-700; }
+        .pm-badge-warn     { @apply bg-amber-50 text-amber-700; }
+        .pm-badge-mode-mm  { @apply bg-indigo-50 text-indigo-700; }
+        .pm-badge-mode-kg  { @apply bg-amber-50 text-amber-700; }
+
+        /* Sezione opzioni */
+        .pm-section       { @apply bg-slate-50 rounded-xl p-4 border border-slate-100; }
+        .pm-section-title { @apply block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3; }
+
+        /* Riga opzione */
+        .pm-option       { @apply flex items-start gap-2.5 cursor-pointer; }
+        .pm-option-label { @apply text-[12px] font-bold text-slate-700; }
+        .pm-option-desc  { @apply text-[11px] text-slate-400 leading-snug mt-0.5; }
+
+        /* Bottoni footer */
+        .pm-btn-cancel  { @apply flex-1 py-2.5 px-4 border border-slate-200 text-slate-500 rounded-xl text-[12px] font-bold cursor-pointer bg-white hover:bg-slate-50 transition-colors; }
+        .pm-btn-primary { @apply flex-[2] py-2.5 px-5 bg-indigo-600 text-white rounded-xl text-[12px] font-bold cursor-pointer hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2; }
       }
     </style>
     <!-- KaTeX — rendering formule matematiche LaTeX -->
@@ -1912,13 +1964,18 @@
             </button>
 
             <div class="space-y-6">
-                <h3 class="modal_title flex items-center gap-3"><i data-lucide="files"
-                        class="w-8 h-8 text-indigo-600"></i> Opzioni Stampa Dossier</h3>
+
+                <!-- Header -->
+                <div class="flex items-center gap-3">
+                    <div class="pm-icon-wrap">
+                        <i data-lucide="files" class="w-5 h-5 text-indigo-600"></i>
+                    </div>
+                    <div class="pm-title">Opzioni Stampa Dossier</div>
+                </div>
 
                 <!-- MM Options Group -->
                 <div id="print-mm-options" class="hidden space-y-4">
-                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full">Modalità:
-                        Mappa Mentale (MM)</span>
+                    <span class="pm-badge pm-badge-mode-mm">Modalità: Mappa Mentale (MM)</span>
 
                     <div>
                         <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
@@ -1929,33 +1986,33 @@
                     </div>
 
                     <div id="print-mm-scope-container" class="hidden">
-                        <label class="modal_field_title block mb-2">Ambito di Stampa</label>
+                        <span class="pm-section-title">Ambito di Stampa</span>
                         <div class="space-y-2">
-                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <label class="pm-option">
                                 <input type="radio" name="print-mm-scope" value="single" checked
-                                    class="accent-indigo-600">
-                                Solo il nodo selezionato
+                                    class="mt-0.5 accent-indigo-600 cursor-pointer">
+                                <span class="pm-option-label">Solo il nodo selezionato</span>
                             </label>
-                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                <input type="radio" name="print-mm-scope" value="branch" class="accent-indigo-600">
-                                Il nodo selezionato e tutto il suo sotto-ramo
+                            <label class="pm-option">
+                                <input type="radio" name="print-mm-scope" value="branch"
+                                    class="mt-0.5 accent-indigo-600 cursor-pointer">
+                                <span class="pm-option-label">Il nodo selezionato e tutto il suo sotto-ramo</span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="pt-2">
-                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <div class="pt-1">
+                        <label class="pm-option">
                             <input type="checkbox" id="print-mm-ascii-diagram" checked
-                                class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
-                            Includi diagramma ASCII delle relazioni del ramo con linking word
+                                class="mt-0.5 accent-indigo-600 cursor-pointer rounded">
+                            <span class="pm-option-label">Includi diagramma ASCII delle relazioni del ramo con linking word</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- KG Options Group -->
                 <div id="print-kg-options" class="hidden space-y-4">
-                    <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full">Modalità:
-                        Knowledge Graph (KG)</span>
+                    <span class="pm-badge pm-badge-mode-kg">Modalità: Knowledge Graph (KG)</span>
 
                     <div>
                         <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
@@ -1966,32 +2023,33 @@
                     </div>
 
                     <div id="print-kg-scope-container" class="hidden">
-                        <label class="modal_field_title block mb-2">Ambito di Stampa</label>
+                        <span class="pm-section-title">Ambito di Stampa</span>
                         <div class="space-y-2">
-                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <label class="pm-option">
                                 <input type="radio" name="print-kg-scope" value="single" checked
-                                    class="accent-indigo-600">
-                                Solo i contenuti di questo singolo nodo/hub
+                                    class="mt-0.5 accent-indigo-600 cursor-pointer">
+                                <span class="pm-option-label">Solo i contenuti di questo singolo nodo/hub</span>
                             </label>
-                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                <input type="radio" name="print-kg-scope" value="all" class="accent-indigo-600">
-                                Tutta la mappa
+                            <label class="pm-option">
+                                <input type="radio" name="print-kg-scope" value="all"
+                                    class="mt-0.5 accent-indigo-600 cursor-pointer">
+                                <span class="pm-option-label">Tutta la mappa</span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="pt-2">
-                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <div class="pt-1">
+                        <label class="pm-option">
                             <input type="checkbox" id="print-kg-relations" checked
-                                class="rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600">
-                            Includi elenco relazioni (Elenco A e Elenco B)
+                                class="mt-0.5 accent-indigo-600 cursor-pointer rounded">
+                            <span class="pm-option-label">Includi elenco relazioni (Elenco A e Elenco B)</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Selettore Grandezza Testo (comune a MM e KG) -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <label class="modal_field_title block mb-1">Grandezza del testo</label>
+                    <span class="pm-section-title">Grandezza del testo</span>
                     <div class="flex gap-2">
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="print-font-scale" value="0.82" class="sr-only peer">
@@ -2016,13 +2074,11 @@
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-4 pt-4 border-t border-slate-100">
-                    <button onclick="window.closeDossierPrintModal()"
-                        class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">
+                <div class="flex gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="window.closeDossierPrintModal()" class="pm-btn-cancel">
                         Annulla
                     </button>
-                    <button onclick="window.generateDossierPDFFromOptions()"
-                        class="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition flex items-center gap-2">
+                    <button type="button" onclick="window.generateDossierPDFFromOptions()" class="pm-btn-primary">
                         <i data-lucide="printer" class="w-4 h-4"></i> Stampa / Esporta PDF
                     </button>
                 </div>
@@ -3106,6 +3162,7 @@
     <script src="js/mappai-glossary.js"></script>
     <script src="js/mappai-quiz-print.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
+    <script src="js/mappai-node-styling.js"></script>
     <script>
         window.toggleSidebar = function () {
             const mapView = document.getElementById('map-view');
