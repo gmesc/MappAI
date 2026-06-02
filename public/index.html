@@ -214,6 +214,66 @@
         .pm-btn-primary { @apply flex-[2] py-2.5 px-5 bg-indigo-600 text-white rounded-xl text-[12px] font-bold cursor-pointer hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2; }
       }
     </style>
+    <style>
+      /* ── Lente Relazioni ─────────────────────────────────────── */
+      /* Dim leggero sui link/nodi non appartenenti alla famiglia attiva */
+      .lens-dimmed { opacity: 0.2 !important; transition: opacity 0.25s ease; }
+
+      /* Menu lente — stile ispirato a floating-actions-menu */
+      #lens-menu {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        padding: 8px;
+        min-width: 200px;
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      #lens-menu.hidden { display: none; }
+      #lens-menu .lens-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        transition: background 0.15s, color 0.15s;
+        border: none;
+        background: transparent;
+        width: 100%;
+        text-align: left;
+      }
+      #lens-menu .lens-item:hover { background: #f8fafc; }
+      #lens-menu .lens-item.active { background: #f1f5f9; }
+      #lens-menu .lens-item .lens-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      #lens-menu .lens-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+
+      /* Caret ▾ sul bottone TESTO */
+      #card-btn-labels { position: relative; }
+      #lens-caret {
+        position: absolute;
+        bottom: 2px; right: 2px;
+        font-size: 8px;
+        line-height: 1;
+        color: #94a3b8;
+        pointer-events: none;
+        user-select: none;
+      }
+    </style>
     <!-- KaTeX — rendering formule matematiche LaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
         crossorigin="anonymous">
@@ -1329,13 +1389,21 @@
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>
 
-                <!-- Toggle Label -->
-                <button id="card-btn-labels" onclick="window.toggleLabels()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Mostra/Nascondi Etichette Relazioni">
-                    <i data-lucide="tag" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">TESTO</span>
-                </button>
+                <!-- Toggle Label + Lente Relazioni -->
+                <div class="relative" id="lens-btn-wrapper">
+                    <!-- Menu lente (aperto con click destro / caret) -->
+                    <div id="lens-menu" class="hidden"></div>
+                    <!-- Bottone TESTO -->
+                    <button id="card-btn-labels" type="button"
+                        onclick="window.toggleLabels()"
+                        oncontextmenu="event.preventDefault(); event.stopPropagation(); window.openLensMenu();"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Click: mostra/nascondi etichette — Click destro: lente famiglie di relazione">
+                        <i data-lucide="tag" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">TESTO</span>
+                        <span id="lens-caret">▾</span>
+                    </button>
+                </div>
                 <div class="w-px h-8 bg-slate-200"></div>
 
                 <!-- Pathfinder -->

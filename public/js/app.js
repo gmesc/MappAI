@@ -269,6 +269,64 @@ const KG_REL_ENUM = [
     "rappresenta", "sostiene", "coinvolge", "permette"
 ];
 
+// ── Lente Relazioni — famiglie semantiche ──────────────────────────────────
+// Palette daltonismo-safe (no rosso/verde puri). Ogni famiglia ha:
+//   color    : valore HSL del link/outline attivo
+//   colorBtn : variante più scura per colorare il bottone TESTO
+//   label    : nome leggibile nel menu
+//   icon     : icona Lucide
+const EDGE_FAMILIES = {
+    trasformazione: { color: 'hsl(28,85%,52%)',  colorBtn: 'hsl(28,85%,42%)',  label: 'Trasformazione', icon: 'zap' },
+    dipendenza:     { color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza',     icon: 'link-2' },
+    sequenza:       { color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza',       icon: 'arrow-right' },
+    appartenenza:   { color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Appartenenza',   icon: 'folder-tree' },
+    regolazione:    { color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Regolazione',    icon: 'sliders-horizontal' },
+    opposizione:    { color: 'hsl(15,75%,55%)',  colorBtn: 'hsl(15,75%,44%)',  label: 'Opposizione',    icon: 'shield-x' },
+    altro:          { color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro',          icon: 'circle-help' }
+};
+
+// Mappa verbo → famiglia (normalizzato lowercase)
+const REL_FAMILY_MAP = {
+    'causa': 'trasformazione', 'provoca': 'trasformazione', 'produce': 'trasformazione',
+    'genera': 'trasformazione', 'determina': 'trasformazione', 'trasforma in': 'trasformazione',
+    'porta a': 'trasformazione', 'alimenta': 'trasformazione', 'catalizza': 'trasformazione',
+    'richiede': 'dipendenza', 'dipende da': 'dipendenza', 'è condizione di': 'dipendenza',
+    'utilizza': 'dipendenza', 'permette': 'dipendenza',
+    'precede': 'sequenza', 'segue': 'sequenza', 'deriva da': 'sequenza',
+    'fa parte di': 'appartenenza', 'comprende': 'appartenenza', 'contiene': 'appartenenza',
+    'appartiene a': 'appartenenza', 'è esempio di': 'appartenenza',
+    'rappresenta': 'appartenenza', 'coinvolge': 'appartenenza',
+    'è regolato da': 'regolazione', 'regola': 'regolazione', 'governa': 'regolazione',
+    'guida': 'regolazione', 'sostiene': 'regolazione', 'avviene in': 'regolazione',
+    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione'
+};
+
+// Restituisce la famiglia per un rel (normalizzato, fallback 'altro')
+window.getEdgeFamilyKey = function (rel) {
+    if (!rel) return 'altro';
+    const norm = String(rel).trim().toLowerCase();
+    if (REL_FAMILY_MAP[norm]) return REL_FAMILY_MAP[norm];
+    // fallback: match sulla prima parola
+    const firstWord = norm.split(' ')[0];
+    for (const [verb, fam] of Object.entries(REL_FAMILY_MAP)) {
+        if (verb.startsWith(firstWord) || firstWord.startsWith(verb.split(' ')[0])) return fam;
+    }
+    return 'altro';
+};
+
+// Restituisce le famiglie presenti nella mappa corrente (dinamico)
+window.getActiveFamiliesInMap = function () {
+    const links = appState.db?.links || [];
+    const found = new Set();
+    links.forEach(l => found.add(window.getEdgeFamilyKey(l.rel)));
+    // ordine canonico delle famiglie definite, poi 'altro' in fondo
+    const order = Object.keys(EDGE_FAMILIES);
+    return order.filter(k => found.has(k));
+};
+
+// Stato corrente della lente (null = spenta)
+window.activeLensFamily = null;
+
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
     localStorage.setItem('infomaniak_product_id', val);
@@ -4080,6 +4138,13 @@ let linkingState = { active: false, sourceNode: null };
 let pathfinderState = { active: false, source: null, target: null };
 
 function initD3Visualization() {
+    // Azzera la lente relazioni ad ogni nuova visualizzazione
+    window.activeLensFamily = null;
+    const lensBtn = document.getElementById('card-btn-labels');
+    if (lensBtn) { lensBtn.style.background = ''; lensBtn.style.color = ''; }
+    const caret = document.getElementById('lens-caret');
+    if (caret) caret.style.color = '';
+
     // Normalizza le label dei nodi in-place: rimuove decorazioni markdown
     // (+, **, virgolette, troncamenti) iniettate da alcuni modelli. Idempotente:
     // sistema sia la visualizzazione sia l'export vault (che legge appState.db.nodes).
@@ -4680,6 +4745,8 @@ function renderGraph() {
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     window.applyVisualFilters();
+    // Riapplica la lente relazioni se attiva (dopo ogni render)
+    if (window.activeLensFamily) window.applyLensFamily();
 
     // Applica subito le posizioni pre-calcolate (tick manuale)
     tick();
@@ -5200,12 +5267,175 @@ window.applyLayoutForces = function () {
 }
 
 window.toggleLabels = function () {
+    // Se la lente è attiva, un click su TESTO la azzera (non togola i label globali)
+    if (window.activeLensFamily) {
+        window.resetLensFamily();
+        return;
+    }
     labelsHidden = !labelsHidden;
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     const btn = document.getElementById('card-btn-labels');
     if (labelsHidden) { btn.classList.replace('bg-slate-100', 'bg-red-50'); btn.classList.replace('text-slate-600', 'text-red-500'); }
     else { btn.classList.replace('bg-red-50', 'bg-slate-100'); btn.classList.replace('text-red-500', 'text-slate-600'); }
 }
+
+// ── Lente Relazioni ────────────────────────────────────────────────────────
+
+window.openLensMenu = function () {
+    const menu = document.getElementById('lens-menu');
+    if (!menu) return;
+
+    // Chiudi se già aperto
+    if (!menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        return;
+    }
+
+    // Costruisci le voci dinamicamente (solo famiglie presenti)
+    const families = window.getActiveFamiliesInMap();
+    let html = '';
+
+    // Voce "Tutte" per azzerare
+    const allActive = window.activeLensFamily === null;
+    html += `<button type="button" class="lens-item${allActive ? ' active' : ''}"
+        onclick="window.selectLensFamily(null)">
+        <span class="lens-dot" style="background:#94a3b8;"></span>
+        Tutte le relazioni
+    </button>`;
+
+    if (families.length > 1 || (families.length === 1 && families[0] !== 'altro')) {
+        html += `<div class="lens-divider"></div>`;
+    }
+
+    families.forEach(key => {
+        const fam = EDGE_FAMILIES[key];
+        const isActive = window.activeLensFamily === key;
+        html += `<button type="button" class="lens-item${isActive ? ' active' : ''}"
+            onclick="window.selectLensFamily('${key}')"
+            onmouseenter="this.style.color='${fam.color}'"
+            onmouseleave="this.style.color=''">
+            <span class="lens-dot" style="background:${fam.color};"></span>
+            <i data-lucide="${fam.icon}" style="width:12px;height:12px;flex-shrink:0;"></i>
+            ${fam.label}
+        </button>`;
+    });
+
+    menu.innerHTML = html;
+    menu.classList.remove('hidden');
+    window.safeCreateIcons();
+
+    // Chiudi cliccando fuori
+    setTimeout(() => {
+        const closer = (e) => {
+            if (!menu.contains(e.target) && e.target.id !== 'card-btn-labels') {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closer);
+            }
+        };
+        document.addEventListener('click', closer);
+    }, 0);
+};
+
+window.selectLensFamily = function (familyKey) {
+    window.activeLensFamily = familyKey;
+    document.getElementById('lens-menu')?.classList.add('hidden');
+    window.applyLensFamily();
+};
+
+window.applyLensFamily = function () {
+    const key = window.activeLensFamily;
+    const btn = document.getElementById('card-btn-labels');
+    const caret = document.getElementById('lens-caret');
+    if (!btn) return;
+
+    // Reset tutti i colori inline su link e nodi
+    g.selectAll('.link')
+        .style('stroke', null)
+        .style('stroke-width', null)
+        .style('stroke-opacity', null)
+        .classed('lens-dimmed', false);
+    g.selectAll('.link-group').classed('lens-dimmed', false);
+    g.selectAll('.node-group').classed('lens-dimmed', false);
+    g.selectAll('circle.node-circle')
+        .style('outline', null)
+        .style('stroke', null)
+        .style('stroke-width', null);
+    // Ripristina font-size label al valore base
+    g.selectAll('text.link-label').style('font-size', null).style('fill', null).style('opacity', null);
+
+    if (!key) {
+        // Stato OFF — ripristina bottone TESTO
+        btn.style.background = '';
+        btn.style.color = '';
+        if (caret) caret.style.color = '';
+        // Riapplica visibilità label standard
+        window.toggleLabels(); window.toggleLabels(); // forza re-sync senza cambiare stato
+        return;
+    }
+
+    const fam = EDGE_FAMILIES[key];
+    if (!fam) return;
+
+    // Raccogli gli ID dei nodi coinvolti dalla famiglia selezionata
+    const activeLinkObjects = new Set();
+    const activeNodeIds = new Set();
+    appState.db.links.forEach(l => {
+        if (window.getEdgeFamilyKey(l.rel) === key) {
+            activeLinkObjects.add(l);
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            activeNodeIds.add(s);
+            activeNodeIds.add(t);
+        }
+    });
+
+    const baseFontSize = 8 * globalFontScale * 0.765;
+
+    // Applica stile ai link-group
+    g.selectAll('.link-group').each(function (d) {
+        const lObj = appState.db.links.find(l => l === d || (
+            (typeof l.source === 'object' ? l.source.id : l.source) ===
+            (typeof d.source === 'object' ? d.source.id : d.source) &&
+            (typeof l.target === 'object' ? l.target.id : l.target) ===
+            (typeof d.target === 'object' ? d.target.id : d.target)
+        ));
+        const isActive = lObj && activeLinkObjects.has(lObj);
+        d3.select(this).classed('lens-dimmed', !isActive);
+
+        // Colora la <line class="link"> interna
+        d3.select(this).select('line.link')
+            .style('stroke', isActive ? fam.color : null)
+            .style('stroke-width', isActive ? '2.5px' : null)
+            .style('stroke-opacity', isActive ? '1' : null);
+
+        // Label: forza visibile + font ×2 + colore se attivo
+        d3.select(this).select('text.link-label')
+            .style('opacity', isActive ? '1' : null)
+            .style('font-size', isActive ? (baseFontSize * 2) + 'px' : null)
+            .style('fill', isActive ? fam.color : null);
+    });
+
+    // Dim sui nodi non coinvolti + outline su quelli coinvolti
+    g.selectAll('.node-group').each(function (d) {
+        const active = activeNodeIds.has(d.id) || d.level === 0;
+        d3.select(this).classed('lens-dimmed', !active);
+        if (active && d.level > 0) {
+            d3.select(this).select('circle.node-circle')
+                .style('stroke', fam.color)
+                .style('stroke-width', '3px');
+        }
+    });
+
+    // Colora il bottone TESTO
+    btn.style.background = fam.colorBtn;
+    btn.style.color = 'white';
+    if (caret) caret.style.color = 'rgba(255,255,255,0.7)';
+};
+
+window.resetLensFamily = function () {
+    window.activeLensFamily = null;
+    window.applyLensFamily();
+};
 
 window.updateDegreeStats = function () {
     let deg = {};
