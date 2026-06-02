@@ -8248,18 +8248,17 @@ window.generateDossierPDFFromOptions = async function () {
                 /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
                 .dossier-footer {
                     position: fixed;
-                    /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
-                    bottom: 0mm; 
+                    bottom: 0;
                     left: 0;
                     right: 0;
+                    height: 22mm;
                     display: flex;
                     justify-content: space-between;
-                    align-items: center;
-                    padding: 16px 0 0px;
+                    align-items: flex-end;
+                    padding: 0 0 13mm;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
-                    /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
-                    background-color: white; 
+                    background-color: white;
                 }
                 .dossier-footer-left {
                     display: flex;
