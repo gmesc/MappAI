@@ -3419,6 +3419,27 @@ function salvageTruncatedJSON(text) {
     throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
 }
 
+// Estrae il testo dalla risposta AI in modo sicuro.
+// Gestisce: candidates mancanti, thinking mode (Gemini 2.5+ restituisce
+// parts[0] con thought:true prima del testo reale), safety blocks.
+function extractResponseText(response) {
+    const candidate = response?.candidates?.[0];
+    if (!candidate?.content?.parts?.length) {
+        const reason = response?.promptFeedback?.blockReason
+            || candidate?.finishReason
+            || 'candidates vuoti o assenti';
+        throw new Error(`Risposta AI non valida (${reason}). Riprova o cambia modello.`);
+    }
+    // Gemini 2.5 thinking mode: la prima part può avere thought:true (reasoning interno).
+    // Cerchiamo la prima part con testo non-reasoning.
+    const textPart = candidate.content.parts.find(p => !p.thought && p.text != null)
+        ?? candidate.content.parts[0];
+    const text = textPart?.text;
+    if (!text) throw new Error('Risposta AI: nessun testo nelle parts. Riprova o cambia modello.');
+    return text;
+}
+
+
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
@@ -3469,7 +3490,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     try {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
         const data = await window.fetchModelAPI(payload, apiKey);
-        let rawText = data.candidates[0].content.parts[0].text;
+        let rawText = extractResponseText(data);
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
@@ -3645,7 +3666,7 @@ ${textParts.join('\n\n')}`;
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
-        let p1Raw = p1Response.candidates[0].content.parts[0].text;
+        let p1Raw = extractResponseText(p1Response);
         let p1Clean = p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p1Data = salvageTruncatedJSON(p1Clean);
 
@@ -3718,7 +3739,7 @@ ${textParts.join('\n\n')}`;
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
-        let p2Raw = p2Response.candidates[0].content.parts[0].text;
+        let p2Raw = extractResponseText(p2Response);
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
 
@@ -3820,7 +3841,7 @@ ${textParts.join('\n\n')}`;
 
             try {
                 const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
-                let p3Raw = p3Response.candidates[0].content.parts[0].text;
+                let p3Raw = extractResponseText(p3Response);
                 let p3Clean = p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let p3Data = salvageTruncatedJSON(p3Clean);
 
