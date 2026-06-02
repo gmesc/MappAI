@@ -113,7 +113,7 @@
     }
 
     // ── 1. God nodes: top-N per degree centrality ───────────
-    function analyzeGodNodes(nodes, links) {
+    function analyzeGodNodes(nodes, links, mode) {
         const adj = buildAdjacency(nodes, links);
         const ranked = nodes
             .map(n => ({ node: n, degree: adj.get(n.id)?.size || 0 }))
@@ -121,13 +121,33 @@
             .sort((a, b) => b.degree - a.degree)
             .slice(0, CONFIG.godNodeTopN);
 
-        return ranked.map(r => ({
-            type: SUGGESTION_TYPES.GOD_NODE,
-            nodeId: r.node.id,
-            severity: r.degree >= 10 ? 'high' : 'medium',
-            message: `"${r.node.label}" è connesso a ${r.degree} nodi. Sembra un concetto-cerniera: valuta se spostarlo a un livello più alto (L1/L2).`,
-            data: { degree: r.degree, currentLevel: r.node.level }
-        }));
+        return ranked.map(r => {
+            const level = getLevel(r.node);
+            const isKG = mode === 'kg';
+            let message;
+
+            if (level <= 1) {
+                // Nodo già al livello più alto — "spostarlo in alto" non ha senso.
+                if (isKG) {
+                    // In KG un Super-Hub L1 con alto grado è spesso atteso.
+                    message = `"${r.node.label}" è un Super-Hub molto connesso (${r.degree} nodi). In modalità KG questo è normale se è una macro-area centrale. Valuta se suddividerlo in sotto-hub più specifici per ridurre il sovraccarico cognitivo.`;
+                } else {
+                    // In MindMap un nodo L1 con troppi figli diretti indica squilibrio.
+                    message = `"${r.node.label}" è già un ramo principale (L1) ma è connesso a ${r.degree} nodi. Valuta se suddividerlo in macro-aree più specifiche per bilanciare la mappa.`;
+                }
+            } else {
+                // Nodo a livello L2+ — promozione a L1/L2 è un suggerimento valido.
+                message = `"${r.node.label}" è connesso a ${r.degree} nodi. Sembra un concetto-cerniera: valuta se spostarlo a un livello più alto (L1/L2).`;
+            }
+
+            return {
+                type: SUGGESTION_TYPES.GOD_NODE,
+                nodeId: r.node.id,
+                severity: r.degree >= 10 ? 'high' : 'medium',
+                message,
+                data: { degree: r.degree, currentLevel: level, mode: mode || 'unknown' }
+            };
+        });
     }
 
     // ── 2. Misplaced: nodo con più link verso un'altra area ─
@@ -520,7 +540,7 @@
         const suggestions = [
             // Sempre valide (qualsiasi grafo):
             ...detectLowConnectivity(nodes, links),
-            ...analyzeGodNodes(nodes, links),
+            ...analyzeGodNodes(nodes, links, mode),
             ...detectMisplacedNodes(nodes, links),
             ...detectUnderutilizedClusters(nodes, links),
             // Gerarchiche: solo MindMap (sui KG il "level" non è semantico):
