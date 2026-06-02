@@ -4513,6 +4513,13 @@ function renderGraph() {
         .on("dblclick", (e, d) => { e.stopPropagation(); window.openEditModal(d); })
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
+    // Hitbox invisibile: aumenta la zona cliccabile attorno al nodo
+    // (utile per nodi piccoli, es. PATH su KG L2+)
+    nodeEnter.append("circle")
+        .attr("class", "node-hitbox")
+        .attr("fill", "transparent")
+        .attr("stroke", "none");
+
     nodeEnter.append("circle").attr("class", "node-circle");
 
     // Contenitore per gli archi segmentati (solo KG)
@@ -4542,6 +4549,10 @@ function renderGraph() {
         .attr("y", 0);
 
     const nodeMerge = nodeEnter.merge(nodeSelection);
+
+    // Hitbox: raggio +10px rispetto al cerchio visibile (più tolleranza al click)
+    nodeMerge.select("circle.node-hitbox")
+        .attr("r", d => getNodeRadius(d) + 10);
 
     nodeMerge.select("circle.node-circle")
         .attr("r", d => getNodeRadius(d))
@@ -5589,7 +5600,14 @@ function calculatePath(start, end) {
 
 function handleBackgroundClick() {
     if (linkingState.active) { linkingState.active = false; document.getElementById('mode-hint').classList.add('hidden'); }
-    if (pathfinderActive) { pathfinderState.source = null; pathfinderState.target = null; document.getElementById('mode-hint').innerText = "PATHFINDER: Clicca sul Nodo di Partenza"; window.applyVisualFilters(); }
+
+    // PATHFINDER: il click sullo sfondo NON resetta più la selezione (era troppo
+    // distruttivo quando l'utente sbaglia di pochi pixel). Per uscire, ri-cliccare il
+    // bottone PATH oppure selezionare un altro nodo come sorgente.
+    if (pathfinderActive) {
+        hideContextMenu();
+        return; // niente reset selezione, niente clear node-details
+    }
 
     currentNode = null;
     g.selectAll(".node-group, .link-group").classed("dimmed", false).classed("highlighted", false);
