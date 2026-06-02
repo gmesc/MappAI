@@ -1,5 +1,181 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 1 giugno 2026 (sera).
+> Priorità in ordine decrescente. Aggiornato: 2 giugno 2026 (sera).
+
+---
+
+## ☀️ PROSSIMA SESSIONE INIZIA QUI
+
+**Obiettivo sessione**: implementare **Modalità B — Estrazione per hub** nel KG
+multi-pass (vedi sezione dedicata sotto). Aprire una NUOVA conversazione con
+il briefing specifico di quella feature.
+
+**Stato branch**: tutto mergeato su `dev`. Branch attivo: `feat/kg-hub-extraction`
+(da creare nella prossima sessione).
+
+---
+
+## ✅ COMPLETATO — Sessione 1-2 giugno 2026
+
+### `mappai-structure-analyzer.js` — modulo analisi strutturale
+- ✅ Creato e cablato in `index.html` dopo `mappai-quiz-print.js`
+- ✅ 6 analisi: godNodes, misplacedNodes, underutilizedClusters, leafIsolation
+  (per-livello), lowConnectivity, structuralKeystones (Tarjan), meaningHubs (Brandes)
+- ✅ Auto-adattivo su modalità (mindmap/kg) e densità (tree-like/networked)
+- ✅ Validato su 3 vault: MM GF GEMMA STORIA, KG Google, KG Infomaniak
+- ✅ `detectMode()` deduce la modalità dagli ID quando `appState.extractionMode` manca
+- ✅ Filtro ponti-foglia (grado < 2 scartati), cap a 4 ponti significativi
+
+### Template KG riscritto — relazioni di ragionamento
+- ✅ `KNOWLEDGE_GRAPH_SINGLE_IT`: blocco "RELAZIONI — IL CUORE DEL GRAFO"
+  con link laterali obbligatori + vocabolario tipizzato + divieto "correlato a"
+- ✅ `KG_REL_ENUM` costante in `app.js` — enum nello schema JSON (enforcement
+  nativo su Google, vocabolario guida su Infomaniak)
+- ✅ `window.markKgCrossLinks()` — marca `isCross:true` i link laterali in entrambe
+  le funzioni KG (single-pass e multi-pass)
+- Risultati: Google densità 1.09→**2.18**, 0% generiche, 55 tipi relazione
+
+### Fix bug KG multi-pass
+- ✅ Bug A: `tutorState` non serializzabile → IPC crash "object could not be cloned"
+  Fix: `serializeTutorState()` in `saveMapVault` (app.js ~6225)
+- ✅ Bug B2: `saveCurrentProject` passava `appState` raw all'IPC (nodi D3 circolari)
+  Fix: payload minimo serializzabile in `saveMapJSON` call (app.js ~9804)
+- ✅ Orphan healer: "correlato a" → "fa parte di" + BFS hub migliore
+- ✅ Phase 2 maxOutputTokens: 3000 → 4096
+- ✅ Sanitizzazione rel Devanagari da GEMMA ("। fa parte di" → "fa parte di")
+- ✅ Multi-pass ON di default: `appState.multiPassMode: true` + chiamata silenziosa
+  in `DOMContentLoaded`
+
+### Risultati finali per provider
+| Provider | Densità | "correlato a" | Topology |
+|---|---|---|---|
+| Google Gemini multi-pass | 2.18 | 0% | networked ✅ |
+| Infomaniak GEMMA multi-pass | 1.37 | 0% | networked ✅ |
+
+---
+
+## 🔜 PROSSIMA FEATURE — Modalità B: Estrazione per hub
+
+> Da implementare in una nuova conversazione / branch `feat/kg-hub-extraction`.
+
+**Problema**: GEMMA multi-pass genera ~19-34 nodi invece di 33+ come Google,
+perché la Fase 1 è conservativa su corpus lunghi. Il gap non è risolvibile solo
+con prompt — serve un approccio architetturale diverso.
+
+**Soluzione proposta** (ispirata a `extractMindMapMultiPass`):
+```
+Fase 0: estrai 4-5 super-hub (titoli macro-aree)
+Fase 1a: "dimmi 8-10 concetti specifici di [HUB_A]"  ← 1 chiamata per hub
+Fase 1b: "dimmi 8-10 concetti specifici di [HUB_B]"
+...
+Merge: i nodi arrivano già con group assegnato
+Fase 2: link (molto più semplice: hub → figli già noti)
+```
+
+**Vantaggi**:
+- Copertura uniforme per hub (non dipende dalla lunghezza del testo)
+- Nodi già classificati → Fase 2 più efficace
+- Allineato alla Fase 2.1 della ROADMAP (`EXTRACT_ENTITIES_RELATIONS_IT`)
+- Riusa il pattern già validato di `extractMindMapMultiPass`
+
+**File da creare/modificare**:
+- `app.js`: nuova funzione `extractKnowledgeGraphHubPass()`
+- `prompts_config.json`: nuovi template `KG_HUB_NODES_IT` + `KG_HUB_RELATIONS_IT`
+- UI: nessuna modifica (stesso toggle multi-pass)
+
+**Nota**: considerare anche **Gap-fill pass** (opzione A, più semplice) come
+stepping stone prima di B se i tempi sono stretti: +1 chiamata "cosa manca?"
+dopo la Fase 1 normale.
+
+---
+
+**Cosa è FATTO e VALIDATO oggi:**
+- ✅ `mappai-structure-analyzer.js` completo: 6 analisi, auto-adattivo su modalità
+  (MM/KG) e densità (tree/networked). Cablato in `index.html`. Test da console:
+  `MappAIStructureAnalyzer.analyzeCurrentMap()`.
+- ✅ Template KG riscritto → relazioni laterali + tipizzate. Google: densità 2.0,
+  0% generiche. Infomaniak GEMMA: 1.31, 36% generiche (migliorato ma non al pari).
+- ✅ `window.markKgCrossLinks()` in `app.js` (marca isCross sui link laterali).
+- ✅ Refinement ponti-foglia nell'analizzatore.
+
+**3 strade aperte (scegliere domani, in ordine di priorità suggerito):**
+1. **Fix Causa C** — rimuovere `responseMimeType` dal payload KG per Infomaniak
+   (`app.js` ~3438). È il pezzo che porta i provider svizzeri (GDPR) al livello di
+   Google. Modifica isolata. → dettagli nella sezione "DA TESTARE SUBITO" sotto.
+2. **Mirror template** su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` + `_EN` (copre la
+   modalità studente, target BES/DSA). Modifica già validata, basso rischio.
+3. **UI Piano 1.2** — pannello `#structural-suggestions-panel` con le card dei
+   suggerimenti + primitiva `highlightSubgraph` per studio guidato dei percorsi.
+   Keystone/meaning_hub ora validati su 2 provider → si può costruire con fiducia.
+
+**Nota minore da rifinire:** il messaggio di `god_node` dice "sposta a L1/L2" anche
+sui KG dove il nodo è già hub L1 → riformulare per modalità KG.
+
+---
+
+## 🧪 DA TESTARE SUBITO (modifica 1 giugno 2026 — ricchezza relazionale KG)
+
+> Origine: l'analizzatore strutturale ha rivelato che i KG GEMMA/Infomaniak
+> hanno densità ~1.09 con **0 cross-link** e 68% relazioni "correlato a".
+> Causa: il template chiedeva solo link concetto→hub (grafo a stella), senza
+> relazioni laterali di ragionamento né vocabolario tipizzato.
+
+**Modifiche applicate (reversibili — backup in `*.bak`):**
+1. `KNOWLEDGE_GRAPH_SINGLE_IT` (in `prompts_config.json` + `prompts_default.json`):
+   - Aggiunto blocco "RELAZIONI — IL CUORE DEL GRAFO": richiede link LATERALI
+     concetto↔concetto, non solo verso gli hub (≥ tanti link laterali quanti nodi).
+   - Aggiunto vocabolario di relazioni di ragionamento (causa, produce, dipende
+     da, si oppone a, precede…) e DIVIETO esplicito di "correlato a"/"relativo a".
+2. `app.js` → nuova `window.markKgCrossLinks(nodes, links)`: marca `isCross=true`
+   i link laterali (concetto↔concetto / hub↔hub), distinguendoli dall'ancoraggio
+   gerarchico. Chiamata in `extractKnowledgeGraphSinglePass` e `MultiPass`.
+
+**Da fare:**
+- [ ] Rigenerare lo stesso KG (fotosintesi 4aMEDIA) su **Google** e verificare
+  densità > 1.5 e presenza di `isCross:true`. Confronto con `analyzeCurrentMap()`.
+- [ ] Rigenerare su **Infomaniak GEMMA** (rule §10.8: test su entrambi i provider).
+- [x] **Test Google (Gemini)**: densità 2.0, cross-link 45%, generiche 0%, 55 tipi
+  di relazione. ✅ Fix template pienamente efficace su Google.
+- [x] **Test Infomaniak (GEMMA)**: densità 1.31 (da 1.09), cross-link 30% (da 0%),
+  generiche 36% (da 68%), 20 tipi. ✅ Migliorato MA nettamente sotto Google.
+- [x] **CAUSA C — REVISIONE DIAGNOSI (2 giugno 2026)**: la rimozione di
+  `responseMimeType` ha PEGGIORATO la qualità (26 nodi → densità 0.96).
+  Lo schema aiuta la completezza strutturale anche se degrada i rel.
+  **Vera causa**: la Fase 2 multi-pass genera link solo per ~16/34 nodi,
+  l'orphan healer riempiva i buchi con "correlato a".
+  **Fix applicati**: (1) orphan healer → "fa parte di" + BFS per hub migliore;
+  (2) p2 maxOutputTokens 3000→4096; (3) KG_REL_ENUM nello schema;
+  (4) sanitizzazione rel Devanagari da GEMMA ("। fa parte di" → "fa parte di").
+  **Risultato**: densità 1.37, 0% "correlato a", topology "networked" ✅.
+  **Residuo aperto**: gap Google (2.18) vs Infomaniak (1.37) — GEMMA genera
+  meno link laterali per design del modello, non risolvibile solo con prompt.
+  Accettabile per ora; da monitorare con Piano 2 (auto-clustering).
+- [x] **Refinement analizzatore**: `detectStructuralKeystones` ora scarta i ponti
+  verso foglie (grado 1, trivali) e li limita a `bridgeCap=4`. Riduce il rumore su
+  grafi networked a densità borderline (~1.3).
+- [ ] Mirror della stessa modifica su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` e
+  varianti `_EN` una volta validato il comportamento IT.
+
+---
+
+## 🔮 IDEE FUTURE (riprendere dopo Piano 1 + Piano 2)
+
+### Diff strutturale temporale — valutazione formativa
+> Origine: analisi topologica `mappai-structure-analyzer.js` (1 giugno 2026).
+> Da riprendere SOLO dopo aver completato il pannello suggerimenti (Piano 1)
+> e l'auto-restructure OPI (Piano 2).
+
+**Idea**: salvare snapshot dello stato del grafo nel tempo e misurare come la
+rete concettuale dello studente cresce sessione dopo sessione.
+
+- Metriche da tracciare per snapshot: densità (link/nodi), profondità media,
+  n° cross-link, n° community (Louvain), betweenness dei concetti-cardine.
+- Output: grafico di crescita + delta tra due snapshot ("hai aggiunto 4
+  cross-link e 1 catena causale rispetto alla scorsa settimana").
+- **Valore pedagogico**: strumento di valutazione formativa per l'OPI —
+  evidenza oggettiva del progredire della comprensione, non solo del contenuto.
+- Dipendenze: riusa `analyzeStructure()` + `computeBetweenness()` già presenti
+  nel modulo. Serve persistenza snapshot nel vault (es. `Snapshots/*.json`).
+- Allineato alla filosofia BES/DSA: misura il percorso, non solo il risultato.
 
 ---
 

@@ -93,7 +93,7 @@ button,
 .generate-btn,
 .mode-btn,
 .source-type-btn {
-    font-size: 13px !important;
+    font-size: 16px !important;
     /* Forza dimensione fissa */
 }
 
@@ -733,9 +733,11 @@ body.a11y-zoom-x2 {
 #landing-view .glass-card span[data-i18n="btn_new_project"],
 #landing-view .glass-card span[data-i18n="btn_open_vault"] {}
 
+
+/* PICCOLE ISTRUZIONI SUI TOGGLE */
 #landing-view .glass-card span.tracking-wider.uppercase,
 #landing-view .glass-card span.tracking-wider {
-    font-size: calc(10px * var(--landing-zoom)) !important;
+    font-size: calc(12px * var(--landing-zoom)) !important;
 }
 
 #landing-view .glass-card .step-badge {
@@ -2325,7 +2327,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     /* Enlarge input fields, textareas, and source entries */
     #landing-view .glass-card input[type="text"],
     #landing-view .glass-card textarea {
-        font-size: calc(12px * var(--landing-zoom)) !important;
+        font-size: calc(16px * var(--landing-zoom)) !important;
         padding: calc(12.6px * var(--landing-zoom)) calc(16px * var(--landing-zoom)) !important;
         border-radius: calc(11.3px * var(--landing-zoom)) !important;
     }
@@ -2360,7 +2362,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     /* Branch sliders values */
     #branches-val,
     #kg-nodes-val {
-        font-size: calc(11.3px * var(--landing-zoom)) !important;
+        font-size: calc(16px * var(--landing-zoom)) !important;
         padding: calc(3.3px * var(--landing-zoom)) calc(7.3px * var(--landing-zoom)) !important;
         border-radius: calc(6.6px * var(--landing-zoom)) !important;
     }

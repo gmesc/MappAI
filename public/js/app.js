@@ -34,7 +34,7 @@ let appState = {
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
     infomaniakAllModels: true,
-    multiPassMode: false
+    multiPassMode: true
 };
 
 // ==========================================
@@ -227,7 +227,7 @@ window.toggleStudentMode = function () {
     window.applyStudentModeUI();
 };
 
-window.setMultiPassMode = function (enabled) {
+window.setMultiPassMode = function (enabled, silent) {
     appState.multiPassMode = enabled;
 
     const btnOff = document.getElementById('multipass-off');
@@ -247,8 +247,27 @@ window.setMultiPassMode = function (enabled) {
         }
     }
 
-    window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
+    if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
+
+/**
+ * Vocabolario tipizzato per il campo "rel" nei Knowledge Graph.
+ * Usato come enum nello schema JSON (Google: enforcement nativo).
+ * Su Infomaniak lo schema non viene enforced, ma il vocabolario è comunque
+ * iniettato nel testo del prompt (VOCABOLARIO RELAZIONI nel template).
+ * Allineato al template KNOWLEDGE_GRAPH_SINGLE_IT.
+ */
+const KG_REL_ENUM = [
+    "causa", "provoca", "produce", "genera", "determina",
+    "richiede", "dipende da", "è condizione di",
+    "trasforma in", "porta a", "alimenta",
+    "si oppone a", "contrasta", "ostacola",
+    "precede", "segue", "deriva da",
+    "fa parte di", "comprende", "contiene", "appartiene a",
+    "è regolato da", "regola", "governa", "guida",
+    "utilizza", "catalizza", "avviene in", "è esempio di",
+    "rappresenta", "sostiene", "coinvolge", "permette"
+];
 
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
@@ -3084,6 +3103,30 @@ ${textParts.join('\n\n')}`;
  * un singolo link errato verso l'hub sbagliato, i vicini corretti spostano il voto
  * verso l'hub giusto. Fallback: BFS verso l'hub più vicino, poi group 1.
  */
+/**
+ * Marca i link laterali di un KG come cross-link (isCross=true).
+ * Un link è GERARCHICO (ancoraggio a un hub) se collega esattamente un Super-Hub
+ * (level 1) a un concetto. È LATERALE / di RAGIONAMENTO (concetto↔concetto o
+ * hub↔hub) in tutti gli altri casi: sono questi i collegamenti che danno
+ * ricchezza riflessiva al grafo e che vanno distinti dalla gerarchia per il
+ * rendering (childrenOf usa !isCross) e per l'analisi strutturale.
+ * Preserva gli isCross già impostati (es. da dedupeNodesAsCrossLinks).
+ */
+window.markKgCrossLinks = function (nodes, links) {
+    const levelOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+    (links || []).forEach(l => {
+        if (l.isCross === true) return; // già marcato altrove
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sHub = levelOf[sId] === 1;
+        const tHub = levelOf[tId] === 1;
+        const hierarchical = (sHub !== tHub); // XOR: esattamente uno è hub
+        l.isCross = !hierarchical;
+    });
+    return links;
+};
+
 window._assignHubGroup = function (nodeId, links, hubGroupMap) {
     const votes = {};
     const neighbors = [];
@@ -3403,7 +3446,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const schema = {
         type: "OBJECT", properties: {
             nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "level", "chunks"] } },
-            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING" } }, required: ["source", "target", "rel"] } }
+            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: KG_REL_ENUM } }, required: ["source", "target", "rel"] } }
         }, required: ["nodes", "links"]
     };
 
@@ -3495,6 +3538,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
@@ -3640,7 +3684,7 @@ ${textParts.join('\n\n')}`;
                         properties: {
                             source: { type: "STRING" },
                             target: { type: "STRING" },
-                            rel: { type: "STRING" }
+                            rel: { type: "STRING", enum: KG_REL_ENUM }
                         },
                         required: ["source", "target", "rel"]
                     }
@@ -3652,7 +3696,10 @@ ${textParts.join('\n\n')}`;
         const p2Payload = {
             contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+            // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
+            // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
+            // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(4096) }
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -3660,7 +3707,15 @@ ${textParts.join('\n\n')}`;
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
 
-        const extractedLinks = p2Data.links || [];
+        // Sanitizza rel: rimuove artefatti Unicode (es. "। " Devanagari da GEMMA),
+        // spazi multipli e caratteri non-latin all'inizio. Lascia intatto il resto.
+        const extractedLinks = (p2Data.links || []).map(l => ({
+            ...l,
+            rel: (l.rel || 'fa parte di')
+                .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '') // strip Devanagari prefix
+                .replace(/\s+/g, ' ')
+                .trim() || 'fa parte di'
+        }));
 
         // ==========================================
         // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH
@@ -3826,7 +3881,10 @@ ${textParts.join('\n\n')}`;
             node.group = window._assignHubGroup(node.id, rawLinks, hubGroupMap);
         });
 
-        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link
+        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link.
+        // Usa _assignHubGroup (voto BFS 2-hop) per trovare l'hub più probabile
+        // invece di uno casuale, e "fa parte di" come rel (più onesto di
+        // "correlato a" — stiamo esplicitamente collegando al hub tematico).
         const validNodeIds = new Set(finalNodes.map(n => n.id));
         let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -3835,18 +3893,26 @@ ${textParts.join('\n\n')}`;
 
         const hubs = finalNodes.filter(n => n.level === 1);
         if (hubs.length > 0) {
+            // Ricostruisci hubGroupMap aggiornato con i link validi
+            const healHubMap = {};
+            finalNodes.filter(n => n.level === 1).forEach(h => { healHubMap[h.id] = h.id; });
             finalNodes.forEach(node => {
                 if (node.level === 2 && !linkedNodes.has(node.id)) {
-                    // Collega il nodo orfano a un Hub a caso (o al primo)
-                    const randomHub = hubs[Math.floor(Math.random() * hubs.length)];
+                    // Scegli l'hub tematicamente più vicino tramite BFS (2-hop)
+                    const bestGroupId = window._assignHubGroup(node.id, finalLinks, healHubMap);
+                    const bestHub = finalNodes.find(h => h.level === 1 && h.id === bestGroupId)
+                        || hubs[0];
                     finalLinks.push({
-                        source: randomHub.id,
+                        source: bestHub.id,
                         target: node.id,
-                        rel: "correlato a"
+                        rel: "fa parte di"
                     });
+                    linkedNodes.add(node.id);
                 }
             });
         }
+
+        window.markKgCrossLinks(finalNodes, finalLinks);
 
         appState.db = {
             nodes: finalNodes,
@@ -6025,11 +6091,11 @@ window.applyDirectZoom = function (z) {
 window.addL1Input = function (defaultValue = "") {
     const container = document.getElementById('l1-inputs-container');
     const row = document.createElement('div');
-    row.className = 'flex gap-2 items-center l1-input-row';
+    row.className = 'relative flex items-center l1-input-row w-full';
     const placeholder = document.getElementById('extraction-mode').value === 'mindmap' ? 'Nuovo argomento L1...' : 'Nuovo Super-Hub...';
     row.innerHTML = `
-                <input type="text" class="landing-input l1-topic-input py-2 text-sm" placeholder="${placeholder}" value="${defaultValue}">
-                <button type="button" onclick="window.removeL1Input(this)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <input type="text" class="font-medium text-slate-700 input_text_step3 l1-topic-input w-full" placeholder="${placeholder}" value="${defaultValue}">
+                <button type="button" onclick="window.removeL1Input(this)" class="absolute right-4 text-red-400 hover:text-red-600 p-1 flex items-center justify-center"><i data-lucide="x" class="w-6 h-6"></i></button>
             `;
     container.appendChild(row);
     window.safeCreateIcons();
@@ -6195,7 +6261,7 @@ window.saveMapVault = async function () {
                 nodes: appState.db.nodes,
                 links: appState.db.links,
                 userProfile: appState.userProfile,
-                tutorState: tutorState,
+                tutorState: serializeTutorState(tutorState),
                 aiProvider: appState.aiProvider,
                 aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
                 generationUsage: appState.generationUsage,
@@ -9048,6 +9114,21 @@ let tutorState = {
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
 };
 
+/**
+ * Ritorna una copia deep-serializzabile di tutorState (solo scalari + array + oggetti plain).
+ * Necessario prima di passare tutorState via Electron IPC (Structured Clone Algorithm):
+ * se tutorState contiene Date, funzioni, riferimenti circolari o altri non-serializzabili
+ * l'IPC lancia "An object could not be cloned" e il salvataggio vault fallisce silenziosamente.
+ */
+function serializeTutorState(state) {
+    try {
+        return JSON.parse(JSON.stringify(state));
+    } catch (e) {
+        console.warn('[MappAI] tutorState non serializzabile, uso fallback vuoto:', e);
+        return { sidebar: { history: [] }, nodes: {} };
+    }
+}
+
 window.parseSimpleMarkdown = function (text) {
     if (!text) return "";
     let html = text;
@@ -9740,9 +9821,28 @@ const StorageManager = {
         localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
 
-        // Salva automaticamente la Mappa come .JSON tramite Electron!
+        // Salva automaticamente la Mappa come .JSON tramite Electron.
+        // NON passare appState raw: dopo la simulazione D3 i nodi contengono
+        // riferimenti circolari non serializzabili (Structured Clone crash).
+        // Passiamo solo i campi che saveMapJSON usa effettivamente.
         if (window.electronAPI) {
-            window.electronAPI.saveMapJSON(appState);
+            try {
+                window.electronAPI.saveMapJSON({
+                    extractionMode: appState.extractionMode,
+                    rootNodeLabel: appState.rootNodeLabel,
+                    nodes: (appState.db.nodes || []).map(n => ({
+                        id: n.id, label: n.label, level: n.level,
+                        group: n.group, content: n.content, desc: n.desc
+                    })),
+                    links: (appState.db.links || []).map(l => ({
+                        source: typeof l.source === 'object' ? l.source.id : l.source,
+                        target: typeof l.target === 'object' ? l.target.id : l.target,
+                        rel: l.rel || '', isCross: !!l.isCross
+                    }))
+                });
+            } catch (e) {
+                console.warn('[MappAI] saveMapJSON fallito:', e.message);
+            }
         }
     },
 
@@ -10071,6 +10171,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.updateStep4Display) window.updateStep4Display();
         });
     }
+
+    // Multi-pass ON di default (silent=true: niente toast all'avvio)
+    window.setMultiPassMode(true, true);
 
     StorageManager.renderRecentProjects();
 
