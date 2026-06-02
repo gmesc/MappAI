@@ -3451,12 +3451,12 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: stripJsonSchemaForInfomaniak({
+        generationConfig: {
             temperature: 0.2,
             responseMimeType: "application/json",
             responseSchema: schema,
             maxOutputTokens: window.getMaxOutputTokens(8192)
-        })
+        }
     };
 
 
@@ -3624,7 +3624,7 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) })
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) }
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
@@ -3694,7 +3694,7 @@ ${textParts.join('\n\n')}`;
         const p2Payload = {
             contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) })
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -3772,7 +3772,7 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) })
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
             };
 
             try {
@@ -9799,9 +9799,28 @@ const StorageManager = {
         localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
 
-        // Salva automaticamente la Mappa come .JSON tramite Electron!
+        // Salva automaticamente la Mappa come .JSON tramite Electron.
+        // NON passare appState raw: dopo la simulazione D3 i nodi contengono
+        // riferimenti circolari non serializzabili (Structured Clone crash).
+        // Passiamo solo i campi che saveMapJSON usa effettivamente.
         if (window.electronAPI) {
-            window.electronAPI.saveMapJSON(appState);
+            try {
+                window.electronAPI.saveMapJSON({
+                    extractionMode: appState.extractionMode,
+                    rootNodeLabel: appState.rootNodeLabel,
+                    nodes: (appState.db.nodes || []).map(n => ({
+                        id: n.id, label: n.label, level: n.level,
+                        group: n.group, content: n.content, desc: n.desc
+                    })),
+                    links: (appState.db.links || []).map(l => ({
+                        source: typeof l.source === 'object' ? l.source.id : l.source,
+                        target: typeof l.target === 'object' ? l.target.id : l.target,
+                        rel: l.rel || '', isCross: !!l.isCross
+                    }))
+                });
+            } catch (e) {
+                console.warn('[MappAI] saveMapJSON fallito:', e.message);
+            }
         }
     },
 
