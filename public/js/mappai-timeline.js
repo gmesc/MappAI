@@ -9,6 +9,27 @@
  * v3 — Aggiunto sistema modale + generazione AI con fetchModelAPI.
  */
 
+// ── HELPER: nome del progetto (letto dinamicamente da appState) ──────────────
+// Priorità: appState.rootNodeLabel (impostato dall'utente sia per MindMap sia
+// per KG) → nodo con level === 0 (MindMap) → fallback 'MappAI'. Sui KG il
+// nodo level 0 può non esistere: senza questo helper il titolo della timeline
+// finirebbe sempre su 'Mappa'/'MappAI'.
+window._getTimelineProjectName = function () {
+    try {
+        var raw = (typeof appState !== 'undefined' && appState && appState.rootNodeLabel) || '';
+        if (raw && String(raw).trim()) {
+            return typeof cleanLabel === 'function' ? cleanLabel(raw) : String(raw).trim();
+        }
+        var rootNode = (appState && appState.db && Array.isArray(appState.db.nodes))
+            ? appState.db.nodes.find(function (n) { return n.level === 0; })
+            : null;
+        if (rootNode && rootNode.label) {
+            return typeof cleanLabel === 'function' ? cleanLabel(rootNode.label) : rootNode.label;
+        }
+    } catch (e) { /* no-op */ }
+    return 'MappAI';
+};
+
 // ── HELPER: estrazione deterministica anni distinti da un testo ──────────────
 // Usata come rete di sicurezza per la timeline AI: garantisce che nessun anno
 // presente nel testo venga perso, anche se il modello AI ne salta alcuni.
@@ -56,12 +77,7 @@ window.openTimelineGeneratorModal = function () {
         })
         .join(' ');
     var estimatedTokens = Math.round(totalText.length / 4);
-    var rootNode = appState.db?.nodes?.find(function (n) {
-        return n.level === 0;
-    });
-    var mapName = rootNode
-        ? (typeof cleanLabel === 'function' ? cleanLabel(rootNode.label) : rootNode.label)
-        : 'Mappa';
+    var mapName = window._getTimelineProjectName();
 
     // Crea modale inline
     var existingModal = document.getElementById('timeline-generator-modal');
@@ -153,10 +169,7 @@ window.generateTimelineWithAI = async function () {
         }
 
         // ── 2. Costruisci testo sorgente ────────────────────────────────────────
-        var rootNode = appState.db?.nodes?.find(function (n) { return n.level === 0; });
-        var mapName  = rootNode
-            ? (typeof cleanLabel === 'function' ? cleanLabel(rootNode.label) : rootNode.label)
-            : 'Mappa';
+        var mapName = window._getTimelineProjectName();
 
         var allNodes    = appState.db?.nodes    || [];
         var sourcesDict = appState.db?.sourcesDict || {};
@@ -408,11 +421,7 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride) {
                 };
             });
 
-        var rootNodeAI = (appState.db?.nodes || []).find(function (n) { return n.level === 0; });
-        var mapNameAI  = mapNameOverride ||
-            (rootNodeAI && typeof cleanLabel === 'function'
-                ? cleanLabel(rootNodeAI.label)
-                : (rootNodeAI ? rootNodeAI.label : 'MappAI'));
+        var mapNameAI = mapNameOverride || window._getTimelineProjectName();
 
         // Salta il parsing statico e vai direttamente al render
         window._renderTimeline(uniqueEventsAI, mapNameAI);
@@ -610,11 +619,7 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride) {
     });
 
     // ── 4–8. Genera HTML e apri finestra ──────────────────────────────────
-    var rootNode = allNodes.find(function (n) { return n.level === 0; });
-    var mapName  = mapNameOverride ||
-        (rootNode && typeof cleanLabel === 'function'
-            ? cleanLabel(rootNode.label)
-            : (rootNode ? rootNode.label : 'MappAI'));
+    var mapName = mapNameOverride || window._getTimelineProjectName();
 
     window._renderTimeline(uniqueEvents, mapName);
 };
