@@ -3671,8 +3671,13 @@ ISTRUZIONI:
    - "source": l'ID di origine esatto.
    - "target": l'ID di destinazione esatto.
    - "rel": una brevissima parola o locuzione di collegamento in italiano. Scegli il verbo/locuzione PIÙ PRECISO tra (esempi, non esaustivi): "causa", "provoca", "produce", "genera", "influenza", "regola", "compone", "fa parte di", "appartiene a", "guida", "governa", "fonda", "scoperto da", "sviluppato in", "si oppone a", "alleato di", "precede", "segue", "deriva da", "porta a", "contrasta", "sostiene", "rappresenta", "membro di". Massimo 3 parole.
-3. MULTI-LINK OBBLIGATORIO: ogni concetto di livello 2 deve avere ALMENO 2 collegamenti, di cui ALMENO UNO verso il Super-Hub (livello 1) tematicamente CORRETTO. Esempio: un personaggio sovietico va collegato al Super-Hub "Unione Sovietica", non a quello sbagliato. Avere più link riduce gli errori di classificazione. Nessun nodo deve restare isolato/orfano.
-4. ACCURATEZZA: verifica che ogni collegamento a un Super-Hub sia semanticamente corretto. Un nodo va collegato all'hub a cui APPARTIENE realmente secondo il testo, non a un hub a caso.
+3. MULTI-LINK OBBLIGATORIO — per ogni nodo L2, genera ESATTAMENTE questi link in ordine di priorità:
+   a) ANCORAGGIO (obbligatorio): 1 link verso il proprio Super-Hub (livello 1) tematicamente CORRETTO. Un nodo va collegato all'hub a cui APPARTIENE realmente secondo il testo.
+   b) CROSS-HUB (obbligatorio quando possibile): 1 link verso un nodo di un Super-Hub DIVERSO, ogni volta che il testo lo giustifica (causa-effetto, dipendenza, contrasto, sequenza). QUESTI sono i link più importanti: senza di essi il grafo è una serie di stelle disconnesse, non una rete.
+   c) LATERALE: ulteriori link verso altri nodi L2 della stessa area o di aree diverse.
+   Ogni nodo L2 deve avere MINIMO 2 link totali. Nessun nodo isolato/orfano.
+4. DISTRIBUZIONE UNIFORME: verifica che nessun singolo nodo accumuli più di 5-6 link. Distribuisci i collegamenti — un grafo equilibrato è più utile didatticamente di uno con un centro dominante.
+5. ACCURATEZZA: verifica la direzione di ogni link (source → target deve riflettere il senso reale: chi causa chi, chi contiene chi, chi precede chi).
 
 Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
