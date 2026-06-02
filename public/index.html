@@ -98,6 +98,7 @@
         .input_label_sm { @apply text-[16px] text-slate-500 font-normal tracking-wider block mb-1; } /* Etichetta medio-piccola per sezioni secondarie nei modali */
         .input_label_m { @apply text-[18px] text-slate-500 font-bold tracking-wider block mb-1; } /* Etichetta media per titoli e parametri secondari */
         .input_button_xs { @apply text-[12px] font-bold text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1 transition-colors; } /* Piccoli bottoni-link testuali all'interno delle form */
+        .input_text_step3 { @apply text-[20px] font-bold text-slate-700 flex items-center gap-1.5; } /* Titolo per le opzioni con interruttore (toggle) come "Generazione HD" */
         .feature_toggle_title { @apply text-[12px] font-bold text-slate-700 flex items-center gap-1.5; } /* Titolo per le opzioni con interruttore (toggle) come "Generazione HD" */
         .feature_toggle_description { @apply text-[14px] text-slate-500 tracking-[0.15em]; } /* Descrizione opzionale sotto i toggle */
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
@@ -109,8 +110,9 @@
            6. CAMPI DI INSERIMENTO DATI (INPUT & TEXTAREA FIELDS)
            ========================================================================== */
         .form_input { @apply w-full px-4 py-3 text-[12px] border border-slate-200 rounded-xl bg-white text-slate-800 transition-all focus_ring_standard; } /* Input di testo standard per URL, API Key e campi del form */
-        .textarea_form_input { @apply min-h-[60px]; } /* Variante per le caselle di testo multilinea (Focus specifico, Descrizioni) */
+        .form_input_step3 { @apply px-8 py-8 h-12 font-normal text-[16px] text-slate-700 tracking-[0.2em] rounded-xl transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2; } /* Input step MACRO-AREE o HUB */
 
+        
         /* ==========================================================================
            7. BOTTONI D'AZIONE, CONFERMA E PULSANTI GENERALI (BUTTONS & ACTIONS)
            ========================================================================== */
@@ -118,6 +120,7 @@
         .btn_selezione_input { @apply text-[20px] flex flex-1 flex-col items-center justify-center px-8 text-[18px] text-slate-400 font-bold tracking-[0.2em] bg-slate-100 rounded-2xl hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
 
         .btn_mode_selector { @apply px-8 text-[20px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsanti di selezione modalità nei modali */
+        .btn_mode_selector_sm { @apply px-8 py-8 h-12 !text-[20px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2; } /* Pulsanti di selezione modalità nei modali */
         .mode-buttons-container .btn_mode_selector:not(.active) { @apply bg-slate-100 hover:bg-emerald-200 text-slate-500 shadow-none; } /* Stato non attivo per il selettore di modalità studio/quiz */
         .btn_secondary_action { @apply w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm cursor-pointer; } /* Pulsante secondario ad ampia larghezza (es. "Pulisci Form") */
         .btn_primary { @apply px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md border-none cursor-pointer; } /* Bottone standard primario per dialoghi o pulsante "Ho capito" */
@@ -127,6 +130,8 @@
         .btn_generate { @apply w-full py-4 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold rounded-2xl transition-colors hover:bg-indigo-700; } /* Bottone principale di avvio generazione mappa in fondo al form */
 
         .btn_confirm_action { @apply px-8 text-[14px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
+        .btn_confirm_action_sm { @apply px-12 py-4 text-[18px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
+
         .btn_salva_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
         .btn_annulla_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
 
@@ -158,13 +163,11 @@
       }
     </style>
     <!-- KaTeX — rendering formule matematiche LaTeX -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
-          crossorigin="anonymous">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"
-            crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
+        crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
-            crossorigin="anonymous"></script>
+        crossorigin="anonymous"></script>
 </head>
 
 <!-- =========================================================================-->
@@ -595,37 +598,38 @@
                 <div id="step-3-container" class="mt-15">
                     <label class="step_container">
                         <span class="step_badge step_badge_orange">3</span>
-                        <span id="step-l1-title" class="step_title">Rami Principali L1</span>
+                        <span id="step-l1-title" class="step_title">Tema Centrale e Macro-Aree</span>
                     </label>
 
                     <!-- Root Node (Visibile solo per Mappe Mentali) -->
                     <div id="step-root-container" class="space-y-2 transition-all duration-300">
-                        <p class="landing_label_primary">Nodo Centrale:</p>
+                        <p class="landing_label_primary">Tema Centrale:</p>
                         <input type="text" id="root-node-name"
-                            class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition focus_ring_standard"
+                            class="font-bold text-slate-700 w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 transition focus_ring_standard"
                             placeholder="Es. Rivoluzione Francese, Fotosintesi...">
                     </div>
 
                     <div class="pt-2">
                         <div id="input-l1-container" class="space-y-2 bg-slate-100 p-4 rounded-xl">
-                            <p class="landing_label_secondary" id="step-l1-desc">Definisci i rami principali per
-                                organizzare lo studio:</p>
-                            <div id="l1-inputs-container" class="space-y-2">
+                            <p class="landing_label_secondary" id="step-l1-desc">Definisci le macro-aree per organizzare
+                                lo studio:</p>
+
+                            <button type="button" onclick="window.addL1Input()"
+                                class="btn_mode_selector_sm w-full items-center gap-1 mt-2 mb-4">
+                                <i data-lucide="plus-circle" class="w-6 h-6"></i> <span id="btn-add-l1-text">Aggiungi
+                                    Manualmente</span>
+                            </button>
+                            <div id="l1-inputs-container" class="space-y-3">
                                 <!-- Inseriti automaticamente dai documenti o manualmente -->
-                                <div class="flex gap-2 items-center l1-input-row">
-                                    <input type="text" class="form_input l1-topic-input py-2 text-sm"
+                                <div class="relative flex items-center l1-input-row w-full">
+                                    <input type="text"
+                                        class="font-medium text-slate-700 input_text_step3 l1-topic-input w-full"
                                         placeholder="Es. Cause">
                                     <button type="button" onclick="window.removeL1Input(this)"
-                                        class="text-red-400 hover:text-red-600 p-1"><i data-lucide="x"
-                                            class="w-4 h-4"></i></button>
+                                        class="absolute right-4 text-red-400 hover:text-red-600 p-1 flex items-center justify-center"><i
+                                            data-lucide="x" class="w-6 h-6"></i></button>
                                 </div>
                             </div>
-                            <button type="button" onclick="window.addL1Input()"
-                                class="step_helper_text font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 mt-2">
-                                <i data-lucide="plus-circle" class="w-4 h-4"></i> <span id="btn-add-l1-text">Aggiungi
-                                    Nodo
-                                    L1</span>
-                            </button>
                             <label
                                 class="flex items-center gap-3 cursor-pointer mt-4 group pt-3 border-t border-indigo-200/40">
                                 <div class="relative">
@@ -635,9 +639,8 @@
                                     </div>
                                 </div>
                                 <span
-                                    class="text-[11px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors"
-                                    id="label-auto-l1">Genera
-                                    altri nodi L1 in automatico</span>
+                                    class="text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors"
+                                    id="label-auto-l1">Genera Macro-Aree in automatico</span>
                             </label>
                         </div>
 
@@ -652,8 +655,8 @@
                                 <!-- Lenses avanzate (collassabili) -->
                                 <div class="mt-2">
                                     <button type="button"
-                                            onclick="document.getElementById('lenses-panel').classList.toggle('hidden')"
-                                            class="text-[11px] text-slate-400 hover:text-indigo-500 transition-colors">
+                                        onclick="document.getElementById('lenses-panel').classList.toggle('hidden')"
+                                        class="text-[11px] text-slate-400 hover:text-indigo-500 transition-colors">
                                         ▸ Personalizza extraction lenses
                                     </button>
                                     <div id="lenses-panel" class="hidden mt-2"></div>
@@ -667,7 +670,7 @@
                 <div id="step-density-container" class="mt-15 transition-all duration-300">
                     <label class="step_container">
                         <span class="step_badge step_badge_yellow">4</span>
-                        <span id="step-l1-title" class="step_title">Densità Diramazioni (L4 e L5)</span>
+                        <span id="step-l1-title" class="step_title">Densità Diramazioni</span>
                     </label>
                     <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
                         <span class="input_label_sm font-bold">3</span>
@@ -1178,8 +1181,7 @@
                     <button onclick="window.openDossierPrintModal()" title="Stampa dossier">
                         <i data-lucide="files"></i> Stampa dossier
                     </button>
-                    <button onclick="window.openTimelineGeneratorModal()"
-                            title="Genera timeline cronologica con AI">
+                    <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
                         <i data-lucide="gantt-chart"></i> Crea Timeline
                     </button>
                     <div class="h-px bg-slate-100 my-1"></div>
@@ -1334,8 +1336,7 @@
                 <div class="w-px h-8 bg-slate-200"></div>
                 <!-- Timeline spostata nel menu Stampa -->
                 <!-- GLOSSARIO -->
-                <button id="card-btn-glossary"
-                    onclick="window.openGlossaryView()"
+                <button id="card-btn-glossary" onclick="window.openGlossaryView()"
                     class="hidden flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
                     title="Glossario termini disciplinari">
                     <i data-lucide="book-open" class="w-5 h-5"></i>
@@ -3097,14 +3098,14 @@
     <script src="js/storageAdapter.js"></script>
 
     <script src="js/app.js"></script>
-     <!-- Moduli MappAI estesi -->
-     <script src="js/mappai-latex.js"></script>
-     <script src="js/mappai-lenses.js"></script>
-     <script src="js/mappai-disciplines.js"></script>
-     <script src="js/mappai-timeline.js"></script>
-     <script src="js/mappai-glossary.js"></script>
-     <script src="js/mappai-quiz-print.js"></script>
-     <script src="js/mappai-structure-analyzer.js"></script>
+    <!-- Moduli MappAI estesi -->
+    <script src="js/mappai-latex.js"></script>
+    <script src="js/mappai-lenses.js"></script>
+    <script src="js/mappai-disciplines.js"></script>
+    <script src="js/mappai-timeline.js"></script>
+    <script src="js/mappai-glossary.js"></script>
+    <script src="js/mappai-quiz-print.js"></script>
+    <script src="js/mappai-structure-analyzer.js"></script>
     <script>
         window.toggleSidebar = function () {
             const mapView = document.getElementById('map-view');

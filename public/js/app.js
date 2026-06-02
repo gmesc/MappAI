@@ -6052,11 +6052,11 @@ window.applyDirectZoom = function (z) {
 window.addL1Input = function (defaultValue = "") {
     const container = document.getElementById('l1-inputs-container');
     const row = document.createElement('div');
-    row.className = 'flex gap-2 items-center l1-input-row';
+    row.className = 'relative flex items-center l1-input-row w-full';
     const placeholder = document.getElementById('extraction-mode').value === 'mindmap' ? 'Nuovo argomento L1...' : 'Nuovo Super-Hub...';
     row.innerHTML = `
-                <input type="text" class="landing-input l1-topic-input py-2 text-sm" placeholder="${placeholder}" value="${defaultValue}">
-                <button type="button" onclick="window.removeL1Input(this)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <input type="text" class="font-medium text-slate-700 input_text_step3 l1-topic-input w-full" placeholder="${placeholder}" value="${defaultValue}">
+                <button type="button" onclick="window.removeL1Input(this)" class="absolute right-4 text-red-400 hover:text-red-600 p-1 flex items-center justify-center"><i data-lucide="x" class="w-6 h-6"></i></button>
             `;
     container.appendChild(row);
     window.safeCreateIcons();
