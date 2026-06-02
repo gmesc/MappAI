@@ -4682,6 +4682,7 @@ function renderGraph() {
     nodeMerge.select("g.node-date-badge").style("display", "none");
 
     nodeMerge.select("foreignObject.node-icons-fo")
+        .attr("pointer-events", "none") // applica su tutti i nodi (enter + merge)
         .attr("y", d => {
             const labelStr = cleanLabel(d.label);
             const lines = getLabelLines(labelStr);

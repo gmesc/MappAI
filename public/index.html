@@ -262,17 +262,23 @@
       }
       #lens-menu .lens-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
 
-      /* Caret ▾ sul bottone TESTO */
-      #card-btn-labels { position: relative; }
+      /* Caret ▾ — bottone separato, top-right del bottone TESTO */
+      #lens-btn-wrapper { position: relative; display: inline-flex; }
       #lens-caret {
         position: absolute;
-        bottom: 2px; right: 2px;
-        font-size: 8px;
+        top: 1px; right: 1px;
+        font-size: 11px;
         line-height: 1;
-        color: #94a3b8;
-        pointer-events: none;
-        user-select: none;
+        color: #64748b;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        padding: 1px 3px;
+        cursor: pointer;
+        z-index: 10;
+        transition: background 0.15s, color 0.15s;
       }
+      #lens-caret:hover { background: #f1f5f9; color: #334155; }
     </style>
     <!-- KaTeX — rendering formule matematiche LaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
@@ -1391,18 +1397,20 @@
 
                 <!-- Toggle Label + Lente Relazioni -->
                 <div class="relative" id="lens-btn-wrapper">
-                    <!-- Menu lente (aperto con click destro / caret) -->
+                    <!-- Menu lente -->
                     <div id="lens-menu" class="hidden"></div>
                     <!-- Bottone TESTO -->
                     <button id="card-btn-labels" type="button"
                         onclick="window.toggleLabels()"
-                        oncontextmenu="event.preventDefault(); event.stopPropagation(); window.openLensMenu();"
                         class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Click: mostra/nascondi etichette — Click destro: lente famiglie di relazione">
+                        title="Mostra/Nascondi Etichette Relazioni">
                         <i data-lucide="tag" class="w-5 h-5"></i>
                         <span class="text-[9px] font-bold mt-1">TESTO</span>
-                        <span id="lens-caret">▾</span>
                     </button>
+                    <!-- Caret: apre il menu lente con click sinistro -->
+                    <button id="lens-caret" type="button"
+                        onclick="event.stopPropagation(); window.openLensMenu();"
+                        title="Lente famiglie di relazione">▾</button>
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>
 
