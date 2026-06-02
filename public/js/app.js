@@ -2165,7 +2165,7 @@ window.startGeneration = async function () {
         }
     } else {
         if (appState.multiPassMode) {
-            await extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey);
+            await extractKnowledgeGraphHubPass(textParts, fileParts, apiKey);
         } else {
             await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
         }
@@ -3115,8 +3115,10 @@ ${textParts.join('\n\n')}`;
 window.markKgCrossLinks = function (nodes, links) {
     const levelOf = {};
     (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+
+    // Pass 1: marca isCross (link laterale concetto↔concetto)
     (links || []).forEach(l => {
-        if (l.isCross === true) return; // già marcato altrove
+        if (l.isCross === true) return;
         const sId = typeof l.source === 'object' ? l.source.id : l.source;
         const tId = typeof l.target === 'object' ? l.target.id : l.target;
         const sHub = levelOf[sId] === 1;
@@ -3124,6 +3126,21 @@ window.markKgCrossLinks = function (nodes, links) {
         const hierarchical = (sHub !== tHub); // XOR: esattamente uno è hub
         l.isCross = !hierarchical;
     });
+
+    // Pass 2: marca _curveDir per link bidirezionali (A→B e B→A con rel diversa).
+    // _curveDir: +1 curva a sinistra, -1 a destra, 0 linea retta.
+    // I link senza coppia inversa rimangono retti.
+    const fwdSet = new Set((links || []).map(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return `${s}||${t}`;
+    }));
+    (links || []).forEach(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        l._curveDir = fwdSet.has(`${t}||${s}`) ? (s < t ? 1 : -1) : 0;
+    });
+
     return links;
 };
 
@@ -3537,18 +3554,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
-        // Filtra link con nodi inesistenti, self-loop e duplicati bidirezionali
-        const _spSeen = new Set();
-        appState.db.links = (appState.db.links || []).filter(l => {
-            const s = typeof l.source === 'object' ? l.source.id : l.source;
-            const t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (!validNodeIds.has(s) || !validNodeIds.has(t)) return false;
-            if (s === t) return false;
-            const key = [s, t].sort().join('||');
-            if (_spSeen.has(key)) return false;
-            _spSeen.add(key);
-            return true;
-        });
+        appState.db.links = window.deduplicateKgLinks(appState.db.links, validNodeIds);
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
@@ -3912,7 +3918,7 @@ ${textParts.join('\n\n')}`;
         // invece di uno casuale, e "fa parte di" come rel (più onesto di
         // "correlato a" — stiamo esplicitamente collegando al hub tematico).
         const validNodeIds = new Set(finalNodes.map(n => n.id));
-        let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        let finalLinks = window.deduplicateKgLinks(rawLinks, validNodeIds);
 
         const linkedNodes = new Set();
         finalLinks.forEach(l => { linkedNodes.add(l.source); linkedNodes.add(l.target); });
@@ -3961,6 +3967,345 @@ ${textParts.join('\n\n')}`;
         window.showAlert("Errore Generazione Graph HD", err.message);
     }
 }
+
+async function extractKnowledgeGraphHubPass(textParts, fileParts, apiKey) {
+    window.resetVaultState();
+    let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
+
+    let userProfileStr = '';
+    if (appState.userProfile) {
+        userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
+    }
+    if (appState.studentMode) {
+        userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
+    }
+
+    const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
+    const focusInjection = appState.focusTopic
+        ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE:\n' +
+          appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        : '';
+
+    try {
+        // ==========================================
+        // FASE 0: ESTRAZIONE SUPER-HUB
+        // ==========================================
+        window.showLoadingOverlay(true, "Fase 1/4 (Hub-Pass): Identificazione macro-aree semantiche...");
+
+        const p0PromptText = `SEI UN MOTORE DI ESTRAZIONE MACRO-AREE SEMANTICHE (KG Hub-Pass — Fase 0).
+Tema generale: "${appState.rootNodeLabel}".
+
+Leggi le fonti e identifica le 4-5 MACRO-AREE SEMANTICHE fondamentali che organizzano il tema.
+Ogni macro-area deve essere:
+- SPECIFICA del dominio (non generica): "Trasporto Vascolare" non "Sistemi di Trasporto"
+- SEMANTICAMENTE DISTINTA dalle altre (nessuna sovrapposizione)
+- BILANCIATA in importanza (tutte ugualmente centrali al tema)
+
+${kgKeywords ? `Se pertinenti al tema, includi come macro-aree: ${kgKeywords}.\n` : ''}PER OGNI MACRO-AREA:
+- "id": ID unico in MAIUSCOLO (es. STRUTTURA_CELLULARE, TRASPORTO_VASCOLARE).
+- "label": nome sintetico max 3 parole, SPECIFICO DEL DOMINIO.
+- "level": sempre 1.
+
+Restituisci SOLO un oggetto JSON con chiave "nodes". Nessun commento, nessun blocco markdown.
+{"nodes": [{"id": "HUB_ESEMPIO", "label": "Nome Hub", "level": 1}]}
+
+${focusInjection}
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+        const p0Schema = {
+            type: "OBJECT",
+            properties: {
+                nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, level: { type: "INTEGER" } }, required: ["id", "label", "level"] } }
+            },
+            required: ["nodes"]
+        };
+
+        const p0Payload = {
+            contents: [{ parts: [...fileParts, { text: p0PromptText }] }],
+            systemInstruction: { parts: [{ text: "Sei un analizzatore semantico esperto. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p0Schema, maxOutputTokens: window.getMaxOutputTokens(500) }
+        };
+
+        const p0Response = await window.fetchModelAPI(p0Payload, apiKey);
+        let p0Raw = p0Response.candidates[0].content.parts[0].text;
+        let p0Data = salvageTruncatedJSON(p0Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+
+        if (!p0Data.nodes || p0Data.nodes.length === 0) throw new Error("Hub-Pass: impossibile identificare le macro-aree semantiche.");
+
+        // Assegna group agli hub e normalizza ID
+        let hubNodes = p0Data.nodes.slice(0, 5).map((n, idx) => ({
+            id: String(n.id || `HUB_${idx}`).toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, ''),
+            label: n.label || `Macro-area ${idx + 1}`,
+            level: 1,
+            group: idx + 1,
+            content: n.label || `Macro-area ${idx + 1}`,
+            desc: `Macro-area: ${n.label || `Macro-area ${idx + 1}`}`,
+            chunks: [],
+            studyStatus: 'none'
+        }));
+
+        // Integra hub manuali dell'utente non già presenti
+        const existingHubLabels = new Set(hubNodes.map(h => h.label.toLowerCase()));
+        Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).forEach(lbl => {
+            if (!existingHubLabels.has(lbl.toLowerCase())) {
+                const idx = hubNodes.length;
+                hubNodes.push({
+                    id: lbl.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, ''),
+                    label: lbl,
+                    level: 1,
+                    group: idx + 1,
+                    content: lbl,
+                    desc: `Macro-area: ${lbl}`,
+                    chunks: [],
+                    studyStatus: 'none'
+                });
+            }
+        });
+
+        // ==========================================
+        // FASE 1: ESTRAZIONE CONCETTI PER HUB
+        // ==========================================
+        const nodesPerHub = Math.max(4, Math.round(maxNodesVal / hubNodes.length));
+        const minNodesPerHub = Math.max(3, nodesPerHub - 2);
+        const allL2Nodes = [];
+
+        for (let hIdx = 0; hIdx < hubNodes.length; hIdx++) {
+            const hub = hubNodes[hIdx];
+            window.showLoadingOverlay(true, `Fase 2/4 (Hub-Pass): Estrazione concetti per "${hub.label}" (${hIdx + 1}/${hubNodes.length})...`);
+
+            const p1PromptText = window.fillPromptTemplate('KG_HUB_NODES', {
+                rootNodeLabel: appState.rootNodeLabel,
+                hubLabel: hub.label,
+                hubId: hub.id,
+                hubGroup: hub.group,
+                minNodes: minNodesPerHub,
+                maxNodes: nodesPerHub,
+                focusTopic: focusInjection,
+                textParts: textParts.join('\n\n')
+            });
+
+            const p1Schema = {
+                type: "OBJECT",
+                properties: {
+                    nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, level: { type: "INTEGER" } }, required: ["id", "label", "level"] } }
+                },
+                required: ["nodes"]
+            };
+
+            const p1Payload = {
+                contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
+                systemInstruction: { parts: [{ text: "Sei un analizzatore concettuale per macro-area. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+                generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(1000) }
+            };
+
+            try {
+                const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
+                let p1Raw = p1Response.candidates[0].content.parts[0].text;
+                let p1Data = salvageTruncatedJSON(p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+                if (p1Data.nodes) {
+                    p1Data.nodes.forEach(n => {
+                        const rawId = String(n.id || '').toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+                        if (!rawId) return;
+                        const nodeId = rawId.startsWith(hub.id + '_') ? rawId : `${hub.id}_${rawId}`;
+                        allL2Nodes.push({
+                            id: nodeId,
+                            label: n.label || rawId,
+                            level: 2,
+                            group: hub.group,
+                            content: n.label || rawId,
+                            desc: `Concetto della macro-area "${hub.label}".`,
+                            chunks: [],
+                            studyStatus: 'none'
+                        });
+                    });
+                }
+            } catch (hubErr) {
+                console.warn(`Hub-Pass: errore estrazione per hub "${hub.label}":`, hubErr);
+            }
+        }
+
+        if (allL2Nodes.length === 0) throw new Error("Hub-Pass: nessun concetto estratto dalle macro-aree.");
+
+        // Dedup per ID
+        const seenIds = new Set();
+        const uniqueL2Nodes = allL2Nodes.filter(n => { if (seenIds.has(n.id)) return false; seenIds.add(n.id); return true; });
+        const allNodes = [...hubNodes, ...uniqueL2Nodes];
+
+        // ==========================================
+        // FASE 2: ESTRAZIONE RELAZIONI
+        // ==========================================
+        window.showLoadingOverlay(true, "Fase 3/4 (Hub-Pass): Mappatura relazioni e cross-link...");
+
+        const conceptsListStr = [
+            ...hubNodes.map(n => `- ID: "${n.id}" (Label: "${n.label}", Livello: 1 — Super-Hub, Gruppo: ${n.group})`),
+            ...uniqueL2Nodes.map(n => `- ID: "${n.id}" (Label: "${n.label}", Livello: 2, Gruppo Hub: ${n.group})`)
+        ].join('\n');
+
+        const p2PromptText = window.fillPromptTemplate('KG_HUB_RELATIONS', {
+            rootNodeLabel: appState.rootNodeLabel,
+            conceptsList: conceptsListStr,
+            focusTopic: focusInjection,
+            textParts: textParts.join('\n\n')
+        });
+
+        const p2Schema = {
+            type: "OBJECT",
+            properties: {
+                links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: KG_REL_ENUM } }, required: ["source", "target", "rel"] } }
+            },
+            required: ["links"]
+        };
+
+        const p2Payload = {
+            contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
+            systemInstruction: { parts: [{ text: "Sei un cartografo concettuale relazionale. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(6000) }
+        };
+
+        const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
+        let p2Raw = p2Response.candidates[0].content.parts[0].text;
+        let p2Data = salvageTruncatedJSON(p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+
+        const extractedLinks = (p2Data.links || []).map(l => ({
+            ...l,
+            rel: (l.rel || 'fa parte di')
+                .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '')
+                .replace(/\s+/g, ' ')
+                .trim() || 'fa parte di'
+        }));
+
+        // ==========================================
+        // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH
+        // ==========================================
+        const batchSize = 7;
+        const totalNodes = allNodes.length;
+        const totalBatches = Math.ceil(totalNodes / batchSize);
+        const enrichedNodesMap = {};
+
+        for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+            const start = batchIdx * batchSize;
+            const batchNodes = allNodes.slice(start, Math.min(start + batchSize, totalNodes));
+            const batchNodesStr = batchNodes.map(n => `- ID: "${n.id}" (Label: "${n.label}")`).join('\n');
+
+            window.showLoadingOverlay(true, `Fase 4/4 (Hub-Pass): Arricchimento dettagli (Batch ${batchIdx + 1}/${totalBatches})...`);
+
+            const p3PromptText = `SEI UN ARRICCHITORE CONCETTUALE DIDATTICO (Hub-Pass — Fase Arricchimento).
+Stiamo realizzando un Knowledge Graph per uno studente.
+Il tuo compito è arricchire i seguenti concetti leggendo le fonti originali.
+
+CONCETTI DA COMPLETARE IN QUESTO BATCH:
+${batchNodesStr}
+${userProfileStr}
+
+ISTRUZIONI PER OGNI CONCETTO:
+1. Genera "content": sintesi concettuale brevissima (massimo 10 parole).
+2. Genera "desc": descrizione approfondita e chiara (da 30 a 50 parole), tarata sul profilo dello studente.
+3. Genera "chunks": array con 1-2 citazioni testuali VERBATIM (frasi intere ≥10 parole) copiate fedelmente dal testo originale. NON inventare o riassumere.
+
+Restituisci SOLO un oggetto JSON con chiave "enrichedNodes". Nessun commento, nessun blocco markdown.
+{"enrichedNodes": [{"id": "ID_CONCETTO", "content": "Sintesi", "desc": "Spiegazione...", "chunks": ["Citazione verbatim..."]}]}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+
+            const p3Schema = {
+                type: "OBJECT",
+                properties: {
+                    enrichedNodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "content", "desc", "chunks"] } }
+                },
+                required: ["enrichedNodes"]
+            };
+
+            const p3Payload = {
+                contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
+                systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+            };
+
+            try {
+                const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
+                let p3Raw = p3Response.candidates[0].content.parts[0].text;
+                let p3Data = salvageTruncatedJSON(p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+                if (p3Data.enrichedNodes) p3Data.enrichedNodes.forEach(n => { enrichedNodesMap[n.id] = n; });
+            } catch (batchErr) {
+                console.error(`Hub-Pass: errore batch arricchimento ${batchIdx + 1}:`, batchErr);
+                batchNodes.forEach(n => { enrichedNodesMap[n.id] = { id: n.id, content: n.label, desc: `Concetto "${n.label}" estratto dalle fonti.`, chunks: [] }; });
+            }
+        }
+
+        // ==========================================
+        // ASSEMBLAGGIO FINALE E PULIZIA
+        // ==========================================
+        const finalNodes = allNodes.map(node => {
+            const enriched = enrichedNodesMap[node.id] || {};
+            return {
+                id: node.id,
+                label: node.label,
+                level: node.level,
+                group: node.group,
+                content: enriched.content || node.label,
+                desc: enriched.desc || `Dettaglio per ${node.label}.`,
+                chunks: enriched.chunks || [],
+                aiDesc: enriched.desc || `Dettaglio per ${node.label}.`,
+                studyStatus: 'none'
+            };
+        });
+
+        // Forza L1 per hub manuali utente
+        const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
+        const manualHubLabels = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
+        finalNodes.forEach(n => { if (manualHubLabels.some(h => normalizeLabel(h) === normalizeLabel(n.label))) n.level = 1; });
+
+        // Orphan healer: ogni L2 senza link riceve un link verso il proprio hub di gruppo
+        const validNodeIds = new Set(finalNodes.map(n => n.id));
+        let finalLinks = extractedLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+
+        const linkedNodes = new Set();
+        finalLinks.forEach(l => { linkedNodes.add(l.source); linkedNodes.add(l.target); });
+
+        const hubs = finalNodes.filter(n => n.level === 1);
+        if (hubs.length > 0) {
+            const healHubMap = {};
+            hubs.forEach(h => { healHubMap[h.id] = h.id; });
+            finalNodes.forEach(node => {
+                if (node.level === 2 && !linkedNodes.has(node.id)) {
+                    const bestGroupId = window._assignHubGroup(node.id, finalLinks, healHubMap);
+                    const bestHub = finalNodes.find(h => h.level === 1 && h.id === bestGroupId)
+                        || hubs.find(h => h.group === node.group)
+                        || hubs[0];
+                    finalLinks.push({ source: bestHub.id, target: node.id, rel: "fa parte di" });
+                    linkedNodes.add(node.id);
+                }
+            });
+        }
+
+        // Ricalcola group via BFS sulle relazioni finali
+        const hubGroupMapFinal = {};
+        finalNodes.filter(n => n.level === 1).forEach(h => { hubGroupMapFinal[h.id] = h.group; });
+        finalNodes.filter(n => n.level === 2).forEach(node => {
+            const assigned = window._assignHubGroup(node.id, finalLinks, hubGroupMapFinal);
+            if (assigned) node.group = assigned;
+        });
+
+        window.markKgCrossLinks(finalNodes, finalLinks);
+
+        appState.db = { nodes: finalNodes, links: finalLinks, sourcesDict: {}, customColors: {} };
+        appState.db.nodes.forEach(n => {
+            if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
+        });
+
+        window.showLoadingOverlay(false);
+        window.switchToMapLayout();
+        setTimeout(() => { initD3Visualization(); }, 200);
+        setTimeout(() => { window.showGenerationReport(); }, 1500);
+
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Generazione KG Hub-Pass", err.message);
+    }
+}
+
 window.showGenerationReport = function () {
     if (!appState.generationUsage) return;
 
@@ -4341,7 +4686,7 @@ function renderGraph() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
+    linkEnter.append("path").attr("class", "link").attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
     linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
@@ -4676,13 +5021,45 @@ function renderGraph() {
     }).style("opacity", 1);
 }
 
+// Calcola il punto di controllo della bezier quadratica per link curvi.
+// curveDir: +1 = curva a sinistra, -1 = a destra, 0 = linea retta → null.
+function _linkControlPoint(sx, sy, tx, ty, curveDir) {
+    if (!curveDir) return null;
+    const dx = tx - sx, dy = ty - sy;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const offset = 28; // pixel di curvatura — abbastanza visibile ma non eccessivo
+    return {
+        x: (sx + tx) / 2 - (dy / len) * offset * curveDir,
+        y: (sy + ty) / 2 + (dx / len) * offset * curveDir
+    };
+}
+
 function tick() {
-    g.selectAll(".link")
-        .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    g.selectAll(".link-label")
-        .attr("x", d => (d.source.x + d.target.x) / 2)
-        .attr("y", d => (d.source.y + d.target.y) / 2);
+    // Link: path bezier per coppie bidirezionali, linea retta altrimenti
+    g.selectAll(".link").attr("d", d => {
+        const sx = d.source.x, sy = d.source.y;
+        const tx = d.target.x, ty = d.target.y;
+        const cp = _linkControlPoint(sx, sy, tx, ty, d._curveDir || 0);
+        return cp
+            ? `M${sx},${sy}Q${cp.x},${cp.y},${tx},${ty}`
+            : `M${sx},${sy}L${tx},${ty}`;
+    });
+
+    // Label: a 3/4 verso il target sulla bezier (evita sovrapposizioni)
+    g.selectAll(".link-label").each(function (d) {
+        const sx = d.source.x, sy = d.source.y;
+        const tx = d.target.x, ty = d.target.y;
+        const cp = _linkControlPoint(sx, sy, tx, ty, d._curveDir || 0);
+        const t = 0.75; // 3/4 verso il target
+        const x = cp
+            ? (1 - t) * (1 - t) * sx + 2 * t * (1 - t) * cp.x + t * t * tx
+            : sx + t * (tx - sx);
+        const y = cp
+            ? (1 - t) * (1 - t) * sy + 2 * t * (1 - t) * cp.y + t * t * ty
+            : sy + t * (ty - sy);
+        d3.select(this).attr("x", x).attr("y", y);
+    });
+
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
@@ -9138,6 +9515,35 @@ let tutorState = {
         history: []
     },
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
+};
+
+/**
+ * Deduplica i link di un KG secondo queste regole:
+ *   1. Self-loop (s === t)                        → RIMOSSO
+ *   2. Nodo non in validNodeIds (se fornito)      → RIMOSSO
+ *   3. Stessa direzione + stesso rel (duplicato)  → RIMOSSO
+ *   4. Stessa direzione + rel diversa             → TENUTO SOLO IL PRIMO
+ *   5. Direzione inversa + stesso rel             → RIMOSSO (ridondante)
+ *   6. Direzione inversa + rel diversa            → TENUTO ← verrà curvato
+ */
+window.deduplicateKgLinks = function (links, validNodeIds) {
+    const valid = validNodeIds instanceof Set ? validNodeIds
+        : (validNodeIds ? new Set(validNodeIds) : null);
+    const fwdSeen = new Map(); // "s||t" → relNorm
+    return (links || []).filter(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        if (s === t) return false;
+        if (valid && (!valid.has(s) || !valid.has(t))) return false;
+        const fwdKey = `${s}||${t}`;
+        const revKey = `${t}||${s}`;
+        const relNorm = (l.rel || '').trim().toLowerCase();
+        if (fwdSeen.get(fwdKey) === relNorm) return false; // regola 3
+        if (fwdSeen.has(fwdKey)) return false;             // regola 4
+        if (fwdSeen.get(revKey) === relNorm) return false; // regola 5
+        fwdSeen.set(fwdKey, relNorm);
+        return true;
+    });
 };
 
 /**
