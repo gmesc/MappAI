@@ -8016,19 +8016,14 @@ window.generateDossierPDFFromOptions = async function () {
                 @media print {
                     /* --- REGOLE DI STAMPA A4 --- */
                     @page {
-                        /* Formato della pagina. Puoi usare 'A4 landscape' per orizzontale */
                         size: A4 portrait;
-                        
-                        /* Margini della pagina fisica (Sopra/Sotto Destra/Sinistra) */
-                        margin: 18mm 15mm; 
-                        
-                        /* Footer automatico su ogni pagina stampata - Modifica qui il testo a piè di pagina */
-                        @bottom-left { content: "MappAI — insegnai.ch"; font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
-                        @bottom-right { content: counter(page); font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
+                        /* Margine inferiore 0: il footer .dossier-footer gestisce tutto lo spazio in fondo */
+                        margin: 18mm 15mm 0 15mm;
                     }
-                    body { 
+                    body {
                         margin: 0;
-                        padding: 0;
+                        /* Riserva spazio per il footer (22mm) + 3mm buffer sopra */
+                        padding: 0 0 25mm;
                     }
                     .no-print { display: none !important; }
                     
