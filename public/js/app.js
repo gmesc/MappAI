@@ -5442,7 +5442,7 @@ window.applyLensFamily = function () {
             .style('fill', isActive ? fam.color : null)
             .style('font-weight', isActive ? 'bold' : null)
             .style('stroke', isActive ? 'black' : null)
-            .style('stroke-width', isActive ? '3px' : null)
+            .style('stroke-width', isActive ? '1px' : null)
             .style('stroke-linejoin', isActive ? 'round' : null)
             .style('paint-order', isActive ? 'stroke fill' : null);
     });
