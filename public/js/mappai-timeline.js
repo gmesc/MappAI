@@ -83,50 +83,84 @@ window.openTimelineGeneratorModal = function () {
     var existingModal = document.getElementById('timeline-generator-modal');
     if (existingModal) existingModal.remove();
 
+    var tokenBadgeClass = estimatedTokens > 40000 ? 'pm-badge pm-badge-warn' : 'pm-badge pm-badge-ok';
+    var tokenBadgeText  = estimatedTokens > 40000
+        ? 'Testo lungo \u2014 preferisci Gemma 4'
+        : 'Dimensione ottimale per tutti i modelli';
+
     var modal = document.createElement('div');
     modal.id = 'timeline-generator-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.8);backdrop-filter:blur(4px);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
 
-    var tokenNote = estimatedTokens > 40000
-        ? '<br><span style="color:#d97706;">\u26a0\ufe0f Testo lungo \u2014 usa Gemma 4 per migliori risultati</span>'
-        : '<br><span style="color:#059669;">\u2713 Dimensione ottimale per tutti i modelli</span>';
+    modal.innerHTML =
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[500px] p-8 relative">' +
 
-    modal.innerHTML = '<div style="background:white;border-radius:16px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);font-family:\'Space Mono\',monospace;">' +
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">' +
-            '<div style="width:36px;height:36px;background:#fef3c7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">\uD83D\uDCC5</div>' +
-            '<div>' +
-                '<div style="font-size:15px;font-weight:900;color:#1e293b;">Crea Timeline</div>' +
-                '<div style="font-size:10px;color:#64748b;">' + mapName + '</div>' +
-            '</div>' +
-        '</div>' +
-        '<p style="font-size:11px;color:#475569;line-height:1.6;margin-bottom:16px;">' +
-            'L\'AI analizzer\u00e0 il contenuto della mappa ed estrarr\u00e0 tutti gli eventi datati con il loro significato storico preciso.<br><br>' +
-            '<strong>Testo da analizzare:</strong> ~' + estimatedTokens.toLocaleString('it') + ' token' + tokenNote +
-        '</p>' +
-        '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0;">' +
-            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Formato di esportazione</div>' +
-            '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:12px;font-size:11px;color:#1e293b;">' +
-                '<input type="radio" name="tl-style" id="tl-style-compact" value="compact" style="accent-color:#f59e0b;margin-top:2px;"> ' +
-                '<span><strong>Compatta</strong><br><span style="color:#64748b;">Data \u00B7 Evento \u00B7 Categoria</span></span>' +
-            '</label>' +
-            '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:11px;color:#1e293b;">' +
-                '<input type="radio" name="tl-style" id="tl-style-context" value="context" checked style="accent-color:#f59e0b;margin-top:2px;"> ' +
-                '<span><strong>Con contesto</strong><br><span style="color:#64748b;">Data \u00B7 Evento \u00B7 Categoria \u00B7 Estratto dalla fonte</span></span>' +
-            '</label>' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;">' +
+            // Pulsante chiudi (X) \u2014 identico al Stampa Dossier
             '<button type="button" onclick="document.getElementById(\'timeline-generator-modal\').remove()" ' +
-                'style="flex:1;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;background:white;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' +
-                'Annulla' +
+                'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
+                '<i data-lucide="x" class="w-6 h-6"></i>' +
             '</button>' +
-            '<button type="button" onclick="window.generateTimelineWithAI()" ' +
-                'style="flex:2;padding:10px;border:none;border-radius:10px;background:#f59e0b;color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">' +
-                '\uD83D\uDE80 Genera Timeline' +
-            '</button>' +
-        '</div>' +
-    '</div>';
+
+            '<div class="space-y-6">' +
+
+                // Header: icona + titolo + sottotitolo
+                '<div class="flex items-center gap-3">' +
+                    '<div class="pm-icon-wrap">' +
+                        '<i data-lucide="calendar-clock" class="w-5 h-5 text-indigo-600"></i>' +
+                    '</div>' +
+                    '<div>' +
+                        '<div class="pm-title">Crea Timeline</div>' +
+                        '<div class="pm-subtitle">' + mapName + '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                // Descrizione + badge token
+                '<p class="pm-body-text">' +
+                    'L\'AI analizza la mappa ed estrae tutti gli eventi datati con il loro significato storico.<br>' +
+                    '<strong>Testo da analizzare:</strong> ~' + estimatedTokens.toLocaleString('it') + ' token&nbsp;' +
+                    '<span class="' + tokenBadgeClass + '">' + tokenBadgeText + '</span>' +
+                '</p>' +
+
+                // Sezione opzioni
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Formato di esportazione</span>' +
+                    '<div class="space-y-3">' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="tl-style" id="tl-style-compact" value="compact" ' +
+                                'class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div>' +
+                                '<div class="pm-option-label">Compatta</div>' +
+                                '<div class="pm-option-desc">Data \u00B7 Evento \u00B7 Categoria</div>' +
+                            '</div>' +
+                        '</label>' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="tl-style" id="tl-style-context" value="context" checked ' +
+                                'class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div>' +
+                                '<div class="pm-option-label">Con contesto</div>' +
+                                '<div class="pm-option-desc">Data \u00B7 Evento \u00B7 Categoria \u00B7 Estratto dalla fonte</div>' +
+                            '</div>' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+
+                // Footer bottoni
+                '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
+                    '<button type="button" onclick="document.getElementById(\'timeline-generator-modal\').remove()" ' +
+                        'class="pm-btn-cancel">Annulla</button>' +
+                    '<button type="button" onclick="window.generateTimelineWithAI()" ' +
+                        'class="pm-btn-primary">' +
+                        '<i data-lucide="zap" class="w-4 h-4"></i> Genera Timeline' +
+                    '</button>' +
+                '</div>' +
+
+            '</div>' +
+        '</div>';
 
     document.body.appendChild(modal);
+
+    // Inizializza icone Lucide nel modal appena inserito
+    if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
 
     // Chiudi con ESC
     var escHandler = function (e) {
