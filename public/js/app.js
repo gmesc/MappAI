@@ -6222,7 +6222,7 @@ window.saveMapVault = async function () {
                 nodes: appState.db.nodes,
                 links: appState.db.links,
                 userProfile: appState.userProfile,
-                tutorState: tutorState,
+                tutorState: serializeTutorState(tutorState),
                 aiProvider: appState.aiProvider,
                 aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
                 generationUsage: appState.generationUsage,
@@ -9074,6 +9074,21 @@ let tutorState = {
     },
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
 };
+
+/**
+ * Ritorna una copia deep-serializzabile di tutorState (solo scalari + array + oggetti plain).
+ * Necessario prima di passare tutorState via Electron IPC (Structured Clone Algorithm):
+ * se tutorState contiene Date, funzioni, riferimenti circolari o altri non-serializzabili
+ * l'IPC lancia "An object could not be cloned" e il salvataggio vault fallisce silenziosamente.
+ */
+function serializeTutorState(state) {
+    try {
+        return JSON.parse(JSON.stringify(state));
+    } catch (e) {
+        console.warn('[MappAI] tutorState non serializzabile, uso fallback vuoto:', e);
+        return { sidebar: { history: [] }, nodes: {} };
+    }
+}
 
 window.parseSimpleMarkdown = function (text) {
     if (!text) return "";
