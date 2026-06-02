@@ -5378,7 +5378,15 @@ window.applyLensFamily = function () {
     g.selectAll('circle.node-circle')
         .style('stroke', null)
         .style('stroke-width', null);
-    g.selectAll('text.link-label').style('font-size', null).style('fill', null).style('opacity', null);
+    g.selectAll('text.link-label')
+        .style('font-size', null)
+        .style('fill', null)
+        .style('opacity', null)
+        .style('stroke', null)
+        .style('stroke-width', null)
+        .style('stroke-linejoin', null)
+        .style('paint-order', null)
+        .style('font-weight', null);
 
     if (!key) {
         btn.style.background = '';
@@ -5411,10 +5419,17 @@ window.applyLensFamily = function () {
             .style('stroke', isActive ? fam.color : null)
             .style('stroke-width', isActive ? '2.5px' : null)
             .style('stroke-opacity', isActive ? '1' : null);
+        // Label: forza visibile + font ×1.5 + colore famiglia + outline bianco per leggibilità
+        // (replica lo stile di .node-text — vedi css/style.css L.1293-1299)
         d3.select(this).select('text.link-label')
             .style('opacity', isActive ? '1' : null)
-            .style('font-size', isActive ? (baseFontSize * 2) + 'px' : null)
-            .style('fill', isActive ? fam.color : null);
+            .style('font-size', isActive ? (baseFontSize * 1.5) + 'px' : null)
+            .style('fill', isActive ? fam.color : null)
+            .style('font-weight', isActive ? 'bold' : null)
+            .style('stroke', isActive ? 'white' : null)
+            .style('stroke-width', isActive ? '3px' : null)
+            .style('stroke-linejoin', isActive ? 'round' : null)
+            .style('paint-order', isActive ? 'stroke fill' : null);
     });
 
     g.selectAll('.node-group').each(function (d) {
