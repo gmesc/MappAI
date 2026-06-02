@@ -4168,9 +4168,21 @@ function initD3Visualization() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    svg.append("defs").selectAll("marker").data(["arrowhead"]).enter().append("marker")
-        .attr("id", String).attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+    const defs = svg.append("defs");
+    // Marker arrowhead default (grigio)
+    defs.append("marker")
+        .attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
+        .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
         .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
+    // Un marker per ogni famiglia di relazione (usato dalla lente)
+    if (typeof EDGE_FAMILIES === 'object') {
+        Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
+            defs.append("marker")
+                .attr("id", `arrowhead-${key}`).attr("viewBox", "0 -5 10 10")
+                .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
+        });
+    }
 
     g = svg.append("g");
 
@@ -5372,7 +5384,8 @@ window.applyLensFamily = function () {
     g.selectAll('.link')
         .style('stroke', null)
         .style('stroke-width', null)
-        .style('stroke-opacity', null);
+        .style('stroke-opacity', null)
+        .attr('marker-end', 'url(#arrowhead)');
     g.selectAll('.link-group').classed('lens-dimmed', false);
     g.selectAll('.node-group').classed('lens-dimmed', false);
     g.selectAll('circle.node-circle')
@@ -5415,18 +5428,20 @@ window.applyLensFamily = function () {
     g.selectAll('.link-group').each(function (d) {
         const isActive = activeLinkSet.has(d);
         d3.select(this).classed('lens-dimmed', !isActive);
+        // Line + freccia colorate per i link attivi
         d3.select(this).select('line.link')
             .style('stroke', isActive ? fam.color : null)
             .style('stroke-width', isActive ? '2.5px' : null)
-            .style('stroke-opacity', isActive ? '1' : null);
-        // Label: forza visibile + font ×1.5 + colore famiglia + outline bianco per leggibilità
-        // (replica lo stile di .node-text — vedi css/style.css L.1293-1299)
+            .style('stroke-opacity', isActive ? '1' : null)
+            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)');
+        // Label: forza visibile + font ×1.5 + colore famiglia + outline NERO per contrasto
+        // (replica il pattern di .node-text, ma stroke nero come richiesto)
         d3.select(this).select('text.link-label')
             .style('opacity', isActive ? '1' : null)
             .style('font-size', isActive ? (baseFontSize * 1.5) + 'px' : null)
             .style('fill', isActive ? fam.color : null)
             .style('font-weight', isActive ? 'bold' : null)
-            .style('stroke', isActive ? 'white' : null)
+            .style('stroke', isActive ? 'black' : null)
             .style('stroke-width', isActive ? '3px' : null)
             .style('stroke-linejoin', isActive ? 'round' : null)
             .style('paint-order', isActive ? 'stroke fill' : null);
