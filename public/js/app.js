@@ -8127,13 +8127,12 @@ window.generateDossierPDFFromOptions = async function () {
                     /* --- REGOLE DI STAMPA A4 --- */
                     @page {
                         size: A4 portrait;
-                        /* Margine inferiore 0: il footer .dossier-footer gestisce tutto lo spazio in fondo */
-                        margin: 18mm 15mm 0 15mm;
+                        /* margin-bottom = altezza footer: l'area contenuto finisce esattamente dove inizia il footer */
+                        margin: 18mm 15mm 22mm 15mm;
                     }
                     body {
                         margin: 0;
-                        /* Riserva spazio per il footer (22mm) + 3mm buffer sopra */
-                        padding: 0 0 25mm;
+                        padding: 0;
                     }
                     .no-print { display: none !important; }
                     
@@ -8572,15 +8571,21 @@ window.generateDossierPDFFromOptions = async function () {
                 /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
                 .dossier-footer {
                     position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
+                    /* bottom: -22mm sposta il footer nell'area margine (@page margin-bottom: 22mm)
+                       portando il bordo inferiore esattamente al bordo fisico del foglio */
+                    bottom: -22mm;
+                    /* left/right negativi: estende il footer al bordo fisico del foglio
+                       compensando i margini laterali @page di 15mm */
+                    left: -15mm;
+                    right: -15mm;
                     box-sizing: border-box;
                     height: 22mm;
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
-                    padding: 0 0 13mm;
+                    /* padding laterale 15mm = allineato ai margini del contenuto;
+                       padding-bottom 13mm = testi a 13mm dal bordo fisico del foglio */
+                    padding: 0 15mm 13mm;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
                     background-color: white;
