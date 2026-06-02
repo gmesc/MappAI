@@ -34,7 +34,7 @@ let appState = {
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
     infomaniakAllModels: true,
-    multiPassMode: false
+    multiPassMode: true
 };
 
 // ==========================================
