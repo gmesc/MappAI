@@ -227,7 +227,7 @@ window.toggleStudentMode = function () {
     window.applyStudentModeUI();
 };
 
-window.setMultiPassMode = function (enabled) {
+window.setMultiPassMode = function (enabled, silent) {
     appState.multiPassMode = enabled;
 
     const btnOff = document.getElementById('multipass-off');
@@ -247,7 +247,7 @@ window.setMultiPassMode = function (enabled) {
         }
     }
 
-    window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
+    if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
 window.updateInfomaniakProductId = function (value) {
@@ -10098,6 +10098,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.updateStep4Display) window.updateStep4Display();
         });
     }
+
+    // Multi-pass ON di default (silent=true: niente toast all'avvio)
+    window.setMultiPassMode(true, true);
 
     StorageManager.renderRecentProjects();
 
