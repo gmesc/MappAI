@@ -4683,6 +4683,22 @@ function renderGraph() {
 
     nodeMerge.select("foreignObject.node-icons-fo")
         .attr("pointer-events", "none") // applica su tutti i nodi (enter + merge)
+        // Dimensione conditional: se non ha icone, riduco a 1×1 per non bloccare i click
+        .attr("width", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? 100 : 1;
+        })
+        .attr("height", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? 20 : 1;
+        })
+        .attr("x", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? -50 : 0;
+        })
         .attr("y", d => {
             const labelStr = cleanLabel(d.label);
             const lines = getLabelLines(labelStr);
@@ -4739,6 +4755,8 @@ function renderGraph() {
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     window.applyVisualFilters();
+    // Riapplica la lente relazioni se attiva (dopo ogni render)
+    if (window.activeLensFamily) window.applyLensFamily();
 
     // Applica subito le posizioni pre-calcolate (tick manuale)
     tick();
@@ -5259,12 +5277,165 @@ window.applyLayoutForces = function () {
 }
 
 window.toggleLabels = function () {
+    // Se la lente è attiva, click su TESTO azzera la lente (non toglia label globali)
+    if (window.activeLensFamily) {
+        window.resetLensFamily();
+        return;
+    }
     labelsHidden = !labelsHidden;
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     const btn = document.getElementById('card-btn-labels');
     if (labelsHidden) { btn.classList.replace('bg-slate-100', 'bg-red-50'); btn.classList.replace('text-slate-600', 'text-red-500'); }
     else { btn.classList.replace('bg-red-50', 'bg-slate-100'); btn.classList.replace('text-red-500', 'text-slate-600'); }
 }
+
+// ── Lente Relazioni ────────────────────────────────────────────────────────
+
+// Click sul bottone TESTO: dispatching tra toggle label e apertura menu lente
+window.handleLabelsButtonClick = function (event) {
+    const tgt = event.target;
+    if (tgt && (tgt.id === 'lens-caret' || (tgt.closest && tgt.closest('#lens-caret')))) {
+        event.stopPropagation();
+        window.openLensMenu();
+        return;
+    }
+    window.toggleLabels();
+};
+
+window.openLensMenu = function () {
+    const menu = document.getElementById('lens-menu');
+    if (!menu) return;
+
+    if (!menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        return;
+    }
+
+    const families = window.getActiveFamiliesInMap();
+    let html = '';
+
+    const allActive = window.activeLensFamily === null;
+    html += `<button type="button" class="lens-item${allActive ? ' active' : ''}"
+        onclick="window.selectLensFamily(null)">
+        <span class="lens-dot" style="background:#94a3b8;"></span>
+        Tutte le relazioni
+    </button>`;
+
+    if (families.length > 1 || (families.length === 1 && families[0] !== 'altro')) {
+        html += `<div class="lens-divider"></div>`;
+    }
+
+    families.forEach(key => {
+        const fam = EDGE_FAMILIES[key];
+        const isActive = window.activeLensFamily === key;
+        html += `<button type="button" class="lens-item${isActive ? ' active' : ''}"
+            onclick="window.selectLensFamily('${key}')"
+            onmouseenter="this.style.color='${fam.color}'"
+            onmouseleave="this.style.color=''">
+            <span class="lens-dot" style="background:${fam.color};"></span>
+            <i data-lucide="${fam.icon}" style="width:12px;height:12px;flex-shrink:0;"></i>
+            ${fam.label}
+        </button>`;
+    });
+
+    menu.innerHTML = html;
+    menu.classList.remove('hidden');
+    window.safeCreateIcons();
+
+    setTimeout(() => {
+        const closer = (e) => {
+            if (!menu.contains(e.target)
+                && e.target.id !== 'card-btn-labels'
+                && e.target.id !== 'lens-caret'
+                && !(e.target.closest && e.target.closest('#lens-caret'))) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closer);
+            }
+        };
+        document.addEventListener('click', closer);
+    }, 0);
+};
+
+window.selectLensFamily = function (familyKey) {
+    window.activeLensFamily = familyKey;
+    document.getElementById('lens-menu')?.classList.add('hidden');
+    window.applyLensFamily();
+};
+
+window.applyLensFamily = function () {
+    const key = window.activeLensFamily;
+    const btn = document.getElementById('card-btn-labels');
+    const caret = document.getElementById('lens-caret');
+    if (!btn || !g) return;
+
+    // Reset stili inline
+    g.selectAll('.link')
+        .style('stroke', null)
+        .style('stroke-width', null)
+        .style('stroke-opacity', null);
+    g.selectAll('.link-group').classed('lens-dimmed', false);
+    g.selectAll('.node-group').classed('lens-dimmed', false);
+    g.selectAll('circle.node-circle')
+        .style('stroke', null)
+        .style('stroke-width', null);
+    g.selectAll('text.link-label').style('font-size', null).style('fill', null).style('opacity', null);
+
+    if (!key) {
+        btn.style.background = '';
+        btn.style.color = '';
+        if (caret) caret.style.color = '';
+        return;
+    }
+
+    const fam = EDGE_FAMILIES[key];
+    if (!fam) return;
+
+    const activeLinkSet = new Set();
+    const activeNodeIds = new Set();
+    appState.db.links.forEach(l => {
+        if (window.getEdgeFamilyKey(l.rel) === key) {
+            activeLinkSet.add(l);
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            activeNodeIds.add(s);
+            activeNodeIds.add(t);
+        }
+    });
+
+    const baseFontSize = 8 * globalFontScale * 0.765;
+
+    g.selectAll('.link-group').each(function (d) {
+        const isActive = activeLinkSet.has(d);
+        d3.select(this).classed('lens-dimmed', !isActive);
+        d3.select(this).select('line.link')
+            .style('stroke', isActive ? fam.color : null)
+            .style('stroke-width', isActive ? '2.5px' : null)
+            .style('stroke-opacity', isActive ? '1' : null);
+        d3.select(this).select('text.link-label')
+            .style('opacity', isActive ? '1' : null)
+            .style('font-size', isActive ? (baseFontSize * 2) + 'px' : null)
+            .style('fill', isActive ? fam.color : null);
+    });
+
+    g.selectAll('.node-group').each(function (d) {
+        const active = activeNodeIds.has(d.id) || d.level === 0;
+        d3.select(this).classed('lens-dimmed', !active);
+        if (active && d.level > 0) {
+            d3.select(this).select('circle.node-circle')
+                .style('stroke', fam.color)
+                .style('stroke-width', '3px');
+        }
+    });
+
+    btn.style.background = fam.colorBtn;
+    btn.style.color = 'white';
+    if (caret) caret.style.color = 'rgba(255,255,255,0.85)';
+};
+
+window.resetLensFamily = function () {
+    window.activeLensFamily = null;
+    window.applyLensFamily();
+};
 
 window.updateDegreeStats = function () {
     let deg = {};
