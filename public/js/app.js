@@ -1124,11 +1124,9 @@ window.executeSidebarSingleClick = function (nodeId) {
 // Maps model ID patterns to capabilities, pricing, and categories.
 // Capabilities: pdf, url, youtube (video), audio, text, json (structured output)
 const MODEL_KB = {
-    // ── Gemini 3 series ──
-    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship, massima qualità' },
-    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Ottimo rapporto qualità/prezzo' },
-    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Ultra-economico · KG density ~1.9, MM ok (test 2/6/26)' },
-    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite · KG density ~1.9 (test 2/6/26)' },
+    // ── Gemini verificati (testati in produzione) ──
+    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density ~1.9, MM ok (test 2/6/26)' },
+    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite (KG ~1.9, test 2/6/26)' },
     // ── Gemini 2.5 series ──
     'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning' },
     'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density 1.59, 41 nodi, 43% cross-link (test 2/6/26)' },
@@ -1233,6 +1231,12 @@ function renderModelSelect(models, selectEl, currentValue) {
 
     tierOrder.forEach(tier => {
         if (!groups[tier] || groups[tier].length === 0) return;
+        // Stabili prima di preview/exp — l'API restituisce spesso varianti multiple
+        groups[tier].sort((a, b) => {
+            const stableA = (a.id.includes('preview') || a.id.includes('exp') ? 0 : 1);
+            const stableB = (b.id.includes('preview') || b.id.includes('exp') ? 0 : 1);
+            return stableB - stableA;
+        });
         const optgroup = document.createElement('optgroup');
         optgroup.label = tier;
         groups[tier].forEach(m => {
