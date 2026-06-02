@@ -3707,7 +3707,15 @@ ${textParts.join('\n\n')}`;
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
 
-        const extractedLinks = p2Data.links || [];
+        // Sanitizza rel: rimuove artefatti Unicode (es. "। " Devanagari da GEMMA),
+        // spazi multipli e caratteri non-latin all'inizio. Lascia intatto il resto.
+        const extractedLinks = (p2Data.links || []).map(l => ({
+            ...l,
+            rel: (l.rel || 'fa parte di')
+                .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '') // strip Devanagari prefix
+                .replace(/\s+/g, ' ')
+                .trim() || 'fa parte di'
+        }));
 
         // ==========================================
         // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH

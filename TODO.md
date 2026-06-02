@@ -58,13 +58,18 @@ sui KG dove il nodo è già hub L1 → riformulare per modalità KG.
   di relazione. ✅ Fix template pienamente efficace su Google.
 - [x] **Test Infomaniak (GEMMA)**: densità 1.31 (da 1.09), cross-link 30% (da 0%),
   generiche 36% (da 68%), 20 tipi. ✅ Migliorato MA nettamente sotto Google.
-- [ ] **CAUSA C CONFERMATA (non più ipotesi)**: il confronto Google vs Infomaniak
-  sullo stesso prompt mostra che Infomaniak rispetta il template solo a metà
-  (36% generiche residue, densità 1.31 vs 2.0). Il colpevole è
-  `responseMimeType:"application/json"` nel payload KG (`app.js` ~3438) che il
-  bridge converte in reminder testuale (viola §10.6). **PROSSIMA AZIONE**: branch
-  per rimuovere `responseMimeType`+`responseSchema` quando `aiProvider==='infomaniak'`
-  e affidarsi a `salvageTruncatedJSON` per il parsing.
+- [x] **CAUSA C — REVISIONE DIAGNOSI (2 giugno 2026)**: la rimozione di
+  `responseMimeType` ha PEGGIORATO la qualità (26 nodi → densità 0.96).
+  Lo schema aiuta la completezza strutturale anche se degrada i rel.
+  **Vera causa**: la Fase 2 multi-pass genera link solo per ~16/34 nodi,
+  l'orphan healer riempiva i buchi con "correlato a".
+  **Fix applicati**: (1) orphan healer → "fa parte di" + BFS per hub migliore;
+  (2) p2 maxOutputTokens 3000→4096; (3) KG_REL_ENUM nello schema;
+  (4) sanitizzazione rel Devanagari da GEMMA ("। fa parte di" → "fa parte di").
+  **Risultato**: densità 1.37, 0% "correlato a", topology "networked" ✅.
+  **Residuo aperto**: gap Google (2.18) vs Infomaniak (1.37) — GEMMA genera
+  meno link laterali per design del modello, non risolvibile solo con prompt.
+  Accettabile per ora; da monitorare con Piano 2 (auto-clustering).
 - [x] **Refinement analizzatore**: `detectStructuralKeystones` ora scarta i ponti
   verso foglie (grado 1, trivali) e li limita a `bridgeCap=4`. Riduce il rumore su
   grafi networked a densità borderline (~1.3).
