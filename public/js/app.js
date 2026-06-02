@@ -250,6 +250,23 @@ window.setMultiPassMode = function (enabled, silent) {
     if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
+/**
+ * Rimuove responseMimeType e responseSchema da un generationConfig quando
+ * il provider attivo è Infomaniak. Il bridge Infomaniak converte
+ * responseMimeType:"application/json" in un reminder testuale che degrada
+ * la qualità delle risposte (§10.6 CLAUDE.md). Senza questi campi il modello
+ * segue le istruzioni del prompt in modo molto più fedele; il parsing è
+ * affidato a salvageTruncatedJSON (robusto per modelli open-source).
+ * Usare SOLO sui payload KG — le MindMap funzionano bene con lo schema.
+ */
+function stripJsonSchemaForInfomaniak(generationConfig) {
+    if (appState.aiProvider !== 'infomaniak') return generationConfig;
+    const cfg = Object.assign({}, generationConfig);
+    delete cfg.responseMimeType;
+    delete cfg.responseSchema;
+    return cfg;
+}
+
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
     localStorage.setItem('infomaniak_product_id', val);
@@ -3434,12 +3451,12 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: {
+        generationConfig: stripJsonSchemaForInfomaniak({
             temperature: 0.2,
             responseMimeType: "application/json",
             responseSchema: schema,
             maxOutputTokens: window.getMaxOutputTokens(8192)
-        }
+        })
     };
 
 
@@ -3607,7 +3624,7 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) }
+            generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) })
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
@@ -3677,7 +3694,7 @@ ${textParts.join('\n\n')}`;
         const p2Payload = {
             contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+            generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) })
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -3755,7 +3772,7 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                generationConfig: stripJsonSchemaForInfomaniak({ temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) })
             };
 
             try {
