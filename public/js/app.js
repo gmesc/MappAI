@@ -1123,18 +1123,29 @@ window.executeSidebarSingleClick = function (nodeId) {
 // ── Curated model knowledge base ──────────────────────
 // Maps model ID patterns to capabilities, pricing, and categories.
 // Capabilities: pdf, url, youtube (video), audio, text, json (structured output)
+// IMPORTANTE: le chiavi PIÙ SPECIFICHE (più lunghe) vanno prima di quelle generiche.
+// matchModelKB usa prefix-match — "gemini-2.5-flash-lite" deve precedere "gemini-2.5-flash"
+// altrimenti flash-lite verrebbe riconosciuto come flash (match sbagliato).
 const MODEL_KB = {
-    // ── Gemini verificati (testati in produzione) ──
+    // ── Gemini 3.5 (testato 2/6/26 — JSON fix applicato) ──
+    'gemini-3.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.5 · KG da testare' },
+    // ── Gemini 3.1 ──
     'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density ~1.9, MM ok (test 2/6/26)' },
-    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite (KG ~1.9, test 2/6/26)' },
-    // ── Gemini 2.5 series ──
-    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning' },
+    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship 3.1 (preview)' },
+    // ── Gemini 3.0 ──
+    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.0 (preview)' },
+    'gemini-3-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Pro 3.0 (preview)' },
+    // ── Gemini 2.5 — flash-lite PRIMA di flash (prefix più specifico) ──
     'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density 1.59, 41 nodi, 43% cross-link (test 2/6/26)' },
-    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato' },
-    // ── Gemini 2.0 series (discontinued) ──
-    'gemini-2.0-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, deprecated: true, note: 'Discontinued — usa gemini-3.1-flash-lite' },
-    'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-3.1-flash-lite' },
-    // ── Gemini 1.5 series (legacy, hidden by default) ──
+    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning · da testare KG' },
+    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato · da testare KG' },
+    // ── Alias senza versione (-latest) ──
+    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite-latest (KG ~1.9, test 2/6/26)' },
+    'gemini-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Alias gemini-flash-latest' },
+    'gemini-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Alias gemini-pro-latest' },
+    // ── Deprecated (nascosti nel dropdown) ──
+    'gemini-2.0-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
+    'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
     // ── Infomaniak (Limit to Google/Gemma) ──
@@ -1166,13 +1177,15 @@ function matchModelKB(modelId) {
         }
     }
 
-    // 2. Try exact prefix match first in MODEL_KB
-    for (const pattern of Object.keys(MODEL_KB)) {
+    // 2. Prefix match — ordina per lunghezza decrescente: pattern più specifici prima.
+    // Es: "gemini-2.5-flash-lite" deve matchare PRIMA di "gemini-2.5-flash".
+    const kbPatterns = Object.keys(MODEL_KB).sort((a, b) => b.length - a.length);
+    for (const pattern of kbPatterns) {
         if (id.startsWith(pattern)) return MODEL_KB[pattern];
     }
-    // 3. Fuzzy: strip preview/exp suffixes and try again
+    // 3. Fuzzy: strip preview/exp/latest e riprova con lo stesso ordine
     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
-    for (const pattern of Object.keys(MODEL_KB)) {
+    for (const pattern of kbPatterns) {
         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
     }
 
