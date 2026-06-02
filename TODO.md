@@ -90,6 +90,35 @@ Piano 1.2 — pannello suggerimenti strutturali.
 
 ---
 
+## ✅ COMPLETATO — Sessione 2 giugno 2026 (sera)
+
+### Node styling KG 1+2 — ruolo strutturale + bridge marking
+- ✅ `mappai-node-styling.js` — nuovo modulo (window.MappAINodeStyling)
+  - `annotate(nodes, links, groupColors)`: ruolo (_role: l1/keystone/ordinary/leaf)
+    e bridge info (_bridgeInfo: kind mono/bridge/mixed + segments colore+frazione)
+    basati su 1-hop diretto (non BFS 3-hop — più semanticamente preciso)
+  - `getRingSegments(node)`: restituisce i segmenti per l'anello D3
+- ✅ Integrato in `app.js`: BFS 3-hop sostituito, rendering segmenti usa _strokeW
+  (leaf=2px, ordinary=3px, keystone=5px), cascade animation usa _opacity
+  (leaf=0.65, altri=1.0)
+- ✅ Wired in `index.html` dopo mappai-structure-analyzer.js
+- ✅ Test verificato console (grafo fotosintesi 71 nodi / 117 link / density 1.65):
+  l1:5, keystone:8, ordinary:20, leaf:0 (0 foglie = KG ben connesso ✅)
+  bridge:8, mixed:5, mono:15 — 8 ponti semantici reali (Stomi, Fotosistema I, ecc.)
+- ✅ Piano Edge Coloring toggle salvato in `docs/PLAN_edge_coloring_toggle.md`
+  (6 famiglie daltonismo-safe, linee esatte, 7 step implementazione)
+
+### Test KG con lenti AREA DISCIPLINARE
+- ✅ Nessuna anomalia su gemini-2.5-flash-lite: density 1.65, cross-link 61.5%
+  con lenti attive. L'anomalia "37K token / 13 nodi" del 31 maggio non si ripresenta.
+  TODO punto 10 chiudibile.
+
+### Mirror template KG su varianti Student e EN
+- ✅ `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` + `_EN`: blocco "RELAZIONI — IL CUORE
+  DEL GRAFO" applicato. Linguaggio adattato al profilo studente. Committato in 59d9211.
+
+---
+
 ## 🔴 PRIORITÀ ALTA
 
 ### 1. Test KG con lenti AREA DISCIPLINARE attive
@@ -108,6 +137,7 @@ Piano 1.2 — pannello suggerimenti strutturali.
 
 ### 3. UI Piano 1.2 — pannello suggerimenti strutturali
 **Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile) + analisi god_node fix (✅)
+**Stato**: non ancora iniziato — prompt completo preparato nel messaggio di chiusura sessione.
 **Da costruire**:
 - Pannello `#structural-suggestions-panel` con card per ogni suggerimento
 - Primitiva `highlightSubgraph(nodeIds)` per evidenziare il sottografo
