@@ -1531,13 +1531,21 @@ window.getSystemKey = function () {
 };
 
 // Restituisce il maxOutputTokens ottimale per il modello attivo.
-// Modelli grandi Infomaniak (Qwen, Kimi) producono output molto più lunghi.
+// Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
+// output più lunghi — scala il budget per evitare troncamenti.
 window.getMaxOutputTokens = function(baseTokens) {
-    if (appState.aiProvider !== 'infomaniak') return baseTokens;
     const modelEl = document.getElementById('model-select');
     const model = (modelEl ? modelEl.value : '').toLowerCase();
-    if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
-        return Math.max(baseTokens, 16384);
+    if (appState.aiProvider === 'infomaniak') {
+        if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
+            return Math.max(baseTokens, 16384);
+        }
+        return baseTokens;
+    }
+    // Gemini 2.5+ e 3.x sono più verbosi nelle descrizioni e nei chunk —
+    // raddoppia il budget, cap 16384, per evitare "Unexpected end of JSON".
+    if (model.includes('gemini-2.5') || model.includes('gemini-3')) {
+        return Math.min(baseTokens * 2, 16384);
     }
     return baseTokens;
 };
@@ -3836,7 +3844,7 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(5000) }
             };
 
             try {
