@@ -8452,6 +8452,7 @@ window.generateDossierPDFFromOptions = async function () {
                     bottom: 0;
                     left: 0;
                     right: 0;
+                    box-sizing: border-box;
                     height: 22mm;
                     display: flex;
                     justify-content: space-between;
