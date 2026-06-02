@@ -251,21 +251,23 @@ window.setMultiPassMode = function (enabled, silent) {
 };
 
 /**
- * Rimuove responseMimeType e responseSchema da un generationConfig quando
- * il provider attivo è Infomaniak. Il bridge Infomaniak converte
- * responseMimeType:"application/json" in un reminder testuale che degrada
- * la qualità delle risposte (§10.6 CLAUDE.md). Senza questi campi il modello
- * segue le istruzioni del prompt in modo molto più fedele; il parsing è
- * affidato a salvageTruncatedJSON (robusto per modelli open-source).
- * Usare SOLO sui payload KG — le MindMap funzionano bene con lo schema.
+ * Vocabolario tipizzato per il campo "rel" nei Knowledge Graph.
+ * Usato come enum nello schema JSON (Google: enforcement nativo).
+ * Su Infomaniak lo schema non viene enforced, ma il vocabolario è comunque
+ * iniettato nel testo del prompt (VOCABOLARIO RELAZIONI nel template).
+ * Allineato al template KNOWLEDGE_GRAPH_SINGLE_IT.
  */
-function stripJsonSchemaForInfomaniak(generationConfig) {
-    if (appState.aiProvider !== 'infomaniak') return generationConfig;
-    const cfg = Object.assign({}, generationConfig);
-    delete cfg.responseMimeType;
-    delete cfg.responseSchema;
-    return cfg;
-}
+const KG_REL_ENUM = [
+    "causa", "provoca", "produce", "genera", "determina",
+    "richiede", "dipende da", "è condizione di",
+    "trasforma in", "porta a", "alimenta",
+    "si oppone a", "contrasta", "ostacola",
+    "precede", "segue", "deriva da",
+    "fa parte di", "comprende", "contiene", "appartiene a",
+    "è regolato da", "regola", "governa", "guida",
+    "utilizza", "catalizza", "avviene in", "è esempio di",
+    "rappresenta", "sostiene", "coinvolge", "permette"
+];
 
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
@@ -3444,7 +3446,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const schema = {
         type: "OBJECT", properties: {
             nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "level", "chunks"] } },
-            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING" } }, required: ["source", "target", "rel"] } }
+            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: KG_REL_ENUM } }, required: ["source", "target", "rel"] } }
         }, required: ["nodes", "links"]
     };
 
@@ -3682,7 +3684,7 @@ ${textParts.join('\n\n')}`;
                         properties: {
                             source: { type: "STRING" },
                             target: { type: "STRING" },
-                            rel: { type: "STRING" }
+                            rel: { type: "STRING", enum: KG_REL_ENUM }
                         },
                         required: ["source", "target", "rel"]
                     }
