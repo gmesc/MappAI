@@ -3537,7 +3537,18 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
-        appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        // Filtra link con nodi inesistenti, self-loop e duplicati bidirezionali
+        const _spSeen = new Set();
+        appState.db.links = (appState.db.links || []).filter(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            if (!validNodeIds.has(s) || !validNodeIds.has(t)) return false;
+            if (s === t) return false;
+            const key = [s, t].sort().join('||');
+            if (_spSeen.has(key)) return false;
+            _spSeen.add(key);
+            return true;
+        });
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
@@ -3709,13 +3720,28 @@ ${textParts.join('\n\n')}`;
 
         // Sanitizza rel: rimuove artefatti Unicode (es. "। " Devanagari da GEMMA),
         // spazi multipli e caratteri non-latin all'inizio. Lascia intatto il resto.
-        const extractedLinks = (p2Data.links || []).map(l => ({
-            ...l,
-            rel: (l.rel || 'fa parte di')
-                .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '') // strip Devanagari prefix
-                .replace(/\s+/g, ' ')
-                .trim() || 'fa parte di'
-        }));
+        // Deduplica: GEMMA a volte genera A→B e B→A per lo stesso concetto, oppure
+        // duplicati esatti. D3 li disegna sulla stessa linea → le label si sovrappongono
+        // producendo testo illeggibile (es. "déllipartàeodil"). Teniamo il primo link
+        // per ogni coppia non-ordinata (source, target), indipendentemente dalla direzione.
+        const _seenPairs = new Set();
+        const extractedLinks = (p2Data.links || [])
+            .map(l => ({
+                ...l,
+                rel: (l.rel || 'fa parte di')
+                    .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '') // strip Devanagari prefix
+                    .replace(/\s+/g, ' ')
+                    .trim() || 'fa parte di'
+            }))
+            .filter(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                if (!s || !t || s === t) return false; // scarta self-loop
+                const key = [s, t].sort().join('||');
+                if (_seenPairs.has(key)) return false; // scarta duplicato
+                _seenPairs.add(key);
+                return true;
+            });
 
         // ==========================================
         // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH
