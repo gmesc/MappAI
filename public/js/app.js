@@ -3115,8 +3115,10 @@ ${textParts.join('\n\n')}`;
 window.markKgCrossLinks = function (nodes, links) {
     const levelOf = {};
     (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+
+    // Pass 1: marca isCross (link laterale concetto↔concetto)
     (links || []).forEach(l => {
-        if (l.isCross === true) return; // già marcato altrove
+        if (l.isCross === true) return;
         const sId = typeof l.source === 'object' ? l.source.id : l.source;
         const tId = typeof l.target === 'object' ? l.target.id : l.target;
         const sHub = levelOf[sId] === 1;
@@ -3124,6 +3126,21 @@ window.markKgCrossLinks = function (nodes, links) {
         const hierarchical = (sHub !== tHub); // XOR: esattamente uno è hub
         l.isCross = !hierarchical;
     });
+
+    // Pass 2: marca _curveDir per link bidirezionali (A→B e B→A con rel diversa).
+    // _curveDir: +1 curva a sinistra, -1 a destra, 0 linea retta.
+    // I link senza coppia inversa rimangono retti.
+    const fwdSet = new Set((links || []).map(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return `${s}||${t}`;
+    }));
+    (links || []).forEach(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        l._curveDir = fwdSet.has(`${t}||${s}`) ? (s < t ? 1 : -1) : 0;
+    });
+
     return links;
 };
 
@@ -3537,18 +3554,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
-        // Filtra link con nodi inesistenti, self-loop e duplicati bidirezionali
-        const _spSeen = new Set();
-        appState.db.links = (appState.db.links || []).filter(l => {
-            const s = typeof l.source === 'object' ? l.source.id : l.source;
-            const t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (!validNodeIds.has(s) || !validNodeIds.has(t)) return false;
-            if (s === t) return false;
-            const key = [s, t].sort().join('||');
-            if (_spSeen.has(key)) return false;
-            _spSeen.add(key);
-            return true;
-        });
+        appState.db.links = window.deduplicateKgLinks(appState.db.links, validNodeIds);
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
@@ -3912,7 +3918,7 @@ ${textParts.join('\n\n')}`;
         // invece di uno casuale, e "fa parte di" come rel (più onesto di
         // "correlato a" — stiamo esplicitamente collegando al hub tematico).
         const validNodeIds = new Set(finalNodes.map(n => n.id));
-        let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        let finalLinks = window.deduplicateKgLinks(rawLinks, validNodeIds);
 
         const linkedNodes = new Set();
         finalLinks.forEach(l => { linkedNodes.add(l.source); linkedNodes.add(l.target); });
@@ -4680,7 +4686,7 @@ function renderGraph() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
+    linkEnter.append("path").attr("class", "link").attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
     linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
@@ -5015,13 +5021,45 @@ function renderGraph() {
     }).style("opacity", 1);
 }
 
+// Calcola il punto di controllo della bezier quadratica per link curvi.
+// curveDir: +1 = curva a sinistra, -1 = a destra, 0 = linea retta → null.
+function _linkControlPoint(sx, sy, tx, ty, curveDir) {
+    if (!curveDir) return null;
+    const dx = tx - sx, dy = ty - sy;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const offset = 28; // pixel di curvatura — abbastanza visibile ma non eccessivo
+    return {
+        x: (sx + tx) / 2 - (dy / len) * offset * curveDir,
+        y: (sy + ty) / 2 + (dx / len) * offset * curveDir
+    };
+}
+
 function tick() {
-    g.selectAll(".link")
-        .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    g.selectAll(".link-label")
-        .attr("x", d => (d.source.x + d.target.x) / 2)
-        .attr("y", d => (d.source.y + d.target.y) / 2);
+    // Link: path bezier per coppie bidirezionali, linea retta altrimenti
+    g.selectAll(".link").attr("d", d => {
+        const sx = d.source.x, sy = d.source.y;
+        const tx = d.target.x, ty = d.target.y;
+        const cp = _linkControlPoint(sx, sy, tx, ty, d._curveDir || 0);
+        return cp
+            ? `M${sx},${sy}Q${cp.x},${cp.y},${tx},${ty}`
+            : `M${sx},${sy}L${tx},${ty}`;
+    });
+
+    // Label: a 3/4 verso il target sulla bezier (evita sovrapposizioni)
+    g.selectAll(".link-label").each(function (d) {
+        const sx = d.source.x, sy = d.source.y;
+        const tx = d.target.x, ty = d.target.y;
+        const cp = _linkControlPoint(sx, sy, tx, ty, d._curveDir || 0);
+        const t = 0.75; // 3/4 verso il target
+        const x = cp
+            ? (1 - t) * (1 - t) * sx + 2 * t * (1 - t) * cp.x + t * t * tx
+            : sx + t * (tx - sx);
+        const y = cp
+            ? (1 - t) * (1 - t) * sy + 2 * t * (1 - t) * cp.y + t * t * ty
+            : sy + t * (ty - sy);
+        d3.select(this).attr("x", x).attr("y", y);
+    });
+
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
@@ -9477,6 +9515,35 @@ let tutorState = {
         history: []
     },
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
+};
+
+/**
+ * Deduplica i link di un KG secondo queste regole:
+ *   1. Self-loop (s === t)                        → RIMOSSO
+ *   2. Nodo non in validNodeIds (se fornito)      → RIMOSSO
+ *   3. Stessa direzione + stesso rel (duplicato)  → RIMOSSO
+ *   4. Stessa direzione + rel diversa             → TENUTO SOLO IL PRIMO
+ *   5. Direzione inversa + stesso rel             → RIMOSSO (ridondante)
+ *   6. Direzione inversa + rel diversa            → TENUTO ← verrà curvato
+ */
+window.deduplicateKgLinks = function (links, validNodeIds) {
+    const valid = validNodeIds instanceof Set ? validNodeIds
+        : (validNodeIds ? new Set(validNodeIds) : null);
+    const fwdSeen = new Map(); // "s||t" → relNorm
+    return (links || []).filter(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        if (s === t) return false;
+        if (valid && (!valid.has(s) || !valid.has(t))) return false;
+        const fwdKey = `${s}||${t}`;
+        const revKey = `${t}||${s}`;
+        const relNorm = (l.rel || '').trim().toLowerCase();
+        if (fwdSeen.get(fwdKey) === relNorm) return false; // regola 3
+        if (fwdSeen.has(fwdKey)) return false;             // regola 4
+        if (fwdSeen.get(revKey) === relNorm) return false; // regola 5
+        fwdSeen.set(fwdKey, relNorm);
+        return true;
+    });
 };
 
 /**
