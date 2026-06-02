@@ -8189,7 +8189,7 @@ window.generateDossierPDFFromOptions = async function () {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 4px 0 40px;
+                    padding: 4px 0 15px;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
                     /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
