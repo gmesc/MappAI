@@ -4401,57 +4401,37 @@ function renderGraph() {
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
-    // ── Calcolo influenza hub per KG (BFS pesato, max 3 hop) ────────────────
-    // Peso per hop h: 1.0 (diretto), 0.5 (1 hop), 0.25 (2 hop).
-    // I segmenti colorati della circonferenza sono proporzionali al peso normalizzato.
+    // ── Stile KG per ruolo strutturale + bridge marking (1-hop) ─────────────
+    // Vedi public/js/mappai-node-styling.js. Annota _role, _bridgeInfo,
+    // _opacity, _strokeW su ogni nodo per ridurre la dispersione visiva.
     if (appState.extractionMode === 'kg') {
-        // Lista di adiacenza bidirezionale
-        const adj = {};
-        nodes.forEach(n => { adj[n.id] = []; });
-        links.forEach(l => {
-            const s = typeof l.source === 'object' ? l.source.id : l.source;
-            const t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (adj[s]) adj[s].push(t);
-            if (adj[t]) adj[t].push(s);
-        });
-
-        // Colore di ogni super-hub
-        const hubColorOf = {};
+        const groupColors = {};
         nodes.filter(n => n.level === 1).forEach(h => {
-            hubColorOf[h.id] = (appState.db.customColors && appState.db.customColors[h.group])
+            groupColors[h.group] = (appState.db.customColors && appState.db.customColors[h.group])
                 ? appState.db.customColors[h.group]
                 : (colorScale[h.group] || colorScale[1] || "#ef4444");
         });
+        if (appState.db.customColors && appState.db.customColors[0] !== undefined) {
+            groupColors[0] = appState.db.customColors[0];
+        } else if (colorScale[0]) {
+            groupColors[0] = colorScale[0];
+        }
 
-        const MAX_HOPS = 3;
+        if (window.MappAINodeStyling) {
+            window.MappAINodeStyling.annotate(nodes, links, groupColors);
+        }
 
+        // Compat: alcuni punti del codice leggono hubColors/hubWeights.
+        // Manteniamo le chiavi vuote per i nodi che non avranno segmenti hub-based.
         nodes.forEach(n => {
-            if (n.level <= 1) { n.hubWeights = {}; n.hubColors = []; return; }
-
-            const weights = {}; // color → peso massimo trovato
-            const visited = new Set([n.id]);
-            let frontier = [n.id];
-
-            for (let hop = 1; hop <= MAX_HOPS; hop++) {
-                const next = [];
-                const w = Math.pow(0.5, hop - 1); // 1 → 0.5 → 0.25
-                frontier.forEach(id => {
-                    (adj[id] || []).forEach(nbId => {
-                        if (visited.has(nbId)) return;
-                        visited.add(nbId);
-                        next.push(nbId);
-                        if (hubColorOf[nbId]) {
-                            const col = hubColorOf[nbId];
-                            weights[col] = Math.max(weights[col] || 0, w);
-                        }
-                    });
-                });
-                frontier = next;
-                if (!frontier.length) break;
+            if (n._bridgeInfo && n._bridgeInfo.segments) {
+                n.hubColors = n._bridgeInfo.segments.map(s => s.color);
+                n.hubWeights = {};
+                n._bridgeInfo.segments.forEach(s => { n.hubWeights[s.color] = s.fraction; });
+            } else {
+                n.hubColors = [];
+                n.hubWeights = {};
             }
-
-            n.hubWeights = weights;
-            n.hubColors = Object.keys(weights); // compat con altri punti del codice
         });
     }
 
@@ -4535,35 +4515,30 @@ function renderGraph() {
             return 2; // Outline base visibile
         });
 
-    // Gestione segmenti colorati per KG
+    // Gestione anello colorato KG (bridge marking + role-based thickness)
     nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
 
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
-            const strokeW = 4; // Spessore bordo segmentato più evidente
+            const strokeW = (d._strokeW !== undefined) ? d._strokeW : 3;
+            const segs = window.MappAINodeStyling
+                ? window.MappAINodeStyling.getRingSegments(d)
+                : null;
 
-            const hw = d.hubWeights;
-            if (hw && Object.keys(hw).length > 0) {
-                // Archi proporzionali al peso: diretto=1.0 → arco grande, indiretto→ arco piccolo
-                const entries = Object.entries(hw).sort((a, b) => b[1] - a[1]);
-                const totalW = entries.reduce((s, [, w]) => s + w, 0);
+            if (segs && segs.length) {
                 let cumAngle = 0;
-
-                entries.forEach(([color, weight]) => {
-                    const fraction = weight / totalW;
-                    const outerR = r + strokeW * (0.5 + weight * 0.5); // spessore scala col peso
+                segs.forEach(s => {
                     const arc = d3.arc()
                         .innerRadius(r)
-                        .outerRadius(outerR)
+                        .outerRadius(r + strokeW)
                         .startAngle(cumAngle)
-                        .endAngle(cumAngle + fraction * 2 * Math.PI);
-                    container.append("path").attr("d", arc).attr("fill", color);
-                    cumAngle += fraction * 2 * Math.PI;
+                        .endAngle(cumAngle + s.fraction * 2 * Math.PI);
+                    container.append("path").attr("d", arc).attr("fill", s.color);
+                    cumAngle += s.fraction * 2 * Math.PI;
                 });
             } else {
-                // Se non collegato a hub, bordo grigio semplice per non lasciare il nodo nudo
                 container.append("circle")
                     .attr("r", r + 1.5)
                     .attr("fill", "none")
@@ -4712,18 +4687,18 @@ function renderGraph() {
     // Link appaiono tutti insieme con delay
     linkEnter.transition().duration(800).delay(500).style("opacity", 1);
 
-    // I nodi vecchi (merge senza enter) devono mantenere opacità 1
-    // Per sicurezza impostiamo a 1 tutto ciò che era già presente
-    nodeSelection.style("opacity", 1);
+    // I nodi vecchi (merge senza enter) mantengono opacità modulata per ruolo
+    // (foglie attenuate a 0.65 in KG, vedi mappai-node-styling.js)
+    nodeSelection.style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
     linkSelection.style("opacity", 1);
 
-    // I nodi nuovi appaiono a scaglioni in base al livello
+    // I nodi nuovi appaiono a scaglioni in base al livello, target = _opacity
     nodeEnter.transition().duration(600).delay(d => {
         if (d.level === 0) return 0;
         if (d.level === 1) return 400;
         if (d.level === 2) return 800;
         return 1200;
-    }).style("opacity", 1);
+    }).style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
 }
 
 function tick() {
