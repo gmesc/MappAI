@@ -955,7 +955,7 @@ window.onSidebarNodeDblClick = function (event, nodeId) {
     }
     const node = appState.db.nodes.find(n => n.id === nodeId);
     if (node) {
-        window.handleNodeClick({ stopPropagation: () => {} }, node);
+        window.handleNodeClick({ stopPropagation: () => { } }, node);
     }
 };
 
@@ -1458,7 +1458,7 @@ function cleanLabel(str) {
     // Evita problemi di encoding PDF (jsPDF non codifica correttamente U+2018/U+2019)
     // e garantisce coerenza del testo (es. ''89' non diventa 'SQ' nel PDF).
     s = s.replace(/[‘’‛ʼ]/g, "'")  // ' ' ‛ ʼ → '
-          .replace(/[“”‟]/g, '"');        // " " ‟ → "
+        .replace(/[“”‟]/g, '"');        // " " ‟ → "
 
     // Rimuove decorazioni markdown che alcuni modelli (es. Mistral) iniettano
     // nelle label: grassetto/corsivo, marcatori di lista/heading, virgolette enfatiche.
@@ -1550,7 +1550,7 @@ window.getSystemKey = function () {
 // Restituisce il maxOutputTokens ottimale per il modello attivo.
 // Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
 // output più lunghi — scala il budget per evitare troncamenti.
-window.getMaxOutputTokens = function(baseTokens) {
+window.getMaxOutputTokens = function (baseTokens) {
     const modelEl = document.getElementById('model-select');
     const model = (modelEl ? modelEl.value : '').toLowerCase();
     if (appState.aiProvider === 'infomaniak') {
@@ -2811,7 +2811,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         // Senza questa iniezione le lenses agivano solo sulle macro-aree (Fase 1).
         const focusInjection = appState.focusTopic
             ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE (applica a OGNI sotto-nodo del ramo):\n' +
-              appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+            appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
             : '';
 
         const totalBranches = l1NodesData.length;
@@ -3634,7 +3634,7 @@ async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
 
     const focusInjection = appState.focusTopic
         ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE:\n' +
-          appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
         : '';
 
     try {
@@ -7443,13 +7443,141 @@ window.generateDossierPDFFromOptions = async function () {
             dossierCardsHtml = buildNodeCard(n, true, citationsHtml, notesCount, relationsHtml);
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // MODO B: RAMO / TUTTA LA MAPPA
+            // MODO C: TUTTA LA MAPPA (Organizzata per Macro-Aree)
+            // ═══════════════════════════════════════════════════════════════════════════
+        } else if (scope === 'all' || selectedNodeId === 'all') {
+            const rootNode = appState.db.nodes.find(n => n.level === 0) || targetNodes[0];
+            const rootColor = getNodeColor(rootNode);
+
+            // 1) Diagramma ASCII globale
+            _visitedASCII.clear();
+            const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
+            dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
+            <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
+            <div class="dossier-header">
+                <div>
+                    <h2 class="dossier-title">Diagramma ad Albero Globale</h2>
+                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Tutta la mappa</span>
+                </div>
+            </div>
+            <div class="dossier-divider"></div>
+            <pre class="ascii-tree">${treeText}</pre>
+        </div>`;
+
+            // Stampa la card del Root Node
+            dossierCardsHtml += buildNodeCard(rootNode, false, '', 0, '');
+
+            const printedNodes = new Set([rootNode.id]);
+            const l1Nodes = appState.db.nodes.filter(n => n.level === 1).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            // 2) Ciclo sulle Macro-Aree
+            l1Nodes.forEach(l1 => {
+                _visitedDesc.clear();
+                const branchNodes = getDescendants(l1.id);
+                if (branchNodes.length === 0) branchNodes.push(l1);
+                branchNodes.sort((a, b) => (a.level || 0) - (b.level || 0));
+
+                const l1Color = getNodeColor(l1);
+
+                // A) Stampa card di tutti i nodi di questa Macro-Area
+                branchNodes.forEach(n => {
+                    if (!printedNodes.has(n.id)) {
+                        dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
+                        printedNodes.add(n.id);
+                    }
+                });
+
+                // B) Costruisce le citazioni della Macro-Area
+                let perNodeHtml = '';
+                let groupIdx = 1;
+                branchNodes.forEach(n => {
+                    const nodeSources = appState.db.sourcesDict?.[n.id] || [];
+                    if (nodeSources.length === 0) return;
+                    const nodeColor = getNodeColor(n);
+                    perNodeHtml += `<div class="node-citations-group">
+                    <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
+                        <span class="node-group-dot" style="background:${nodeColor};"></span>
+                        <span class="node-group-label">${cleanLabel(n.label)}</span>
+                        <span class="node-group-count">${nodeSources.length} cit.</span>
+                    </div>`;
+                    nodeSources.forEach(s => {
+                        const row = buildCitationRow({ ...s, nodeId: n.id }, groupIdx - 1, false);
+                        if (row) { perNodeHtml += row; groupIdx++; }
+                    });
+                    perNodeHtml += `</div>`;
+                });
+
+                if (!perNodeHtml) {
+                    perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata a questa macro-area.</p>`;
+                }
+
+                // C) Sezione aggregata (getInheritedDatabase per questo specifico L1)
+                const allInherited = (typeof window.getInheritedDatabase === 'function')
+                    ? window.getInheritedDatabase(l1.id)
+                    : [];
+
+                let aggregateHtml = '';
+                if (allInherited.length > 0) {
+                    aggregateHtml = allInherited.map((s, idx) => {
+                        const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
+                        const sourceText = s.text ? cleanLabel(s.text) : '';
+                        if (!sourceText) return '';
+                        const originNode = (s.nodeId && appState.db.nodes) ? appState.db.nodes.find(nd => nd.id === s.nodeId) : null;
+                        const originLabel = originNode ? cleanLabel(originNode.label) : '';
+                        const nodeColor = originNode ? getNodeColor(originNode) : l1Color;
+                        const nodeTag = originLabel ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>` : '';
+                        return `<div class="citation-row">
+                        <div class="citation-num">${idx + 1}</div>
+                        <div class="citation-content">
+                            <div class="citation-meta">
+                                <span class="citation-type-tag">TESTO DI ORIGINE</span>
+                                ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
+                                <span class="citation-sep">&mdash;</span>
+                                <span class="citation-source">${sourceName}</span>
+                            </div>
+                            <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                        </div>
+                    </div>`;
+                    }).filter(Boolean).join('');
+                } else {
+                    aggregateHtml = `<p class="no-chunks">Nessuna citazione aggregata trovata per questo ramo.</p>`;
+                }
+
+                const totalCount = allInherited.length || 0;
+
+                // Stampiamo la scheda finale delle citazioni del ramo
+                dossierCardsHtml += `<div class="dossier-card citations-master-card">
+                <div class="dossier-card-top-bar" style="background:${l1Color};"></div>
+                <div class="dossier-header">
+                    <div class="dossier-header-icon">&#128218;</div>
+                    <div>
+                        <h2 class="dossier-title">Fonti e Note: ${cleanLabel(l1.label)}</h2>
+                        <span class="dossier-tag">Tutte le citazioni del ramo (Macro-Area)</span>
+                    </div>
+                </div>
+                <div class="dossier-divider"></div>
+                <div class="citations-by-node-section">${perNodeHtml}</div>
+                <div class="citations-section-divider">
+                    <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI DEL RAMO) &mdash; ${totalCount} citazioni totali</span>
+                </div>
+                <div class="citations-container citations-aggregate">${aggregateHtml}</div>
+                </div>`;
+            });
+
+            // Eventuali nodi orfani
+            const orfani = targetNodes.filter(n => !printedNodes.has(n.id) && n.level > 0);
+            if (orfani.length > 0) {
+                orfani.forEach(n => { dossierCardsHtml += buildNodeCard(n, false, '', 0, ''); });
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // MODO B: RAMO SINGOLO
             // ═══════════════════════════════════════════════════════════════════════════
         } else {
             const rootNode = targetNodes[0];
             const rootColor = getNodeColor(rootNode);
 
-            // 1) Diagramma ASCII del ramo ─────────────────────────────────────────
+            _visitedASCII.clear();
             const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
             dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
             <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
@@ -7463,21 +7591,12 @@ window.generateDossierPDFFromOptions = async function () {
             <pre class="ascii-tree">${treeText}</pre>
         </div>`;
 
-            // 2) Scheda per ogni nodo della genealogia (header + descrizione) ──────
             targetNodes.forEach(n => {
                 dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
             });
 
-            // 3) Sezione unificata citazioni ──────────────────────────────────────
-            //    Struttura ultima card:
-            //    A) Gruppi per nodo  (● Nodo A — [1] TESTO DI ORIGINE — file.pdf — "testo")
-            //    B) Sezione aggregata finale ▌▌ FONTI E NOTE APPROFONDITE (TUTTI I NODI)
-            //       via getInheritedDatabase(rootNode.id)
-
-            // ── A) Citazioni raggruppate per nodo ──────────────────────────────
             let perNodeHtml = '';
             let groupIdx = 1;
-
             targetNodes.forEach(n => {
                 const nodeSources = appState.db.sourcesDict?.[n.id] || [];
                 if (nodeSources.length === 0) return;
@@ -7499,7 +7618,6 @@ window.generateDossierPDFFromOptions = async function () {
                 perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata ai nodi di questo ramo.</p>`;
             }
 
-            // ── B) Sezione aggregata tramite getInheritedDatabase ──────────────
             const allInherited = (typeof window.getInheritedDatabase === 'function')
                 ? window.getInheritedDatabase(rootNode.id)
                 : [];
@@ -7510,7 +7628,6 @@ window.generateDossierPDFFromOptions = async function () {
                     const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
                     const sourceText = s.text ? cleanLabel(s.text) : '';
                     if (!sourceText) return '';
-                    // Nodo di appartenenza
                     const originNode = (s.nodeId && appState.db.nodes)
                         ? appState.db.nodes.find(nd => nd.id === s.nodeId)
                         : null;
@@ -7548,18 +7665,12 @@ window.generateDossierPDFFromOptions = async function () {
                 </div>
             </div>
             <div class="dossier-divider"></div>
-
-            <!-- Sezione A: per nodo -->
             <div class="citations-by-node-section">
                 ${perNodeHtml}
             </div>
-
-            <!-- Separatore tra le due sezioni -->
             <div class="citations-section-divider">
                 <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI) &mdash; ${totalCount} citazioni totali</span>
             </div>
-
-            <!-- Sezione B: aggregato completo via getInheritedDatabase -->
             <div class="citations-container citations-aggregate">
                 ${aggregateHtml}
             </div>
@@ -7592,30 +7703,40 @@ window.generateDossierPDFFromOptions = async function () {
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
                 :root {
-                    /* TIPOGRAFIA — fattore scala ${fontScale} applicato */
+                    /* --- MODIFICHE GLOBALI DI LAYOUT (Variabili CSS) --- */
+                    /* Puoi modificare questi valori per cambiare rapidamente l'aspetto di tutto il dossier */
+
+                    /* TIPOGRAFIA — fattore scala ${fontScale} applicato in automatico */
                     --pdf-scale: ${fontScale};
-                    --pdf-font-family: 'Space Mono', monospace;
-                    --pdf-base-font-size: calc(13px * ${fontScale});
-                    --pdf-title-font-size: calc(17px * ${fontScale});
-                    --pdf-section-title-size: calc(9.5px * ${fontScale});
-                    --pdf-citation-font-size: calc(11.5px * ${fontScale});
-                    --pdf-small-font-size: calc(9px * ${fontScale});
+                    --pdf-font-family: 'Space Mono', monospace; /* Cambia qui il font del dossier */
+                    --pdf-base-font-size: calc(13px * ${fontScale}); /* Dimensione testo normale */
+                    --pdf-title-font-size: calc(17px * ${fontScale}); /* Dimensione titolo principale */
+                    --pdf-section-title-size: calc(9.5px * ${fontScale}); /* Dimensione titoli sezioni */
+                    --pdf-citation-font-size: calc(11.5px * ${fontScale}); /* Dimensione testo citazioni */
+                    --pdf-small-font-size: calc(9px * ${fontScale}); /* Dimensione testi piccoli e metadati */
                     
-                    /* COLORI */
-                    --pdf-primary-color: #0f172a;
-                    --pdf-accent-color: #38bdf8;  /* cyan – uguale al modale */
-                    --pdf-accent-dark: #0369a1;
-                    --pdf-bg-citation: #f0f9ff;
-                    --pdf-card-padding: calc(20px * ${fontScale});
-                    --pdf-card-border-radius: 10px;
-                    --pdf-spacing-between-cards: calc(28px * ${fontScale});
+                    /* COLORI E SPAZIATURE */
+                    --pdf-primary-color: #0f172a; /* Colore del testo principale */
+                    --pdf-accent-color: #38bdf8;  /* cyan – colore di accento (barre e dettagli) */
+                    --pdf-accent-dark: #0369a1; /* Colore di accento scuro per testi */
+                    --pdf-bg-citation: #f0f9ff; /* Colore di sfondo delle citazioni */
+                    
+                    /* Spaziature interne delle card (i riquadri dei nodi) */
+                    --pdf-card-padding: calc(20px * ${fontScale}); /* Margine interno delle card */
+                    --pdf-card-border-radius: 10px; /* Arrotondamento angoli delle card */
+                    --pdf-spacing-between-cards: calc(28px * ${fontScale}); /* Spazio verticale tra una card e l'altra */
                 }
 
                 @media print {
+                    /* --- REGOLE DI STAMPA A4 --- */
                     @page {
+                        /* Formato della pagina. Puoi usare 'A4 landscape' per orizzontale */
                         size: A4 portrait;
-                        margin: 20mm 18mm; /* laterali ridotti del 10%: 20mm → 18mm */
-                        /* Footer automatico su ogni pagina stampata */
+                        
+                        /* Margini della pagina fisica (Sopra/Sotto Destra/Sinistra) */
+                        margin: 20mm 18mm; 
+                        
+                        /* Footer automatico su ogni pagina stampata - Modifica qui il testo a piè di pagina */
                         @bottom-left { content: "MappAI — insegnai.ch"; font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
                         @bottom-right { content: counter(page); font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
                     }
@@ -7624,9 +7745,11 @@ window.generateDossierPDFFromOptions = async function () {
                         padding: 0;
                     }
                     .no-print { display: none !important; }
+                    
+                    /* Comportamento dei riquadri (card) durante l'impaginazione */
                     .dossier-card { 
-                        page-break-after: always;
-                        page-break-inside: avoid;
+                        page-break-after: always; /* Forza una nuova pagina dopo ogni card (se non lo vuoi, commenta questa riga) */
+                        page-break-inside: avoid; /* Evita che una card venga spezzata su due pagine */
                         break-after: page;
                         box-shadow: none !important;
                         border: none !important;
@@ -7704,14 +7827,16 @@ window.generateDossierPDFFromOptions = async function () {
                     gap: var(--pdf-spacing-between-cards);
                 }
 
-                /* ── Card principale ─────────────────────── */
+                /* ── Card principale (riquadro di ogni Nodo) ─────────────────────── */
                 .dossier-card {
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: var(--pdf-card-border-radius);
+                    background: #fff; /* Colore di sfondo della card (di default bianco) */
+                    border: 1px solid #e2e8f0; /* Colore e spessore del bordo grigio chiaro */
+                    border-radius: var(--pdf-card-border-radius); /* Smussatura degli angoli (vedi variabili :root in alto) */
                     padding: var(--pdf-card-padding);
                     overflow: hidden;
                     position: relative;
+                    /* Se vuoi aggiungere un'ombra visuale a schermo (viene rimossa in stampa in automatico): */
+                    /* box-shadow: 0 4px 6px rgba(0,0,0,0.1); */
                 }
 
                 /* Banda colorata in cima alla card (come il modale) */
@@ -7854,6 +7979,8 @@ window.generateDossierPDFFromOptions = async function () {
                     border-radius: 0;
                     padding: 8pt 10pt;
                     margin-bottom: 6pt;          /* spazio tra fonti: 6pt */
+                    page-break-inside: avoid;    /* Evita di spezzare la card tra due pagine */
+                    break-inside: avoid;
                 }
 
                 .citation-num {
@@ -8055,7 +8182,8 @@ window.generateDossierPDFFromOptions = async function () {
                 /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
                 .dossier-footer {
                     position: fixed;
-                    bottom: 0;
+                    /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
+                    bottom: -10mm; 
                     left: 0;
                     right: 0;
                     display: flex;
@@ -8064,6 +8192,8 @@ window.generateDossierPDFFromOptions = async function () {
                     padding: 6px 0;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
+                    /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
+                    background-color: white; 
                 }
                 .dossier-footer-left {
                     display: flex;
