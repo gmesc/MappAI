@@ -104,18 +104,14 @@ window.openTimelineGeneratorModal = function () {
             '<strong>Testo da analizzare:</strong> ~' + estimatedTokens.toLocaleString('it') + ' token' + tokenNote +
         '</p>' +
         '<div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;border:1px solid #e2e8f0;">' +
-            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Cosa includere nella timeline</div>' +
-            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;font-size:11px;color:#1e293b;">' +
-                '<input type="checkbox" id="tl-opt-dates" checked style="accent-color:#f59e0b;"> \uD83D\uDCC5 Date e anni precisi' +
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:10px;">Formato di esportazione</div>' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:12px;font-size:11px;color:#1e293b;">' +
+                '<input type="radio" name="tl-style" id="tl-style-compact" value="compact" style="accent-color:#f59e0b;margin-top:2px;"> ' +
+                '<span><strong>Compatta</strong><br><span style="color:#64748b;">Data \u00B7 Evento \u00B7 Categoria</span></span>' +
             '</label>' +
-            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;font-size:11px;color:#1e293b;">' +
-                '<input type="checkbox" id="tl-opt-events" checked style="accent-color:#f59e0b;"> \u26a1 Eventi storici, politici, militari' +
-            '</label>' +
-            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;font-size:11px;color:#1e293b;">' +
-                '<input type="checkbox" id="tl-opt-people" style="accent-color:#f59e0b;"> \uD83D\uDC64 Personaggi citati con data' +
-            '</label>' +
-            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:#1e293b;">' +
-                '<input type="checkbox" id="tl-opt-context" checked style="accent-color:#f59e0b;"> \uD83D\uDCD6 Contesto dalla fonte originale' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:11px;color:#1e293b;">' +
+                '<input type="radio" name="tl-style" id="tl-style-context" value="context" checked style="accent-color:#f59e0b;margin-top:2px;"> ' +
+                '<span><strong>Con contesto</strong><br><span style="color:#64748b;">Data \u00B7 Evento \u00B7 Categoria \u00B7 Estratto dalla fonte</span></span>' +
             '</label>' +
         '</div>' +
         '<div style="display:flex;gap:10px;">' +
@@ -148,12 +144,8 @@ window.generateTimelineWithAI = async function () {
     var modal = document.getElementById('timeline-generator-modal');
 
     // Leggi opzioni selezionate PRIMA di rimuovere il modale
-    var opts = {
-        dates:   document.getElementById('tl-opt-dates')?.checked   ?? true,
-        events:  document.getElementById('tl-opt-events')?.checked  ?? true,
-        people:  document.getElementById('tl-opt-people')?.checked  ?? false,
-        context: document.getElementById('tl-opt-context')?.checked ?? true
-    };
+    var selectedStyle = document.querySelector('input[name="tl-style"]:checked')?.value || 'context';
+    var showContext = selectedStyle === 'context';
 
     if (modal) modal.remove();
 
@@ -196,13 +188,8 @@ window.generateTimelineWithAI = async function () {
         }
 
         // ── 3. Costruisci prompt ────────────────────────────────────────────────
-        var includeList = [];
-        if (opts.dates)  includeList.push('date e anni precisi');
-        if (opts.events) includeList.push('eventi storici, politici, militari ed economici');
-        if (opts.people) includeList.push('personaggi storici citati con data');
-
-        var contextInstruction = opts.context
-            ? 'frase dal testo che spiega perch\u00e9 quella data \u00e8 importante (max 100 caratteri)'
+        var contextInstruction = showContext
+            ? 'massimo 3 frasi dal testo che spiegano perch\u00e9 quella data \u00e8 importante (max 300 caratteri)'
             : 'stringa vuota';
 
         var userPrompt =
@@ -210,7 +197,7 @@ window.generateTimelineWithAI = async function () {
             'IMPORTANTE: il testo contiene MOLTE date — estraile TUTTE senza eccezioni, ' +
             'non fermarti alle prime. Ogni anno/data che compare nel testo deve diventare ' +
             'un evento. Non riassumere, non selezionare: sii esaustivo.\n\n' +
-            'Includi: ' + includeList.join(', ') + '.\n\n' +
+            'Includi: date e anni precisi, eventi storici politici militari ed economici.\n\n' +
             'Per ogni evento che trovi restituisci:\n' +
             '- anno: numero intero (anno principale)\n' +
             '- annoFine: numero intero o null (per periodi es. 1939-1945)\n' +
@@ -373,8 +360,27 @@ window.generateTimelineWithAI = async function () {
 
         window.showLoadingOverlay(false);
 
-        // ── 7. Apri timeline ────────────────────────────────────────────────────
-        window.openTimelineView(timelineData, mapName);
+        // ── 7. Deduplica per (anno, evento normalizzato) ────────────────────────
+        // L'AI e la rete di sicurezza possono produrre lo stesso evento più volte
+        // (es. "Piano Wahlen" estratto sia dal pass 1 sia dal regex pass 2).
+        var _norm = function (s) {
+            return String(s || '').toLowerCase()
+                .replace(/[àáâã]/g, 'a').replace(/[èéêë]/g, 'e')
+                .replace(/[ìíîï]/g, 'i').replace(/[òóôõ]/g, 'o')
+                .replace(/[ùúûü]/g, 'u')
+                .replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim()
+                .slice(0, 40);
+        };
+        var _seen = {};
+        timelineData = timelineData.filter(function (e) {
+            var key = (e.anno || 0) + '|' + _norm(e.evento);
+            if (_seen[key]) return false;
+            _seen[key] = true;
+            return true;
+        });
+
+        // ── 8. Apri timeline ────────────────────────────────────────────────────
+        window.openTimelineView(timelineData, mapName, { showContext: showContext });
 
     } catch (err) {
         window.showLoadingOverlay(false);
@@ -385,7 +391,8 @@ window.generateTimelineWithAI = async function () {
 
 
 // ── TIMELINE VIEW (da sourcesDict) ───────────────────────────────────────────
-window.openTimelineView = function (aiTimelineData, mapNameOverride) {
+window.openTimelineView = function (aiTimelineData, mapNameOverride, opts) {
+    opts = opts || {};
 
     // ── 0. Se i dati arrivano dall'AI usa quelli direttamente ────────────────
     if (aiTimelineData && Array.isArray(aiTimelineData) &&
@@ -424,7 +431,7 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride) {
         var mapNameAI = mapNameOverride || window._getTimelineProjectName();
 
         // Salta il parsing statico e vai direttamente al render
-        window._renderTimeline(uniqueEventsAI, mapNameAI);
+        window._renderTimeline(uniqueEventsAI, mapNameAI, opts);
         return;
     }
 
@@ -621,11 +628,13 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride) {
     // ── 4–8. Genera HTML e apri finestra ──────────────────────────────────
     var mapName = mapNameOverride || window._getTimelineProjectName();
 
-    window._renderTimeline(uniqueEvents, mapName);
+    window._renderTimeline(uniqueEvents, mapName, opts);
 };
 
 // ── RENDER TIMELINE HTML (condiviso tra path AI e statico) ────────────────────
-window._renderTimeline = function (uniqueEvents, mapName) {
+window._renderTimeline = function (uniqueEvents, mapName, opts) {
+    opts = opts || {};
+    var showContext = opts.showContext !== false; // default: mostra il contesto
     var now = new Date().toLocaleString('it-IT');
 
     // Funzioni helper locali
@@ -674,13 +683,15 @@ window._renderTimeline = function (uniqueEvents, mapName) {
                     '</div>' +
                     '<div class="tl-event-num">' + numLabel + '</div>' +
                 '</div>' +
-                '<div class="dossier-body">' +
-                    '<span class="dossier-section-label">CONTESTO DALLA FONTE</span>' +
-                    '<div class="tl-chunk-source" style="color:' + e.macroColor + ';">' +
-                        '▌ ' + esc(e.chunkTitle) + ' — <em>' + esc(e.chunkSource) + '</em>' +
-                    '</div>' +
-                    '<p class="dossier-desc tl-context-text">&ldquo;' + contextHighlighted + '&rdquo;</p>' +
-                '</div>' +
+                (showContext && e.chunkText
+                    ? '<div class="dossier-body">' +
+                        '<span class="dossier-section-label">CONTESTO DALLA FONTE</span>' +
+                        '<div class="tl-chunk-source" style="color:' + e.macroColor + ';">' +
+                            '▌ ' + esc(e.chunkTitle) + ' — <em>' + esc(e.chunkSource) + '</em>' +
+                        '</div>' +
+                        '<p class="dossier-desc tl-context-text">&ldquo;' + contextHighlighted + '&rdquo;</p>' +
+                      '</div>'
+                    : '') +
             '</div>' +
         '</div>';
     });
