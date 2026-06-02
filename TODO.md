@@ -1,13 +1,92 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 1 giugno 2026 (sera).
+> Priorità in ordine decrescente. Aggiornato: 2 giugno 2026 (sera).
 
 ---
 
-## ☀️ DOMANI INIZIA QUI (handoff 1 giugno, sera)
+## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Dove eravamo:** abbiamo creato `mappai-structure-analyzer.js` (analisi strutturale
-deterministica del grafo) e, usandolo come diagnostica, abbiamo scoperto e in gran
-parte risolto il problema dei KG "a stella" poveri di relazioni.
+**Obiettivo sessione**: implementare **Modalità B — Estrazione per hub** nel KG
+multi-pass (vedi sezione dedicata sotto). Aprire una NUOVA conversazione con
+il briefing specifico di quella feature.
+
+**Stato branch**: tutto mergeato su `dev`. Branch attivo: `feat/kg-hub-extraction`
+(da creare nella prossima sessione).
+
+---
+
+## ✅ COMPLETATO — Sessione 1-2 giugno 2026
+
+### `mappai-structure-analyzer.js` — modulo analisi strutturale
+- ✅ Creato e cablato in `index.html` dopo `mappai-quiz-print.js`
+- ✅ 6 analisi: godNodes, misplacedNodes, underutilizedClusters, leafIsolation
+  (per-livello), lowConnectivity, structuralKeystones (Tarjan), meaningHubs (Brandes)
+- ✅ Auto-adattivo su modalità (mindmap/kg) e densità (tree-like/networked)
+- ✅ Validato su 3 vault: MM GF GEMMA STORIA, KG Google, KG Infomaniak
+- ✅ `detectMode()` deduce la modalità dagli ID quando `appState.extractionMode` manca
+- ✅ Filtro ponti-foglia (grado < 2 scartati), cap a 4 ponti significativi
+
+### Template KG riscritto — relazioni di ragionamento
+- ✅ `KNOWLEDGE_GRAPH_SINGLE_IT`: blocco "RELAZIONI — IL CUORE DEL GRAFO"
+  con link laterali obbligatori + vocabolario tipizzato + divieto "correlato a"
+- ✅ `KG_REL_ENUM` costante in `app.js` — enum nello schema JSON (enforcement
+  nativo su Google, vocabolario guida su Infomaniak)
+- ✅ `window.markKgCrossLinks()` — marca `isCross:true` i link laterali in entrambe
+  le funzioni KG (single-pass e multi-pass)
+- Risultati: Google densità 1.09→**2.18**, 0% generiche, 55 tipi relazione
+
+### Fix bug KG multi-pass
+- ✅ Bug A: `tutorState` non serializzabile → IPC crash "object could not be cloned"
+  Fix: `serializeTutorState()` in `saveMapVault` (app.js ~6225)
+- ✅ Bug B2: `saveCurrentProject` passava `appState` raw all'IPC (nodi D3 circolari)
+  Fix: payload minimo serializzabile in `saveMapJSON` call (app.js ~9804)
+- ✅ Orphan healer: "correlato a" → "fa parte di" + BFS hub migliore
+- ✅ Phase 2 maxOutputTokens: 3000 → 4096
+- ✅ Sanitizzazione rel Devanagari da GEMMA ("। fa parte di" → "fa parte di")
+- ✅ Multi-pass ON di default: `appState.multiPassMode: true` + chiamata silenziosa
+  in `DOMContentLoaded`
+
+### Risultati finali per provider
+| Provider | Densità | "correlato a" | Topology |
+|---|---|---|---|
+| Google Gemini multi-pass | 2.18 | 0% | networked ✅ |
+| Infomaniak GEMMA multi-pass | 1.37 | 0% | networked ✅ |
+
+---
+
+## 🔜 PROSSIMA FEATURE — Modalità B: Estrazione per hub
+
+> Da implementare in una nuova conversazione / branch `feat/kg-hub-extraction`.
+
+**Problema**: GEMMA multi-pass genera ~19-34 nodi invece di 33+ come Google,
+perché la Fase 1 è conservativa su corpus lunghi. Il gap non è risolvibile solo
+con prompt — serve un approccio architetturale diverso.
+
+**Soluzione proposta** (ispirata a `extractMindMapMultiPass`):
+```
+Fase 0: estrai 4-5 super-hub (titoli macro-aree)
+Fase 1a: "dimmi 8-10 concetti specifici di [HUB_A]"  ← 1 chiamata per hub
+Fase 1b: "dimmi 8-10 concetti specifici di [HUB_B]"
+...
+Merge: i nodi arrivano già con group assegnato
+Fase 2: link (molto più semplice: hub → figli già noti)
+```
+
+**Vantaggi**:
+- Copertura uniforme per hub (non dipende dalla lunghezza del testo)
+- Nodi già classificati → Fase 2 più efficace
+- Allineato alla Fase 2.1 della ROADMAP (`EXTRACT_ENTITIES_RELATIONS_IT`)
+- Riusa il pattern già validato di `extractMindMapMultiPass`
+
+**File da creare/modificare**:
+- `app.js`: nuova funzione `extractKnowledgeGraphHubPass()`
+- `prompts_config.json`: nuovi template `KG_HUB_NODES_IT` + `KG_HUB_RELATIONS_IT`
+- UI: nessuna modifica (stesso toggle multi-pass)
+
+**Nota**: considerare anche **Gap-fill pass** (opzione A, più semplice) come
+stepping stone prima di B se i tempi sono stretti: +1 chiamata "cosa manca?"
+dopo la Fase 1 normale.
+
+---
 
 **Cosa è FATTO e VALIDATO oggi:**
 - ✅ `mappai-structure-analyzer.js` completo: 6 analisi, auto-adattivo su modalità
