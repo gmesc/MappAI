@@ -269,6 +269,70 @@ const KG_REL_ENUM = [
     "rappresenta", "sostiene", "coinvolge", "permette"
 ];
 
+// ── Lente Relazioni — famiglie semantiche ──────────────────────────────────
+// Palette daltonismo-safe (no rosso/verde puri). Ogni famiglia ha:
+//   color    : valore HSL del link/outline attivo
+//   colorBtn : variante più scura per colorare il bottone TESTO
+//   label    : nome leggibile nel menu
+//   icon     : icona Lucide
+const EDGE_FAMILIES = {
+    trasformazione: { color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Trasformazione', icon: 'zap' },
+    dipendenza: { color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza', icon: 'link-2' },
+    sequenza: { color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza', icon: 'arrow-right' },
+    appartenenza: { color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Appartenenza', icon: 'folder-tree' },
+    regolazione: { color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Regolazione', icon: 'sliders-horizontal' },
+    opposizione: { color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Opposizione', icon: 'shield-x' },
+    altro: { color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro', icon: 'circle-help' }
+};
+
+// Mappa verbo → famiglia (normalizzato lowercase)
+const REL_FAMILY_MAP = {
+    'causa': 'trasformazione', 'provoca': 'trasformazione', 'produce': 'trasformazione',
+    'genera': 'trasformazione', 'determina': 'trasformazione', 'trasforma in': 'trasformazione',
+    'porta a': 'trasformazione', 'alimenta': 'trasformazione', 'catalizza': 'trasformazione',
+    'richiede': 'dipendenza', 'dipende da': 'dipendenza', 'è condizione di': 'dipendenza',
+    'utilizza': 'dipendenza', 'permette': 'dipendenza',
+    'precede': 'sequenza', 'segue': 'sequenza', 'deriva da': 'sequenza',
+    'fa parte di': 'appartenenza', 'comprende': 'appartenenza', 'contiene': 'appartenenza',
+    'appartiene a': 'appartenenza', 'è esempio di': 'appartenenza',
+    'rappresenta': 'appartenenza', 'coinvolge': 'appartenenza',
+    'è regolato da': 'regolazione', 'regola': 'regolazione', 'governa': 'regolazione',
+    'guida': 'regolazione', 'sostiene': 'regolazione', 'avviene in': 'regolazione',
+    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione'
+};
+
+// Restituisce la famiglia per un rel (normalizzato, fallback 'altro')
+window.getEdgeFamilyKey = function (rel) {
+    if (!rel) return 'altro';
+    const norm = String(rel).trim().toLowerCase();
+    if (REL_FAMILY_MAP[norm]) return REL_FAMILY_MAP[norm];
+    // fallback: match sulla prima parola
+    const firstWord = norm.split(' ')[0];
+    for (const [verb, fam] of Object.entries(REL_FAMILY_MAP)) {
+        if (verb.startsWith(firstWord) || firstWord.startsWith(verb.split(' ')[0])) return fam;
+    }
+    return 'altro';
+};
+
+// Restituisce le famiglie presenti nella mappa corrente (dinamico)
+window.getActiveFamiliesInMap = function () {
+    const links = appState.db?.links || [];
+    const found = new Set();
+    links.forEach(l => found.add(window.getEdgeFamilyKey(l.rel)));
+    // ordine canonico delle famiglie definite, poi 'altro' in fondo
+    const order = Object.keys(EDGE_FAMILIES);
+    return order.filter(k => found.has(k));
+};
+
+// Stato corrente della lente (null = spenta)
+window.activeLensFamily = null;
+
+// Modalità visibilità link: 'all' | 'hierarchy' | 'cross'
+// 'all'       → tutti i link visibili (cross-link con stile dashed esistente)
+// 'hierarchy' → solo gerarchia (parent-child stesso group), nasconde cross-link
+// 'cross'     → solo cross-link, nasconde gerarchia (vista reticolare)
+window.linkVisibilityMode = localStorage.getItem('mappai_link_vis_mode') || 'all';
+
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
     localStorage.setItem('infomaniak_product_id', val);
@@ -3173,6 +3237,30 @@ window.markKgCrossLinks = function (nodes, links) {
     return links;
 };
 
+/**
+ * Marca i cross-link in una MindMap.
+ * In MM la gerarchia è esplicita: un link è gerarchico (parent→child) se
+ * collega due nodi con |levelDiff| === 1 E stesso group (stessa macro-area).
+ * Tutto il resto è cross-link: jump di livello, link tra rami diversi,
+ * link tra nodi dello stesso livello, ecc.
+ * Idempotente: non sovrascrive isCross se già impostato esplicitamente.
+ */
+window.markMmCrossLinks = function (nodes, links) {
+    const levelOf = {}, groupOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; groupOf[n.id] = n.group; });
+    (links || []).forEach(l => {
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sLvl = levelOf[sId], tLvl = levelOf[tId];
+        const sameGroup = groupOf[sId] === groupOf[tId];
+        const adjacentLevels = (sLvl !== undefined && tLvl !== undefined)
+            && Math.abs(sLvl - tLvl) === 1;
+        const hierarchical = adjacentLevels && sameGroup;
+        l.isCross = !hierarchical;
+    });
+    return links;
+};
+
 window._assignHubGroup = function (nodeId, links, hubGroupMap) {
     const votes = {};
     const neighbors = [];
@@ -4455,9 +4543,21 @@ function initD3Visualization() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    svg.append("defs").selectAll("marker").data(["arrowhead"]).enter().append("marker")
-        .attr("id", String).attr("viewBox", "0 -5 10 10").attr("refX", 25).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+    const defs = svg.append("defs");
+    // Marker arrowhead default (grigio)
+    defs.append("marker")
+        .attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
+        .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
         .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
+    // Un marker per ogni famiglia di relazione (usato dalla lente)
+    if (typeof EDGE_FAMILIES === 'object') {
+        Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
+            defs.append("marker")
+                .attr("id", `arrowhead-${key}`).attr("viewBox", "0 -5 10 10")
+                .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
+        });
+    }
 
     g = svg.append("g");
 
@@ -4788,6 +4888,13 @@ function renderGraph() {
         .on("dblclick", (e, d) => { e.stopPropagation(); window.openEditModal(d); })
         .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
+    // Hitbox invisibile: aumenta la zona cliccabile attorno al nodo
+    // (utile per nodi piccoli, es. PATH su KG L2+)
+    nodeEnter.append("circle")
+        .attr("class", "node-hitbox")
+        .attr("fill", "transparent")
+        .attr("stroke", "none");
+
     nodeEnter.append("circle").attr("class", "node-circle");
 
     // Contenitore per gli archi segmentati (solo KG)
@@ -4810,12 +4917,17 @@ function renderGraph() {
 
     nodeEnter.append("foreignObject")
         .attr("class", "node-icons-fo pointer-events-none")
+        .attr("pointer-events", "none") // attributo SVG: bulletproof, non dipende da Tailwind CDN
         .attr("width", 100)
         .attr("height", 20)
         .attr("x", -50)
         .attr("y", 0);
 
     const nodeMerge = nodeEnter.merge(nodeSelection);
+
+    // Hitbox: raggio +10px rispetto al cerchio visibile (più tolleranza al click)
+    nodeMerge.select("circle.node-hitbox")
+        .attr("r", d => getNodeRadius(d) + 10);
 
     nodeMerge.select("circle.node-circle")
         .attr("r", d => getNodeRadius(d))
@@ -4968,6 +5080,23 @@ function renderGraph() {
     nodeMerge.select("g.node-date-badge").style("display", "none");
 
     nodeMerge.select("foreignObject.node-icons-fo")
+        .attr("pointer-events", "none") // applica su tutti i nodi (enter + merge)
+        // Dimensione conditional: se non ha icone, riduco a 1×1 per non bloccare i click
+        .attr("width", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? 100 : 1;
+        })
+        .attr("height", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? 20 : 1;
+        })
+        .attr("x", d => {
+            const vis = d.iconVisibility || { text: true, image: true, link: true };
+            const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
+            return hasIcons ? -50 : 0;
+        })
         .attr("y", d => {
             const labelStr = cleanLabel(d.label);
             const lines = getLabelLines(labelStr);
@@ -5013,7 +5142,7 @@ function renderGraph() {
             if (icons.length === 0) return "";
             // Limit to 4 icons for visual clarity
             const limitedIcons = icons.slice(0, 4);
-            return `<div style="display:flex; align-items:center; justify-content:center; gap:1px; width:100%; height:100%; opacity:0.9;">${limitedIcons.join('')}</div>`;
+            return `<div style="display:flex; align-items:center; justify-content:center; gap:1px; width:100%; height:100%; opacity:0.9; pointer-events:none;">${limitedIcons.join('')}</div>`;
         })
         .each(function () {
             if (window.lucide && window.lucide.createIcons) {
@@ -5024,6 +5153,10 @@ function renderGraph() {
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     window.applyVisualFilters();
+    // Riapplica la lente relazioni se attiva (dopo ogni render)
+    if (window.activeLensFamily) window.applyLensFamily();
+    // Applica il filtro di visibilità link (cycle 3 stati)
+    if (window.linkVisibilityMode && window.linkVisibilityMode !== 'all') window.applyLinkVisibility();
 
     // Applica subito le posizioni pre-calcolate (tick manuale)
     tick();
@@ -5060,7 +5193,7 @@ function _linkControlPoint(sx, sy, tx, ty, curveDir) {
 }
 
 function tick() {
-    // Link: path bezier per coppie bidirezionali, linea retta altrimenti
+    // Link: path bezier per coppie bidirezionali, linea retta altrimenti (feat dev)
     g.selectAll(".link").attr("d", d => {
         const sx = d.source.x, sy = d.source.y;
         const tx = d.target.x, ty = d.target.y;
@@ -5569,12 +5702,183 @@ window.applyLayoutForces = function () {
 }
 
 window.toggleLabels = function () {
+    // Se la lente è attiva, click su TESTO azzera la lente (non toglia label globali)
+    if (window.activeLensFamily) {
+        window.resetLensFamily();
+        return;
+    }
     labelsHidden = !labelsHidden;
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     const btn = document.getElementById('card-btn-labels');
     if (labelsHidden) { btn.classList.replace('bg-slate-100', 'bg-red-50'); btn.classList.replace('text-slate-600', 'text-red-500'); }
     else { btn.classList.replace('bg-red-50', 'bg-slate-100'); btn.classList.replace('text-red-500', 'text-slate-600'); }
 }
+
+// ── Lente Relazioni ────────────────────────────────────────────────────────
+
+// Click sul bottone TESTO: dispatching tra toggle label e apertura menu lente
+window.handleLabelsButtonClick = function (event) {
+    const tgt = event.target;
+    if (tgt && (tgt.id === 'lens-caret' || (tgt.closest && tgt.closest('#lens-caret')))) {
+        event.stopPropagation();
+        window.openLensMenu();
+        return;
+    }
+    window.toggleLabels();
+};
+
+window.openLensMenu = function () {
+    const menu = document.getElementById('lens-menu');
+    if (!menu) return;
+
+    if (!menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        return;
+    }
+
+    const families = window.getActiveFamiliesInMap();
+    let html = '';
+
+    const allActive = window.activeLensFamily === null;
+    html += `<button type="button" class="lens-item${allActive ? ' active' : ''}"
+        onclick="window.selectLensFamily(null)">
+        <span class="lens-dot" style="background:#94a3b8;"></span>
+        Tutte le relazioni
+    </button>`;
+
+    if (families.length > 1 || (families.length === 1 && families[0] !== 'altro')) {
+        html += `<div class="lens-divider"></div>`;
+    }
+
+    families.forEach(key => {
+        const fam = EDGE_FAMILIES[key];
+        const isActive = window.activeLensFamily === key;
+        html += `<button type="button" class="lens-item${isActive ? ' active' : ''}"
+            onclick="window.selectLensFamily('${key}')"
+            onmouseenter="this.style.color='${fam.color}'"
+            onmouseleave="this.style.color=''">
+            <span class="lens-dot" style="background:${fam.color};"></span>
+            <i data-lucide="${fam.icon}" style="width:12px;height:12px;flex-shrink:0;"></i>
+            ${fam.label}
+        </button>`;
+    });
+
+    menu.innerHTML = html;
+    menu.classList.remove('hidden');
+    window.safeCreateIcons();
+
+    setTimeout(() => {
+        const closer = (e) => {
+            if (!menu.contains(e.target)
+                && e.target.id !== 'card-btn-labels'
+                && e.target.id !== 'lens-caret'
+                && !(e.target.closest && e.target.closest('#lens-caret'))) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closer);
+            }
+        };
+        document.addEventListener('click', closer);
+    }, 0);
+};
+
+window.selectLensFamily = function (familyKey) {
+    window.activeLensFamily = familyKey;
+    document.getElementById('lens-menu')?.classList.add('hidden');
+    window.applyLensFamily();
+};
+
+window.applyLensFamily = function () {
+    const key = window.activeLensFamily;
+    const btn = document.getElementById('card-btn-labels');
+    const caret = document.getElementById('lens-caret');
+    if (!btn || !g) return;
+
+    // Reset stili inline
+    g.selectAll('.link')
+        .style('stroke', null)
+        .style('stroke-width', null)
+        .style('stroke-opacity', null)
+        .attr('marker-end', 'url(#arrowhead)');
+    g.selectAll('.link-group').classed('lens-dimmed', false);
+    g.selectAll('.node-group').classed('lens-dimmed', false);
+    g.selectAll('circle.node-circle')
+        .style('stroke', null)
+        .style('stroke-width', null);
+    g.selectAll('text.link-label')
+        .style('font-size', null)
+        .style('fill', null)
+        .style('opacity', null)
+        .style('stroke', null)
+        .style('stroke-width', null)
+        .style('stroke-linejoin', null)
+        .style('paint-order', null)
+        .style('font-weight', null);
+
+    if (!key) {
+        btn.style.background = '';
+        btn.style.color = '';
+        if (caret) caret.style.color = '';
+        return;
+    }
+
+    const fam = EDGE_FAMILIES[key];
+    if (!fam) return;
+
+    const activeLinkSet = new Set();
+    const activeNodeIds = new Set();
+    appState.db.links.forEach(l => {
+        if (window.getEdgeFamilyKey(l.rel) === key) {
+            activeLinkSet.add(l);
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            activeNodeIds.add(s);
+            activeNodeIds.add(t);
+        }
+    });
+
+    const baseFontSize = 8 * globalFontScale * 0.765;
+
+    g.selectAll('.link-group').each(function (d) {
+        const isActive = activeLinkSet.has(d);
+        d3.select(this).classed('lens-dimmed', !isActive);
+        // Line + freccia colorate per i link attivi
+        d3.select(this).select('line.link')
+            .style('stroke', isActive ? fam.color : null)
+            .style('stroke-width', isActive ? '2.5px' : null)
+            .style('stroke-opacity', isActive ? '1' : null)
+            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)');
+        // Label: forza visibile + font ×1.5 + colore famiglia + outline NERO per contrasto
+        // (replica il pattern di .node-text, ma stroke nero come richiesto)
+        d3.select(this).select('text.link-label')
+            .style('opacity', isActive ? '1' : null)
+            .style('font-size', isActive ? (baseFontSize * 1.5) + 'px' : null)
+            .style('fill', isActive ? fam.color : null)
+            .style('font-weight', isActive ? 'bold' : null)
+            .style('stroke', isActive ? 'black' : null)
+            .style('stroke-width', isActive ? '1px' : null)
+            .style('stroke-linejoin', isActive ? 'round' : null)
+            .style('paint-order', isActive ? 'stroke fill' : null);
+    });
+
+    g.selectAll('.node-group').each(function (d) {
+        const active = activeNodeIds.has(d.id) || d.level === 0;
+        d3.select(this).classed('lens-dimmed', !active);
+        if (active && d.level > 0) {
+            d3.select(this).select('circle.node-circle')
+                .style('stroke', fam.color)
+                .style('stroke-width', '3px');
+        }
+    });
+
+    btn.style.background = fam.colorBtn;
+    btn.style.color = 'white';
+    if (caret) caret.style.color = 'rgba(255,255,255,0.85)';
+};
+
+window.resetLensFamily = function () {
+    window.activeLensFamily = null;
+    window.applyLensFamily();
+};
 
 window.updateDegreeStats = function () {
     let deg = {};
@@ -5658,6 +5962,67 @@ window.updateFilter = function (val) {
     window.applyVisualFilters();
 }
 
+// ── Visibilità Link (cycle 3 stati) ────────────────────────────────────────
+
+const LINK_VIS_STATES = {
+    all:       { icon: 'network',  label: 'LINK',  tooltip: 'Tutti i link visibili (click per nascondere cross-link)',  bg: '',           color: '' },
+    hierarchy: { icon: 'git-fork', label: 'TREE',  tooltip: 'Solo gerarchia (click per vedere solo cross-link)',         bg: '#dbeafe',    color: '#2563eb' },
+    cross:     { icon: 'shuffle',  label: 'CROSS', tooltip: 'Solo cross-link (click per tornare a tutti)',               bg: '#fef3c7',    color: '#d97706' }
+};
+const LINK_VIS_CYCLE = ['all', 'hierarchy', 'cross'];
+
+window.cycleLinkVisibility = function () {
+    const idx = LINK_VIS_CYCLE.indexOf(window.linkVisibilityMode);
+    const next = LINK_VIS_CYCLE[(idx + 1) % LINK_VIS_CYCLE.length];
+    window.linkVisibilityMode = next;
+    localStorage.setItem('mappai_link_vis_mode', next);
+    window.applyLinkVisibility();
+};
+
+window.applyLinkVisibility = function () {
+    const mode = window.linkVisibilityMode || 'all';
+    const state = LINK_VIS_STATES[mode] || LINK_VIS_STATES.all;
+
+    // Aggiorna bottone (icona + colore + label + tooltip)
+    const btn = document.getElementById('card-btn-link-vis');
+    const iconEl = document.getElementById('card-btn-link-vis-icon');
+    const labelEl = document.getElementById('card-btn-link-vis-label');
+    if (btn) {
+        btn.style.background = state.bg;
+        btn.style.color = state.color;
+        btn.title = state.tooltip;
+    }
+    if (iconEl) {
+        iconEl.setAttribute('data-lucide', state.icon);
+        // Reset SVG e ri-render via lucide
+        const parent = iconEl.parentNode;
+        const fresh = document.createElement('i');
+        fresh.id = 'card-btn-link-vis-icon';
+        fresh.setAttribute('data-lucide', state.icon);
+        fresh.className = 'w-5 h-5';
+        if (state.color) fresh.style.color = state.color;
+        parent.replaceChild(fresh, iconEl);
+        window.safeCreateIcons();
+    }
+    if (labelEl) labelEl.textContent = state.label;
+
+    // Applica filtro al rendering: marca i link come hidden via classe CSS
+    if (!g) return;
+    // Assicura che i link abbiano isCross calcolato in base alla modalità corrente
+    if (appState.extractionMode === 'kg') {
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
+    } else {
+        window.markMmCrossLinks(appState.db.nodes, appState.db.links);
+    }
+
+    g.selectAll('.link-group').classed('link-hidden', function (d) {
+        if (mode === 'all') return false;
+        if (mode === 'hierarchy') return d.isCross === true;
+        if (mode === 'cross') return d.isCross !== true;
+        return false;
+    });
+};
+
 window.togglePathfinder = function () {
     pathfinderActive = !pathfinderActive;
     const btn = document.getElementById('card-btn-pathfinder');
@@ -5698,7 +6063,14 @@ function calculatePath(start, end) {
 
 function handleBackgroundClick() {
     if (linkingState.active) { linkingState.active = false; document.getElementById('mode-hint').classList.add('hidden'); }
-    if (pathfinderActive) { pathfinderState.source = null; pathfinderState.target = null; document.getElementById('mode-hint').innerText = "PATHFINDER: Clicca sul Nodo di Partenza"; window.applyVisualFilters(); }
+
+    // PATHFINDER: il click sullo sfondo NON resetta più la selezione (era troppo
+    // distruttivo quando l'utente sbaglia di pochi pixel). Per uscire, ri-cliccare il
+    // bottone PATH oppure selezionare un altro nodo come sorgente.
+    if (pathfinderActive) {
+        hideContextMenu();
+        return; // niente reset selezione, niente clear node-details
+    }
 
     currentNode = null;
     g.selectAll(".node-group, .link-group").classed("dimmed", false).classed("highlighted", false);
@@ -7341,8 +7713,118 @@ window.exportNotesMarkdown = function () {
 // openTimelineView → mappai-timeline.js
 // openGlossaryView → mappai-glossary.js
 
+window.openNodeLabelsPrintModal = function () {
+    const allNodes = appState.db.nodes || [];
+    if (allNodes.length === 0) {
+        window.showToast('Genera prima una mappa', 'warning');
+        return;
+    }
+
+    const existingModal = document.getElementById('node-labels-print-modal');
+    if (existingModal) existingModal.remove();
+
+    // Calcola i livelli presenti e il conteggio nodi per livello
+    const levelCounts = {};
+    allNodes.forEach(function (n) {
+        const lv = n.level || 0;
+        levelCounts[lv] = (levelCounts[lv] || 0) + 1;
+    });
+    const maxLevelPresent = Math.max(...Object.keys(levelCounts).map(Number));
+    const mapName = appState.db?.rootNodeLabel || appState.rootNodeLabel || 'Progetto MappAI';
+
+    // Costruisci le opzioni di livello (tutte + singoli livelli)
+    function countUpTo(maxLv) {
+        return allNodes.filter(function (n) { return (n.level || 0) <= maxLv; }).length;
+    }
+
+    var levelOptions = '<label class="pm-option">' +
+        '<input type="radio" name="nl-depth" value="all" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+        '<div><div class="pm-option-label">Tutti i livelli</div>' +
+        '<div class="pm-option-desc">' + allNodes.length + ' etichette</div></div>' +
+        '</label>';
+
+    for (var lv = 1; lv <= maxLevelPresent; lv++) {
+        var count = countUpTo(lv);
+        levelOptions += '<label class="pm-option">' +
+            '<input type="radio" name="nl-depth" value="' + lv + '" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+            '<div><div class="pm-option-label">Fino al Livello ' + lv + '</div>' +
+            '<div class="pm-option-desc">' + count + ' etichette</div></div>' +
+            '</label>';
+    }
+
+    var modal = document.createElement('div');
+    modal.id = 'node-labels-print-modal';
+    modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
+
+    modal.innerHTML =
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[480px] p-8 relative">' +
+
+            '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
+                '<i data-lucide="x" class="w-6 h-6"></i>' +
+            '</button>' +
+
+            '<div class="space-y-6">' +
+
+                '<div class="flex items-center gap-3">' +
+                    '<div class="pm-icon-wrap">' +
+                        '<i data-lucide="scissors" class="w-5 h-5 text-indigo-600"></i>' +
+                    '</div>' +
+                    '<div>' +
+                        '<div class="pm-title">Foglio Nodi</div>' +
+                        '<div class="pm-subtitle">' + mapName + '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                '<p class="pm-body-text">' +
+                    'Genera un foglio PDF ritagliabile con le etichette dei nodi della mappa. ' +
+                    'Scegli fino a che livello di profondità includere.' +
+                '</p>' +
+
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Profondità</span>' +
+                    '<div class="space-y-3">' + levelOptions + '</div>' +
+                '</div>' +
+
+                '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
+                    '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                        'class="pm-btn-cancel">Annulla</button>' +
+                    '<button type="button" onclick="window.printAllNodeLabels()" ' +
+                        'class="pm-btn-primary">' +
+                        '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
+                    '</button>' +
+                '</div>' +
+
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(modal);
+    if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
+
+    var escHandler = function (e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+};
+
 window.printAllNodeLabels = async function () {
-    const nodes = appState.db.nodes || [];
+    // Leggi il livello selezionato dal modal (se aperto), poi chiudi il modal
+    var selectedDepthEl = document.querySelector('input[name="nl-depth"]:checked');
+    var maxLevel = selectedDepthEl && selectedDepthEl.value !== 'all'
+        ? parseInt(selectedDepthEl.value, 10)
+        : null;
+
+    var modal = document.getElementById('node-labels-print-modal');
+    if (modal) modal.remove();
+
+    const allNodes = appState.db.nodes || [];
+    const nodes = maxLevel !== null
+        ? allNodes.filter(function (n) { return (n.level || 0) <= maxLevel; })
+        : allNodes;
+
     if (nodes.length === 0) {
         window.showToast("Nessun nodo presente nella mappa.", "warning");
         return;
@@ -8107,17 +8589,11 @@ window.generateDossierPDFFromOptions = async function () {
                 @media print {
                     /* --- REGOLE DI STAMPA A4 --- */
                     @page {
-                        /* Formato della pagina. Puoi usare 'A4 landscape' per orizzontale */
                         size: A4 portrait;
-                        
-                        /* Margini della pagina fisica (Sopra/Sotto Destra/Sinistra) */
-                        margin: 20mm 18mm; 
-                        
-                        /* Footer automatico su ogni pagina stampata - Modifica qui il testo a piè di pagina */
-                        @bottom-left { content: "MappAI — insegnai.ch"; font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
-                        @bottom-right { content: counter(page); font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
+                        /* margin-bottom = altezza footer: l'area contenuto finisce esattamente dove inizia il footer */
+                        margin: 18mm 15mm 22mm 15mm;
                     }
-                    body { 
+                    body {
                         margin: 0;
                         padding: 0;
                     }
@@ -8352,7 +8828,6 @@ window.generateDossierPDFFromOptions = async function () {
                     gap: 8pt;
                     background: #f8fafc;          /* grigio chiarissimo */
                     border: none;
-                    border-left: 2pt solid var(--pdf-accent-color); /* barra sinistra accent */
                     border-radius: 0;
                     padding: 8pt 10pt;
                     margin-bottom: 6pt;          /* spazio tra fonti: 6pt */
@@ -8559,18 +9034,24 @@ window.generateDossierPDFFromOptions = async function () {
                 /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
                 .dossier-footer {
                     position: fixed;
-                    /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
-                    bottom: 0mm; 
-                    left: 0;
-                    right: 0;
+                    /* bottom: -22mm sposta il footer nell'area margine (@page margin-bottom: 22mm)
+                       portando il bordo inferiore esattamente al bordo fisico del foglio */
+                    bottom: -22mm;
+                    /* left/right negativi: estende il footer al bordo fisico del foglio
+                       compensando i margini laterali @page di 15mm */
+                    left: -15mm;
+                    right: -15mm;
+                    box-sizing: border-box;
+                    height: 22mm;
                     display: flex;
                     justify-content: space-between;
-                    align-items: center;
-                    padding: 4px 0 40px;
+                    align-items: flex-end;
+                    /* padding laterale 15mm = allineato ai margini del contenuto;
+                       padding-bottom 13mm = testi a 13mm dal bordo fisico del foglio */
+                    padding: 0 15mm 13mm;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
-                    /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
-                    background-color: white; 
+                    background-color: white;
                 }
                 .dossier-footer-left {
                     display: flex;
