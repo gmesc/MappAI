@@ -8184,13 +8184,13 @@ window.generateDossierPDFFromOptions = async function () {
                 .dossier-footer {
                     position: fixed;
                     /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
-                    bottom: 0mm; 
+                    bottom: -5mm; 
                     left: 0;
                     right: 0;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 2px 0 10px;
+                    padding: 16px 0 0px;
                     font-size: 11px;
                     font-family: 'Space Mono', monospace;
                     /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
