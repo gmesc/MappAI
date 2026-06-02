@@ -3671,7 +3671,7 @@ ISTRUZIONI:
    - "source": l'ID di origine esatto.
    - "target": l'ID di destinazione esatto.
    - "rel": una brevissima parola o locuzione di collegamento in italiano. Scegli il verbo/locuzione PIÙ PRECISO tra (esempi, non esaustivi): "causa", "provoca", "produce", "genera", "influenza", "regola", "compone", "fa parte di", "appartiene a", "guida", "governa", "fonda", "scoperto da", "sviluppato in", "si oppone a", "alleato di", "precede", "segue", "deriva da", "porta a", "contrasta", "sostiene", "rappresenta", "membro di". Massimo 3 parole.
-3. MULTI-LINK OBBLIGATORIO: ogni concetto di livello 2 deve avere ALMENO 2 collegamenti, di cui ALMENO UNO verso il Super-Hub (livello 1) tematicamente CORRETTO e, quando il testo lo giustifica, ALMENO UNO verso un nodo di un Super-Hub DIVERSO (cross-hub). I cross-hub sono i link più preziosi: trasformano il grafo da una serie di stelle disconnesse a una vera rete di pensiero. Nessun nodo deve restare isolato/orfano. Genera il maggior numero possibile di link giustificati dal testo.
+3. MULTI-LINK OBBLIGATORIO: ogni concetto di livello 2 deve avere ALMENO 2 collegamenti, di cui ALMENO UNO verso il Super-Hub (livello 1) tematicamente CORRETTO. Esempio: un personaggio sovietico va collegato al Super-Hub "Unione Sovietica", non a quello sbagliato. Avere più link riduce gli errori di classificazione. Nessun nodo deve restare isolato/orfano.
 4. ACCURATEZZA: verifica che ogni collegamento a un Super-Hub sia semanticamente corretto. Un nodo va collegato all'hub a cui APPARTIENE realmente secondo il testo, non a un hub a caso.
 
 Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.
