@@ -143,6 +143,81 @@
         .error_body_text { @apply text-sm text-slate-600 mb-6 leading-relaxed max-h-[40vh] overflow-y-auto; } /* Testo descrittivo con l'errore di sistema o eccezione */
       }
     </style>
+    <style>
+      /* ── Visibilità link (cycle 3 stati) ─────────────────────── */
+      .link-group.link-hidden { display: none !important; }
+
+      /* ── Lente Relazioni ─────────────────────────────────────── */
+      .lens-dimmed { opacity: 0.2 !important; transition: opacity 0.25s ease; }
+
+      #lens-menu {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        padding: 8px;
+        min-width: 200px;
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      #lens-menu.hidden { display: none; }
+      #lens-menu .lens-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        transition: background 0.15s, color 0.15s;
+        border: none;
+        background: transparent;
+        width: 100%;
+        text-align: left;
+      }
+      #lens-menu .lens-item:hover { background: #f8fafc; }
+      #lens-menu .lens-item.active { background: #f1f5f9; }
+      #lens-menu .lens-item .lens-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      #lens-menu .lens-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
+
+      #lens-btn-wrapper { position: relative; display: inline-block; }
+      #card-btn-labels { position: relative; }
+      #lens-caret {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: 13px;
+        line-height: 1;
+        color: #64748b;
+        cursor: pointer;
+        padding: 2px 3px;
+        border-radius: 4px;
+        user-select: none;
+        transition: color 0.15s, transform 0.15s;
+      }
+      #lens-caret:hover {
+        color: #4f46e5;
+        transform: scale(1.2);
+      }
+    </style>
+    <!-- KaTeX — rendering formule matematiche LaTeX -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
+        crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
+        crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -1144,6 +1219,16 @@
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
+                    <button onclick="window.openNodeLabelsPrintModal()" title="Foglio nodi con forbici">
+                        <i data-lucide="scissors"></i> Foglio nodi
+                    </button>
+                    <button onclick="window.openDossierPrintModal()" title="Stampa dossier">
+                        <i data-lucide="files"></i> Stampa dossier
+                    </button>
+                    <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
+                        <i data-lucide="gantt-chart"></i> Crea Timeline
+                    </button>
+                    <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto">
                         <i data-lucide="arrow-left"></i> Torna alla Home
                     </button>
@@ -1236,12 +1321,29 @@
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>
 
-                <!-- Toggle Label -->
-                <button id="card-btn-labels" onclick="window.toggleLabels()"
+                <!-- Toggle Label + Lente Relazioni -->
+                <div id="lens-btn-wrapper">
+                    <!-- Menu lente (apre con click sul caret) -->
+                    <div id="lens-menu" class="hidden"></div>
+                    <!-- Bottone TESTO con caret integrato -->
+                    <button id="card-btn-labels" type="button"
+                        onclick="window.handleLabelsButtonClick(event)"
+                        class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                        title="Click: mostra/nascondi etichette — Click sulla freccia: lente famiglie di relazione">
+                        <i data-lucide="tag" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-bold mt-1">TESTO</span>
+                        <span id="lens-caret" title="Lente famiglie di relazione">▾</span>
+                    </button>
+                </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Visibilità Link (cycle 3 stati: all / hierarchy / cross) -->
+                <button id="card-btn-link-vis" type="button"
+                    onclick="window.cycleLinkVisibility()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Mostra/Nascondi Etichette Relazioni">
-                    <i data-lucide="tag" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">TESTO</span>
+                    title="Click: cicla visibilità link (tutto / solo gerarchia / solo cross-link)">
+                    <i id="card-btn-link-vis-icon" data-lucide="network" class="w-5 h-5"></i>
+                    <span id="card-btn-link-vis-label" class="text-[9px] font-bold mt-1">LINK</span>
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 

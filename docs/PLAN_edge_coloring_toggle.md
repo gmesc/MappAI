@@ -1,7 +1,65 @@
-# Plan — Toggle "Edge Coloring" per Knowledge Graph
+# Plan — Edge Coloring / Lente Relazioni per Knowledge Graph
 
 > Report generato 2 giugno 2026 (sera) dal background agent durante l'implementazione
 > di node-styling 1+2. Da implementare in una sessione successiva.
+>
+> ⚠️ **Le sezioni 1-7 descrivono l'approccio "toggle all-families" ORIGINALE, ora
+> SUPERATO.** Il design definitivo è la sezione 0 qui sotto. Le sezioni 1-7 restano
+> come riferimento per: file/linee coinvolti, palette colori famiglie (valida),
+> mappatura rel→famiglia (valida), edge case.
+
+## 0. DESIGN FINALIZZATO — "Lente Relazioni" (2 giugno 2026, sera)
+
+Concetto: NON colorare tutte le famiglie insieme (sarebbe dispersivo, l'opposto
+di ciò che vogliamo). Invece **focus su una famiglia per volta** = lente di
+ragionamento. Coerente con la preferenza anti-dispersione già espressa per i nodi.
+
+### Interazione
+- **Bottone TESTO resta binario** (label on/off) — azione frequente intatta.
+- **Caret ▾** piccolo nell'angolo del bottone TESTO. Apertura menu via **click
+  DESTRO** sul bottone/caret.
+- Il menu riusa il **layout dei pannelli flottanti esistenti** (menu esci/esporta,
+  pannello strumenti inclusivi). Ogni voce = una famiglia di relazione.
+- **Hover** su una voce → la voce si colora del colore della famiglia (preview).
+- **Click** su una voce → seleziona la famiglia (focus mode).
+- Voce **"TUTTI / azzera"** per tornare alla vista normale.
+
+### Menu DINAMICO (chiave del design)
+- Si scansionano i `rel` realmente presenti in `appState.db.links`, si normalizzano
+  e si mappano a famiglia (vedi §2 e §4 per palette e mapping).
+- Il menu mostra **SOLO le famiglie presenti** nella mappa corrente. Niente voci
+  morte, niente gating KG/MM: in MM compaiono solo le famiglie i cui verbi esistono
+  (es. "causa" → trasformazione; "include" → appartenenza).
+- I `rel` non mappati a nessuna famiglia → famiglia "altro" (grigia), mostrata solo
+  se presente.
+
+### Effetto della selezione di una famiglia (focus mode)
+- I **link** della famiglia → colore della famiglia + **label forzato visibile** +
+  font **×2** (anche se i label globali sono OFF: altrimenti selezioni una famiglia
+  e non vedi nulla).
+- I **nodi coinvolti** (estremi di quei link) → **outline** (stroke) del colore
+  della famiglia.
+- Tutti gli **altri nodi e link** → **dim leggero** (opacity ~0.35, più chiaro del
+  dim pathfinder a 0.15).
+- Il **bottone TESTO assume il colore** della famiglia attiva (segnala stato attivo).
+- La voce selezionata resta colorata nel menu (stato persistente, non solo hover).
+
+### Sotto-feature separabile (4b) — dropdown categoria in creazione link
+- Quando l'utente crea un link manualmente (flusso `showPrompt` ~app.js 5531),
+  invece del solo testo libero: **tendina con le famiglie/relazioni note** +
+  opzione "altro (testo libero)".
+- Indipendente dal menu lente. Si può fare subito dopo o in mini-sessione a parte.
+
+### Note di composizione con node-styling 1+2 (già implementato)
+- L'outline famiglia è uno stroke TEMPORANEO sul `circle.node-circle`, da comporre
+  con l'anello dei segmenti (`.node-segments`) senza conflitto: l'anello resta, si
+  aggiunge solo un outline esterno colorato sui nodi coinvolti.
+- Il dim leggero può riusare un meccanismo simile a `applyVisualFilters` / classe
+  `.dimmed` ma con una classe dedicata (es. `.lens-dimmed`, opacity 0.35) per non
+  collidere col dim pathfinder.
+- Token: zero. Pura visualizzazione, legge `rel` già esistente.
+
+---
 
 ## 1. File coinvolti (linee esatte)
 
