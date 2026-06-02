@@ -3696,7 +3696,10 @@ ${textParts.join('\n\n')}`;
         const p2Payload = {
             contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(3000) }
+            // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
+            // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
+            // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(4096) }
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -3870,7 +3873,10 @@ ${textParts.join('\n\n')}`;
             node.group = window._assignHubGroup(node.id, rawLinks, hubGroupMap);
         });
 
-        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link
+        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link.
+        // Usa _assignHubGroup (voto BFS 2-hop) per trovare l'hub più probabile
+        // invece di uno casuale, e "fa parte di" come rel (più onesto di
+        // "correlato a" — stiamo esplicitamente collegando al hub tematico).
         const validNodeIds = new Set(finalNodes.map(n => n.id));
         let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -3879,15 +3885,21 @@ ${textParts.join('\n\n')}`;
 
         const hubs = finalNodes.filter(n => n.level === 1);
         if (hubs.length > 0) {
+            // Ricostruisci hubGroupMap aggiornato con i link validi
+            const healHubMap = {};
+            finalNodes.filter(n => n.level === 1).forEach(h => { healHubMap[h.id] = h.id; });
             finalNodes.forEach(node => {
                 if (node.level === 2 && !linkedNodes.has(node.id)) {
-                    // Collega il nodo orfano a un Hub a caso (o al primo)
-                    const randomHub = hubs[Math.floor(Math.random() * hubs.length)];
+                    // Scegli l'hub tematicamente più vicino tramite BFS (2-hop)
+                    const bestGroupId = window._assignHubGroup(node.id, finalLinks, healHubMap);
+                    const bestHub = finalNodes.find(h => h.level === 1 && h.id === bestGroupId)
+                        || hubs[0];
                     finalLinks.push({
-                        source: randomHub.id,
+                        source: bestHub.id,
                         target: node.id,
-                        rel: "correlato a"
+                        rel: "fa parte di"
                     });
+                    linkedNodes.add(node.id);
                 }
             });
         }
