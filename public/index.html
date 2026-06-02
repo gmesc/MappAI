@@ -215,6 +215,9 @@
       }
     </style>
     <style>
+      /* ── Visibilità link (cycle 3 stati) ─────────────────────── */
+      .link-group.link-hidden { display: none !important; }
+
       /* ── Lente Relazioni ─────────────────────────────────────── */
       /* Dim leggero sui link/nodi non appartenenti alla famiglia attiva */
       .lens-dimmed { opacity: 0.2 !important; transition: opacity 0.25s ease; }
@@ -1412,6 +1415,16 @@
                         <span id="lens-caret" title="Lente famiglie di relazione">▾</span>
                     </button>
                 </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Visibilità Link (cycle 3 stati: all / hierarchy / cross) -->
+                <button id="card-btn-link-vis" type="button"
+                    onclick="window.cycleLinkVisibility()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Click: cicla visibilità link (tutto / solo gerarchia / solo cross-link)">
+                    <i id="card-btn-link-vis-icon" data-lucide="network" class="w-5 h-5"></i>
+                    <span id="card-btn-link-vis-label" class="text-[9px] font-bold mt-1">LINK</span>
+                </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 
                 <!-- Pathfinder -->

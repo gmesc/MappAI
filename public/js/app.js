@@ -327,6 +327,12 @@ window.getActiveFamiliesInMap = function () {
 // Stato corrente della lente (null = spenta)
 window.activeLensFamily = null;
 
+// Modalità visibilità link: 'all' | 'hierarchy' | 'cross'
+// 'all'       → tutti i link visibili (cross-link con stile dashed esistente)
+// 'hierarchy' → solo gerarchia (parent-child stesso group), nasconde cross-link
+// 'cross'     → solo cross-link, nasconde gerarchia (vista reticolare)
+window.linkVisibilityMode = localStorage.getItem('mappai_link_vis_mode') || 'all';
+
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
     localStorage.setItem('infomaniak_product_id', val);
@@ -3214,6 +3220,30 @@ window.markKgCrossLinks = function (nodes, links) {
     return links;
 };
 
+/**
+ * Marca i cross-link in una MindMap.
+ * In MM la gerarchia è esplicita: un link è gerarchico (parent→child) se
+ * collega due nodi con |levelDiff| === 1 E stesso group (stessa macro-area).
+ * Tutto il resto è cross-link: jump di livello, link tra rami diversi,
+ * link tra nodi dello stesso livello, ecc.
+ * Idempotente: non sovrascrive isCross se già impostato esplicitamente.
+ */
+window.markMmCrossLinks = function (nodes, links) {
+    const levelOf = {}, groupOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; groupOf[n.id] = n.group; });
+    (links || []).forEach(l => {
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sLvl = levelOf[sId], tLvl = levelOf[tId];
+        const sameGroup = groupOf[sId] === groupOf[tId];
+        const adjacentLevels = (sLvl !== undefined && tLvl !== undefined)
+            && Math.abs(sLvl - tLvl) === 1;
+        const hierarchical = adjacentLevels && sameGroup;
+        l.isCross = !hierarchical;
+    });
+    return links;
+};
+
 window._assignHubGroup = function (nodeId, links, hubGroupMap) {
     const votes = {};
     const neighbors = [];
@@ -4780,6 +4810,8 @@ function renderGraph() {
     window.applyVisualFilters();
     // Riapplica la lente relazioni se attiva (dopo ogni render)
     if (window.activeLensFamily) window.applyLensFamily();
+    // Applica il filtro di visibilità link (cycle 3 stati)
+    if (window.linkVisibilityMode && window.linkVisibilityMode !== 'all') window.applyLinkVisibility();
 
     // Applica subito le posizioni pre-calcolate (tick manuale)
     tick();
@@ -5559,6 +5591,67 @@ window.updateFilter = function (val) {
     document.getElementById('filter-val-display').innerText = val;
     window.applyVisualFilters();
 }
+
+// ── Visibilità Link (cycle 3 stati) ────────────────────────────────────────
+
+const LINK_VIS_STATES = {
+    all:       { icon: 'network',  label: 'LINK',  tooltip: 'Tutti i link visibili (click per nascondere cross-link)',  bg: '',           color: '' },
+    hierarchy: { icon: 'git-fork', label: 'TREE',  tooltip: 'Solo gerarchia (click per vedere solo cross-link)',         bg: '#dbeafe',    color: '#2563eb' },
+    cross:     { icon: 'shuffle',  label: 'CROSS', tooltip: 'Solo cross-link (click per tornare a tutti)',               bg: '#fef3c7',    color: '#d97706' }
+};
+const LINK_VIS_CYCLE = ['all', 'hierarchy', 'cross'];
+
+window.cycleLinkVisibility = function () {
+    const idx = LINK_VIS_CYCLE.indexOf(window.linkVisibilityMode);
+    const next = LINK_VIS_CYCLE[(idx + 1) % LINK_VIS_CYCLE.length];
+    window.linkVisibilityMode = next;
+    localStorage.setItem('mappai_link_vis_mode', next);
+    window.applyLinkVisibility();
+};
+
+window.applyLinkVisibility = function () {
+    const mode = window.linkVisibilityMode || 'all';
+    const state = LINK_VIS_STATES[mode] || LINK_VIS_STATES.all;
+
+    // Aggiorna bottone (icona + colore + label + tooltip)
+    const btn = document.getElementById('card-btn-link-vis');
+    const iconEl = document.getElementById('card-btn-link-vis-icon');
+    const labelEl = document.getElementById('card-btn-link-vis-label');
+    if (btn) {
+        btn.style.background = state.bg;
+        btn.style.color = state.color;
+        btn.title = state.tooltip;
+    }
+    if (iconEl) {
+        iconEl.setAttribute('data-lucide', state.icon);
+        // Reset SVG e ri-render via lucide
+        const parent = iconEl.parentNode;
+        const fresh = document.createElement('i');
+        fresh.id = 'card-btn-link-vis-icon';
+        fresh.setAttribute('data-lucide', state.icon);
+        fresh.className = 'w-5 h-5';
+        if (state.color) fresh.style.color = state.color;
+        parent.replaceChild(fresh, iconEl);
+        window.safeCreateIcons();
+    }
+    if (labelEl) labelEl.textContent = state.label;
+
+    // Applica filtro al rendering: marca i link come hidden via classe CSS
+    if (!g) return;
+    // Assicura che i link abbiano isCross calcolato in base alla modalità corrente
+    if (appState.extractionMode === 'kg') {
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
+    } else {
+        window.markMmCrossLinks(appState.db.nodes, appState.db.links);
+    }
+
+    g.selectAll('.link-group').classed('link-hidden', function (d) {
+        if (mode === 'all') return false;
+        if (mode === 'hierarchy') return d.isCross === true;
+        if (mode === 'cross') return d.isCross !== true;
+        return false;
+    });
+};
 
 window.togglePathfinder = function () {
     pathfinderActive = !pathfinderActive;
