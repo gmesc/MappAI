@@ -7250,8 +7250,118 @@ window.exportNotesMarkdown = function () {
 // openTimelineView → mappai-timeline.js
 // openGlossaryView → mappai-glossary.js
 
+window.openNodeLabelsPrintModal = function () {
+    const allNodes = appState.db.nodes || [];
+    if (allNodes.length === 0) {
+        window.showToast('Genera prima una mappa', 'warning');
+        return;
+    }
+
+    const existingModal = document.getElementById('node-labels-print-modal');
+    if (existingModal) existingModal.remove();
+
+    // Calcola i livelli presenti e il conteggio nodi per livello
+    const levelCounts = {};
+    allNodes.forEach(function (n) {
+        const lv = n.level || 0;
+        levelCounts[lv] = (levelCounts[lv] || 0) + 1;
+    });
+    const maxLevelPresent = Math.max(...Object.keys(levelCounts).map(Number));
+    const mapName = appState.db?.rootNodeLabel || appState.rootNodeLabel || 'Progetto MappAI';
+
+    // Costruisci le opzioni di livello (tutte + singoli livelli)
+    function countUpTo(maxLv) {
+        return allNodes.filter(function (n) { return (n.level || 0) <= maxLv; }).length;
+    }
+
+    var levelOptions = '<label class="pm-option">' +
+        '<input type="radio" name="nl-depth" value="all" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+        '<div><div class="pm-option-label">Tutti i livelli</div>' +
+        '<div class="pm-option-desc">' + allNodes.length + ' etichette</div></div>' +
+        '</label>';
+
+    for (var lv = 1; lv <= maxLevelPresent; lv++) {
+        var count = countUpTo(lv);
+        levelOptions += '<label class="pm-option">' +
+            '<input type="radio" name="nl-depth" value="' + lv + '" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+            '<div><div class="pm-option-label">Fino al Livello ' + lv + '</div>' +
+            '<div class="pm-option-desc">' + count + ' etichette</div></div>' +
+            '</label>';
+    }
+
+    var modal = document.createElement('div');
+    modal.id = 'node-labels-print-modal';
+    modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
+
+    modal.innerHTML =
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[480px] p-8 relative">' +
+
+            '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
+                '<i data-lucide="x" class="w-6 h-6"></i>' +
+            '</button>' +
+
+            '<div class="space-y-6">' +
+
+                '<div class="flex items-center gap-3">' +
+                    '<div class="pm-icon-wrap">' +
+                        '<i data-lucide="scissors" class="w-5 h-5 text-indigo-600"></i>' +
+                    '</div>' +
+                    '<div>' +
+                        '<div class="pm-title">Foglio Nodi</div>' +
+                        '<div class="pm-subtitle">' + mapName + '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                '<p class="pm-body-text">' +
+                    'Genera un foglio PDF ritagliabile con le etichette dei nodi della mappa. ' +
+                    'Scegli fino a che livello di profondità includere.' +
+                '</p>' +
+
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Profondità</span>' +
+                    '<div class="space-y-3">' + levelOptions + '</div>' +
+                '</div>' +
+
+                '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
+                    '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                        'class="pm-btn-cancel">Annulla</button>' +
+                    '<button type="button" onclick="window.printAllNodeLabels()" ' +
+                        'class="pm-btn-primary">' +
+                        '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
+                    '</button>' +
+                '</div>' +
+
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(modal);
+    if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
+
+    var escHandler = function (e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+};
+
 window.printAllNodeLabels = async function () {
-    const nodes = appState.db.nodes || [];
+    // Leggi il livello selezionato dal modal (se aperto), poi chiudi il modal
+    var selectedDepthEl = document.querySelector('input[name="nl-depth"]:checked');
+    var maxLevel = selectedDepthEl && selectedDepthEl.value !== 'all'
+        ? parseInt(selectedDepthEl.value, 10)
+        : null;
+
+    var modal = document.getElementById('node-labels-print-modal');
+    if (modal) modal.remove();
+
+    const allNodes = appState.db.nodes || [];
+    const nodes = maxLevel !== null
+        ? allNodes.filter(function (n) { return (n.level || 0) <= maxLevel; })
+        : allNodes;
+
     if (nodes.length === 0) {
         window.showToast("Nessun nodo presente nella mappa.", "warning");
         return;
