@@ -4465,6 +4465,7 @@ function renderGraph() {
 
     nodeEnter.append("foreignObject")
         .attr("class", "node-icons-fo pointer-events-none")
+        .attr("pointer-events", "none") // attributo SVG: bulletproof, non dipende da Tailwind CDN
         .attr("width", 100)
         .attr("height", 20)
         .attr("x", -50)
@@ -4668,7 +4669,7 @@ function renderGraph() {
             if (icons.length === 0) return "";
             // Limit to 4 icons for visual clarity
             const limitedIcons = icons.slice(0, 4);
-            return `<div style="display:flex; align-items:center; justify-content:center; gap:1px; width:100%; height:100%; opacity:0.9;">${limitedIcons.join('')}</div>`;
+            return `<div style="display:flex; align-items:center; justify-content:center; gap:1px; width:100%; height:100%; opacity:0.9; pointer-events:none;">${limitedIcons.join('')}</div>`;
         })
         .each(function () {
             if (window.lucide && window.lucide.createIcons) {
