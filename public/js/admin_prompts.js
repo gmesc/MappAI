@@ -1,5 +1,11 @@
 window.systemPromptsConfig = {};
 window.systemPromptsDescriptions = {
+    "DISCIPLINE_STORIA": "System prompt disciplinare: Storia",
+    "DISCIPLINE_SCIENZE": "System prompt disciplinare: Scienze Naturali",
+    "DISCIPLINE_LETTERATURA": "System prompt disciplinare: Letteratura / Italiano",
+    "DISCIPLINE_MATEMATICA": "System prompt disciplinare: Matematica",
+    "DISCIPLINE_GEOGRAFIA": "System prompt disciplinare: Geografia",
+    "DISCIPLINE_FILOSOFIA": "System prompt disciplinare: Filosofia",
     "L1_MACRO_CATEGORIES": "admin_prompt_desc_l1",
     "MIND_MAP_FULL_TREE": "admin_prompt_desc_mm_full",
     "KNOWLEDGE_GRAPH_FULL_TREE": "admin_prompt_desc_kg_full",
@@ -24,7 +30,8 @@ window.systemPromptsCategories = {
     "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "MIND_MAP_BRANCH"],
     "KGRAPHS": ["KNOWLEDGE_GRAPH_FULL_TREE", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
-    "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"]
+    "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"],
+    "DISCIPLINES": ["DISCIPLINE_STORIA", "DISCIPLINE_SCIENZE", "DISCIPLINE_LETTERATURA", "DISCIPLINE_MATEMATICA", "DISCIPLINE_GEOGRAFIA", "DISCIPLINE_FILOSOFIA"]
 };
 
 // Helper per ottenere la traduzione corrente
@@ -70,33 +77,41 @@ window.fillPromptTemplate = function(promptKey, variables) {
     return text;
 };
 
-// Keyboard listener for CTRL+SHIFT+P+O+I+U
-const pressedKeys = new Set();
+// Keyboard listener for CTRL+SHIFT+P+O+I+U (sequential to prevent stuck keys)
+let adminKeys = [];
+const adminSecret = ['p', 'o', 'i', 'u'];
 document.addEventListener('keydown', (e) => {
-    pressedKeys.add(e.key.toUpperCase());
-    
-    // Check if ctrl, shift, P, O, I, U are all pressed
-    const hasCtrl = e.ctrlKey || e.metaKey;
-    const hasShift = e.shiftKey;
-    const hasP = pressedKeys.has('P');
-    const hasO = pressedKeys.has('O');
-    const hasI = pressedKeys.has('I');
-    const hasU = pressedKeys.has('U');
-    
-    if (hasCtrl && hasShift && hasP && hasO && hasI && hasU) {
-        window.openAdminDashboard();
-        // Prevent default browser behavior
-        e.preventDefault();
+    if (e.ctrlKey && e.shiftKey) {
+        const key = e.key.toLowerCase();
+        if (adminSecret.includes(key)) {
+            adminKeys.push(key);
+            if (adminKeys.length > 4) adminKeys.shift();
+            if (adminKeys.join('') === 'poiu') {
+                window.openAdminDashboard();
+                adminKeys = [];
+                e.preventDefault();
+            }
+        } else {
+            adminKeys = [];
+        }
+    } else {
+        adminKeys = [];
     }
-});
-
-document.addEventListener('keyup', (e) => {
-    pressedKeys.delete(e.key.toUpperCase());
 });
 
 window.openAdminDashboard = async function() {
     document.getElementById('admin-dashboard').classList.remove('hidden');
     document.getElementById('admin-dashboard').classList.add('flex');
+    
+    // Configura le traduzioni dei bottoni di ripristino
+    const resetLabelEl = document.getElementById('admin-btn-reset-label');
+    if (resetLabelEl) {
+        resetLabelEl.innerText = window.getAdminTranslation('admin_btn_reset') || 'Ripristina Default';
+    }
+    const resetAllLabelEl = document.getElementById('admin-btn-reset-all-label');
+    if (resetAllLabelEl) {
+        resetAllLabelEl.innerText = window.getAdminTranslation('admin_btn_reset_all') || 'Ripristina Tutti i Prompt';
+    }
     
     // Load config if empty
     if (Object.keys(window.systemPromptsConfig).length === 0) {
@@ -264,6 +279,81 @@ window.runAIPromptTest = async function() {
         }
     } catch(err) {
         outputEl.value = "ERRORE: " + err.message;
+    }
+};
+
+window.resetCurrentPrompt = async function() {
+    if (!window.currentAdminPromptKey) return;
+    
+    const confirmMsg = window.getAdminTranslation('admin_confirm_reset_prompt') || 'Ripristinare questo prompt al valore originale di default?';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        const response = await fetch('./prompts_default.json');
+        if (response.ok) {
+            const defaultPrompts = await response.json();
+            const defaultVal = defaultPrompts[window.currentAdminPromptKey];
+            if (defaultVal !== undefined) {
+                document.getElementById('admin-prompt-editor').value = defaultVal;
+                
+                // Aggiorna la configurazione locale in memoria
+                window.systemPromptsConfig[window.currentAdminPromptKey] = defaultVal;
+                
+                // Salva le modifiche usando il canale adeguato
+                if (window.electronAPI && window.electronAPI.savePrompts) {
+                    await window.electronAPI.savePrompts(window.systemPromptsConfig);
+                } else if (window.storageAdapter && window.storageAdapter.savePrompts) {
+                    await window.storageAdapter.savePrompts(window.systemPromptsConfig);
+                } else {
+                    localStorage.setItem("mappai_custom_prompts", JSON.stringify(window.systemPromptsConfig));
+                }
+                
+                if (window.showToast) window.showToast('Prompt ripristinato al valore di default con successo!', 'success');
+                else alert('Ripristinato al valore di default!');
+            } else {
+                if (window.showToast) window.showToast('Nessun valore di default trovato per questo prompt.', 'error');
+                else alert('Nessun valore di default trovato.');
+            }
+        } else {
+            throw new Error("Impossibile caricare prompts_default.json");
+        }
+    } catch (err) {
+        console.error("Errore ripristino prompt:", err);
+        if (window.showToast) window.showToast('Errore durante il ripristino: ' + err.message, 'error');
+        else alert('Errore ripristino: ' + err.message);
+    }
+};
+
+window.resetAllPrompts = async function() {
+    const confirmMsg = window.getAdminTranslation('admin_confirm_reset_all_prompts') || 'Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default?';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        // Inviamo un oggetto vuoto per resettare le sovrascritture utente
+        if (window.electronAPI && window.electronAPI.savePrompts) {
+            await window.electronAPI.savePrompts({});
+        } else if (window.storageAdapter && window.storageAdapter.savePrompts) {
+            await window.storageAdapter.savePrompts({});
+        } else {
+            localStorage.setItem("mappai_custom_prompts", "{}");
+        }
+        
+        // Ricarichiamo la configurazione originale pulita
+        await window.loadPromptsConfig();
+        
+        // Se un prompt era selezionato, aggiorniamo l'editor
+        if (window.currentAdminPromptKey) {
+            document.getElementById('admin-prompt-editor').value = window.systemPromptsConfig[window.currentAdminPromptKey] || '';
+        }
+        
+        await window.renderAdminPromptsList();
+        
+        if (window.showToast) window.showToast('Tutti i prompt sono stati ripristinati ai valori di default!', 'success');
+        else alert('Tutti i prompt sono stati ripristinati ai valori di default!');
+    } catch (err) {
+        console.error("Errore ripristino totale prompt:", err);
+        if (window.showToast) window.showToast('Errore durante il ripristino totale: ' + err.message, 'error');
+        else alert('Errore ripristino totale: ' + err.message);
     }
 };
 

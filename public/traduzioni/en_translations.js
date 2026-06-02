@@ -1,7 +1,7 @@
 const en_translations = {
     // General
     landing_subtitle: "Knowledge Visualizer",
-    btn_setup: "Setup",
+    btn_setup: "AI",
     btn_app_guide: "App Guide",
     btn_active_study: "Active Study",
     recent_projects: "Recent Projects",
@@ -9,6 +9,10 @@ const en_translations = {
     new_kg_btn: "Generate Knowledge Graph",
 
     btn_blank_canvas_label: "Create Blank Canvas (Manual)",
+    estimator_title: "Document Analysis & Cost Estimate",
+    estimator_tokens_label: "Input / Model Max",
+    estimator_cost_label: "Estimated Cost",
+    estimator_free: "Free (Free Tier)",
     save_folder: "Save Folder",
     import_json: "Import JSON",
     ext_ai_guide: "External AI Guide",
@@ -70,7 +74,7 @@ const en_translations = {
     // Modals - App Guide
     modal_guide_title: "How to use MappAI",
     guide_step1_title: "📌 Step 1 — Configure your API Key",
-    guide_step1_desc: "Click the 'AI Settings' button at the top right. Enter your Google AI Studio API Key (it's free!). Choose the AI model: Flash models are free and fast, Pro models are more precise but may have costs.",
+    guide_step1_desc: "Click the 'AI Settings' button at the top right. You can enter your Google AI Studio API Key (it's free!) or an Infomaniak API Token. In the Infomaniak tab, the use of Google's open-source models managed on Infomaniak's Swiss servers is pre-configured (if you are interested in unlocking access to other models available on Infomaniak, you can contact me). With the Google Studio API, instead, you can see all available Gemini models, which are frequently updated and replaced.",
     guide_step2_title: "📂 Step 2 — Upload your Sources",
     guide_step2_desc: "You can upload material from different sources: PDF, Web URL, YouTube, or Free Text.",
     guide_step3_title: "🎯 Step 3 — Choose Structure",
@@ -80,16 +84,16 @@ const en_translations = {
     guide_step5_title: "🗺️ Step 5 — Interact with the Map",
     guide_step5_desc: "Double click a node to read/edit notes. Scroll to zoom. Drag to move. Right click for context menu (quiz, expand, flashcards). Use 'Pin' to lock positions.",
     guide_step6_title: "💾 Step 6 — Save and Resume",
-    guide_step6_desc: "Maps are automatically saved in the 'Mapp.AI Saves' folder in your Documents. You can import/export JSON files. Recent projects appear on the landing page bar.",
+    guide_step6_desc: "Maps are automatically saved in the 'MappAI Saves' folder in your Documents. You can import/export JSON files. Recent projects appear on the landing page bar.",
     guide_notes_title: "📓 Notes Collector",
     guide_notes_desc: "In the sidebar you'll find the Notes Collector: view all notes and images added to nodes. It's your digital notebook connected to the map!",
-    guide_footer: "Mapp.AI saves everything locally on your Mac. Your data never leaves your device.",
+    guide_footer: "MappAI saves everything locally on your Mac. Your data never leaves your device.",
 
     // Modals - Active Study (Tutorial)
     modal_study_title: "Active Study Method",
-    study_intro: "Mapp.AI is not just a diagram generator: it's an active learning environment. The AI-generated map is your starting point — real study begins when you customize it.",
+    study_intro: "MappAI is not just a diagram generator: it's an active learning environment. The AI-generated map is your starting point — real study begins when you customize it.",
     study_sr_title: "🔁 Spaced Repetition",
-    study_sr_desc: "Don't repeat everything in one day. Review flashcards at increasing intervals (1d → 3d → 7d → 14d). Mapp.AI integrates a spaced repetition system: right-click nodes to generate and review flashcards!",
+    study_sr_desc: "Don't repeat everything in one day. Review flashcards at increasing intervals (1d → 3d → 7d → 14d). MappAI integrates a spaced repetition system: right-click nodes to generate and review flashcards!",
     study_ar_title: "🧠 Active Recall",
     study_ar_desc: "Don't read passively: close your notes and try to write what you remember. Double click a map node, empty the content and rewrite in your own words. Retrieving from memory is 2-3x more effective than re-reading.",
     study_feynman_title: "👨‍🏫 Feynman Technique",
@@ -170,7 +174,7 @@ const en_translations = {
     vault_manager_subtitle: "Second Brain Knowledge Management",
     last_saved: "Last saved",
     student: "Student",
-    
+
     // Admin Dashboard
     admin_tab_mindmaps: "Mind Maps",
     admin_tab_kgraphs: "Knowledge Graph",
@@ -180,6 +184,10 @@ const en_translations = {
     admin_explanation_kgraphs: "These prompts define the semantic network structure for the Knowledge Graph construction, setting up how the AI identifies nodes and cross-relations.",
     admin_explanation_tutor: "These prompts define the personality and pedagogical method of the AI Tutor. They regulate socratic tone, student error management, and step-by-step guidance.",
     admin_explanation_study: "These prompts handle the automatic generation of assessment materials. They define the format of Quizzes and Flashcards, ensuring they are based solely on concepts present in the map.",
+    admin_btn_reset: "Restore Default",
+    admin_confirm_reset_prompt: "Restore this prompt to its original default value?",
+    admin_btn_reset_all: "Restore All Prompts",
+    admin_confirm_reset_all_prompts: "Are you sure you want to restore ALL prompts to their default values? This will permanently delete all your customizations.",
 
     // Extra
     machine_id_desc: "Send the following <b>Machine ID</b> to Giacomo to receive your unique unlock code:",
@@ -214,7 +222,17 @@ const en_translations = {
     btn_close: "Close",
     btn_continue: "Continue",
     quiz_next: "Next",
-    about_desc1: "I created <strong>MappAI</strong> as an assisted and multimodal study tool.",
-    about_desc2: "Among my projects there is the <strong>insegnai.ch</strong> portal, dedicated to promoting <em>AI literacy</em> and <em>fluency</em> topics."
+    about_desc1: "Hi, my name is Giacomo and I am the developer of <strong>MappAI</strong>.",
+    about_desc2: "I created this software as an organization and assistance tool for studying.",
+    about_desc3: "I am also a middle school teacher, and for years I have been interested in using Artificial Intelligence in education and beyond.",
+    about_desc4: "I hope this software is helpful to you.",
+    feedback_section: "Feedback & Bug Reports",
+    feedback_btn_title: "Report Issue",
+    feedback_btn_desc: "Send feedback or bug",
+    feedback_modal_title: "Send Report / Feedback",
+    feedback_cat_label: "Category of the report",
+    feedback_desc_label: "Report details",
+    feedback_desc_placeholder: "Describe the issue or your proposal to improve MappAI...",
+    feedback_submit_btn: "Send Feedback via Email"
 
 };

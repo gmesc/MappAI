@@ -1,0 +1,2908 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MappAI — Generatore AI di mappe e grafici di conoscenza</title>
+
+    <!-- Google Fonts: Space Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS (Local) -->
+    <script src="js/tailwind.js"></script>
+
+    <!-- PDF.js (Local) -->
+    <script src="js/pdf.min.js"></script>
+
+    <!-- jsPDF (Local) -->
+    <script src="js/jspdf.umd.min.js"></script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- D3.js v7 (Local) -->
+    <script src="js/d3.v7.min.js"></script>
+
+    <!-- Lucide Icons (Local) -->
+    <script src="js/lucide.min.js"></script>
+
+    <!-- Custom CSS for Smooth Transitions -->
+    <style>
+        #sidebar,
+        #main-content {
+            transition: width 0.6s cubic-bezier(0.19, 1, 0.22, 1),
+                opacity 0.6s cubic-bezier(0.19, 1, 0.22, 1),
+                transform 0.6s cubic-bezier(0.19, 1, 0.22, 1) !important;
+        }
+
+        .sidebar-collapsed #sidebar {
+            width: 0 !important;
+            min-width: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+        }
+
+        .sidebar-collapsed #main-content {
+            width: 100% !important;
+            flex: 1 !important;
+        }
+    </style>
+
+    <!-- REFACTORED CUSTOM CLASSES (Tailwind UI) -->
+    <style type="text/tailwindcss">
+        @layer components {
+        
+        /* ==========================================================================
+           1. TIPOGRAFIA & ELEMENTI DI INTESTAZIONE (LANDING & HEADER)
+           ========================================================================== */
+        .hero_title { @apply text-[40px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" usato nel blocco sblocco/login */
+        .hero_title_main { @apply text-[60px] leading-none font-black text-slate-800 tracking-tight; } /* Titolo "MappAI" gigante sulla landing page */
+        .hero_subtitle { @apply text-slate-500 text-xs font-bold uppercase tracking-widest mt-1; } /* Sottotitolo "Visualizzatore di conoscenza" in alto a sinistra */
+        .nav_util_btn { @apply w-32 h-24 bg-white border border-slate-200 text-slate-600 shadow-sm flex flex-col items-center justify-center gap-1.5 rounded-xl text-center text-[13.5px] font-bold shrink-0 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all; } /* Pulsanti utility nell'header (AI, Guida, Studio, Chi sei) */
+        .nav_util_icon { @apply w-[25px] h-[25px] shrink-0; } /* Dimensioni delle icone nei pulsanti utility in alto */
+        .quick_action_title { @apply block font-black text-indigo-900 text-sm; } /* Testo all'interno dei pulsanti di scelta rapida sulla landing (es. "Nuovo Progetto") */
+
+        /* ==========================================================================
+           2. ETICHETTE DI CONFIGURAZIONE DELLA LANDING (INPUT & HELPER LABELS)
+           ========================================================================== */
+        .landing_label_primary { @apply text-[18px] font-bold text-slate-500 tracking-wide block mb-1; } /* Etichetta principale per i campi di input sulla landing page */
+        .landing_label_secondary { @apply text-[16px] text-slate-400 font-normal tracking-normal block mt-1; } /* Testi di aiuto e istruzioni secondarie sotto i campi della landing page */
+
+        /* ==========================================================================
+           3. STRUTTURA A STEP DEL FORM DI CREAZIONE (STEP SECTIONS & BADGES)
+           ========================================================================== */
+        .step_container { @apply flex items-center gap-2 mb-2; } /* Contenitore del titolo numerato di ogni step del form */
+        .step_badge { @apply inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xl font-bold shrink-0; } /* Cerchietto contenente il numero dello step (1, 2, 3, 4) */
+        .step_badge_blue { @apply bg-blue-500; } /* Colore di sfondo per il badge dello Step 1 (Carica Fonti) */
+        .step_badge_green { @apply bg-green-500; } /* Colore di sfondo per il badge dello Step 2 (Scelta Generazione/Modalità) */
+        .step_badge_orange { @apply bg-orange-500; } /* Colore di sfondo per il badge dello Step 3 (Rami Principali L1) */
+        .step_badge_yellow { @apply bg-yellow-500; } /* Colore di sfondo per il badge dello Step 4 (Densità Diramazioni) */
+        .step_title { @apply text-[24px] tracking-[0.05em] text-slate-600 font-bold; } /* Titolo testuale dello step (es. "Carica le tue Fonti") */
+
+        /* ==========================================================================
+           4. SELETTORI SORGENTE & MODALITÀ DI ESTRAZIONE (SOURCE & MODE BUTTONS)
+           ========================================================================== */
+        .btn_selezione_input { @apply px-8 text-[18px] text-slate-500 font-bold tracking-[0.2em] bg-slate-100 rounded-xl hover:bg-emerald-400 hover:text-white shadow-sm flex items-center justify-center gap-2 h-48; } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
+        .mode_btn { @apply flex-1 basis-[120px] flex flex-col items-center justify-center gap-2 p-4 border-2 border-slate-200 rounded-2xl cursor-pointer bg-white/80 transition-all text-slate-600 text-center; } /* Pulsanti di opzione modalità ("Mappa Mentale" e "Knowledge Graph") nello Step 2 */
+        .mode_btn.active { @apply border-indigo-600 bg-indigo-50 text-indigo-600; } /* Stato attivo/selezionato del pulsante modalità */
+
+        /* ==========================================================================
+           5. ETICHETTE DI TESTO & ELEMENTI INFORMATIVI GENERICI
+           ========================================================================== */
+        .input_label_xxs { @apply text-[12px] text-slate-500 font-normal tracking-wider block mb-1; } /* Etichetta piccolissima (es. badge "oppure" o metadati dei nodi) */
+        .input_label_xs { @apply text-[14px] text-slate-500 font-normal tracking-wider block mb-1; } /* Etichetta piccola (es. indicatore di caricamento, label impostazioni avanzate) */
+        .input_label_sm { @apply text-[16px] text-slate-500 font-normal tracking-wider block mb-1; } /* Etichetta medio-piccola per sezioni secondarie nei modali */
+        .input_label_m { @apply text-[18px] text-slate-500 font-bold tracking-wider block mb-1; } /* Etichetta media per titoli e parametri secondari */
+        .input_button_xs { @apply text-[12px] font-bold text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1 transition-colors; } /* Piccoli bottoni-link testuali all'interno delle form */
+        .feature_toggle_title { @apply text-[12px] font-bold text-slate-700 flex items-center gap-1.5; } /* Titolo per le opzioni con interruttore (toggle) come "Generazione HD" */
+        .feature_toggle_description { @apply text-[14px] text-slate-500 tracking-[0.15em]; } /* Descrizione opzionale sotto i toggle */
+        .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
+        .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
+        .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
+
+        /* ==========================================================================
+           6. CAMPI DI INSERIMENTO DATI (INPUT & TEXTAREA FIELDS)
+           ========================================================================== */
+        .form_input { @apply w-full px-4 py-3 text-[12px] border border-slate-200 rounded-xl bg-white text-slate-800 outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500; } /* Input di testo standard per URL, API Key e campi del form */
+        .textarea_form_input { @apply min-h-[60px]; } /* Variante per le caselle di testo multilinea (Focus specifico, Descrizioni) */
+
+        /* ==========================================================================
+           7. BOTTONI D'AZIONE, CONFERMA E PULSANTI GENERALI (BUTTONS & ACTIONS)
+           ========================================================================== */
+        .btn_header_setting { @apply px-8 text-[12px] text-slate-500 uppercase tracking-[0.2em] bg-slate-100 rounded-xl hover:bg-emerald-400 hover:text-white transition-all shadow-sm hover:shadow-emerald-400 flex items-center justify-center gap-2 h-20; } /* Bottoni piccoli per impostazioni e pulsanti utility header */
+        .btn_load_source { @apply px-8 text-[12px] text-white uppercase tracking-[0.2em] bg-slate-200 rounded-xl hover:bg-emerald-400 hover:font-bold hover:text-sm transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Bottone per caricamento della fonte selezionata */
+        .btn_confirm_action { @apply px-8 text-[14px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
+        .btn_salva_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
+        .btn_mode_selector { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsanti di selezione modalità nei modali */
+        .mode-buttons-container .btn_mode_selector:not(.active) { @apply bg-slate-100 hover:bg-emerald-200 text-slate-600 shadow-none; } /* Stato non attivo per il selettore di modalità studio/quiz */
+        .btn_annulla_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
+        .btn_generate { @apply w-full py-4 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold rounded-2xl transition-colors hover:bg-indigo-700; } /* Bottone principale di avvio generazione mappa in fondo al form */
+        .btn_secondary_action { @apply w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm cursor-pointer; } /* Pulsante secondario ad ampia larghezza (es. "Pulisci Form") */
+        .btn_primary { @apply px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md border-none cursor-pointer; } /* Bottone standard primario per dialoghi o pulsante "Ho capito" */
+        .link_primary { @apply text-[12px] font-bold text-indigo-500 cursor-pointer hover:underline; } /* Collegamento ipertestuale primario azzurro */
+
+        /* ==========================================================================
+           8. ELEMENTI DEL DRAWER LATERALE (INFO PANELS)
+           ========================================================================== */
+        .drawer_title { @apply text-xl font-black text-indigo-900 mb-4 flex items-center gap-2; } /* Titolo della sezione all'interno del drawer (es. "Chi ha creato MappAI?") */
+        .drawer_text { @apply text-[15px] text-slate-600 leading-relaxed space-y-3; } /* Testo descrittivo all'interno del drawer laterale */
+        .drawer_link { @apply flex items-center gap-3 text-slate-500 hover:text-indigo-600 font-normal transition-colors cursor-pointer; } /* Link ai social e contatti all'interno del drawer */
+        .btn_feedback_action { @apply flex items-center gap-3 text-left p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 hover:bg-amber-100 transition-colors shadow-sm w-full font-bold text-sm; } /* Pulsante per inviare segnalazioni/bug nel drawer */
+        .drawer_section_title { @apply text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1; } /* Titolo di sezione all'interno del drawer (es. "FEEDBACK & BUG") */
+        .drawer_label_text { @apply font-bold tracking-widest text-[11px] uppercase; } /* Etichetta per le linguette esterne sporgenti dei drawer */
+
+        /* ==========================================================================
+           9. MODALI E DIALOGHI DI SISTEMA / ERRORE
+           ========================================================================== */
+        .error_title { @apply text-lg font-bold text-slate-800 mb-2 flex items-center gap-2; } /* Titolo all'interno dei modali di allarme o errore */
+        .error_body_text { @apply text-sm text-slate-600 mb-6 leading-relaxed max-h-[40vh] overflow-y-auto; } /* Testo descrittivo con l'errore di sistema o eccezione */
+      }
+    </style>
+</head>
+
+<body>
+    <!-- ==========================================
+         BETA TESTER LOCK SCREEN (ALGORITHMIC)
+         ========================================== -->
+    <div id="beta-lock-screen"
+        class="fixed inset-0 bg-slate-900 z-[10000] flex items-center justify-center transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center transform transition-all"
+            id="beta-lock-box">
+            <img src="MappAI_icon.png" class="w-20 h-20 mx-auto mb-4 rounded-xl object-contain shadow-sm"
+                alt="MappAI Icon">
+            <h2 class="hero_title">MappAI</h2>
+            <p class="text-xs text-slate-500 mb-2 leading-relaxed">Il software è bloccato e legato a questo dispositivo.
+                <span data-i18n="machine_id_desc">Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo
+                    codice di sblocco univoco:</span>
+            </p>
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <div class="flex-grow bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-indigo-700 font-mono font-bold tracking-widest text-lg select-all cursor-text shadow-inner"
+                    id="machine-id-display">CARICAMENTO...</div>
+                <button onclick="window.copyMachineId()"
+                    class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors shadow-sm"
+                    title="Copia ID">
+                    <i data-lucide="copy" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <input type="password" id="beta-access-code"
+                class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-300"
+                placeholder="INSERISCI SBLOCCO">
+            <button onclick="window.checkBetaCode()"
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca
+                Software</button>
+            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold">Codice di sblocco errato per
+                questo dispositivo.</p>
+        </div>
+    </div>
+
+    <script>
+        const SECRET_SALT = "MAPPAI_GIACOMO_2026_BETA_SECURE"; // Sale crittografico segreto
+
+        // Nascondi immediatamente lo schermo di blocco se siamo su Capacitor/iOS o se l'accesso è già garantito per evitare flash visivi
+        const isCapacitor = (window.Capacitor !== undefined) || (window.location.protocol === 'capacitor:');
+        if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
+            const style = document.createElement('style');
+            style.innerHTML = '#beta-lock-screen { display: none !important; }';
+            document.head.appendChild(style);
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const lockScreen = document.getElementById('beta-lock-screen');
+            if (isCapacitor || localStorage.getItem('mappai_beta_access_granted') === 'true') {
+                lockScreen.style.display = 'none';
+                return;
+            }
+
+            // Ottieni l'ID Hardware univoco da Electron
+            let machineId = "ERROR";
+            try {
+                if (window.electronAPI && window.electronAPI.getMachineId) {
+                    machineId = await window.electronAPI.getMachineId();
+                } else {
+                    machineId = "WEB-MODE-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+
+            const displayEl = document.getElementById('machine-id-display');
+            if (displayEl) displayEl.innerText = machineId;
+
+            // Funzione per generare lo stesso hash offline
+            async function generateExpectedCode(macId) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(macId + SECRET_SALT);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                return hashHex.substring(0, 10).toUpperCase(); // Prime 10 lettere dell'hash
+            }
+
+            window.checkBetaCode = async function () {
+                const input = document.getElementById('beta-access-code').value.trim().toUpperCase();
+                const errorMsg = document.getElementById('beta-error-msg');
+                const expectedCode = await generateExpectedCode(machineId);
+
+                if (input === expectedCode || input === 'DEV-BYPASS-2026') {
+                    localStorage.setItem('mappai_beta_access_granted', 'true');
+                    errorMsg.classList.add('hidden');
+                    lockScreen.style.opacity = '0';
+                    setTimeout(() => lockScreen.style.display = 'none', 500);
+                } else {
+                    errorMsg.classList.remove('hidden');
+                    const box = lockScreen.querySelector('.bg-white');
+                    box.classList.add('scale-95');
+                    setTimeout(() => box.classList.remove('scale-95'), 150);
+                }
+            };
+
+            const inputField = document.getElementById('beta-access-code');
+            if (inputField) {
+                inputField.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        window.checkBetaCode();
+                    }
+                });
+            }
+        });
+        window.copyMachineId = function () {
+            const id = document.getElementById('machine-id-display').innerText;
+            navigator.clipboard.writeText(id);
+            const btn = event.currentTarget;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+            window.safeCreateIcons();
+            setTimeout(() => { btn.innerHTML = originalIcon; window.safeCreateIcons(); }, 2000);
+        };
+    </script>
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2"></div>
+
+    <!-- RIGA DI LETTURA -->
+    <div id="reading-ruler"></div>
+
+    <!-- Modale Alert Personalizzato per gli Errori Critici -->
+    <div id="alert-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200"
+            id="alert-box">
+            <h3 class="error_title">
+                <i data-lucide="alert-triangle" class="text-red-500"></i>
+                <span id="alert-title">Errore</span>
+            </h3>
+            <div class="error_body_text" id="alert-message">Si
+                è verificato un errore.</div>
+            <div class="flex justify-end">
+                <button id="alert-ok"
+                    class="px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md">Ho
+                    capito</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         LANDING PAGE (Configurazione e Upload)
+         ========================================== -->
+    <div id="landing-view"
+        class="flex items-start justify-center p-6 pb-28 transition-opacity duration-500 min-h-screen">
+        <div class="landing-pattern"></div>
+        <div class="landing-glow"></div>
+
+        <!-- Insegnai.ch Drawer -->
+        <div id="insegnai-drawer"
+            class="fixed top-1/2 -translate-y-1/2 left-0 z-[100] flex items-center transition-transform duration-300 -translate-x-[320px]">
+            <div
+                class="bg-white/95 backdrop-blur-md shadow-2xl border-y border-r border-indigo-200/60 rounded-r-2xl p-6 w-80 max-h-[90vh] overflow-y-auto flex flex-col pointer-events-auto">
+                <h2 class="drawer_title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-info text-indigo-500">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 16v-4" />
+                        <path d="M12 8h.01" />
+                    </svg> Chi ha creato MappAI?
+                </h2>
+                <div class="drawer_text">
+                    <p>
+                        <span data-i18n="about_desc1">Ciao, mi chiamo Giacomo e sono lo sviluppatore di
+                            <strong>MappAI</strong>.</span>
+                    </p>
+                    <p>
+                        <span data-i18n="about_desc2">Ho creato questo software come strumento di organizzazione e
+                            assistenza per lo studio.</span>
+                    </p>
+                    <p>
+                        <span data-i18n="about_desc3">Sono anche un docente di scuola media e da anni mi interesso
+                            all'utilizzo dell'Intelligenza Artificiale in ambito educativo e non solo. Spero che questo
+                            software possa esservi d'aiuto.</span>
+                    </p>
+                    <div class="pt-4 mt-2 border-t border-teal-400 flex flex-col gap-3">
+                        <a href="https://insegnai.ch" target="_blank" class="drawer_link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-globe">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                                <path d="M2 12h20" />
+                            </svg> insegnai.ch
+                        </a>
+                        <a href="mailto:giacomo@insegnai.ch" class="drawer_link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-mail">
+                                <rect width="20" height="16" x="2" y="4" rx="2" />
+                                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                            </svg> giacomo@insegnai.ch
+                        </a>
+                        <a href="https://www.instagram.com/insegnai.ch/" target="_blank" class="drawer_link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-instagram">
+                                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                                <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                            </svg>
+                            insegnai.ch
+                        </a>
+                        <a href="https://www.facebook.com/insegnai.ch/" target="_blank" class="drawer_link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-facebook">
+                                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                            </svg>
+                            insegnai.ch
+                        </a>
+                    </div>
+
+                    <!-- Feedback / Segnalazione -->
+                    <div class="pt-4 mt-2 border-t border-teal-400 flex flex-col gap-3">
+                        <h3 class="text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1"
+                            id="feedback-section-title">Feedback & Bug</h3>
+                        <button onclick="window.openFeedbackModal()" class="btn_feedback_action">
+                            <div
+                                class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-alert-triangle">
+                                    <path
+                                        d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                                    <line x1="12" x2="12" y1="9" y2="13" />
+                                    <line x1="12" x2="12.01" y1="17" y2="17" />
+                                </svg>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-[14px]" id="feedback-btn-title">Segnalazione</span>
+                                <span class="text-[12px] opacity-70" id="feedback-btn-desc">Invia feedback o bug</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Linguetta (Tab) -->
+            <div id="insegnai-drawer-tab"
+                onclick="document.getElementById('insegnai-drawer').classList.toggle('-translate-x-[320px]')"
+                class="flex flex-col bg-indigo-600 rounded-r-2xl shadow-lg border-y border-r border-indigo-500 self-center pointer-events-auto cursor-pointer transition-all">
+                <span class="drawer_label_text text-white text-[13.5px] py-4 px-0"
+                    style="writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; display: flex; align-items: center; justify-content: center; width: 100%;">
+                    insegnai.ch
+                </span>
+                <div class="flex flex-col items-center gap-3 pb-4 pt-2 px-0 border-t border-indigo-500/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-white/80">
+                        <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                        <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-white/80">
+                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card w-full max-w-3xl p-8 relative z-10 animate-fade-in mt-8">
+            <!-- Header Landing Page -->
+            <div class="border-b border-indigo-200/60 pb-6 mb-8">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <!-- Brand -->
+                    <div class="flex items-center gap-4">
+                        <img src="MappAI_icon.png"
+                            class="w-20 h-20 md:w-[120px] md:h-[120px] object-contain rounded-2xl shrink-0"
+                            alt="MappAI Icon">
+                        <div class="flex flex-col">
+                            <h1 class="hero_title_main">MappAI</h1>
+                            <p id="landing-subtitle" class="hero_subtitle">Visualizzatore
+                                di conoscenza</p>
+                        </div>
+                    </div>
+
+                    <!-- Utils (Griglia 2x2) -->
+                    <div class="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
+                        <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
+                            class="btn_header_setting">
+                            <i data-lucide="bot" class="nav_util_icon"></i> <span data-i18n="btn_setup">AI</span>
+                        </button>
+                        <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
+                            class="btn_header_setting">
+                            <i data-lucide="book-open" class="nav_util_icon"></i> <span
+                                data-i18n="btn_app_guide">Guida</span>
+                        </button>
+                        <button type="button" onclick="window.showAppTutorial()" id="btn-app-tutorial"
+                            class="btn_header_setting">
+                            <i data-lucide="brain-circuit" class="nav_util_icon"></i> <span
+                                data-i18n="btn_active_study">Studio</span>
+                        </button>
+                        <button type="button" onclick="window.showUserProfileModal()" id="btn-user-profile"
+                            class="btn_header_setting">
+                            <i data-lucide="user-circle" class="nav_util_icon"></i> <span
+                                data-i18n="btn_who_are_you">Chi
+                                sei</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Form di Setup -->
+            <form id="setup-form" class="max-w-2xl mx-auto hidden"
+                onsubmit="event.preventDefault(); window.startGeneration();">
+
+                <!-- STEP 1: Caricamento Fonti -->
+                <div>
+                    <label class="step_container">
+                        <span class="step_badge step_badge_blue">1</span>
+                        <span id="step-l1-title" class="step_title">Carica le tue Fonti</span>
+                    </label>
+
+                    <div class="flex flex-wrap gap-3 mb-4 source-buttons-container">
+                        <div id="btn-src-url" class="btn_selezione_input" onclick="window.addSource('url')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-link">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_web">URL Web</span>
+                        </div>
+                        <div id="btn-src-youtube" class="btn_selezione_input" onclick="window.addSource('youtube')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-play-square">
+                                <rect width="18" height="18" x="3" y="3" rx="2" />
+                                <path d="m10 9 5 3-5 3z" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_yt">YouTube</span>
+                        </div>
+                        <div id="btn-src-audio" class="btn_selezione_input" onclick="window.addSource('audio')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-mic">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <line x1="12" x2="12" y1="19" y2="22" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_audio">Audio</span>
+                        </div>
+
+                        <div id="btn-src-doc" class="btn_selezione_input" onclick="window.addSource('doc')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-file-spreadsheet">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                <polyline points="14.5 2 14.5 7.5 20 7.5" />
+                                <path d="M8 13h2" />
+                                <path d="M14 13h2" />
+                                <path d="M8 17h2" />
+                                <path d="M14 17h2" />
+                                <path d="M10 13v4" />
+                                <path d="M16 13v4" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_docs">Documenti</span>
+                        </div>
+                        <div id="btn-src-text" class="btn_selezione_input" onclick="window.addSource('text')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-type">
+                                <polyline points="4 7 4 4 20 4 20 7" />
+                                <line x1="9" x2="15" y1="20" y2="20" />
+                                <line x1="12" x2="12" y1="4" y2="20" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_text">Testo</span>
+                        </div>
+                    </div>
+                    <!-- Fonti qui -->
+                </div>
+                <!-- STEP 2: selettore MM o KG -->
+                <div class="mt-15">
+                    <label class="step_container">
+                        <span class="step_badge step_badge_green">2</span>
+                        <span id="step-l1-title" class="step_title mt-0">Cosa desideri generare?</span>
+                    </label>
+                    <div class="flex flex-col gap-4">
+                        <div class="flex flex-wrap gap-4 mode-buttons-container">
+                            <div class="btn_mode_selector active cursor-pointer flex-1 basis-[160px] h-24"
+                                id="mode-mindmap" onclick="window.setMode('mindmap')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-git-merge">
+                                    <circle cx="18" cy="18" r="3" />
+                                    <circle cx="6" cy="6" r="3" />
+                                    <path d="M6 9v12" />
+                                    <path d="M18 15V9a9 9 0 0 0-9-9" />
+                                </svg>
+                                <span class="font-bold" id="label-mode-mindmap">Mappa Mentale</span>
+                            </div>
+                            <div class="btn_mode_selector cursor-pointer flex-1 basis-[160px] h-24" id="mode-kg"
+                                onclick="window.setMode('kg')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="lucide lucide-network">
+                                    <rect x="16" y="16" width="6" height="6" rx="1" />
+                                    <rect x="2" y="16" width="6" height="6" rx="1" />
+                                    <rect x="9" y="2" width="6" height="6" rx="1" />
+                                    <path d="M5 16v-6c0-1 1-2 2-2h10c1 0 2 1 2 2v6" />
+                                    <path d="M12 8v3" />
+                                    <path d="M12 14v2" />
+                                </svg>
+                                <span class="font-bold" id="label-mode-kg">Knowledge Graph</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="extraction-mode" value="mindmap">
+                </div>
+
+
+                <!-- STEP 3: Rami Principali / Super-Hubs -->
+                <div id="step-3-container" class="mt-15">
+                    <label class="step_container">
+                        <span class="step_badge step_badge_orange">3</span>
+                        <span id="step-l1-title" class="step_title">Rami Principali L1</span>
+                    </label>
+
+                    <!-- Root Node (Visibile solo per Mappe Mentali) -->
+                    <div id="step-root-container" class="space-y-2 transition-all duration-300">
+                        <p class="landing_label_primary">Nodo Centrale:</p>
+                        <input type="text" id="root-node-name"
+                            class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition"
+                            placeholder="Es. Rivoluzione Francese, Fotosintesi...">
+                    </div>
+
+                    <div class="pt-2">
+                        <div id="input-l1-container" class="space-y-2 bg-slate-100 p-4 rounded-xl">
+                            <p class="landing_label_secondary" id="step-l1-desc">Definisci i rami principali per
+                                organizzare lo studio:</p>
+                            <div id="l1-inputs-container" class="space-y-2">
+                                <!-- Inseriti automaticamente dai documenti o manualmente -->
+                                <div class="flex gap-2 items-center l1-input-row">
+                                    <input type="text" class="form_input l1-topic-input py-2 text-sm"
+                                        placeholder="Es. Cause">
+                                    <button type="button" onclick="window.removeL1Input(this)"
+                                        class="text-red-400 hover:text-red-600 p-1"><i data-lucide="x"
+                                            class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                            <button type="button" onclick="window.addL1Input()"
+                                class="step_helper_text font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 mt-2">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> <span id="btn-add-l1-text">Aggiungi
+                                    Nodo
+                                    L1</span>
+                            </button>
+                            <label
+                                class="flex items-center gap-3 cursor-pointer mt-4 group pt-3 border-t border-indigo-200/40">
+                                <div class="relative">
+                                    <input type="checkbox" id="l1-auto-generate-toggle" class="peer sr-only" checked>
+                                    <div
+                                        class="w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500">
+                                    </div>
+                                </div>
+                                <span
+                                    class="text-[11px] text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors"
+                                    id="label-auto-l1">Genera
+                                    altri nodi L1 in automatico</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <p class="pt-4 landing_label_primary">Focus specifico (Opzionale):</p>
+                            <textarea id="focus-input"
+                                class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition mt-1"
+                                placeholder="Su cosa deve concentrarsi l'AI?"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Slider Densità (L4/L5) -->
+                <div id="step-density-container" class="mt-15 transition-all duration-300">
+                    <label class="step_container">
+                        <span class="step_badge step_badge_yellow">4</span>
+                        <span id="step-l1-title" class="step_title">Densità Diramazioni (L4 e L5)</span>
+                    </label>
+                    <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
+                        <span class="input_label_sm font-bold">3</span>
+                        <input type="range" id="branches-slider" min="3" max="5"
+                            class="w-full outline-none accent-indigo-500 cursor-pointer"
+                            oninput="document.getElementById('branches-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
+                        <span class="input_label_sm font-bold">5</span>
+                        <span id="branches-val"
+                            class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">3</span>
+                    </div>
+                    <p class="landing_label_secondary !mt-4">I rami fino a L3 vengono generati sempre. Scegli quanti
+                        rami
+                        generare nei livelli più profondi.
+                    </p>
+                </div>
+                <!-- STEP 4 bis: Slider Numero Nodi per Knowledge Graph -->
+                <div id="step-kg-density-container" class="mt-15 transition-all duration-300 hidden">
+                    <label class="step_container">
+                        <span class="step_badge step_badge_yellow">4</span>
+                        <span id="step-l1-title" class="step_title">Numero di Concetti/Entità (Livello
+                            2)</span>
+                    </label>
+
+                    <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
+                        <span class="input_label_sm font-bold">10</span>
+                        <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
+                            class="w-full outline-none accent-indigo-500 cursor-pointer"
+                            oninput="document.getElementById('kg-nodes-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
+                        <span class="input_label_sm font-bold">35</span>
+                        <span id="kg-nodes-val"
+                            class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">20</span>
+                    </div>
+                    <p class="landing_label_secondary !mt-4" id="label-step4-kg-desc">Numero di concetti/entità da
+                        generare
+                        all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a
+                        30+ per grafi completi).</p>
+                </div>
+
+                <!-- Box Unificato: Generazione HD & Stima Costi -->
+                <div id="generation-details-card"
+                    class="w-full bg-slate-100 p-5 rounded-2xl flex flex-col gap-5 mt-10 transition-all duration-300">
+
+                    <!-- SEZIONE: Stima Costi e Analisi Token -->
+                    <div id="token-cost-estimator-card" class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <span class="landing_label_primary 0 mb-0">Analisi Documento & Stima
+                                Costi</span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 bg-white p-3 rounded-xl border border-slate-200/60">
+                            <div class="flex flex-col gap-0.5">
+                                <span class="text-[18px] font-bold text-slate-400 tracking-[0.05em]"
+                                    id="estimator-tokens-lbl">Input / Max Modello</span>
+                                <span id="estimator-tokens"
+                                    class="text-[18px] pt-2 font-mono font-bold text-slate-700">0 /
+                                    -- token</span>
+                            </div>
+                            <div class="flex flex-col gap-0.5">
+                                <span class="text-[18px] font-bold text-slate-400 tracking-[0.05em]"
+                                    id="estimator-cost-lbl">Costo Stimato</span>
+                                <span id="estimator-cost"
+                                    class="text-[18px] pt-2 font-bold text-indigo-600">Gratuito</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div id="estimator-progress"
+                                class="bg-indigo-500 h-full w-0 transition-all duration-500 rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Divisorio Sottile -->
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- SEZIONE: Generazione HD (Multi-Pass) -->
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col gap-0.5 max-w-[70%]">
+                                <span class="landing_label_primary mb-0">Generazione Multi-Pass</span>
+                                <span class="landing_label_secondary">Genera rami e nodi in fasi sequenziali per evitare
+                                    di saturare la memoria.</span>
+                            </div>
+                            <div class="flex bg-slate-200 p-1 rounded-full w-36 h-16 shrink-0">
+                                <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
+                                    class="flex-1 py-2 text-[16px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">OFF</button>
+                                <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
+                                    class="flex-1 py-2 text-[16px] font-bold rounded-full transition-all text-slate-400 hover:text-slate-600">ON</button>
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- Pulsante Generate -->
+                    <button type="submit" id="generate-btn" class="btn_salva_action w-full !h-32">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="lucide lucide-sparkles">
+                            <path
+                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                            <path d="M5 3v4" />
+                            <path d="M19 17v4" />
+                            <path d="M3 5h4" />
+                            <path d="M17 19h4" />
+                        </svg>
+                        <span id="btn-generate-label">Genera Nuova Mappa</span>
+                    </button>
+
+                    <div class="hidden">
+                        <input type="file" id="landing-import" accept=".json" class="hidden"
+                            onchange="window.importGraph(event)">
+                    </div>
+            </form>
+
+
+        </div>
+
+
+        <!-- QUICK ACTIONS SOTA -->
+        <div class="max-w-2xl mx-auto mt-12 mb-12">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button onclick="window.startEmptyMap()" class="flex-1 btn_selezione_input">
+                    <i data-lucide="plus-circle" class="w-8 h-8 shrink-0"></i>
+                    <span data-i18n="btn_new_project">Nuovo Grafo</span>
+                </button>
+                <button onclick="window.loadMapVault()" class="flex-1 btn_selezione_input">
+                    <i data-lucide="folder-open" class="w-8 h-8 shrink-0"></i>
+                    <span data-i18n="btn_open_vault">Apri Vault</span>
+                </button>
+                <label for="landing-import" class="flex-1 btn_selezione_input cursor-pointer">
+                    <i data-lucide="upload-cloud" class="w-8 h-8 shrink-0"></i>
+                    <span class="truncate" id="label-import-json">Importa JSON</span>
+                </label>
+                <input type="file" id="landing-import" accept=".json" class="hidden"
+                    onchange="window.importGraph(event)">
+            </div>
+        </div>
+
+
+    </div>
+
+    </div>
+    </div>
+
+    <!-- Storico Progetti — Barra fissa in fondo -->
+    <div class="fixed bottom-0 left-0 right-0 z-20 transition-all duration-300" id="projects-bar">
+        <!-- Contenitore Unificato -->
+        <div class="relative w-full bg-white shadow-[0_-10px_30px_rgba(99,102,241,0.08)]">
+            <!-- Pulsante "fuso" con la struttura -->
+            <button onclick="window.toggleProjectsBar()"
+                class="absolute bottom-full mb-[-1px] right-6 bg-white border-t border-l border-r border-indigo-100 px-4 py-2 rounded-t-2xl flex items-center gap-2 drawer_label_text text-[10px] text-indigo-500 shadow-[-5px_-5px_15px_rgba(99,102,241,0.02)] transition-colors hover:text-indigo-700 z-10">
+                <i id="toggle-bar-icon" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
+                <span id="toggle-bar-text">Nascondi Progetti</span>
+            </button>
+
+            <!-- Contenuto a tutta larghezza -->
+            <div class="max-w-full px-0 py-4 border-t border-indigo-100" id="projects-bar-content">
+                <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider ml-8">
+                    <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> Progetti Recenti
+                </h3>
+                <div id="recent-projects-container" class="flex gap-3 overflow-x-auto pb-1 px-8">
+                    <p class="text-xs text-slate-400 italic">Nessun progetto salvato. Crea una nuova mappa per
+                        iniziare.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==========================================
+         MAPPA MENTALE (D3.js View)
+         ========================================== -->
+    <div id="map-view" class="flex flex-col md:flex-row h-screen relative overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-full app-sidebar shrink-0 bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-screen shadow-2xl z-10 transition-all duration-300 ease-in-out overflow-hidden">
+            <!-- Header -->
+            <div class="p-4 bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-2 shrink-0">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2 tracking-tight">
+                            <img src="MappAI_icon.png" class="w-8 h-8 object-contain rounded-lg" alt="MappAI Icon">
+                            MappAI
+                        </h1>
+                        <div id="project-title-container" class="group flex items-start gap-2 mt-0.5 cursor-pointer"
+                            onclick="window.startEditingTitle()">
+                            <p class="text-slate-500 text-[9px] font-mono uppercase tracking-wider break-words flex-grow"
+                                id="sidebar-subtitle" style="line-height: 1.4;">
+                                Visualizzatore di conoscenza</p>
+                            <div
+                                class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
+                                <i data-lucide="edit-3" class="w-3 h-3"></i>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+
+            <!-- TAB NAVIGATION -->
+            <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
+                <button id="sidebar-tab-structure" onclick="window.switchSidebarTab('structure')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-indigo-500 text-indigo-600 transition-all"
+                    title="Indice">
+                    <i data-lucide="git-branch" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-notes" onclick="window.switchSidebarTab('notes')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Note">
+                    <i data-lucide="sticky-note" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Studio">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Finder">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                </button>
+                <button id="sidebar-tab-tutor" onclick="window.switchSidebarTab('tutor')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Tutor AI">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- ═══ TAB: STRUTTURA ═══ -->
+            <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll">
+
+                <div id="tree-view-container" class="p-4 space-y-1"></div>
+
+                <!-- Node Details (shown when a node is selected) -->
+                <div class="p-5" id="node-details">
+                    <div class="text-center text-slate-400 mt-8 animate-pulse">
+                        <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
+                        <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
+                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i
+                            contenuti
+                            dei nodi e il tasto destro per modificarli.</p>
+                    </div>
+                </div>
+
+                <!-- Tree View (macro-areas / super-hubs) -->
+                <div class="px-5 pb-4 border-t border-slate-200/60">
+                    <h3
+                        class="text-xs uppercase font-bold text-slate-400 tracking-widest pt-4 pb-2 flex items-center gap-1.5">
+                        <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>
+                        <span id="tree-view-title">Macro-aree</span>
+                    </h3>
+                    <div id="macro-areas-container" class="space-y-1">
+                        <p class="text-xs text-slate-400 italic">Genera una mappa per visualizzare la struttura.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: FINDER ═══ -->
+            <div id="sidebar-panel-finder"
+                class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col">
+                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-indigo-400"></i>
+                        <input type="text" id="super-finder-input" placeholder="Super ricerca universale..."
+                            class="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-700 font-medium placeholder:text-slate-400 shadow-sm"
+                            oninput="window.performSuperSearch(this.value)">
+                        <button id="super-finder-clear" onclick="window.clearSuperFinder()"
+                            class="absolute right-2 top-2 p-1 text-slate-400 hover:text-red-500 hidden bg-slate-100 rounded-md transition-colors">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-2 uppercase tracking-tighter font-bold">Cerca in
+                        etichette,
+                        descrizioni, citazioni e fonti esterne.</p>
+                </div>
+
+                <div id="super-finder-results" class="p-2 space-y-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-slate-300">
+                        <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: TUTOR AI ═══ -->
+            <div id="sidebar-panel-tutor" style="display: none !important;"
+                class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col">
+                <div class="p-5 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3
+                            class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
+                        </h3>
+                        <button onclick="window.resetSidebarTutor()"
+                            class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
+                </div>
+
+                <!-- Chat History -->
+                <div id="sidebar-tutor-chat-history" class="p-5 flex-grow flex flex-col gap-3 overflow-y-auto">
+                    <!-- Initial message -->
+                    <div
+                        class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
+                        <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-4 border-t border-slate-200 bg-white sticky bottom-0">
+                    <div class="flex flex-col gap-2">
+                        <input type="text" id="ai-sidebar-input" placeholder="Chiedi qualcosa all'oracolo..."
+                            class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                            onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
+                        <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
+                            class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                            <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- ═══ TAB: NOTE ═══ -->
+            <div id="sidebar-panel-notes" class="flex-grow overflow-y-auto modal-scroll hidden">
+                <div class="px-5 pt-5 pb-2">
+                    <h3
+                        class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
+                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore Appunti
+                    </h3>
+                </div>
+                <div id="user-notes-container" class="space-y-3 px-5 pb-5">
+                    <p class="text-[10px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                        Modifica i
+                        nodi con doppio click per aggiungere appunti e immagini.</p>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: STUDIO ═══ -->
+            <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
+                <div id="study-dashboard" class="px-5 py-4 flex flex-col gap-4">
+                    <!-- Pomodoro Timer -->
+                    <div class="flex flex-col gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="timer" class="text-rose-500 w-6 h-6"></i>
+                                <span id="pomodoro-time"
+                                    class="font-bold text-slate-800 text-lg font-mono tracking-wider">25:00</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="pomodoro-btn" onclick="window.togglePomodoro()"
+                                    class="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm flex items-center justify-center">
+                                    <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                                </button>
+                                <button onclick="window.resetPomodoro()"
+                                    class="p-2 text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
+                                    title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <!-- Preset Duration Buttons & Session Badge -->
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                            <div class="flex gap-1">
+                                <button id="pomodoro-preset-15" onclick="window.setPomodoroDuration(15)"
+                                    class="px-2.5 py-1 text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition font-bold">15m</button>
+                                <button id="pomodoro-preset-25" onclick="window.setPomodoroDuration(25)"
+                                    class="px-2.5 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-md hover:bg-rose-100 transition font-bold">25m</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="pomodoro-sessions-badge"
+                                    class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 shadow-sm transition-all duration-300">Sessioni:
+                                    0 🔥</span>
+                                <button onclick="window.resetPomodoroSessions()"
+                                    class="text-slate-400 hover:text-slate-600 p-0.5" title="Azzera sessioni">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Statistiche Progresso -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
+                                Mappa</span>
+                            <span id="study-progress-text"
+                                class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 mb-3 shadow-inner overflow-hidden">
+                            <div id="study-progress-bar"
+                                class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-700 w-0">
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-xs font-bold">
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
+                                <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Fatti</span>
+                            </div>
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
+                                <span id="stats-review" class="text-amber-500 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Ripasso</span>
+                            </div>
+                            <div
+                                class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
+                                <span id="stats-todo" class="text-red-400 text-lg">0</span><span
+                                    class="text-slate-400 text-[10px] uppercase">Sospesi</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Azioni Studio -->
+                    <div class="space-y-3 mt-2">
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl hidden">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
+                                    grafico</span>
+                                <span id="total-cost-display" class="text-xs font-bold text-indigo-600">$0.0000</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs text-slate-500">
+                                <span>Token Totali:</span>
+                                <span id="total-tokens-display" class="font-mono">0</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
+                                <span>Modello Usato:</span>
+                                <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
+                            </div>
+                        </div>
+
+                        <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
+                            class="w-full py-3 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Genera Flashcard Mappa
+                        </button>
+                        <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
+                            class="w-full py-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="help-circle" class="w-5 h-5"></i> Genera Quiz Mappa
+                        </button>
+                        <button onclick="window.showAppTutorial()"
+                            class="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-sm font-bold hover:bg-indigo-100 flex items-center justify-center gap-2 transition-colors shadow-sm">
+                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Metodo Studio Attivo
+                        </button>
+                    </div>
+
+                    <!-- Set Flashcard Generati -->
+                    <div class="mt-4 border-t border-slate-200 pt-5">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="layers" class="w-4 h-4"></i> Materiale di Studio (Flashcard e Quiz)
+                        </h3>
+                        <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-[10px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
+                                flashcard o quiz pre-generati.</p>
+                        </div>
+                    </div>
+
+                    <!-- Storico Punteggi -->
+                    <div class="mt-4 border-t border-slate-200 pt-5">
+                        <h3
+                            class="text-xs uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
+                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi (Quiz)
+                        </h3>
+                        <div id="study-scores-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-[10px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio
+                                registrato. Completa un quiz per iniziare!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content"
+            class="flex-1 w-full h-2/3 md:h-screen relative overflow-hidden transition-all duration-600 ease-in-out bg-slate-50">
+
+            <!-- Sidebar Toggle (Top Left) -->
+            <div class="absolute top-6 left-6 z-[40]">
+                <button id="sidebar-toggle-btn" onclick="window.toggleSidebar()"
+                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                    title="Nascondi/Mostra Sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        id="sidebar-toggle-icon" class="w-6 h-6">
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M9 3v18" />
+                        <path d="m16 15-3-3 3-3" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- QUICK ACTIONS MENU (Bottom Left) -->
+            <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
+                <!-- Popover Menu -->
+                <div id="floating-actions-menu"
+                    class="hidden absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-3 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in slide-in-from-bottom-4 duration-300 min-w-[220px]">
+                    <button onclick="window.exportNotesMarkdown()"
+                        class="w-full px-4 py-2.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-200 flex items-center gap-3 transition-all"
+                        title="Esporta Appunti MD">
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Esporta Appunti
+                    </button>
+                    <!-- SOTA: MARKDOWN VAULT ACTIONS -->
+                    <button onclick="window.saveMapVault()"
+                        class="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-3 transition-all shadow-sm"
+                        title="Salva come Vault Markdown">
+                        <i data-lucide="archive" class="w-4 h-4"></i> Esporta nel Vault
+                    </button>
+                    <button onclick="window.loadMapVault()"
+                        class="w-full px-4 py-2.5 bg-blue-100 text-blue-800 rounded-xl text-xs font-bold hover:bg-blue-200 flex items-center gap-3 transition-all"
+                        title="Apri Vault Vault Markdown">
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Importa dal Vault
+                    </button>
+                    <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
+                    <button id="sync-vault-btn" onclick="window.saveMapVault()"
+                        class="hidden w-full px-4 py-2.5 bg-cyan-100 text-cyan-800 rounded-xl text-xs font-bold hover:bg-cyan-200 flex items-center gap-3 transition-all shadow-sm active:scale-95"
+                        title="Sincronizza modifiche nel Vault">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizza Vault
+                    </button>
+                    <!-- Tasto Salva Snapshot Layout (discreto) -->
+                    <button id="save-layout-btn" onclick="window.salvaLayout()"
+                        class="hidden w-full px-4 py-2.5 bg-slate-100 text-slate-800 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-3 transition-all"
+                        title="Salva la disposizione attuale come 'Personal'">
+                        <i data-lucide="camera" class="w-4 h-4"></i> Salva Layout Snapshot
+                    </button>
+                    <label for="sidebar-merge"
+                        class="w-full px-4 py-2.5 bg-amber-100 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-200 flex items-center gap-3 cursor-pointer mb-0 transition-all"
+                        title="Unisci un altro JSON alla mappa corrente">
+                        <i data-lucide="merge" class="w-4 h-4"></i> Unisci Mappe
+                    </label>
+                    <input type="file" id="sidebar-merge" accept=".json" class="hidden"
+                        onchange="window.mergeGraph(event)">
+                    <div class="h-px bg-slate-100 my-1"></div>
+                    <button onclick="window.backToLanding()"
+                        class="w-full px-4 py-2.5 bg-rose-100 text-rose-800 rounded-xl text-xs font-bold hover:bg-rose-200 flex items-center gap-3 transition-all"
+                        title="Nuovo Progetto">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Torna alla Home
+                    </button>
+                </div>
+
+                <button onclick="event.stopPropagation(); window.toggleFloatingActions()" id="floating-actions-toggle"
+                    class="bg-white p-3 rounded-full shadow-lg border border-slate-200 text-indigo-600 hover:bg-slate-50 transition-all focus:outline-none group relative"
+                    title="Azioni Rapide">
+                    <i data-lucide="log-out" class="w-6 h-6 group-hover:rotate-12 transition-transform"
+                        style="transform: scaleX(-1);"></i>
+                </button>
+            </div>
+
+            <div id="d3-container"></div>
+
+
+
+            <!-- Control Card Fluttuante -->
+            <div id="map-control-card"
+                class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-center gap-3 z-30 transition-all min-w-max">
+
+                <!-- Centra Vista -->
+                <button onclick="window.resetZoom()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Centra e resetta la vista">
+                    <i data-lucide="maximize" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">CENTRA</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Riordina Vista -->
+                <button onclick="window.riordinaMappa()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Riordina Layout Mappa">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1 uppercase">Riordina</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Toggle Layout -->
+                <button id="card-btn-layout" onclick="window.toggleLayout()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Cambia Layout (Default / Orbit / Radiale / Separato / Personal)">
+                    <i data-lucide="network" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1 uppercase" id="layout-label-text">Layout</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Pinning -->
+                <button id="card-btn-physics" onclick="window.togglePhysics()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                    title="Pinning: Blocca Nodi">
+                    <i data-lucide="anchor" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PIN</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Attrazione -->
+                <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                    title="Attiva/Disattiva forze di attrazione tra nodi">
+                    <i data-lucide="magnet" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">ATTR</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Distanza Nodi -->
+                <div class="flex flex-col items-center">
+                    <i data-lucide="arrow-left-right" class="w-5 h-5 text-slate-500 mb-1" title="Distanza"></i>
+                    <div class="flex gap-1">
+                        <button onclick="window.changeDistance(-1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="minus" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeDistance(1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Dimensione Testo Nodi -->
+                <div class="flex flex-col items-center">
+                    <i data-lucide="type" class="w-5 h-5 text-slate-500 mb-1" title="Testo"></i>
+                    <div class="flex gap-1">
+                        <button onclick="window.changeFontScale(-1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="minus" class="w-4 h-4"></i></button>
+                        <button onclick="window.changeFontScale(1)"
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
+                                data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Toggle Label -->
+                <button id="card-btn-labels" onclick="window.toggleLabels()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Mostra/Nascondi Etichette Relazioni">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">TESTO</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+
+                <!-- Pathfinder -->
+                <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
+                    <i data-lucide="route" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PATH</span>
+                </button>
+                <div class="w-px h-8 bg-slate-200" id="dynamic-slider-divider"></div>
+
+                <!-- Slider Filtro Densità (Solo KG) -->
+                <div class="flex-col w-32 px-2 hidden" id="min-link-control">
+                    <div class="flex justify-between w-full mb-1">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase">Min Link</span>
+                        <span id="filter-val-display"
+                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">0</span>
+                    </div>
+                    <input type="range" id="node-filter-slider" min="0" max="1" value="0"
+                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
+                </div>
+
+                <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
+                <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
+                    <div class="flex justify-between w-full mb-1">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
+                        <span id="level-slider-val"
+                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
+                    </div>
+                    <input type="range" id="level-slider" min="0" max="5" value="5"
+                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.onLevelSliderInput(this.value)">
+                </div>
+
+                <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
+
+                <!-- Snapshot -->
+                <button onclick="window.exportSnapshot()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Esporta Snapshot PNG della mappa">
+                    <i data-lucide="camera" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">FOTO</span>
+                </button>
+                <!-- PDF -->
+                <button onclick="window.exportPDF()"
+                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    title="Esporta mappa in formato PDF">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PDF</span>
+                </button>
+            </div>
+
+            <!-- Hint Modalità Linking / Pathfinder -->
+            <div id="mode-hint"
+                class="absolute top-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm hidden z-40 animate-bounce">
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================
+         MENÙ CONTESTUALE (Right Click)
+         ========================================== -->
+    <div id="context-menu"
+        class="hidden bg-white shadow-2xl rounded-xl border border-slate-200 py-1 z-50 overflow-y-auto max-h-[85vh] w-56 modal-scroll">
+        <!-- Contenuto dinamico inserito dal JS -->
+    </div>
+
+    <!-- ==========================================
+         MODALI E OVERLAYS
+         ========================================== -->
+
+    <!-- Modal Popup per Fonti e Note (Source Modal) -->
+    <div id="source-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl w-[80vw] max-w-[80vw] max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-300"
+            id="source-modal-content-box">
+
+            <div id="source-modal-header"
+                class="flex items-center justify-between p-5 border-b border-slate-100 rounded-t-xl shrink-0 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div id="source-modal-icon" class="p-2 rounded-lg text-current">
+                        <i data-lucide="book-open"></i>
+                    </div>
+                    <div>
+                        <div id="source-modal-kinship"
+                            class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
+                        <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
+                        <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
+                    </div>
+                </div>
+                <button onclick="window.closeSourceModal()"
+                    class="opacity-70 hover:opacity-100 p-1.5 rounded-full transition-opacity">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
+            <div id="modal-a11y-toolbar"
+                class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
+                <button id="btn-modal-ruler"
+                    onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
+                    class="tts-button" title="Riga di Lettura"><i data-lucide="align-justify"></i></button>
+                <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
+                    title="Attiva/Desattiva Sillabazione"><i data-lucide="split-square-horizontal"></i></button>
+                <button
+                    onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
+                    class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
+                <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
+                    title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
+                <button onclick="window.readModalAloud('source-modal')" class="tts-button" title="Leggi ad alta voce">
+                    <i data-lucide="volume-2"></i>
+                </button>
+            </div>
+
+            <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl"
+                id="source-modal-body">
+                <!-- Contenuto Paragrafo e Note Fonti iniettato da JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Prompt Personalizzato -->
+    <div id="prompt-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+            id="prompt-box">
+            <h3 class="text-lg font-bold text-slate-800 mb-2" id="prompt-title" data-i18n="prompt_title">Inserisci
+                valore</h3>
+            <p class="text-sm text-slate-500 mb-4 font-medium hidden" id="prompt-desc"></p>
+            <p class="text-xs text-slate-400 mb-2 font-medium italic" data-i18n="prompt_hint">Premi Invio per
+                salvare,
+                Shift+Invio per andare a capo.</p>
+            <textarea id="prompt-input" rows="2"
+                class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-6 resize-none"></textarea>
+            <div class="flex justify-end gap-3">
+                <button id="prompt-cancel"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button id="prompt-ok"
+                    class="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors"><span
+                        data-i18n="btn_save">Salva</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Selezione Numero Domande -->
+    <!-- Modale Configurazione QUIZ -->
+    <div id="study-config-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
+            id="study-config-box">
+
+            <button onclick="window.closeStudyConfigModal()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <h3 class="modal_title"><i id="study-config-icon" data-lucide="book-open"
+                    class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
+            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
+                <h3 id="study-config-title" class="text-xl font-black text-slate-800">Configura Sessione</h3>
+                <p class="text-sm text-slate-500 font-medium mt-1">Scegli come vuoi studiare questo materiale.</p>
+            </div>
+
+            <div id="quiz-type-container" class="mb-5 text-left hidden">
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Tipo di
+                    Quiz</label>
+                <select id="study-quiz-type"
+                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3 outline-none">
+                    <option value="Risposta Multipla">Risposta Multipla (A/B/C/D)</option>
+                    <option value="Vero o Falso">Vero o Falso</option>
+                    <option value="Risposta Aperta">Risposta Aperta Breve</option>
+                </select>
+            </div>
+
+            <div class="mb-6 text-left">
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Quantità
+                    (Domande/Card)</label>
+                <div class="grid grid-cols-4 gap-3">
+                    <button onclick="window.selectStudyQuantity(5)"
+                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="5">5</button>
+                    <button onclick="window.selectStudyQuantity(10)"
+                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="10">10</button>
+                    <button onclick="window.selectStudyQuantity(15)"
+                        class="study-qty-btn p-3 bg-indigo-50 border border-indigo-500 rounded-xl text-indigo-600 font-bold transition"
+                        data-qty="15">15</button>
+                    <button onclick="window.selectStudyQuantity(20)"
+                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
+                        data-qty="20">20</button>
+                </div>
+            </div>
+
+            <div
+                class="mb-8 flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200/60 rounded-xl">
+                <div class="flex items-center gap-2 text-slate-700 text-sm font-bold">
+                    <i data-lucide="timer" class="w-4 h-4 text-slate-400"></i> Timer di Fluency
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="study-timer-toggle" class="sr-only peer">
+                    <div
+                        class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500">
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex gap-3 justify-end mt-6">
+                <button onclick="window.closeStudyConfigModal()" class="btn_annulla_action flex-1">
+                    <span data-i18n="btn_cancel">Annulla</span>
+                </button>
+                <button onclick="window.startStudySession()" class="btn_salva_action flex-1">
+                    Inizia Sessione
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Modale Confirm Personalizzato -->
+    <div id="confirm-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
+            id="confirm-box">
+            <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
+            <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button id="confirm-ok"
+                    class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CHI SEI (PROFILO STUDENTE) -->
+    <div id="user-profile-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
+            id="user-profile-box">
+            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="user-circle" class="text-indigo-600"></i> <span data-i18n="profile_title">Profilo
+                        Studente</span>
+                </h3>
+                <button onclick="window.closeUserProfileModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-6">
+                <div class="space-y-4">
+                    <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
+                            Salvati</label>
+                        <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-slate-50 text-indigo-700 font-bold">
+                            <option value="">+ Nuovo Profilo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label
+                            class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
+                        <input type="text" id="up-nickname" placeholder="Come ti chiami?"
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
+                            <input type="number" id="up-age" placeholder="Es. 15"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                        </div>
+                        <div>
+                            <label
+                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
+                            <select id="up-grade"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+                            data-i18n="profile_system">Sistema Scolastico</label>
+                        <select id="up-system" onchange="window.updateGradeOptions()"
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white">
+                            <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
+                            <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
+                            <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
+                            <option value="Liceo_Italia">Liceo / Scuola Superiore (Italia - 5 anni)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 pb-2">
+                    <button onclick="window.saveUserProfile()"
+                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
+                        Salva Profilo
+                    </button>
+                    <button onclick="window.resetUserProfile()"
+                        class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                        Elimina Profilo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE SEGNALAZIONI & FEEDBACK -->
+    <div id="feedback-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
+            id="feedback-box">
+            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="alert-triangle" class="text-amber-500"></i>
+                    <span id="feedback-modal-title-lbl">Invia Segnalazione</span>
+                </h3>
+                <button onclick="window.closeFeedbackModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2"
+                        id="feedback-cat-label-lbl">Categoria della segnalazione</label>
+                    <div class="grid grid-cols-2 gap-2" id="feedback-category-group">
+                        <button type="button" onclick="window.selectFeedbackCategory('ui')" id="fb-cat-ui"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            🎨 Interfaccia / UI
+                        </button>
+                        <button type="button" onclick="window.selectFeedbackCategory('ai')" id="fb-cat-ai"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            🤖 Generazione AI
+                        </button>
+                        <button type="button" onclick="window.selectFeedbackCategory('storage')" id="fb-cat-storage"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            💾 Salvataggio / File
+                        </button>
+                        <button type="button" onclick="window.selectFeedbackCategory('bug')" id="fb-cat-bug"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            ⚠️ Bug / Errore
+                        </button>
+                        <button type="button" onclick="window.selectFeedbackCategory('suggestion')"
+                            id="fb-cat-suggestion"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            💡 Suggerimento
+                        </button>
+                        <button type="button" onclick="window.selectFeedbackCategory('other')" id="fb-cat-other"
+                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
+                            ➕ Altro
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
+                        id="feedback-desc-label-lbl">Dettagli della segnalazione</label>
+                    <textarea id="feedback-text"
+                        placeholder="Descrivi il problema riscontrato o la tua proposta per migliorare MappAI..."
+                        class="form_input min-h-[120px] resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-8 flex flex-col gap-3 flex-shrink-0">
+                <button onclick="window.submitFeedback()"
+                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i> <span id="feedback-submit-btn-lbl">Invia Feedback via
+                        Email</span>
+                </button>
+                <button onclick="window.closeFeedbackModal()"
+                    class="w-full py-3 bg-slate-100 text-slate-500 hover:bg-slate-200 font-bold rounded-xl transition-all">
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE ESPLORA VAULT -->
+    <div id="vault-manager-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh] relative"
+            id="vault-manager-box">
+
+            <button onclick="window.closeVaultManager()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <h3 class="modal_title"><i data-lucide="library" class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
+            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
+                <span data-i18n="vault_manager_title" class="hidden">Esplora i tuoi Vault</span>
+                <span data-i18n="vault_manager_subtitle" class="hidden">Second Brain Knowledge Management</span>
+                <p class="text-sm text-slate-500 font-medium">Sfoglia, gestisci e carica i tuoi vault locali.</p>
+            </div>
+
+            <div id="vault-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2 modal-scroll min-h-[300px]">
+                <!-- Lista dinamica dei vault qui -->
+                <div class="flex items-center justify-center p-20 text-slate-300">
+                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-3 shrink-0">
+                <div class="flex justify-between items-center gap-2">
+
+
+                </div>
+                <div class="flex justify-between items-center mt-2">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest"
+                        id="vault-manager-folder-path-label">Cartella:
+                        Documents/Salvataggi MappAI</p>
+                    <button onclick="window.handleImportClick(event)"
+                        class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
+                    </button>
+                    <!-- Input file nascosto per importazione su iPad/iOS senza perdere il user gesture context -->
+                    <input type="file" id="mappai-ipad-vault-file-picker" accept=".json" style="display: none;"
+                        onchange="window.handleIPadVaultFileSelected(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE EDITING NODO -->
+    <div id="edit-node-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
+            id="edit-node-box">
+            <button onclick="window.closeEditModal()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
+            <div class="space-y-6 max-h-[70vh] overflow-y-auto pl-4 pr-4 modal-scroll">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="modal_field_title" data-i18n="lbl_node_name">Nome nodo</label>
+                    </div>
+                    <textarea id="edit-n-label" rows="2"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="modal_field_title" data-i18n="lbl_node_info">Contenuto</label>
+                        <button id="revert-ai-btn" onclick="window.revertToAIContent()"
+                            class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold uppercase tracking-wider hidden"><span
+                                data-i18n="btn_restore_ai">Ripristina Testo AI</span></button>
+                    </div>
+                    <textarea id="edit-n-content" rows="4"
+                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="modal_field_title">COLLEGAMENTI (Web o File)</label>
+                    </div>
+                    <div id="edit-n-urls-list" class="space-y-2 mb-3">
+                        <!-- Lista link qui -->
+                    </div>
+                    <div class="flex items-stretch gap-2 h-11">
+                        <div class="relative flex-grow h-full">
+                            <i data-lucide="link"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                            <input type="text" id="edit-n-url-input" placeholder="https://... oppure file:///..."
+                                class="w-full border border-slate-300 rounded-lg pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500 h-full">
+                        </div>
+                        <button onclick="window.handlePickLocalFileForEdit()" class="btn_load_source">
+                            <i data-lucide="folder-open" class="w-4 h-4 text-slate-600"></i>
+                        </button>
+                        <button onclick="window.addLinkToNode()" class="btn_confirm_action w-48">aggiungi</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="modal_field_title">IMMAGINI</label>
+                    </div>
+                    <div id="edit-n-images-list" class="grid grid-cols-4 gap-0 mb-1">
+                        <!-- Preview immagini qui -->
+                    </div>
+                    <div class="space-y-4 bg-slate-100 p-5 rounded-2xl">
+                        <input type="url" id="edit-n-image-url-input" placeholder="Incolla URL immagine..."
+                            class="w-full border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white transition-all placeholder:text-slate-300">
+
+                        <div class="flex items-center gap-3">
+                            <div class="h-[1px] flex-grow bg-slate-200"></div>
+                            <span class="input_label_xxs uppercase tracking-[0.2em] px-2">oppure</span>
+                            <div class="h-[1px] flex-grow bg-slate-200"></div>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <input type="file" id="edit-n-image-file-input" accept="image/*"
+                                class="flex-grow text-[10px] text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-none file:shadow-none file:font-bold file:text-[10px] file:uppercase file:tracking-wider file:bg-indigo-50/50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer transition-all"
+                                onchange="window.handleImageUploadForEdit(this)">
+                        </div>
+
+                        <button onclick="window.addImageToNode()" class="w-full h-11 btn_confirm_action">
+                            Aggiungi Immagine
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 items-stretch">
+                    <!-- Colore elemento -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="modal_field_title">Colore nodo/hub</label>
+                        </div>
+                        <div
+                            class="flex flex-col items-center justify-center gap-5 bg-slate-100 p-5 rounded-xl flex-grow h-100">
+                            <!-- Main Picker -->
+                            <div class="relative group">
+                                <input type="color" id="edit-n-color"
+                                    class="w-36 h-36 rounded-2xl cursor-pointer border-0 p-0 bg-transparent shadow-sm group-hover:scale-105 transition-transform">
+                                <div
+                                    class="absolute -bottom-1 -right-1 bg-white p-1 rounded-md shadow-sm border border-slate-100 pointer-events-none group-hover:scale-110 transition-transform">
+                                    <i data-lucide="pipette" class="w-3 h-3 text-slate-400"></i>
+                                </div>
+                            </div>
+
+                            <!-- Power Palette -->
+                            <div class="grid grid-cols-6 gap-2 mt-1">
+                                <div onclick="window.setEditColor('#00f2ff')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #00f2ff;" title="Cyber Cyan"></div>
+                                <div onclick="window.setEditColor('#3b82f6')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #3b82f6;" title="Electric Blue"></div>
+                                <div onclick="window.setEditColor('#8b5cf6')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #8b5cf6;" title="Neon Purple"></div>
+                                <div onclick="window.setEditColor('#d946ef')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #d946ef;" title="Hot Pink"></div>
+                                <div onclick="window.setEditColor('#f43f5e')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #f43f5e;" title="Power Red"></div>
+                                <div onclick="window.setEditColor('#f97316')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #f97316;" title="Cyber Orange"></div>
+                                <div onclick="window.setEditColor('#facc15')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #facc15;" title="Sunny Yellow"></div>
+                                <div onclick="window.setEditColor('#4ade80')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #4ade80;" title="Neon Green"></div>
+                                <div onclick="window.setEditColor('#2dd4bf')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #2dd4bf;" title="MappAI Teal"></div>
+                                <div onclick="window.setEditColor('#06b6d4')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #06b6d4;" title="Arctic Blue"></div>
+                                <div onclick="window.setEditColor('#64748b')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #64748b;" title="Steel Gray"></div>
+                                <div onclick="window.setEditColor('#1e293b')"
+                                    class="w-5 h-5 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm"
+                                    style="background: #1e293b;" title="Dark Mode"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Icone Modifiche -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="modal_field_title">Icone modifiche
+                            </label>
+                        </div>
+                        <div class="flex flex-col gap-3 bg-slate-100 p-5 rounded-xl flex-grow justify-center h-100">
+                            <label
+                                class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="pencil" class="w-6 h-6 text-slate-600"></i>
+                                    <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Testo</span>
+                                </div>
+                                <input type="checkbox" id="edit-vis-text"
+                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            </label>
+                            <label
+                                class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="image" class="w-6 h-6 text-slate-600"></i>
+                                    <span
+                                        class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Immagini</span>
+                                </div>
+                                <input type="checkbox" id="edit-vis-image"
+                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            </label>
+                            <label
+                                class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="link" class="w-6 h-6 text-slate-600"></i>
+                                    <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Link</span>
+                                </div>
+                                <input type="checkbox" id="edit-vis-link"
+                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            </label>
+                            <label
+                                class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="database" class="w-6 h-6 text-slate-600"></i>
+                                    <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">File</span>
+                                </div>
+                                <input type="checkbox" id="edit-vis-file"
+                                    class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3 justify-end h-11">
+                <button onclick="window.closeEditModal()" class="btn_annulla_action"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button onclick="window.saveEditNode()" class="btn_salva_action"><span data-i18n="btn_salva">Salva
+                        Modifiche</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Espansione Contestuale IA -->
+    <div id="contextual-ai-extension-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
+            id="contextual-ai-extension-box">
+
+            <button onclick="window.closeContextualAIModal()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <h3 class="modal_title"><i data-lucide="sparkles" class="text-emerald-400 w-16 h-16"></i></h3>
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <div>
+                        <div class="input_label_m font-normal not-italic">Nodo da espandere: <span
+                                id="contextual-ai-node-title" class="text-indigo-600">...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <!-- Tab Selector -->
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
+                    <button id="tab-ctx-text" onclick="window.switchCtxTab('text')"
+                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all bg-white shadow-sm text-indigo-600"><span
+                            data-i18n="ctx_exp_tab_text">Testo / URL</span></button>
+                    <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
+                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica
+                        PDF</button>
+                </div>
+
+                <!-- Panel: Text/URL -->
+                <div id="ctx-panel-text" class="space-y-3">
+                    <p class="text-[11px] text-slate-500 italic" data-i18n="ctx_exp_desc_text">Incolla qui il
+                        contenuto
+                        o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.</p>
+                    <textarea id="contextual-ai-input"
+                        class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[140px] placeholder:text-slate-400"
+                        placeholder="Incolla qui testo o URL..."></textarea>
+                </div>
+
+                <!-- Panel: PDF -->
+                <div id="ctx-panel-pdf"
+                    class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                    <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
+                            class="w-8 h-8"></i></div>
+                    <div class="text-center">
+                        <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
+                        <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima
+                            dell'espansione.
+                        </p>
+                    </div>
+                    <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
+                        onchange="window.handleCtxPDFSelect(this)">
+                    <button onclick="document.getElementById('ctx-pdf-file').click()"
+                        class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli
+                        File</button>
+                    <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 justify-end mt-4">
+                <button onclick="window.closeContextualAIModal()" class="btn_annulla_action"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
+                    class="btn_salva_action w-48">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Espandi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz / Flashcard Modal -->
+    <!-- Modale Sessione di Studio (Player) -->
+    <div id="study-player-modal"
+        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2500] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-8 transform scale-95 transition-transform duration-300 flex flex-col relative">
+
+            <button onclick="window.closeStudyPlayer()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <h3 class="modal_title"><i id="study-player-icon" data-lucide="brain-circuit"
+                    class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
+            <div class="pl-4 mb-4 border-b border-slate-100 pb-4 flex justify-between items-end text-left">
+                <div>
+                    <h3 class="font-bold text-xl text-slate-800" id="study-player-title">Sessione di Studio</h3>
+                    <p class="text-xs text-slate-500 font-bold tracking-widest uppercase mt-1"><span
+                            id="study-player-progress">1 / 10</span></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div id="study-player-timer-container"
+                        class="hidden font-mono text-xl font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
+                        00:00
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flashcard View -->
+            <div id="study-flashcard-view" class="hidden flex-col items-center justify-center min-h-[300px] mb-6">
+                <div id="flashcard-front"
+                    class="text-center w-full px-6 py-12 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm mb-6 cursor-pointer hover:bg-slate-100 transition"
+                    onclick="window.flipFlashcard()">
+                    <p class="text-2xl font-bold text-slate-800" id="flashcard-front-text">Domanda?</p>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold mt-4 tracking-widest"><i
+                            data-lucide="rotate-cw" class="inline w-3 h-3"></i> Clicca per girare</p>
+                </div>
+
+                <div id="flashcard-back-container" class="hidden w-full flex-col items-center">
+                    <div
+                        class="text-center w-full px-6 py-8 bg-indigo-50 border border-indigo-200 rounded-2xl shadow-inner mb-6">
+                        <p class="text-lg font-medium text-slate-700 leading-relaxed" id="flashcard-back-text">
+                            Risposta.
+                        </p>
+                    </div>
+
+                    <div class="flex w-full gap-3">
+                        <button onclick="window.nextStudyItem('hard')"
+                            class="flex-1 py-4 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 transition-all">
+                            <span class="text-xl mb-1">😩</span>
+                            <span>Non conoscevo</span>
+                        </button>
+                        <button onclick="window.nextStudyItem('good')"
+                            class="flex-1 py-4 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 transition-all">
+                            <span class="text-xl mb-1">🤔</span>
+                            <span>Non ricordavo</span>
+                        </button>
+                        <button onclick="window.nextStudyItem('easy')"
+                            class="flex-1 py-4 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 transition-all">
+                            <span class="text-xl mb-1">😎</span>
+                            <span>Sapevo e ricordavo</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz View -->
+            <div id="study-quiz-view" class="hidden flex-col w-full min-h-[300px]">
+                <div class="mt-2 mb-6 font-bold text-xl text-slate-800 text-center px-4" id="study-quiz-question">
+                    Domanda Quiz
+                </div>
+
+                <!-- Multiple Choice & True/False -->
+                <div id="study-quiz-options" class="space-y-3 mb-6 hidden w-full"></div>
+
+                <!-- Open Answer -->
+                <div id="study-quiz-open" class="hidden w-full flex-col gap-4 mb-6">
+                    <textarea id="study-quiz-textarea"
+                        class="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        placeholder="Scrivi la tua risposta qui..."></textarea>
+                    <button onclick="window.checkOpenAnswer()"
+                        class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Verifica
+                        Risposta</button>
+                </div>
+
+                <div id="study-quiz-feedback"
+                    class="hidden p-6 rounded-xl border border-slate-200 bg-slate-50 mb-4 shadow-inner text-center">
+                    <h4 class="font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                        id="study-quiz-feedback-title">Risultato</h4>
+                    <p class="text-md text-slate-700 mb-6 font-medium leading-relaxed" id="study-quiz-feedback-desc">
+                    </p>
+                    <button onclick="window.nextStudyItem()"
+                        class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition mx-auto">Prossima
+                        Domanda</button>
+                </div>
+            </div>
+
+            <!-- Summary View -->
+            <div id="study-summary-view" class="hidden flex-col w-full min-h-[300px]">
+                <div class="text-center mb-6">
+                    <div
+                        class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-md">
+                        <i data-lucide="trophy" class="w-10 h-10"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-800">Sessione Completata!</h3>
+                    <p class="text-slate-500 font-medium" id="study-summary-stats">Hai risposto correttamente a 8
+                        domande su 10.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                        <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Analisi
+                            Errori</span>
+                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded"
+                            id="study-summary-time">Tempo: 02:45</span>
+                    </div>
+                    <div id="study-summary-mistakes" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <!-- Mistakes injected here -->
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="window.closeStudyPlayer()"
+                        class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition">Torna
+                        alla Mappa</button>
+                    <button onclick="window.saveStudyReport()"
+                        class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
+                        <i data-lucide="save" class="w-5 h-5"></i> <span data-i18n="btn_save_vault">Salva nel
+                            Vault</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+    <div id="quiz-modal"
+        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-8 transform scale-95 transition-transform duration-300 flex flex-col relative"
+            id="quiz-modal-content">
+
+            <button onclick="window.closeQuizModal()"
+                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <h3 class="modal_title"><i id="quiz-modal-icon" data-lucide="graduation-cap"
+                    class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
+            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
+                <span class="text-xs text-slate-400 font-bold uppercase tracking-widest">Spaced Repetition</span>
+                <p class="text-sm text-slate-500 font-medium mt-0.5" id="quiz-node-title">Nodo</p>
+            </div>
+
+            <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
+                <!-- question injected here -->
+            </div>
+
+            <div id="quiz-options-container" class="space-y-3 mb-6">
+                <!-- options injected here -->
+            </div>
+
+            <div id="quiz-feedback-container"
+                class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
+                <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
+                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
+                <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
+                <div class="flex gap-3" id="quiz-sr-buttons">
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('hard')">
+                        <span class="text-lg mb-1">😩</span>
+                        <span>Difficile</span>
+                        <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
+                    </button>
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('good')">
+                        <span class="text-lg mb-1">🤔</span>
+                        <span>Normale</span>
+                        <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
+                    </button>
+                    <button
+                        class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
+                        onclick="window.processSRResponse('easy')">
+                        <span class="text-lg mb-1">😎</span>
+                        <span>Facile</span>
+                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
+                    </button>
+                </div>
+                <div id="quiz-next-container" class="hidden">
+                    <button onclick="window.showNextSubQuestion()"
+                        class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
+                        <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Loading Overlay con Custom MappAI Spinner -->
+    <div id="loading-overlay">
+        <div class="w-64 h-64 relative mb-4">
+            <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible">
+                <style>
+                    @keyframes breathe {
+
+                        0%,
+                        100% {
+                            transform: scale(0.95);
+                        }
+
+                        50% {
+                            transform: scale(1.10);
+                        }
+                    }
+
+                    @keyframes shakeBloom {
+                        0% {
+                            transform: rotate(0deg) scale(1);
+                        }
+
+                        2% {
+                            transform: rotate(-3deg) scale(1.02);
+                        }
+
+                        4% {
+                            transform: rotate(3deg) scale(1.05);
+                        }
+
+                        6% {
+                            transform: rotate(-3deg) scale(1.08);
+                        }
+
+                        8% {
+                            transform: rotate(3deg) scale(1.1);
+                        }
+
+                        10% {
+                            transform: rotate(0deg) scale(1.12);
+                        }
+
+                        12% {
+                            transform: rotate(-3deg) scale(1.1);
+                        }
+
+                        14% {
+                            transform: rotate(3deg) scale(1.08);
+                        }
+
+                        16% {
+                            transform: rotate(-2deg) scale(1.05);
+                        }
+
+                        18% {
+                            transform: rotate(2deg) scale(1.02);
+                        }
+
+                        20% {
+                            transform: rotate(0deg) scale(1);
+                        }
+
+                        100% {
+                            transform: rotate(0deg) scale(1);
+                        }
+                    }
+
+                    .center-pulse {
+                        transform-origin: 100px 100px;
+                        animation: breathe 3s ease-in-out infinite;
+                    }
+
+                    .branch-node {
+                        transform-origin: 100px 100px;
+                        animation: shakeBloom 2.5s linear infinite;
+                    }
+
+                    .node-1 {
+                        animation-delay: 0s;
+                    }
+
+                    .node-3 {
+                        animation-delay: 0.5s;
+                    }
+
+                    .node-5 {
+                        animation-delay: 1.0s;
+                    }
+
+                    .node-2 {
+                        animation-delay: 1.5s;
+                    }
+
+                    .node-4 {
+                        animation-delay: 2.0s;
+                    }
+                </style>
+                <g class="branch-node node-1">
+                    <line x1="100" y1="100" x2="100" y2="30" stroke="#475569" stroke-width="2" />
+                    <circle cx="100" cy="30" r="15.9" fill="#2A8EFC" />
+                </g>
+                <g class="branch-node node-2">
+                    <line x1="100" y1="100" x2="166.5" y2="78.4" stroke="#475569" stroke-width="2" />
+                    <circle cx="166.5" cy="78.4" r="15.9" fill="#3BCC42" />
+                </g>
+                <g class="branch-node node-3">
+                    <line x1="100" y1="100" x2="141.1" y2="156.6" stroke="#475569" stroke-width="2" />
+                    <circle cx="141.1" cy="156.6" r="15.9" fill="#FF8C00" />
+                </g>
+                <g class="branch-node node-4">
+                    <line x1="100" y1="100" x2="58.9" y2="156.6" stroke="#475569" stroke-width="2" />
+                    <circle cx="58.9" cy="156.6" r="15.9" fill="#FF1493" />
+                </g>
+                <g class="branch-node node-5">
+                    <line x1="100" y1="100" x2="33.5" y2="78.4" stroke="#475569" stroke-width="2" />
+                    <circle cx="33.5" cy="78.4" r="15.9" fill="#FFD700" />
+                </g>
+                <circle cx="100" cy="100" r="24" fill="#0f172a" class="center-pulse" />
+            </svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-2" id="loading-title">MappAI sta elaborando...</h2>
+        <p class="text-slate-700 text-center max-w-md px-4 font-medium" id="loading-desc">Interpretazione delle fonti
+            con Gemini</p>
+    </div>
+
+    <!-- Modal AI Gemini -->
+    <div id="ai-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col transform scale-95 transition-transform duration-300"
+            id="ai-modal-content-box">
+            <div
+                class="flex items-center justify-between p-5 border-b border-indigo-100 bg-indigo-50/50 rounded-t-xl shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-600 text-white rounded-lg shadow-sm">
+                        <i data-lucide="bot"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-indigo-900 text-lg" id="ai-modal-title">AI Tutor Assistant</h3>
+                        <p class="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
+                            <i data-lucide="zap" class="w-3 h-3"></i> Gemini Models
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="tts-button" onclick="window.toggleTTS()" class="tts-button" title="Leggi ad alta voce">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                    <button onclick="window.closeAIModal()"
+                        class="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto text-slate-800 text-sm md:text-base ai-result-content bg-gradient-to-b from-white to-slate-50 grow relative rounded-b-xl"
+                id="ai-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox Immagini -->
+    <div id="image-lightbox" onclick="window.closeLightbox()">
+        <img id="lightbox-img" src="" alt="Anteprima" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- Modale Tutorial API -->
+    <div id="api-tutorial-modal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
+            <button
+                onclick="document.getElementById('api-tutorial-modal').classList.remove('flex'); document.getElementById('api-tutorial-modal').classList.add('hidden')"
+                class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
+            <h2 class="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
+                <i data-lucide="key" class="text-indigo-500"></i> Come ottenere la API Key
+            </h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <p>MappAI utilizza i potentissimi cervelli artificiali di Google per studiare i tuoi documenti.</p>
+                <ol class="list-decimal pl-4 space-y-2">
+                    <li>Vai al sito web <a href="#"
+                            onclick="window.electronAPI ? window.require('electron').shell.openExternal('https://aistudio.google.com/app/apikey') : window.open('https://aistudio.google.com/app/apikey', '_blank')"
+                            class="text-indigo-600 font-bold hover:underline">Google AI Studio</a>.</li>
+                    <li>Fai l'accesso con il tuo account Google gratuito.</li>
+                    <li>Clicca sul bottone blu <strong>Create API key</strong>.</li>
+                    <li>Copia la lunga stringa di testo (inizia con <i>AIza...</i>) e incollala qui nell'App MappAI!
+                    </li>
+                </ol>
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs">
+                    💡 <strong>Nota:</strong> Le API di tipo "Gemini 1.5 Flash" sono completamente gratuite fino a 15
+                    richieste al minuto!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Configura AI -->
+    <div id="config-ai-modal"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6 relative flex flex-col max-h-[90vh] my-auto">
+            <button onclick="window.closeConfigAIModal()"
+                class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
+            <h2 class="text-xl font-black text-slate-800 mb-2 flex items-center justify-between flex-shrink-0">
+                <span class="flex items-center gap-2">
+                    <i data-lucide="bot" class="text-indigo-500"></i> <span id="modal-setup-title">Configura
+                        AI</span>
+                </span>
+            </h2>
+            <div
+                class="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100 flex-shrink-0">
+                <span class="input_label_xs" id="label-language-select">Lingua:</span>
+                <div class="flex gap-4 mr-2">
+                    <button type="button" onclick="window.changeLanguage('it')"
+                        class="text-[28px] hover:scale-110 transition-transform cursor-pointer grayscale opacity-40 hover:grayscale-0 hover:opacity-100 leading-none"
+                        id="lang-btn-it" title="Italiano">🇮🇹</button>
+                    <button type="button" onclick="window.changeLanguage('en')"
+                        class="text-[28px] hover:scale-110 transition-transform cursor-pointer grayscale opacity-40 hover:grayscale-0 hover:opacity-100 leading-none"
+                        id="lang-btn-en" title="English">🇬🇧</button>
+                </div>
+            </div>
+            <div class="space-y-5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                <div class="mb-5">
+                    <label class="input_label_xs uppercase font-bold tracking-wider">Provider
+                        AI</label>
+                    <div class="flex bg-slate-100 p-1 rounded-xl">
+                        <button type="button" onclick="window.switchAIProvider('google')" id="provider-google"
+                            class="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white shadow-sm text-indigo-600">Google
+                            Gemini</button>
+                        <button type="button" onclick="window.switchAIProvider('infomaniak')" id="provider-infomaniak"
+                            class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-700">Infomaniak
+                            (CH)</button>
+                    </div>
+                </div>
+                <!-- Google Gemini API Key Container -->
+                <div id="gemini-api-key-container">
+                    <label class="input_label_xs uppercase font-bold tracking-wider" id="label-api-key-google">Google
+                        API Key</label>
+                    <p class="input_label_xs flex items-center gap-2">API key salvata localmente.
+                        <button type="button" onclick="window.showAPITutorial('google')"
+                            class="input_button_xs flex items-center gap-1"><i data-lucide="help-circle"
+                                class="w-3 h-3"></i> <span id="label-api-key-how-google">Come
+                                ottenerla?</span></button>
+                    </p>
+                    <div class="relative">
+                        <i data-lucide="key"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                        <input type="password" id="gemini-api-key-input"
+                            onblur="if(window.saveSecureKey) { window.saveSecureKey('gemini_api_key', this.value); } else { localStorage.setItem('gemini_api_key', this.value); } if(window.refreshGeminiModels) window.refreshGeminiModels();"
+                            class="form_input !pl-10" placeholder="Inserisci chiave Google Gemini...">
+                    </div>
+                </div>
+
+                <!-- Infomaniak API Key & Product ID Container -->
+                <div id="infomaniak-api-key-container" class="hidden space-y-5">
+                    <div>
+                        <label class="input_label_xs uppercase font-bold tracking-wider"
+                            id="label-api-key-infomaniak">Infomaniak API
+                            Token</label>
+                        <p class="input_label_xs flex items-center gap-2">Token salvato localmente.
+                            <button type="button" onclick="window.showAPITutorial('infomaniak')"
+                                class="input_button_xs flex items-center gap-1"><i data-lucide="help-circle"
+                                    class="w-3 h-3"></i><span id="label-api-key-how-infomaniak">Come
+                                    crearlo?</span></button>
+                        </p>
+                        <div class="relative">
+                            <i data-lucide="key"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                            <input type="password" id="infomaniak-api-key-input"
+                                onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); } if(window.refreshGeminiModels) window.refreshGeminiModels();"
+                                class="form_input !pl-10" placeholder="Inserisci token Infomaniak...">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input_label_xs uppercase font-bold tracking-wider">Product ID
+                            (Infomaniak)</label>
+                        <div class="relative">
+                            <i data-lucide="package"
+                                class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                            <input type="text" id="infomaniak-product-id"
+                                onblur="if(window.updateInfomaniakProductId) window.updateInfomaniakProductId(this.value); if(window.refreshGeminiModels) window.refreshGeminiModels();"
+                                class="form_input !pl-10" placeholder="Es: 12345">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="input_label_xs uppercase font-bold tracking-wider" id="label-ai-model">Modello
+                            AI</label>
+                        <button type="button" onclick="window.refreshGeminiModels()" id="refresh-models-btn"
+                            class="input_button_xs">
+                            <i data-lucide="refresh-cw" class="w-3 h-3" id="refresh-models-icon"></i> <span
+                                id="label-refresh-models">Aggiorna Modelli</span>
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <i data-lucide="cpu"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
+                        <select id="model-select"
+                            onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); if(window.appState && window.appState.aiProvider === 'infomaniak') { localStorage.setItem('infomaniak_selected_model', this.value); } else { localStorage.setItem('gemini_selected_model', this.value); }"
+                            class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 outline-none appearance-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
+                            <option value="">Caricamento modelli in corso...</option>
+                        </select>
+                    </div>
+                    <!-- Capability badges (populated by JS) -->
+                    <div id="model-capabilities"
+                        class="mt-3 p-3 bg-slate-50 border border-slate-200/60 rounded-xl hidden"></div>
+                    <p id="models-status" class="text-[10px] text-slate-400 mt-1.5 italic hidden"></p>
+                </div>
+                <!-- Pricing Legend -->
+                <div id="pricing-legend"
+                    class="bg-indigo-50/60 border border-indigo-200/50 p-4 rounded-xl text-[11px] text-slate-600 space-y-1.5 min-h-[80px]">
+                    <div id="provider-info-content">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Studio Attivo -->
+    <div id="app-tutorial-modal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] hidden items-center justify-center p-4"
+        onclick="if(event.target===this) window.closeAppTutorial()">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
+                <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="brain-circuit" class="text-indigo-500"></i> <span
+                        id="modal-study-title-label">Metodo di Studio Attivo</span>
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button"
+                        title="Leggi ad alta voce">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                    <button onclick="window.closeAppTutorial()" class="text-slate-400 hover:text-slate-700 p-1"><i
+                            data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div id="study-modal-content"
+                class="p-6 pt-4 overflow-y-auto modal-scroll space-y-5 input_label_m font-normal text-slate-600">
+                <p class="input_label_sm leading-relaxed" data-i18n="study_intro"></p>
+
+                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                    <h3 class="font-black text-indigo-700 text-[1.15em] mb-2" data-i18n="study_sr_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_sr_desc"></p>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                    <h3 class="font-black text-amber-700 text-[1.15em] mb-2" data-i18n="study_ar_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_ar_desc"></p>
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
+                    <h3 class="font-black text-emerald-700 text-[1.15em] mb-2" data-i18n="study_feynman_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_feynman_desc"></p>
+                </div>
+
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4">
+                    <h3 class="font-black text-rose-700 text-[1.15em] mb-2" data-i18n="study_interleaving_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_interleaving_desc"></p>
+                </div>
+
+                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
+                    <h3 class="font-black text-sky-700 text-[1.15em] mb-2" data-i18n="study_elaboration_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_elaboration_desc"></p>
+                </div>
+
+                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                    <h3 class="font-black text-indigo-700 text-[1.15em] mb-2" data-i18n="study_local_files_title"></h3>
+                    <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="study_local_files_desc"></p>
+                </div>
+
+                <p class="input_label_sm font-bold text-indigo-600 mt-6 text-[0.85em] leading-relaxed"
+                    data-i18n="study_footer"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Tutorial App -->
+    <div id="app-guide-modal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] hidden items-center justify-center p-4"
+        onclick="if(event.target===this) window.closeAppGuide()">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-6 pb-3 border-b border-slate-200/60 flex-shrink-0">
+                <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="book-open" class="text-indigo-500"></i> <span id="modal-guide-title-label">Come
+                        usare MappAI</span>
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.readModalAloud('app-guide-modal')" class="tts-button"
+                        title="Leggi ad alta voce">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                    <button onclick="window.closeAppGuide()" class="text-slate-400 hover:text-slate-700 p-1"><i
+                            data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div id="guide-modal-content"
+                class="p-6 pt-4 overflow-y-auto modal-scroll space-y-5 input_label_m font-normal text-slate-600">
+
+                <div id="guide-normal-content" class="space-y-5">
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                        <h3 class="font-black text-indigo-700 text-[1.15em] mb-2" data-i18n="guide_step1_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step1_desc"></p>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <h3 class="font-black text-amber-700 text-[1.15em] mb-2" data-i18n="guide_step2_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step2_desc">
+                        </p>
+                    </div>
+
+                    <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4">
+                        <h3 class="font-black text-fuchsia-700 text-[1.15em] mb-2" data-i18n="guide_step3_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step3_desc"></p>
+                    </div>
+
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <h3 class="font-black text-emerald-700 text-[1.15em] mb-2" data-i18n="guide_step4_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step4_desc"></p>
+                    </div>
+
+                    <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                        <h3 class="font-black text-violet-700 text-[1.15em] mb-2" data-i18n="guide_step5_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step5_desc">
+                        </p>
+                    </div>
+
+                    <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                        <h3 class="font-black text-sky-700 text-[1.15em] mb-2" data-i18n="guide_step6_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step6_desc"></p>
+                    </div>
+
+                    <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                        <h3 class="font-black text-rose-700 text-[1.15em] mb-2" data-i18n="guide_notes_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_notes_desc"></p>
+                    </div>
+
+                    <p class="text-center text-[0.85em] text-slate-400 italic pt-4 leading-relaxed"
+                        data-i18n="guide_footer"></p>
+                </div>
+
+                <div id="guide-student-content" class="hidden space-y-5">
+                    <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                        <h3 class="font-black text-violet-700 text-[1.15em] mb-2" data-i18n="guide_step5_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step5_desc">
+                        </p>
+                    </div>
+
+                    <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                        <h3 class="font-black text-sky-700 text-[1.15em] mb-2" data-i18n="guide_step6_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_step6_desc"></p>
+                    </div>
+
+                    <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                        <h3 class="font-black text-rose-700 text-[1.15em] mb-2" data-i18n="guide_notes_title"></h3>
+                        <p class="input_label_sm text-slate-600 leading-relaxed" data-i18n="guide_notes_desc"></p>
+                    </div>
+
+                    <p class="input_label_xs text-slate-400  pt-4 leading-relaxed" data-i18n="guide_footer"></p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODALE CONFERMA MERGE/UNISCI
+         ========================================== -->
+    <div id="merge-confirm-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            <div class="p-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                <h2 id="merge-modal-title" class="text-lg font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-merge">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 2v4" />
+                        <path d="M12 18v4" />
+                        <path d="M2 12h4" />
+                        <path d="M18 12h4" />
+                    </svg> Unisci Mappa
+                </h2>
+                <p class="text-amber-100 text-xs mt-1">Stai per aggiungere una nuova mappa alla vista corrente.</p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div id="merge-modal-description" class="text-sm text-slate-600 leading-relaxed"></div>
+                <!-- AI Cross-linking option (only for KG merge) -->
+                <div id="merge-ai-option" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" id="merge-ai-crosslink" class="mt-0.5 accent-indigo-600 w-4 h-4" checked>
+                        <div>
+                            <span class="text-xs font-bold text-indigo-700">🤖 Correlazioni AI</span>
+                            <p class="text-[10px] text-indigo-500 mt-0.5 leading-relaxed">L'AI cercherà possibili
+                                correlazioni tra i nodi delle due mappe e creerà link tratteggiati che potrai validare o
+                                rimuovere.</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+                    <span class="text-[10px] text-emerald-700">La mappa corrente verrà <strong>salvata
+                            automaticamente</strong> prima dell'operazione.</span>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 flex gap-2 border-t border-slate-200">
+                <button onclick="window.cancelMerge()"
+                    class="flex-1 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button id="merge-confirm-btn" onclick="window.confirmMerge()"
+                    class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-sm">Procedi</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- MODALE VALIDAZIONE LINK AI -->
+    <div id="validate-link-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
+            <div class="p-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white">
+                <h2 class="text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i> Valida Correlazione AI
+                </h2>
+            </div>
+            <div class="p-5 space-y-3">
+                <p class="text-xs text-slate-500">Modifica la parola di relazione e conferma per rendere permanente il
+                    link.</p>
+                <div>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Nodo A</label>
+                    <p id="validate-node-a" class="text-sm font-bold text-slate-700 mt-0.5"></p>
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Relazione</label>
+                    <input type="text" id="validate-rel-input"
+                        class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Nodo B</label>
+                    <p id="validate-node-b" class="text-sm font-bold text-slate-700 mt-0.5"></p>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 flex gap-2 border-t border-slate-200">
+                <button onclick="window.closeValidateModal()"
+                    class="flex-1 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"><span
+                        data-i18n="btn_cancel">Annulla</span></button>
+                <button onclick="window.confirmValidateLink()"
+                    class="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors">✓
+                    Valida</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         SCRIPT UNIFICATI (JS)
+         ========================================== -->
+    <script src="traduzioni/it_translations.js"></script>
+    <script src="traduzioni/en_translations.js"></script>
+    <script src="js/hypher.js"></script>
+    <script src="js/it.js"></script>
+    <script src="js/infomaniak_bridge.js"></script>
+    <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
+    <script src="js/storageAdapter.js"></script>
+
+    <script src="js/app.js"></script>
+    <script>
+        window.toggleSidebar = function () {
+            const mapView = document.getElementById('map-view');
+            const icon = document.getElementById('sidebar-toggle-icon');
+
+            mapView.classList.toggle('sidebar-collapsed');
+
+            if (icon) {
+                const isCollapsed = mapView.classList.contains('sidebar-collapsed');
+                icon.setAttribute('data-lucide', isCollapsed ? 'panel-left-open' : 'panel-left-close');
+            }
+
+            window.safeCreateIcons();
+
+            // D3 Resize after animation finishes for maximum smoothness
+            setTimeout(() => {
+                if (typeof zoom !== 'undefined' && typeof svg !== 'undefined') {
+                    window.dispatchEvent(new Event('resize'));
+                }
+            }, 600);
+        }
+
+        // Forza render icone Lucide per Drawer
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, 500);
+        });
+    </script>
+
+    <!-- Global A11y Panel Toggle -->
+    <button id="a11y-panel-toggle" onclick="document.getElementById('a11y-panel').classList.toggle('hidden-panel')"
+        class="fixed top-6 right-6 bg-white p-3 rounded-full shadow-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 z-[999999]"
+        title="Strumenti Compensativi">
+        <i data-lucide="eye" class="w-6 h-6"></i>
+    </button>
+
+    <!-- A11y Panel per OpenDyslexic (Global) -->
+    <div id="a11y-panel" class="a11y-panel hidden-panel">
+        <span class="modal_section_title">Strumenti Visivi</span>
+        <button onclick="document.documentElement.classList.toggle('a11y-invert'); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
+        <button
+            onclick="document.documentElement.classList.toggle('a11y-low-contrast'); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="contrast" class="w-4 h-4"></i> Riduci Contrasti</button>
+        <button
+            onclick="document.documentElement.classList.toggle('a11y-high-contrast'); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
+        <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
+        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="btn_a11y_tool"><i
+                data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
+
+        <span class="modal_section_title mt-2">Strumenti di Lettura</span>
+        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="btn_a11y_tool"><i
+                data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
+        <button
+            onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
+            class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
+        <button id="btn-text-zoom-panel" onclick="window.cycleTextZoom()" class="btn_a11y_tool"><i data-lucide="zoom-in"
+                class="w-4 h-4"></i> Testo x1</button>
+    </div>
+
+    <!-- ==========================================
+         DEVELOPER DASHBOARD (PROMPT CONFIG)
+         ========================================== -->
+    <div id="admin-dashboard"
+        class="fixed inset-0 z-[1000000] hidden items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="p-4 bg-slate-800 text-white flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-5 h-5 text-emerald-400"></i> Developer Dashboard: System Prompts
+                </h2>
+                <button onclick="window.closeAdminDashboard()"
+                    class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Sidebar Liste Prompts -->
+                <div class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col h-full overflow-hidden">
+                    <div class="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl shrink-0">
+                        <button onclick="window.switchAdminTab('MINDMAPS')" data-tab="MINDMAPS"
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all bg-indigo-600 text-white shadow-sm">Mappe
+                            Mentali</button>
+                        <button onclick="window.switchAdminTab('KGRAPHS')" data-tab="KGRAPHS"
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Knowledge
+                            Graph</button>
+                        <button onclick="window.switchAdminTab('TUTOR')" data-tab="TUTOR"
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Tutor
+                            AI</button>
+                        <button onclick="window.switchAdminTab('STUDY')" data-tab="STUDY"
+                            class="admin-tab-btn flex-1 py-1.5 text-[8px] font-black uppercase tracking-wider rounded-lg transition-all text-slate-500 hover:bg-white">Studio</button>
+                    </div>
+
+                    <div class="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0">
+                        <h4 class="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-1">Fase di Lavoro
+                        </h4>
+                        <p id="admin-tab-explanation"
+                            class="text-[10px] text-slate-500 leading-relaxed font-medium italic">Seleziona un tab per
+                            vedere la spiegazione...</p>
+                    </div>
+
+                    <h3 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1">Prompts
+                        Disponibili</h3>
+                    <div id="admin-prompts-list" class="flex-1 overflow-y-auto pr-1 modal-scroll">
+                        <!-- Populated by JS -->
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-200 shrink-0">
+                        <button onclick="window.resetAllPrompts()"
+                            class="w-full py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center gap-2 text-xs">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> <span
+                                id="admin-btn-reset-all-label">Ripristina Tutti i Prompt</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Main Editor -->
+                <div class="w-2/3 p-6 flex flex-col bg-white">
+                    <h3 id="admin-prompt-title" class="text-xl font-bold text-slate-800 mb-1">Seleziona un prompt</h3>
+                    <p id="admin-prompt-desc" class="text-sm text-slate-500 mb-4 h-10 line-clamp-2">Le descrizioni
+                        appariranno qui.</p>
+
+                    <textarea id="admin-prompt-editor"
+                        class="flex-1 w-full bg-slate-900 text-emerald-400 font-mono text-sm p-4 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                        spellcheck="false" placeholder="Il testo del prompt..."></textarea>
+
+                    <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <div class="flex gap-2">
+                            <button onclick="window.testPrompt()"
+                                class="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2">
+                                <i data-lucide="flask-conical" class="w-4 h-4"></i> Test Prompt
+                            </button>
+                            <button onclick="window.resetCurrentPrompt()"
+                                class="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> <span
+                                    id="admin-btn-reset-label">Ripristina Default</span>
+                            </button>
+                        </div>
+                        <button onclick="window.saveCurrentPrompt()"
+                            class="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-md flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> Salva Modifiche
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- A/B Testing Area (Hidden by default) -->
+            <div id="admin-test-area" class="h-1/3 border-t border-slate-200 bg-slate-50 p-4 hidden flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-bold text-slate-700"><i data-lucide="bot" class="w-4 h-4 inline"></i> Test
+                        Output (Gemini)</h3>
+                    <button onclick="document.getElementById('admin-test-area').classList.add('hidden')"
+                        class="text-slate-400 hover:text-red-500">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="flex gap-4 h-full">
+                    <div class="w-1/3 flex flex-col gap-2">
+                        <label class="text-xs font-bold text-slate-500">Simula Input Utente/Testo:</label>
+                        <textarea id="admin-test-input"
+                            class="flex-1 border border-slate-300 rounded p-2 text-xs font-mono"></textarea>
+                        <button onclick="window.runAIPromptTest()"
+                            class="py-1 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700">Invia
+                            Test</button>
+                    </div>
+                    <div class="w-2/3">
+                        <textarea id="admin-test-output"
+                            class="w-full h-full border border-slate-300 rounded p-2 text-xs font-mono bg-white"
+                            readonly placeholder="Output del modello..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- LENTE DI INGRANDIMENTO -->
+    <div id="magnifier-lens">
+        <div id="magnifier-content"></div>
+    </div>
+    <script src="js/admin_prompts.js"></script>
+</body>
+
+</html>

@@ -32,9 +32,9 @@ let appState = {
     allProfiles: [],
     aiProvider: localStorage.getItem('ai_provider') || 'google',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
-    studentMode: true,
-    infomaniakAllModels: false,
-    multiPassMode: false
+    studentMode: false,
+    infomaniakAllModels: true,
+    multiPassMode: true
 };
 
 // ==========================================
@@ -46,10 +46,76 @@ const studentModeSecret = ['l', 'k', 'j', 'h'];
 let infomaniakProKeys = [];
 const infomaniakProSecret = ['m', 'n', 'b', 'v'];
 
+window.closeActiveModals = function () {
+    const modals = [
+        { id: 'config-ai-modal', close: () => window.closeConfigAIModal() },
+        { id: 'user-profile-modal', close: () => window.closeUserProfileModal() },
+        { id: 'app-guide-modal', close: () => window.closeAppGuide() },
+        { id: 'app-tutorial-modal', close: () => window.closeAppTutorial() },
+        { id: 'source-modal', close: () => window.closeSourceModal() },
+        { id: 'ai-modal', close: () => window.closeAIModal() },
+        { id: 'quiz-modal', close: () => window.closeQuizModal() },
+        { id: 'study-config-modal', close: () => window.closeStudyConfigModal() },
+        { id: 'study-player-modal', close: () => window.closeStudyPlayer() },
+        { id: 'contextual-ai-extension-modal', close: () => window.closeContextualAIModal() },
+        { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
+        { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
+        { id: 'validate-link-modal', close: () => window.closeValidateModal() },
+        {
+            id: 'api-tutorial-modal', close: () => {
+                const m = document.getElementById('api-tutorial-modal');
+                if (m) { m.classList.remove('flex'); m.classList.add('hidden'); }
+            }
+        },
+        {
+            id: 'merge-confirm-modal', close: () => {
+                if (typeof window.cancelMerge === 'function') window.cancelMerge();
+                else { const m = document.getElementById('merge-confirm-modal'); if (m) m.classList.add('hidden'); }
+            }
+        },
+        {
+            id: 'confirm-modal', close: () => {
+                const m = document.getElementById('confirm-modal');
+                if (m && !m.classList.contains('hidden')) {
+                    const cancelBtn = document.getElementById('confirm-cancel');
+                    if (cancelBtn) cancelBtn.click();
+                    else m.classList.add('hidden');
+                }
+            }
+        },
+        { id: 'image-lightbox', close: () => window.closeLightbox() },
+        {
+            id: 'admin-dashboard', close: () => {
+                if (typeof window.closeAdminDashboard === 'function') window.closeAdminDashboard();
+                else { const m = document.getElementById('admin-dashboard'); if (m) m.classList.add('hidden'); }
+            }
+        }
+    ];
+
+    modals.forEach(m => {
+        const el = document.getElementById(m.id);
+        if (el && !el.classList.contains('hidden') && el.style.display !== 'none') {
+            try {
+                m.close();
+            } catch (err) {
+                console.error(`Error closing modal ${m.id}:`, err);
+            }
+        }
+    });
+};
+
 document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const layoutModal = document.getElementById('layout-manager-modal');
+        if (layoutModal && !layoutModal.classList.contains('hidden')) {
+            window.showLayoutExitConfirmModal();
+            return;
+        }
+        window.closeActiveModals();
+    }
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
-        
+
         // Student Mode Handler
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
@@ -95,26 +161,78 @@ window.applyStudentModeUI = function () {
     const btnAudio = document.getElementById('btn-src-audio');
     const btnVideo = document.getElementById('btn-src-video');
 
-    const displayStyle = appState.studentMode ? 'none' : '';
+    const displayStyle = appState.studentMode ? 'none' : 'flex';
 
     if (btnUrl) btnUrl.style.display = displayStyle;
     if (btnYoutube) btnYoutube.style.display = displayStyle;
     if (btnAudio) btnAudio.style.display = displayStyle;
     if (btnVideo) btnVideo.style.display = displayStyle;
+
+    const setupForm = document.getElementById('setup-form');
+    if (setupForm) {
+        if (appState.studentMode) {
+            setupForm.classList.add('hidden');
+        } else {
+            setupForm.classList.remove('hidden');
+        }
+    }
+
+    const sidebarTabTutor = document.getElementById('sidebar-tab-tutor');
+    if (sidebarTabTutor) {
+        if (appState.studentMode) {
+            sidebarTabTutor.classList.add('hidden');
+            const panelTutor = document.getElementById('sidebar-panel-tutor');
+            if (panelTutor && !panelTutor.classList.contains('hidden')) {
+                window.switchSidebarTab('structure');
+            }
+        } else {
+            sidebarTabTutor.classList.remove('hidden');
+        }
+    }
+
+    const btnFlashcards = document.getElementById('btn-generate-flashcards');
+    const btnQuiz = document.getElementById('btn-generate-quiz');
+    if (btnFlashcards) {
+        if (appState.studentMode) {
+            btnFlashcards.classList.add('hidden');
+        } else {
+            btnFlashcards.classList.remove('hidden');
+        }
+    }
+    if (btnQuiz) {
+        if (appState.studentMode) {
+            btnQuiz.classList.add('hidden');
+        } else {
+            btnQuiz.classList.remove('hidden');
+        }
+    }
 };
 
 window.toggleStudentMode = function () {
     appState.studentMode = !appState.studentMode;
-    window.showToast(appState.studentMode ? "Modalità Studente (Testuale) ATTIVATA" : "Modalità Studente DISATTIVATA", "success");
+    // Mostra/Nascondi il setup-form e btn-config-ai in base allo stato
+    const setupForm = document.getElementById('setup-form');
+    const btnConfig = document.getElementById('btn-config-ai');
+
+    if (appState.studentMode) {
+        if (setupForm) setupForm.classList.add('hidden');
+        if (btnConfig) btnConfig.classList.add('hidden');
+        window.showToast("Generatore BLOCCATO! Modalità Studente attiva.", "info");
+    } else {
+        if (setupForm) setupForm.classList.remove('hidden');
+        if (btnConfig) btnConfig.classList.remove('hidden');
+        window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
+    }
+
     window.applyStudentModeUI();
 };
 
-window.setMultiPassMode = function (enabled) {
+window.setMultiPassMode = function (enabled, silent) {
     appState.multiPassMode = enabled;
-    
+
     const btnOff = document.getElementById('multipass-off');
     const btnOn = document.getElementById('multipass-on');
-    
+
     if (btnOff && btnOn) {
         if (enabled) {
             btnOn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
@@ -128,9 +246,28 @@ window.setMultiPassMode = function (enabled) {
             btnOn.classList.add('text-slate-400', 'hover:text-slate-600');
         }
     }
-    
-    window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
+
+    if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
+
+/**
+ * Vocabolario tipizzato per il campo "rel" nei Knowledge Graph.
+ * Usato come enum nello schema JSON (Google: enforcement nativo).
+ * Su Infomaniak lo schema non viene enforced, ma il vocabolario è comunque
+ * iniettato nel testo del prompt (VOCABOLARIO RELAZIONI nel template).
+ * Allineato al template KNOWLEDGE_GRAPH_SINGLE_IT.
+ */
+const KG_REL_ENUM = [
+    "causa", "provoca", "produce", "genera", "determina",
+    "richiede", "dipende da", "è condizione di",
+    "trasforma in", "porta a", "alimenta",
+    "si oppone a", "contrasta", "ostacola",
+    "precede", "segue", "deriva da",
+    "fa parte di", "comprende", "contiene", "appartiene a",
+    "è regolato da", "regola", "governa", "guida",
+    "utilizza", "catalizza", "avviene in", "è esempio di",
+    "rappresenta", "sostiene", "coinvolge", "permette"
+];
 
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
@@ -343,36 +480,36 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     btnOk.onclick = () => { cleanup(); onConfirm(input.value.trim()); };
 
     input.onkeydown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            cleanup(); 
-            onConfirm(input.value.trim()); 
+            cleanup();
+            onConfirm(input.value.trim());
         }
     };
 }
 
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
+    if (appState.studentMode) {
+        window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+        return;
+    }
     try {
         const m = document.getElementById('config-ai-modal');
         if (m) {
+            const productInput = document.getElementById('infomaniak-product-id');
+            if (productInput) productInput.value = appState.infomaniakProductId || '';
+            m.style.display = '';
             m.classList.remove('hidden');
-            m.style.display = 'flex';
+            m.classList.add('flex');
             window.safeCreateIcons();
-
-            // Initialize Product ID
-            const productIdInput = document.getElementById('infomaniak-product-id');
-            if (productIdInput) productIdInput.value = appState.infomaniakProductId;
-
-            // Sync UI with current provider
-            window.switchAIProvider(appState.aiProvider);
         }
-    } catch (e) { console.error('showConfigAIModal error:', e); }
+    } catch (e) { }
 };
 window.closeConfigAIModal = function () {
     try {
         const m = document.getElementById('config-ai-modal');
-        if (m) { m.style.display = 'none'; m.classList.add('hidden'); }
+        if (m) { m.style.display = ''; m.classList.remove('flex'); m.classList.add('hidden'); }
     } catch (e) { }
 };
 
@@ -404,7 +541,7 @@ window.toggleMagnifier = function () {
         magnifierLens.style.display = 'block';
         window.refreshMagnifier();
         document.addEventListener('mousemove', window.handleMagnifierMove);
-        
+
         // Sincronizza dinamicamente la lente con i cambiamenti della UI (es. apertura modali)
         magnifierObserver = new MutationObserver((mutations) => {
             let shouldRefresh = false;
@@ -412,7 +549,7 @@ window.toggleMagnifier = function () {
                 // Ignora i cambiamenti della lente stessa per evitare loop infiniti
                 if (m.target.id === 'magnifier-lens' || m.target.id === 'magnifier-content') continue;
                 if (m.target.closest && m.target.closest('#magnifier-lens')) continue;
-                
+
                 // Ignora aggiornamenti continui e leggeri (es. animazioni svg/d3, input testo rapido)
                 if (m.target.tagName === 'line' || m.target.tagName === 'circle' || m.target.tagName === 'path' || m.target.tagName === 'text') continue;
                 if (m.target.closest && m.target.closest('#d3-container') && m.attributeName === 'transform') continue;
@@ -421,7 +558,7 @@ window.toggleMagnifier = function () {
                 shouldRefresh = true;
                 break;
             }
-            
+
             if (shouldRefresh) {
                 clearTimeout(magnifierDebounceTimer);
                 magnifierDebounceTimer = setTimeout(() => {
@@ -429,13 +566,13 @@ window.toggleMagnifier = function () {
                 }, 300); // 300ms debounce per non bloccare la UI
             }
         });
-        
+
         // Osserva i cambiamenti rilevanti nel DOM
-        magnifierObserver.observe(document.body, { 
-            childList: true, 
-            subtree: true, 
-            attributes: true, 
-            attributeFilter: ['class', 'style'] 
+        magnifierObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
         });
 
     } else {
@@ -602,7 +739,7 @@ window.closeAppTutorial = function () {
 window.closeUserProfileModal = function () {
     try {
         const m = document.getElementById('user-profile-modal');
-        if (m) { m.style.display = 'none'; m.classList.add('hidden'); }
+        if (m) { m.style.display = ''; m.classList.remove('flex'); m.classList.add('hidden'); }
     } catch (e) { }
 };
 
@@ -632,11 +769,26 @@ window.switchSidebarTab = function (tab) {
     if (tab === 'notes') window.updateUserNotesSidebar();
 }
 
-// ── Tree View (Macro-areas / Super-hubs) ──────────────────────
+// Inizializza Set globale per i nodi collassati se non esiste
+window.collapsedTreeNodes = window.collapsedTreeNodes || new Set();
+
+window.toggleTreeCollapse = function (nodeId) {
+    if (window.collapsedTreeNodes.has(nodeId)) {
+        window.collapsedTreeNodes.delete(nodeId);
+    } else {
+        window.collapsedTreeNodes.add(nodeId);
+    }
+    window.renderTreeView();
+};
+
 window.renderTreeView = function () {
     const container = document.getElementById('tree-view-container');
     const titleEl = document.getElementById('tree-view-title');
     if (!container || !appState.db.nodes.length) return;
+
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const treeCollapseTitle = t.tree_collapse_expand || "Collassa/Espandi";
 
     const isMindmap = appState.extractionMode === 'mindmap';
     if (titleEl) titleEl.textContent = isMindmap ? 'Macro-aree' : 'Super-hub';
@@ -644,7 +796,7 @@ window.renderTreeView = function () {
     let rootNodes = [];
 
     if (isMindmap) {
-        // For mindmaps: show L1 nodes with their L2 children
+        // For mindmaps: show L1 nodes
         rootNodes = appState.db.nodes.filter(n => n.level === 1);
     } else {
         // For KG: find super-hubs (top N nodes by degree)
@@ -667,121 +819,373 @@ window.renderTreeView = function () {
         return;
     }
 
+    // Funzione helper per verificare se un nodo ha discendenti
+    function hasChildNodes(nodeId) {
+        const node = appState.db.nodes.find(n => n.id === nodeId);
+        if (!node) return false;
+        if (isMindmap) {
+            // Un nodo L1 ha figli se ci sono altri nodi con lo stesso gruppo nella mappa
+            return appState.db.nodes.some(n => n.group === node.group && n.id !== nodeId);
+        } else {
+            const hasDirectParentRef = appState.db.nodes.some(n => n.parent === nodeId);
+            if (hasDirectParentRef) return true;
+
+            return appState.db.links.some(l => {
+                const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                return sid === nodeId || tid === nodeId;
+            }) && appState.db.nodes.some(n => (n.parent === nodeId || appState.db.links.some(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                return (s === nodeId && t === n.id) || (t === nodeId && s === n.id);
+            })) && n.level === (appState.db.nodes.find(parent => parent.id === nodeId)?.level || 0) + 1);
+        }
+    }
+
     let html = '';
     rootNodes.forEach(rn => {
-        // Find children
-        let children = [];
-        if (isMindmap) {
-            // Children are L2 nodes connected to this L1
-            const childIds = new Set();
-            appState.db.links.forEach(l => {
-                const sid = typeof l.source === 'object' ? l.source.id : l.source;
-                const tid = typeof l.target === 'object' ? l.target.id : l.target;
-                if (sid === rn.id) childIds.add(tid);
-                if (tid === rn.id) childIds.add(sid);
-            });
-            children = appState.db.nodes.filter(n => childIds.has(n.id) && n.level === 2);
+        const isRootL1 = rn.level === 1;
+        const baseColor = (appState.db.customColors && appState.db.customColors[rn.group])
+            ? appState.db.customColors[rn.group]
+            : (colorScale[rn.group] || colorScale[rn.level !== undefined ? rn.level : 1] || '#4f46e5');
+        const mColor = (!isMindmap && !isRootL1) ? '#94a3b8' : baseColor; // slate-400 per hub non-L1 nel KG
+        const degreeInfo = !isMindmap ? ` <span class="text-[9px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${rn.degree} conn.)</span>` : '';
+
+        const hasKids = hasChildNodes(rn.id);
+        const isCollapsed = window.collapsedTreeNodes.has(rn.id);
+        const arrowIcon = isCollapsed ? 'chevron-right' : 'chevron-down';
+
+        html += `<div class="mb-1 w-full">`;
+        html += `<div class="w-full flex items-center rounded-lg hover:bg-indigo-50/50 group transition">`;
+        if (hasKids) {
+            html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="${treeCollapseTitle}">`;
+            html += `<i data-lucide="${arrowIcon}" class="w-3.5 h-3.5 flex-shrink-0"></i>`;
+            html += `</button>`;
         } else {
-            // For KG: connected nodes
-            const connIds = new Set();
-            appState.db.links.forEach(l => {
-                const sid = typeof l.source === 'object' ? l.source.id : l.source;
-                const tid = typeof l.target === 'object' ? l.target.id : l.target;
-                if (sid === rn.id) connIds.add(tid);
-                if (tid === rn.id) connIds.add(sid);
-            });
-            children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
+            html += `<div class="w-7.5 h-7.5 flex-shrink-0"></div>`;
         }
-
-        const statusColor = rn.studyStatus === 'done' ? 'text-emerald-500' :
-            rn.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-300';
-        const degreeInfo = !isMindmap ? ` <span class="text-[9px] text-indigo-400">(${rn.degree} conn.)</span>` : '';
-
-        html += `<div class="mb-1">`;
-        html += `<button onclick="window.zoomToNode('${rn.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1.5 px-2 rounded-lg hover:bg-indigo-50 transition flex items-center gap-2 group">`;
-        html += `<i data-lucide="circle-dot" class="w-3 h-3 ${statusColor} flex-shrink-0"></i>`;
-        html += `<span class="text-xs font-bold text-slate-700 group-hover:text-indigo-600 truncate">${rn.label}${degreeInfo}</span>`;
+        html += `<div class="flex-grow py-1.5 pr-2 flex items-center gap-2 truncate text-left">`;
+        if (hasKids) {
+            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 flex-shrink-0 cursor-pointer hover:scale-125 transition" style="color: ${mColor}; stroke: ${mColor}; fill: ${mColor};" title="${treeCollapseTitle}"></i>`;
+        } else {
+            html += `<i data-lucide="circle" class="w-3 h-3 flex-shrink-0" style="color: ${mColor}; stroke: ${mColor}; fill: ${mColor};"></i>`;
+        }
+        html += `<button onclick="window.onSidebarNodeClick(event, '${rn.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${rn.id.replace(/'/g, "\\'")}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
+        html += `${rn.label}${degreeInfo}`;
         html += `</button>`;
+        html += `</div>`;
+        html += `</div>`;
 
-        if (children.length > 0) {
-            html += `<div class="ml-5 pl-2 border-l-2 border-slate-200/60 space-y-0.5">`;
-            children.forEach(c => {
-                const cStatus = c.studyStatus === 'done' ? 'text-emerald-400' :
-                    c.studyStatus === 'review' ? 'text-amber-400' : 'text-slate-200';
-                html += `<button onclick="window.zoomToNode('${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
-                html += `<i data-lucide="minus" class="w-2.5 h-2.5 ${cStatus} flex-shrink-0"></i>`;
-                html += `<span class="text-[10px] text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
-                html += `</button>`;
-            });
-            html += `</div>`;
+        if (isMindmap) {
+            // Per mappe mentali, renderizza i figli piatti se non collassato
+            if (!isCollapsed) {
+                const children = appState.db.nodes
+                    .filter(n => n.group === rn.group && n.id !== rn.id && n.level > 1 && n.level <= 5)
+                    .sort((a, b) => (a.level || 0) - (b.level || 0));
+
+                if (children.length > 0) {
+                    html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
+                    children.forEach(c => {
+                        const cColor = (appState.db.customColors && appState.db.customColors[c.group])
+                            ? appState.db.customColors[c.group]
+                            : (colorScale[c.group] || colorScale[c.level !== undefined ? c.level : 1] || '#4f46e5');
+
+                        html += `<div class="w-full flex items-center rounded hover:bg-slate-50 group transition">`;
+                        html += `<div class="w-5 h-5 flex-shrink-0"></div>`; // no chevron button for flat child
+                        html += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
+                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
+                        html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+                        html += `<span class="font-semibold text-indigo-400 mr-1">L${c.level}</span> ${c.label}`;
+                        html += `</button>`;
+                        html += `</div>`;
+                        html += `</div>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+        } else {
+            // Per KG, mostra un livello di nodi connessi (max 6)
+            if (!isCollapsed) {
+                const connIds = new Set();
+                appState.db.links.forEach(l => {
+                    const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                    const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (sid === rn.id) connIds.add(tid);
+                    if (tid === rn.id) connIds.add(sid);
+                });
+                const children = appState.db.nodes.filter(n => connIds.has(n.id) && n.id !== rn.id).slice(0, 6);
+                if (children.length > 0) {
+                    html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
+                    children.forEach(c => {
+                        html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
+                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
+                        html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
+                        html += `</button>`;
+                    });
+                    html += `</div>`;
+                }
+            }
         }
         html += `</div>`;
     });
 
     container.innerHTML = html;
+    setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
+};
 
-    // Aggiorna anche la lista macro-aree in fondo se presente
-    const macroContainer = document.getElementById('macro-areas-container');
-    if (macroContainer) {
-        macroContainer.innerHTML = "";
-        const macroNodes = appState.db.nodes.filter(n => n.level === 1);
-        if (macroNodes.length === 0) {
-            macroContainer.innerHTML = '<p class="text-[10px] text-slate-400 italic">Nessuna macro-area definita.</p>';
-        } else {
-            macroNodes.forEach(n => {
-                const div = document.createElement('div');
-                div.className = "p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition flex items-center gap-2 group";
-                div.onclick = () => window.handleNodeClick({ stopPropagation: () => { } }, n);
-                let mColor = (appState.db.customColors && appState.db.customColors[n.group])
-                    ? appState.db.customColors[n.group]
-                    : (colorScale[n.group] || '#4f46e5');
-                div.innerHTML = `
-                            <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${mColor}"></div>
-                            <span class="text-[11px] font-bold text-slate-600 group-hover:text-indigo-600 transition truncate">${n.label}</span>
-                        `;
-                macroContainer.appendChild(div);
+let sidebarClickTimeout = null;
+window.onSidebarNodeClick = function (event, nodeId) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    if (sidebarClickTimeout) {
+        clearTimeout(sidebarClickTimeout);
+        sidebarClickTimeout = null;
+        return;
+    }
+    sidebarClickTimeout = setTimeout(() => {
+        sidebarClickTimeout = null;
+        window.executeSidebarSingleClick(nodeId);
+    }, 250);
+};
+
+window.onSidebarNodeDblClick = function (event, nodeId) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    if (sidebarClickTimeout) {
+        clearTimeout(sidebarClickTimeout);
+        sidebarClickTimeout = null;
+    }
+    const node = appState.db.nodes.find(n => n.id === nodeId);
+    if (node) {
+        window.handleNodeClick({ stopPropagation: () => { } }, node);
+    }
+};
+
+window.zoomToFitNodes = function (nodeList) {
+    if (typeof svg === 'undefined' || !svg || typeof zoom === 'undefined' || !zoom || !nodeList || nodeList.length === 0) return;
+
+    const validNodes = nodeList.filter(n => n.x !== undefined && n.y !== undefined && !isNaN(n.x) && !isNaN(n.y));
+    if (validNodes.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    validNodes.forEach(n => {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+    });
+
+    const boxWidth = maxX - minX;
+    const boxHeight = maxY - minY;
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    const svgEl = document.getElementById("map-svg");
+    const width = svgEl ? svgEl.clientWidth || 800 : 800;
+    const height = svgEl ? svgEl.clientHeight || 600 : 600;
+
+    const padding = 100;
+    const scaleX = (width - padding * 2) / (boxWidth || 1);
+    const scaleY = (height - padding * 2) / (boxHeight || 1);
+    let scale = Math.min(scaleX, scaleY);
+    scale = Math.max(0.4, Math.min(1.5, scale));
+
+    const tx = -centerX * scale;
+    const ty = -centerY * scale;
+
+    svg.transition().duration(850).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+};
+
+window.executeSidebarSingleClick = function (nodeId) {
+    const node = appState.db.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const isMindmap = appState.extractionMode === 'mindmap';
+    const rootNode = appState.db.nodes.find(n => n.level === 0 || n.isRoot);
+
+    // Funzione interna per trovare il genitore di livello 1 (macro-area) per qualsiasi nodo
+    function getL1ParentNode(n) {
+        if (!n) return null;
+        if (n.level === 1) return n;
+        if (n.level === 0) return null;
+
+        let current = n;
+        let limit = 0;
+        while (current && current.level > 1 && limit < 15) {
+            limit++;
+            let parent = null;
+            appState.db.links.forEach(l => {
+                const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                if (sid === current.id) {
+                    const conn = appState.db.nodes.find(nodeItem => nodeItem.id === tid);
+                    if (conn && conn.level < current.level) parent = conn;
+                }
+                if (tid === current.id) {
+                    const conn = appState.db.nodes.find(nodeItem => nodeItem.id === sid);
+                    if (conn && conn.level < current.level) parent = conn;
+                }
             });
+            if (parent) {
+                current = parent;
+            } else {
+                break;
+            }
         }
+        return current.level === 1 ? current : null;
     }
 
-    setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
-}
+    // Funzione interna per raccogliere tutti i nodi discendenti (per MM usa il codice colore/gruppo)
+    function getDescendantIds(startNodeId) {
+        const descendants = new Set();
+        const startNode = appState.db.nodes.find(n => n.id === startNodeId);
+        if (!startNode) return descendants;
+
+        if (isMindmap) {
+            // Per mappe mentali, raccogliamo tutti i nodi con lo stesso gruppo (escluso il nodo stesso)
+            appState.db.nodes.forEach(n => {
+                if (n.group === startNode.group && n.id !== startNodeId) {
+                    descendants.add(n.id);
+                }
+            });
+        } else {
+            // Per KG, manteniamo la traversata classica
+            const queue = [startNodeId];
+            let limit = 0;
+            while (queue.length > 0 && limit < 500) {
+                limit++;
+                const currentId = queue.shift();
+                appState.db.links.forEach(l => {
+                    const sid = typeof l.source === 'object' ? l.source.id : l.source;
+                    const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (sid === currentId && !descendants.has(tid)) {
+                        const targetNode = appState.db.nodes.find(nodeItem => nodeItem.id === tid);
+                        const currentNode = appState.db.nodes.find(nodeItem => nodeItem.id === currentId);
+                        if (targetNode && currentNode && targetNode.level > currentNode.level) {
+                            descendants.add(tid);
+                            queue.push(tid);
+                        }
+                    }
+                    if (tid === currentId && !descendants.has(sid)) {
+                        const sourceNode = appState.db.nodes.find(nodeItem => nodeItem.id === sid);
+                        const currentNode = appState.db.nodes.find(nodeItem => nodeItem.id === currentId);
+                        if (sourceNode && currentNode && sourceNode.level > currentNode.level) {
+                            descendants.add(sid);
+                            queue.push(sid);
+                        }
+                    }
+                });
+            }
+        }
+        return descendants;
+    }
+
+    // Trova la macro-area (L1) corrispondente al nodo cliccato
+    let macroNode = node;
+    if (isMindmap) {
+        const parentL1 = getL1ParentNode(node);
+        if (parentL1) macroNode = parentL1;
+    }
+
+    // Costruisci il set di nodi evidenziati (ROOT + L1 della macroarea + tutti i discendenti L2, L3, L4, L5)
+    const highlightedIds = new Set();
+    if (rootNode) highlightedIds.add(rootNode.id);
+
+    if (macroNode) {
+        highlightedIds.add(macroNode.id);
+        const descendants = getDescendantIds(macroNode.id);
+        descendants.forEach(id => highlightedIds.add(id));
+    }
+
+    // Applica l'effetto dimmed escludendo la macro-area intera e il ROOT
+    if (typeof g !== 'undefined' && g) {
+        g.selectAll(".node-group").classed("dimmed", n => !highlightedIds.has(n.id)).classed("highlighted", n => highlightedIds.has(n.id));
+        g.selectAll(".link-group").classed("dimmed", l => {
+            const sid = typeof l.source === 'object' ? l.source.id : l.source;
+            const tid = typeof l.target === 'object' ? l.target.id : l.target;
+            // Un link non è dimmed se collega due nodi entrambi evidenziati
+            return !(highlightedIds.has(sid) && highlightedIds.has(tid));
+        });
+    }
+
+    // Calcola il framing perfetto inquadrando tutti i nodi della macro-area e il ROOT
+    const nodesToFit = appState.db.nodes.filter(n => highlightedIds.has(n.id));
+    window.zoomToFitNodes(nodesToFit);
+
+    // Esegue il click singolo aggiornando la sidebar ma SENZA zoomare sul singolo nodo o aprire il modale
+    window.handleNodeClick({ stopPropagation: () => { } }, node, true, true);
+};
 
 // Modal functions moved to top section
 
 // ── Curated model knowledge base ──────────────────────
 // Maps model ID patterns to capabilities, pricing, and categories.
 // Capabilities: pdf, url, youtube (video), audio, text, json (structured output)
+// IMPORTANTE: le chiavi PIÙ SPECIFICHE (più lunghe) vanno prima di quelle generiche.
+// matchModelKB usa prefix-match — "gemini-2.5-flash-lite" deve precedere "gemini-2.5-flash"
+// altrimenti flash-lite verrebbe riconosciuto come flash (match sbagliato).
 const MODEL_KB = {
-    // ── Gemini 3 series ──
-    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship, massima qualità' },
-    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Ottimo rapporto qualità/prezzo' },
-    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Ultra-economico' },
-    // ── Gemini 2.5 series ──
-    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning' },
-    'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Più economico di tutti' },
-    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato' },
-    // ── Gemini 2.0 series ──
-    'gemini-2.0-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Versatile e gratuito' },
-    'gemini-2.0-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, note: 'Leggero' },
-    // ── Gemini 1.5 series ──
-    'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, note: 'Stabile, legacy' },
-    'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Potente, legacy' },
+    // ── Gemini 3.5 (testato 2/6/26 — JSON fix applicato) ──
+    'gemini-3.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.5 · KG da testare' },
+    // ── Gemini 3.1 ──
+    'gemini-3.1-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density ~1.9, MM ok (test 2/6/26)' },
+    'gemini-3.1-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Flagship 3.1 (preview)' },
+    // ── Gemini 3.0 ──
+    'gemini-3-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.0 (preview)' },
+    'gemini-3-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 2.00, outputCost: 12.00, free: false, note: 'Pro 3.0 (preview)' },
+    // ── Gemini 2.5 — flash-lite PRIMA di flash (prefix più specifico) ──
+    'gemini-2.5-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'KG density 1.59, 41 nodi, 43% cross-link (test 2/6/26)' },
+    'gemini-2.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Veloce con reasoning · da testare KG' },
+    'gemini-2.5-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 10.00, free: false, note: 'Reasoning avanzato · da testare KG' },
+    // ── Alias senza versione (-latest) ──
+    'gemini-flash-lite': { tier: '🟢 Economico', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, note: 'Alias flash-lite-latest (KG ~1.9, test 2/6/26)' },
+    'gemini-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.15, outputCost: 0.60, free: true, note: 'Alias gemini-flash-latest' },
+    'gemini-pro': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, note: 'Alias gemini-pro-latest' },
+    // ── Deprecated (nascosti nel dropdown) ──
+    'gemini-2.0-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.10, outputCost: 0.40, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
+    'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
+    'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
+    'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
     // ── Infomaniak (Limit to Google/Gemma) ──
-    'gemma-4': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma 4)' },
-    'gemma': { tier: '🇨🇭 Google Made', caps: ['text', 'json'], inputCost: 0, outputCost: 0, free: false, note: 'Infomaniak Cloud (Gemma)' },
+    'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
+    'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa google/gemma-4 (versione specifica)' },
+    'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
+    'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa gemma-4 (versione specifica)' },
+    'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
 function matchModelKB(modelId) {
+    if (!modelId) return null;
     const id = modelId.toLowerCase().replace('models/', '');
-    // Try exact prefix match first
-    for (const pattern of Object.keys(MODEL_KB)) {
+
+    // 1. Try to find in currently available models (stored in localStorage)
+    const isInfomaniak = (window.appState && window.appState.aiProvider === 'infomaniak');
+    const storageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+    const savedModelsStr = localStorage.getItem(storageKey);
+    if (savedModelsStr) {
+        try {
+            const savedModels = JSON.parse(savedModelsStr);
+            const found = savedModels.find(m => m.id.toLowerCase() === modelId.toLowerCase() || m.id.toLowerCase().replace('models/', '') === id);
+            if (found && found.kb) {
+                return found.kb;
+            }
+        } catch (e) {
+            console.error("Error parsing saved models from localStorage:", e);
+        }
+    }
+
+    // 2. Prefix match — ordina per lunghezza decrescente: pattern più specifici prima.
+    // Es: "gemini-2.5-flash-lite" deve matchare PRIMA di "gemini-2.5-flash".
+    const kbPatterns = Object.keys(MODEL_KB).sort((a, b) => b.length - a.length);
+    for (const pattern of kbPatterns) {
         if (id.startsWith(pattern)) return MODEL_KB[pattern];
     }
-    // Fuzzy: strip preview/exp suffixes and try again
+    // 3. Fuzzy: strip preview/exp/latest e riprova con lo stesso ordine
     const base = id.replace(/-preview.*$/, '').replace(/-exp.*$/, '').replace(/-latest$/, '');
-    for (const pattern of Object.keys(MODEL_KB)) {
+    for (const pattern of kbPatterns) {
         if (base.startsWith(pattern) || base === pattern) return MODEL_KB[pattern];
     }
 
@@ -840,6 +1244,12 @@ function renderModelSelect(models, selectEl, currentValue) {
 
     tierOrder.forEach(tier => {
         if (!groups[tier] || groups[tier].length === 0) return;
+        // Stabili prima di preview/exp — l'API restituisce spesso varianti multiple
+        groups[tier].sort((a, b) => {
+            const stableA = (a.id.includes('preview') || a.id.includes('exp') ? 0 : 1);
+            const stableB = (b.id.includes('preview') || b.id.includes('exp') ? 0 : 1);
+            return stableB - stableA;
+        });
         const optgroup = document.createElement('optgroup');
         optgroup.label = tier;
         groups[tier].forEach(m => {
@@ -891,6 +1301,7 @@ window.refreshGeminiModels = async function () {
             statusEl.innerText = "Attesa inserimento API Key...";
             statusEl.classList.remove('hidden');
         }
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -901,6 +1312,7 @@ window.refreshGeminiModels = async function () {
             if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
             window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
             if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
             return;
         }
     }
@@ -925,20 +1337,21 @@ window.refreshGeminiModels = async function () {
             rawModels = await window.electronAPI.listModels({ apiKey });
         }
 
-        if (!rawModels || rawModels.length === 0) {
-            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello trovato</option>';
-            if (statusEl) statusEl.innerText = "Nessun modello trovato.";
+        if (!rawModels || rawModels.error || !Array.isArray(rawModels)) {
+            const errMsg = (rawModels && rawModels.error) ? rawModels.error : "Risposta non valida o errore di connessione.";
+            if (selectEl) selectEl.innerHTML = `<option value="">Errore: ${errMsg}</option>`;
+            if (statusEl) statusEl.innerText = `Errore: ${errMsg}`;
             return;
         }
 
         let filteredModels = [];
         if (isInfomaniak) {
-            // Include only Google models (Gemma) unless Pro mode is active
+            // Default (All Models): mostra tutto eccetto embed. Modalità BETA: solo Gemma/Apertus.
             filteredModels = rawModels.filter(m => {
                 const id = m.id.toLowerCase();
                 if (id.includes('embed')) return false;
-                if (appState.infomaniakAllModels) return true; // Pro mode shows everything
-                return (id.includes('gemma') || id.includes('google'));
+                if (appState.infomaniakAllModels) return true;
+                return (id.includes('gemma') || id.includes('google') || id.includes('apertus'));
             });
         } else {
             // Filter out unsupported models for Gemini
@@ -946,7 +1359,10 @@ window.refreshGeminiModels = async function () {
             filteredModels = rawModels.filter(m => {
                 const id = m.id.toLowerCase();
                 if (excludePatterns.some(p => id.includes(p))) return false;
-                if (!id.includes('gemini')) return false; // Ensure it's a Gemini LLM
+                if (!id.includes('gemini')) return false;
+                // Escludi modelli marcati deprecated nel KB (discontinued o legacy nascosto)
+                const kb = matchModelKB(m.id);
+                if (kb && kb.deprecated) return false;
                 return true;
             });
         }
@@ -1007,6 +1423,7 @@ function updateModelCapabilities() {
     if (!kb) {
         capsEl.innerHTML = '';
         capsEl.classList.add('hidden');
+        if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
         return;
     }
 
@@ -1029,17 +1446,62 @@ function updateModelCapabilities() {
                     <span class="text-[10px] text-slate-400 italic">${kb.note}</span>
                 </div>`;
     capsEl.classList.remove('hidden');
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
 }
 
 // Funzioni sicure per il processing delle stringhe multilinea
 function cleanLabel(str) {
     if (!str) return "";
-    return String(str).split('\\n').join('\n').trim();
+    let s = String(str).split('\\n').join('\n').trim();
+
+    // Normalizza apostrofi e virgolette tipografiche → ASCII.
+    // Evita problemi di encoding PDF (jsPDF non codifica correttamente U+2018/U+2019)
+    // e garantisce coerenza del testo (es. ''89' non diventa 'SQ' nel PDF).
+    s = s.replace(/[‘’‛ʼ]/g, "'")  // ' ' ‛ ʼ → '
+        .replace(/[“”‟]/g, '"');        // " " ‟ → "
+
+    // Rimuove decorazioni markdown che alcuni modelli (es. Mistral) iniettano
+    // nelle label: grassetto/corsivo, marcatori di lista/heading, virgolette enfatiche.
+    // 1. Grassetto/corsivo markdown che avvolge tutta la label: **x**, *x*, __x__, _x_
+    s = s.replace(/^(\*\*|__)(.+?)\1$/, '$2').replace(/^(\*|_)(.+?)\1$/, '$2');
+    // 2. Marcatori di lista/heading/citazione a inizio label: + * - # >
+    s = s.replace(/^[\s>#*+\-]+/, '');
+    // 3. Marcatori markdown residui a fine label: ** * _
+    s = s.replace(/(\*\*|__|\*|_)+$/, '');
+    // 4. Grassetto markdown INLINE in mezzo alla label: (**Data**: x) -> (Data: x)
+    s = s.replace(/(\*\*|__)(.+?)\1/g, '$2');
+    // 5. Virgolette (dritte o tipografiche) che avvolgono l'intera label
+    s = s.replace(/^["'«»“”„](.+?)["'«»“”„]$/, '$1');
+    // 6. Marcatore "..." o "…" residuo a fine label (troncamento del modello)
+    s = s.replace(/[\s.…]*(\.{3}|…)\s*$/, '');
+    // 7. Liste enumerate tra parentesi nei label L1 (artefatto AI con lenses attive):
+    //    "Figure Chiave (Stalin, Churchill, Tito, ...)" → "Figure Chiave"
+    //    Attivato solo se la parentesi contiene almeno una virgola (è una lista, non un'espressione).
+    s = s.replace(/\s*\([^)]*,[^)]*\)\s*/g, '').trim();
+
+    return s.trim();
 }
 
 function getLabelLines(str) {
     if (!str) return [];
     return String(str).split('\n');
+}
+
+/**
+ * Se una label inizia con una data (4 cifre o abbreviazione 'NN o NN),
+ * restituisce { date, name }. Altrimenti null.
+ * Esempi: "1989 Caduta Muro" → {date:"1989", name:"Caduta Muro"}
+ *         "'89-'90 Transizione" → {date:"'89-'90", name:"Transizione"}
+ */
+function extractDateFromLabel(label) {
+    if (!label) return null;
+    // Forma lunga: 1989 o 1980-1989 o 1980–1989
+    const m4 = label.match(/^(\d{4}(?:\s*[-–]\s*\d{4})?)\s+(.+)/);
+    if (m4) return { date: m4[1].trim(), name: m4[2].trim() };
+    // Forma breve italiana: '89 o '80-'89
+    const m2 = label.match(/^('[0-9]{2}(?:\s*[-–]\s*'?[0-9]{2})?)\s+(.+)/);
+    if (m2) return { date: m2[1].trim(), name: m2[2].trim() };
+    return null;
 }
 
 function stripHTML(html) {
@@ -1080,9 +1542,29 @@ window.getSystemKey = function () {
     const inputEl = document.getElementById(inputId);
     let key = inputEl ? inputEl.value.trim() : "";
     if (!key || key === "") {
-        key = localStorage.getItem(storageKey) || "";
+        key = (window.secureKeys && window.secureKeys[storageKey]) || localStorage.getItem(storageKey) || "";
     }
     return key;
+};
+
+// Restituisce il maxOutputTokens ottimale per il modello attivo.
+// Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
+// output più lunghi — scala il budget per evitare troncamenti.
+window.getMaxOutputTokens = function (baseTokens) {
+    const modelEl = document.getElementById('model-select');
+    const model = (modelEl ? modelEl.value : '').toLowerCase();
+    if (appState.aiProvider === 'infomaniak') {
+        if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
+            return Math.max(baseTokens, 16384);
+        }
+        return baseTokens;
+    }
+    // Gemini 2.5+ e 3.x sono più verbosi nelle descrizioni e nei chunk —
+    // raddoppia il budget, cap 16384, per evitare "Unexpected end of JSON".
+    if (model.includes('gemini-2.5') || model.includes('gemini-3')) {
+        return Math.min(baseTokens * 2, 16384);
+    }
+    return baseTokens;
 };
 
 window.fetchModelAPI = async function (payload, apiKey) {
@@ -1137,56 +1619,157 @@ window.fetchModelAPI = async function (payload, apiKey) {
 
 window.updateCostDisplay = function () {
     if (!appState.generationUsage) return;
-    const promptPrice = 0.10 / 1000000; // $ per token input (Flash 2.0)
-    const candidatePrice = 0.40 / 1000000; // $ per token output
+
+    const modelEl = document.getElementById('model-select');
+    const modelId = modelEl ? modelEl.value : '';
+    const kb = matchModelKB(modelId);
+
+    let promptPrice = 0.10 / 1000000;
+    let candidatePrice = 0.40 / 1000000;
+
+    if (kb) {
+        promptPrice = kb.inputCost / 1000000;
+        candidatePrice = kb.outputCost / 1000000;
+    }
 
     const cost = (appState.generationUsage.promptTokens * promptPrice) + (appState.generationUsage.candidateTokens * candidatePrice);
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
 
     const costEl = document.getElementById('total-cost-display');
     const tokenEl = document.getElementById('total-tokens-display');
 
-    if (costEl) costEl.textContent = '$' + cost.toFixed(4);
+    if (costEl) {
+        if (isInfomaniak) {
+            costEl.textContent = cost.toFixed(4) + ' CHF';
+        } else {
+            const costInCents = cost * 100;
+            costEl.textContent = costInCents.toFixed(2) + ' ¢';
+        }
+    }
     if (tokenEl) tokenEl.textContent = appState.generationUsage.totalTokens.toLocaleString();
-    const modelEl = document.getElementById('used-model-display');
-    if (modelEl && appState.generationUsage.usedModel) modelEl.textContent = appState.generationUsage.usedModel;
-}
+    const usedModelEl = document.getElementById('used-model-display');
+    if (usedModelEl && appState.generationUsage.usedModel) usedModelEl.textContent = appState.generationUsage.usedModel;
+};
 
 window.updateTokenCounter = function () {
-    const container = document.getElementById('token-counter-container');
-    const display = document.getElementById('token-count');
-    if (!container || !display) return;
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
+};
 
+window.updateTokenCostEstimator = function () {
+    const modelSelect = document.getElementById('model-select');
+    const tokensValEl = document.getElementById('estimator-tokens');
+    const costValEl = document.getElementById('estimator-cost');
+    const progressEl = document.getElementById('estimator-progress');
+    if (!tokensValEl || !costValEl || !progressEl) return;
+
+    const selectedModel = modelSelect ? modelSelect.value : '';
+    if (!selectedModel) {
+        tokensValEl.textContent = '0 / -- token';
+        costValEl.textContent = '--';
+        progressEl.style.width = '0%';
+        return;
+    }
+
+    // 1. Get model specs
+    const kb = matchModelKB(selectedModel) || { free: true, inputCost: 0, outputCost: 0 };
+
+    // Determine context window
+    let maxContext = 1048576; // Default to 1M
+    const modelIdLower = selectedModel.toLowerCase();
+
+    if (appState.aiProvider === 'infomaniak') {
+        if (modelIdLower.includes('apertus')) {
+            maxContext = 65536;        // Apertus-70B: 65K
+        } else if (modelIdLower.includes('gemma')) {
+            maxContext = 100000;       // Gemma 4 31B: 100K
+        } else if (modelIdLower.includes('qwen')) {
+            maxContext = 200000;       // Qwen3.5-122B: 200K
+        } else if (modelIdLower.includes('kimi') || modelIdLower.includes('moonshot')) {
+            maxContext = 256000;       // Kimi-K2.6: 256K
+        } else if (modelIdLower.includes('llama-3') || modelIdLower.includes('mixtral') || modelIdLower.includes('mistral')) {
+            maxContext = 32768;
+        } else {
+            maxContext = 32768;        // fallback conservativo
+        }
+    } else {
+        if (modelIdLower.includes('gemma')) {
+            maxContext = 8192;
+        } else if (modelIdLower.includes('pro')) {
+            maxContext = 2097152; // 2M
+        } else if (modelIdLower.includes('flash')) {
+            maxContext = 1048576; // 1M
+        }
+    }
+
+    // 2. Count input tokens
     let totalChars = 0;
-
     // Sum contents from textarea sources
     const textareas = document.querySelectorAll('.landing-textarea');
     textareas.forEach(ta => {
         totalChars += ta.value.length;
     });
-
-    // Sum contents from appState (extracted from files/urls)
+    // Sum contents from appState (extracted files/urls)
     if (appState.sources) {
         appState.sources.forEach(s => {
             if (s.content) totalChars += s.content.length;
         });
     }
+    const inputTokens = Math.ceil(totalChars / 4);
 
-    if (totalChars > 0) {
-        container.classList.remove('hidden');
-        // Heuristic: ~4 chars per token
-        const tokens = Math.ceil(totalChars / 4);
-        display.innerText = tokens.toLocaleString() + ' Tokens (stima)';
-
-        // Visual feedback based on size
-        if (tokens > 30000) {
-            display.classList.add('text-rose-600', 'border-rose-200');
-            display.classList.remove('text-indigo-600', 'border-indigo-100');
-        } else {
-            display.classList.remove('text-rose-600', 'border-rose-200');
-            display.classList.add('text-indigo-600', 'border-indigo-100');
-        }
+    // 3. Estimate output tokens based on MM or KG and depth/branches/nodes
+    const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
+    let outputTokens = 0;
+    if (mode === 'mindmap') {
+        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+        // MM formula: N_nodes = 20 + maxBranches * 5
+        const nNodes = 20 + branchesVal * 5;
+        outputTokens = nNodes * 120;
     } else {
-        container.classList.add('hidden');
+        const kgNodesVal = parseInt(document.getElementById('kg-nodes-slider')?.value || '20', 10);
+        // KG formula: N_nodes = kgNodes
+        outputTokens = kgNodesVal * 150;
+    }
+
+    // 4. Calculate cost in cents
+    let costDisplay = '';
+    const isFree = kb.free || (kb.inputCost === 0 && kb.outputCost === 0);
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+    const freeText = t.estimator_free || (lang === 'en' ? 'Free (Free Tier)' : 'Gratuito (Piano Free)');
+
+    if (isFree) {
+        costDisplay = freeText;
+    } else {
+        // Cost per 1M tokens * (tokens / 1M) -> cost in dollars * 100 -> cost in cents
+        const inputCostDollars = (inputTokens / 1000000) * kb.inputCost;
+        const outputCostDollars = (outputTokens / 1000000) * kb.outputCost;
+        const totalCostCents = (inputCostDollars + outputCostDollars) * 100;
+
+        if (totalCostCents < 0.01) {
+            costDisplay = `<0.01 ¢`;
+        } else {
+            costDisplay = `${totalCostCents.toFixed(2)} ¢`;
+        }
+    }
+
+    // 5. Update UI
+    tokensValEl.textContent = `${inputTokens.toLocaleString()} / ${maxContext.toLocaleString()} token`;
+    costValEl.textContent = costDisplay;
+
+    // Progress bar calculation
+    const progressPercent = Math.min((inputTokens / maxContext) * 100, 100);
+    progressEl.style.width = `${progressPercent}%`;
+
+    // Colors: green (<50%), yellow (50-80%), red (>80%)
+    progressEl.className = 'h-full transition-all duration-500 rounded-full';
+    if (progressPercent < 50) {
+        progressEl.classList.add('bg-emerald-500');
+    } else if (progressPercent < 80) {
+        progressEl.classList.add('bg-amber-500');
+    } else {
+        progressEl.classList.add('bg-rose-500');
     }
 };
 
@@ -1258,10 +1841,7 @@ window.handleUrlBlur = function (input) {
 }
 
 window.handleSourceAutofill = function (name) {
-    if (!name) return;
-    // Rimuovi estensione
-    const cleanName = name.replace(/\.[^/.]+$/, "");
-    window.addL1Input(cleanName);
+    // autofill nome file disabilitato
 }
 
 window.removeSource = function (id) {
@@ -1394,7 +1974,11 @@ window.startGeneration = async function () {
     const inputKey = document.getElementById(inputId) ? document.getElementById(inputId).value.trim() : "";
 
     if (inputKey !== "") {
-        localStorage.setItem(storageKey, inputKey);
+        if (window.saveSecureKey) {
+            window.saveSecureKey(storageKey, inputKey);
+        } else {
+            localStorage.setItem(storageKey, inputKey);
+        }
     }
 
     const apiKey = window.getSystemKey();
@@ -1408,19 +1992,30 @@ window.startGeneration = async function () {
         window.showToast("Inserisci il nome del nodo centrale per la mappa.", "error");
         return;
     }
-    // For KG: fallback to keywords or focus if root name is empty
+    // Per KG: rootName opzionale — se vuoto, usa focus-input o nome primo PDF come titolo
     if (appState.extractionMode !== 'mindmap' && !rootName) {
-        const kgKeywords = document.getElementById('kg-keywords-input')?.value.trim();
         const focusVal = document.getElementById('focus-input')?.value.trim();
-        rootName = kgKeywords || focusVal || '';
-        if (!rootName) {
-            window.showToast("Inserisci l'oggetto dello studio o le keyword nel campo Guida AI.", "error");
-            return;
+        if (focusVal) {
+            rootName = focusVal;
+        } else {
+            // Ultimo fallback: nome del primo file caricato
+            const firstSrc = appState.sources && appState.sources[0];
+            if (firstSrc && firstSrc.file && firstSrc.file.name) {
+                rootName = firstSrc.file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+            } else {
+                rootName = '';
+            }
         }
     }
 
     appState.rootNodeLabel = rootName;
-    appState.focusTopic = document.getElementById('focus-input')?.value.trim();
+
+    // Leggi focus + lenses combinate
+    if (typeof window.updateFocusFromLenses === 'function') {
+        window.updateFocusFromLenses();
+    }
+    appState.focusTopic = appState.focusTopic ||
+        (document.getElementById('focus-input') ? document.getElementById('focus-input').value.trim() : '') || '';
 
     var textParts = [];
     var fileParts = [];
@@ -1634,10 +2229,18 @@ REGOLE TASSATIVE DI OUTPUT:
 9. STRUTTURA: Rispetta lo schema JSON richiesto senza variazioni.
 `;
 
+// Inietta il system prompt disciplinare (se attivo) nel systemInstruction base.
+// Chiamato da tutti i punti di costruzione payload per MM e KG.
+function buildSystemInstruction(base) {
+    const disciplinePrompt = window.buildDisciplineSystemPrompt && window.buildDisciplineSystemPrompt();
+    if (!disciplinePrompt) return base;
+    return base + '\n\n--- FOCUS DISCIPLINARE ---\n' + disciplinePrompt;
+}
+
 async function extractMindMapIterative(textParts, fileParts, apiKey) {
     try {
         const rootId = "ROOT";
-        
+
         window.resetVaultState();
 
         appState.db = {
@@ -1674,19 +2277,20 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
                 rootNodeLabel: appState.rootNodeLabel,
                 optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
+                focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -1699,7 +2303,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             if (candidateL1 && candidateL1.content && candidateL1.content.parts) {
                 let rawL1 = candidateL1.content.parts[0].text;
                 let cleanL1Text = rawL1.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                let generatedL1s = JSON.parse(cleanL1Text);
+                let generatedL1s = salvageTruncatedJSON(cleanL1Text);
                 generatedL1s.forEach(gL1 => {
                     if (typeof gL1 === 'string') gL1 = { label: gL1, rel: "include" };
                     if (!l1Data.some(existing => existing.label.toLowerCase() === gL1.label.toLowerCase())) {
@@ -1719,15 +2323,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
             // Assegniamo un gruppo unico (idx + 1) per garantire colori diversi agli Hub
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -1790,13 +2394,14 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             l1LabelsStr: l1LabelsStr,
             optionalMaxBranches: optionalMaxBranches,
             userProfileStr: userProfileStr,
+            focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
             textParts: textParts.join('\n\n')
         });
 
         const payloadTree = {
             contents: [{ parts: [...fileParts, { text: promptFullTree }] }],
-            systemInstruction: { parts: [{ text: MIND_MAP_SYSTEM_INSTRUCTION }] },
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: 8192 }
+            systemInstruction: { parts: [{ text: buildSystemInstruction(MIND_MAP_SYSTEM_INSTRUCTION) }] },
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(8192) }
         };
 
         try {
@@ -1808,22 +2413,22 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 let branchData = salvageTruncatedJSON(cleanText);
 
                 const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
-                const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
+                const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '') : id;
                 const aiToRealIdMap = {};
 
                 // Estrattore robusto per mappare l'appartenenza a una macro-area L1
                 const extractL1Branch = (nodeId) => {
                     if (!nodeId) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     // 1. Formato esplicito L1_X (es. L1_3, L1_3_L2_A)
                     const m1 = cleanId.match(/L1_(\d+)/);
                     if (m1) return `L1_${m1[1]}`;
-                    
+
                     // 2. Formato implicito LX_Y_... (es. L2_3_2, L3_3_2_1)
                     const m2 = cleanId.match(/^L\d+_(\d+)/);
                     if (m2) return `L1_${m2[1]}`;
-                    
+
                     return null;
                 };
 
@@ -1831,7 +2436,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 const findParentIdByIdStructure = (nodeId, level) => {
                     if (!nodeId || level <= 1) return null;
                     const cleanId = nodeId.toUpperCase();
-                    
+
                     const match = cleanId.match(/^L\d+_([\d_]+)$/);
                     if (match) {
                         const parts = match[1].split('_');
@@ -1839,7 +2444,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             parts.pop();
                             const parentLevel = level - 1;
                             const parentId = `L${parentLevel}_${parts.join('_')}`;
-                            
+
                             const parentExists = appState.db.nodes.some(n => n.id.toUpperCase() === parentId);
                             if (parentExists) return parentId;
                         }
@@ -1884,15 +2489,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             aiToRealIdMap[n.id] = n.id;
                             let nodeLevel = parseInt(n.level);
                             if (isNaN(nodeLevel)) nodeLevel = 2;
-                            
+
                             const desc = n.desc || n.content || "";
-                            appState.db.nodes.push({ 
-                                ...n, 
-                                level: nodeLevel, 
-                                studyStatus: 'none', 
-                                desc, 
-                                aiDesc: desc, 
-                                chunks: n.chunks || [] 
+                            appState.db.nodes.push({
+                                ...n,
+                                level: nodeLevel,
+                                studyStatus: 'none',
+                                desc,
+                                aiDesc: desc,
+                                chunks: n.chunks || []
                             });
                         }
 
@@ -1920,32 +2525,32 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         }
                     });
                 }
-                
+
                 if (branchData.links && Array.isArray(branchData.links)) {
                     const findNodeId = (idOrLabel) => {
                         if (!idOrLabel) return null;
                         const cleaned = idOrLabel.toString().trim();
                         const upper = cleaned.toUpperCase();
-                        
+
                         // 1. Cerca per ID esatto
                         let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                         if (found) return found.id;
-                        
+
                         // 2. Cerca tramite mappatura aiToRealIdMap
                         if (aiToRealIdMap[upper]) {
                             let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                             if (mappedNode) return mappedNode.id;
                         }
-                        
+
                         // 3. Cerca per Etichetta (Label) normalizzata
                         const norm = normalizeLabel(cleaned);
                         found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                         if (found) return found.id;
-                        
+
                         // 4. Cerca per ID normalizzato
                         found = appState.db.nodes.find(n => normalizeLabel(n.id) === norm);
                         if (found) return found.id;
-                        
+
                         return null;
                     };
 
@@ -1953,15 +2558,15 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         if (l.source && l.target) {
                             let s = findNodeId(l.source);
                             let t = findNodeId(l.target);
-                            
+
                             // Fallback se il resolver semantico fallisce
                             if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                             if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                            
+
                             if (s && t && s !== t) {
                                 const sExists = appState.db.nodes.some(nx => nx.id === s);
                                 const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                
+
                                 if (sExists && tExists) {
                                     // Evita duplicati di link
                                     const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
@@ -2002,10 +2607,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             }
 
                             if (parentId && parentId !== node.id) {
-                                appState.db.links.push({ 
-                                    source: parentId, 
-                                    target: node.id, 
-                                    rel: "include" 
+                                appState.db.links.push({
+                                    source: parentId,
+                                    target: node.id,
+                                    rel: "include"
                                 });
                                 console.log(`Failsafe Link Creato: ${parentId} -> ${node.id}`);
                             }
@@ -2016,7 +2621,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
                 const hubGroupMap = {};
                 appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-                
+
                 appState.db.nodes.forEach(node => {
                     if (node.level > 1 && (!node.group || node.group === 0)) {
                         // Cerca l'Hub L1 più vicino tramite i link
@@ -2098,19 +2703,20 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
                 rootNodeLabel: appState.rootNodeLabel,
                 optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
+                focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
                 textParts: textParts.join('\\n')
             });
 
-            const schemaL1 = { 
-                type: "ARRAY", 
-                items: { 
-                    type: "OBJECT", 
-                    properties: { 
-                        label: { type: "STRING" }, 
-                        rel: { type: "STRING" } 
+            const schemaL1 = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        label: { type: "STRING" },
+                        rel: { type: "STRING" }
                     },
                     required: ["label", "rel"]
-                } 
+                }
             };
 
             const payloadL1 = {
@@ -2123,7 +2729,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             if (candidateL1 && candidateL1.content && candidateL1.content.parts) {
                 let rawL1 = candidateL1.content.parts[0].text;
                 let cleanL1Text = rawL1.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                let generatedL1s = JSON.parse(cleanL1Text);
+                let generatedL1s = salvageTruncatedJSON(cleanL1Text);
                 generatedL1s.forEach(gL1 => {
                     if (typeof gL1 === 'string') gL1 = { label: gL1, rel: "include" };
                     if (!l1Data.some(existing => existing.label.toLowerCase() === gL1.label.toLowerCase())) {
@@ -2141,15 +2747,15 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
-            let nodeObj = { 
-                id: l1Id, 
-                label: item.label, 
-                content: item.label, 
-                desc: `Categoria principale: ${item.label}`, 
-                level: 1, 
-                group: idx + 1, 
-                chunks: [], 
-                studyStatus: 'none' 
+            let nodeObj = {
+                id: l1Id,
+                label: item.label,
+                content: item.label,
+                desc: `Categoria principale: ${item.label}`,
+                level: 1,
+                group: idx + 1,
+                chunks: [],
+                studyStatus: 'none'
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -2200,13 +2806,22 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             userProfileStr += `\n\n[MODALITÀ STUDENTE ATTIVA]: I TITOLI DEI NODI ('label') DEVONO ESSERE COMPOSTI DA UN MASSIMO ASSOLUTO DI 3 PAROLE CHIAVE. Nessun titolo lungo, solo keyword.`;
         }
 
+        // Le Extraction Lenses (date, cronologia, ecc.) vanno iniettate ANCHE nella
+        // fase di espansione dei rami: è qui che vivono i dettagli (L2-L5) come le date.
+        // Senza questa iniezione le lenses agivano solo sulle macro-aree (Fase 1).
+        const focusInjection = appState.focusTopic
+            ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE (applica a OGNI sotto-nodo del ramo):\n' +
+            appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+            : '';
+
         const totalBranches = l1NodesData.length;
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
-        const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase() : id;
-        
+        const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '') : id;
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
-        
+        const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
+
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
             lastNodeInBranch[n.id.toUpperCase()] = { 1: n.id };
@@ -2217,18 +2832,18 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
 
             const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
-Hai il compito di sviluppare il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
+Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi di Livello 2 e Livello 3 che appartengono a questa macro-area.
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
-   - "level": assegna 2 per sotto-rami di dettaglio primario, 3 per concetti di approfondimento/foglia.
+   - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
-3. Definisci i collegamenti ("links") collegando i nodi generati in un albero gerarchico. Ogni nodo di livello 2 deve avere come sorgente ("source") l'ID di partenza "${branch.id}". Ogni nodo di livello 3 deve avere come sorgente ("source") il rispettivo nodo di livello 2. Non creare connessioni trasversali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
 
 Restituisci SOLO un oggetto JSON con chiavi "nodes" e "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
@@ -2242,14 +2857,14 @@ Formato richiesto:
 }
 
 ${userProfileStr}
-
+${focusInjection}
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
             const payloadBranch = {
                 contents: [{ parts: [...fileParts, { text: promptBranch }] }],
-                systemInstruction: { parts: [{ text: "Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema." }] },
-                generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: 3000 }
+                systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
+                generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
             };
 
             try {
@@ -2287,15 +2902,15 @@ ${textParts.join('\n\n')}`;
                                 aiToRealIdMap[n.id] = n.id;
                                 let nodeLevel = parseInt(n.level);
                                 if (isNaN(nodeLevel)) nodeLevel = 2;
-                                
+
                                 const desc = n.desc || n.content || "";
-                                appState.db.nodes.push({ 
-                                    ...n, 
-                                    level: nodeLevel, 
-                                    studyStatus: 'none', 
-                                    desc, 
-                                    aiDesc: desc, 
-                                    chunks: n.chunks || [] 
+                                appState.db.nodes.push({
+                                    ...n,
+                                    level: nodeLevel,
+                                    studyStatus: 'none',
+                                    desc,
+                                    aiDesc: desc,
+                                    chunks: n.chunks || []
                                 });
                             }
 
@@ -2319,19 +2934,19 @@ ${textParts.join('\n\n')}`;
                             if (!idOrLabel) return null;
                             const cleaned = idOrLabel.toString().trim();
                             const upper = cleaned.toUpperCase();
-                            
+
                             let found = appState.db.nodes.find(n => n.id.toUpperCase() === upper);
                             if (found) return found.id;
-                            
+
                             if (aiToRealIdMap[upper]) {
                                 let mappedNode = appState.db.nodes.find(n => n.id === aiToRealIdMap[upper]);
                                 if (mappedNode) return mappedNode.id;
                             }
-                            
+
                             const norm = normalizeLabel(cleaned);
                             found = appState.db.nodes.find(n => normalizeLabel(n.label) === norm);
                             if (found) return found.id;
-                            
+
                             return null;
                         };
 
@@ -2339,14 +2954,14 @@ ${textParts.join('\n\n')}`;
                             if (l.source && l.target) {
                                 let s = findNodeId(l.source);
                                 let t = findNodeId(l.target);
-                                
+
                                 if (!s) s = aiToRealIdMap[normalizeId(l.source)] || normalizeId(l.source);
                                 if (!t) t = aiToRealIdMap[normalizeId(l.target)] || normalizeId(l.target);
-                                
+
                                 if (s && t && s !== t) {
                                     const sExists = appState.db.nodes.some(nx => nx.id === s);
                                     const tExists = appState.db.nodes.some(nx => nx.id === t);
-                                    
+
                                     if (sExists && tExists) {
                                         const linkExists = appState.db.links.some(lk => lk.source === s && lk.target === t);
                                         if (!linkExists) {
@@ -2373,6 +2988,29 @@ ${textParts.join('\n\n')}`;
                 });
                 appState.db.links.push({ source: branch.id, target: fallbackL2Id, rel: "dettagli" });
             }
+        }
+
+        // PULIZIA NODI GARBAGE: alcuni modelli (es. Mistral piccoli) emettono nodi
+        // spazzatura con livelli invalidi (negativi, NaN) o ID/label segnaposto (DUMMY).
+        // Vanno rimossi PRIMA del ri-collegamento, altrimenti restano orfani.
+        const isGarbageNode = (n) => {
+            const lvl = parseInt(n.level);
+            if (isNaN(lvl) || lvl < 0) return true;
+            const id = (n.id || '').toUpperCase();
+            const lbl = (n.label || '').toUpperCase();
+            if (!id) return true;
+            if (id.includes('DUMMY') || lbl.includes('DUMMY')) return true;
+            return false;
+        };
+        const garbageIds = new Set(appState.db.nodes.filter(isGarbageNode).map(n => n.id));
+        if (garbageIds.size > 0) {
+            console.info('[MappAI] Rimossi ' + garbageIds.size + ' nodi garbage (livelli invalidi/DUMMY).');
+            appState.db.nodes = appState.db.nodes.filter(n => !isGarbageNode(n));
+            appState.db.links = appState.db.links.filter(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                return !garbageIds.has(s) && !garbageIds.has(t);
+            });
         }
 
         // AUTO-LINK ORPHANED NODES
@@ -2426,10 +3064,10 @@ ${textParts.join('\n\n')}`;
                     }
 
                     if (parentId && parentId !== node.id) {
-                        appState.db.links.push({ 
-                            source: parentId, 
-                            target: node.id, 
-                            rel: "include" 
+                        appState.db.links.push({
+                            source: parentId,
+                            target: node.id,
+                            rel: "include"
                         });
                     }
                 }
@@ -2439,7 +3077,7 @@ ${textParts.join('\n\n')}`;
         // ASSEGNAZIONE GRUPPI (COLORI) AUTOMATICA PER NUOVI NODI
         const hubGroupMap = {};
         appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubGroupMap[h.id] = h.group; });
-        
+
         appState.db.nodes.forEach(node => {
             if (node.level > 1 && (!node.group || node.group === 0)) {
                 const visited = new Set([node.id]);
@@ -2459,6 +3097,10 @@ ${textParts.join('\n\n')}`;
             }
         });
 
+        // Deduplica i doppioni cross-ramo (es. "Corse agli armamenti" L1 vs
+        // "Corsa agli armamenti" L5) trasformandoli in cross-link verso il nodo canonico.
+        window.dedupeNodesAsCrossLinks();
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -2473,37 +3115,355 @@ ${textParts.join('\n\n')}`;
     }
 }
 
-function salvageTruncatedJSON(text) {
-    try {
-        return JSON.parse(text);
-    } catch (e) {
-        console.warn("JSON parse failed, attempting to salvage truncated JSON...");
-        let tempText = text;
+/**
+ * DEDUP CONSERVATIVA (approccio B): rileva nodi con label semanticamente
+ * identica (gestendo singolare/plurale, accenti, articoli) generati in rami
+ * diversi del multipass. Tiene il nodo "canonico" (livello più basso, più vicino
+ * alla radice), PRESERVA i contenuti del duplicato accodandoli al canonico, e
+ * redirige i collegamenti del duplicato verso il canonico marcandoli come
+ * cross-link (isCross). Il duplicato come nodo viene rimosso, ma né il contenuto
+ * né le connessioni vanno persi.
+ */
+/**
+ * Assegna il "group" (hub di appartenenza) a un nodo L2 con voto pesato a 2 hop:
+ * - link DIRETTO verso un hub: peso 3 (evidenza forte)
+ * - hub raggiungibile tramite UN nodo intermedio: peso 1 (evidenza di supporto)
+ * Questo rende il grouping robusto agli errori del modello: anche se un nodo ha
+ * un singolo link errato verso l'hub sbagliato, i vicini corretti spostano il voto
+ * verso l'hub giusto. Fallback: BFS verso l'hub più vicino, poi group 1.
+ */
+/**
+ * Marca i link laterali di un KG come cross-link (isCross=true).
+ * Un link è GERARCHICO (ancoraggio a un hub) se collega esattamente un Super-Hub
+ * (level 1) a un concetto. È LATERALE / di RAGIONAMENTO (concetto↔concetto o
+ * hub↔hub) in tutti gli altri casi: sono questi i collegamenti che danno
+ * ricchezza riflessiva al grafo e che vanno distinti dalla gerarchia per il
+ * rendering (childrenOf usa !isCross) e per l'analisi strutturale.
+ * Preserva gli isCross già impostati (es. da dedupeNodesAsCrossLinks).
+ */
+window.markKgCrossLinks = function (nodes, links) {
+    const levelOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+    (links || []).forEach(l => {
+        if (l.isCross === true) return; // già marcato altrove
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sHub = levelOf[sId] === 1;
+        const tHub = levelOf[tId] === 1;
+        const hierarchical = (sHub !== tHub); // XOR: esattamente uno è hub
+        l.isCross = !hierarchical;
+    });
+    return links;
+};
 
-        while (tempText.lastIndexOf('}') !== -1) {
-            let lastClose = tempText.lastIndexOf('}');
-            let salvaged = tempText.substring(0, lastClose + 1);
+window._assignHubGroup = function (nodeId, links, hubGroupMap) {
+    const votes = {};
+    const neighbors = [];
+    links.forEach(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        let other = null;
+        if (s === nodeId) other = t;
+        else if (t === nodeId) other = s;
+        if (other === null) return;
+        if (hubGroupMap[other] !== undefined) {
+            votes[hubGroupMap[other]] = (votes[hubGroupMap[other]] || 0) + 3; // diretto
+        } else {
+            neighbors.push(other);
+        }
+    });
+    // 2° hop: hub collegati ai vicini non-hub
+    neighbors.forEach(nb => {
+        links.forEach(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            let other = null;
+            if (s === nb) other = t;
+            else if (t === nb) other = s;
+            if (other !== null && hubGroupMap[other] !== undefined) {
+                votes[hubGroupMap[other]] = (votes[hubGroupMap[other]] || 0) + 1; // supporto
+            }
+        });
+    });
+    const voted = Object.keys(votes);
+    if (voted.length > 0) {
+        return parseInt(voted.sort((a, b) => votes[b] - votes[a])[0]);
+    }
+    // Fallback: BFS verso l'hub più vicino
+    const visited = new Set([nodeId]);
+    const queue = [nodeId];
+    while (queue.length > 0) {
+        const cur = queue.shift();
+        if (hubGroupMap[cur] !== undefined && cur !== nodeId) return hubGroupMap[cur];
+        links.forEach(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            if (s === cur && !visited.has(t)) { visited.add(t); queue.push(t); }
+            if (t === cur && !visited.has(s)) { visited.add(s); queue.push(s); }
+        });
+        if (visited.size > 50) break;
+    }
+    return 1;
+};
 
-            let openBraces = (salvaged.match(/\{/g) || []).length;
-            let closeBraces = (salvaged.match(/\}/g) || []).length;
-            let openBrackets = (salvaged.match(/\[/g) || []).length;
-            let closeBrackets = (salvaged.match(/\]/g) || []).length;
+window.dedupeNodesAsCrossLinks = function () {
+    if (!appState.db || !Array.isArray(appState.db.nodes) || appState.db.nodes.length === 0) return;
 
-            while (closeBrackets < openBrackets) { salvaged += ']'; closeBrackets++; }
-            while (closeBraces < openBraces) { salvaged += '}'; closeBraces++; }
+    // Normalizzazione conservativa: minuscolo, accenti rimossi, articoli iniziali
+    // rimossi, e ogni parola "stemmata" togliendo la vocale finale (così
+    // "corsa"≈"corse", "stato"≈"stati"). Punteggiatura e spazi normalizzati.
+    const normKey = (lbl) => {
+        if (!lbl) return '';
+        let s = String(lbl).toLowerCase().trim();
+        s = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); // togli accenti
+        s = s.replace(/["'«»“”„().,;:!?\-]/g, ' ');
+        s = s.replace(/\b(il|lo|la|i|gli|le|un|uno|una|del|della|dei|degli|delle|di|e|ed)\b/g, ' ');
+        const words = s.split(/\s+/).filter(Boolean).map(w => w.length > 3 ? w.replace(/[aeiou]$/, '') : w);
+        return words.sort().join(' '); // sort: indipendente dall'ordine delle parole
+    };
 
-            try {
-                return JSON.parse(salvaged);
-            } catch (e2) {
-                // If it still fails (e.g. cut off inside a string with a brace), cut off the last brace and try again
-                tempText = tempText.substring(0, lastClose);
+    const nodes = appState.db.nodes;
+    const groups = {};
+    nodes.forEach(n => {
+        const k = normKey(n.label);
+        if (!k) return;
+        (groups[k] = groups[k] || []).push(n);
+    });
+
+    const links = appState.db.links || [];
+    const removedIds = new Set();
+    let mergedCount = 0;
+
+    Object.values(groups).forEach(group => {
+        if (group.length < 2) return;
+
+        // Canonico = livello più basso (più vicino alla radice); a parità, il più connesso
+        const degree = (id) => links.filter(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return s === id || t === id;
+        }).length;
+        group.sort((a, b) => (parseInt(a.level) - parseInt(b.level)) || (degree(b.id) - degree(a.id)));
+        const canonical = group[0];
+
+        group.slice(1).forEach(dup => {
+            if (dup.id === canonical.id) return;
+
+            // Preserva il contenuto: accoda desc/chunks unici del duplicato al canonico
+            if (dup.desc && canonical.desc && !canonical.desc.includes(dup.desc)) {
+                canonical.desc = (canonical.desc + '\n\n' + dup.desc).trim();
+            } else if (dup.desc && !canonical.desc) {
+                canonical.desc = dup.desc;
+            }
+            if (Array.isArray(dup.chunks) && dup.chunks.length) {
+                canonical.chunks = canonical.chunks || [];
+                dup.chunks.forEach(c => { if (!canonical.chunks.includes(c)) canonical.chunks.push(c); });
+            }
+
+            // Redirige i link del duplicato verso il canonico, marcandoli cross-link
+            links.forEach(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                if (s === dup.id) { l.source = canonical.id; l.isCross = true; }
+                if (t === dup.id) { l.target = canonical.id; l.isCross = true; }
+            });
+
+            removedIds.add(dup.id);
+            mergedCount++;
+        });
+    });
+
+    if (mergedCount === 0) return;
+
+    // Rimuovi i nodi duplicati e ripulisci i link (self-loop e duplicati esatti)
+    appState.db.nodes = nodes.filter(n => !removedIds.has(n.id));
+    const seen = new Set();
+    appState.db.links = links.filter(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        if (s === t) return false; // self-loop creato dal redirect
+        const key = s + '→' + t;
+        if (seen.has(key)) return false; // link duplicato
+        seen.add(key);
+        return true;
+    });
+
+    console.info('[MappAI] Dedup: ' + mergedCount + ' doppioni cross-ramo trasformati in cross-link.');
+};
+
+/**
+ * Estrae il primo blocco JSON bilanciato (oggetto {} o array []) da una stringa,
+ * ignorando eventuali preamboli/postamboli testuali e gestendo correttamente
+ * graffe/parentesi che compaiono DENTRO le stringhe (così non si confonde con
+ * il testo dei valori). Restituisce la sottostringa JSON oppure null.
+ *
+ * Questo è il punto chiave per i modelli open source verbosi (es. Qwen3.5-122B),
+ * che spesso scrivono "Ecco il JSON:" prima e una spiegazione dopo l'oggetto.
+ */
+function _extractBalancedJSON(text) {
+    if (!text) return null;
+    // Cerca il primo carattere di apertura ( { oppure [ )
+    const startMatch = text.search(/[{\[]/);
+    if (startMatch === -1) return null;
+
+    const openChar = text[startMatch];
+    const closeChar = openChar === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = startMatch; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+            if (escaped) { escaped = false; }
+            else if (ch === '\\') { escaped = true; }
+            else if (ch === '"') { inString = false; }
+            continue;
+        }
+        if (ch === '"') { inString = true; continue; }
+        // Conta solo le aperture/chiusure dello stesso tipo della radice,
+        // così non ci confondiamo con array dentro oggetti o viceversa.
+        if (ch === openChar) { depth++; }
+        if (ch === closeChar) {
+            depth--;
+            if (depth === 0) {
+                // Trovato il blocco bilanciato completo
+                return text.slice(startMatch, i + 1);
             }
         }
-
-        console.error("Failed to salvage JSON entirely");
-        throw e; // Throw original error if all salvage attempts fail
     }
+    // Nessuna chiusura bilanciata trovata (probabile troncamento):
+    // restituiamo dal primo carattere di apertura fino alla fine,
+    // lasciando al salvataggio per troncamento il compito di chiudere.
+    return text.slice(startMatch);
 }
+
+function salvageTruncatedJSON(text) {
+    const original = text || '';
+    let cleaned = original;
+
+    // Rimuovi blocchi markdown ```json ... ``` (e fence generiche)
+    cleaned = cleaned.replace(/```json\s*/gi, '');
+    cleaned = cleaned.replace(/```\s*/g, '');
+
+    // Estrai il primo blocco JSON bilanciato, scartando preamboli/postamboli
+    // testuali (cruciale per Qwen/Apertus che aggiungono testo attorno).
+    const extracted = _extractBalancedJSON(cleaned);
+    if (extracted) {
+        cleaned = extracted;
+    }
+
+    // NB: NON tocchiamo più le chiavi non quotate con una regex globale:
+    // quel passaggio corrompeva i valori-stringa contenenti ":" (es. "Nota: ..."),
+    // generando JSON invalidi anche da output validi. La quotatura delle chiavi
+    // è gestita in modo sicuro solo nel ramo di fallback qui sotto.
+
+    // Rimuovi virgole trailing prima di } o ] (sicuro: agisce solo fuori dalle stringhe
+    // nella stragrande maggioranza dei casi reali)
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+
+    const tryParse = (s) => {
+        try { return { ok: true, value: JSON.parse(s) }; }
+        catch (e) { return { ok: false, error: e }; }
+    };
+
+    // Tentativo 1: parse diretto del blocco pulito
+    let attempt = tryParse(cleaned);
+    if (attempt.ok) return attempt.value;
+
+    // Tentativo 2: quota chiavi non quotate SOLO se il parse fallisce
+    // (alcuni modelli usano {label: "x"}). Applicato a una copia per non
+    // rischiare di rompere il caso già funzionante.
+    let withQuotedKeys = cleaned.replace(
+        /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
+        '$1"$2":'
+    );
+    attempt = tryParse(withQuotedKeys);
+    if (attempt.ok) return attempt.value;
+
+    // Tentativo 3: salvataggio da troncamento.
+    // Funziona sia per radici oggetto {} sia per radici array [].
+    console.warn("[MappAI JSON] Parse fallito, tento il salvataggio del JSON troncato...");
+    let tempText = withQuotedKeys;
+
+    while (tempText.length > 0) {
+        // Cerca l'ultima chiusura utile (oggetto o array). Se non c'è alcuna
+        // chiusura (troncamento brutale a metà stringa), proviamo comunque a
+        // bilanciare l'intero testo invece di arrenderci.
+        const lastClose = Math.max(tempText.lastIndexOf('}'), tempText.lastIndexOf(']'));
+        const sliceEnd = lastClose === -1 ? tempText.length : lastClose + 1;
+
+        let salvaged = tempText.substring(0, sliceEnd);
+        // Rimuovi un'eventuale chiave/proprietà incompleta in coda (es. ,"label" oppure ,"label":)
+        salvaged = salvaged.replace(/,\s*"[^"]*"\s*:?\s*$/, '');
+        salvaged = salvaged.replace(/,(\s*[}\]])/g, '$1');
+
+        // Bilancia le chiusure mancanti usando uno STACK (così l'ordine di
+        // chiusura è corretto sia per { ... [ sia per [ ... {), ignorando
+        // graffe/parentesi che compaiono dentro le stringhe.
+        let inStr = false, esc = false;
+        const stack = [];
+        for (let i = 0; i < salvaged.length; i++) {
+            const c = salvaged[i];
+            if (inStr) {
+                if (esc) esc = false;
+                else if (c === '\\') esc = true;
+                else if (c === '"') inStr = false;
+                continue;
+            }
+            if (c === '"') inStr = true;
+            else if (c === '{' || c === '[') stack.push(c);
+            else if (c === '}' || c === ']') stack.pop();
+        }
+        // Se siamo finiti dentro una stringa aperta, chiudila
+        if (inStr) salvaged += '"';
+        // Chiudi nell'ordine inverso di apertura
+        while (stack.length > 0) {
+            salvaged += stack.pop() === '{' ? '}' : ']';
+        }
+
+        const salvageAttempt = tryParse(salvaged);
+        if (salvageAttempt.ok) return salvageAttempt.value;
+
+        // Se non c'era alcuna chiusura, evitiamo il loop infinito
+        if (lastClose === -1) break;
+        // Riprova tagliando l'ultima chiusura problematica
+        tempText = tempText.substring(0, lastClose);
+    }
+
+    // Diagnostica permanente: aiuta l'utente a capire cosa ha prodotto il modello
+    // (utile soprattutto con i modelli open source di Infomaniak).
+    const head = original.slice(0, 800);
+    const tail = original.length > 300 ? original.slice(-300) : '';
+    console.error(
+        "[MappAI JSON] Salvataggio JSON fallito completamente.\n" +
+        "Lunghezza testo: " + original.length + " caratteri.\n" +
+        "--- PRIMI 800 CARATTERI ---\n" + head +
+        (tail ? "\n--- ULTIMI 300 CARATTERI ---\n" + tail : "")
+    );
+    throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
+}
+
+// Estrae il testo dalla risposta AI in modo sicuro.
+// Gestisce: candidates mancanti, thinking mode (Gemini 2.5+ restituisce
+// parts[0] con thought:true prima del testo reale), safety blocks.
+function extractResponseText(response) {
+    const candidate = response?.candidates?.[0];
+    if (!candidate?.content?.parts?.length) {
+        const reason = response?.promptFeedback?.blockReason
+            || candidate?.finishReason
+            || 'candidates vuoti o assenti';
+        throw new Error(`Risposta AI non valida (${reason}). Riprova o cambia modello.`);
+    }
+    // Gemini 2.5 thinking mode: la prima part può avere thought:true (reasoning interno).
+    // Cerchiamo la prima part con testo non-reasoning.
+    const textPart = candidate.content.parts.find(p => !p.thought && p.text != null)
+        ?? candidate.content.parts[0];
+    const text = textPart?.text;
+    if (!text) throw new Error('Risposta AI: nessun testo nelle parts. Riprova o cambia modello.');
+    return text;
+}
+
 
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
@@ -2528,6 +3488,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         rootNodeLabel: appState.rootNodeLabel,
         optionalKeywords: kgKeywords ? `Focalizza le relazioni su questi Super-Hub semantici (se pertinenti): ${kgKeywords}.\\n` : '',
         userProfileInjection: userProfileStr,
+        focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
         textParts: textParts.join('\\n\\n'),
         maxNodes: maxNodesStr
     });
@@ -2535,18 +3496,18 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const schema = {
         type: "OBJECT", properties: {
             nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "level", "chunks"] } },
-            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING" } }, required: ["source", "target", "rel"] } }
+            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: KG_REL_ENUM } }, required: ["source", "target", "rel"] } }
         }, required: ["nodes", "links"]
     };
 
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
-        systemInstruction: { parts: [{ text: KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
-        generationConfig: { 
-            temperature: 0.2, 
-            responseMimeType: "application/json", 
+        systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
+        generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json",
             responseSchema: schema,
-            maxOutputTokens: 8192
+            maxOutputTokens: window.getMaxOutputTokens(8192)
         }
     };
 
@@ -2554,31 +3515,31 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     try {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
         const data = await window.fetchModelAPI(payload, apiKey);
-        let rawText = data.candidates[0].content.parts[0].text;
+        let rawText = extractResponseText(data);
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
         let rawData = salvageTruncatedJSON(cleanText);
-        
+
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const existingHubs = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v);
-        
+
         if (rawData.nodes) {
             rawData.nodes.forEach(n => {
                 n.studyStatus = 'none';
-                
+
                 // 1. Se è un Hub manuale dell'utente -> Forza L1 (sempre)
                 // 2. Se l'IA ha proposto un Hub (L1) -> Permetti L1
                 // 3. Altrimenti (L2, L3, L4...) -> Forza L2 per pulizia KG
                 const isManualHub = existingHubs.some(h => normalizeLabel(h) === normalizeLabel(n.label));
                 const aiWantsHub = (parseInt(n.level) === 1);
-                
+
                 if (isManualHub || aiWantsHub) {
                     n.level = 1;
                 } else {
-                    n.level = 2; 
+                    n.level = 2;
                 }
-                
+
                 if (!n.desc) n.desc = n.content || "";
                 n.aiDesc = n.desc;
             });
@@ -2620,28 +3581,25 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
             const rawLinks = rawData.links || [];
 
             rawData.nodes.filter(n => n.level === 2).forEach(node => {
-                // BFS per trovare l'Hub L1 più vicino
-                const visited = new Set([node.id]);
-                const queue = [node.id];
-                let foundGroup = null;
-                while (queue.length > 0 && !foundGroup) {
-                    const cur = queue.shift();
-                    if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
-                    rawLinks.forEach(l => {
-                        const s = typeof l.source === 'object' ? l.source.id : l.source;
-                        const t = typeof l.target === 'object' ? l.target.id : l.target;
-                        if (s === cur && !visited.has(t)) { visited.add(t); queue.push(t); }
-                        if (t === cur && !visited.has(s)) { visited.add(s); queue.push(s); }
-                    });
-                    if (visited.size > 50) break;
-                }
-                node.group = foundGroup || 1;
+                node.group = window._assignHubGroup(node.id, rawLinks, hubGroupMap);
             });
         }
 
         appState.db = rawData;
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
-        appState.db.links = (appState.db.links || []).filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+        // Filtra link con nodi inesistenti, self-loop e duplicati bidirezionali
+        const _spSeen = new Set();
+        appState.db.links = (appState.db.links || []).filter(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            if (!validNodeIds.has(s) || !validNodeIds.has(t)) return false;
+            if (s === t) return false;
+            const key = [s, t].sort().join('||');
+            if (_spSeen.has(key)) return false;
+            _spSeen.add(key);
+            return true;
+        });
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
@@ -2674,6 +3632,11 @@ async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
     const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
     const minNodesVal = Math.max(10, maxNodesVal - 5);
 
+    const focusInjection = appState.focusTopic
+        ? '\n\nISTRUZIONI AGGIUNTIVE OBBLIGATORIE:\n' +
+        appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        : '';
+
     try {
         // ==========================================
         // FASE 1: ESTRAZIONE CONCETTI (SCHELETRO)
@@ -2698,7 +3661,7 @@ Formato richiesto:
     { "id": "ID_CONCETTO", "label": "Nome Concetto", "level": 1 o 2 }
   ]
 }
-
+${focusInjection}
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
@@ -2724,11 +3687,11 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: 2000 }
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) }
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
-        let p1Raw = p1Response.candidates[0].content.parts[0].text;
+        let p1Raw = extractResponseText(p1Response);
         let p1Clean = p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p1Data = salvageTruncatedJSON(p1Clean);
 
@@ -2757,8 +3720,9 @@ ISTRUZIONI:
 2. Ciascun collegamento deve definire:
    - "source": l'ID di origine esatto.
    - "target": l'ID di destinazione esatto.
-   - "rel": una brevissima parola o locuzione di collegamento in italiano (es. "regola", "compone", "influenza", "produce", "genera", "scoperto da", "sviluppato in"). Massimo 3 parole.
-3. Tessi una rete ricca e interconnessa: idealmente ciascun concetto di livello 2 deve avere da 1 a 3 collegamenti verso i Super-Hub di livello 1 o altri nodi di livello 2. Assicurati che non rimanga alcun nodo isolato/orfano.
+   - "rel": una brevissima parola o locuzione di collegamento in italiano. Scegli il verbo/locuzione PIÙ PRECISO tra (esempi, non esaustivi): "causa", "provoca", "produce", "genera", "influenza", "regola", "compone", "fa parte di", "appartiene a", "guida", "governa", "fonda", "scoperto da", "sviluppato in", "si oppone a", "alleato di", "precede", "segue", "deriva da", "porta a", "contrasta", "sostiene", "rappresenta", "membro di". Massimo 3 parole.
+3. MULTI-LINK OBBLIGATORIO: ogni concetto di livello 2 deve avere ALMENO 2 collegamenti, di cui ALMENO UNO verso il Super-Hub (livello 1) tematicamente CORRETTO. Esempio: un personaggio sovietico va collegato al Super-Hub "Unione Sovietica", non a quello sbagliato. Avere più link riduce gli errori di classificazione. Nessun nodo deve restare isolato/orfano.
+4. ACCURATEZZA: verifica che ogni collegamento a un Super-Hub sia semanticamente corretto. Un nodo va collegato all'hub a cui APPARTIENE realmente secondo il testo, non a un hub a caso.
 
 Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
@@ -2781,7 +3745,7 @@ ${textParts.join('\n\n')}`;
                         properties: {
                             source: { type: "STRING" },
                             target: { type: "STRING" },
-                            rel: { type: "STRING" }
+                            rel: { type: "STRING", enum: KG_REL_ENUM }
                         },
                         required: ["source", "target", "rel"]
                     }
@@ -2793,15 +3757,41 @@ ${textParts.join('\n\n')}`;
         const p2Payload = {
             contents: [{ parts: [...fileParts, { text: p2PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un cartografo di concetti. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: 3000 }
+            // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
+            // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
+            // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(4096) }
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
-        let p2Raw = p2Response.candidates[0].content.parts[0].text;
+        let p2Raw = extractResponseText(p2Response);
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
 
-        const extractedLinks = p2Data.links || [];
+        // Sanitizza rel: rimuove artefatti Unicode (es. "। " Devanagari da GEMMA),
+        // spazi multipli e caratteri non-latin all'inizio. Lascia intatto il resto.
+        // Deduplica: GEMMA a volte genera A→B e B→A per lo stesso concetto, oppure
+        // duplicati esatti. D3 li disegna sulla stessa linea → le label si sovrappongono
+        // producendo testo illeggibile (es. "déllipartàeodil"). Teniamo il primo link
+        // per ogni coppia non-ordinata (source, target), indipendentemente dalla direzione.
+        const _seenPairs = new Set();
+        const extractedLinks = (p2Data.links || [])
+            .map(l => ({
+                ...l,
+                rel: (l.rel || 'fa parte di')
+                    .replace(/^[ऀ-ॿ \t\r\n।॥]+/, '') // strip Devanagari prefix
+                    .replace(/\s+/g, ' ')
+                    .trim() || 'fa parte di'
+            }))
+            .filter(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                if (!s || !t || s === t) return false; // scarta self-loop
+                const key = [s, t].sort().join('||');
+                if (_seenPairs.has(key)) return false; // scarta duplicato
+                _seenPairs.add(key);
+                return true;
+            });
 
         // ==========================================
         // FASE 3: ARRICCHIMENTO DETTAGLI IN BATCH
@@ -2844,7 +3834,7 @@ Formato richiesto:
     }
   ]
 }
-
+${focusInjection}
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
@@ -2871,12 +3861,12 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: 3000 }
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(5000) }
             };
 
             try {
                 const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
-                let p3Raw = p3Response.candidates[0].content.parts[0].text;
+                let p3Raw = extractResponseText(p3Response);
                 let p3Clean = p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let p3Data = salvageTruncatedJSON(p3Clean);
 
@@ -2964,24 +3954,13 @@ ${textParts.join('\n\n')}`;
         const rawLinks = extractedLinks;
 
         finalNodes.filter(n => n.level === 2).forEach(node => {
-            const visited = new Set([node.id]);
-            const queue = [node.id];
-            let foundGroup = null;
-            while (queue.length > 0 && !foundGroup) {
-                const cur = queue.shift();
-                if (hubGroupMap[cur]) { foundGroup = hubGroupMap[cur]; break; }
-                rawLinks.forEach(l => {
-                    const s = typeof l.source === 'object' ? l.source.id : l.source;
-                    const t = typeof l.target === 'object' ? l.target.id : l.target;
-                    if (s === cur && !visited.has(t)) { visited.add(t); queue.push(t); }
-                    if (t === cur && !visited.has(s)) { visited.add(s); queue.push(s); }
-                });
-                if (visited.size > 50) break;
-            }
-            node.group = foundGroup || 1;
+            node.group = window._assignHubGroup(node.id, rawLinks, hubGroupMap);
         });
 
-        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link
+        // Auto-healing: garantisci che nessun nodo L2 sia orfano di link.
+        // Usa _assignHubGroup (voto BFS 2-hop) per trovare l'hub più probabile
+        // invece di uno casuale, e "fa parte di" come rel (più onesto di
+        // "correlato a" — stiamo esplicitamente collegando al hub tematico).
         const validNodeIds = new Set(finalNodes.map(n => n.id));
         let finalLinks = rawLinks.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -2990,18 +3969,26 @@ ${textParts.join('\n\n')}`;
 
         const hubs = finalNodes.filter(n => n.level === 1);
         if (hubs.length > 0) {
+            // Ricostruisci hubGroupMap aggiornato con i link validi
+            const healHubMap = {};
+            finalNodes.filter(n => n.level === 1).forEach(h => { healHubMap[h.id] = h.id; });
             finalNodes.forEach(node => {
                 if (node.level === 2 && !linkedNodes.has(node.id)) {
-                    // Collega il nodo orfano a un Hub a caso (o al primo)
-                    const randomHub = hubs[Math.floor(Math.random() * hubs.length)];
+                    // Scegli l'hub tematicamente più vicino tramite BFS (2-hop)
+                    const bestGroupId = window._assignHubGroup(node.id, finalLinks, healHubMap);
+                    const bestHub = finalNodes.find(h => h.level === 1 && h.id === bestGroupId)
+                        || hubs[0];
                     finalLinks.push({
-                        source: randomHub.id,
+                        source: bestHub.id,
                         target: node.id,
-                        rel: "correlato a"
+                        rel: "fa parte di"
                     });
+                    linkedNodes.add(node.id);
                 }
             });
         }
+
+        window.markKgCrossLinks(finalNodes, finalLinks);
 
         appState.db = {
             nodes: finalNodes,
@@ -3037,7 +4024,8 @@ window.showGenerationReport = function () {
             (appState.generationUsage.candidateTokens / 1000000 * kb.outputCost);
     }
 
-    const costText = kb && kb.free ? "Gratuito (Piano Free)" : `$${totalCost.toFixed(4)}`;
+    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const costText = kb && kb.free ? "Gratuito (Piano Free)" : (isInfomaniak ? `${totalCost.toFixed(4)} CHF` : `$${totalCost.toFixed(4)}`);
     const tokens = appState.generationUsage.totalTokens.toLocaleString();
 
     window.showToast(`Generazione completata! Token: ${tokens} | Costo: ${costText}`, "success");
@@ -3072,27 +4060,18 @@ const colorScale = {
 const radiusScale = { 0: 45, 1: 30, 2: 20, 3: 15, 4: 10, 5: 7 };
 
 function getNodeRadius(d) {
+    const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
+    const degRatio = (d.degree || 0) / maxDeg;
+
     if (appState.extractionMode !== 'mindmap') {
-        // KG mode: scale radius by degree (connections) but respect the level hierarchy!
-        if (d.level === 0) {
-            // Level 0 (absolute Root/Theme): always the maximum primary size
-            return 45;
-        }
-        
-        const maxDeg = Math.max(...appState.db.nodes.map(n => n.degree || 0), 1);
-        const degree = d.degree || 0;
-        
-        if (d.level === 1) {
-            // Level 1 (Super-Hub): ranges from 30px to 40px depending on degree
-            const minR = 30, maxR = 40;
-            return minR + (degree / maxDeg) * (maxR - minR);
-        } else {
-            // Level 2+ (Leaf/Concept nodes): ranges from 12px to 22px depending on degree
-            const minR = 12, maxR = 22;
-            return minR + (degree / maxDeg) * (maxR - minR);
-        }
+        // KG: L0 fisso, L1 e L2+ scalano con il degree
+        if (d.level === 0) return 45;
+        if (d.level === 1) return 28 + degRatio * 22;   // 28–50 px
+        return 12 + degRatio * 18;                       // 12–30 px
     }
-    return radiusScale[d.level !== undefined ? d.level : 1] || 15;
+    // MM: base dal livello + bonus proporzionale al degree (max +50% del base)
+    const base = radiusScale[d.level !== undefined ? d.level : 1] || 15;
+    return base + degRatio * (base * 0.5);
 }
 
 let forceDistMult = 1, forceChargeMult = 1;
@@ -3101,6 +4080,18 @@ let linkingState = { active: false, sourceNode: null };
 let pathfinderState = { active: false, source: null, target: null };
 
 function initD3Visualization() {
+    // Normalizza le label dei nodi in-place: rimuove decorazioni markdown
+    // (+, **, virgolette, troncamenti) iniettate da alcuni modelli. Idempotente:
+    // sistema sia la visualizzazione sia l'export vault (che legge appState.db.nodes).
+    if (appState.db && Array.isArray(appState.db.nodes)) {
+        appState.db.nodes.forEach(n => {
+            if (n.label) {
+                const cleaned = cleanLabel(n.label);
+                if (cleaned) n.label = cleaned;
+            }
+        });
+    }
+
     const container = document.getElementById("d3-container");
     container.innerHTML = "";
 
@@ -3131,7 +4122,7 @@ function initD3Visualization() {
             g.attr("transform", event.transform);
             // Raddoppiato lo spessore dell'outline bianca dei testi (richiesta utente)
             const k = event.transform.k;
-            const strokeW = Math.max(1.2, (2.4 / k)); 
+            const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
         });
     svg.call(zoom);
@@ -3214,26 +4205,187 @@ function renderGraph() {
         n.group = getParentGroup(n.id);
     });
 
+    // Calcolo del peso dei nodi (Strategia 3)
+    nodes.forEach(n => {
+        n.weight = links.filter(l => {
+            let sId = typeof l.source === 'object' ? l.source.id : l.source;
+            let tId = typeof l.target === 'object' ? l.target.id : l.target;
+            return sId === n.id || tId === n.id;
+        }).length;
+    });
+
+    const isKG = appState.extractionMode === 'kg';
+
+    // ── Approccio 1: Pre-posizionamento nodi prima della simulazione ──────────
+    // Solo al primo render (nodi senza x/y). Dà alla simulazione un punto di
+    // partenza strutturato invece di posizioni casuali.
+    if (nodes.every(n => n.x === undefined)) {
+        if (isKG) {
+            // KG: hub in cerchio, nodi L2 distribuiti attorno al loro hub primario
+            const hubs = nodes.filter(n => n.level === 1);
+            const hubRadius = Math.max(220, hubs.length * 65);
+            hubs.forEach((hub, i) => {
+                const angle = (i / hubs.length) * 2 * Math.PI - Math.PI / 2;
+                hub.x = Math.cos(angle) * hubRadius;
+                hub.y = Math.sin(angle) * hubRadius;
+            });
+            const hubByGroup = {};
+            hubs.forEach(h => { hubByGroup[h.group] = h; });
+            nodes.filter(n => n.level >= 2).forEach(n => {
+                const hub = hubByGroup[n.group];
+                const angle = Math.random() * 2 * Math.PI;
+                const r = 130 + Math.random() * 90;
+                n.x = hub ? hub.x + Math.cos(angle) * r : (Math.random() - 0.5) * 400;
+                n.y = hub ? hub.y + Math.sin(angle) * r : (Math.random() - 0.5) * 400;
+            });
+        } else {
+            // MM: layout gerarchico radiale — root al centro, ogni livello su
+            // cerchi concentrici, ogni ramo occupa un settore angolare proporzionale.
+            const root = nodes.find(n => n.level === 0);
+            if (root) { root.x = 0; root.y = 0; }
+            const l1Nodes = nodes.filter(n => n.level === 1);
+            const numL1 = l1Nodes.length || 1;
+            const mmRadii = [0, 280, 460, 630, 780, 920];
+            const sectors = {};
+
+            // Mappa parent: target → source (solo link non-cross)
+            const mmParentMap = {};
+            links.forEach(l => {
+                if (l.isCross) return;
+                const src = typeof l.source === 'object' ? l.source.id : l.source;
+                const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+                if (!mmParentMap[tgt]) mmParentMap[tgt] = src;
+            });
+
+            // Posiziona L1 sul primo cerchio e assegna loro un settore angolare
+            l1Nodes.forEach((n, i) => {
+                const minA = (i / numL1) * 2 * Math.PI;
+                const maxA = ((i + 1) / numL1) * 2 * Math.PI;
+                const mid = (minA + maxA) / 2 - Math.PI / 2;
+                n.x = Math.cos(mid) * mmRadii[1];
+                n.y = Math.sin(mid) * mmRadii[1];
+                sectors[n.id] = { min: minA, max: maxA };
+            });
+
+            // Ricorsione: piazza i figli nel settore del genitore al livello successivo
+            function placeMMChildren(parentId, level) {
+                if (level > 5) return;
+                const children = nodes.filter(n => mmParentMap[n.id] === parentId);
+                if (!children.length) return;
+                const pSec = sectors[parentId] || { min: 0, max: 2 * Math.PI };
+                const span = pSec.max - pSec.min;
+                const r = mmRadii[level] || (280 + level * 150);
+                children.forEach((child, ci) => {
+                    const cMin = pSec.min + (ci / children.length) * span;
+                    const cMax = pSec.min + ((ci + 1) / children.length) * span;
+                    child.x = Math.cos((cMin + cMax) / 2 - Math.PI / 2) * r;
+                    child.y = Math.sin((cMin + cMax) / 2 - Math.PI / 2) * r;
+                    sectors[child.id] = { min: cMin, max: cMax };
+                    placeMMChildren(child.id, level + 1);
+                });
+            }
+            l1Nodes.forEach(n => placeMMChildren(n.id, 2));
+            if (root) placeMMChildren(root.id, 1);
+        }
+    }
+
     if (!simulation) {
         simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult))
-            .force("collide", d3.forceCollide().radius(d => getNodeRadius(d) + 50).iterations(3))
-            .force("charge", d3.forceManyBody().strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult))
-            .force("center", d3.forceCenter(0, 0));
+            .force("link", d3.forceLink(links).id(d => d.id).distance(d => {
+                let baseDist = (d.source.level === 0) ? 200 : 140;
+                if (isKG) baseDist = 200;
+                return baseDist * forceDistMult;
+            }))
+            .force("collide", d3.forceCollide().radius(d => {
+                let extraPadding = 50 + (d.weight * 5);
+                if (extraPadding > 150) extraPadding = 150;
+                return getNodeRadius(d) + extraPadding;
+            }).iterations(3))
+            .force("charge", d3.forceManyBody().strength(d => {
+                let baseCharge = (d.level === 0 ? -1500 : -500);
+                if (isKG && d.level === 1) baseCharge = -1000;
+                return (baseCharge - (d.weight * 50)) * forceChargeMult;
+            }))
+            .force("center", d3.forceCenter(0, 0))
+            .force("radial", d3.forceRadial(d => {
+                if (isKG) {
+                    return d.level === 1 ? 250 : 550;
+                } else {
+                    if (d.level === 0) return 0;
+                    if (d.level === 1) return 300;
+                    if (d.level === 2) return 500;
+                    return 700;
+                }
+            }, 0, 0).strength(isKG ? 0.3 : 0.15)); // MM: forza radiale ridotta, il layout è già strutturato
+
+        // ── Approccio 2 (KG): force cluster — attrae L2 verso il loro hub primario
+        if (isKG) {
+            simulation.force("cluster", alpha => {
+                const hubByGroup = {};
+                appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubByGroup[h.group] = h; });
+                appState.db.nodes.forEach(n => {
+                    if (n.level < 2 || (n.fx !== undefined && n.fx !== null)) return;
+                    const hub = hubByGroup[n.group];
+                    if (!hub) return;
+                    n.vx += (hub.x - n.x) * alpha * 0.12;
+                    n.vy += (hub.y - n.y) * alpha * 0.12;
+                });
+            });
+        }
+
+        // Raffreddamento statico invisibile
+        simulation.stop();
+        simulation.tick(300);
 
         simulation.on("tick", tick);
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
     } else {
         simulation.nodes(nodes);
-        simulation.force("link").links(links).distance(d => ((d.source.level === 0) ? 200 : 140) * forceDistMult);
-        simulation.force("charge").strength(d => (d.level === 0 ? -1500 : -500) * forceChargeMult);
-        simulation.force("collide").radius(d => getNodeRadius(d) + 50);
+        simulation.force("link").links(links).distance(d => {
+            let baseDist = (d.source.level === 0) ? 200 : 140;
+            if (isKG) baseDist = 200;
+            return baseDist * forceDistMult;
+        });
+        simulation.force("collide").radius(d => {
+            let extraPadding = 50 + (d.weight * 5);
+            if (extraPadding > 150) extraPadding = 150;
+            return getNodeRadius(d) + extraPadding;
+        });
+        simulation.force("charge").strength(d => {
+            let baseCharge = (d.level === 0 ? -1500 : -500);
+            if (isKG && d.level === 1) baseCharge = -1000;
+            return (baseCharge - (d.weight * 50)) * forceChargeMult;
+        });
+
+        // Aggiorna/rimuovi cluster force in base alla modalità corrente
+        if (isKG) {
+            simulation.force("cluster", alpha => {
+                const hubByGroup = {};
+                appState.db.nodes.filter(n => n.level === 1).forEach(h => { hubByGroup[h.group] = h; });
+                appState.db.nodes.forEach(n => {
+                    if (n.level < 2 || n.fx !== undefined && n.fx !== null) return;
+                    const hub = hubByGroup[n.group];
+                    if (!hub) return;
+                    n.vx += (hub.x - n.x) * alpha * 0.12;
+                    n.vy += (hub.y - n.y) * alpha * 0.12;
+                });
+            });
+        } else {
+            simulation.force("cluster", null);
+        }
+
+        // Raffreddamento statico invisibile
+        simulation.stop();
+        simulation.tick(300);
+
         if (appState.layoutMode !== 'default') window.applyLayoutForces();
         simulation.alpha(0.3).restart();
     }
 
     const linkSelection = g.selectAll(".link-group").data(links, d => `${d.source.id || d.source}-${d.target.id || d.target}-${d.rel}`);
     const linkEnter = linkSelection.enter().append("g").attr("class", "link-group")
+        .style("opacity", 0) // Cascading animation start
+
         .on("contextmenu", (e, d) => window.showContextMenu(e, 'link', d))
         .on("touchstart", (e, d) => handleTouchStart(e, 'link', d))
         .on("touchend", handleTouchEnd)
@@ -3245,67 +4397,61 @@ function renderGraph() {
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
         .text(d => d.rel)
-        .attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        .style("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     linkSelection.exit().remove();
 
-    // Pre-calcolo delle connessioni agli hub per la colorazione KG
+    // ── Stile KG per ruolo strutturale + bridge marking (1-hop) ─────────────
+    // Vedi public/js/mappai-node-styling.js. Annota _role, _bridgeInfo,
+    // _opacity, _strokeW su ogni nodo per ridurre la dispersione visiva.
     if (appState.extractionMode === 'kg') {
-        const hubColors = {};
+        const groupColors = {};
         nodes.filter(n => n.level === 1).forEach(h => {
-            hubColors[h.id] = (appState.db.customColors && appState.db.customColors[h.group])
+            groupColors[h.group] = (appState.db.customColors && appState.db.customColors[h.group])
                 ? appState.db.customColors[h.group]
                 : (colorScale[h.group] || colorScale[1] || "#ef4444");
         });
+        if (appState.db.customColors && appState.db.customColors[0] !== undefined) {
+            groupColors[0] = appState.db.customColors[0];
+        } else if (colorScale[0]) {
+            groupColors[0] = colorScale[0];
+        }
 
+        if (window.MappAINodeStyling) {
+            window.MappAINodeStyling.annotate(nodes, links, groupColors);
+        }
+
+        // Compat: alcuni punti del codice leggono hubColors/hubWeights.
+        // Manteniamo le chiavi vuote per i nodi che non avranno segmenti hub-based.
         nodes.forEach(n => {
-            if (n.level > 1) {
-                const connectedTo = new Set();
-                links.forEach(l => {
-                    const source = typeof l.source === 'object' ? l.source : nodes.find(x => x.id === l.source);
-                    const target = typeof l.target === 'object' ? l.target : nodes.find(x => x.id === l.target);
-                    
-                    if (!source || !target) return;
-
-                    // Se connesso direttamente a un hub
-                    if (source.id === n.id && hubColors[target.id]) connectedTo.add(hubColors[target.id]);
-                    if (target.id === n.id && hubColors[source.id]) connectedTo.add(hubColors[source.id]);
-
-                    // Se connesso a un altro nodo che ha lo stesso group (ereditarietà colore)
-                    if (source.id === n.id && target.level > 1 && target.group === n.group) {
-                        const col = (appState.db.customColors && appState.db.customColors[target.group]) ? appState.db.customColors[target.group] : colorScale[target.group];
-                        if (col) connectedTo.add(col);
-                    }
-                    if (target.id === n.id && source.level > 1 && source.group === n.group) {
-                        const col = (appState.db.customColors && appState.db.customColors[source.group]) ? appState.db.customColors[source.group] : colorScale[source.group];
-                        if (col) connectedTo.add(col);
-                    }
-                });
-                n.hubColors = Array.from(connectedTo);
+            if (n._bridgeInfo && n._bridgeInfo.segments) {
+                n.hubColors = n._bridgeInfo.segments.map(s => s.color);
+                n.hubWeights = {};
+                n._bridgeInfo.segments.forEach(s => { n.hubWeights[s.color] = s.fraction; });
             } else {
                 n.hubColors = [];
+                n.hubWeights = {};
             }
         });
     }
 
     const nodeSelection = g.selectAll(".node-group").data(nodes, d => d.id);
     const nodeEnter = nodeSelection.enter().append("g").attr("class", "node-group")
+        .style("opacity", 0) // Cascading animation start
         .call(drag(simulation))
         .on("click", window.handleNodeClick)
-        .on("contextmenu", (e, d) => window.showContextMenu(e, 'node', d))
-        .on("touchstart", (e, d) => handleTouchStart(e, 'node', d))
-        .on("touchend", handleTouchEnd)
-        .on("touchmove", handleTouchMove);
+        .on("dblclick", (e, d) => { e.stopPropagation(); window.openEditModal(d); })
+        .on("contextmenu", (e, d) => { e.preventDefault(); e.stopPropagation(); window.showContextMenu(e, 'node', d); });
 
     nodeEnter.append("circle").attr("class", "node-circle");
-    
+
     // Contenitore per gli archi segmentati (solo KG)
     nodeEnter.append("g").attr("class", "node-segments");
 
     nodeEnter.append("text").attr("class", "node-text")
         .attr("text-anchor", "middle")
         .attr("fill", "#0f172a")
-        .attr("font-size", d => {
+        .style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3313,6 +4459,9 @@ function renderGraph() {
             else if (d.level === 3) baseSize = 9;
             return (baseSize * globalFontScale) + "px";
         });
+
+    // Placeholder per compatibilità con il select("g.node-date-badge") nel merge — sempre nascosto.
+    nodeEnter.append("g").attr("class", "node-date-badge").style("display", "none");
 
     nodeEnter.append("foreignObject")
         .attr("class", "node-icons-fo pointer-events-none")
@@ -3366,33 +4515,30 @@ function renderGraph() {
             return 2; // Outline base visibile
         });
 
-    // Gestione segmenti colorati per KG
-    nodeMerge.select(".node-segments").each(function(d) {
+    // Gestione anello colorato KG (bridge marking + role-based thickness)
+    nodeMerge.select(".node-segments").each(function (d) {
         const container = d3.select(this);
         container.selectAll("*").remove();
-        
+
         if (appState.extractionMode === 'kg' && d.level > 1) {
             const r = getNodeRadius(d);
-            const strokeW = 4; // Spessore bordo segmentato più evidente
-            
-            if (d.hubColors && d.hubColors.length > 0) {
-                const colors = d.hubColors;
-                const arcCount = colors.length;
-                const angleStep = (2 * Math.PI) / arcCount;
+            const strokeW = (d._strokeW !== undefined) ? d._strokeW : 3;
+            const segs = window.MappAINodeStyling
+                ? window.MappAINodeStyling.getRingSegments(d)
+                : null;
 
-                colors.forEach((color, i) => {
+            if (segs && segs.length) {
+                let cumAngle = 0;
+                segs.forEach(s => {
                     const arc = d3.arc()
-                        .innerRadius(r) // Inizio dal raggio del cerchio
-                        .outerRadius(r + strokeW) // Spessore verso l'esterno
-                        .startAngle(i * angleStep)
-                        .endAngle((i + 1) * angleStep);
-                    
-                    container.append("path")
-                        .attr("d", arc)
-                        .attr("fill", color);
+                        .innerRadius(r)
+                        .outerRadius(r + strokeW)
+                        .startAngle(cumAngle)
+                        .endAngle(cumAngle + s.fraction * 2 * Math.PI);
+                    container.append("path").attr("d", arc).attr("fill", s.color);
+                    cumAngle += s.fraction * 2 * Math.PI;
                 });
             } else {
-                // Se non collegato a hub, bordo grigio semplice per non lasciare il nodo nudo
                 container.append("circle")
                     .attr("r", r + 1.5)
                     .attr("fill", "none")
@@ -3402,33 +4548,79 @@ function renderGraph() {
         }
     });
 
+    // Helper word-wrap condiviso tra text e badge
+    const wrapLabel = (s, maxPerLine, maxLines) => {
+        if (!s || s.length <= maxPerLine) return [s || ''];
+        const words = s.split(/\s+/);
+        const out = [];
+        let cur = '';
+        words.forEach(w => {
+            if (!cur) { cur = w; }
+            else if ((cur + ' ' + w).length <= maxPerLine) { cur += ' ' + w; }
+            else { out.push(cur); cur = w; }
+        });
+        if (cur) out.push(cur);
+        if (out.length > maxLines) {
+            const head = out.slice(0, maxLines - 1);
+            head.push(out.slice(maxLines - 1).join(' '));
+            return head;
+        }
+        return out;
+    };
+
     nodeMerge.select("text.node-text")
         .each(function (d) {
             const textEl = d3.select(this);
-            let labelStr = cleanLabel(d.label);
+            const labelStr = cleanLabel(d.label);
+            const dateParsed = extractDateFromLabel(labelStr);
+            const nameStr = dateParsed ? dateParsed.name : labelStr;
 
-            if (d.level >= 4 && labelStr.length > 15) labelStr = labelStr.substring(0, 15) + "...";
-            else if (d.level === 3 && labelStr.length > 25) labelStr = labelStr.substring(0, 25) + "...";
+            let lines;
+            if (nameStr.indexOf('\n') !== -1) {
+                lines = getLabelLines(nameStr);
+            } else if (d.level >= 4) {
+                lines = wrapLabel(nameStr, 16, 3);
+            } else if (d.level === 3) {
+                lines = wrapLabel(nameStr, 20, 3);
+            } else {
+                lines = wrapLabel(nameStr, 24, 3);
+            }
 
-            let lines = getLabelLines(labelStr);
             const vis = d.iconVisibility || { text: true, image: true, link: true };
             const hasIcons = (d.hasCustomText && vis.text) || (vis.image && d.images?.length > 0) || (vis.link && (d.urls?.length > 0 || d.url));
-            
+
+            const DATE_GAP = 1.5;  // interlinea data→nome, leggermente maggiore del wrap
+            const LINE_GAP = 1.1;  // interlinea tra righe del nome (word-wrap)
+
             textEl.text('');
-            lines.forEach((line, i) => {
-                // Center logic: 
-                // 1 line: dy=0.35em
-                // 2 lines: dy=-0.2em, then 1.1em
-                // With icons, shift up by ~0.5em
-                let firstDy = 0.35 - ((lines.length - 1) * 0.55);
+
+            if (dateParsed) {
+                // Centra il blocco [DATA + righe nome] nel cerchio
+                const totalSpan = DATE_GAP + (lines.length - 1) * LINE_GAP;
+                let firstDy = 0.35 - totalSpan / 2;
                 if (hasIcons) firstDy -= 0.6;
 
-                textEl.append('tspan')
-                    .attr('x', 0)
-                    .attr('dy', i === 0 ? `${firstDy}em` : '1.1em')
-                    .text(line);
-            });
+                textEl.append('tspan').attr('x', 0).attr('dy', `${firstDy}em`).text(dateParsed.date);
+                lines.forEach((line, i) => {
+                    textEl.append('tspan')
+                        .attr('x', 0)
+                        .attr('dy', i === 0 ? `${DATE_GAP}em` : `${LINE_GAP}em`)
+                        .text(line);
+                });
+            } else {
+                let firstDy = 0.35 - ((lines.length - 1) * 0.55);
+                if (hasIcons) firstDy -= 0.6;
+                lines.forEach((line, i) => {
+                    textEl.append('tspan')
+                        .attr('x', 0)
+                        .attr('dy', i === 0 ? `${firstDy}em` : `${LINE_GAP}em`)
+                        .text(line);
+                });
+            }
         });
+
+    // Il date-badge separato non è più usato: la data è nel tspan sopra.
+    nodeMerge.select("g.node-date-badge").style("display", "none");
 
     nodeMerge.select("foreignObject.node-icons-fo")
         .attr("y", d => {
@@ -3487,6 +4679,26 @@ function renderGraph() {
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     window.applyVisualFilters();
+
+    // Applica subito le posizioni pre-calcolate (tick manuale)
+    tick();
+
+    // Animazione a cascata per svelamento progressivo (Strategia 4)
+    // Link appaiono tutti insieme con delay
+    linkEnter.transition().duration(800).delay(500).style("opacity", 1);
+
+    // I nodi vecchi (merge senza enter) mantengono opacità modulata per ruolo
+    // (foglie attenuate a 0.65 in KG, vedi mappai-node-styling.js)
+    nodeSelection.style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
+    linkSelection.style("opacity", 1);
+
+    // I nodi nuovi appaiono a scaglioni in base al livello, target = _opacity
+    nodeEnter.transition().duration(600).delay(d => {
+        if (d.level === 0) return 0;
+        if (d.level === 1) return 400;
+        if (d.level === 2) return 800;
+        return 1200;
+    }).style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
 }
 
 function tick() {
@@ -3500,24 +4712,110 @@ function tick() {
 }
 
 function drag(simulation) {
+    let dragStartPos = null;
+    let longPressTimer = null;
+    let longPressTriggered = false;
+    let hasMovedSignificant = false;
+
     function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
+        longPressTriggered = false;
+        hasMovedSignificant = false;
+        const sourceEvt = event.sourceEvent;
+
+        if (sourceEvt) {
+            const touch = sourceEvt.touches ? sourceEvt.touches[0] : sourceEvt;
+            dragStartPos = { x: touch.clientX, y: touch.clientY };
+        } else {
+            dragStartPos = { x: event.x, y: event.y };
+        }
+
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            window.ignoreNextNodeClick = true;
+            const clientX = dragStartPos.x, clientY = dragStartPos.y;
+            window.showContextMenu({
+                preventDefault: () => { if (sourceEvt?.preventDefault) sourceEvt.preventDefault(); },
+                stopPropagation: () => { if (sourceEvt?.stopPropagation) sourceEvt.stopPropagation(); },
+                clientX, clientY
+            }, 'node', event.subject);
+            longPressTimer = null;
+        }, 500);
+
+        // Garantisce sempre tick visivi durante il drag, a qualsiasi livello di energia
+        if (!event.active) {
+            const targetAlpha = (isPinned || !attractionEnabled) ? 0.05 : 0.3;
+            simulation.alphaTarget(targetAlpha).restart();
+        }
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
     }
+
     function dragged(event) {
+        if (dragStartPos) {
+            const sourceEvt = event.sourceEvent;
+            const touch = sourceEvt?.touches?.[0] ?? sourceEvt;
+            const curX = touch ? touch.clientX : event.x;
+            const curY = touch ? touch.clientY : event.y;
+            const dist = Math.hypot(curX - dragStartPos.x, curY - dragStartPos.y);
+            if (dist > 10) {
+                hasMovedSignificant = true;
+                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            }
+        }
+        if (longPressTriggered) return;
         event.subject.fx = event.x;
         event.subject.fy = event.y;
     }
+
     function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; return; }
-        if (event.subject.level > 1 && !attractionEnabled) {
-            event.subject.fx = event.x; event.subject.fy = event.y;
-        } else if (event.subject.level > 1) {
-            event.subject.fx = null; event.subject.fy = null;
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+        // Riporta la simulazione allo stato corretto dopo il drag
+        if (!event.active) {
+            simulation.alphaTarget(attractionEnabled && !isPinned ? 0 : 0);
+        }
+
+        if (longPressTriggered) {
+            longPressTriggered = false;
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 100);
+            return;
+        }
+
+        // ── Logica posizione finale ──────────────────────────────────────────
+        // Regola unica: se fisica attiva e pin spento → rilascia (la fisica decide).
+        //               altrimenti → fissa il nodo nella posizione corrente.
+        // L0 (root) è sempre al centro quando la fisica è attiva.
+
+        const releaseToPhysics = attractionEnabled && !isPinned;
+
+        if (!hasMovedSignificant) {
+            // Tap/click: ripristina esattamente la posizione precedente
+            if (releaseToPhysics && event.subject.level === 0) {
+                event.subject.fx = 0; event.subject.fy = 0;
+            } else if (releaseToPhysics) {
+                event.subject.fx = null; event.subject.fy = null;
+            } else {
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            window.handleNodeClick(event.sourceEvent, event.subject);
+            window.ignoreNextNodeClick = true;
+            setTimeout(() => { window.ignoreNextNodeClick = false; }, 300);
+            return;
+        }
+
+        // Drag significativo
+        if (releaseToPhysics) {
+            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; }
+            else { event.subject.fx = null; event.subject.fy = null; }
+        } else {
+            // Pin ON o attrazione OFF: re-pinna nella nuova posizione
+            if (event.subject.level === 0) { event.subject.fx = 0; event.subject.fy = 0; }
+            else { event.subject.fx = event.x; event.subject.fy = event.y; }
         }
     }
+
     return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
 }
 
@@ -3526,20 +4824,25 @@ window.applyPinning = function (pinned) {
     const btn = document.getElementById('card-btn-physics');
     appState.db.nodes.forEach(n => { n.fx = pinned ? n.x : null; n.fy = pinned ? n.y : null; });
     if (pinned) {
+        // Azzera tutte le forze: i nodi non si muovono da soli
         simulation.force("charge", d3.forceManyBody().strength(0));
-        simulation.force("link").strength(0.01);
-        simulation.velocityDecay(0.9);
+        simulation.force("link").strength(0);
+        simulation.force("collide", null);
+        simulation.velocityDecay(0.8);
+        // NON fermare la simulazione: servono i tick per il feedback visivo del drag
+        simulation.alphaTarget(0).alpha(0.05);
         if (btn) { btn.classList.replace('bg-slate-100', 'bg-blue-50'); btn.classList.replace('text-slate-600', 'text-blue-600'); }
     } else {
         simulation.force("charge", d3.forceManyBody().strength(d => (d.level === 0 ? -800 : -200) * forceChargeMult));
         simulation.force("link").strength(1);
+        simulation.force("collide", d3.forceCollide().radius(d => getNodeRadius(d) + 4).strength(0.7));
         simulation.velocityDecay(0.4);
-        simulation.alpha(0.3).restart();
+        simulation.alpha(0.3).alphaTarget(0).restart();
         if (btn) { btn.classList.replace('bg-blue-50', 'bg-slate-100'); btn.classList.replace('text-blue-600', 'text-slate-600'); }
     }
-}
+};
 
-window.togglePhysics = function () { window.applyPinning(!isPinned); }
+window.togglePhysics = function () { window.applyPinning(!isPinned); };
 
 window.toggleAttraction = function () {
     if (!simulation) return;
@@ -3549,27 +4852,25 @@ window.toggleAttraction = function () {
     if (attractionEnabled) {
         simulation.force("charge").strength(d => (d.level === 0 ? -800 : -200) * forceChargeMult);
         simulation.force("link").strength(1);
-        simulation.alpha(0.3).restart();
-        if (btn) {
-            btn.innerHTML = '<i data-lucide="magnet" class="w-5 h-5"></i><span class="text-[9px] font-bold mt-1">ATTR</span>';
-            btn.className = "flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition";
-        }
+        simulation.alpha(0.3).alphaTarget(0).restart();
+        if (btn) btn.className = "flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition";
     } else {
         simulation.force("charge").strength(0);
         simulation.force("link").strength(0);
-        simulation.alpha(0.1).restart();
-        if (btn) {
-            btn.innerHTML = '<i data-lucide="magnet" class="w-5 h-5"></i><span class="text-[9px] font-bold mt-1">ATTR</span>';
-            btn.className = "flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition";
-        }
+        // Non fermare la simulazione: serve per il drag visivo
+        simulation.alphaTarget(0);
+        if (btn) btn.className = "flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition";
     }
-    window.safeCreateIcons();
+    if (btn) {
+        btn.innerHTML = '<i data-lucide="magnet" class="w-5 h-5"></i><span class="text-[9px] font-bold mt-1">ATTR</span>';
+        window.safeCreateIcons();
+    }
 };
 
 window.changeFontScale = function (dir) {
     globalFontScale = Math.max(0.5, Math.min(2.5, globalFontScale + (dir * 0.1)));
     if (g) {
-        g.selectAll("text.node-text").attr("font-size", d => {
+        g.selectAll("text.node-text").style("font-size", d => {
             let baseSize = 8;
             if (d.level === 0) baseSize = 14;
             else if (d.level === 1) baseSize = 12;
@@ -3578,37 +4879,188 @@ window.changeFontScale = function (dir) {
             return (baseSize * globalFontScale) + "px";
         });
 
-        g.selectAll("text.link-label").attr("font-size", (8 * globalFontScale * 0.765) + "px");
+        g.selectAll("text.link-label").style("font-size", (8 * globalFontScale * 0.765) + "px");
     }
 };
 
 window.exportSnapshot = async function () {
     try {
+        if (!window.electronAPI || !window.electronAPI.capturePage) {
+            throw new Error("La cattura PNG non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+        }
+
         window.showToast("Cattura immagine pulita in corso...", "info");
-        
+
         // Attiva modalità snapshot (nasconde UI)
         document.body.classList.add('is-snapshotting');
-        
+
         // Attendi un frame per il reflow del layout
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         const dataUrl = await window.electronAPI.capturePage();
-        
+
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
         if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
 
-        const a = document.createElement("a");
-        a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
-        a.href = dataUrl;
-        a.click();
-        
-        window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const file = new File([blob], `MappAI_Snapshot_${new Date().getTime()}.png`, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta Snapshot",
+                    text: "Snapshot della mappa mentale creato con MappAI"
+                });
+                window.showToast("Snapshot condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione file non supportata da questo dispositivo");
+            }
+        } else {
+            const a = document.createElement("a");
+            a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
+            a.href = dataUrl;
+            a.click();
+            window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+        }
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
         console.error("Errore Snapshot:", err);
-        window.showToast("Errore durante lo snapshot: " + err.message, "error");
+        window.showToast(err.message, "error");
+    }
+};
+
+window.exportPDF = async function () {
+    try {
+        if (!window.electronAPI || !window.electronAPI.capturePage) {
+            throw new Error("La cattura PDF non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+        }
+
+        window.showToast("Generazione PDF in corso...", "info");
+
+        // Attiva modalità snapshot (nasconde l'UI)
+        document.body.classList.add('is-snapshotting');
+
+        // Attendi un frame per il reflow del layout
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        const dataUrl = await window.electronAPI.capturePage();
+
+        // Ripristina UI
+        document.body.classList.remove('is-snapshotting');
+
+        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
+
+        // Utilizziamo jsPDF (già incluso nell'app)
+        const { jsPDF } = window.jspdf;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Crea il documento PDF con orientamento dinamico e dimensioni della finestra
+        const pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height]
+        });
+
+        // Inserisce l'immagine catturata nel PDF
+        pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            // Su iPadOS (Capacitor), esportiamo come Blob e usiamo navigator.share per il foglio di condivisione nativo
+            const blob = pdf.output('blob');
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta PDF",
+                    text: "Mappa mentale creata con MappAI"
+                });
+                window.showToast("PDF condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione PDF non supportata da questo dispositivo");
+            }
+        } else {
+            // Su Desktop (Electron/Browser), salva direttamente sul filesystem
+            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            window.showToast("Esportazione PDF completata!", "success");
+        }
+    } catch (err) {
+        document.body.classList.remove('is-snapshotting');
+        console.error("Errore esportazione PDF:", err);
+        window.showToast(err.message, "error");
+    }
+};
+
+window.exportSVG = async function () {
+    try {
+        window.showToast("Generazione SVG in corso...", "info");
+        const svgElement = document.getElementById("map-svg");
+        if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
+
+        // Clona l'SVG per non influenzare la vista corrente
+        const clonedSvg = svgElement.cloneNode(true);
+
+        // Rimuove eventuali listener o elementi di controllo inutili se presenti
+        clonedSvg.removeAttribute("class");
+
+        // Estrae tutti gli stili CSS globali e li incorpora nell'SVG per mantenere colori e stili dei nodi/linee
+        let cssStyles = "";
+        try {
+            for (const sheet of document.styleSheets) {
+                try {
+                    const rules = sheet.cssRules || sheet.rules;
+                    for (const rule of rules) {
+                        if (rule.cssText && (rule.cssText.includes(".node") || rule.cssText.includes(".link") || rule.cssText.includes("svg") || rule.cssText.includes("text"))) {
+                            cssStyles += rule.cssText + "\n";
+                        }
+                    }
+                } catch (e) {
+                    // Ignora errori di fogli di stile cross-origin (es. Google Fonts)
+                }
+            }
+        } catch (e) {
+            console.warn("Impossibile leggere alcuni fogli di stile:", e);
+        }
+
+        const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleElem.textContent = cssStyles;
+        clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+
+        // Serializza l'SVG in formato stringa XML
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(clonedSvg);
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            // Su iPadOS, usa navigator.share per condividere o salvare nei File
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.svg`, { type: 'image/svg+xml' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: "Esporta SVG",
+                    text: "Esporta mappa mentale in vettoriale"
+                });
+                window.showToast("SVG condiviso con successo!", "success");
+            } else {
+                throw new Error("Condivisione non supportata su questo dispositivo. Prova a salvare.");
+            }
+        } else {
+            // Su Desktop/Browser scarica il file
+            const a = document.createElement("a");
+            a.download = `MappAI_Mappa_${new Date().getTime()}.svg`;
+            a.href = URL.createObjectURL(blob);
+            a.click();
+            window.showToast("Esportazione SVG completata con successo!", "success");
+        }
+    } catch (err) {
+        console.error("Errore esportazione SVG:", err);
+        window.showToast("Errore esportazione: " + err.message, "error");
     }
 };
 
@@ -3628,17 +5080,29 @@ window.toggleLayout = function () {
     const btn = document.getElementById('card-btn-layout');
     const span = document.getElementById('layout-label-text');
     const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
+    const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
 
-    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal)
+    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal) -> (Custom Layouts)
     if (appState.layoutMode === 'default') {
         appState.layoutMode = 'orbit';
     } else if (appState.layoutMode === 'orbit') {
         appState.layoutMode = isMindmap ? 'radial' : 'separated';
     } else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
         if (hasSnapshot) appState.layoutMode = 'personal';
+        else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
         else appState.layoutMode = 'default';
     } else if (appState.layoutMode === 'personal') {
-        appState.layoutMode = 'default';
+        if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
+        else appState.layoutMode = 'default';
+    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+        const currentId = appState.layoutMode.replace('custom_', '');
+        const layouts = appState.savedLayouts || [];
+        const idx = layouts.findIndex(l => l.id === currentId);
+        if (idx >= 0 && idx < layouts.length - 1) {
+            appState.layoutMode = 'custom_' + layouts[idx + 1].id;
+        } else {
+            appState.layoutMode = 'default';
+        }
     } else {
         appState.layoutMode = 'default';
     }
@@ -3653,6 +5117,28 @@ window.toggleLayout = function () {
             }
         });
         window.showToast("Layout Personale Ripristinato", "success");
+    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+        const layoutId = appState.layoutMode.replace('custom_', '');
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (layout) {
+            appState.db.nodes.forEach(n => {
+                const savedPos = layout.positions[n.id];
+                if (savedPos) {
+                    n.x = savedPos.x; n.y = savedPos.y;
+                    n.fx = savedPos.fx; n.fy = savedPos.fy;
+                    n.pinned = savedPos.pinned;
+                }
+            });
+            // Applica inquadratura zoom e pan
+            const svgEl = document.getElementById("map-svg");
+            if (svgEl && typeof d3 !== 'undefined' && zoom) {
+                d3.select("#map-svg").transition().duration(750).call(
+                    zoom.transform,
+                    d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+                );
+            }
+            window.showToast(`Layout "${layout.name}" Ripristinato`, "success");
+        }
     }
 
     if (btn) {
@@ -3663,6 +5149,11 @@ window.toggleLayout = function () {
             if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
             if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
             if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
+            if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+                const layoutId = appState.layoutMode.replace('custom_', '');
+                const layout = appState.savedLayouts.find(l => l.id === layoutId);
+                span.innerText = layout ? layout.keyword : 'CUSTOM';
+            }
         } else {
             btn.classList.remove('bg-indigo-100', 'text-indigo-600');
             btn.classList.add('bg-slate-100', 'text-slate-600');
@@ -3670,7 +5161,7 @@ window.toggleLayout = function () {
         }
     }
 
-    if (appState.layoutMode !== 'personal') {
+    if (appState.layoutMode !== 'personal' && (!appState.layoutMode || !appState.layoutMode.startsWith('custom_'))) {
         window.applyLayoutForces();
     } else {
         simulation.alpha(0.3).restart();
@@ -3933,46 +5424,26 @@ window.showLoadingOverlay = function (show, text, mode = 'default') {
 };
 
 window.startEditingTitle = function () {
-    const container = document.getElementById('project-title-container');
-    if (!container || container.querySelector('input')) return;
-
     const currentTitle = appState.rootNodeLabel || 'Mappa Senza Nome';
 
-    // Fermiamo la propagazione per evitare loop sul click del container
-    container.onclick = null;
-
-    container.innerHTML = `
-        <input type="text" id="edit-project-title-input" 
-            class="w-full bg-white border border-indigo-300 rounded px-2 py-1 text-[10px] font-mono uppercase outline-none focus:ring-1 focus:ring-indigo-500" 
-            value="${currentTitle}">
-    `;
-
-    const input = document.getElementById('edit-project-title-input');
-    input.focus();
-    input.select();
-
-    const save = () => {
-        const newTitle = input.value.trim();
-        appState.rootNodeLabel = newTitle || currentTitle;
-
-        // Ripristina l'HTML originale
-        container.innerHTML = `
-            <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
-                Progetto: ${appState.rootNodeLabel}</p>
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
-                <i data-lucide="edit-3" class="w-3 h-3"></i>
-            </div>
-        `;
-
-        // Riattiva il click per la prossima volta
-        setTimeout(() => {
-            container.onclick = window.startEditingTitle;
-        }, 100);
-
-        if (window.safeCreateIcons) window.safeCreateIcons();
-
+    window.showPrompt("Modifica nome del progetto:", currentTitle, (newTitle) => {
         if (newTitle && newTitle !== currentTitle) {
-            // Update root node if mindmap
+            appState.rootNodeLabel = newTitle;
+
+            // Ripristina/Aggiorna l'HTML del contenitore
+            const container = document.getElementById('project-title-container');
+            if (container) {
+                container.innerHTML = `
+                    <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
+                        Progetto: ${appState.rootNodeLabel}</p>
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
+                        <i data-lucide="edit-3" class="w-3 h-3"></i>
+                    </div>
+                `;
+                if (window.safeCreateIcons) window.safeCreateIcons();
+            }
+
+            // Aggiorna il nodo radice se in modalità mappa mentale
             if (appState.extractionMode === 'mindmap' && appState.db.nodes.length > 0) {
                 const rootNode = appState.db.nodes.find(n => n.id === 'root');
                 if (rootNode) {
@@ -3981,25 +5452,23 @@ window.startEditingTitle = function () {
                     if (window.renderTreeView) window.renderTreeView();
                 }
             }
-            window.showToast("Titolo aggiornato", "success");
-        }
-    };
 
-    input.onblur = save;
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') save();
-        if (e.key === 'Escape') {
-            input.value = currentTitle;
-            save();
+            // Forza il salvataggio del progetto con il nuovo nome nel LocalStorage e nel Vault
+            if (window.StorageManager && typeof window.StorageManager.saveCurrentProject === 'function') {
+                window.StorageManager.saveCurrentProject();
+            }
+
+            window.showToast("Titolo aggiornato e salvato", "success");
         }
-    };
+    }, "Inserisci il nuovo nome da assegnare al progetto:");
 };
 
 window.switchToMapLayout = function () {
     document.getElementById('landing-view').style.display = 'none';
     const mapView = document.getElementById('map-view');
     mapView.classList.add('active');
-    document.getElementById('sidebar-subtitle').innerText = `Progetto: ${appState.rootNodeLabel || 'Mappa Senza Nome'}`;
+    const subtitleEl = document.getElementById('sidebar-subtitle');
+    if (subtitleEl) subtitleEl.innerText = `${appState.rootNodeLabel || 'Mappa Senza Nome'}`;
 
     // Nascondi la barra dei progetti recenti quando si entra nella mappa
     const projectsBar = document.getElementById('projects-bar');
@@ -4008,13 +5477,6 @@ window.switchToMapLayout = function () {
     }
     if (window.toggleProjectsBar) {
         window.toggleProjectsBar(false); // false = forza la chiusura
-    }
-
-    // Mostra tasto Salva Layout Snapshot
-    const saveLayoutBtn = document.getElementById('save-layout-btn');
-    if (saveLayoutBtn) {
-        saveLayoutBtn.classList.remove('hidden');
-        saveLayoutBtn.classList.add('flex');
     }
 
     const levelControl = document.getElementById('level-filter-control');
@@ -4035,6 +5497,7 @@ window.switchToMapLayout = function () {
         if (minLinkControl) minLinkControl.classList.remove('hidden');
         if (sliderDivider) sliderDivider.classList.remove('hidden');
     }
+    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
 }
 
 window.backToLanding = function () {
@@ -4052,9 +5515,15 @@ window.zoomToNode = function (nodeId) {
     }
 };
 
-window.handleNodeClick = function (event, d) {
+window.ignoreNextNodeClick = false;
+
+window.handleNodeClick = function (event, d, preventZoom = false, preventModal = false) {
+    if (window.ignoreNextNodeClick) {
+        window.ignoreNextNodeClick = false;
+        return;
+    }
     try {
-        event.stopPropagation();
+        if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
 
         if (linkingState.active) {
@@ -4083,24 +5552,27 @@ window.handleNodeClick = function (event, d) {
         }
 
         currentNode = d;
-        const linked = new Set([d.id]);
-        appState.db.links.forEach(l => {
-            let s = typeof l.source === 'object' ? l.source.id : l.source;
-            let t = typeof l.target === 'object' ? l.target.id : l.target;
-            if (s === d.id) linked.add(t); if (t === d.id) linked.add(s);
-        });
 
-        g.selectAll(".node-group").classed("dimmed", n => !linked.has(n.id)).classed("highlighted", n => linked.has(n.id));
-        g.selectAll(".link-group").classed("dimmed", l => {
-            let sid = typeof l.source === 'object' ? l.source.id : l.source;
-            let tid = typeof l.target === 'object' ? l.target.id : l.target;
-            return sid !== d.id && tid !== d.id;
-        });
+        if (!preventZoom) {
+            const linked = new Set([d.id]);
+            appState.db.links.forEach(l => {
+                let s = typeof l.source === 'object' ? l.source.id : l.source;
+                let t = typeof l.target === 'object' ? l.target.id : l.target;
+                if (s === d.id) linked.add(t); if (t === d.id) linked.add(s);
+            });
 
-        if (d.x !== undefined && d.y !== undefined && !isNaN(d.x) && !isNaN(d.y) && typeof svg !== 'undefined' && svg) {
-            try {
-                svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5).scale(1.5));
-            } catch (e) { console.warn("Zoom error:", e); }
+            g.selectAll(".node-group").classed("dimmed", n => !linked.has(n.id)).classed("highlighted", n => linked.has(n.id));
+            g.selectAll(".link-group").classed("dimmed", l => {
+                let sid = typeof l.source === 'object' ? l.source.id : l.source;
+                let tid = typeof l.target === 'object' ? l.target.id : l.target;
+                return sid !== d.id && tid !== d.id;
+            });
+
+            if (d.x !== undefined && d.y !== undefined && !isNaN(d.x) && !isNaN(d.y) && typeof svg !== 'undefined' && svg) {
+                try {
+                    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(-d.x * 1.5, -d.y * 1.5 + 120).scale(1.5));
+                } catch (e) { console.warn("Zoom error:", e); }
+            }
         }
 
         let imgHtml = d.image ? `<img src="${d.image}" class="w-full rounded-lg mb-4 border border-slate-200 cursor-pointer" onclick="window.openLightbox('${d.image}')" onerror="this.style.display='none'">` : '';
@@ -4155,18 +5627,22 @@ window.handleNodeClick = function (event, d) {
                     ` : ''}
                     
                     <!-- AI QUIZ -->
+                    ${!appState.studentMode ? `
                     <div class="pt-4 border-t border-slate-200 space-y-4">
                         <button onclick="window.generateAIQuiz()" class="w-full bg-emerald-600 text-white font-bold p-2.5 rounded-lg shadow-md hover:bg-emerald-700 flex justify-center items-center gap-2 transition">
                             <i data-lucide="brain-circuit" class="w-5 h-5"></i> Mettiti alla prova (Genera Quiz)
                         </button>
                     </div>
+                    ` : ''}
             </div>
             `;
         document.getElementById('node-details').innerHTML = html;
         window.safeCreateIcons();
 
         // Apriamo automaticamente il modale delle fonti come richiesto (stile mappatura_tutor)
-        window.openSourceModal(d.id);
+        if (!preventModal) {
+            window.openSourceModal(d.id);
+        }
     } catch (e) {
         const errDiv = document.createElement('div');
         errDiv.style = "position:fixed; top:50px; left:50px; background:red; color:white; z-index:99999; padding:20px; font-size: 20px; max-width:80%; word-wrap: break-word;";
@@ -4211,7 +5687,7 @@ window.openSourceModal = function (nodeId) {
         const hypBtn = document.getElementById('btn-hyphenation');
         if (hypBtn) hypBtn.classList.remove('bg-indigo-100');
         if (sourceModalBody) sourceModalBody.classList.remove('hyphens-auto-force');
-        if (window.resetA11yTools) window.resetA11yTools();
+        // Removed window.resetA11yTools() to maintain zoom state
 
         let pPath = [];
         let current = d;
@@ -4276,7 +5752,13 @@ window.openSourceModal = function (nodeId) {
             html += `<div class="space-y-2 mb-6">`;
             urls.forEach(u => {
                 const isLocal = u.startsWith('file://');
-                const displayUrl = u.length > 60 ? u.substring(0, 60) + "..." : u;
+                let displayUrl = u;
+                if (isLocal) {
+                    displayUrl = displayUrl.split(/[/\\]/).pop();
+                    try { displayUrl = decodeURIComponent(displayUrl); } catch (e) { }
+                } else if (displayUrl.length > 60) {
+                    displayUrl = displayUrl.substring(0, 60) + "...";
+                }
                 const icon = isLocal ? 'database' : 'link';
                 const label = isLocal ? 'File Locale' : 'Collegamento Esterno';
                 html += `
@@ -4346,37 +5828,39 @@ window.openSourceModal = function (nodeId) {
         }
 
         // --- SEZIONE TUTOR AI ---
-        html += `
-        <div class="mt-8 border-t border-slate-200 pt-6">
-            <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
-                <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
-                    <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
-                </label>
-                <div class="flex items-center gap-3">
-                    <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
-                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
-                </div>
-            </div>
-            <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
-                <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
-                    <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
-                    <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
-                        <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
-                    </button>
-                </div>
-                <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
-                    <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
-                    <div class="flex gap-2 mt-auto">
-                        <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
-                        <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+        if (!appState.studentMode) {
+            html += `
+            <div class="mt-8 border-t border-slate-200 pt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2 group" onclick="document.getElementById('node-tutor-container').classList.toggle('hidden'); document.getElementById('node-tutor-chevron').classList.toggle('rotate-180')">
+                    <label class="text-xs font-bold text-indigo-600 uppercase flex items-center gap-2 cursor-pointer group-hover:text-indigo-800 transition flex-grow">
+                        <i data-lucide="bot" class="w-4 h-4"></i> Tutor AI del Nodo
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button onclick="event.stopPropagation(); window.resetNodeTutor()" class="text-slate-400 hover:text-red-500 transition" title="Resetta Chat">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
+                        <i data-lucide="chevron-down" id="node-tutor-chevron" class="w-4 h-4 text-slate-400 transition-transform duration-200"></i>
                     </div>
                 </div>
-            </div>
-        </div>`;
+                <div id="node-tutor-container" class="hidden flex-col gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 mt-2">
+                    <div id="node-tutor-start" class="flex flex-col items-center justify-center py-4">
+                        <p class="text-xs text-slate-500 font-medium mb-3 text-center">Avvia il tutor contestuale per esplorare o testare la tua conoscenza su questo nodo.</p>
+                        <button onclick="window.startNodeTutor()" class="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Avvia Sessione
+                        </button>
+                    </div>
+                    <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
+                        <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
+                        <div class="flex gap-2 mt-auto">
+                            <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
+                            <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
 
         sourceModalBody.innerHTML = html;
         window.safeCreateIcons();
@@ -4446,6 +5930,30 @@ window.resetZoom = function () {
     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
 };
 
+window.updateStep4Display = function () {
+    const isMindmap = (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap';
+    const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle')?.checked ?? true;
+    const lang = window.currentLanguage || 'it';
+    const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
+
+    const descMM = document.getElementById('label-step4-desc');
+    const descKG = document.getElementById('label-step4-kg-desc');
+
+    if (isMindmap) {
+        if (descMM) {
+            descMM.innerText = autoGenerateL1 ?
+                (t.step_density_desc || "I rami L1-L2-L3 verranno generati sempre. Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).") :
+                (t.step_density_desc_manual_l1 || "I rami L2-L3 verranno generati sempre (L1 definiti da te). Scegli quanti rami generare nei livelli più profondi (0 = si ferma a L3).");
+        }
+    } else {
+        if (descKG) {
+            descKG.innerText = autoGenerateL1 ?
+                (t.step_kg_density_desc || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).") :
+                (t.step_kg_density_desc_manual_l1 || "Scegli quanti nodi concettuali generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi) a partire dai Super-Hub definiti da te.");
+        }
+    }
+};
+
 window.setMode = function (mode) {
     const btnMindmap = document.getElementById('mode-mindmap');
     const btnKG = document.getElementById('mode-kg');
@@ -4465,26 +5973,26 @@ window.setMode = function (mode) {
     if (mode === 'mindmap') {
         btnMindmap.classList.add('active');
         btnKG.classList.remove('active');
-        if (containerDensity) containerDensity.classList.remove('hidden');
-        if (containerKGDensity) containerKGDensity.classList.add('hidden');
-        if (containerRoot) containerRoot.classList.remove('hidden');
+        if (containerDensity) { containerDensity.classList.remove('hidden'); containerDensity.style.display = ''; }
+        if (containerKGDensity) { containerKGDensity.classList.add('hidden'); containerKGDensity.style.display = 'none'; }
+        if (containerRoot) { containerRoot.classList.remove('hidden'); containerRoot.style.display = ''; }
 
-        if (l1Title) l1Title.innerText = "Rami Principali (Livello 1)";
-        if (l1Desc) l1Desc.innerText = "Definisci i rami principali per organizzare lo studio:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Nodo L1";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri nodi L1 in automatico";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
+        if (l1Desc) l1Desc.innerText = "Inserisci le macro-aree tematiche che ti interessano:";
+        if (l1BtnText) l1BtnText.innerText = "Nuova macro-area";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altre macro-aree in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Cause, Conseguenze...");
     } else {
         btnMindmap.classList.remove('active');
         btnKG.classList.add('active');
-        if (containerDensity) containerDensity.classList.add('hidden');
-        if (containerKGDensity) containerKGDensity.classList.remove('hidden');
-        if (containerRoot) containerRoot.classList.add('hidden');
+        if (containerDensity) { containerDensity.classList.add('hidden'); containerDensity.style.display = 'none'; }
+        if (containerKGDensity) { containerKGDensity.classList.remove('hidden'); containerKGDensity.style.display = ''; }
+        if (containerRoot) { containerRoot.classList.add('hidden'); containerRoot.style.display = 'none'; }
 
-        if (l1Title) l1Title.innerText = "Super-Hubs relazionali";
+        if (l1Title) l1Title.innerText = "Caricamento Fonti";
         if (l1Desc) l1Desc.innerText = "Definisci i concetti chiave attorno a cui costruire le relazioni:";
-        if (l1BtnText) l1BtnText.innerText = "Aggiungi Super-Hub";
-        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri Super-Hub in automatico";
+        if (l1BtnText) l1BtnText.innerText = "Aggiungi hub tematico";
+        if (l1AutoLabel) l1AutoLabel.innerText = "Genera altri hub tematici in automatico";
         l1Inputs.forEach(i => i.placeholder = "Es. Trattative, Eredità...");
     }
 
@@ -4493,6 +6001,33 @@ window.setMode = function (mode) {
         const lang = window.currentLanguage || 'it';
         const t = (lang === 'en' ? (typeof en_translations !== 'undefined' ? en_translations : {}) : (typeof it_translations !== 'undefined' ? it_translations : {}));
         btnGenerateLabel.innerText = mode === 'mindmap' ? t.new_map_btn : t.new_kg_btn;
+    }
+
+    window.updateStep4Display();
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+
+    // Auto-selezione modello per Infomaniak: solo se il modello corrente è Apertus (non supporta KG)
+    if (appState.aiProvider === 'infomaniak' && mode === 'kg') {
+        const selectEl = document.getElementById('model-select');
+        if (selectEl && selectEl.options.length > 0 && selectEl.value.toLowerCase().includes('apertus')) {
+            const options = [...selectEl.options].map(o => o.value.toLowerCase());
+            const preferred = ['gemma-4', 'gemma4', 'qwen', 'kimi'];
+            let bestIdx = -1;
+            for (const keyword of preferred) {
+                bestIdx = options.findIndex(v => v.includes(keyword));
+                if (bestIdx !== -1) break;
+            }
+            if (bestIdx === -1) bestIdx = options.findIndex(v => !v.includes('apertus'));
+
+            if (bestIdx !== -1) {
+                const previousModel = selectEl.value;
+                selectEl.value = selectEl.options[bestIdx].value;
+                localStorage.setItem('infomaniak_selected_model', selectEl.value);
+                if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
+                window.showToast(`Apertus non supporta KG — cambiato a ${selectEl.options[bestIdx].text}`, 'info');
+                console.info(`[MappAI] Auto-selezione modello KG (Apertus→altro): ${previousModel} → ${selectEl.value}`);
+            }
+        }
     }
 }
 
@@ -4542,11 +6077,58 @@ window.applyDirectZoom = function (z) {
 
     document.documentElement.style.setProperty('--app-zoom', z);
 
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const sourceBody = document.getElementById('source-modal-body');
+    if (z > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
 
-    if (mainCard) mainCard.style.zoom = z;
-    if (sourceBody) sourceBody.style.zoom = z;
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (z === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (z === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (z === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
+    // Zoom per tutti i contenitori primari e modali con testo
+    const zoomSelectors = [
+        '#sidebar',
+        '#source-modal-content-box',
+        '#ai-modal-content-box',
+        '#study-player-modal > div',
+        '#quiz-modal-content',
+        '#app-guide-modal > div',
+        '#app-tutorial-modal > div',
+        '#config-ai-modal > div',
+        '#merge-confirm-modal > div',
+        '#validate-link-modal > div',
+        '#user-profile-box',
+        '#api-tutorial-modal > div',
+        '#alert-box',
+        '#prompt-box',
+        '#confirm-box',
+        '#study-config-modal > div',
+        '#vault-manager-box',
+        '#edit-node-box',
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
+    ];
+
+    // Rimozione applicazione zoom inline (gestito via variabili CSS/rem)
+    zoomSelectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.style.removeProperty('zoom');
+        }
+    });
+
+    // Rimuove stili di zoom residui dagli elementi esclusi gestiti via CSS
+    const drawer = document.getElementById('insegnai-drawer');
+    if (drawer) drawer.style.removeProperty('zoom');
+    const pbarContent = document.getElementById('projects-bar-content');
+    if (pbarContent) pbarContent.style.removeProperty('zoom');
 
     document.documentElement.style.fontSize = '';
 
@@ -4560,11 +6142,11 @@ window.applyDirectZoom = function (z) {
 window.addL1Input = function (defaultValue = "") {
     const container = document.getElementById('l1-inputs-container');
     const row = document.createElement('div');
-    row.className = 'flex gap-2 items-center l1-input-row';
+    row.className = 'relative flex items-center l1-input-row w-full';
     const placeholder = document.getElementById('extraction-mode').value === 'mindmap' ? 'Nuovo argomento L1...' : 'Nuovo Super-Hub...';
     row.innerHTML = `
-                <input type="text" class="landing-input l1-topic-input py-2 text-sm" placeholder="${placeholder}" value="${defaultValue}">
-                <button type="button" onclick="window.removeL1Input(this)" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <input type="text" class="font-medium text-slate-700 input_text_step3 l1-topic-input w-full" placeholder="${placeholder}" value="${defaultValue}">
+                <button type="button" onclick="window.removeL1Input(this)" class="absolute right-4 text-red-400 hover:text-red-600 p-1 flex items-center justify-center"><i data-lucide="x" class="w-6 h-6"></i></button>
             `;
     container.appendChild(row);
     window.safeCreateIcons();
@@ -4576,7 +6158,7 @@ window.removeL1Input = function (btn) {
 
 window.riordinaMappa = function () {
     if (!simulation) return;
-    
+
     // Se ci sono nodi pinnati o salvati, chiedi conferma
     const pinnedNodes = appState.db.nodes.filter(n => n.fx !== null && n.fx !== undefined);
     if (pinnedNodes.length > 0) {
@@ -4589,7 +6171,7 @@ window.riordinaMappa = function () {
     } else {
         applyDefaultLayout();
     }
-    
+
     function applyDefaultLayout() {
         appState.db.nodes.forEach(d => {
             if (d.level > 0 && !d.pinned) {
@@ -4604,7 +6186,7 @@ window.riordinaMappa = function () {
 
 window.salvaLayout = function () {
     if (!appState || !appState.db || !appState.db.nodes) return;
-    
+
     appState.db.nodes.forEach(n => {
         if (n.x !== undefined && n.y !== undefined) {
             n.fx = n.x;
@@ -4614,12 +6196,12 @@ window.salvaLayout = function () {
             n.savedY = n.y;
         }
     });
-    
+
     // Forza salvataggio immediato
     if (StorageManager.currentProjectId) {
         StorageManager.saveCurrentProject();
     }
-    
+
     window.showToast("Layout Salvato (Snapshot creato)!", "success");
 };
 
@@ -4627,6 +6209,8 @@ window.exportGraph = function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
     const exportData = {
         rootNodeLabel: appState.rootNodeLabel, mode: appState.extractionMode,
+        generationUsage: appState.generationUsage,
+        customColors: appState.db.customColors,
         nodes: appState.db.nodes.map(n => ({ id: n.id, label: n.label, content: n.content, desc: n.desc, image: n.image, level: n.level, group: n.group, studyStatus: n.studyStatus, chunks: n.chunks, x: n.x, y: n.y, fx: n.fx, fy: n.fy })),
         links: appState.db.links.map(l => ({ source: l.source.id || l.source, target: l.target.id || l.target, rel: l.rel }))
     };
@@ -4657,7 +6241,8 @@ window.importGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
 
             // Normalize links: ensure source/target are string IDs, not objects
@@ -4672,7 +6257,17 @@ window.importGraph = function (event) {
             });
 
             appState.db = { nodes: data.nodes, links: data.links };
-            appState.extractionMode = data.mode || "mindmap";
+            appState.extractionMode = data.mode || data.extractionMode || "mindmap";
+
+            if (data.generationUsage) {
+                appState.generationUsage = data.generationUsage;
+                if (window.updateCostDisplay) window.updateCostDisplay();
+            } else {
+                appState.generationUsage = null;
+            }
+            if (data.customColors) {
+                appState.db.customColors = data.customColors;
+            }
 
             appState.db.sourcesDict = {};
             (appState.db.nodes || []).forEach(n => {
@@ -4704,7 +6299,7 @@ window.saveMapVault = async function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
 
     try {
-        const result = await window.electronAPI.pickFolder();
+        const result = await window.electronAPI.pickFolder({ createOnly: true });
         if (result.canceled) return;
 
         window.showLoadingOverlay(true, "Esportazione Vault in corso...");
@@ -4717,7 +6312,7 @@ window.saveMapVault = async function () {
                 nodes: appState.db.nodes,
                 links: appState.db.links,
                 userProfile: appState.userProfile,
-                tutorState: tutorState,
+                tutorState: serializeTutorState(tutorState),
                 aiProvider: appState.aiProvider,
                 aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
                 generationUsage: appState.generationUsage,
@@ -4728,7 +6323,7 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
-            
+
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
                 saveRes.upgrades.forEach(up => {
@@ -4747,7 +6342,7 @@ window.saveMapVault = async function () {
                 syncBtn.classList.remove('hidden');
                 syncBtn.classList.add('flex');
             }
-            
+
             window.showToast("Vault creato e collegato!", "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
@@ -4759,9 +6354,75 @@ window.saveMapVault = async function () {
     }
 };
 
+window.loadDemoGraph = async function (url) {
+    try {
+        window.closeVaultManager();
+        window.showLoadingOverlay(true, "Caricamento Demo...");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("File demo non trovato.");
+        const data = await res.json();
+
+        if (!data.nodes || !data.links) throw new Error("Formato JSON non valido.");
+
+        data.links.forEach(l => {
+            if (typeof l.source === 'object' && l.source !== null) l.source = l.source.id;
+            if (typeof l.target === 'object' && l.target !== null) l.target = l.target.id;
+        });
+        data.nodes.forEach(n => {
+            delete n.vx; delete n.vy;
+            delete n.fx; delete n.fy;
+        });
+
+        appState.db = { nodes: data.nodes, links: data.links };
+        appState.extractionMode = data.mode || data.extractionMode || "mindmap";
+
+        if (data.generationUsage) {
+            appState.generationUsage = data.generationUsage;
+            if (window.updateCostDisplay) window.updateCostDisplay();
+        } else {
+            appState.generationUsage = null;
+        }
+
+        if (data.customColors) {
+            appState.db.customColors = data.customColors;
+        }
+
+        appState.db.sourcesDict = {};
+        (appState.db.nodes || []).forEach(n => {
+            if (n.chunks && n.chunks.length > 0) {
+                appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    title: "Estratto Fonte",
+                    source: "Dato Demo",
+                    text: c
+                }));
+            }
+        });
+
+        if (data.tutorState) {
+            window.tutorState = data.tutorState;
+            localStorage.setItem('mappai_tutor_state', JSON.stringify(window.tutorState));
+        } else {
+            window.tutorState = { messages: [], mode: "tutor", flashcards: [], currentFlashcardIndex: 0 };
+            localStorage.removeItem('mappai_tutor_state');
+        }
+
+        appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
+
+        if (typeof simulation !== 'undefined') simulation = null;
+        window.switchToMapLayout();
+        if (typeof initD3Visualization === 'function') initD3Visualization();
+
+        window.showLoadingOverlay(false);
+        window.showToast("Mappa dimostrativa caricata con successo!", "success");
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        console.error(err);
+        window.showAlert("Errore", "Impossibile caricare l'esempio: " + err.message);
+    }
+};
 window.loadMapVault = async function () {
     try {
-        const result = await window.electronAPI.pickFolder();
+        const result = await window.electronAPI.pickFolder({ importOnly: true });
         if (result.canceled) return;
 
         window.showLoadingOverlay(true, "Caricamento Vault...");
@@ -4771,14 +6432,51 @@ window.loadMapVault = async function () {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
-            appState.extractionMode = loadRes.data.extractionMode;
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
+            appState.rootNodeLabel = result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+
+            let nodesList = loadRes.data.nodes || [];
+            let linksList = loadRes.data.links || [];
+
+            const rootNode = nodesList.find(n => n.level === 0);
+            if (rootNode) {
+                rootNode.label = appState.rootNodeLabel;
+            }
+            if (nodesList.length === 0) {
+                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
+                nodesList = [{
+                    id: rootId,
+                    label: appState.rootNodeLabel,
+                    level: 0,
+                    group: 0,
+                    x: 640,
+                    y: 400,
+                    fx: 640,
+                    fy: 400
+                }];
+                linksList = [];
+                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
+                window.electronAPI.saveVault({
+                    folderPath: result.folderPath,
+                    mapData: {
+                        extractionMode: appState.extractionMode,
+                        rootNodeLabel: appState.rootNodeLabel,
+                        nodes: nodesList,
+                        links: linksList,
+                        customColors: {}
+                    }
+                });
+            }
+
             appState.db = {
-                nodes: loadRes.data.nodes || [],
-                links: loadRes.data.links || [],
+                nodes: nodesList,
+                links: linksList,
+                studySets: loadRes.data.studySets || [],
                 sourcesDict: {},
                 customColors: loadRes.data.customColors || {}
             };
+
+            if (window.renderStudySets) window.renderStudySets();
 
             appState.db.nodes.forEach(n => {
                 if (n.chunks && n.chunks.length > 0) {
@@ -4791,7 +6489,7 @@ window.loadMapVault = async function () {
             });
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -4809,6 +6507,67 @@ window.loadMapVault = async function () {
         console.error(e);
         window.showAlert("Errore", e.message);
     }
+};
+
+window.handleImportClick = function (event) {
+    const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+    if (isCapacitor) {
+        // Su iPadOS/Capacitor facciamo scattare direttamente il click sull'input file nascosto
+        // in modo sincrono per conservare la user gesture valida di WKWebView
+        const filePicker = document.getElementById('mappai-ipad-vault-file-picker');
+        if (filePicker) {
+            filePicker.click();
+        }
+    } else {
+        // Su desktop/electron chiamiamo il normale caricamento
+        window.loadMapVault();
+    }
+};
+
+window.handleIPadVaultFileSelected = async function (event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    window.showLoadingOverlay(true, "Importazione Vault in corso...");
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const parsed = JSON.parse(evt.target.result);
+            const data = parsed.db ? parsed.db : parsed;
+            if (!data.nodes || !data.links) {
+                window.showLoadingOverlay(false);
+                window.showAlert("Errore", "Il file selezionato non è un Vault di MappAI valido.");
+                return;
+            }
+            const baseName = file.name.replace('.json', '');
+            const safeName = baseName.replace(/[^a-zA-Z0-9_]/g, "_");
+
+            // Salva il vault nativamente tramite il bridge
+            const saveRes = await window.electronAPI.saveVault({
+                folderPath: safeName,
+                mapData: parsed
+            });
+
+            window.showLoadingOverlay(false);
+            if (saveRes && saveRes.success) {
+                window.showToast("Vault importato con successo!", "success");
+                // Ricarica la lista dei vault nel modale
+                if (typeof window.loadVaultList === 'function') {
+                    await window.loadVaultList();
+                }
+            } else {
+                window.showAlert("Errore", "Impossibile salvare il Vault nel dispositivo.");
+            }
+        } catch (err) {
+            window.showLoadingOverlay(false);
+            window.showAlert("Errore", "Errore durante la lettura del file JSON: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+
+    // Resetta il valore dell'input per permettere di riselezionare lo stesso file
+    event.target.value = "";
 };
 
 window.startEmptyMap = function () {
@@ -4840,33 +6599,7 @@ window.addEventListener('drop', (e) => {
     }
 });
 
-// --- Gestione Istruzioni JSON Esterno ---
-window.openExternalJSONInstructions = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        setTimeout(() => modal.classList.add('opacity-100'), 10);
-        window.safeCreateIcons();
-    } catch (e) { console.error('openExternalJSONInstructions error:', e); }
-};
 
-window.closeExternalJSONModal = function () {
-    try {
-        const modal = document.getElementById('external-json-modal');
-        if (!modal) return;
-        modal.classList.remove('opacity-100');
-        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300);
-    } catch (e) { }
-};
-
-window.copyExternalPrompt = function () {
-    const text = document.getElementById('external-prompt-text').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        window.showToast("Prompt copiato negli appunti!", "success");
-    });
-};
 
 // ==========================================
 // MERGE / UNISCI SYSTEM
@@ -4887,7 +6620,8 @@ window.mergeGraph = function (event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const data = JSON.parse(e.target.result);
+            const rawData = JSON.parse(e.target.result);
+            const data = rawData.db ? { ...rawData, ...rawData.db } : rawData;
             if (!data.nodes || !data.links) throw new Error("JSON non valido.");
             pendingMergeData = data;
             pendingMergeFile = file.name;
@@ -5227,6 +6961,1289 @@ window.exportNotesMarkdown = function () {
     dl.click();
 }
 
+// openTimelineView → mappai-timeline.js
+// openGlossaryView → mappai-glossary.js
+
+window.printAllNodeLabels = async function () {
+    const nodes = appState.db.nodes || [];
+    if (nodes.length === 0) {
+        window.showToast("Nessun nodo presente nella mappa.", "warning");
+        return;
+    }
+
+    const projectTitle = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Progetto MappAI";
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    let fontName = "courier";
+    try {
+        const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
+        const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+
+        const [regRes, boldRes] = await Promise.all([
+            fetch(regularUrl).then(res => res.arrayBuffer()),
+            fetch(boldUrl).then(res => res.arrayBuffer())
+        ]);
+
+        const arrayBufferToBase64 = (buffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        };
+
+        const regBase64 = arrayBufferToBase64(regRes);
+        const boldBase64 = arrayBufferToBase64(boldRes);
+
+        doc.addFileToVFS('SpaceMono-Regular.ttf', regBase64);
+        doc.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+
+        doc.addFileToVFS('SpaceMono-Bold.ttf', boldBase64);
+        doc.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+
+        fontName = "Space Mono";
+    } catch (err) {
+        console.warn("Impossibile caricare Space Mono, uso Courier come fallback:", err);
+    }
+
+    const marginX = 10;
+    const marginY = 15;
+    const pageWidth = 297;
+    const pageHeight = 210;
+    const cols = 4;
+    const colWidth = (pageWidth - 2 * marginX) / cols;
+    const rowHeight = 35;
+    const rowsPerPage = 5;
+
+    let currentNodeIndex = 0;
+
+    doc.setFont(fontName, "normal");
+    doc.setFontSize(18);
+
+    while (currentNodeIndex < nodes.length) {
+        if (currentNodeIndex > 0) {
+            doc.addPage();
+        }
+
+        for (let r = 0; r < rowsPerPage; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (currentNodeIndex >= nodes.length) break;
+
+                const node = nodes[currentNodeIndex];
+                currentNodeIndex++;
+
+                const x = marginX + c * colWidth;
+                const y = marginY + r * rowHeight;
+
+                // Disegna card con bordo tratteggiato
+                doc.setDrawColor(0, 128, 255); // #6b8cd0ff
+                doc.setLineWidth(0.3);
+                if (typeof doc.setLineDashPattern === 'function') {
+                    doc.setLineDashPattern([1, 1], 0);
+                }
+                doc.roundedRect(x, y, colWidth, rowHeight, 3, 3, 'D');
+
+                if (typeof doc.setLineDashPattern === 'function') {
+                    doc.setLineDashPattern([], 0);
+                }
+
+                // Testo del label
+                const labelText = cleanLabel(node.label);
+                doc.setTextColor(0, 0, 0); // #000000ff
+
+                const maxTextWidth = colWidth - 8;
+                const lines = doc.splitTextToSize(labelText, maxTextWidth);
+
+                const fontHeight = doc.getFontSize() * 0.352778; // pt to mm
+                const lineHeight = fontHeight * 1.3;
+                const totalTextHeight = lines.length * lineHeight;
+
+                // Centratura verticale
+                let currentY = y + (rowHeight - totalTextHeight) / 2 + fontHeight - (lineHeight - fontHeight) / 2;
+
+                lines.forEach(line => {
+                    doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
+                    currentY += lineHeight;
+                });
+            }
+            if (currentNodeIndex >= nodes.length) break;
+        }
+    }
+
+    doc.save(`Label-${projectTitle}.pdf`);
+    window.showToast("Download PDF delle etichette avviato!", "success");
+};
+
+window.printAllNodeDossiers = function () {
+    window.openDossierPrintModal();
+};
+
+window.openDossierPrintModal = function () {
+    const modal = document.getElementById('dossier-print-modal');
+    const box = document.getElementById('dossier-print-box');
+    if (!modal || !box) return;
+
+    const isMM = appState.extractionMode === 'mindmap';
+    const mmOpts = document.getElementById('print-mm-options');
+    const kgOpts = document.getElementById('print-kg-options');
+
+    // Reset select inputs
+    const selectId = isMM ? 'print-mm-node-select' : 'print-kg-node-select';
+    const selectEl = document.getElementById(selectId);
+
+    // Clear select options, keep the first 'all' option
+    selectEl.innerHTML = `<option value="all">${isMM ? 'Tutta la mappa (Tutti i nodi)' : 'Tutta la mappa (Tutti i nodi)'}</option>`;
+
+    // Sort and add nodes to the select dropdown
+    const sortedNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+    sortedNodes.forEach(n => {
+        const option = document.createElement('option');
+        option.value = n.id;
+        option.innerText = `[L${n.level || 0}] ${cleanLabel(n.label)}`;
+        selectEl.appendChild(option);
+    });
+
+    if (isMM) {
+        mmOpts.classList.remove('hidden');
+        kgOpts.classList.add('hidden');
+        document.getElementById('print-mm-scope-container').classList.add('hidden');
+        document.getElementById('print-mm-ascii-diagram').checked = true;
+    } else {
+        kgOpts.classList.remove('hidden');
+        mmOpts.classList.add('hidden');
+        document.getElementById('print-kg-scope-container').classList.add('hidden');
+        document.getElementById('print-kg-relations').checked = true;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+    }, 10);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+};
+
+window.closeDossierPrintModal = function () {
+    const modal = document.getElementById('dossier-print-modal');
+    const box = document.getElementById('dossier-print-box');
+    if (!modal || !box) return;
+    modal.classList.add('opacity-0');
+    box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 200);
+};
+
+window.onDossierNodeChange = function (mode) {
+    const select = document.getElementById(`print-${mode}-node-select`);
+    const container = document.getElementById(`print-${mode}-scope-container`);
+    if (!select || !container) return;
+
+    if (select.value === 'all') {
+        container.classList.add('hidden');
+    } else {
+        container.classList.remove('hidden');
+    }
+};
+
+window.generateDossierPDFFromOptions = async function () {
+    console.log('[Dossier] generateDossierPDFFromOptions avviata');
+    try {
+        // Carica l'icona MappAI in base64 — verrà iniettata nell'header di ogni card PDF
+        const mappaiIconBase64 = await loadMappaiIconBase64();
+        const isMM = appState.extractionMode === 'mindmap';
+        const selectId = isMM ? 'print-mm-node-select' : 'print-kg-node-select';
+        const selectedNodeId = document.getElementById(selectId)?.value;
+        if (!selectedNodeId) { window.showToast('Seleziona un nodo dal menu.', 'warning'); return; }
+
+        let targetNodes = [];
+        let asciiTree = "";
+
+        // Funzione per raccogliere i nodi del ramo/dossier (con anti-ciclo)
+        const _visitedDesc = new Set();
+        function getDescendants(nodeId) {
+            if (_visitedDesc.has(nodeId)) return [];  // ciclo rilevato → stop
+            _visitedDesc.add(nodeId);
+            const startNode = appState.db.nodes.find(n => n.id === nodeId);
+            if (!startNode) return [];
+            if (isMM) {
+                // Per mappe mentali, l'intero branch è definito dal gruppo
+                return appState.db.nodes.filter(n => n.group === startNode.group).sort((a, b) => (a.level || 0) - (b.level || 0));
+            }
+            let list = [startNode];
+            const childrenLinks = appState.db.links.filter(l => {
+                const sId = (l.source && l.source.id) ? l.source.id : l.source;
+                return sId === nodeId;
+            });
+            childrenLinks.forEach(link => {
+                const tId = (link.target && link.target.id) ? link.target.id : link.target;
+                list.push(...getDescendants(tId));
+            });
+            return list;
+        }
+
+        // Funzione per costruire il diagramma ASCII del ramo (con anti-ciclo)
+        const _visitedASCII = new Set();
+        function buildASCIITree(nodeId, prefix = "") {
+            if (_visitedASCII.has(nodeId)) return "";  // ciclo rilevato → stop
+            _visitedASCII.add(nodeId);
+            let lines = [];
+            const outgoingLinks = appState.db.links.filter(l => {
+                const sId = (l.source && l.source.id) ? l.source.id : l.source;
+                return sId === nodeId;
+            });
+            outgoingLinks.forEach((link, idx) => {
+                const isLast = idx === outgoingLinks.length - 1;
+                const tId = (link.target && link.target.id) ? link.target.id : link.target;
+                const targetNode = appState.db.nodes.find(n => n.id === tId);
+                if (targetNode) {
+                    const connector = isLast ? "└── " : "├── ";
+                    const nextPrefix = prefix + (isLast ? "    " : "│   ");
+                    const relText = link.rel ? `[${link.rel}] ──> ` : "";
+                    lines.push(prefix + connector + relText + cleanLabel(targetNode.label));
+                    const childTree = buildASCIITree(tId, nextPrefix);
+                    if (childTree) lines.push(childTree);
+                }
+            });
+            return lines.join("\n");
+        }
+
+        if (selectedNodeId === 'all') {
+            targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+        } else {
+            const selectedNode = appState.db.nodes.find(n => n.id === selectedNodeId);
+            if (!selectedNode) {
+                window.showToast("Nodo non trovato", "error");
+                return;
+            }
+
+            if (isMM) {
+                const scope = document.querySelector('input[name="print-mm-scope"]:checked').value;
+                if (scope === 'single') {
+                    targetNodes = [selectedNode];
+                } else {
+                    targetNodes = getDescendants(selectedNodeId);
+                }
+
+                const includeAscii = document.getElementById('print-mm-ascii-diagram').checked;
+                if (includeAscii) {
+                    asciiTree = cleanLabel(selectedNode.label) + "\n" + buildASCIITree(selectedNodeId);
+                }
+            } else {
+                const scope = document.querySelector('input[name="print-kg-scope"]:checked').value;
+                if (scope === 'single') {
+                    targetNodes = [selectedNode];
+                } else {
+                    targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+                }
+            }
+        }
+
+        if (targetNodes.length === 0) {
+            window.showToast("Nessun nodo selezionato da stampare.", "warning");
+            return;
+        }
+
+        const projectTitle = appState.db.title || "Progetto MappAI";
+
+        // Leggi il fattore di scala dal selettore nel modal
+        const fontScaleEl = document.querySelector('input[name="print-font-scale"]:checked');
+        const fontScale = fontScaleEl ? parseFloat(fontScaleEl.value) : 1.0;
+
+        // ─── Helper: ottieni il colore della macro-area di un nodo ───────────────
+        function getNodeColor(node) {
+            if (!node) return '#6366f1';
+            if (appState.db.customColors && appState.db.customColors[node.group] !== undefined) {
+                return appState.db.customColors[node.group];
+            }
+            return colorScale[node.group] || colorScale[1] || '#6366f1';
+        }
+
+        // ─── Helper: ottieni il colore della MACROAREA del nodo (group L1) ──────────
+        function getMacroAreaColor(node) {
+            if (!node) return '#6366f1';
+            // Se il nodo è già a livello 0 o 1, usa il suo colore diretto
+            if (node.level <= 1) return getNodeColor(node);
+            // Per nodi più profondi: usa node.group che identifica la macroarea L1
+            const macroGroup = node.group;
+            if (appState.db?.customColors?.[macroGroup] !== undefined) {
+                return appState.db.customColors[macroGroup];
+            }
+            return colorScale[macroGroup] || colorScale[1] || '#6366f1';
+        }
+
+        // ─── Helper: genera una riga di citazione stile modale ───────────────────
+        function buildCitationRow(s, idx, showNodeLabel) {
+            const sourceName = s.source ? cleanLabel(s.source) : "Documento";
+            const sourceText = s.text ? cleanLabel(s.text) : "";
+            if (!sourceText) return "";
+            const originNode = (s.nodeId && appState.db.nodes)
+                ? appState.db.nodes.find(nd => nd.id === s.nodeId)
+                : null;
+            const originLabel = originNode ? cleanLabel(originNode.label) : '';
+            const nodeColor = originNode ? getNodeColor(originNode) : '#6366f1';
+            const nodeTag = (showNodeLabel && originLabel)
+                ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>`
+                : '';
+            return `<div class="citation-row">
+            <div class="citation-num">${idx + 1}</div>
+            <div class="citation-content">
+                <div class="citation-meta">
+                    <span class="citation-type-tag">TESTO DI ORIGINE</span>
+                    ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
+                    <span class="citation-sep">\u2014</span>
+                    <span class="citation-source">${sourceName}</span>
+                </div>
+                <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+            </div>
+        </div>`;
+        }
+
+        // ─── Helper: genera la card di un nodo (layout allineato al #source-modal) ─
+        function buildNodeCard(node, showCitations, citationsHtml, notesCount, relationsHtml) {
+            // ── Calcolo colore header e contrasto testo ──────────────────────────
+            // getMacroAreaColor garantisce colore della macroarea (L1) per ogni livello
+            const headerColor = getMacroAreaColor(node);
+            const hex = headerColor.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16) || 0, g = parseInt(hex.substr(2, 2), 16) || 0, b = parseInt(hex.substr(4, 2), 16) || 0;
+            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+            const textColor = luma > 160 ? '#1e293b' : '#ffffff'; // usato solo per badge Modo B
+
+            // ── Nome macro-area (L1) di appartenenza ────────────────────────────
+            const macroareaName = (() => {
+                const l1 = appState.db.nodes.find(nd => nd.level === 1 && nd.group === node.group);
+                return l1 ? cleanLabel(l1.label) : `Gruppo ${node.group !== undefined ? node.group : '–'}`;
+            })();
+
+            // ── Breadcrumb: percorso parentela macroArea › nodo ──────────────────
+            const breadcrumb = (() => {
+                if (!node.level || node.level <= 1) return '';
+                const l1 = appState.db.nodes.find(nd => nd.level === 1 && nd.group === node.group);
+                return l1 ? `${cleanLabel(l1.label)} › ${cleanLabel(node.label)}` : '';
+            })();
+
+            // ── Sezione FONTI: titolo con barra sinistra colorata (come il modale) ─
+            const citationsSection = showCitations ? `
+            <!-- Titolo fonti: barra verticale sinistra = 3pt, colore nodo -->
+            <div class="dossier-sources-header" style="border-left:3pt solid ${headerColor};padding-left:8pt;margin:12pt 0 6pt 0;">
+                <span class="dossier-section-title sources-title" style="color:${headerColor};">&#9612; FONTI E NOTE APPROFONDITE (${notesCount})</span>
+            </div>
+            <!-- Lista citazioni: box sfondo grigio chiaro con bordo sinistro -->
+            <div class="citations-container">${citationsHtml}</div>
+        ` : '';
+
+            return `<div class="dossier-card">
+
+            <!-- ── HEADER PAGINA: rettangolo colorato full-width ─────────────── -->
+            <div class="dossier-card-header" style="background:${headerColor};color:white;">
+                <div class="dossier-card-header-main">
+                    <!-- Titolo nodo: bianco, bold, ~22pt -->
+                    <h2 class="dossier-title">${cleanLabel(node.label)}</h2>
+                    <!-- Sottotitolo: "Livello X · MacroArea" bianco 10pt opacità ridotta -->
+                    <span class="dossier-level-tag">Livello ${node.level || 0} · ${macroareaName}</span>
+                    ${breadcrumb ? `<!-- Breadcrumb parentela: bianco italic 9pt -->
+                    <span class="dossier-breadcrumb">${breadcrumb}</span>` : ''}
+                </div>
+            </div>
+
+            <!-- ── SEZIONE SINTESI ──────────────────────────────────────────── -->
+            <div class="dossier-body">
+                <!-- Etichetta "SINTESI DEL CONCETTO": maiuscoletto, accent, 8pt, tracking largo -->
+                <span class="dossier-section-label">SINTESI DEL CONCETTO</span>
+                <!-- Testo sintesi: Space Mono, interlinea 1.6, colore #1e293b -->
+                <p class="dossier-desc">${cleanLabel(node.desc || node.content || 'Nessuna descrizione presente.')}</p>
+
+                <!-- ── SEZIONE FONTI E CITAZIONI ────────────────────────── -->
+                ${citationsSection}
+
+                <!-- ── RELAZIONI KG (solo in modalità KG con opzione attivata) ── -->
+                ${relationsHtml || ''}
+            </div>
+        </div>`;
+        }
+
+        // ─── Determina se siamo in modalità "singolo nodo" o "ramo/tutto" ────────
+        // scope dichiarato con let (non const) per renderlo disponibile al titolo dinamico qui sotto
+        let scope = '';
+        let isSingleNodeMode = false;
+        if (isMM) {
+            scope = document.querySelector('input[name="print-mm-scope"]:checked')?.value || 'branch';
+            isSingleNodeMode = (scope === 'single');
+        } else {
+            scope = document.querySelector('input[name="print-kg-scope"]:checked')?.value || 'branch';
+            isSingleNodeMode = (scope === 'single');
+        }
+
+        // ── Titolo dinamico in base al tipo di stampa ─────────────────────────────
+        let dossierTitle, dossierSubtitle;
+        if (scope === 'single') {
+            dossierTitle = 'Dossier Nodo';
+            dossierSubtitle = cleanLabel(targetNodes[0]?.label || projectTitle);
+        } else if (scope === 'branch') {
+            dossierTitle = 'Struttura del Ramo';
+            dossierSubtitle = cleanLabel(targetNodes[0]?.label || projectTitle);
+        } else {
+            // scope === 'all' oppure selectedNodeId === 'all'
+            const rootNodeObj = appState.db.nodes?.find(n => n.level === 0);
+            dossierTitle = 'Struttura della Mappa';
+            dossierSubtitle = cleanLabel(rootNodeObj?.label || projectTitle);
+        }
+
+        let dossierCardsHtml = '';
+        const asciiSectionHtml = "";
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // MODO A: SINGOLO NODO
+        // ═══════════════════════════════════════════════════════════════════════════
+        if (isSingleNodeMode && targetNodes.length === 1) {
+            const n = targetNodes[0];
+            const inheritedNotes = (typeof window.getInheritedDatabase === 'function')
+                ? window.getInheritedDatabase(n.id)
+                : (appState.db.sourcesDict?.[n.id] || []);
+
+            let citationsHtml = `<p class="no-chunks">Nessuna citazione verbatim associata.</p>`;
+            if (inheritedNotes.length > 0) {
+                citationsHtml = inheritedNotes.map((s, idx) => buildCitationRow(s, idx, false)).filter(Boolean).join('');
+            } else if (n.chunks?.length > 0) {
+                citationsHtml = n.chunks.map((c, idx) => {
+                    const s = typeof c === 'object' ? c : { text: c, source: 'Documento' };
+                    return buildCitationRow({ ...s, nodeId: n.id }, idx, false);
+                }).filter(Boolean).join('');
+            }
+            const notesCount = inheritedNotes.length || (n.chunks?.length || 0);
+
+            let relationsHtml = "";
+            if (!isMM && document.getElementById('print-kg-relations')?.checked) {
+                const outgoing = appState.db.links
+                    .filter(l => ((l.source?.id || l.source) === n.id))
+                    .map(l => { const t = appState.db.nodes.find(nd => nd.id === (l.target?.id || l.target)); return t ? `<li><span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${l.rel || 'collega'}]</span> <strong class="rel-target">[${cleanLabel(t.label)}]</strong></li>` : ''; })
+                    .filter(Boolean).join('');
+                const incoming = appState.db.links
+                    .filter(l => ((l.target?.id || l.target) === n.id))
+                    .map(l => { const s2 = appState.db.nodes.find(nd => nd.id === (l.source?.id || l.source)); return s2 ? `<li><strong class="rel-target">[${cleanLabel(s2.label)}]</strong> <span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${l.rel || 'collega'}]</span></li>` : ''; })
+                    .filter(Boolean).join('');
+                if (outgoing || incoming) {
+                    relationsHtml = `<h3 class="dossier-section-title">RELAZIONI DEL NODO</h3><div class="kg-relations">
+                    ${outgoing ? `<div class="kg-relations-list"><strong>Elenco A) Uscenti:</strong><ul>${outgoing}</ul></div>` : ''}
+                    ${incoming ? `<div class="kg-relations-list"><strong>Elenco B) Entranti:</strong><ul>${incoming}</ul></div>` : ''}
+                </div>`;
+                }
+            }
+
+            dossierCardsHtml = buildNodeCard(n, true, citationsHtml, notesCount, relationsHtml);
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // MODO C: TUTTA LA MAPPA (Organizzata per Macro-Aree)
+            // ═══════════════════════════════════════════════════════════════════════════
+        } else if (scope === 'all' || selectedNodeId === 'all') {
+            const rootNode = appState.db.nodes.find(n => n.level === 0) || targetNodes[0];
+            const rootColor = getNodeColor(rootNode);
+
+            // 1) Diagramma ASCII globale
+            _visitedASCII.clear();
+            const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
+            dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
+            <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
+            <div class="dossier-header">
+                <div>
+                    <h2 class="dossier-title">Diagramma ad Albero Globale</h2>
+                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Tutta la mappa</span>
+                </div>
+            </div>
+            <div class="dossier-divider"></div>
+            <pre class="ascii-tree">${treeText}</pre>
+        </div>`;
+
+            // Stampa la card del Root Node
+            dossierCardsHtml += buildNodeCard(rootNode, false, '', 0, '');
+
+            const printedNodes = new Set([rootNode.id]);
+            const l1Nodes = appState.db.nodes.filter(n => n.level === 1).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            // 2) Ciclo sulle Macro-Aree
+            l1Nodes.forEach(l1 => {
+                _visitedDesc.clear();
+                const branchNodes = getDescendants(l1.id);
+                if (branchNodes.length === 0) branchNodes.push(l1);
+                branchNodes.sort((a, b) => (a.level || 0) - (b.level || 0));
+
+                const l1Color = getNodeColor(l1);
+
+                // A) Stampa card di tutti i nodi di questa Macro-Area
+                branchNodes.forEach(n => {
+                    if (!printedNodes.has(n.id)) {
+                        dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
+                        printedNodes.add(n.id);
+                    }
+                });
+
+                // B) Costruisce le citazioni della Macro-Area
+                let perNodeHtml = '';
+                let groupIdx = 1;
+                branchNodes.forEach(n => {
+                    const nodeSources = appState.db.sourcesDict?.[n.id] || [];
+                    if (nodeSources.length === 0) return;
+                    const nodeColor = getNodeColor(n);
+                    perNodeHtml += `<div class="node-citations-group">
+                    <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
+                        <span class="node-group-dot" style="background:${nodeColor};"></span>
+                        <span class="node-group-label">${cleanLabel(n.label)}</span>
+                        <span class="node-group-count">${nodeSources.length} cit.</span>
+                    </div>`;
+                    nodeSources.forEach(s => {
+                        const row = buildCitationRow({ ...s, nodeId: n.id }, groupIdx - 1, false);
+                        if (row) { perNodeHtml += row; groupIdx++; }
+                    });
+                    perNodeHtml += `</div>`;
+                });
+
+                if (!perNodeHtml) {
+                    perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata a questa macro-area.</p>`;
+                }
+
+                // C) Sezione aggregata (getInheritedDatabase per questo specifico L1)
+                const allInherited = (typeof window.getInheritedDatabase === 'function')
+                    ? window.getInheritedDatabase(l1.id)
+                    : [];
+
+                let aggregateHtml = '';
+                if (allInherited.length > 0) {
+                    aggregateHtml = allInherited.map((s, idx) => {
+                        const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
+                        const sourceText = s.text ? cleanLabel(s.text) : '';
+                        if (!sourceText) return '';
+                        const originNode = (s.nodeId && appState.db.nodes) ? appState.db.nodes.find(nd => nd.id === s.nodeId) : null;
+                        const originLabel = originNode ? cleanLabel(originNode.label) : '';
+                        const nodeColor = originNode ? getNodeColor(originNode) : l1Color;
+                        const nodeTag = originLabel ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>` : '';
+                        return `<div class="citation-row">
+                        <div class="citation-num">${idx + 1}</div>
+                        <div class="citation-content">
+                            <div class="citation-meta">
+                                <span class="citation-type-tag">TESTO DI ORIGINE</span>
+                                ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
+                                <span class="citation-sep">&mdash;</span>
+                                <span class="citation-source">${sourceName}</span>
+                            </div>
+                            <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                        </div>
+                    </div>`;
+                    }).filter(Boolean).join('');
+                } else {
+                    aggregateHtml = `<p class="no-chunks">Nessuna citazione aggregata trovata per questo ramo.</p>`;
+                }
+
+                const totalCount = allInherited.length || 0;
+
+                // Stampiamo la scheda finale delle citazioni del ramo
+                dossierCardsHtml += `<div class="dossier-card citations-master-card">
+                <div class="dossier-card-top-bar" style="background:${l1Color};"></div>
+                <div class="dossier-header">
+                    <div class="dossier-header-icon">&#128218;</div>
+                    <div>
+                        <h2 class="dossier-title">Fonti e Note: ${cleanLabel(l1.label)}</h2>
+                        <span class="dossier-tag">Tutte le citazioni del ramo (Macro-Area)</span>
+                    </div>
+                </div>
+                <div class="dossier-divider"></div>
+                <div class="citations-by-node-section">${perNodeHtml}</div>
+                <div class="citations-section-divider">
+                    <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI DEL RAMO) &mdash; ${totalCount} citazioni totali</span>
+                </div>
+                <div class="citations-container citations-aggregate">${aggregateHtml}</div>
+                </div>`;
+            });
+
+            // Eventuali nodi orfani
+            const orfani = targetNodes.filter(n => !printedNodes.has(n.id) && n.level > 0);
+            if (orfani.length > 0) {
+                orfani.forEach(n => { dossierCardsHtml += buildNodeCard(n, false, '', 0, ''); });
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // MODO B: RAMO SINGOLO
+            // ═══════════════════════════════════════════════════════════════════════════
+        } else {
+            const rootNode = targetNodes[0];
+            const rootColor = getNodeColor(rootNode);
+
+            _visitedASCII.clear();
+            const treeText = cleanLabel(rootNode.label) + "\n" + buildASCIITree(rootNode.id);
+            dossierCardsHtml += `<div class="dossier-card ascii-diagram-card">
+            <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
+            <div class="dossier-header">
+                <div>
+                    <h2 class="dossier-title">Struttura del Ramo</h2>
+                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Diagramma ASCII</span>
+                </div>
+            </div>
+            <div class="dossier-divider"></div>
+            <pre class="ascii-tree">${treeText}</pre>
+        </div>`;
+
+            targetNodes.forEach(n => {
+                dossierCardsHtml += buildNodeCard(n, false, '', 0, '');
+            });
+
+            let perNodeHtml = '';
+            let groupIdx = 1;
+            targetNodes.forEach(n => {
+                const nodeSources = appState.db.sourcesDict?.[n.id] || [];
+                if (nodeSources.length === 0) return;
+                const nodeColor = getNodeColor(n);
+                perNodeHtml += `<div class="node-citations-group">
+                <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
+                    <span class="node-group-dot" style="background:${nodeColor};"></span>
+                    <span class="node-group-label">${cleanLabel(n.label)}</span>
+                    <span class="node-group-count">${nodeSources.length} cit.</span>
+                </div>`;
+                nodeSources.forEach(s => {
+                    const row = buildCitationRow({ ...s, nodeId: n.id }, groupIdx - 1, false);
+                    if (row) { perNodeHtml += row; groupIdx++; }
+                });
+                perNodeHtml += `</div>`;
+            });
+
+            if (!perNodeHtml) {
+                perNodeHtml = `<p class="no-chunks">Nessuna citazione verbatim associata ai nodi di questo ramo.</p>`;
+            }
+
+            const allInherited = (typeof window.getInheritedDatabase === 'function')
+                ? window.getInheritedDatabase(rootNode.id)
+                : [];
+
+            let aggregateHtml = '';
+            if (allInherited.length > 0) {
+                aggregateHtml = allInherited.map((s, idx) => {
+                    const sourceName = s.source ? cleanLabel(s.source) : 'Documento';
+                    const sourceText = s.text ? cleanLabel(s.text) : '';
+                    if (!sourceText) return '';
+                    const originNode = (s.nodeId && appState.db.nodes)
+                        ? appState.db.nodes.find(nd => nd.id === s.nodeId)
+                        : null;
+                    const originLabel = originNode ? cleanLabel(originNode.label) : '';
+                    const nodeColor = originNode ? getNodeColor(originNode) : rootColor;
+                    const nodeTag = originLabel
+                        ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>`
+                        : '';
+                    return `<div class="citation-row">
+                    <div class="citation-num">${idx + 1}</div>
+                    <div class="citation-content">
+                        <div class="citation-meta">
+                            <span class="citation-type-tag">TESTO DI ORIGINE</span>
+                            ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
+                            <span class="citation-sep">\u2014</span>
+                            <span class="citation-source">${sourceName}</span>
+                        </div>
+                        <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                    </div>
+                </div>`;
+                }).filter(Boolean).join('');
+            } else {
+                aggregateHtml = `<p class="no-chunks">Nessuna citazione aggregata trovata per questo ramo.</p>`;
+            }
+
+            const totalCount = allInherited.length || 0;
+
+            dossierCardsHtml += `<div class="dossier-card citations-master-card">
+            <div class="dossier-card-top-bar" style="background:${rootColor};"></div>
+            <div class="dossier-header">
+                <div class="dossier-header-icon">&#128218;</div>
+                <div>
+                    <h2 class="dossier-title">Fonti e Note Approfondite</h2>
+                    <span class="dossier-tag">Tutte le citazioni del ramo &#xB7; ${cleanLabel(rootNode.label)}</span>
+                </div>
+            </div>
+            <div class="dossier-divider"></div>
+            <div class="citations-by-node-section">
+                ${perNodeHtml}
+            </div>
+            <div class="citations-section-divider">
+                <span>&#9612;&#9612; FONTI E NOTE APPROFONDITE (TUTTI I NODI) &mdash; ${totalCount} citazioni totali</span>
+            </div>
+            <div class="citations-container citations-aggregate">
+                ${aggregateHtml}
+            </div>
+        </div>`;
+        }
+
+
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            window.showToast("Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser.", "error");
+            return;
+        }
+
+        // ── Footer del documento: logo + nome mappa root ──────────────────────
+        const rootMapName = cleanLabel(
+            appState.db.nodes?.find(n => n.level === 0)?.label
+            || appState.db?.rootLabel
+            || 'MappAI'
+        );
+        const footerLogoHtml = mappaiIconBase64
+            ? '<img src="' + mappaiIconBase64 + '" alt="MappAI">'
+            : '';
+        const footerHtml = '<div class="dossier-footer"><div class="dossier-footer-left">' + footerLogoHtml + '<span>MappAI by insegnai.ch</span></div><div class="dossier-footer-right">' + rootMapName + '</div></div>';
+
+        printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dossier Fonti A4 - ${projectTitle}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+            <style>
+                :root {
+                    /* --- MODIFICHE GLOBALI DI LAYOUT (Variabili CSS) --- */
+                    /* Puoi modificare questi valori per cambiare rapidamente l'aspetto di tutto il dossier */
+
+                    /* TIPOGRAFIA — fattore scala ${fontScale} applicato in automatico */
+                    --pdf-scale: ${fontScale};
+                    --pdf-font-family: 'Space Mono', monospace; /* Cambia qui il font del dossier */
+                    --pdf-base-font-size: calc(13px * ${fontScale}); /* Dimensione testo normale */
+                    --pdf-title-font-size: calc(17px * ${fontScale}); /* Dimensione titolo principale */
+                    --pdf-section-title-size: calc(9.5px * ${fontScale}); /* Dimensione titoli sezioni */
+                    --pdf-citation-font-size: calc(11.5px * ${fontScale}); /* Dimensione testo citazioni */
+                    --pdf-small-font-size: calc(9px * ${fontScale}); /* Dimensione testi piccoli e metadati */
+                    
+                    /* COLORI E SPAZIATURE */
+                    --pdf-primary-color: #0f172a; /* Colore del testo principale */
+                    --pdf-accent-color: #38bdf8;  /* cyan – colore di accento (barre e dettagli) */
+                    --pdf-accent-dark: #0369a1; /* Colore di accento scuro per testi */
+                    --pdf-bg-citation: #f0f9ff; /* Colore di sfondo delle citazioni */
+                    
+                    /* Spaziature interne delle card (i riquadri dei nodi) */
+                    --pdf-card-padding: calc(20px * ${fontScale}); /* Margine interno delle card */
+                    --pdf-card-border-radius: 10px; /* Arrotondamento angoli delle card */
+                    --pdf-spacing-between-cards: calc(28px * ${fontScale}); /* Spazio verticale tra una card e l'altra */
+                }
+
+                @media print {
+                    /* --- REGOLE DI STAMPA A4 --- */
+                    @page {
+                        /* Formato della pagina. Puoi usare 'A4 landscape' per orizzontale */
+                        size: A4 portrait;
+                        
+                        /* Margini della pagina fisica (Sopra/Sotto Destra/Sinistra) */
+                        margin: 20mm 18mm; 
+                        
+                        /* Footer automatico su ogni pagina stampata - Modifica qui il testo a piè di pagina */
+                        @bottom-left { content: "MappAI — insegnai.ch"; font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
+                        @bottom-right { content: counter(page); font-family: 'Space Mono', monospace; font-size: 7pt; color: #94a3b8; }
+                    }
+                    body { 
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .no-print { display: none !important; }
+                    
+                    /* Comportamento dei riquadri (card) durante l'impaginazione */
+                    .dossier-card { 
+                        page-break-after: always; /* Forza una nuova pagina dopo ogni card (se non lo vuoi, commenta questa riga) */
+                        page-break-inside: avoid; /* Evita che una card venga spezzata su due pagine */
+                        break-after: page;
+                        box-shadow: none !important;
+                        border: none !important;
+                    }
+                    .dossier-card:last-child {
+                        page-break-after: avoid;
+                        break-after: avoid;
+                    }
+
+                    /* ── Forza la stampa dei colori di sfondo ─────────────────────── */
+                    /* Senza queste regole Chrome/Safari/Firefox non stampano           */
+                    /* i background-color degli header colorati                         */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+                    .dossier-card-header,
+                    .dossier-card-top-bar,
+                    [style*="background"] {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+
+                * {
+                    font-family: 'Space Mono', monospace !important;
+                    box-sizing: border-box;
+                }
+
+                body {
+                    font-family: var(--pdf-font-family);
+                    color: #1e293b;
+                    background: #fff;
+                    padding: 30px 27px; /* padding laterale ridotto del 10%: 30px → 27px */
+                    line-height: var(--pdf-line-height);
+                    font-size: var(--pdf-base-font-size);
+                }
+
+                .header {
+                    margin-bottom: 30px;
+                    padding-bottom: 16px;
+                    border-bottom: 2px solid #e2e8f0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .header h1 {
+                    font-size: var(--pdf-title-font-size);
+                    margin: 0;
+                    font-weight: 800;
+                    color: var(--pdf-primary-color);
+                }
+
+                .btn-print {
+                    background: #10b981;
+                    color: #fff;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+
+                .btn-print:hover {
+                    background: #059669;
+                }
+
+                .dossier-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--pdf-spacing-between-cards);
+                }
+
+                /* ── Card principale (riquadro di ogni Nodo) ─────────────────────── */
+                .dossier-card {
+                    background: #fff; /* Colore di sfondo della card (di default bianco) */
+                    border: 1px solid #e2e8f0; /* Colore e spessore del bordo grigio chiaro */
+                    border-radius: var(--pdf-card-border-radius); /* Smussatura degli angoli (vedi variabili :root in alto) */
+                    padding: var(--pdf-card-padding);
+                    overflow: hidden;
+                    position: relative;
+                    /* Se vuoi aggiungere un'ombra visuale a schermo (viene rimossa in stampa in automatico): */
+                    /* box-shadow: 0 4px 6px rgba(0,0,0,0.1); */
+                }
+
+                /* Banda colorata in cima alla card (come il modale) */
+                /* ── Top-bar sottile (mantenuta per Modo B: ramo/mappa) ──────── */
+                .dossier-card-top-bar {
+                    height: 4px;
+                    background: var(--pdf-accent-color);
+                    margin: calc(-1 * var(--pdf-card-padding));
+                    margin-bottom: calc(var(--pdf-card-padding) * 0.8);
+                }
+
+                /* ── HEADER CARD FULL-WIDTH (layout allineato al #source-modal) ─── */
+                .dossier-card-header {
+                    /* Rettangolo colorato full-width che rompe il padding della card */
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 18pt 20pt 14pt 20pt;
+                    margin: calc(-1 * var(--pdf-card-padding));
+                    margin-bottom: calc(var(--pdf-card-padding) * 0.7);
+                }
+
+                .dossier-card-header-main {
+                    /* Colonna testo: titolo + livello + breadcrumb */
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3pt;
+                    flex: 1;
+                }
+
+                /* ── Backward compat: vecchio header (usato in Modo B) ──────── */
+                .dossier-header {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                    margin-bottom: 6px;
+                }
+
+                .dossier-header-icon {
+                    font-size: calc(18px * var(--pdf-scale));
+                    margin-top: 2px;
+                    flex-shrink: 0;
+                }
+
+                .dossier-title {
+                    /* Titolo nodo nell'header: bianco, bold, grande */
+                    font-size: 22pt;
+                    font-weight: 700;
+                    margin: 0;
+                    color: #ffffff;
+                    line-height: 1.2;
+                }
+
+                .dossier-level-tag {
+                    /* "Livello X · MacroArea": bianco 10pt, opacità ridotta */
+                    font-size: 10pt;
+                    color: rgba(255,255,255,0.75);
+                    display: block;
+                }
+
+                .dossier-breadcrumb {
+                    /* Percorso parentela: bianco italic 9pt */
+                    font-size: 9pt;
+                    color: rgba(255,255,255,0.65);
+                    font-style: italic;
+                    display: block;
+                }
+
+                /* Backward compat: vecchio tag per Modo B */
+                .dossier-tag {
+                    font-size: var(--pdf-small-font-size);
+                    color: #64748b;
+                    display: block;
+                    margin-top: 2px;
+                }
+
+                .dossier-divider {
+                    height: 1px;
+                    background: #e2e8f0;
+                    margin: 10px 0 14px 0;
+                }
+
+                /* ── Body e sezioni ──────────────────────── */
+                .dossier-section-title {
+                    font-size: var(--pdf-section-title-size);
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    color: #64748b;
+                    margin: 16px 0 8px 0;
+                    letter-spacing: 0.06em;
+                }
+
+                .sources-title {
+                    /* La barra sinistra è gestita inline da .dossier-sources-header */
+                    color: var(--pdf-accent-dark);
+                }
+
+                /* ── Etichetta sezione SINTESI DEL CONCETTO ─────────────────── */
+                .dossier-section-label {
+                    /* Maiuscoletto, colore accent, 8pt, tracking largo — come il modale */
+                    display: block;
+                    font-size: 8pt;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.12em;
+                    color: var(--pdf-accent-dark);
+                    margin: 0 0 6pt 0;
+                }
+
+                /* ── Corpo nodo: padding-top dopo header full-width ─────────── */
+                .dossier-body {
+                    padding-top: 4pt;
+                }
+
+                .dossier-desc {
+                    font-size: var(--pdf-base-font-size);
+                    color: #334155;
+                    margin: 0;
+                    white-space: pre-wrap;
+                    line-height: var(--pdf-line-height);
+                }
+
+                /* ── Citazioni (layout modale) ────────────── */
+                .citations-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    margin-top: 4px;
+                }
+
+                .citation-row {
+                    /* Ogni fonte: bordo sinistro colorato (stile modale) + sfondo grigio chiaro */
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8pt;
+                    background: #f8fafc;          /* grigio chiarissimo */
+                    border: none;
+                    border-left: 2pt solid var(--pdf-accent-color); /* barra sinistra accent */
+                    border-radius: 0;
+                    padding: 8pt 10pt;
+                    margin-bottom: 6pt;          /* spazio tra fonti: 6pt */
+                    page-break-inside: avoid;    /* Evita di spezzare la card tra due pagine */
+                    break-inside: avoid;
+                }
+
+                .citation-num {
+                    flex-shrink: 0;
+                    width: calc(20px * var(--pdf-scale));
+                    height: calc(20px * var(--pdf-scale));
+                    background: #6366f1;
+                    color: #fff;
+                    border-radius: 50%;
+                    font-size: var(--pdf-small-font-size);
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-top: 2px;
+                }
+
+                .citation-content {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .citation-meta {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    flex-wrap: wrap;
+                    margin-bottom: 5px;
+                }
+
+                .citation-type-tag {
+                    font-size: var(--pdf-small-font-size);
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    color: var(--pdf-accent-dark);
+                    letter-spacing: 0.05em;
+                }
+
+                .citation-origin {
+                    font-size: var(--pdf-small-font-size);
+                    color: #0369a1;
+                    font-weight: 600;
+                }
+
+                .citation-source {
+                    font-size: var(--pdf-small-font-size);
+                    color: #475569;
+                    font-style: italic;
+                }
+
+                .citation-sep {
+                    font-size: var(--pdf-small-font-size);
+                    color: #94a3b8;
+                }
+
+                .citation-text {
+                    font-size: var(--pdf-citation-font-size);
+                    color: #1e293b;
+                    font-style: italic;
+                    margin: 0;
+                    line-height: var(--pdf-line-height);
+                    white-space: pre-wrap;
+                }
+
+                .no-chunks {
+                    font-size: var(--pdf-base-font-size);
+                    color: #94a3b8;
+                    font-style: italic;
+                    margin: 0;
+                }
+
+                .ascii-tree {
+                    font-family: 'Space Mono', monospace !important;
+                    font-size: calc(11px * var(--pdf-scale));
+                    background: #f8fafc;
+                    padding: 16px;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                    overflow-x: auto;
+                    margin: 0;
+                }
+
+                /* Badge macro-area nell'header della card */
+                .dossier-color-badge {
+                    font-size: var(--pdf-small-font-size);
+                    font-weight: 700;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    letter-spacing: 0.03em;
+                }
+
+                /* Raggruppamento citazioni per nodo (Modo B) */
+                .node-citations-group {
+                    margin-bottom: 16px;
+                }
+
+                .node-group-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 16px 0 8px 0;
+                    padding-left: 10px;
+                }
+
+                .node-group-label {
+                    font-weight: 700;
+                    font-size: calc(11px * var(--pdf-scale));
+                    color: #1e293b;
+                }
+
+                .node-group-count {
+                    font-size: var(--pdf-small-font-size);
+                    color: #94a3b8;
+                }
+
+                .node-group-dot {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    display: inline-block;
+                    flex-shrink: 0;
+                }
+
+                /* Sezione A: citazioni per nodo */
+                .citations-by-node-section {
+                    margin-bottom: 8px;
+                }
+
+                /* Separatore visivo tra sezione A e sezione B */
+                .citations-section-divider {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin: 20px 0 14px 0;
+                    color: #0369a1;
+                    font-size: var(--pdf-section-title-size);
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    border-top: 2px solid #e0f2fe;
+                    padding-top: 14px;
+                }
+
+                /* Sezione B: citazioni aggregate */
+                .citations-aggregate {
+                    padding-bottom: 8px;
+                }
+
+                /* Stili per le relazioni KG */
+                .kg-relations {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    margin-top: 12px;
+                }
+
+                .kg-relations-list {
+                    background: #fdfdfd;
+                    border: 1px solid #f1f5f9;
+                    padding: 12px;
+                    border-radius: 8px;
+                }
+
+                .kg-relations-list strong {
+                    font-size: 12px;
+                    color: #475569;
+                    display: block;
+                    margin-bottom: 6px;
+                }
+
+                .kg-relations-list ul {
+                    margin: 0;
+                    padding-left: 16px;
+                    list-style-type: none;
+                }
+
+                .kg-relations-list li {
+                    font-size: 13px;
+                    color: #334155;
+                    margin-bottom: 4px;
+                    font-family: 'Space Mono', monospace !important;
+                }
+
+                .rel-arrow {
+                    color: #94a3b8;
+                }
+
+                .rel-word {
+                    color: #6366f1;
+                    font-weight: bold;
+                }
+
+                .rel-target {
+                    color: #0f172a;
+                }
+
+                /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
+                .dossier-footer {
+                    position: fixed;
+                    /* Un valore negativo spinge il footer verso il bordo inferiore del foglio */
+                    bottom: 0mm; 
+                    left: 0;
+                    right: 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 4px 0 40px;
+                    font-size: 11px;
+                    font-family: 'Space Mono', monospace;
+                    /* Sfondo bianco opzionale per coprire eventuali testi che ci passano sotto */
+                    background-color: white; 
+                }
+                .dossier-footer-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #a9b2c0ff;
+                }
+                .dossier-footer-left img {
+                    width: 22px;
+                    height: 22px;
+                    object-fit: contain;
+                    opacity: 1;
+                }
+                .dossier-footer-right {
+                    color: #334155;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header no-print">
+                <div style="display:flex;align-items:center;gap:14px;">
+                    ${mappaiIconBase64 ? '<img src="' + mappaiIconBase64 + '" style="width:48px;height:48px;object-fit:contain;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.15);" alt="MappAI">' : '<span style="font-weight:900;font-size:18px;color:#4F46E5;">MappAI</span>'}
+                    <div>
+                        <h1 class="dossier-main-title" style="margin:0;font-size:1.4rem;">${dossierTitle}</h1>
+                        <p class="dossier-main-subtitle" style="margin:0;color:#64748b;font-size:0.95rem;">${dossierSubtitle}</p>
+                    </div>
+                </div>
+                <button class="btn-print" onclick="window.print()">Stampa Dossier</button>
+            </div>
+            <div class="dossier-container">
+                ${asciiSectionHtml}
+                ${dossierCardsHtml}
+            </div>
+            ${footerHtml}
+        </body>
+        </html>
+    `);
+        printWindow.document.close();
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 800);
+        window.closeDossierPrintModal();
+    } catch (err) {
+        console.error('[Dossier] Errore durante la generazione:', err);
+        window.showToast('Errore generazione dossier: ' + err.message, 'error');
+    }
+};
+
 
 
 
@@ -5244,25 +8261,47 @@ window.closeLightbox = function () {
 // ==========================================
 let ctxTarget = null;
 let longPressTimer = null;
+let touchStartPos = null;
 
 function handleTouchStart(e, type, data) {
-    if (e.touches.length > 1) return; // ignore multi-touch
+    if (e.touches && e.touches.length > 1) return; // ignore multi-touch
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartPos = { x: touch.clientX, y: touch.clientY };
+
+    if (longPressTimer) clearTimeout(longPressTimer);
     longPressTimer = setTimeout(() => {
         let syntheticEvent = e;
         if (e.touches && e.touches[0]) {
             syntheticEvent = {
-                preventDefault: () => e.preventDefault(),
-                stopPropagation: () => e.stopPropagation(),
+                preventDefault: () => { if (e.preventDefault) e.preventDefault(); },
+                stopPropagation: () => { if (e.stopPropagation) e.stopPropagation(); },
                 clientX: e.touches[0].clientX,
                 clientY: e.touches[0].clientY
             };
         }
         window.showContextMenu(syntheticEvent, type, data);
-    }, 600);
+        longPressTimer = null;
+    }, 500); // reduced to 500ms for more responsive feel
 }
 
-function handleTouchEnd(e) { if (longPressTimer) clearTimeout(longPressTimer); }
-function handleTouchMove(e) { if (longPressTimer) clearTimeout(longPressTimer); }
+function handleTouchMove(e) {
+    if (!longPressTimer || !touchStartPos) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - touchStartPos.x;
+    const dy = touch.clientY - touchStartPos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 15) { // 15px threshold
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+function handleTouchEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
 
 window.showContextMenu = function (e, type, data) {
     e.preventDefault(); e.stopPropagation();
@@ -5270,6 +8309,19 @@ window.showContextMenu = function (e, type, data) {
     menu.innerHTML = ''; ctxTarget = { type, data };
 
     if (type === 'node') {
+        const expandAiHtml = !appState.studentMode ? `
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> Espandi da Fonte</div>
+        ` : '';
+
+        const spacedRepetitionHtml = !appState.studentMode ? `
+            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
+            <hr class="my-1 border-slate-200">
+        ` : '';
+
         menu.innerHTML = `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200">Stato di Studio</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
@@ -5277,18 +8329,13 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
-                    <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-indigo-500"></i> Espandi con IA (Da Fonte)...</div>
-                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit"></i> Modifica Contenuti...</div>
-                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina Etichetta</div>
-                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Aggiungi Nodo Figlio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Relazione...</div>
+                    ${expandAiHtml}
+                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> Edit Contenuto</div>
+                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
+                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
+                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
                     <hr class="my-1 border-slate-200">
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
-                    <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
-                    <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
-                    <hr class="my-1 border-slate-200">
+                    ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
                 `;
     } else if (type === 'link') {
@@ -5309,14 +8356,18 @@ window.showContextMenu = function (e, type, data) {
     } else if (type === 'bg') {
         if (appState.extractionMode === 'kg') {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Super-Hub Isolato</div>
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                <hr class="my-1 border-slate-200">
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
             `;
         } else {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo Isolato</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                <hr class="my-1 border-slate-200">
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
             `;
         }
     }
@@ -5343,6 +8394,10 @@ window.ctxAction = function (action) {
     const data = ctxTarget.data;
     hideContextMenu();
 
+    if (action === 'fissa_layout') {
+        window.openLayoutModal();
+        return;
+    }
     if (action === 'expand_ai') {
         window.openContextualAIExtensionModal(data);
         return;
@@ -5658,6 +8713,7 @@ window.saveEditNode = function () {
 
     window.closeEditModal();
     renderGraph();
+    window.renderTreeView();
     window.updateUserNotesSidebar();
     StorageManager.saveCurrentProject();
     if (currentNode && currentNode.id === editTarget.id) window.handleNodeClick({ stopPropagation: () => { } }, currentNode);
@@ -5694,7 +8750,17 @@ window.updateUserNotesSidebar = function () {
             html += `<div class="mt-2 space-y-1">`;
             nodeUrls.forEach(u => {
                 const isLocal = u.startsWith('file://');
-                const displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
+                let displayUrl;
+                if (isLocal) {
+                    try {
+                        displayUrl = decodeURIComponent(u.split('/').pop());
+                    } catch (e) {
+                        displayUrl = u.split('/').pop();
+                    }
+                } else {
+                    displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
+                }
+
                 html += `
                     <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
                         <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
@@ -5719,7 +8785,7 @@ window.updateUserNotesSidebar = function () {
 // ==========================================
 let currentQuizNode = null;
 
-window.generateFlashcardForNode = async function (node, silent = false) {
+window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
     const apiKey = window.getSystemKey();
     if (!apiKey) {
         if (!silent) window.showToast("Nessuna API Key presente per generare le flashcard.", "error"); return;
@@ -5750,8 +8816,24 @@ window.generateFlashcardForNode = async function (node, silent = false) {
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-        node.flashcardTest = JSON.parse(cleanText);
+        const items = salvageTruncatedJSON(cleanText);
+        node.flashcardTest = items;
         node.nextReview = Date.now(); // Available right away
+
+        if (!isBranch) {
+            appState.db.studySets = appState.db.studySets || [];
+            const isKG = appState.db.extractionMode === 'knowledge_graph';
+            const nodePrefix = (isKG && node.level === 1) ? 'Hub' : 'Nodo';
+            appState.db.studySets.push({
+                id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                title: `${nodePrefix}: ${node.label}`,
+                mode: 'quiz', // Default mode for nodes is currently 'quiz' (multiple choice)
+                type: 'Multiple Choice',
+                items: items,
+                date: new Date().toISOString()
+            });
+        }
+
         if (!silent) {
             window.showLoadingOverlay(false);
             window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
@@ -5770,8 +8852,7 @@ window.renderStudySets = function () {
     const hint = document.getElementById('empty-sets-hint');
     if (!container || !hint) return;
 
-    const nodesWithCards = appState.db.nodes.filter(n => n.flashcardTest);
-    if (nodesWithCards.length === 0) {
+    if (!appState.db.studySets || appState.db.studySets.length === 0) {
         hint.style.display = 'block';
         Array.from(container.children).forEach(c => {
             if (c.id !== 'empty-sets-hint') c.remove();
@@ -5782,51 +8863,85 @@ window.renderStudySets = function () {
     hint.style.display = 'none';
     container.innerHTML = '<p class="text-[10px] text-slate-400 italic" id="empty-sets-hint" style="display:none;">Genera flashcard o quiz per visualizzarli qui.</p>';
 
-    nodesWithCards.forEach(n => {
-        const div = document.createElement('div');
-        div.className = "flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer group shadow-sm";
-        div.onclick = () => window.openQuizModal(n);
+    // Sort newest first
+    const sortedSets = [...appState.db.studySets].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-        let iconColor = n.studyStatus === 'done' ? 'text-emerald-500' : (n.studyStatus === 'review' ? 'text-amber-500' : 'text-slate-400');
-        const lastScore = n.lastScore ? `<span class="text-[9px] text-slate-400 font-medium">Ultimo Score: <b class="text-indigo-500">${n.lastScore}</b></span>` : '<span class="text-[9px] text-slate-300 italic">Ancora da ripassare</span>';
+    sortedSets.forEach(set => {
+        const div = document.createElement('div');
+        div.className = "flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer group shadow-sm mb-2";
+        div.onclick = () => window.loadStudySet(set.id);
+
+        let iconColor = set.mode === 'quiz' ? 'text-amber-500' : 'text-purple-500';
+        let iconType = set.mode === 'quiz' ? 'help-circle' : 'brain-circuit';
 
         div.innerHTML = `
-                    <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
-                        <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-white transition">
-                             <i data-lucide="brain-circuit" class="w-4 h-4 ${iconColor}"></i>
-                        </div>
-                        <div class="flex flex-col min-w-0">
-                            <span class="text-xs font-bold text-slate-700 truncate leading-tight">${n.label}</span>
-                            ${lastScore}
-                        </div>
-                    </div>
-                    <div class="ml-3 shrink-0 flex items-center gap-1">
-                        <button onclick="event.stopPropagation(); window.deleteStudySet('${n.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
-                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
-                    </div>
-                `;
+            <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
+                <div class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-white transition">
+                     <i data-lucide="${iconType}" class="w-4 h-4 ${iconColor}"></i>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-xs font-bold text-slate-700 truncate leading-tight">${set.title}</span>
+                    <span class="text-[10px] text-slate-400">${set.items.length} domande &middot; ${new Date(set.date).toLocaleDateString()}</span>
+                </div>
+            </div>
+            <div class="ml-3 shrink-0 flex items-center gap-1">
+                <button onclick="event.stopPropagation(); window.deleteStudySet('${set.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="event.stopPropagation(); if('${set.mode}' === 'flashcard') { window.printFlashcardSet('${set.id}'); } else { window.printQuizSet('${set.id}'); }" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0" title="Stampa / Esporta PDF">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                </button>
+                <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
+            </div>
+        `;
         container.appendChild(div);
     });
     window.safeCreateIcons();
 };
 
-window.deleteStudySet = function (nodeId) {
-    const node = appState.db.nodes.find(n => n.id === nodeId);
-    if (node) {
-        node.flashcardTest = null;
-        node.studyStatus = null;
-        node.lastScore = null;
-        node.lastReviewed = null;
-        node.nextReview = null;
+window.loadStudySet = function (setId) {
+    const set = appState.db.studySets.find(s => s.id === setId);
+    if (!set) return;
+
+    window.activeStudySetTitle = set.title || 'Mappa';
+    window.activeStudySessionItems = set.items;
+    window.studyConfig = {
+        mode: set.mode,
+        quizType: set.type
+    };
+
+    window.studyResults = {
+        mode: set.mode,
+        type: set.type,
+        correct: 0,
+        total: set.items.length,
+        mistakes: [],
+        openAnswers: [],
+        startTime: Date.now()
+    };
+
+    window.currentStudyItemIndex = 0;
+    window.openStudyPlayer();
+};
+
+window.deleteStudySet = function (setId) {
+    if (confirm("Sei sicuro di voler eliminare questo set?")) {
+        appState.db.studySets = appState.db.studySets.filter(s => s.id !== setId);
         window.renderStudySets();
-        renderGraph();
-        window.showToast("Set di studio rimosso.", "info");
     }
 };
 
+
+
 window.getDescendants = function (nodeId) {
+    const startNode = appState.db.nodes.find(n => n.id === nodeId);
+    if (!startNode) return [];
+
+    if (appState.extractionMode === 'mindmap') {
+        // Per mappe mentali, tutti i nodi dello stesso gruppo (escluso il nodo stesso)
+        return appState.db.nodes.filter(n => n.group === startNode.group && n.id !== nodeId);
+    }
+
     let descendants = new Set();
     let queue = [nodeId];
     while (queue.length > 0) {
@@ -5855,14 +8970,29 @@ window.generateBranchFlashcards = async function (node) {
 
     window.showLoadingOverlay(true, `Generazione per Ramo in corso (${nodes.length} nodi)...`, "flashcard");
     let successCount = 0;
+    let branchItems = [];
     for (const n of nodes) {
         try {
-            await window.generateFlashcardForNode(n, true);
-            if (n.flashcardTest) successCount++;
+            await window.generateFlashcardForNode(n, true, true);
+            if (n.flashcardTest) {
+                successCount++;
+                branchItems = branchItems.concat(n.flashcardTest);
+            }
         } catch (e) { console.error(e); }
     }
     window.showLoadingOverlay(false);
     if (successCount > 0) {
+        appState.db.studySets = appState.db.studySets || [];
+        appState.db.studySets.push({
+            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            title: `Ramo: ${node.label}`,
+            mode: 'quiz',
+            type: 'Multiple Choice',
+            items: branchItems,
+            date: new Date().toISOString()
+        });
+        if (window.renderStudySets) window.renderStudySets();
+
         window.globalQuizQueue = nodes.filter(n => n.flashcardTest);
         window.playNextGlobalQuiz();
     } else {
@@ -5900,6 +9030,11 @@ window.openQuizModal = function (node) {
     correctSubAnswersCount = 0;
     window.renderSubQuestion();
 
+    const iconElem = document.getElementById('quiz-modal-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', 'graduation-cap');
+    }
+
     const modal = document.getElementById('quiz-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -5908,6 +9043,7 @@ window.openQuizModal = function (node) {
         modal.classList.remove('opacity-0');
         box.classList.remove('scale-95');
     }, 10);
+    window.safeCreateIcons();
 };
 
 window.closeQuizModal = function () {
@@ -5932,10 +9068,39 @@ window.renderSubQuestion = function () {
     const optsContainer = document.getElementById('quiz-options-container');
     optsContainer.innerHTML = '';
 
-    [1, 2, 3].forEach(val => {
+    const optionsArray = [1, 2, 3].filter(val => {
+        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
+        return t && t.trim() !== '';
+    });
+
+    const isTrueFalse = optionsArray.length === 2 && optionsArray.some(val => {
+        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
+        const l = t.toLowerCase();
+        return l === 'vero' || l === 'falso' || l === 'true' || l === 'false';
+    });
+
+    if (isTrueFalse) {
+        optsContainer.className = "flex gap-4 mb-6";
+    } else {
+        optsContainer.className = "space-y-3 mb-6";
+    }
+
+    optionsArray.forEach(val => {
         let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
         let btn = document.createElement('div');
-        btn.className = "quiz-option";
+
+        if (isTrueFalse) {
+            btn.className = "quiz-option flex-1 text-center";
+            const lowerText = text.toLowerCase();
+            if (lowerText === 'vero' || lowerText === 'true') {
+                btn.classList.add('tf-true');
+            } else if (lowerText === 'falso' || lowerText === 'false') {
+                btn.classList.add('tf-false');
+            }
+        } else {
+            btn.className = "quiz-option";
+        }
+
         btn.innerText = text;
         btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
         optsContainer.appendChild(btn);
@@ -6130,6 +9295,21 @@ let tutorState = {
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
 };
 
+/**
+ * Ritorna una copia deep-serializzabile di tutorState (solo scalari + array + oggetti plain).
+ * Necessario prima di passare tutorState via Electron IPC (Structured Clone Algorithm):
+ * se tutorState contiene Date, funzioni, riferimenti circolari o altri non-serializzabili
+ * l'IPC lancia "An object could not be cloned" e il salvataggio vault fallisce silenziosamente.
+ */
+function serializeTutorState(state) {
+    try {
+        return JSON.parse(JSON.stringify(state));
+    } catch (e) {
+        console.warn('[MappAI] tutorState non serializzabile, uso fallback vuoto:', e);
+        return { sidebar: { history: [] }, nodes: {} };
+    }
+}
+
 window.parseSimpleMarkdown = function (text) {
     if (!text) return "";
     let html = text;
@@ -6202,7 +9382,7 @@ window.resetSidebarTutor = function () {
             "Hi! I'm your global AI Tutor. How can I help you study this map?";
 
         chatHistory.innerHTML = `
-            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
+            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
                 <button onclick="window.readTextAloud(this, \`${firstMsg.replace(/'/g, "\\'")}\`)" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
             </div>
@@ -6221,7 +9401,7 @@ window.sendSidebarTutorMessage = async function () {
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
 
     chatHistory.innerHTML += `
-        <div class="bg-emerald-500 text-black p-3 rounded-lg text-sm rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
+        <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
             <p>${customQuery}</p>
         </div>
     `;
@@ -6273,7 +9453,7 @@ window.sendSidebarTutorMessage = async function () {
         document.getElementById(loaderId).remove();
         let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML += `
-        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
+        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
             <div class="markdown-body flex-grow">${resultHTML}</div>
             <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
         </div>
@@ -6483,7 +9663,13 @@ window.sendNodeTutorMessage = async function () {
         kgStr = !isKG ? " (If useful, make a brief reference to the macro-area of the node)." : " (If useful, briefly suggest a connection to a super-hub).";
     }
 
-    instruction = window.fillPromptTemplate(lang === 'it' ? "SOCRATIC_TUTOR_IT" : "SOCRATIC_TUTOR_EN", {
+    // Usa la variante semplificata per Infomaniak: i modelli più piccoli (Apertus)
+    // non gestiscono prompt complessi con HTML e 5 regole di score → entrano in loop
+    const isInfomaniakTutor = (appState.aiProvider === 'infomaniak');
+    const tutorPromptKey = isInfomaniakTutor
+        ? (lang === 'it' ? "SOCRATIC_TUTOR_INFOMANIAK_IT" : "SOCRATIC_TUTOR_INFOMANIAK_EN")
+        : (lang === 'it' ? "SOCRATIC_TUTOR_IT" : "SOCRATIC_TUTOR_EN");
+    instruction = window.fillPromptTemplate(tutorPromptKey, {
         userProfileProfile: userProfileStr,
         phaseInstruction: phaseStr,
         kgInstruction: kgStr
@@ -6501,7 +9687,9 @@ window.sendNodeTutorMessage = async function () {
         const apiKey = window.getSystemKey();
         const payload = {
             systemInstruction: { parts: [{ text: instruction }] },
-            contents: currentNodeState.history
+            contents: currentNodeState.history,
+            // Limita i token per Infomaniak: risposte corte prevengono i loop
+            ...(isInfomaniakTutor && { generationConfig: { maxOutputTokens: 400 } })
         };
 
         const data = await window.fetchModelAPI(payload, apiKey);
@@ -6577,7 +9765,7 @@ window.generateAIQuiz = async function () {
         let rawText = data.candidates[0].content.parts[0].text || "";
         let cleanJson = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
-        currentQuizData = JSON.parse(cleanJson);
+        currentQuizData = salvageTruncatedJSON(cleanJson);
 
         document.getElementById('ai-modal-title').innerText = `Quiz: ${cleanLabel(currentNode.label)}`;
         renderQuizUI();
@@ -6640,40 +9828,78 @@ window.selectQuizAnswer = function (selectedIndex) {
 // POMODORO & STATS LOGIC
 // ==========================================
 let pomodoroInterval;
+let pomodoroDuration = 25 * 60;
 let pomodoroTimeLeft = 25 * 60;
 let isPomodoroRunning = false;
+
+window.setPomodoroDuration = function (mins) {
+    pomodoroDuration = mins * 60;
+    clearInterval(pomodoroInterval);
+    isPomodoroRunning = false;
+    pomodoroTimeLeft = pomodoroDuration;
+
+    const btn = document.getElementById('pomodoro-btn');
+    if (btn) {
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
+    }
+    updatePomodoroDisplay();
+    if (window.safeCreateIcons) window.safeCreateIcons();
+
+    const p15 = document.getElementById('pomodoro-preset-15');
+    const p25 = document.getElementById('pomodoro-preset-25');
+    if (p15 && p25) {
+        if (mins === 15) {
+            p15.className = "px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 transition font-bold";
+            p25.className = "px-2.5 py-1 text-slate-500 rounded-md hover:bg-slate-50 transition font-bold";
+        } else {
+            p25.className = "px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 transition font-bold";
+            p15.className = "px-2.5 py-1 text-slate-500 rounded-md hover:bg-slate-50 transition font-bold";
+        }
+    }
+};
 
 window.togglePomodoro = function () {
     const btn = document.getElementById('pomodoro-btn');
     if (isPomodoroRunning) {
         clearInterval(pomodoroInterval);
         isPomodoroRunning = false;
-        btn.innerText = "RIPRENDI";
-        btn.className = "px-3 py-1.5 bg-amber-50 text-amber-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm";
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-amber-50 text-amber-600 rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm flex items-center justify-center";
     } else {
         isPomodoroRunning = true;
-        btn.innerText = "PAUSA";
-        btn.className = "px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm";
+        btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 fill-current"></i>`;
+        btn.className = "p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm flex items-center justify-center";
         pomodoroInterval = setInterval(() => {
             if (pomodoroTimeLeft > 0) {
                 pomodoroTimeLeft--;
                 updatePomodoroDisplay();
             } else {
                 window.resetPomodoro();
+                try {
+                    let sessions = parseInt(localStorage.getItem('mappai_pomodoro_sessions') || '0', 10);
+                    sessions++;
+                    localStorage.setItem('mappai_pomodoro_sessions', sessions.toString());
+                    window.updatePomodoroSessionsDisplay();
+                } catch (e) {
+                    console.error("Error updating pomodoro sessions", e);
+                }
                 window.showToast("Tempo scaduto! Fai una pausa.", "success");
             }
         }, 1000);
     }
+    if (window.safeCreateIcons) window.safeCreateIcons();
 };
 
 window.resetPomodoro = function () {
     clearInterval(pomodoroInterval);
     isPomodoroRunning = false;
-    pomodoroTimeLeft = 25 * 60;
+    pomodoroTimeLeft = pomodoroDuration;
     const btn = document.getElementById('pomodoro-btn');
-    btn.innerText = "INIZIA";
-    btn.className = "px-3 py-1.5 bg-rose-50 text-rose-600 text-[10px] uppercase tracking-wider font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition shadow-sm";
+    btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
+    btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
     updatePomodoroDisplay();
+    if (window.safeCreateIcons) window.safeCreateIcons();
 };
 
 function updatePomodoroDisplay() {
@@ -6682,6 +9908,31 @@ function updatePomodoroDisplay() {
     const pTime = document.getElementById('pomodoro-time');
     if (pTime) pTime.innerText = `${m}:${s}`;
 }
+
+window.updatePomodoroSessionsDisplay = function () {
+    try {
+        const count = localStorage.getItem('mappai_pomodoro_sessions') || '0';
+        const badge = document.getElementById('pomodoro-sessions-badge');
+        if (badge) {
+            badge.innerText = `Sessioni: ${count}`;
+        }
+    } catch (e) {
+        console.error("Error displaying pomodoro sessions", e);
+    }
+};
+
+window.resetPomodoroSessions = function () {
+    if (confirm("Sei sicuro di voler azzerare le sessioni di Pomodoro completate?")) {
+        try {
+            localStorage.setItem('mappai_pomodoro_sessions', '0');
+            window.updatePomodoroSessionsDisplay();
+            window.showToast("Sessioni azzerate", "info");
+        } catch (e) {
+            console.error("Error resetting pomodoro sessions", e);
+        }
+    }
+};
+
 
 window.updateStudyStats = function () {
     let done = 0, review = 0, todo = 0, total = 0;
@@ -6751,9 +10002,28 @@ const StorageManager = {
         localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
 
-        // Salva automaticamente la Mappa come .JSON tramite Electron!
+        // Salva automaticamente la Mappa come .JSON tramite Electron.
+        // NON passare appState raw: dopo la simulazione D3 i nodi contengono
+        // riferimenti circolari non serializzabili (Structured Clone crash).
+        // Passiamo solo i campi che saveMapJSON usa effettivamente.
         if (window.electronAPI) {
-            window.electronAPI.saveMapJSON(appState);
+            try {
+                window.electronAPI.saveMapJSON({
+                    extractionMode: appState.extractionMode,
+                    rootNodeLabel: appState.rootNodeLabel,
+                    nodes: (appState.db.nodes || []).map(n => ({
+                        id: n.id, label: n.label, level: n.level,
+                        group: n.group, content: n.content, desc: n.desc
+                    })),
+                    links: (appState.db.links || []).map(l => ({
+                        source: typeof l.source === 'object' ? l.source.id : l.source,
+                        target: typeof l.target === 'object' ? l.target.id : l.target,
+                        rel: l.rel || '', isCross: !!l.isCross
+                    }))
+                });
+            } catch (e) {
+                console.warn('[MappAI] saveMapJSON fallito:', e.message);
+            }
         }
     },
 
@@ -6848,27 +10118,28 @@ const StorageManager = {
             const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App Mapp.AI.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
                 return;
             }
 
             container.innerHTML = projects.map(p => {
-                const d = new Date(p.date).toLocaleDateString();
+                const d = new Date(p.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short' });
                 const icon = p.type === 'kg' ? 'network' : 'git-merge';
-                const label = p.type === 'kg' ? 'Knowledge Graph' : 'Mappa Mentale';
+                const label = p.type === 'kg' ? 'KG' : 'MM';
+                const labelFull = p.type === 'kg' ? 'Knowledge Graph' : 'Mappa Mentale';
                 return `
-                        <div class="flex-shrink-0 w-48 bg-white border border-indigo-200/60 rounded-xl p-3 flex flex-col justify-between hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md transition cursor-pointer group shadow-sm" onclick="window.loadSavedProject('${p.id}')">
+                        <div class="flex-shrink-0 w-36 bg-white border border-indigo-200/60 rounded-lg p-2.5 flex flex-col justify-between hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md transition cursor-pointer group shadow-sm" onclick="window.loadSavedProject('${p.id}')">
                             <div>
-                                <div class="flex items-center gap-1.5 mb-1 text-indigo-400">
-                                    <i data-lucide="${icon}" class="w-3 h-3"></i>
-                                    <span class="text-[8px] font-bold uppercase tracking-tighter">${label}</span>
+                                <div class="flex items-center gap-1 mb-1.5 text-indigo-400">
+                                    <i data-lucide="${icon}" class="w-2.5 h-2.5 shrink-0"></i>
+                                    <span class="text-[9px] font-bold uppercase tracking-tight" title="${labelFull}">${label}</span>
                                 </div>
-                                <h4 class="text-xs text-slate-700 font-bold mb-1 truncate group-hover:text-indigo-600 transition" title="${p.name}">${p.name}</h4>
-                                <p class="text-[9px] text-slate-400 font-medium">${p.nodesCount} nodi &bull; ${d}</p>
+                                <h4 class="text-[11px] leading-tight text-slate-700 font-bold mb-1.5 break-words group-hover:text-indigo-600 transition line-clamp-3">${p.name}</h4>
+                                <p class="text-[9px] text-slate-400">${p.nodesCount} nodi &bull; ${d}</p>
                             </div>
                             <div class="flex justify-between items-center mt-2">
-                                <span class="text-[9px] text-indigo-500 font-bold flex items-center gap-1 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-3 h-3"></i> Riprendi</span>
-                                <button onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition" title="Elimina"><i data-lucide="trash" class="w-3 h-3"></i></button>
+                                <span class="text-[9px] text-indigo-500 font-semibold flex items-center gap-0.5 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-2.5 h-2.5"></i> Riprendi</span>
+                                <button onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition p-0.5" title="Elimina"><i data-lucide="trash" class="w-2.5 h-2.5"></i></button>
                             </div>
                         </div>`;
             }).join('');
@@ -6947,7 +10218,6 @@ window.changeLanguage = function (lang) {
         'label-mode-kg': t.step2_kg,
         'label-step4': t.step_density_title,
         'label-step4-kg': t.step_kg_density_title,
-        'label-step4-kg-desc': t.step_kg_density_desc,
         'btn-generate-label': (document.getElementById('extraction-mode')?.value || 'mindmap') === 'mindmap' ? t.new_map_btn : t.new_kg_btn,
 
 
@@ -6963,13 +10233,26 @@ window.changeLanguage = function (lang) {
         'label-api-key-desc': t.api_key_desc,
         'label-api-key-how': t.api_key_how,
         'label-ai-model': t.ai_model_label,
-        'label-refresh-models': t.refresh_models
+        'label-refresh-models': t.refresh_models,
+        'estimator-title-lbl': t.estimator_title,
+        'estimator-tokens-lbl': t.estimator_tokens_label,
+        'estimator-cost-lbl': t.estimator_cost_label,
+        'feedback-section-title': t.feedback_section,
+        'feedback-btn-title': t.feedback_btn_title,
+        'feedback-btn-desc': t.feedback_btn_desc,
+        'feedback-modal-title-lbl': t.feedback_modal_title,
+        'feedback-cat-label-lbl': t.feedback_cat_label,
+        'feedback-desc-label-lbl': t.feedback_desc_label,
+        'feedback-submit-btn-lbl': t.feedback_submit_btn
     };
 
     for (let id in els) {
         const el = document.getElementById(id);
         if (el) el.innerText = els[id];
     }
+
+    const feedbackText = document.getElementById('feedback-text');
+    if (feedbackText) feedbackText.placeholder = t.feedback_desc_placeholder;
 
     // Process data-i18n attributes automatically
     document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -6989,99 +10272,24 @@ window.changeLanguage = function (lang) {
     if (pricingPaid) pricingPaid.innerHTML = t.pricing_paid;
     if (pricingNote) pricingNote.innerHTML = t.pricing_note;
 
-    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Study) ---
+    // --- 2. LOCALIZZAZIONE MODALE STUDIO (Active Recall, ecc) ---
     const studyContainer = document.getElementById('study-modal-content');
-    if (studyContainer) {
-        studyContainer.innerHTML = `
-                <p class="mb-4 text-sm leading-relaxed">${t.study_intro}</p>
+    // Il contenuto è ora statico nell'HTML, la traduzione avviene tramite data-i18n.
 
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔁</span> ${t.study_sr_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_sr_desc}</p>
-                </div>
-
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🧠</span> ${t.study_ar_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_ar_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">👨‍🏫</span> ${t.study_feynman_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_feynman_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">🔀</span> ${t.study_interleaving_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_interleaving_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">❓</span> ${t.study_elaboration_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_elaboration_desc}</p>
-                </div>
-
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2 flex items-center gap-2">
-                        <span class="text-lg">📂</span> ${t.study_local_files_title}
-                    </h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.study_local_files_desc}</p>
-                </div>
-
-                <p class="font-bold text-indigo-600 mt-6 text-center text-[11px] leading-relaxed">${t.study_footer}</p>
-                `;
-    }
-
-    // --- 3. LOCALIZZAZIONE MODALE GUIDA ---
     const guideContainer = document.getElementById('guide-modal-content');
     if (guideContainer) {
-        guideContainer.innerHTML = `
-                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <h3 class="font-black text-indigo-700 text-sm mb-2">${t.guide_step1_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step1_desc}</p>
-                </div>
+        const normalGuide = document.getElementById('guide-normal-content');
+        const studentGuide = document.getElementById('guide-student-content');
 
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 class="font-black text-amber-700 text-sm mb-2">${t.guide_step2_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step2_desc}</p>
-                </div>
-
-                <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4">
-                    <h3 class="font-black text-fuchsia-700 text-sm mb-2">${t.guide_step3_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step3_desc}</p>
-                </div>
-
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <h3 class="font-black text-emerald-700 text-sm mb-2">${t.guide_step4_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step4_desc}</p>
-                </div>
-
-                <div class="bg-violet-50 border border-violet-200 rounded-xl p-4">
-                    <h3 class="font-black text-violet-700 text-sm mb-2">${t.guide_step5_title}</h3>
-                    <p class="text-xs text-slate-600 space-y-1 leading-relaxed">${t.guide_step5_desc}</p>
-                </div>
-
-                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                    <h3 class="font-black text-sky-700 text-sm mb-2">${t.guide_step6_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_step6_desc}</p>
-                </div>
-
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
-                    <h3 class="font-black text-rose-700 text-sm mb-2">${t.guide_notes_title}</h3>
-                    <p class="text-xs text-slate-600 leading-relaxed">${t.guide_notes_desc}</p>
-                </div>
-
-                <p class="text-center text-xs text-slate-400 italic pt-4 leading-relaxed">${t.guide_footer}</p>
-                `;
+        if (normalGuide && studentGuide) {
+            if (appState.studentMode) {
+                normalGuide.classList.add('hidden');
+                studentGuide.classList.remove('hidden');
+            } else {
+                normalGuide.classList.remove('hidden');
+                studentGuide.classList.add('hidden');
+            }
+        }
     }
 
     // --- 4. FEEDBACK VISIVO BANDIERE ---
@@ -7105,10 +10313,27 @@ window.changeLanguage = function (lang) {
     if (window.showToast) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
+
+    // Aggiorna dinamicamente le descrizioni di Step 4 in base a lingua e modalità
+    if (window.updateStep4Display) {
+        window.updateStep4Display();
+    }
+    if (window.updateTokenCostEstimator) {
+        window.updateTokenCostEstimator();
+    }
 };
 
 // Add auto-render projects on load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Inizializza secure keys dal Keychain nativo se disponibile, o da localStorage
+    if (window.initSecureKeys) {
+        try {
+            await window.initSecureKeys();
+        } catch (e) {
+            console.error("[MappAI] Errore inizializzazione Secure Keys all'avvio:", e);
+        }
+    }
+
     // Inizializza Lingua
     window.changeLanguage(window.currentLanguage);
 
@@ -7121,20 +10346,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnGuide) btnGuide.addEventListener('click', () => { console.log("Open Guide"); window.showAppGuide(); });
     if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
 
+    const autoGenToggle = document.getElementById('l1-auto-generate-toggle');
+    if (autoGenToggle) {
+        autoGenToggle.addEventListener('change', () => {
+            if (window.updateStep4Display) window.updateStep4Display();
+        });
+    }
+
+    // Multi-pass ON di default (silent=true: niente toast all'avvio)
+    window.setMultiPassMode(true, true);
+
     StorageManager.renderRecentProjects();
 
     // Load Gemini Key
-    const savedGeminiKey = localStorage.getItem('gemini_api_key');
+    const savedGeminiKey = (window.secureKeys && window.secureKeys['gemini_api_key']) || localStorage.getItem('gemini_api_key');
     if (savedGeminiKey) {
         const geminiInput = document.getElementById('gemini-api-key-input');
         if (geminiInput) geminiInput.value = savedGeminiKey;
     }
-
     // Load Infomaniak Key
-    const savedInfomaniakKey = localStorage.getItem('infomaniak_api_key');
+    const savedInfomaniakKey = (window.secureKeys && window.secureKeys['infomaniak_api_key']) || localStorage.getItem('infomaniak_api_key');
     if (savedInfomaniakKey) {
         const infomaniakInput = document.getElementById('infomaniak-api-key-input');
         if (infomaniakInput) infomaniakInput.value = savedInfomaniakKey;
+    }
+
+    // Load Infomaniak Product ID
+    if (appState.infomaniakProductId) {
+        const productInput = document.getElementById('infomaniak-product-id');
+        if (productInput) productInput.value = appState.infomaniakProductId;
     }
 
     // Load saved models on boot
@@ -7159,6 +10399,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the UI for the current provider
     if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
+
+    // Setup estimator events and initial display
+    if (selectEl) {
+        selectEl.addEventListener('change', () => {
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+        });
+    }
+    if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+
+    // Aggiorna dinamicamente l'etichetta del percorso cartella dei vault
+    const labelEl = document.getElementById('vault-manager-folder-path-label');
+    if (labelEl) {
+        labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
+    }
 });
 
 window.globalQuizQueue = [];
@@ -7185,9 +10439,19 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
     let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
     if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
     else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
-    
+
     document.getElementById('study-config-title').innerText = title;
-    
+
+    let iconName = 'brain-circuit';
+    if (mode === 'quiz') {
+        iconName = scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-config-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
     const quizTypeContainer = document.getElementById('quiz-type-container');
     if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
     else quizTypeContainer.classList.add('hidden');
@@ -7229,17 +10493,19 @@ window.startStudySession = async function () {
     }
 
     let studyText = "";
-    let targetLabel = "Tutta la Mappa";
+    let targetLabel = "Globale";
 
     if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
         const n = window.studyConfig.target;
         studyText = `${n.label}: ${n.content || n.desc}`;
-        targetLabel = n.label;
+        const isKG = appState.db.extractionMode === 'knowledge_graph';
+        const nodePrefix = (isKG && n.level === 1) ? 'Hub' : 'Nodo';
+        targetLabel = `${nodePrefix}: ${n.label}`;
     } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
         const root = window.studyConfig.target;
         const branchNodes = [root, ...window.getDescendants(root.id)];
         studyText = branchNodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
-        targetLabel = `Ramo ${root.label}`;
+        targetLabel = `Ramo: ${root.label}`;
     } else {
         studyText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
     }
@@ -7297,7 +10563,20 @@ window.startStudySession = async function () {
 
         let rawText = response.candidates[0].content.parts[0].text;
         let cleanText = rawText.split('```json').join('').split('```').join('').trim();
-        window.activeStudySessionItems = JSON.parse(cleanText);
+        window.activeStudySessionItems = salvageTruncatedJSON(cleanText);
+
+        appState.db.studySets = appState.db.studySets || [];
+        const label = targetLabel;
+        appState.db.studySets.push({
+            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            title: label,
+            mode: window.studyConfig.mode,
+            type: window.studyConfig.quizType || 'Flashcard',
+            items: window.activeStudySessionItems,
+            date: new Date().toISOString()
+        });
+        if (window.renderStudySets) window.renderStudySets();
+
         window.currentStudyItemIndex = 0;
 
         // Initialize results
@@ -7307,6 +10586,7 @@ window.startStudySession = async function () {
             correct: 0,
             total: window.activeStudySessionItems.length,
             mistakes: [],
+            openAnswers: [],
             startTime: Date.now()
         };
 
@@ -7332,6 +10612,17 @@ window.openStudyPlayer = function () {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+    let iconName = 'brain-circuit';
+    if (window.studyConfig.mode === 'quiz') {
+        iconName = window.studyConfig.scope === 'branch' ? 'layers' : 'graduation-cap';
+    } else {
+        iconName = window.studyConfig.scope === 'branch' ? 'network' : 'brain-circuit';
+    }
+    const iconElem = document.getElementById('study-player-icon');
+    if (iconElem) {
+        iconElem.setAttribute('data-lucide', iconName);
+    }
 
     const timerContainer = document.getElementById('study-player-timer-container');
     if (window.studyConfig.timer) {
@@ -7453,6 +10744,8 @@ window.checkQuizAnswer = function (selected, item) {
 
 window.checkOpenAnswer = function () {
     const item = window.activeStudySessionItems[window.currentStudyItemIndex];
+    const userAnswer = document.getElementById('study-quiz-textarea').value || "";
+
     document.getElementById('study-quiz-open').classList.add('hidden');
     document.getElementById('study-quiz-open').classList.remove('flex');
 
@@ -7465,10 +10758,19 @@ window.checkOpenAnswer = function () {
 
     document.getElementById('study-quiz-feedback').classList.remove('hidden');
 
-    // In open answer we don't automatically record correct/wrong, 
-    // maybe we assume they are learning. Let's mark as 'incomplete' or similar.
+    // Inizializza openAnswers se non esiste per sicurezza
+    if (!window.studyResults.openAnswers) window.studyResults.openAnswers = [];
+    window.studyResults.openAnswers.push({
+        q: item.q,
+        userAnswer: userAnswer,
+        correctAnswer: item.correct,
+        explanation: item.explanation
+    });
+
+    // Registra comunque nei mistakes per visualizzazione riassunto, ma taggato come risposta aperta
     window.studyResults.mistakes.push({
         q: item.q,
+        userAnswer: userAnswer,
         correctAnswer: item.correct,
         explanation: item.explanation,
         isOpen: true
@@ -7499,8 +10801,177 @@ window.nextStudyItem = function (flashcardFeedback = null) {
     }
 };
 
+window.addStudyScore = function () {
+    try {
+        if (!window.studyResults) return;
+
+        const score = {
+            title: window.activeStudySetTitle || (appState.db && appState.db.name) || "Set di Studio",
+            correct: window.studyResults.correct,
+            total: window.studyResults.total,
+            type: window.studyResults.type || "Quiz",
+            date: new Date().toISOString()
+        };
+
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) {
+            console.error("Error reading study scores", e);
+        }
+
+        if (!Array.isArray(scores)) scores = [];
+
+        // Add to the beginning (newest first)
+        scores.unshift(score);
+
+        // Keep at most 10
+        if (scores.length > 10) {
+            scores = scores.slice(0, 10);
+        }
+
+        localStorage.setItem('mappai_study_scores', JSON.stringify(scores));
+        window.updateStudyScoresDisplay();
+    } catch (err) {
+        console.error("Error saving score to history", err);
+    }
+};
+
+window.updateStudyScoresDisplay = function () {
+    try {
+        const container = document.getElementById('study-scores-container');
+        if (!container) return;
+
+        let scores = [];
+        try {
+            const raw = localStorage.getItem('mappai_study_scores');
+            if (raw) scores = JSON.parse(raw);
+        } catch (e) { }
+
+        if (!Array.isArray(scores) || scores.length === 0) {
+            container.innerHTML = `
+                <p class="text-[14px] text-slate-400 italic" id="empty-scores-hint">Nessun punteggio registrato. Completa un quiz per iniziare!</p>
+            `;
+            return;
+        }
+
+        container.innerHTML = '';
+        scores.forEach(s => {
+            const dateStr = new Date(s.date).toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+
+            // Color based on performance
+            let bgClass = "bg-rose-50 border-rose-100 text-rose-700";
+            let progressColor = "bg-rose-500";
+            if (percent >= 80) {
+                bgClass = "bg-emerald-50 border-emerald-100 text-emerald-700";
+                progressColor = "bg-emerald-500";
+            } else if (percent >= 50) {
+                bgClass = "bg-amber-50 border-amber-100 text-amber-700";
+                progressColor = "bg-amber-500";
+            }
+
+            const div = document.createElement('div');
+            div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="font-bold text-slate-800 truncate max-w-[140px]" title="${s.title}">${s.title}</div>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}">${s.correct}/${s.total} (${percent}%)</span>
+                </div>
+                <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                    <div class="h-full ${progressColor}" style="width: ${percent}%"></div>
+                </div>
+                <div class="flex justify-between items-center text-[9px] text-slate-400">
+                    <span>${s.type}</span>
+                    <span>${dateStr}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+        // Add a "Cancella storico" button at the end
+        const clearDiv = document.createElement('div');
+        clearDiv.className = "pt-2 flex justify-end";
+        clearDiv.innerHTML = `
+            <button onclick="window.clearStudyScores()" class="text-[9px] text-slate-400 hover:text-slate-600 flex items-center gap-1 font-semibold transition">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Cancella Storico
+            </button>
+        `;
+        container.appendChild(clearDiv);
+
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    } catch (err) {
+        console.error("Error displaying study scores", err);
+    }
+};
+
+window.clearStudyScores = function () {
+    if (confirm("Sei sicuro di voler cancellare tutto lo storico dei punteggi?")) {
+        try {
+            localStorage.removeItem('mappai_study_scores');
+            window.updateStudyScoresDisplay();
+            window.showToast("Storico cancellato", "info");
+        } catch (e) {
+            console.error("Error clearing scores", e);
+        }
+    }
+};
+
+window.autoSaveOpenQuizResponses = async function () {
+    if (!window.studyResults || !window.studyResults.openAnswers || window.studyResults.openAnswers.length === 0) return;
+
+    const nickname = appState.userProfile.nickname || "Studente Anonimo";
+    const age = appState.userProfile.age || "-";
+    const grade = appState.userProfile.grade || "-";
+    const system = appState.userProfile.system || "-";
+    const title = window.activeStudySetTitle || "Quiz Aperto";
+
+    let txt = `=== RISPOSTE QUIZ APERTO: ${title} ===\n`;
+    txt += `Data: ${new Date().toLocaleString()}\n`;
+    txt += `Studente: ${nickname} (Età: ${age}, Classe: ${grade}, Sistema: ${system})\n`;
+    txt += `--------------------------------------------------\n\n`;
+
+    window.studyResults.openAnswers.forEach((ans, idx) => {
+        txt += `[Tutor]: Domanda ${idx + 1}: ${ans.q}\n`;
+        txt += `[Studente]: ${ans.userAnswer}\n`;
+        txt += `Risposta di riferimento: ${ans.correctAnswer}\n`;
+        if (ans.explanation) txt += `Spiegazione: ${ans.explanation}\n`;
+        txt += `\n`;
+    });
+
+    txt += `--------------------------------------------------\n`;
+    txt += `Fine della sessione di quiz aperto.\n`;
+
+    try {
+        if (window.electronAPI && window.electronAPI.saveQuizTextResponse) {
+            await window.electronAPI.saveQuizTextResponse({
+                title: title,
+                textContent: txt,
+                vaultPath: appState.activeVaultPath
+            });
+            window.showToast("Risposte salvate con successo nel tuo Vault!", "success");
+        }
+    } catch (e) {
+        console.error("Errore durante il salvataggio automatico delle risposte del quiz aperto:", e);
+    }
+};
+
 window.showStudySummary = function () {
     if (window.studyTimerInterval) clearInterval(window.studyTimerInterval);
+
+    // Salva il punteggio nello storico
+    window.addStudyScore();
+
+    // Se ci sono risposte aperte, salvale automaticamente come file di chat .txt nel Vault
+    if (window.studyResults && window.studyResults.openAnswers && window.studyResults.openAnswers.length > 0) {
+        window.autoSaveOpenQuizResponses();
+    }
 
     document.getElementById('study-flashcard-view').classList.add('hidden');
     document.getElementById('study-quiz-view').classList.add('hidden');
@@ -7573,7 +11044,8 @@ window.saveStudyReport = async function () {
             projectName: projectName,
             targetName: `Report_Studio_${window.studyResults.mode}`,
             textContent: reportText,
-            vaultPath: appState.activeVaultPath
+            vaultPath: appState.activeVaultPath,
+            subFolder: 'Quiz e Flashcard'
         });
 
         if (res.success) {
@@ -7671,11 +11143,16 @@ window.cycleLineHeight = function () {
     window.safeCreateIcons();
 };
 
-let currentZoomIdx = 0;
+let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
 
 window.cycleTextZoom = function () {
-    currentZoomIdx = (currentZoomIdx + 1) % zooms.length;
+    window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
+};
+
+window.applyTextZoom = function (idx) {
+    currentZoomIdx = idx;
+    localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
 
     const label = `Testo x${(z === 1.0 ? '1' : z)}`;
@@ -7685,18 +11162,91 @@ window.cycleTextZoom = function () {
     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
+    // On the landing page, force the zoom level to 1.0 to prevent any enlargement
+    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = isLandingVisible ? 1.0 : z;
+
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
-    document.documentElement.style.setProperty('--app-zoom', z);
+    document.documentElement.style.setProperty('--app-zoom', effectiveZ);
 
-    // Applica lo zoom SOLO ai contenitori di testo, non al root HTML
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
+    if (effectiveZ > 1.0) {
+        document.body.classList.add('a11y-zoomed-modals');
+    } else {
+        document.body.classList.remove('a11y-zoomed-modals');
+    }
+
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2');
+    if (effectiveZ === 1.0) {
+        document.body.classList.add('a11y-zoom-x1');
+    } else if (effectiveZ === 1.5) {
+        document.body.classList.add('a11y-zoom-x15');
+    } else if (effectiveZ === 2.0) {
+        document.body.classList.add('a11y-zoom-x2');
+    }
+
+    // Zoom per tutti i contenitori primari e modali con testo
+    const zoomSelectors = [
+        '#sidebar',
+        '#source-modal-content-box',
+        '#ai-modal-content-box',
+        '#study-player-modal > div',
+        '#quiz-modal-content',
+        '#app-guide-modal > div',
+        '#app-tutorial-modal > div',
+        '#config-ai-modal > div',
+        '#merge-confirm-modal > div',
+        '#validate-link-modal > div',
+        '#user-profile-box',
+        '#api-tutorial-modal > div',
+        '#alert-box',
+        '#prompt-box',
+        '#confirm-box',
+        '#study-config-modal > div',
+        '#vault-manager-box',
+        '#edit-node-box',
+        '#contextual-ai-extension-modal > div',
+        '#feedback-box'
+    ];
+
+    // Applica inline style per bypassare bug di Safari su calc/CSS variables
     const sourceBody = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
-    if (mainCard) mainCard.style.zoom = z;
-    if (sourceBody) sourceBody.style.zoom = z;
+    if (sourceBody) {
+        if (effectiveZ === 1.0) sourceBody.style.removeProperty('font-size');
+        else sourceBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
+    }
+    if (aiBody) {
+        if (effectiveZ === 1.0) aiBody.style.removeProperty('font-size');
+        else aiBody.style.setProperty('font-size', `${effectiveZ * 16}px`, 'important');
+    }
+    if (flashcardFront) {
+        if (effectiveZ === 1.0) flashcardFront.style.removeProperty('font-size');
+        else flashcardFront.style.setProperty('font-size', `${effectiveZ * 24}px`, 'important');
+    }
+    if (flashcardBack) {
+        if (effectiveZ === 1.0) flashcardBack.style.removeProperty('font-size');
+        else flashcardBack.style.setProperty('font-size', `${effectiveZ * 18}px`, 'important');
+    }
+    if (quizQuestion) {
+        if (effectiveZ === 1.0) quizQuestion.style.removeProperty('font-size');
+        else quizQuestion.style.setProperty('font-size', `${effectiveZ * 20}px`, 'important');
+    }
+    quizOptions.forEach(opt => {
+        if (effectiveZ === 1.0) opt.style.removeProperty('font-size');
+        else opt.style.setProperty('font-size', `${effectiveZ * 13}px`, 'important');
+    });
 
     // Ripristina root font size se era stato modificato
     document.documentElement.style.fontSize = '';
+
+    // Forza reflow su iOS Safari per aggiornare le variabili CSS nei fogli di stile
+    document.documentElement.classList.toggle('force-reflow');
+    const _reflow = document.documentElement.offsetHeight;
 
     window.safeCreateIcons();
 };
@@ -7713,15 +11263,36 @@ window.resetA11yTools = function () {
     if (btnZPanel) btnZPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> Testo x1`;
 
     document.documentElement.style.setProperty('--app-zoom', 1);
+    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2', 'a11y-zoomed-modals');
+    document.body.classList.add('a11y-zoom-x1');
 
     const mainCard = document.querySelector('.glass-card.max-w-3xl');
     const body = document.getElementById('source-modal-body');
+    const aiBody = document.getElementById('ai-modal-body');
+    const flashcardFront = document.getElementById('flashcard-front-text');
+    const flashcardBack = document.getElementById('flashcard-back-text');
+    const quizQuestion = document.getElementById('study-quiz-question');
+    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
 
-    if (mainCard) mainCard.style.zoom = '';
+    if (mainCard) {
+        mainCard.style.transform = '';
+        mainCard.style.transformOrigin = '';
+        mainCard.style.zoom = '';
+    }
     if (body) {
         body.style.lineHeight = '';
         body.style.zoom = '';
+        body.style.removeProperty('font-size');
     }
+    if (aiBody) {
+        aiBody.style.removeProperty('font-size');
+    }
+    if (flashcardFront) flashcardFront.style.removeProperty('font-size');
+    if (flashcardBack) flashcardBack.style.removeProperty('font-size');
+    if (quizQuestion) quizQuestion.style.removeProperty('font-size');
+    quizOptions.forEach(opt => {
+        opt.style.removeProperty('font-size');
+    });
     document.documentElement.style.fontSize = '';
 };
 
@@ -7925,35 +11496,7 @@ window.clearSuperFinder = function () {
 const oldFinder = document.getElementById('map-finder-input');
 if (oldFinder) oldFinder.remove();
 
-// === CANVAS VUOTO & ESPANSIONE CONTESTUALE ===
-window.createBlankCanvas = function () {
-    const mode = document.getElementById('extraction-mode').value;
-    appState.extractionMode = mode;
-    appState.db = { nodes: [], links: [] };
 
-    if (mode === 'mindmap') {
-        appState.db.nodes.push({
-            id: "ROOT",
-            label: "Nuovo Argomento",
-            content: "Inizia a scrivere...",
-            desc: "Inizia a scrivere...",
-            level: 0,
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
-            studyStatus: 'none',
-            chunks: []
-        });
-    }
-
-    appState.rootNodeLabel = "Mappa Manuale";
-    window.switchToMapLayout();
-
-    simulation = null;
-    initD3Visualization();
-    window.updateDegreeStats();
-    window.renderTreeView();
-    window.safeCreateIcons();
-};
 
 let contextualAITargetNode = null;
 
@@ -7968,9 +11511,11 @@ window.openContextualAIExtensionModal = function (nodeData) {
 
     const modal = document.getElementById('contextual-ai-extension-modal');
     modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     setTimeout(() => {
         modal.classList.remove('opacity-0');
-        modal.querySelector('div').classList.remove('scale-95');
+        if (box) box.classList.remove('scale-95');
     }, 10);
 };
 
@@ -8025,7 +11570,7 @@ window.executeContextualAIExtension = async function () {
 
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
-            systemInstruction: { parts: [{ text: appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION }] },
+            systemInstruction: { parts: [{ text: buildSystemInstruction(appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
             generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
         }, apiKey);
 
@@ -8133,9 +11678,13 @@ window.handleCtxPDFSelect = function (input) {
 window.closeContextualAIModal = function () {
     const modal = document.getElementById('contextual-ai-extension-modal');
     if (!modal) return;
+    const box = document.getElementById('contextual-ai-extension-box') || modal.querySelector('div');
     modal.classList.add('opacity-0');
-    modal.querySelector('div').classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    if (box) box.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
 };
 
 window.ctxExpansionSourceType = 'text';
@@ -8259,6 +11808,7 @@ window.showUserProfileModal = function () {
         document.getElementById('up-grade').value = appState.userProfile.grade;
     }
 
+    modal.style.display = '';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => {
@@ -8416,13 +11966,50 @@ window.directLoadVault = async function (folderPath) {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
-            appState.extractionMode = loadRes.data.extractionMode;
-            appState.rootNodeLabel = loadRes.data.rootNodeLabel;
+            appState.extractionMode = loadRes.data.extractionMode || "mindmap";
+            appState.rootNodeLabel = folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+
+            let nodesList = loadRes.data.nodes || [];
+            let linksList = loadRes.data.links || [];
+
+            const rootNode = nodesList.find(n => n.level === 0);
+            if (rootNode) {
+                rootNode.label = appState.rootNodeLabel;
+            }
+            if (nodesList.length === 0) {
+                const rootId = "node_" + Math.random().toString(36).substr(2, 9);
+                nodesList = [{
+                    id: rootId,
+                    label: appState.rootNodeLabel,
+                    level: 0,
+                    group: 0,
+                    x: 640,
+                    y: 400,
+                    fx: 640,
+                    fy: 400
+                }];
+                linksList = [];
+                // Salva immediatamente il vault con il nodo radice di default per creare i file fisici
+                window.electronAPI.saveVault({
+                    folderPath: folderPath,
+                    mapData: {
+                        extractionMode: appState.extractionMode,
+                        rootNodeLabel: appState.rootNodeLabel,
+                        nodes: nodesList,
+                        links: linksList,
+                        customColors: {}
+                    }
+                });
+            }
+
             appState.db = {
-                nodes: loadRes.data.nodes || [],
-                links: loadRes.data.links || [],
+                nodes: nodesList,
+                links: linksList,
+                studySets: loadRes.data.studySets || [],
                 sourcesDict: {}
             };
+
+            if (window.renderStudySets) window.renderStudySets();
 
             if (loadRes.data.userProfile) {
                 appState.userProfile = loadRes.data.userProfile;
@@ -8466,7 +12053,7 @@ window.directLoadVault = async function (folderPath) {
             }
 
             window.switchToMapLayout();
-            
+
             // Mostra tasto Sincronizza Vault
             const syncBtn = document.getElementById('sync-vault-btn');
             if (syncBtn) {
@@ -8515,16 +12102,1113 @@ window.resetVaultState = function () {
         } catch (e) { }
     }
 
+    // Gestione Segnalazioni e Feedback
+    let selectedFeedbackCategory = 'ui';
+
+    window.selectFeedbackCategory = function (cat) {
+        selectedFeedbackCategory = cat;
+        const categories = ['ui', 'ai', 'storage', 'bug', 'suggestion', 'other'];
+        categories.forEach(c => {
+            const btn = document.getElementById(`fb-cat-${c}`);
+            if (btn) {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+            }
+        });
+
+        const activeBtn = document.getElementById(`fb-cat-${cat}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
+        }
+    };
+
+    window.openFeedbackModal = function () {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        if (!modal || !box) return;
+
+        document.getElementById('feedback-text').value = '';
+        window.selectFeedbackCategory('ui');
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeFeedbackModal = function () {
+        const modal = document.getElementById('feedback-modal');
+        const box = document.getElementById('feedback-box');
+        if (!modal || !box) return;
+
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    window.submitFeedback = function () {
+        const text = document.getElementById('feedback-text').value.trim();
+        if (!text) {
+            if (window.showToast) window.showToast("Inserisci i dettagli della segnalazione", "warning");
+            return;
+        }
+
+        const catLabels = {
+            'ui': 'Interfaccia / UI',
+            'ai': 'Generazione AI',
+            'storage': 'Salvataggio / File',
+            'bug': 'Bug / Errore',
+            'suggestion': 'Suggerimento',
+            'other': 'Altro'
+        };
+
+        const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
+        const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
+
+        const appVersion = "1.0.0";
+        const osInfo = "iOS / iPadOS (Capacitor)";
+        const userAgent = navigator.userAgent;
+        const model = document.getElementById('model-select')?.value || 'Non specificato';
+
+        const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
+            `========================================\n` +
+            `Categoria: ${categoryLabel}\n` +
+            `Dispositivo: ${osInfo}\n` +
+            `Modello Selezionato: ${model}\n` +
+            `Versione App: ${appVersion}\n` +
+            `User Agent: ${userAgent}\n` +
+            `========================================\n\n` +
+            `DESCRIZIONE:\n${text}\n\n`;
+
+        navigator.clipboard.writeText(emailBody).then(() => {
+            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            window.location.href = mailtoUrl;
+            if (window.showToast) window.showToast("Segnalazione copiata e client email aperto!", "success");
+            window.closeFeedbackModal();
+        }).catch(err => {
+            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+            window.location.href = mailtoUrl;
+            if (window.showToast) window.showToast("Email preparata!", "success");
+            window.closeFeedbackModal();
+        });
+    };
+
     // Inizializza i modelli all'avvio se c'è una chiave
     setTimeout(() => {
         if (window.getSystemKey && window.getSystemKey()) {
             if (window.refreshGeminiModels) window.refreshGeminiModels();
         }
     }, 1000);
+
+    // ==========================================================
+    // SEZIONE LAYOUT PERSONALIZZATI (FISSA)
+    // ==========================================================
+    window.currentEditingLayoutId = null;
+
+    window.openLayoutModal = async function () {
+        const modal = document.getElementById('layout-manager-modal');
+        const box = document.getElementById('layout-manager-box');
+        if (!modal || !box) return;
+
+        // Reset edit state
+        window.currentEditingLayoutId = null;
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        if (editIndicator) editIndicator.classList.add('hidden');
+
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.setAttribute('disabled', 'true');
+            editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Reset campi input
+        document.getElementById('layout-new-title').value = '';
+        document.getElementById('layout-new-keyword').value = '';
+        document.getElementById('layout-new-desc').value = '';
+
+        // Reset minimized & resized state
+        box.classList.remove('minimized-layout-box');
+        box.style.width = '';
+        box.style.height = '';
+        box.style.left = '';
+        box.style.top = '';
+        box.style.transform = '';
+
+        const minBtn = document.getElementById('layout-minimize-btn');
+        if (minBtn) {
+            minBtn.innerHTML = `<i data-lucide="minimize-2" class="w-6 h-6"></i>`;
+        }
+
+        // Renderizza lista dei layout salvati
+        window.renderSavedLayoutsList();
+
+        // Mostra modale
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+
+        // Genera l'anteprima in tempo reale
+        await window.updateLayoutPreviewDirect();
+    };
+
+    window.updateLayoutPreviewDirect = async function () {
+        const previewContainer = document.getElementById('layout-current-preview-container');
+        if (!previewContainer) return;
+        previewContainer.innerHTML = `
+            <div class="text-center text-slate-400 text-xs flex flex-col items-center gap-1">
+                <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-indigo-500"></i>
+                Cattura anteprima...
+            </div>
+        `;
+        if (window.safeCreateIcons) window.safeCreateIcons();
+
+        try {
+            const previewData = await getSVGPreviewDataURL();
+            if (previewData && previewData.preview) {
+                previewContainer.innerHTML = `<img src="${previewData.preview}" class="w-full h-full object-contain" id="layout-current-preview-img" data-svg-markup="${encodeURIComponent(previewData.svgMarkup)}" />`;
+            } else {
+                previewContainer.innerHTML = `<div class="text-xs text-slate-400">Anteprima non disponibile</div>`;
+            }
+        } catch (e) {
+            console.error(e);
+            previewContainer.innerHTML = `<div class="text-xs text-slate-400">Errore anteprima</div>`;
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeLayoutModal = function () {
+        const modal = document.getElementById('layout-manager-modal');
+        const box = document.getElementById('layout-manager-box');
+        if (!modal || !box) return;
+
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    // Funzione interna per generare l'immagine PNG a partire dal tag SVG corrente della mappa
+    async function getSVGPreviewDataURL() {
+        const svgElement = document.getElementById("map-svg");
+        if (!svgElement) return null;
+
+        const clonedSvg = svgElement.cloneNode(true);
+        clonedSvg.removeAttribute("class");
+
+        // Rimuove gli elementi foreignObject (es. icone lucide con HTML) che bloccano il rendering di sicurezza dell'immagine SVG
+        const foreignObjects = clonedSvg.querySelectorAll("foreignObject");
+        foreignObjects.forEach(fo => fo.remove());
+
+        // Assicura la presenza del namespace SVG corretto
+        if (!clonedSvg.getAttribute("xmlns")) {
+            clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        }
+
+        // Imposta larghezza e altezza assolute per permettere il rendering corretto in un tag Image
+        const rect = svgElement.getBoundingClientRect();
+        const svgW = rect.width || svgElement.clientWidth || 800;
+        const svgH = rect.height || svgElement.clientHeight || 600;
+        clonedSvg.setAttribute("width", svgW);
+        clonedSvg.setAttribute("height", svgH);
+
+        if (!clonedSvg.getAttribute("viewBox")) {
+            clonedSvg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
+        }
+
+        // Estrae e inietta gli stili CSS per rendere i colori fedeli
+        let cssStyles = `
+            .node-circle { stroke-width: 2px; }
+            .node-text { font-family: system-ui, -apple-system, sans-serif; font-weight: 500; pointer-events: none; }
+            .link { stroke: #cbd5e1; stroke-opacity: 0.6; stroke-width: 2px; fill: none; }
+            .link-active { stroke: #6366f1; stroke-width: 3px; }
+            .arrowhead { fill: #94a3b8; }
+        `;
+        try {
+            if (document.styleSheets) {
+                for (let i = 0; i < document.styleSheets.length; i++) {
+                    const sheet = document.styleSheets[i];
+                    try {
+                        const rules = sheet.cssRules || sheet.rules;
+                        if (!rules) continue;
+                        for (let j = 0; j < rules.length; j++) {
+                            const rule = rules[j];
+                            if (rule.cssText && (
+                                rule.cssText.includes(".node") ||
+                                rule.cssText.includes(".link") ||
+                                rule.cssText.includes("svg") ||
+                                rule.cssText.includes("text") ||
+                                rule.cssText.includes("marker")
+                            )) {
+                                cssStyles += rule.cssText + "\n";
+                            }
+                        }
+                    } catch (e) {
+                        // Ignora restrizioni CORS
+                    }
+                }
+            }
+        } catch (e) { }
+
+        const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleElem.textContent = cssStyles;
+        clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(clonedSvg);
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = function () {
+                const canvas = document.createElement("canvas");
+                canvas.width = 400;
+                canvas.height = 300;
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Ritaglio proporzionale (Cover) senza deformare/stretchare l'immagine
+                const canvasRatio = canvas.width / canvas.height;
+                const imgRatio = img.width / img.height;
+                let sx = 0, sy = 0, sw = img.width, sh = img.height;
+                if (imgRatio > canvasRatio) {
+                    sw = img.height * canvasRatio;
+                    sx = (img.width - sw) / 2;
+                } else {
+                    sh = img.width / canvasRatio;
+                    sy = (img.height - sh) / 2;
+                }
+
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                resolve({
+                    preview: canvas.toDataURL("image/png"),
+                    svgMarkup: svgString
+                });
+            };
+            img.onerror = function (err) {
+                console.error("SVG preview render failed:", err);
+                URL.revokeObjectURL(url);
+                // Tentativo alternativo usando encoding base64 diretto della stringa SVG
+                try {
+                    const fallbackUrl = "data:image/svg+xml;utf8," + encodeURIComponent(svgString);
+                    const fallbackImg = new Image();
+                    fallbackImg.onload = function () {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = 400;
+                        canvas.height = 300;
+                        const ctx = canvas.getContext("2d");
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Ritaglio proporzionale (Cover)
+                        const canvasRatio = canvas.width / canvas.height;
+                        const imgRatio = fallbackImg.width / fallbackImg.height;
+                        let sx = 0, sy = 0, sw = fallbackImg.width, sh = fallbackImg.height;
+                        if (imgRatio > canvasRatio) {
+                            sw = fallbackImg.height * canvasRatio;
+                            sx = (fallbackImg.width - sw) / 2;
+                        } else {
+                            sh = fallbackImg.width / canvasRatio;
+                            sy = (fallbackImg.height - sh) / 2;
+                        }
+
+                        ctx.drawImage(fallbackImg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+                        resolve({
+                            preview: canvas.toDataURL("image/png"),
+                            svgMarkup: svgString
+                        });
+                    };
+                    fallbackImg.onerror = function () {
+                        resolve({
+                            preview: null,
+                            svgMarkup: svgString
+                        });
+                    };
+                    fallbackImg.src = fallbackUrl;
+                } catch (fallbackErr) {
+                    console.error("Fallback rendering failed:", fallbackErr);
+                    resolve({
+                        preview: null,
+                        svgMarkup: svgString
+                    });
+                }
+            };
+            img.src = url;
+        });
+    }
+
+    window.saveCurrentLayout = async function () {
+        const title = document.getElementById('layout-new-title').value.trim();
+        const keyword = document.getElementById('layout-new-keyword').value.trim();
+        const desc = document.getElementById('layout-new-desc').value.trim();
+
+        if (!title || !keyword) {
+            window.showToast("Titolo e Keyword sono richiesti per salvare il layout", "warning");
+            return;
+        }
+
+        if (!appState.savedLayouts) {
+            appState.savedLayouts = [];
+        }
+
+        // Check limit only when creating a new layout
+        if (!window.currentEditingLayoutId && appState.savedLayouts.length >= 5) {
+            window.showToast("Hai raggiunto il limite massimo di 5 layout salvati. Cancellane uno prima di procedere.", "error");
+            return;
+        }
+
+        window.showToast("Cattura in corso...", "info");
+
+        // 1. Cattura anteprima immagine e markup SVG
+        const previewImg = document.getElementById('layout-current-preview-img');
+        let previewDataUrl = previewImg ? previewImg.src : null;
+        let svgMarkup = previewImg ? decodeURIComponent(previewImg.getAttribute('data-svg-markup') || '') : '';
+
+        if (!previewDataUrl || !svgMarkup) {
+            const previewData = await getSVGPreviewDataURL();
+            if (previewData) {
+                previewDataUrl = previewData.preview;
+                svgMarkup = previewData.svgMarkup;
+            }
+        }
+
+        // 2. Cattura coordinate nodi
+        const nodePositions = {};
+        appState.db.nodes.forEach(n => {
+            nodePositions[n.id] = { x: n.x, y: n.y, fx: n.fx, fy: n.fy, pinned: n.pinned };
+        });
+
+        // 3. Cattura zoom e pan
+        let viewState = { x: 0, y: 0, k: 1 };
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined') {
+            const trans = d3.zoomTransform(svgEl);
+            viewState = { x: trans.x, y: trans.y, k: trans.k };
+        }
+
+        if (window.currentEditingLayoutId) {
+            // Aggiorna layout esistente
+            const idx = appState.savedLayouts.findIndex(l => l.id === window.currentEditingLayoutId);
+            if (idx !== -1) {
+                appState.savedLayouts[idx].name = title;
+                appState.savedLayouts[idx].keyword = keyword.toUpperCase();
+                appState.savedLayouts[idx].desc = desc;
+                appState.savedLayouts[idx].preview = previewDataUrl;
+                appState.savedLayouts[idx].svgMarkup = svgMarkup;
+                appState.savedLayouts[idx].positions = nodePositions;
+                appState.savedLayouts[idx].viewState = viewState;
+                window.showToast(`Layout "${title}" aggiornato correttamente!`, "success");
+            } else {
+                window.currentEditingLayoutId = null;
+            }
+        }
+
+        if (!window.currentEditingLayoutId) {
+            // Crea nuovo layout
+            const newLayout = {
+                id: 'layout_' + Date.now(),
+                name: title,
+                keyword: keyword.toUpperCase(),
+                desc: desc,
+                preview: previewDataUrl,
+                svgMarkup: svgMarkup,
+                positions: nodePositions,
+                viewState: viewState
+            };
+            appState.savedLayouts.push(newLayout);
+            window.showToast(`Layout "${title}" salvato correttamente!`, "success");
+        }
+
+        StorageManager.saveCurrentProject();
+        window.renderSavedLayoutsList();
+
+        // Reset indicator state after saving
+        window.resetLayoutModalToNew();
+    };
+
+    window.renderSavedLayoutsList = function () {
+        const container = document.getElementById('layout-saved-list');
+        if (!container) return;
+
+        const layouts = appState.savedLayouts || [];
+        if (layouts.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400 italic">Nessun layout salvato in questo progetto.</p>';
+            return;
+        }
+
+        container.innerHTML = layouts.map((lay, idx) => {
+            return `
+                <div class="layout-card">
+                    <div class="layout-thumb bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        ${lay.preview ? `<img src="${lay.preview}" />` : `<i data-lucide="image" class="w-8 h-8 text-slate-300"></i>`}
+                    </div>
+                    <div class="flex-grow flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase">${lay.keyword}</span>
+                                <h4 class="text-sm font-bold text-slate-800">${lay.name}</h4>
+                            </div>
+                            <p class="text-xs text-slate-500 line-clamp-2">${lay.desc || 'Nessuna descrizione.'}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-2">
+                            <button onclick="window.applySavedLayout('${lay.id}')" class="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg text-xs hover:bg-indigo-700 transition flex items-center gap-1">
+                                <i data-lucide="play" class="w-3 h-3"></i> Applica
+                            </button>
+                            <button onclick="window.editSavedLayout('${lay.id}')" class="px-3 py-1.5 bg-amber-500 text-white font-bold rounded-lg text-xs hover:bg-amber-600 transition flex items-center gap-1" title="Modifica layout">
+                                <i data-lucide="edit-3" class="w-3 h-3"></i> Modifica
+                            </button>
+                            <button onclick="window.exportLayoutPDF('${lay.id}')" class="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-lg text-xs hover:bg-slate-200 transition flex items-center gap-1" title="Esporta scheda in PDF">
+                                <i data-lucide="file-text" class="w-3 h-3"></i> PDF
+                            </button>
+                            <button onclick="window.deleteSavedLayout('${lay.id}')" class="p-1.5 text-slate-300 hover:text-red-500 transition ml-auto" title="Elimina Layout">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.editSavedLayout = function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        window.currentEditingLayoutId = layoutId;
+
+        // Popola form
+        document.getElementById('layout-new-title').value = layout.name || '';
+        document.getElementById('layout-new-keyword').value = layout.keyword || '';
+        document.getElementById('layout-new-desc').value = layout.desc || '';
+
+        // Mostra indicatore di modifica
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        const editName = document.getElementById('layout-edit-name');
+        if (editIndicator && editName) {
+            editName.innerText = layout.name;
+            editIndicator.classList.remove('hidden');
+            editIndicator.classList.add('flex');
+        }
+
+        // Abilita il bottone di conferma modifica "Salva"
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.removeAttribute('disabled');
+            editBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Applica posizioni temporanee sulla mappa per consentire all'utente di vederle/modificarle
+        appState.db.nodes.forEach(n => {
+            const savedPos = layout.positions[n.id];
+            if (savedPos) {
+                n.x = savedPos.x;
+                n.y = savedPos.y;
+                n.fx = savedPos.fx;
+                n.fy = savedPos.fy;
+                n.pinned = savedPos.pinned;
+            }
+        });
+
+        // Applica inquadratura zoom e pan
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined' && zoom) {
+            d3.select("#map-svg").transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+            );
+        }
+
+        renderGraph();
+
+        // Forza aggiornamento anteprima nel modale dopo il completamento della transizione
+        setTimeout(() => {
+            window.updateLayoutPreviewDirect();
+        }, 850);
+    };
+
+    window.resetLayoutModalToNew = function () {
+        window.currentEditingLayoutId = null;
+        document.getElementById('layout-new-title').value = '';
+        document.getElementById('layout-new-keyword').value = '';
+        document.getElementById('layout-new-desc').value = '';
+
+        const editIndicator = document.getElementById('layout-edit-indicator');
+        if (editIndicator) {
+            editIndicator.classList.add('hidden');
+            editIndicator.classList.remove('flex');
+        }
+
+        // Disabilita il bottone di conferma modifica "Salva"
+        const editBtn = document.getElementById('layout-confirm-edit-btn');
+        if (editBtn) {
+            editBtn.setAttribute('disabled', 'true');
+            editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        window.updateLayoutPreviewDirect();
+    };
+
+    window.saveCurrentLayoutEditConfirm = async function () {
+        if (!window.currentEditingLayoutId) {
+            window.showToast("Nessun layout in fase di modifica da aggiornare.", "warning");
+            return;
+        }
+        await window.saveCurrentLayout();
+    };
+
+    window.toggleMinimizeLayoutModal = function () {
+        const box = document.getElementById('layout-manager-box');
+        const minBtn = document.getElementById('layout-minimize-btn');
+        if (!box) return;
+
+        const isMinimized = box.classList.toggle('minimized-layout-box');
+
+        if (minBtn) {
+            if (isMinimized) {
+                // Riduci
+                minBtn.innerHTML = `<i data-lucide="maximize-2" class="w-6 h-6"></i>`;
+                // Pulisci stili di resize per applicare quelli fissi da CSS
+                box.style.width = '';
+                box.style.height = '';
+            } else {
+                // Ripristina
+                minBtn.innerHTML = `<i data-lucide="minimize-2" class="w-6 h-6"></i>`;
+                box.style.width = '';
+                box.style.height = '';
+                box.style.left = '';
+                box.style.top = '';
+                box.style.transform = '';
+            }
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.applySavedLayout = function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        // Applica posizioni ai nodi
+        appState.db.nodes.forEach(n => {
+            const savedPos = layout.positions[n.id];
+            if (savedPos) {
+                n.x = savedPos.x;
+                n.y = savedPos.y;
+                n.fx = savedPos.fx;
+                n.fy = savedPos.fy;
+                n.pinned = savedPos.pinned;
+            }
+        });
+
+        // Applica inquadratura zoom e pan
+        const svgEl = document.getElementById("map-svg");
+        if (svgEl && typeof d3 !== 'undefined' && zoom) {
+            d3.select("#map-svg").transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
+            );
+        }
+
+        // Imposta layoutMode a custom_layoutId per il ciclo
+        appState.layoutMode = 'custom_' + layoutId;
+        const btn = document.getElementById('card-btn-layout');
+        const span = document.getElementById('layout-label-text');
+        if (btn && span) {
+            btn.classList.add('bg-indigo-100', 'text-indigo-600');
+            btn.classList.remove('bg-slate-100', 'text-slate-600');
+            span.innerText = layout.keyword;
+        }
+
+        renderGraph();
+        window.closeLayoutModal();
+        window.showToast(`Layout "${layout.name}" applicato!`, "success");
+    };
+
+    window.deleteSavedLayout = function (layoutId) {
+        if (!confirm("Sei sicuro di voler eliminare questo layout?")) return;
+
+        appState.savedLayouts = appState.savedLayouts.filter(l => l.id !== layoutId);
+        StorageManager.saveCurrentProject();
+        window.showToast("Layout eliminato", "info");
+        window.renderSavedLayoutsList();
+    };
+
+    window.exportLayoutPDF = async function (layoutId) {
+        const layout = appState.savedLayouts.find(l => l.id === layoutId);
+        if (!layout) return;
+
+        try {
+            window.showToast("Esportazione PDF scheda in corso...", "info");
+            const pdf = await window.buildLayoutPDFDocument({
+                title: layout.name,
+                keyword: layout.keyword,
+                desc: layout.desc,
+                svgMarkup: layout.svgMarkup,
+                previewDataUrl: layout.preview
+            });
+
+            const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+            if (isCapacitor) {
+                const blob = pdf.output('blob');
+                const file = new File([blob], `Scheda_Layout_${layout.keyword}.pdf`, { type: 'application/pdf' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: `Scheda Layout ${layout.name}`,
+                        text: `Scheda esportata del layout ${layout.name}`
+                    });
+                    window.showToast("Scheda condivisa con successo!", "success");
+                } else {
+                    throw new Error("Condivisione non supportata.");
+                }
+            } else {
+                pdf.save(`Scheda_Layout_${layout.keyword}.pdf`);
+                window.showToast("Scheda PDF salvata con successo!", "success");
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF: " + e.message, "error");
+        }
+    };
+
+    window.exportCurrentLayoutPDFDirect = async function () {
+        const title = document.getElementById('layout-new-title').value.trim() || "Layout Corrente";
+        const keyword = document.getElementById('layout-new-keyword').value.trim() || "";
+        const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
+
+        try {
+            window.showToast("Generazione PDF scheda in corso...", "info");
+            const previewData = await getSVGPreviewDataURL();
+            if (!previewData) throw new Error("Impossibile catturare l'anteprima");
+
+            const pdf = await window.buildLayoutPDFDocument({
+                title: title,
+                keyword: keyword,
+                desc: desc,
+                svgMarkup: previewData.svgMarkup,
+                previewDataUrl: previewData.preview
+            });
+
+            const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+            if (isCapacitor) {
+                const blob = pdf.output('blob');
+                const file = new File([blob], `Scheda_Layout_${title.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: `Scheda Layout ${title}`,
+                        text: `Scheda esportata del layout ${title}`
+                    });
+                    window.showToast("Scheda condivisa con successo!", "success");
+                } else {
+                    throw new Error("Condivisione non supportata.");
+                }
+            } else {
+                pdf.save(`Scheda_Layout_${title.replace(/\s+/g, '_')}.pdf`);
+                window.showToast("Scheda PDF salvata con successo!", "success");
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF: " + e.message, "error");
+        }
+    };
+
+    window.exportCurrentLayoutPDFToVault = async function () {
+        const title = document.getElementById('layout-new-title').value.trim() || "Layout Corrente";
+        const keyword = document.getElementById('layout-new-keyword').value.trim() || "LAYOUT";
+        const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
+
+        if (!appState.activeVaultPath) {
+            window.showToast("Nessun Vault attivo. Collega o crea un Vault per salvare.", "warning");
+            return;
+        }
+
+        try {
+            window.showToast("Generazione ed esportazione PDF nel Vault in corso...", "info");
+            const previewData = await getSVGPreviewDataURL();
+            if (!previewData) throw new Error("Impossibile catturare l'anteprima");
+
+            const pdf = await window.buildLayoutPDFDocument({
+                title: title,
+                keyword: keyword,
+                desc: desc,
+                svgMarkup: previewData.svgMarkup,
+                previewDataUrl: previewData.preview
+            });
+
+            // Get base64 string from PDF
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            const fileName = `Scheda_Layout_${keyword.replace(/\s+/g, '_') || Date.now()}.pdf`;
+
+            const res = await window.electronAPI.savePDFToVault({
+                base64Data: pdfBase64,
+                fileName: fileName,
+                vaultPath: appState.activeVaultPath
+            });
+
+            if (res.success) {
+                window.showToast(`Scheda PDF esportata con successo nel Vault: ${fileName}`, "success");
+            } else {
+                throw new Error(res.error);
+            }
+        } catch (e) {
+            console.error(e);
+            window.showToast("Errore esportazione PDF nel Vault: " + e.message, "error");
+        }
+    };
+
+    // Helper functions for PDF fonts and images loading
+    async function loadSpaceMonoFont(pdf) {
+        try {
+            const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
+            const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+
+            const [regRes, boldRes] = await Promise.all([
+                fetch(regularUrl).then(res => res.arrayBuffer()),
+                fetch(boldUrl).then(res => res.arrayBuffer())
+            ]);
+
+            const regBase64 = arrayBufferToBase64(regRes);
+            const boldBase64 = arrayBufferToBase64(boldRes);
+
+            pdf.addFileToVFS('SpaceMono-Regular.ttf', regBase64);
+            pdf.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+
+            pdf.addFileToVFS('SpaceMono-Bold.ttf', boldBase64);
+            pdf.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+        } catch (err) {
+            console.error("Failed to load Space Mono font from GitHub, using default fallback:", err);
+        }
+    }
+
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    window.loadMappaiIconBase64 = async function () {
+        try {
+            const response = await fetch('MappAI_icon.png');
+            const blob = await response.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error("Failed to load Mappai logo:", e);
+            return null;
+        }
+    }
+
+    window.buildLayoutPDFDocument = async function ({ title, keyword, desc, svgMarkup, previewDataUrl }) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        // Register fonts
+        await loadSpaceMonoFont(pdf);
+
+        // Load and add MappAI logo icon
+        const logoBase64 = await loadMappaiIconBase64();
+        if (logoBase64) {
+            pdf.addImage(logoBase64, 'PNG', 15, 10, 12, 12);
+        }
+
+        pdf.setFont("Space Mono", "bold");
+        pdf.setFontSize(16);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text("MappAI", 30, 18);
+
+        pdf.setFont("Space Mono", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("Scheda Studio Vettoriale", 30, 22);
+
+        const projectName = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Mappa Senza Nome";
+        pdf.text(`Progetto: ${projectName}`, 15, 29);
+        pdf.text(`Data creazione: ${new Date().toLocaleDateString()}`, 15, 34);
+
+        if (appState.userProfile && appState.userProfile.nickname) {
+            let profileInfo = `Autore: ${appState.userProfile.nickname}`;
+            if (appState.userProfile.grade) {
+                profileInfo += ` - Classe: ${appState.userProfile.grade}`;
+            }
+            pdf.text(profileInfo, 140, 29);
+        }
+
+        pdf.setLineWidth(0.2);
+        pdf.setDrawColor(226, 232, 240);
+        pdf.line(15, 38, 195, 38);
+
+        // Titolo Layout
+        pdf.setFont("Space Mono", "bold");
+        pdf.setFontSize(14);
+        pdf.setTextColor(30, 41, 59);
+        const titleText = keyword ? `${title} [${keyword}]` : title;
+        pdf.text(titleText, 15, 46);
+
+        // Descrizione
+        pdf.setFont("Space Mono", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(51, 65, 85);
+        const descriptionLines = pdf.splitTextToSize(desc || "Nessuna descrizione inserita.", 180);
+        let y = 53;
+        for (let i = 0; i < descriptionLines.length; i++) {
+            if (y > 270) {
+                pdf.addPage();
+                y = 20;
+            }
+            pdf.text(descriptionLines[i], 15, y);
+            y += 5;
+        }
+
+        // Image size calculations
+        let svgW = 800;
+        let svgH = 600;
+        let finalImageSrc = previewDataUrl;
+
+        if (svgMarkup) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+                const svgEl = doc.documentElement;
+                svgW = parseFloat(svgEl.getAttribute("width")) || 800;
+                svgH = parseFloat(svgEl.getAttribute("height")) || 600;
+
+                const highResImg = await new Promise((resolveHighRes, rejectHighRes) => {
+                    const img = new Image();
+                    const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    img.onload = function () {
+                        const canvas = document.createElement("canvas");
+                        const aspect = svgW / svgH;
+                        canvas.width = 1600;
+                        canvas.height = 1600 / aspect;
+
+                        const ctx = canvas.getContext("2d");
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(url);
+                        resolveHighRes(canvas.toDataURL("image/png"));
+                    };
+                    img.onerror = function (err) {
+                        URL.revokeObjectURL(url);
+                        rejectHighRes(err);
+                    };
+                    img.src = url;
+                });
+
+                finalImageSrc = highResImg;
+            } catch (err) {
+                console.error("High res SVG render failed:", err);
+            }
+        }
+
+        const aspect = svgW / svgH;
+        let imgW, imgH, x;
+
+        if (aspect >= 0.95) {
+            imgW = 180;
+            imgH = 180 / aspect;
+            x = 15;
+        } else {
+            imgH = 178.2;
+            imgW = imgH * aspect;
+            if (imgW > 180) {
+                imgW = 180;
+                imgH = 180 / aspect;
+            }
+            x = 15 + (180 - imgW) / 2;
+        }
+
+        if (y + 10 + imgH > 270) {
+            pdf.addPage();
+            y = 20;
+        } else {
+            y += 10;
+        }
+
+        if (svgMarkup) {
+            try {
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgMarkup, "image/svg+xml");
+                const svgEl = svgDoc.documentElement;
+                await pdf.svg(svgEl, {
+                    x: x,
+                    y: y,
+                    width: imgW,
+                    height: imgH
+                });
+            } catch (svgErr) {
+                console.error("svg2pdf failed, falling back to PNG addImage:", svgErr);
+                if (finalImageSrc) {
+                    pdf.addImage(finalImageSrc, 'PNG', x, y, imgW, imgH);
+                }
+            }
+        } else if (finalImageSrc) {
+            pdf.addImage(finalImageSrc, 'PNG', x, y, imgW, imgH);
+        }
+
+        return pdf;
+    };
+
+    window.makeModalDraggable = function () {
+        const modalBox = document.getElementById('layout-manager-box');
+        const dragHandle = modalBox ? modalBox.querySelector('.modal-drag-handle') : null;
+        if (!modalBox || !dragHandle) return;
+
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        const dragStart = (e) => {
+            if (e.target.closest('input, textarea, button')) return;
+
+            isDragging = true;
+            dragHandle.style.cursor = 'grabbing';
+            modalBox.style.cursor = 'grabbing';
+
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+            startX = clientX;
+            startY = clientY;
+
+            const rect = modalBox.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            modalBox.style.position = 'fixed';
+            modalBox.style.margin = '0';
+            modalBox.style.left = `${initialLeft}px`;
+            modalBox.style.top = `${initialTop}px`;
+            modalBox.style.transform = 'none';
+        };
+
+        const dragMove = (e) => {
+            if (!isDragging) return;
+
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            let nextLeft = initialLeft + dx;
+            let nextTop = initialTop + dy;
+
+            // Limiti per evitare che il modale esca dallo schermo
+            const boxWidth = modalBox.offsetWidth || 1200;
+            const maxW = window.innerWidth;
+            const maxH = window.innerHeight;
+
+            const minLeft = -boxWidth + 150;
+            const maxLeft = maxW - 150;
+            const minTop = 0; // Impedisce di trascinare il modale sopra la barra superiore dello schermo
+            const maxTop = maxH - 100; // Impedisce che il modale sparisca del tutto in basso
+
+            nextLeft = Math.max(minLeft, Math.min(nextLeft, maxLeft));
+            nextTop = Math.max(minTop, Math.min(nextTop, maxTop));
+
+            modalBox.style.left = `${nextLeft}px`;
+            modalBox.style.top = `${nextTop}px`;
+        };
+
+        const dragEnd = () => {
+            if (isDragging) {
+                isDragging = false;
+                dragHandle.style.cursor = 'move';
+                modalBox.style.cursor = 'grab';
+            }
+        };
+
+        dragHandle.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', dragEnd);
+
+        dragHandle.addEventListener('touchstart', dragStart, { passive: true });
+        document.addEventListener('touchmove', dragMove, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+    };
+
+    // Gestione modale di conferma d'uscita (Escape) per il Fissa Layout
+    window.showLayoutExitConfirmModal = function () {
+        const modal = document.getElementById('layout-exit-confirm-modal');
+        const box = document.getElementById('layout-exit-confirm-box');
+        if (!modal || !box) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            box.classList.remove('scale-95');
+        }, 10);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
+    window.closeExitConfirmModal = function () {
+        const modal = document.getElementById('layout-exit-confirm-modal');
+        const box = document.getElementById('layout-exit-confirm-box');
+        if (!modal || !box) return;
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    };
+
+    window.closeLayoutModalDirectWithoutSaving = function () {
+        window.closeExitConfirmModal();
+        window.closeLayoutModal();
+    };
+
+    window.saveLayoutAndClose = async function () {
+        const saved = await window.saveCurrentLayout();
+        // Se il salvataggio va a buon fine, chiudiamo i modali
+        if (saved !== false) {
+            window.closeExitConfirmModal();
+            window.closeLayoutModal();
+        }
+    };
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Applica lo zoom salvato
+    if (window.applyTextZoom) window.applyTextZoom(currentZoomIdx);
+
     // Applica Modalità Studente al caricamento
     if (window.applyStudentModeUI) window.applyStudentModeUI();
+
+    // Inizializza grafici offline (Pomodoro sessioni e storico punteggi)
+    if (window.updatePomodoroSessionsDisplay) window.updatePomodoroSessionsDisplay();
+    if (window.updateStudyScoresDisplay) window.updateStudyScoresDisplay();
+
+    // Rende il modale layout trascinabile
+    if (window.makeModalDraggable) window.makeModalDraggable();
 });
 

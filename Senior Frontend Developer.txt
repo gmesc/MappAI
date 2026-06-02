@@ -1,0 +1,137 @@
+Agisci come un Senior Frontend Developer esperto in Design System e CSS Semantico. Devo implementare un sistema di "Design Tokens" nel mio file `style.css` per ripulire l'HTML da code eccessive di classi Tailwind e centralizzare la gestione della tipografia e dei componenti base.
+
+L'obiettivo è usare queste nuove classi semantiche (es. `.input_label_m`, `.ui-input-md`) al posto delle utility classes di Tailwind sparse nell' HTML. Aggiungi ESATTAMENTE questo blocco di codice CSS all'interno del mio `style.css` (preferibilmente in alto, subito dopo le dichiarazioni di :root o font-face):
+
+
+/* ==========================================
+   SISTEMA TIPOGRAFICO E COMPONENTI (DESIGN TOKENS)
+   ========================================== */
+:root {
+    --app-zoom: 1;
+    --landing-zoom: 1;
+}
+
+/* Tipografia */
+.ui-title {
+    font-size: calc(1.5rem * var(--landing-zoom));
+    font-weight: 900;
+    color: #1e293b;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+}
+
+.ui-subtitle {
+    font-size: calc(1rem * var(--landing-zoom));
+    font-weight: 700;
+    color: #334155;
+}
+
+.ui-body {
+    font-size: calc(0.875rem * var(--landing-zoom));
+    color: #475569;
+    line-height: 1.5;
+}
+
+.input_label_m {
+    font-size: calc(0.6875rem * var(--landing-zoom));
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+}
+
+.ui-hint {
+    font-size: calc(0.75rem * var(--landing-zoom));
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Input Component (T-Shirt Sizing) */
+.ui-input-lg,
+.ui-input-md,
+.ui-input-sm {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1.5px solid #c7d2fe;
+    color: #1e293b;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.ui-input-lg::placeholder,
+.ui-input-md::placeholder,
+.ui-input-sm::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.ui-input-lg:focus,
+.ui-input-md:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15);
+    background: #ffffff;
+}
+
+/* Dimensioni Input */
+.ui-input-lg {
+    border-radius: 0.75rem;
+    padding: calc(1rem * var(--landing-zoom)) calc(1.25rem * var(--landing-zoom));
+    font-size: calc(1.125rem * var(--landing-zoom));
+}
+
+.ui-input-md {
+    border-radius: 0.625rem;
+    padding: calc(0.75rem * var(--landing-zoom)) calc(1rem * var(--landing-zoom));
+    font-size: calc(0.875rem * var(--landing-zoom));
+}
+
+.ui-input-sm {
+    border-radius: 0.5rem;
+    padding: calc(0.375rem * var(--landing-zoom)) calc(0.5rem * var(--landing-zoom));
+    font-size: calc(0.75rem * var(--landing-zoom));
+    background: transparent;
+    border-color: transparent;
+}
+
+.ui-input-sm:focus {
+    background: #ffffff;
+    border-color: #a5b4fc;
+    box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.2);
+}
+
+/* Button Component */
+.ui-button-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(0.5rem * var(--landing-zoom));
+    background-color: #4f46e5;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: calc(1rem * var(--landing-zoom));
+    border-radius: calc(0.75rem * var(--landing-zoom));
+    padding: calc(0.875rem * var(--landing-zoom)) calc(1.5rem * var(--landing-zoom));
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
+    border: none;
+    cursor: pointer;
+}
+
+.ui-button-primary:hover {
+    background-color: #4338ca;
+    transform: translateY(calc(-2px * var(--landing-zoom)));
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+}
+
+.ui-button-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px -1px rgba(79, 70, 229, 0.3);
+}
+
+/* ========================================== */
+
+Dopo aver inserito queste regole nel CSS,
+inizia a refattorizzare il mio file HTML: cerca i campi input e le label (specialmente nei form e nei modali) e sostituisci le utility classes di Tailwind relative a tipografia,
+bordi e padding con queste nuove classi semantiche (.input_label_m, .ui-input-lg, ecc.). Lascia Tailwind solo per il layout (es. flex, grid, margin, w-full).

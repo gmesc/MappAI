@@ -7,6 +7,7 @@ const cheerio = require('cheerio');
 const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
+const yaml = require('js-yaml');
 
 let mainWindow;
 
@@ -23,9 +24,61 @@ function createWindow() {
     });
 
     mainWindow.loadFile('public/index.html');
+
+    // Permette window.open() dal renderer (usato per Stampa Dossier)
+    // Senza questo, in Electron 30+ con contextIsolation:true i popup
+    // vengono bloccati → window.open() ritorna null → il dossier non si apre
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        return { action: 'allow' };
+    });
+}
+
+function copyRecursiveSync(src, dest) {
+    const exists = fs.existsSync(src);
+    const stats = exists && fs.statSync(src);
+    const isDirectory = exists && stats.isDirectory();
+    if (isDirectory) {
+        if (!fs.existsSync(dest)) {
+            fs.mkdirSync(dest, { recursive: true });
+        }
+        fs.readdirSync(src).forEach((childItemName) => {
+            copyRecursiveSync(path.join(src, childItemName),
+                              path.join(dest, childItemName));
+        });
+    } else {
+        fs.copyFileSync(src, dest);
+    }
+}
+
+function initDefaultVaultFolder() {
+    try {
+        const docPath = app.getPath('documents');
+        const vaultDir = path.join(docPath, 'MappAI - Vault');
+        
+        // 1. Crea la cartella se non esiste
+        if (!fs.existsSync(vaultDir)) {
+            fs.mkdirSync(vaultDir, { recursive: true });
+        }
+
+        // 2. Copia i file demo se presenti nel pacchetto
+        const demoBundledDir = path.join(__dirname, 'public', 'vault_demo');
+        if (fs.existsSync(demoBundledDir)) {
+            const items = fs.readdirSync(demoBundledDir);
+            items.forEach(item => {
+                const srcPath = path.join(demoBundledDir, item);
+                const destPath = path.join(vaultDir, item);
+                if (!fs.existsSync(destPath)) {
+                    copyRecursiveSync(srcPath, destPath);
+                }
+            });
+        }
+    } catch (err) {
+        console.error("Errore inizializzazione default vault:", err);
+    }
 }
 
 app.whenReady().then(() => {
+    initDefaultVaultFolder();
     createWindow();
 
     app.on('activate', () => {
@@ -101,8 +154,9 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
                         try {
                             const dataObj = JSON.parse(dataStr);
                             lastChunk = dataObj;
-                            if (dataObj.choices && dataObj.choices[0].delta && dataObj.choices[0].delta.content) {
-                                fullText += dataObj.choices[0].delta.content;
+                            const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
+                            if (delta && delta.content) {
+                                fullText += delta.content;
                             }
                         } catch (e) {
                             // ignora errori di parsing parziali
@@ -112,6 +166,15 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
             });
 
             response.data.on('end', () => {
+                // Diagnostica: stream vuoto = problema lato provider (param rifiutati, ecc.)
+                if (!fullText) {
+                    console.warn('[Infomaniak] Stream VUOTO. finish_reason:',
+                        lastChunk?.choices?.[0]?.finish_reason,
+                        '| lastChunk:', JSON.stringify(lastChunk));
+                    console.warn('[Infomaniak] Payload inviato (max_tokens, model):',
+                        payload.max_tokens, payload.model,
+                        '| response_format:', JSON.stringify(payload.response_format));
+                }
                 // Ricostruisci il formato standard atteso da InfomaniakBridge
                 resolve({
                     id: lastChunk?.id || 'stream',
@@ -139,9 +202,22 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
 
     } catch (error) {
         let errorMsg = error.message;
-        if (error.response && error.response.data) {
-            console.error("Infomaniak Full Error Data:", error.response.data);
-            errorMsg = `Infomaniak Error (${error.response.status}): ${JSON.stringify(error.response.data)}`;
+        if (error.response) {
+            const status = error.response.status;
+            // Con responseType:'stream', error.response.data è uno stream — non serializzabile.
+            // Leggiamo il body come testo.
+            try {
+                const bodyText = await new Promise((resolve) => {
+                    let buf = '';
+                    error.response.data.on('data', c => buf += c.toString());
+                    error.response.data.on('end', () => resolve(buf));
+                    error.response.data.on('error', () => resolve(''));
+                });
+                console.error("Infomaniak Full Error Data:", bodyText);
+                errorMsg = `Infomaniak Error (${status}): ${bodyText}`;
+            } catch (_) {
+                errorMsg = `Infomaniak Error (${status}): ${error.message}`;
+            }
         }
         console.error("Infomaniak API Error:", errorMsg);
         throw new Error(errorMsg);
@@ -152,6 +228,7 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {
         const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/models`;
+        console.log(`[MappAI] Fetching Infomaniak models from: ${url}`);
 
         const req = https.request(url, {
             method: 'GET',
@@ -163,9 +240,11 @@ ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) =>
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
+                console.log(`[MappAI] Infomaniak response status: ${res.statusCode}`);
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
                         const parsed = JSON.parse(data);
+                        console.log(`[MappAI] Infomaniak parsed models count:`, parsed.data ? parsed.data.length : 'no data array');
                         const models = (parsed.data || []).map(m => ({
                             id: m.id,
                             displayName: m.id + ' (Swiss AI)',
@@ -173,16 +252,25 @@ ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) =>
                         }));
                         resolve(models);
                     } catch(e) {
+                        console.error(`[MappAI] Infomaniak JSON parsing error. Raw data:`, data);
                         reject(new Error("Errore parsing lista modelli Infomaniak"));
                     }
                 } else {
+                    console.error(`[MappAI] Infomaniak server error ${res.statusCode}. Raw data:`, data);
                     reject(new Error(`Errore Server Infomaniak ${res.statusCode}: ${data}`));
                 }
             });
         });
 
-        req.on('error', (e) => reject(e));
-        req.setTimeout(30000, () => { req.abort(); reject(new Error("Timeout API Infomaniak")); });
+        req.on('error', (e) => {
+            console.error(`[MappAI] Infomaniak request error:`, e);
+            reject(e);
+        });
+        req.setTimeout(30000, () => { 
+            console.error(`[MappAI] Infomaniak request timeout`);
+            req.abort(); 
+            reject(new Error("Timeout API Infomaniak")); 
+        });
         req.end();
     });
 });
@@ -246,7 +334,7 @@ ipcMain.handle('capture-page', async () => {
 ipcMain.handle('save-map-json', async (event, mapData) => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
@@ -266,15 +354,40 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
     }
 });
 
-// IPC Handler to save chat transcripts
-ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath }) => {
+// IPC Handler to save PDF binary files directly to the Vault
+ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultPath }) => {
     try {
-        let chatDir;
+        let destDir;
         if (vaultPath && fs.existsSync(vaultPath)) {
-            chatDir = path.join(vaultPath, 'Chat');
+            destDir = vaultPath;
         } else {
             const docPath = app.getPath('documents');
-            chatDir = path.join(docPath, 'Salvataggi MappAI', 'chat con il tutor');
+            destDir = path.join(docPath, 'MappAI - Vault');
+        }
+
+        if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        const filePath = path.join(destDir, fileName);
+        const buffer = Buffer.from(base64Data, 'base64');
+        fs.writeFileSync(filePath, buffer);
+        return { success: true, path: filePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler to save chat transcripts
+ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
+    try {
+        let chatDir;
+        const targetSubFolder = subFolder || 'Chat';
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            chatDir = path.join(vaultPath, targetSubFolder);
+        } else {
+            const docPath = app.getPath('documents');
+            chatDir = path.join(docPath, 'MappAI - Vault', targetSubFolder);
         }
 
         if (!fs.existsSync(chatDir)) {
@@ -297,6 +410,32 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
     }
 });
 
+// IPC Handler to save quiz text response
+ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, vaultPath }) => {
+    try {
+        let quizDir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            quizDir = path.join(vaultPath, 'Quiz e Flashcard');
+        } else {
+            const docPath = app.getPath('documents');
+            quizDir = path.join(docPath, 'MappAI - Vault', 'Quiz e Flashcard');
+        }
+
+        if (!fs.existsSync(quizDir)) {
+            fs.mkdirSync(quizDir, { recursive: true });
+        }
+
+        const safeTitle = (title || "Quiz").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const filename = `risposte_quiz_${safeTitle}_${Date.now()}.txt`;
+        const filePath = path.join(quizDir, filename);
+
+        fs.writeFileSync(filePath, textContent, 'utf-8');
+        return { success: true, path: filePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // ==========================================
 // DATA ABSTRACTION LAYER (DAL) - MARKDOWN VAULT
 // ==========================================
@@ -307,18 +446,16 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.mkdirSync(folderPath, { recursive: true });
         }
         
-        // 1. Save index.yaml (Global Map Config)
+        // 1. Save index.yaml (Global Map Config) — serializzato con js-yaml
         const indexData = {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
-            userProfile: mapData.userProfile,
+            userProfile: mapData.userProfile || null,
             customColors: mapData.customColors || {},
+            generationUsage: mapData.generationUsage || null,
             lastUpdated: new Date().toISOString()
         };
-        const indexYaml = Object.entries(indexData).map(([k,v]) => {
-            if (typeof v === 'object' && v !== null) return `${k}: ${JSON.stringify(v)}`;
-            return `${k}: ${v}`;
-        }).join('\n');
+        const indexYaml = yaml.dump(indexData, { lineWidth: -1, quotingType: '"', forceQuotes: false });
         fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
 
         // 2. Save Links (Relationship index)
@@ -449,7 +586,18 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
         }
 
-        // 7. Return upgrades for image paths (Base64 -> Local File)
+        // 7. Save Study Sets (Quiz e Flashcard)
+        const studyDir = path.join(folderPath, 'Materiale Studio');
+        if (mapData.studySets && mapData.studySets.length > 0) {
+            if (!fs.existsSync(studyDir)) fs.mkdirSync(studyDir, { recursive: true });
+            mapData.studySets.forEach(set => {
+                const safeTitle = set.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const fileName = `${safeTitle}_${set.id}.json`;
+                fs.writeFileSync(path.join(studyDir, fileName), JSON.stringify(set, null, 2), 'utf-8');
+            });
+        }
+
+        // 8. Return upgrades for image paths (Base64 -> Local File)
         const upgrades = (mapData.nodes || []).map(node => {
             const nodeImages = node.images || (node.image ? [node.image] : []);
             const absoluteVaultPaths = [];
@@ -485,7 +633,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
     try {
         if (!fs.existsSync(folderPath)) throw new Error("Cartella non trovata");
 
-        // Load index.yaml
+        // Load index.yaml — parsing robusto con js-yaml
         const indexPath = path.join(folderPath, 'index.yaml');
         const mapData = {
             nodes: [],
@@ -494,17 +642,26 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
             rootNodeLabel: ''
         };
         if (fs.existsSync(indexPath)) {
-            const indexContent = fs.readFileSync(indexPath, 'utf-8');
-            indexContent.split('\n').forEach(line => {
-                if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
-                if (line.startsWith('rootNodeLabel:')) mapData.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                if (line.startsWith('userProfile:')) {
-                    try { mapData.userProfile = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
-                }
-                if (line.startsWith('customColors:')) {
-                    try { mapData.customColors = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(e) {}
-                }
-            });
+            try {
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                const parsed = yaml.load(indexContent) || {};
+                if (parsed.extractionMode)  mapData.extractionMode  = parsed.extractionMode;
+                if (parsed.rootNodeLabel)   mapData.rootNodeLabel   = parsed.rootNodeLabel;
+                if (parsed.userProfile)     mapData.userProfile     = parsed.userProfile;
+                if (parsed.customColors)    mapData.customColors    = parsed.customColors;
+                if (parsed.generationUsage !== undefined) mapData.generationUsage = parsed.generationUsage;
+            } catch(e) {
+                console.warn('[MappAI] Errore parsing index.yaml con js-yaml, fallback manuale:', e.message);
+                // Fallback legacy per vault creati con il vecchio formato
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                indexContent.split('\n').forEach(line => {
+                    if (line.startsWith('extractionMode:')) mapData.extractionMode = line.split(':')[1].trim();
+                    if (line.startsWith('rootNodeLabel:'))  mapData.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith('userProfile:'))    { try { mapData.userProfile     = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                    if (line.startsWith('customColors:'))   { try { mapData.customColors    = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                    if (line.startsWith('generationUsage:')){ try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                });
+            }
         }
 
         // Load Tutor State
@@ -589,6 +746,20 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 }
             });
         }
+        // Load Study Sets
+        mapData.studySets = [];
+        const studyDir = path.join(folderPath, 'Materiale Studio');
+        if (fs.existsSync(studyDir)) {
+            const files = fs.readdirSync(studyDir).filter(f => f.endsWith('.json'));
+            files.forEach(file => {
+                try {
+                    const content = fs.readFileSync(path.join(studyDir, file), 'utf-8');
+                    const set = JSON.parse(content);
+                    mapData.studySets.push(set);
+                } catch(e) {}
+            });
+        }
+
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };
@@ -598,7 +769,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
 ipcMain.handle('get-all-vaults', async () => {
     try {
         const docPath = app.getPath('documents');
-        const saveDir = path.join(docPath, 'Salvataggi MappAI');
+        const saveDir = path.join(docPath, 'MappAI - Vault');
         if (!fs.existsSync(saveDir)) return [];
 
         const folders = fs.readdirSync(saveDir).filter(f => {
@@ -611,19 +782,29 @@ ipcMain.handle('get-all-vaults', async () => {
             const indexPath = path.join(vaultPath, 'index.yaml');
             if (fs.existsSync(indexPath)) {
                 const vaultInfo = { folderName: f, fullPath: vaultPath };
-                const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                indexContent.split('\n').forEach(line => {
-                    if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
-                    if (line.startsWith('rootNodeLabel:')) vaultInfo.rootNodeLabel = line.substring(line.indexOf(':') + 1).trim();
-                    if (line.startsWith('lastUpdated:')) vaultInfo.lastUpdated = line.split('lastUpdated:')[1].trim();
-                    if (line.startsWith('userProfile:')) {
-                        try { 
-                            const profile = JSON.parse(line.substring(line.indexOf(':') + 1).trim());
-                            vaultInfo.nickname = profile.nickname;
-                            vaultInfo.age = profile.age;
-                        } catch(e) {}
+                try {
+                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                    const parsed = yaml.load(indexContent) || {};
+                    vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
+                    vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || f;
+                    vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
+                    if (parsed.userProfile) {
+                        vaultInfo.nickname = parsed.userProfile.nickname;
+                        vaultInfo.age      = parsed.userProfile.age;
                     }
-                });
+                } catch(e) {
+                    console.warn(`[MappAI] Errore parsing index.yaml in ${f}:`, e.message);
+                    // Fallback legacy
+                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                    indexContent.split('\n').forEach(line => {
+                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                        if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                        if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
+                        if (line.startsWith('userProfile:')) {
+                            try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
+                        }
+                    });
+                }
                 vaults.push(vaultInfo);
             }
         });
@@ -651,7 +832,7 @@ ipcMain.handle('pick-folder', async () => {
 // IPC Handler to open the specific folder in macOS Finder
 ipcMain.handle('open-save-folder', async () => {
     const docPath = app.getPath('documents');
-    const saveDir = path.join(docPath, 'Salvataggi MappAI');
+    const saveDir = path.join(docPath, 'MappAI - Vault');
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
     }

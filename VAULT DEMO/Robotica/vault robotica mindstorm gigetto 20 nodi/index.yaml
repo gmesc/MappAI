@@ -1,0 +1,6 @@
+extractionMode: kg
+rootNodeLabel: Robotica IV media 20 nodi
+userProfile: {"nickname":"Gigetto","age":"11","grade":"1a Media","system":"Ticino"}
+customColors: {"1":"#ef4444"}
+generationUsage: {"promptTokens":12819,"candidateTokens":4374,"totalTokens":17193,"usedModel":"google/gemma-4-31B-it"}
+lastUpdated: 2026-05-23T12:14:40.034Z

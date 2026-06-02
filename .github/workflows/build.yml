@@ -13,37 +13,42 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  release:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        include:
-          - os: windows-latest
-            platform: win
-          - os: macos-latest
-            platform: mac
-          - os: ubuntu-latest
-            platform: linux
-
+  placeholder:
+    runs-on: ubuntu-latest
     steps:
-      - name: Check out git repository
-        uses: actions/checkout@v4
+      - run: echo "Build job not yet configured"
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
+# release:
+#    runs-on: ${{ matrix.os }}
 
-      - name: Install dependencies
-        run: npm install
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        os: [windows-latest, macos-latest, ubuntu-latest]
+#        include:
+#          - os: windows-latest
+#            platform: win
+#          - os: macos-latest
+#            platform: mac
+#          - os: ubuntu-latest
+#            platform: linux
 
-      - name: Build Electron App
-        run: npx electron-builder --${{ matrix.platform }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#    steps:
+#      - name: Check out git repository
+#        uses: actions/checkout@v4
+
+#      - name: Install Node.js
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: 24
+
+#      - name: Install dependencies
+#        run: npm install
+
+#      - name: Build Electron App
+#        run: npx electron-builder --${{ matrix.platform }}
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 #      - name: Upload Artifacts
 #        uses: actions/upload-artifact@v4
