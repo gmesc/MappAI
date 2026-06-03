@@ -947,6 +947,43 @@
         return false;
     }
 
+    // ── Phase 4 feature flag (Strategia B — consolidamento + cross-link) ────
+
+    function enablePhase4() {
+        localStorage.setItem('mappai_mm_phase4_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode !== 'mindmap') {
+            console.warn(`%c⚠️ Phase 4 attivata ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ PHASE 4 ATTIVA (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Le prossime generazioni MM eseguiranno consolidamento + cross-link AI.');
+        }
+        return true;
+    }
+
+    function disablePhase4() {
+        localStorage.removeItem('mappai_mm_phase4_enabled');
+        console.log('%c⛔ PHASE 4 DISATTIVATA', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function phase4Status() {
+        const enabled = localStorage.getItem('mappai_mm_phase4_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const active = enabled && mode === 'mindmap';
+        const info = {
+            flagSet:  enabled,
+            mode,
+            active,
+            note: !enabled ? 'Flag spento — usa .enablePhase4() per attivare'
+                : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (Phase 4 attivo solo in MindMap)`
+                : 'Phase 4 attivo — la prossima generazione MM userà il consolidamento AI'
+        };
+        console.log('%c── PHASE 4 STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     function jsonlStatus() {
         const enabled = localStorage.getItem('mappai_jsonl_enabled') === '1';
         const provider = _getAppState()?.aiProvider;
@@ -992,7 +1029,10 @@
         diff,
         enableJSONL,
         disableJSONL,
-        jsonlStatus
+        jsonlStatus,
+        enablePhase4,
+        disablePhase4,
+        phase4Status
     };
 
     console.log(

@@ -3369,6 +3369,19 @@ ${textParts.join('\n\n')}`;
         // "Corsa agli armamenti" L5) trasformandoli in cross-link verso il nodo canonico.
         window.dedupeNodesAsCrossLinks();
 
+        // Fase 4 — consolidamento + cross-link semantici (Strategia B).
+        // Gated dal feature flag mappai_mm_phase4_enabled. Va eseguita DOPO il dedup
+        // deterministico (per non duplicare lavoro su sinonimi banali) e PRIMA del
+        // filtro link orfani (così cross-link nuovi vengono inclusi nella pulizia finale).
+        if (window.isPhase4Enabled && window.isPhase4Enabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Consolidamento finale (Fase 4)...');
+                await window.executePhase4Consolidation();
+            } catch (e) {
+                console.warn('[Phase4] Errore non bloccante:', e.message);
+            }
+        }
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -3781,12 +3794,19 @@ window.parseJSONLResponse = function (text) {
         .trim();
 
     // Trova i marker di sezione (tollerante a varianti: ===NODES=== / ## NODES ## / [NODES])
-    const sectionRegex = /(?:^|\n)\s*(?:===+|##+|\[)\s*(NODES?|LINKS?|EDGES?|RELATIONS?)\s*(?:===+|##+|\])\s*(?:\n|$)/gi;
+    // Riconosce: NODES, LINKS, EDGES, RELATIONS, MERGES, CROSSLINKS (alias CROSS_LINKS, CROSS-LINKS).
+    const sectionRegex = /(?:^|\n)\s*(?:===+|##+|\[)\s*(NODES?|LINKS?|EDGES?|RELATIONS?|MERGES?|CROSS[-_ ]?LINKS?)\s*(?:===+|##+|\])\s*(?:\n|$)/gi;
     const markers = [];
     let m;
+    const classifyKind = (label) => {
+        const u = label.toUpperCase().replace(/[-_ ]/g, '');
+        if (u === 'NODE' || u === 'NODES') return 'nodes';
+        if (u === 'MERGE' || u === 'MERGES') return 'merges';
+        if (u === 'CROSSLINK' || u === 'CROSSLINKS') return 'crosslinks';
+        return 'links'; // LINKS, EDGES, RELATIONS
+    };
     while ((m = sectionRegex.exec(cleaned)) !== null) {
-        const kind = /^(NODE|NODES)$/i.test(m[1]) ? 'nodes' : 'links';
-        markers.push({ kind, start: m.index, headerEnd: m.index + m[0].length });
+        markers.push({ kind: classifyKind(m[1]), start: m.index, headerEnd: m.index + m[0].length });
     }
 
     const parseLine = (line) => {
@@ -3797,6 +3817,12 @@ window.parseJSONLResponse = function (text) {
         try { return JSON.parse(trimmed); }
         catch { return undefined; } // undefined = riga rotta (vs null = riga vuota)
     };
+
+    // Estendi meta.recovered/lost per tutte le sezioni note
+    ['merges', 'crosslinks'].forEach(k => {
+        if (meta.recovered[k] === undefined) meta.recovered[k] = 0;
+        if (meta.lost[k] === undefined) meta.lost[k] = 0;
+    });
 
     const parseSection = (raw, kind) => {
         const lines = raw.split('\n');
@@ -3810,8 +3836,8 @@ window.parseJSONLResponse = function (text) {
             if (typeof r === 'object' && !Array.isArray(r)) out.push(r);
             else lost++;
         }
-        meta.recovered[kind] += out.length;
-        meta.lost[kind] += lost;
+        meta.recovered[kind] = (meta.recovered[kind] || 0) + out.length;
+        meta.lost[kind] = (meta.lost[kind] || 0) + lost;
         meta.sections.push({ kind, recovered: out.length, lost });
         return out;
     };
@@ -3834,20 +3860,20 @@ window.parseJSONLResponse = function (text) {
 
     // Itera le sezioni in ordine, ognuna delimitata dall'inizio della successiva
     const sortedMarkers = [...markers].sort((a, b) => a.start - b.start);
-    const nodes = [], links = [];
+    const nodes = [], links = [], merges = [], crosslinks = [];
+    const bucket = { nodes, links, merges, crosslinks };
     for (let i = 0; i < sortedMarkers.length; i++) {
         const mk = sortedMarkers[i];
         const end = (i + 1 < sortedMarkers.length) ? sortedMarkers[i + 1].start : cleaned.length;
         const body = cleaned.slice(mk.headerEnd, end);
         const items = parseSection(body, mk.kind);
-        if (mk.kind === 'nodes') nodes.push(...items);
-        else links.push(...items);
+        bucket[mk.kind].push(...items);
     }
 
     // Se ci sono righe perse, marca come parziale (il chiamante può loggarlo)
-    if (meta.lost.nodes > 0 || meta.lost.links > 0) meta.partial = true;
+    if (Object.values(meta.lost).some(v => v > 0)) meta.partial = true;
 
-    return { nodes, links, meta };
+    return { nodes, links, merges, crosslinks, meta };
 };
 
 // Costruisce il prompt di espansione ramo nel formato JSONL sezionato.
@@ -3900,6 +3926,197 @@ window.isJSONLEnabled = function () {
         return localStorage.getItem('mappai_jsonl_enabled') === '1'
             && appState?.aiProvider === 'infomaniak';
     } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 4 — Consolidamento + Cross-link (Strategia B)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo che tutti i rami sono stati generati e il dedup deterministico è già
+// passato, una chiamata AI riceve il grafo completo (id+label+desc[0:60])
+// e produce due tipi di operazioni:
+//   - MERGES: coppie (keep, drop) di nodi semanticamente equivalenti
+//   - CROSSLINKS: relazioni tematiche tra rami diversi (causa, prerequisito, etc)
+//
+// Il risultato passa per `executeMerge` esistente (già robusto) per i merge
+// e per push diretto su appState.db.links per i cross-link, con validazione
+// (ID esistenti, no self-loop, no duplicati).
+//
+// Gated dal feature flag mappai_mm_phase4_enabled.
+
+window.isPhase4Enabled = function () {
+    try {
+        return localStorage.getItem('mappai_mm_phase4_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Costruisce il prompt Fase 4. Input compatto (solo id+label+desc breve)
+// per minimizzare i token: il modello deve ragionare sulla struttura, non
+// rileggere tutto il contenuto.
+window.buildPhase4Prompt = function (nodes) {
+    const compact = nodes
+        .filter(n => n.level !== 0) // escludi root
+        .map(n => {
+            const desc = (n.desc || n.content || '').replace(/\s+/g, ' ').slice(0, 60);
+            return `- ${n.id} (L${n.level ?? '?'}) "${n.label}" — ${desc}`;
+        })
+        .join('\n');
+
+    return `SEI UN CONSOLIDATORE DI GRAFI CONCETTUALI per Mappe Mentali.
+Ricevi l'elenco di tutti i nodi della mappa (generati in fasi precedenti ramo per ramo).
+Devi produrre DUE risultati che migliorano la coerenza della mappa:
+
+1. MERGES — Identifica i nodi che esprimono lo STESSO concetto con etichette diverse.
+   Esempi reali da sessioni precedenti: "Politica Asilo" / "Politiche di Asilo" / "Politica dei Profughi"
+   sono lo stesso concetto e vanno fusi. Per ogni coppia indica il nodo CANONICO da tenere
+   (preferisci quello con livello più alto, etichetta più chiara) e quello da rimuovere.
+
+2. CROSSLINKS — Aggiungi collegamenti TRA RAMI DIVERSI per esplicitare relazioni di:
+   causa, prerequisito, conseguenza, contrasto, esempio-di. Solo tra nodi GIÀ esistenti
+   nell'elenco (usa SOLO gli ID che trovi qui sotto). Non duplicare link che possono
+   essere già impliciti nella gerarchia.
+
+FORMATO DI OUTPUT — TASSATIVO ⚠️
+Restituisci DUE sezioni JSONL, una riga JSON per oggetto, niente altro:
+
+===MERGES===
+{"keep":"ID_CANONICO","drop":"ID_DA_RIMUOVERE","reason":"sinonimi/plurale/parafrasi"}
+{"keep":"ID_X","drop":"ID_Y","reason":"..."}
+===CROSSLINKS===
+{"source":"ID_A","target":"ID_B","rel":"causa"}
+{"source":"ID_C","target":"ID_D","rel":"prerequisito"}
+
+REGOLE:
+- Usa SOLO ID presenti nell'elenco sotto. Mai inventare nuovi ID.
+- Conservativo sui MERGES: in dubbio, NON fondere. Massimo 15 merge per mappa.
+- Massimo 20 nuovi cross-link, scegli i più significativi pedagogicamente.
+- Nessun commento, nessun markdown, nessun testo prima/dopo le sezioni.
+- "rel" deve essere un verbo italiano breve: causa, richiede, precede, genera,
+  si oppone a, è esempio di, dipende da, regola, finanzia, influenza.
+
+ELENCO NODI DELLA MAPPA:
+${compact}`;
+};
+
+// Esegue la Fase 4: chiama l'AI, parse, applica merge e cross-link.
+// Restituisce un report con cosa è stato applicato e cosa scartato.
+window.executePhase4Consolidation = async function () {
+    const report = { merges: { applied: 0, skipped: 0, errors: [] },
+                     crosslinks: { applied: 0, skipped: 0, errors: [] },
+                     parser: null };
+
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) {
+        console.warn('[Phase4] API key non disponibile — skip');
+        return report;
+    }
+
+    const nodes = appState.db.nodes || [];
+    if (nodes.length < 6) {
+        console.log('[Phase4] Mappa troppo piccola (<6 nodi) — skip');
+        return report;
+    }
+
+    const prompt = window.buildPhase4Prompt(nodes);
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: 'Sei un consolidatore semantico di grafi. Rispondi SOLO in JSONL come richiesto.' }] },
+        generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000) }
+    };
+
+    let response;
+    try {
+        response = await window.fetchModelAPI(payload, apiKey);
+    } catch (e) {
+        console.warn('[Phase4] Chiamata AI fallita:', e.message);
+        report.parser = { error: e.message };
+        return report;
+    }
+
+    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = window.parseJSONLResponse(text);
+    report.parser = parsed.meta;
+
+    const validIds = new Set(nodes.map(n => n.id));
+    const idByNorm = new Map();
+    nodes.forEach(n => idByNorm.set(String(n.id).toUpperCase(), n.id));
+
+    // ── Applica MERGES ──
+    // Per ogni merge: valida ID, recupera oggetti nodo, chiama executeMerge(drop, keep)
+    // (executeMerge(A, B) fonde A→B: A scompare, B sopravvive — quindi A=drop, B=keep)
+    const consumedDrops = new Set();
+    for (const m of parsed.merges) {
+        try {
+            const keepId = idByNorm.get(String(m.keep || '').toUpperCase());
+            const dropId = idByNorm.get(String(m.drop || '').toUpperCase());
+            if (!keepId || !dropId) {
+                report.merges.skipped++;
+                report.merges.errors.push(`ID inesistente: keep=${m.keep} drop=${m.drop}`);
+                continue;
+            }
+            if (keepId === dropId) { report.merges.skipped++; continue; }
+            if (consumedDrops.has(dropId)) { report.merges.skipped++; continue; }
+            const keepNode = appState.db.nodes.find(n => n.id === keepId);
+            const dropNode = appState.db.nodes.find(n => n.id === dropId);
+            if (!keepNode || !dropNode) { report.merges.skipped++; continue; }
+            // Non fondere se uno dei due è il root
+            if (keepNode.level === 0 || dropNode.level === 0) { report.merges.skipped++; continue; }
+            window.executeMerge(dropNode, keepNode);
+            consumedDrops.add(dropId);
+            report.merges.applied++;
+        } catch (e) {
+            report.merges.errors.push(e.message);
+            report.merges.skipped++;
+        }
+    }
+
+    // ── Applica CROSSLINKS ──
+    // Validazione: ID esistenti dopo i merge, no self-loop, no duplicato di link esistente.
+    const validIdsAfterMerge = new Set(appState.db.nodes.map(n => n.id));
+    const existingLinks = new Set(
+        appState.db.links.map(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return `${s}→${t}`;
+        })
+    );
+    // Rimappa drop→keep se il drop è stato fuso in keep (idByNorm potrebbe puntare a drop)
+    const resolveId = (rawId) => {
+        const norm = String(rawId || '').toUpperCase();
+        let id = idByNorm.get(norm);
+        // se id non esiste più (è stato dropped), cerca se è apparso nei merges
+        if (id && !validIdsAfterMerge.has(id)) {
+            const merge = parsed.merges.find(m =>
+                idByNorm.get(String(m.drop || '').toUpperCase()) === id);
+            if (merge) id = idByNorm.get(String(merge.keep || '').toUpperCase());
+        }
+        return validIdsAfterMerge.has(id) ? id : null;
+    };
+
+    for (const cl of parsed.crosslinks) {
+        const src = resolveId(cl.source);
+        const tgt = resolveId(cl.target);
+        if (!src || !tgt || src === tgt) { report.crosslinks.skipped++; continue; }
+        const key = `${src}→${tgt}`, keyRev = `${tgt}→${src}`;
+        if (existingLinks.has(key) || existingLinks.has(keyRev)) { report.crosslinks.skipped++; continue; }
+        appState.db.links.push({
+            source: src,
+            target: tgt,
+            rel: cl.rel || 'correlato a',
+            isCross: true,
+            _phase4: true
+        });
+        existingLinks.add(key);
+        report.crosslinks.applied++;
+    }
+
+    console.log(
+        '%c[Phase4] Consolidamento completato',
+        'color:#10b981;font-weight:bold',
+        report
+    );
+    return report;
 };
 
 // Estrae il testo dalla risposta AI in modo sicuro.
