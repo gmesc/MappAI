@@ -3061,7 +3061,21 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const branch = l1NodesData[idx];
             window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
 
-            const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
+            // ── Strategia 1A — JSONL per Infomaniak (gated da feature flag) ──
+            // Quando attivo: prompt JSONL sezionato + parser tollerante al troncamento.
+            // Altrimenti: prompt JSON monolitico originale + salvageTruncatedJSON.
+            const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled();
+
+            const promptBranch = useJSONL
+                ? window.buildBranchPromptJSONL(branch, {
+                    rootNodeLabel: appState.rootNodeLabel,
+                    maxMapLevel,
+                    userProfileStr,
+                    focusInjection,
+                    textParts,
+                    fileParts
+                })
+                : `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
 Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
@@ -3091,11 +3105,20 @@ ${focusInjection}
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
-            const payloadBranch = {
-                contents: [{ parts: [...fileParts, { text: promptBranch }] }],
-                systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
-                generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
-            };
+            // In modalità JSONL rimuoviamo responseMimeType/responseSchema:
+            // Infomaniak non li supporta nativamente e in plain text il modello
+            // segue meglio le istruzioni di formato del prompt.
+            const payloadBranch = useJSONL
+                ? {
+                    contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                    systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi in JSONL sezionato come richiesto, una riga per oggetto.") }] },
+                    generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                  }
+                : {
+                    contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                    systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
+                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                  };
 
             try {
                 const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
@@ -3103,7 +3126,22 @@ ${textParts.join('\n\n')}`;
                 if (cand && cand.content && cand.content.parts) {
                     let rawText = cand.content.parts[0].text;
                     let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                    let branchData = salvageTruncatedJSON(cleanText);
+
+                    let branchData;
+                    if (useJSONL) {
+                        // Path JSONL: parser tollerante che recupera anche output troncati
+                        const parsed = window.parseJSONLResponse(cleanText);
+                        branchData = { nodes: parsed.nodes, links: parsed.links };
+                        console.log(
+                            `%c[JSONL] Ramo "${branch.label}":`,
+                            'color:#10b981;font-weight:bold',
+                            `${parsed.nodes.length} nodi, ${parsed.links.length} link recuperati`,
+                            parsed.meta.partial ? `(⚠️ persi: ${parsed.meta.lost.nodes}N/${parsed.meta.lost.links}L)` : '✓ integro'
+                        );
+                    } else {
+                        // Path JSON legacy + salvage
+                        branchData = salvageTruncatedJSON(cleanText);
+                    }
 
                     if (branchData.nodes && Array.isArray(branchData.nodes)) {
                         // Pre-calcola parent mapping
@@ -3709,6 +3747,160 @@ function salvageTruncatedJSON(text) {
     );
     throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// JSONL parser (Strategia 1A — formato sezionato resistente al troncamento)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Formato atteso (output del modello):
+//
+//   ===NODES===
+//   {"id":"X","label":"A","level":2,"desc":"..."}
+//   {"id":"Y","label":"B","level":2,"desc":"..."}
+//   ===LINKS===
+//   {"source":"X","target":"Y","rel":"include"}
+//   {"source":"Y","target":"Z","rel":"causa"}
+//
+// Resilienza:
+//   - Riga JSON malformata → scartata, le altre sopravvivono
+//   - Troncamento a metà oggetto → si perde SOLO l'ultima riga di una sezione
+//   - Section header alterato (es. "## NODES ##") → fallback su euristica
+//   - Markdown ```...``` → rimosso automaticamente
+//
+// Restituisce: { nodes, links, meta: { recovered, lost, partial, sections } }
+window.parseJSONLResponse = function (text) {
+    const meta = { recovered: { nodes: 0, links: 0 }, lost: { nodes: 0, links: 0 }, partial: false, sections: [] };
+    if (typeof text !== 'string' || !text.trim()) {
+        return { nodes: [], links: [], meta };
+    }
+
+    // Pulizia preliminare: rimuovi fence markdown
+    let cleaned = text
+        .replace(/```jsonl?\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+    // Trova i marker di sezione (tollerante a varianti: ===NODES=== / ## NODES ## / [NODES])
+    const sectionRegex = /(?:^|\n)\s*(?:===+|##+|\[)\s*(NODES?|LINKS?|EDGES?|RELATIONS?)\s*(?:===+|##+|\])\s*(?:\n|$)/gi;
+    const markers = [];
+    let m;
+    while ((m = sectionRegex.exec(cleaned)) !== null) {
+        const kind = /^(NODE|NODES)$/i.test(m[1]) ? 'nodes' : 'links';
+        markers.push({ kind, start: m.index, headerEnd: m.index + m[0].length });
+    }
+
+    const parseLine = (line) => {
+        const s = line.trim();
+        if (!s || s.startsWith('//')) return null;
+        // Rimuovi virgole trailing tipiche degli array (es. "{...},")
+        const trimmed = s.replace(/,\s*$/, '');
+        try { return JSON.parse(trimmed); }
+        catch { return undefined; } // undefined = riga rotta (vs null = riga vuota)
+    };
+
+    const parseSection = (raw, kind) => {
+        const lines = raw.split('\n');
+        const out = [];
+        let lost = 0;
+        for (const line of lines) {
+            const r = parseLine(line);
+            if (r === null) continue;            // riga vuota/commento → ignora
+            if (r === undefined) { lost++; continue; }
+            // Accetta solo oggetti, no array/scalari
+            if (typeof r === 'object' && !Array.isArray(r)) out.push(r);
+            else lost++;
+        }
+        meta.recovered[kind] += out.length;
+        meta.lost[kind] += lost;
+        meta.sections.push({ kind, recovered: out.length, lost });
+        return out;
+    };
+
+    if (markers.length === 0) {
+        // Fallback: nessun marker trovato → prova a interpretare TUTTO come nodi
+        // (es. il modello ha solo prodotto nodi senza header). Distingue nodes da
+        // links guardando le chiavi: se ha "source"+"target" → link.
+        const allParsed = cleaned.split('\n').map(parseLine).filter(o => o && typeof o === 'object');
+        const nodes = [], links = [];
+        for (const obj of allParsed) {
+            if (obj.source && obj.target) links.push(obj);
+            else if (obj.id) nodes.push(obj);
+        }
+        meta.recovered.nodes = nodes.length;
+        meta.recovered.links = links.length;
+        meta.partial = true; // no header → output non standard
+        return { nodes, links, meta };
+    }
+
+    // Itera le sezioni in ordine, ognuna delimitata dall'inizio della successiva
+    const sortedMarkers = [...markers].sort((a, b) => a.start - b.start);
+    const nodes = [], links = [];
+    for (let i = 0; i < sortedMarkers.length; i++) {
+        const mk = sortedMarkers[i];
+        const end = (i + 1 < sortedMarkers.length) ? sortedMarkers[i + 1].start : cleaned.length;
+        const body = cleaned.slice(mk.headerEnd, end);
+        const items = parseSection(body, mk.kind);
+        if (mk.kind === 'nodes') nodes.push(...items);
+        else links.push(...items);
+    }
+
+    // Se ci sono righe perse, marca come parziale (il chiamante può loggarlo)
+    if (meta.lost.nodes > 0 || meta.lost.links > 0) meta.partial = true;
+
+    return { nodes, links, meta };
+};
+
+// Costruisce il prompt di espansione ramo nel formato JSONL sezionato.
+// Mantiene tutte le regole del prompt JSON originale (id, label, content,
+// desc, level, chunks) ma cambia il formato di output per resistere al
+// troncamento. Usato in extractMindMapMultiPass quando isJSONLEnabled().
+window.buildBranchPromptJSONL = function (branch, opts) {
+    const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts } = opts;
+    return `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
+Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
+
+ISTRUZIONI PER IL RAMO:
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
+2. Ciascun sotto-nodo generato deve definire:
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
+   - "label": titolo sintetico e focalizzato (max 3 parole).
+   - "content": sintesi didattica brevissima (max 10 parole).
+   - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+   - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
+   - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
+
+⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
+NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
+
+===NODES===
+{"id":"${branch.id}_L2_A","label":"Esempio","content":"breve","desc":"descrizione completa di 30-50 parole","level":2,"chunks":["citazione verbatim dalla fonte"]}
+{"id":"${branch.id}_L2_B","label":"Altro","content":"breve","desc":"...","level":2,"chunks":["..."]}
+===LINKS===
+{"source":"${branch.id}","target":"${branch.id}_L2_A","rel":"include"}
+{"source":"${branch.id}_L2_A","target":"${branch.id}_L3_A1","rel":"include"}
+
+REGOLE TASSATIVE SUL FORMATO:
+- UN oggetto JSON PER RIGA, niente array racchiudenti, niente virgole tra le righe
+- Header sezione esattamente "===NODES===" e "===LINKS===" (tre uguali, maiuscolo)
+- Nessun commento, nessun markdown, nessun testo prima o dopo le sezioni
+- Se vai a capo dentro una stringa devi escaparlo come \\n
+
+${userProfileStr}
+${focusInjection}
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+};
+
+// Feature flag — abilita JSONL solo per Infomaniak e solo se opt-in via localStorage.
+// Attivazione: localStorage.setItem('mappai_jsonl_enabled', '1')
+// Disattivazione: localStorage.removeItem('mappai_jsonl_enabled')
+window.isJSONLEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_jsonl_enabled') === '1'
+            && appState?.aiProvider === 'infomaniak';
+    } catch (e) { return false; }
+};
 
 // Estrae il testo dalla risposta AI in modo sicuro.
 // Gestisce: candidates mancanti, thinking mode (Gemini 2.5+ restituisce

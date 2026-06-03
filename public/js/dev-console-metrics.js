@@ -924,6 +924,46 @@
         _tryPatch();
     })();
 
+    // ── JSONL feature flag (Strategia 1A) ─────────────────────────────────────
+    //
+    // Attiva/disattiva il path JSONL solo per Infomaniak. Il flag è persistente
+    // (localStorage) — sopravvive ai reload. Verificare lo stato con .jsonlStatus()
+
+    function enableJSONL() {
+        localStorage.setItem('mappai_jsonl_enabled', '1');
+        const provider = _getAppState()?.aiProvider;
+        if (provider !== 'infomaniak') {
+            console.warn(`%c⚠️ JSONL attivato ma provider=${provider}. Avrà effetto solo se passi a Infomaniak.`, 'color:orange');
+        } else {
+            console.log('%c✅ JSONL ATTIVO per Infomaniak', 'color:green;font-weight:bold');
+            console.log('   Le prossime generazioni useranno il formato JSONL sezionato (Strategia 1A).');
+        }
+        return true;
+    }
+
+    function disableJSONL() {
+        localStorage.removeItem('mappai_jsonl_enabled');
+        console.log('%c⛔ JSONL DISATTIVATO — ritorno al formato JSON monolitico', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function jsonlStatus() {
+        const enabled = localStorage.getItem('mappai_jsonl_enabled') === '1';
+        const provider = _getAppState()?.aiProvider;
+        const active = enabled && provider === 'infomaniak';
+        const info = {
+            flagSet:    enabled,
+            provider:   provider,
+            active:     active,
+            note: !enabled ? 'Flag spento — usa .enableJSONL() per attivare'
+                : provider !== 'infomaniak' ? `Flag acceso ma provider=${provider} (JSONL attivo solo su Infomaniak)`
+                : 'JSONL attivo — la prossima generazione userà il formato sezionato'
+        };
+        console.log('%c── JSONL STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Export ────────────────────────────────────────────────────────────────
 
     window.MappAIMetrics = {
@@ -949,7 +989,10 @@
         list,
         remove,
         clearAll,
-        diff
+        diff,
+        enableJSONL,
+        disableJSONL,
+        jsonlStatus
     };
 
     console.log(
