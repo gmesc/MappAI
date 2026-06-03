@@ -106,6 +106,67 @@ window.executeMerge = function (A, B) {
     window.showToast(`"${window.cleanLabel(A.label)}" fuso in "${window.cleanLabel(B.label)}"`, 'success');
 };
 
+// ==========================================
+// CAMBIA LINK — riassegna il genitore di A in MindMap
+// ==========================================
+
+window.relinkState = { active: false, sourceNode: null };
+
+window.startRelinkMode = function (sourceNode) {
+    window.relinkState = { active: true, sourceNode };
+    if (window.mergeState.active) window.cancelMergeMode();
+    if (typeof linkingState !== 'undefined') linkingState.active = false;
+    const hint = document.getElementById('mode-hint');
+    hint.innerText = `CAMBIA LINK: "${window.cleanLabel(sourceNode.label)}" — Clicca il nuovo nodo genitore (ESC per annullare)`;
+    hint.classList.remove('hidden');
+};
+
+window.cancelRelinkMode = function () {
+    window.relinkState = { active: false, sourceNode: null };
+    document.getElementById('mode-hint').classList.add('hidden');
+};
+
+window.handleRelinkTargetClick = function (targetNode) {
+    const sourceNode = window.relinkState.sourceNode;
+    window.cancelRelinkMode();
+
+    if (sourceNode.id === targetNode.id) return;
+
+    window.showLinkFamilyPrompt(
+        window.cleanLabel(targetNode.label),
+        window.cleanLabel(sourceNode.label),
+        (rel) => {
+            if (rel) window.executeRelink(sourceNode, targetNode, rel);
+        }
+    );
+};
+
+window.executeRelink = function (A, newParent, rel) {
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target,
+    });
+
+    // Rimuovi tutti i link in entrata verso A (distacca dal vecchio genitore)
+    appState.db.links = appState.db.links.filter(l => {
+        const { tgt } = getId(l);
+        return tgt !== A.id;
+    });
+
+    // Aggiungi il nuovo link genitore→A
+    appState.db.links.push({ source: newParent.id, target: A.id, rel });
+
+    // Ricalcola i livelli di A e del suo sottoalbero
+    A.level = newParent.level + 1;
+    _recalcLevels(A.id, A.level, appState.db.nodes, appState.db.links);
+
+    if (typeof window.updateDegreeStats === 'function') window.updateDegreeStats();
+    renderGraph();
+    window.showToast(`"${window.cleanLabel(A.label)}" spostato sotto "${window.cleanLabel(newParent.label)}"`, 'success');
+};
+
+// ==========================================
+
 // Ricalcola ricorsivamente i livelli del sottoalbero radicato in parentId
 function _recalcLevels(parentId, parentLevel, nodes, links) {
     const childLinks = links.filter(l => {
