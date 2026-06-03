@@ -1,16 +1,51 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 3 giugno 2026.
+> Priorità in ordine decrescente. Aggiornato: 3 giugno 2026 (sera).
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Obiettivo sessione suggerito**: testare su una mappa reale le nuove funzioni
-"Fondi con..." e "Cambia Link", poi avviare UI Piano 1.2 — pannello suggerimenti
-strutturali.
+**Obiettivo sessione suggerito**: decidere sovrapposizione lenti/discipline (design),
+poi UI Piano 1.2 — pannello suggerimenti strutturali + 4 regole `MIND_MAP_BRANCH_IT`.
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato**: modifiche non committate (`mappai-node-merge.js` nuovo + patch `app.js`).
+**Stato**: working tree pulito (auto-save hook attivo).
+
+---
+
+## ✅ COMPLETATO — Sessione 3 giugno 2026 (sera)
+
+### UI/UX — modal e design system
+- ✅ **Sistema `.pm-*`** — gerarchia tipografica prompt-modal (§11 `@layer components`
+  in `index.html`): `pm-icon-wrap`, `pm-title`, `pm-subtitle`, `pm-body-text`, `pm-badge`
+  (+ varianti info/ok/warn/mode-mm/mode-kg), `pm-section`, `pm-section-title`,
+  `pm-option`, `pm-option-label`, `pm-option-desc`, `pm-btn-cancel`, `pm-btn-primary`.
+- ✅ **Modal Stampa Dossier** aggiornato: header con `pm-icon-wrap` + `pm-title`,
+  badge modalità con `pm-badge`, radio/checkbox con `pm-option`, footer con
+  `pm-btn-cancel`/`pm-btn-primary`.
+- ✅ **Modal link family** (`#link-family-modal`): layout bottoni famiglie cambiato
+  da `grid-cols-4` a colonna unica (`flex flex-col`), bottoni orizzontali (`flex-row`,
+  `w-full`, `text-sm`), modal allargato a `max-w-[600px]`.
+
+### Timeline (`mappai-timeline.js`)
+- ✅ **Titolo progetto dinamico** — `window._getTimelineProjectName()`: legge
+  `appState.rootNodeLabel` → nodo L0 → `'MappAI'`. Funziona anche su KG senza L0.
+- ✅ **Deduplicazione eventi** — dopo AI pass 1 + regex safety net, filtra duplicati
+  su chiave `(anno, label normalizzata)`. Fix per "Piano Wahlen x2".
+- ✅ **Modal semplificato** — 4 checkbox → 2 radio (Compatta / Con contesto).
+  Compatta: nessun contesto richiesto all'AI. Con contesto: max 3 frasi / 300 char.
+- ✅ **Migrazione al design system pm-*** — icone Lucide (`calendar-clock`, `zap`, `x`),
+  niente emoji, niente `Space Mono` nel modal, palette indigo uniforme con Stampa Dossier.
+- ✅ `openTimelineView` e `_renderTimeline` ora accettano `opts.showContext` — il blocco
+  "CONTESTO DALLA FONTE" è condizionale.
+
+### Bug fix
+- ✅ **Collisione `group` dopo merge/relink** (`mappai-node-merge.js`): aggiunta
+  `_recalcGroups(parentId, group, nodes, links)` e `_nextFreeGroup(nodes)`.
+  - `executeMerge` step 7b: propaga `B.group` a tutto il sottoalbero di B.
+  - `executeRelink`: se A diventa L1 (genitore = root L0) assegna un intero libero;
+    altrimenti eredita `newParent.group`. Poi `_recalcGroups` propaga all'intero sottoalbero.
+  - Effetto: due L1 non possono più condividere lo stesso group → color picker isolato.
 
 ---
 
@@ -159,17 +194,14 @@ strutturali.
 - Rigenerare KG fotosintesi 4aMEDIA con alcune lenti attive su `gemini-2.5-flash-lite`
 - Misurare `MappAIStructureAnalyzer.analyzeCurrentMap()` — density non deve scendere
   sotto 1.3 rispetto al baseline 1.59 senza lenti
-- Investigate la causa dell'anomalia 37K token (punto 9 backlog)
+- Investigare la causa dell'anomalia 37K token (punto 10 backlog)
 
-### 2. Mirror template KG su varianti Student e EN
-- `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` e `_EN`: applicare stesso blocco
-  "RELAZIONI — IL CUORE DEL GRAFO" già validato su `KNOWLEDGE_GRAPH_SINGLE_IT`
-- Low risk — stessa modifica già validata, diverso template
-- File da modificare: `prompts_config.json` e `public/prompts_default.json`
+### 2. ✅ Mirror template KG su varianti Student e EN — CHIUSO
+Completato sessione 2 giugno 2026 sera.
 
 ### 3. UI Piano 1.2 — pannello suggerimenti strutturali
 **Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile) + analisi god_node fix (✅)
-**Stato**: non ancora iniziato — prompt completo preparato nel messaggio di chiusura sessione.
+**Stato**: non ancora iniziato.
 **Da costruire**:
 - Pannello `#structural-suggestions-panel` con card per ogni suggerimento
 - Primitiva `highlightSubgraph(nodeIds)` per evidenziare il sottografo
