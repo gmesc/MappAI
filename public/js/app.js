@@ -2234,7 +2234,7 @@ window.startGeneration = async function () {
     var fileParts = [];
     var hasSources = false;
 
-    appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0, usedModel: document.getElementById('model-select').value };
+    appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0, usedModel: document.getElementById('model-select').value, usedProvider: appState.aiProvider };
     // Strategia 0 — azzera il tracker troncamenti per la nuova generazione
     if (window.MappAITruncationTracker) window.MappAITruncationTracker.reset();
 

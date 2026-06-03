@@ -77,6 +77,31 @@
         return provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
     }
 
+    // Restituisce il modello REALMENTE USATO per generare la mappa corrente.
+    // Priorità (dall'alto verso il basso):
+    //   1) appState.generationUsage.usedModel  ← impostato a inizio generazione,
+    //      persistito nel vault, ripristinato al caricamento → fonte autoritativa
+    //   2) localStorage del select corrente   ← FALLBACK fragile: riflette lo stato
+    //      del select, non la generazione. Usato solo per vault legacy.
+    function _resolveModel(state) {
+        const used = state?.generationUsage?.usedModel;
+        if (used && used.trim()) return used;
+        return localStorage.getItem(_modelKey(state?.aiProvider)) || 'N/A';
+    }
+
+    // Restituisce il provider USATO per generare la mappa corrente.
+    // Priorità: usedProvider → fallback su aiProvider attuale, oppure dedotto
+    // dal nome del modello (mappe vecchie salvate prima di Strategia 0).
+    function _resolveProvider(state) {
+        if (state?.generationUsage?.usedProvider) return state.generationUsage.usedProvider;
+        const used = state?.generationUsage?.usedModel || '';
+        if (used) {
+            if (/^gemini/i.test(used)) return 'google';
+            if (used.includes('/')) return 'infomaniak'; // mistralai/..., google/gemma-...
+        }
+        return state?.aiProvider || 'N/A';
+    }
+
     // ── Core: costruisce il payload metriche (senza side-effect) ─────────────
 
     function _buildPayload(label) {
@@ -97,8 +122,8 @@
 
         return {
             label:          label || new Date().toISOString().slice(0, 19),
-            provider:       s.aiProvider,
-            model:          localStorage.getItem(_modelKey(s.aiProvider)) || 'N/A',
+            provider:       _resolveProvider(s),
+            model:          _resolveModel(s),
             mode:           s.extractionMode,
             topic:          s.rootNodeLabel,
             ts:             Date.now(),
@@ -133,8 +158,8 @@
         const s = _state();
         const density = nodes.length ? (links.length / nodes.length).toFixed(3) : 0;
         const result = {
-            provider:  s.aiProvider || 'N/A',
-            model:     localStorage.getItem(_modelKey(s.aiProvider)) || 'N/A',
+            provider:  _resolveProvider(s),
+            model:     _resolveModel(s),
             topic:     s.rootNodeLabel || 'N/A',
             mode:      s.extractionMode || 'N/A',
             nodes:     nodes.length,
@@ -429,8 +454,8 @@
         const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0 };
 
         const row = {
-            'Provider':   s.aiProvider,
-            'Model':      localStorage.getItem(_modelKey(s.aiProvider)) || 'N/A',
+            'Provider':   _resolveProvider(s),
+            'Model':      _resolveModel(s),
             'Topic':      (s.rootNodeLabel || '').slice(0, 30),
             'Mode':       s.extractionMode,
             'Nodes':      nodes.length,
