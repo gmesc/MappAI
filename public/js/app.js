@@ -1686,6 +1686,11 @@ window.getMaxOutputTokens = function (baseTokens) {
         if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
             return Math.max(baseTokens, 16384);
         }
+        // Mistral Small è verboso nelle espansioni di ramo (L3-L5 lunghi) →
+        // porta il budget a 8192 per evitare troncamenti e JSON parziali.
+        if (model.includes('mistral') || model.includes('mixtral')) {
+            return Math.max(baseTokens, 8192);
+        }
         return baseTokens;
     }
     // Gemini 2.5+ e 3.x sono più verbosi nelle descrizioni e nei chunk —
