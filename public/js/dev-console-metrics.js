@@ -8,6 +8,7 @@
  * UTILIZZO RAPIDO
  *   MappAIMetrics.snapshot()          → report completo
  *   MappAIMetrics.table()             → tabella compatta (una riga)
+ *   MappAIMetrics.truncations()       → affidabilità API: chiamate / troncate
  *   MappAIMetrics.compare('label')    → payload JSON + copia in clipboard
  *   MappAIMetrics.diff(a, b)          → delta numerico tra due snapshot
  *
@@ -92,6 +93,7 @@
         links.forEach(l => { const r = l.rel || '(nessuna)'; relFreq[r] = (relFreq[r] || 0) + 1; });
         const genericLinks = links.filter(l => (l.rel || '').toLowerCase().includes('correlat')).length;
         const structural = window.MappAIStructureAnalyzer?.analyzeCurrentMap()?.stats || {};
+        const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0, truncationRate: 0 };
 
         return {
             label:          label || new Date().toISOString().slice(0, 19),
@@ -116,6 +118,10 @@
             groups:         new Set(nodes.map(n => n.group).filter(Boolean)).size,
             maxLevel:       Math.max(0, ...nodes.map(n => n.level ?? 0)),
             sourceCovRatio: Number((withSrc / (nodes.length || 1)).toFixed(3)),
+            // Strategia 0 — flag di affidabilità della generazione
+            apiCalls:        trunc.calls,
+            truncatedCalls:  trunc.truncated,
+            truncationRate:  trunc.truncationRate,
             structural
         };
     }
@@ -335,6 +341,58 @@
         return result;
     }
 
+    // ── 10b. TRUNCATIONS — affidabilità della generazione (Strategia 0) ─────
+    //
+    // Espone i dati del MappAITruncationTracker: chiamate API totali,
+    // troncate (finishReason=MAX_TOKENS / length), tasso, breakdown per modello.
+    // Quando truncationRate > 0 il grafo finale è INCOMPLETO rispetto a quanto
+    // il modello stava generando: i nodi mancanti sono stati TAGLIATI dal
+    // limite di output, non dimenticati dal modello.
+
+    function truncations(includeAllSessions = false) {
+        const t = window.MappAITruncationTracker;
+        if (!t) { console.warn('[MappAIMetrics] tracker troncamenti non disponibile'); return null; }
+        const src = includeAllSessions ? [...t.events, ...t.currentRun] : t.currentRun;
+        const summary = t.summary(!includeAllSessions);
+
+        console.log('%c── TRUNCATIONS (Strategia 0) ──', 'color:#6366f1;font-weight:bold');
+        console.log(
+            `Generazione corrente: ${summary.calls} chiamate API · ` +
+            `%c${summary.truncated} troncate%c (${(summary.truncationRate * 100).toFixed(1)}%)`,
+            summary.truncated > 0 ? 'color:orange;font-weight:bold' : 'color:green;font-weight:bold',
+            ''
+        );
+
+        if (Object.keys(summary.byModel).length) {
+            console.log('Per modello:');
+            console.table(
+                Object.entries(summary.byModel).map(([model, st]) => ({
+                    model,
+                    calls: st.calls,
+                    truncated: st.truncated,
+                    rate: (st.truncated / st.calls * 100).toFixed(1) + '%'
+                }))
+            );
+        }
+
+        const truncated = src.filter(e => e.truncated);
+        if (truncated.length) {
+            console.log('Dettaglio chiamate troncate:');
+            console.table(truncated.map(e => ({
+                ts: new Date(e.ts).toLocaleTimeString(),
+                model: e.model,
+                finishReason: e.finishReason,
+                requestedMax: e.requestedMax,
+                outputTokens: e.candidateTokens,
+                utilizzo: e.requestedMax ? ((e.candidateTokens / e.requestedMax) * 100).toFixed(1) + '%' : 'N/A'
+            })));
+        } else if (summary.calls > 0) {
+            console.log('%c✅ Nessun troncamento — generazione integra', 'color:green');
+        }
+
+        return summary;
+    }
+
     // ── 11. SNAPSHOT ──────────────────────────────────────────────────────────
 
     function snapshot() {
@@ -351,7 +409,8 @@
         const ss = studyStatus();
         const bt = betweenness();
         structural();
-        return { basic: b, crosslinks: cx, relations: r, degree: d, groups: g, levels: lv, sources: s, studyStatus: ss, betweenness: bt };
+        const tr = truncations();
+        return { basic: b, crosslinks: cx, relations: r, degree: d, groups: g, levels: lv, sources: s, studyStatus: ss, betweenness: bt, truncations: tr };
     }
 
     // ── 12. TABLE ─────────────────────────────────────────────────────────────
@@ -367,6 +426,7 @@
         const density = nodes.length ? links.length / nodes.length : 0;
         const relTypes = new Set(links.map(l => l.rel).filter(Boolean)).size;
         const genericLinks = links.filter(l => (l.rel || '').toLowerCase().includes('correlat')).length;
+        const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0 };
 
         const row = {
             'Provider':   s.aiProvider,
@@ -384,7 +444,8 @@
             'MaxDegree':  Math.max(0, ...degrees),
             'Groups':     new Set(nodes.map(n => n.group).filter(Boolean)).size,
             'MaxLevel':   Math.max(0, ...nodes.map(n => n.level ?? 0)),
-            'SourceCov%': _pct(withSrc, nodes.length)
+            'SourceCov%': _pct(withSrc, nodes.length),
+            'Trunc':      trunc.truncated > 0 ? `⚠️ ${trunc.truncated}/${trunc.calls}` : `✓ 0/${trunc.calls}`
         };
         console.log('%c── COMPACT TABLE ──', 'color:#6366f1;font-weight:bold');
         console.table([row]);
@@ -485,7 +546,8 @@
         if (!a || !b) { console.warn('[MappAIMetrics] diff() richiede due payload. Usa .load() o .loadLast()'); return; }
         const keys = ['nodes', 'links', 'density', 'crossLinks', 'crossRatio',
                       'relTypes', 'genericRatio', 'avgDegree', 'maxDegree',
-                      'groups', 'maxLevel', 'sourceCovRatio'];
+                      'groups', 'maxLevel', 'sourceCovRatio',
+                      'apiCalls', 'truncatedCalls', 'truncationRate'];
         const rows = keys.map(k => {
             const va = a[k], vb = b[k];
             const delta = (typeof va === 'number' && typeof vb === 'number') ? (vb - va).toFixed(3) : '—';
@@ -564,6 +626,7 @@
         sources,
         studyStatus,
         structural,
+        truncations,
         snapshot,
         table,
         compare,

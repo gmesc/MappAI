@@ -1701,6 +1701,64 @@ window.getMaxOutputTokens = function (baseTokens) {
     return baseTokens;
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// Tracker troncamenti (Strategia 0 — rilevamento finishReason)
+// ──────────────────────────────────────────────────────────────────────────
+// Ogni chiamata fetchModelAPI registra qui:
+//   { ts, model, provider, finishReason, truncated, maxOutputTokens,
+//     promptTokens, candidateTokens, requestedMax }
+// Il flag `truncated:true` viene impostato quando finishReason indica
+// limite raggiunto (MAX_TOKENS / length). Viene RESETTATO all'inizio di
+// ogni generazione (vedi resetVaultState / inizio di extract*).
+window.MappAITruncationTracker = {
+    events: [],            // tutti gli eventi della sessione (cumulativo)
+    currentRun: [],        // solo la generazione corrente
+    reset: function() {
+        if (this.currentRun.length) {
+            // archivia il run precedente prima di azzerare
+            this.events.push(...this.currentRun);
+        }
+        this.currentRun = [];
+    },
+    record: function(evt) {
+        evt.ts = Date.now();
+        this.currentRun.push(evt);
+        if (evt.truncated) {
+            console.warn(
+                `%c⚠️ Troncamento rilevato`,
+                'color:orange;font-weight:bold',
+                `model=${evt.model} finishReason=${evt.finishReason} ` +
+                `out=${evt.candidateTokens}/${evt.requestedMax}tok`
+            );
+        }
+    },
+    summary: function(runOnly = true) {
+        const src = runOnly ? this.currentRun : [...this.events, ...this.currentRun];
+        const total = src.length;
+        const truncated = src.filter(e => e.truncated).length;
+        return {
+            calls: total,
+            truncated,
+            truncationRate: total ? Number((truncated / total).toFixed(3)) : 0,
+            byModel: src.reduce((acc, e) => {
+                if (!acc[e.model]) acc[e.model] = { calls: 0, truncated: 0 };
+                acc[e.model].calls++;
+                if (e.truncated) acc[e.model].truncated++;
+                return acc;
+            }, {})
+        };
+    }
+};
+
+// Estrae finishReason dalla response (sia Gemini nativo sia bridge Infomaniak)
+function _detectTruncation(response) {
+    const candidate = response?.candidates?.[0];
+    const finishReason = candidate?.finishReason || null;
+    // Gemini: "MAX_TOKENS" — Infomaniak/OpenAI: "length"
+    const truncated = finishReason === 'MAX_TOKENS' || finishReason === 'length';
+    return { finishReason, truncated };
+}
+
 window.fetchModelAPI = async function (payload, apiKey) {
     const modelEl = document.getElementById('model-select');
     let model = modelEl ? modelEl.value : null;
@@ -1711,6 +1769,9 @@ window.fetchModelAPI = async function (payload, apiKey) {
     if (!model) {
         model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-nemo');
     }
+
+    // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
+    const requestedMax = payload?.generationConfig?.maxOutputTokens || null;
 
     if (window.electronAPI) {
         try {
@@ -1740,6 +1801,24 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 appState.generationUsage.candidateTokens += (response.usageMetadata.candidatesTokenCount || 0);
                 appState.generationUsage.totalTokens += (response.usageMetadata.totalTokenCount || 0);
                 window.updateCostDisplay();
+            }
+
+            // Strategia 0 — rilevamento troncamento finishReason
+            const { finishReason, truncated } = _detectTruncation(response);
+            window.MappAITruncationTracker.record({
+                model,
+                provider: appState.aiProvider,
+                finishReason,
+                truncated,
+                requestedMax,
+                promptTokens: response?.usageMetadata?.promptTokenCount || 0,
+                candidateTokens: response?.usageMetadata?.candidatesTokenCount || 0
+            });
+            // Annota il flag sulla response così salvageTruncatedJSON
+            // può loggare con contesto se il parse fallisce.
+            if (response && typeof response === 'object') {
+                response._mappaiTruncated = truncated;
+                response._mappaiFinishReason = finishReason;
             }
 
             return response;
@@ -2156,6 +2235,8 @@ window.startGeneration = async function () {
     var hasSources = false;
 
     appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0, usedModel: document.getElementById('model-select').value };
+    // Strategia 0 — azzera il tracker troncamenti per la nuova generazione
+    if (window.MappAITruncationTracker) window.MappAITruncationTracker.reset();
 
     for (var i = 0; i < appState.sources.length; i++) {
         var src = appState.sources[i];
@@ -3541,7 +3622,19 @@ function salvageTruncatedJSON(text) {
 
     // Tentativo 3: salvataggio da troncamento.
     // Funziona sia per radici oggetto {} sia per radici array [].
-    console.warn("[MappAI JSON] Parse fallito, tento il salvataggio del JSON troncato...");
+    // Diagnostica: l'ultimo evento del tracker ci dice se questo testo
+    // proviene da una risposta troncata (MAX_TOKENS / length).
+    const _lastTrunc = window.MappAITruncationTracker?.currentRun?.slice(-1)[0];
+    if (_lastTrunc?.truncated) {
+        console.warn(
+            "[MappAI JSON] Parse fallito → causa CONFERMATA: troncamento " +
+            `(finishReason=${_lastTrunc.finishReason}, ` +
+            `out=${_lastTrunc.candidateTokens}/${_lastTrunc.requestedMax}tok, ` +
+            `model=${_lastTrunc.model}). Salvataggio in corso..."`
+        );
+    } else {
+        console.warn("[MappAI JSON] Parse fallito (NON da troncamento). Tento il salvataggio...");
+    }
     let tempText = withQuotedKeys;
 
     while (tempText.length > 0) {
