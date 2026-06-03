@@ -52,10 +52,15 @@ window.executeMerge = function (A, B) {
         }
     });
 
-    // 2. Elimina tutti i link in entrata verso A (il legame con il padre di A, ecc.)
-    appState.db.links = appState.db.links.filter(l => {
+    // 2. Rimappa i link in entrata verso A → in entrata verso B
+    // (in KG preserva relazioni semantiche; in MindMap il link padre→A
+    //  diventa padre→B, che è un self-loop se A era figlio di B — rimosso al passo 3)
+    links.forEach(l => {
         const { tgt } = getId(l);
-        return tgt !== A.id;
+        if (tgt === A.id) {
+            if (typeof l.target === 'object') l.target = B.id;
+            else l.target = B.id;
+        }
     });
 
     // 3. Rimuovi self-loop (B → B creati dal passo 1 se A e B erano collegati)
