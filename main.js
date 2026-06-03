@@ -129,6 +129,11 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
     // Infomaniak endpoint: https://api.infomaniak.com/2/ai/{product_id}/openai/v1/chat/completions
     const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/chat/completions`;
 
+    // Flag iniettato dal bridge quando è attiva la modalità JSONL.
+    // Va rimosso prima di inviare all'API.
+    const jsonlMode = !!payload._jsonlMode;
+    delete payload._jsonlMode;
+
     try {
         // Forza stream per bypassare il Gateway Timeout
         payload.stream = true;
@@ -144,6 +149,10 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
         return new Promise((resolve, reject) => {
             let fullText = '';
             let lastChunk = null;
+            // JSONL: buffer per righe parziali tra delta consecutivi
+            let lineBuf = '';
+            // JSONL: record validati man mano che arrivano
+            const records = [];
 
             response.data.on('data', (chunk) => {
                 const lines = chunk.toString().split('\n');
@@ -154,12 +163,27 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
                         try {
                             const dataObj = JSON.parse(dataStr);
                             lastChunk = dataObj;
-                            const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
-                            if (delta && delta.content) {
+                            const delta = dataObj.choices?.[0]?.delta;
+                            if (delta?.content) {
                                 fullText += delta.content;
+                                if (jsonlMode) {
+                                    // Accumula e split per newline: ogni riga completa è un record
+                                    lineBuf += delta.content;
+                                    const parts = lineBuf.split('\n');
+                                    lineBuf = parts.pop(); // ultimo frammento potenzialmente parziale
+                                    for (const part of parts) {
+                                        const trimmed = part.trim();
+                                        if (!trimmed) continue;
+                                        try {
+                                            records.push(JSON.parse(trimmed));
+                                        } catch (_) {
+                                            console.warn('[Infomaniak JSONL] Riga non parseable (scartata):', trimmed.slice(0, 80));
+                                        }
+                                    }
+                                }
                             }
                         } catch (e) {
-                            // ignora errori di parsing parziali
+                            // ignora errori di parsing parziali SSE
                         }
                     }
                 }
@@ -175,6 +199,35 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
                         payload.max_tokens, payload.model,
                         '| response_format:', JSON.stringify(payload.response_format));
                 }
+
+                let content = fullText;
+
+                if (jsonlMode) {
+                    // Prova a parsare l'eventuale ultimo frammento rimasto (senza \n finale)
+                    const lastLine = lineBuf.trim();
+                    if (lastLine) {
+                        try {
+                            records.push(JSON.parse(lastLine));
+                        } catch (_) {
+                            // Riga finale parziale: troncamento — scartata, il resto è già salvato
+                            console.warn('[Infomaniak JSONL] Ultima riga parziale scartata (troncamento):', lastLine.slice(0, 100));
+                        }
+                    }
+
+                    const nodes = records.filter(r => r.t === 'node').map(({ t, ...rest }) => rest);
+                    const links = records.filter(r => r.t === 'link').map(({ t, ...rest }) => rest);
+                    const finishReason = lastChunk?.choices?.[0]?.finish_reason;
+
+                    if (finishReason && finishReason !== 'stop') {
+                        console.warn(`[Infomaniak JSONL] Troncamento (finish_reason: ${finishReason}). Salvati ${nodes.length} nodi, ${links.length} link.`);
+                    } else {
+                        console.log(`[Infomaniak JSONL] Completato: ${nodes.length} nodi, ${links.length} link.`);
+                    }
+
+                    // Il renderer riceve un JSON valido {nodes, links} anche in caso di troncamento
+                    content = JSON.stringify({ nodes, links });
+                }
+
                 // Ricostruisci il formato standard atteso da InfomaniakBridge
                 resolve({
                     id: lastChunk?.id || 'stream',
@@ -186,7 +239,7 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
                             index: 0,
                             message: {
                                 role: 'assistant',
-                                content: fullText
+                                content
                             },
                             finish_reason: lastChunk?.choices?.[0]?.finish_reason || 'stop'
                         }

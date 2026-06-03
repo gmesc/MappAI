@@ -1653,6 +1653,13 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 localStorage.setItem('infomaniak_product_id', productId);
                 appState.infomaniakProductId = productId;
 
+                // JSONL mode: un record JSON per riga invece del mega-oggetto annidato.
+                // Risolve troncamento catastrofico e distorsione da responseMimeType (§8 Causa C).
+                // Feature flag: localStorage 'infomaniak_jsonl_mode' = 'on'
+                if (localStorage.getItem('infomaniak_jsonl_mode') === 'on') {
+                    payload._jsonlMode = true;
+                }
+
                 // Translate payload using bridge
                 const translatedPayload = window.InfomaniakBridge.translatePayload(payload, model);
                 const rawResponse = await window.electronAPI.generateInfomaniak({ apiKey, payload: translatedPayload, productId });
@@ -3588,15 +3595,17 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         }, required: ["nodes", "links"]
     };
 
+    // In modalità JSONL (Infomaniak) non usiamo responseMimeType/responseSchema:
+    // il bridge inietta l'istruzione di formato e il main process parsa riga per riga.
+    const isJsonlMode = appState.aiProvider === 'infomaniak' && localStorage.getItem('infomaniak_jsonl_mode') === 'on';
+    const generationConfig = isJsonlMode
+        ? { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }
+        : { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema, maxOutputTokens: window.getMaxOutputTokens(8192) };
+
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseSchema: schema,
-            maxOutputTokens: window.getMaxOutputTokens(8192)
-        }
+        generationConfig
     };
 
 

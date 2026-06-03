@@ -7,6 +7,12 @@ window.InfomaniakBridge = {
      * Translates a Gemini payload to an OpenAI-compatible messages array.
      */
     translatePayload: function(geminiPayload, modelName = "google/gemma-4-31B-it") {
+        // Modalità JSONL: il renderer emette un record JSON per riga invece del
+        // mega-oggetto annidato. Risolve il troncamento catastrofico e la distorsione
+        // da responseMimeType su Infomaniak (regola #6 CLAUDE.md).
+        const jsonlMode = !!geminiPayload._jsonlMode;
+        delete geminiPayload._jsonlMode;
+
         const messages = [];
 
         // 1. Extract System Instruction
@@ -66,34 +72,50 @@ window.InfomaniakBridge = {
         }
 
         const supportsJsonMode = !modelLower.includes('apertus') && !modelLower.includes('qwen');
-        if (isJsonMode && supportsJsonMode && geminiPayload.generationConfig?.responseSchema) {
-            openAIPayload.response_format = {
-                type: "json_schema",
-                json_schema: {
-                    name: "mappai_response",
-                    strict: false,
-                    schema: window.InfomaniakBridge._geminiSchemaToJsonSchema(geminiPayload.generationConfig.responseSchema)
-                }
-            };
-        }
 
-        // 4. Handle JSON enforcement via testo (fallback per modelli senza json_object,
-        //    cioè Apertus e Qwen su Infomaniak). Le istruzioni devono essere molto
-        //    esplicite: questi modelli tendono ad aggiungere preamboli/spiegazioni.
-        if (isJsonMode && !openAIPayload.response_format) {
+        if (jsonlMode) {
+            // Modalità JSONL: niente response_format né schema testuale.
+            // Il formato è imposto da un'istruzione compatta in coda al messaggio.
+            openAIPayload._jsonlMode = true; // propagato a main.js per il parsing per-riga
             const lastMsg = messages[messages.length - 1];
             if (lastMsg) {
-                // Inietta lo schema PRIMA, poi le regole di output, sempre in coda al messaggio.
-                if (geminiPayload.generationConfig.responseSchema) {
-                    const schemaStr = window.InfomaniakBridge._schemaToExample(geminiPayload.generationConfig.responseSchema);
-                    lastMsg.content += `\n\nSTRUTTURA JSON ATTESA (rispetta ESATTAMENTE chiavi e nidificazione):\n${schemaStr}`;
-                }
                 lastMsg.content +=
-                    "\n\nREGOLE DI OUTPUT TASSATIVE:" +
-                    "\n1. Rispondi SOLO con il JSON, nient'altro." +
-                    "\n2. NIENTE testo introduttivo (es. \"Ecco il JSON:\"), NIENTE spiegazioni finali." +
-                    "\n3. NIENTE blocchi markdown (vietati ```json e ```)." +
-                    "\n4. Il primo carattere della risposta deve essere { (o [) e l'ultimo } (o ]).";
+                    '\n\nFORMATO OUTPUT — JSONL (OBBLIGATORIO):' +
+                    '\nEmetti UN oggetto JSON compatto per riga (NDJSON). Niente markdown (```), niente a-capo dentro un oggetto.' +
+                    '\nPrima riga (meta): {"t":"meta","root":"<titolo mappa>"}' +
+                    '\nPer ogni nodo: {"t":"node","id":"N1","label":"...","content":"...","desc":"...","level":1,"chunks":["..."]}' +
+                    '\nPer ogni link: {"t":"link","source":"N1","target":"N2","rel":"causa"}' +
+                    '\nREGOLA ASSOLUTA: ogni oggetto su UNA sola riga. Il primo carattere di ogni riga deve essere {.';
+            }
+        } else {
+            // 4. Modalità JSON classica: response_format nativo o fallback testuale.
+            if (isJsonMode && supportsJsonMode && geminiPayload.generationConfig?.responseSchema) {
+                openAIPayload.response_format = {
+                    type: "json_schema",
+                    json_schema: {
+                        name: "mappai_response",
+                        strict: false,
+                        schema: window.InfomaniakBridge._geminiSchemaToJsonSchema(geminiPayload.generationConfig.responseSchema)
+                    }
+                };
+            }
+
+            // Fallback per modelli senza json_object (Apertus, Qwen).
+            if (isJsonMode && !openAIPayload.response_format) {
+                const lastMsg = messages[messages.length - 1];
+                if (lastMsg) {
+                    // Inietta lo schema PRIMA, poi le regole di output, sempre in coda al messaggio.
+                    if (geminiPayload.generationConfig.responseSchema) {
+                        const schemaStr = window.InfomaniakBridge._schemaToExample(geminiPayload.generationConfig.responseSchema);
+                        lastMsg.content += `\n\nSTRUTTURA JSON ATTESA (rispetta ESATTAMENTE chiavi e nidificazione):\n${schemaStr}`;
+                    }
+                    lastMsg.content +=
+                        "\n\nREGOLE DI OUTPUT TASSATIVE:" +
+                        "\n1. Rispondi SOLO con il JSON, nient'altro." +
+                        "\n2. NIENTE testo introduttivo (es. \"Ecco il JSON:\"), NIENTE spiegazioni finali." +
+                        "\n3. NIENTE blocchi markdown (vietati ```json e ```)." +
+                        "\n4. Il primo carattere della risposta deve essere { (o [) e l'ultimo } (o ]).";
+                }
             }
         }
 
