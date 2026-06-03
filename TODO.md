@@ -13,6 +13,23 @@ poi UI Piano 1.2 — pannello suggerimenti strutturali + 4 regole `MIND_MAP_BRAN
 
 ---
 
+## ✅ COMPLETATO — Sessione 3 giugno 2026 (sera — continua)
+
+### Feature 4b: Dropdown famiglie + Link Bidirezionali
+- ✅ **`window.showLinkFamilyPrompt(srcLabel, tgtLabel, callback)`** — modale `#link-family-modal`
+  con lista verticale delle 7 famiglie `EDGE_FAMILIES` (colorate, icona + etichetta).
+  Clic su famiglia pre-compila l'input con verbo default (`FAMILY_DEFAULT_REL`).
+  Toggle **↔ Bidirezionale** passa `bidir=true` al callback.
+  Sostituisce `showPrompt` nel flusso `linkingState` (~L.6139 di `app.js`).
+- ✅ **Link bidirezionali** — modello dati: `{ ..., bidirectional: true }` opzionale.
+  Rendering: `<line>` → `<path>` per tutti i link (necessario per Bezier).
+  Link bidir: curva quadratic Bezier con offset perpendicolare 40px.
+  Marker `arrowhead-rev` / `arrowhead-rev-{famiglia}` con `orient="auto-start-reverse"`.
+  Lente Relazioni aggiornata per handle `marker-start` colorato su link bidir.
+  ⚠️ `'line.link'` → `'.link'` ovunque nel codice D3.
+
+---
+
 ## ✅ COMPLETATO — Sessione 3 giugno 2026 (sera)
 
 ### UI/UX — modal e design system
