@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 30 maggio 2026
+> Ultimo aggiornamento: 3 giugno 2026
 
 ---
 
@@ -205,6 +205,25 @@ caricati in `index.html` DOPO `app.js` e PRIMA di `admin_prompts.js`:
 - `window.printFlashcardSet(setId)` — flashcard tagliate 2 colonne
 - `window.printAllStudySets()` — stampa tutti i set
 - Bottone "stampa" aggiunto a ogni set in `renderStudySets`
+
+### `mappai-node-merge.js` (NUOVO — sessione 3 giugno 2026)
+- Operazioni di editing strutturale del grafo: **Fondi con...** e **Cambia Link**
+- Caricato in `index.html` dopo `mappai-structure-analyzer.js`
+- **Fondi con... (`window.mergeState` + `window.executeMerge(A, B)`):**
+  - Merge nodo A in nodo B: i figli di A diventano figli di B, A viene eliminato
+  - Link uscenti da A → rimappati a B; link entranti in A → rimappati a B
+  - Self-loop e duplicati rimossi; `sourcesDict` e `customColors` uniti
+  - Livelli del sottoalbero di B ricalcolati ricorsivamente (solo MindMap)
+  - Disponibile in entrambe le modalità (MM e KG); visibile anche in studentMode
+  - ⚠️ Rischio KG: link paralleli con `rel` diversi → dedup silenzioso (tiene il primo)
+- **Cambia Link (`window.relinkState` + `window.executeRelink(A, newParent, rel)`):**
+  - Riassegna il genitore di A in MindMap: rimuove tutti i link `target=A`, aggiunge
+    il nuovo link `source=newParent, target=A` con relazione scelta da `showLinkFamilyPrompt`
+  - Livelli di A e del suo sottoalbero ricalcolati dopo lo spostamento
+  - **Solo MindMap** — voce non appare in KG mode (condizione `extractionMode !== 'kg'`)
+  - Visibile anche in studentMode
+- Entrambe le funzioni usano il banner `#mode-hint` e si cancellano con ESC o click su sfondo
+- Pattern di stato: `{ active: bool, sourceNode: nodeObj }` — stesso pattern di `linkingState`
 
 ### `mappai-structure-analyzer.js` (NUOVO — sessione 1 giugno 2026)
 - Analisi strutturale DETERMINISTICA del grafo (zero AI calls). Base del

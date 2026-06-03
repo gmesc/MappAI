@@ -4367,12 +4367,23 @@ function initD3Visualization() {
         .attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
         .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
         .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
+    // Marker arrowhead invertito default (per link bidirezionali — marker-start)
+    defs.append("marker")
+        .attr("id", "arrowhead-rev").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
+        .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse")
+        .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
     // Un marker per ogni famiglia di relazione (usato dalla lente)
     if (typeof EDGE_FAMILIES === 'object') {
         Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
             defs.append("marker")
                 .attr("id", `arrowhead-${key}`).attr("viewBox", "0 -5 10 10")
                 .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
+            // Versione invertita per marker-start (link bidirezionali colorati)
+            defs.append("marker")
+                .attr("id", `arrowhead-rev-${key}`).attr("viewBox", "0 -5 10 10")
+                .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6)
+                .attr("orient", "auto-start-reverse")
                 .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
         });
     }
@@ -4654,7 +4665,7 @@ function renderGraph() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
+    linkEnter.append("path").attr("class", "link").attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
     linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
@@ -4662,6 +4673,9 @@ function renderGraph() {
         .text(d => d.rel)
         .style("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
+    // Marker-start per link bidirezionali
+    linkMerge.select('.link')
+        .attr('marker-start', d => d.bidirectional ? 'url(#arrowhead-rev)' : null);
     linkSelection.exit().remove();
 
     // ── Stile KG per ruolo strutturale + bridge marking (1-hop) ─────────────
@@ -5004,13 +5018,35 @@ function tick() {
         const ux = (tx - sx) / len, uy = (ty - sy) / len;
         const rs = getNodeRadius(d.source);
         const rt = getNodeRadius(d.target);
-        d3.select(this)
-            .attr("x1", sx + ux * rs).attr("y1", sy + uy * rs)
-            .attr("x2", tx - ux * rt).attr("y2", ty - uy * rt);
+        const x1 = sx + ux * rs, y1 = sy + uy * rs;
+        const x2 = tx - ux * rt, y2 = ty - uy * rt;
+        let pathD;
+        if (d.bidirectional) {
+            // Curva quadratica Bezier: offset perpendolare di 40px per distinguerla
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            const cx = mx - uy * 40, cy = my + ux * 40;
+            pathD = `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+        } else {
+            pathD = `M${x1},${y1} L${x2},${y2}`;
+        }
+        d3.select(this).attr("d", pathD);
     });
-    g.selectAll(".link-label")
-        .attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.67)
-        .attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.67);
+    g.selectAll(".link-label").each(function (d) {
+        const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
+        let lx, ly;
+        if (d.bidirectional) {
+            const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
+            const ux = (tx - sx) / len, uy = (ty - sy) / len;
+            const mx = (sx + tx) / 2, my = (sy + ty) / 2;
+            // Midpoint visivo della curva Bezier = 0.5*(punto di controllo) spostato
+            lx = mx - uy * 20;
+            ly = my + ux * 20;
+        } else {
+            lx = sx + (tx - sx) * 0.67;
+            ly = sy + (ty - sy) * 0.67;
+        }
+        d3.select(this).attr("x", lx).attr("y", ly);
+    });
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
 

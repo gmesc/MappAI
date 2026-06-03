@@ -1,16 +1,34 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 2 giugno 2026 (pomeriggio).
+> Priorità in ordine decrescente. Aggiornato: 3 giugno 2026.
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Obiettivo sessione suggerito**: testare KG con lenti disciplinari attive su
-`gemini-2.5-flash-lite` (miglior modello scoperto oggi), poi avviare UI
-Piano 1.2 — pannello suggerimenti strutturali.
+**Obiettivo sessione suggerito**: testare su una mappa reale le nuove funzioni
+"Fondi con..." e "Cambia Link", poi avviare UI Piano 1.2 — pannello suggerimenti
+strutturali.
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato**: tutto committato, nessuna modifica pendente.
+**Stato**: modifiche non committate (`mappai-node-merge.js` nuovo + patch `app.js`).
+
+---
+
+## ✅ COMPLETATO — Sessione 3 giugno 2026
+
+### `mappai-node-merge.js` — editing strutturale del grafo
+- ✅ **"Fondi con..."** (context menu, icona `git-merge`, ambra): merge nodo A in B.
+  I figli di A diventano figli di B; link entranti/uscenti rimappati; self-loop e
+  duplicati rimossi; `sourcesDict`/`customColors` uniti; livelli ricalcolati (MM).
+  Disponibile in MM e KG, visibile anche in studentMode.
+- ✅ **"Cambia Link"** (context menu, icona `unlink`, blu, solo MM): riassegna il
+  genitore di A. Rimuove tutti i link `target=A`, aggiunge nuovo link con relazione
+  scelta via `showLinkFamilyPrompt`. Livelli di A e sottoalbero ricalcolati.
+- ✅ Pattern: `mergeState`/`relinkState` con banner `#mode-hint`, ESC e click-sfondo
+  per annullare — stesso pattern di `linkingState` già esistente.
+- ✅ Caricato in `index.html` dopo `mappai-structure-analyzer.js`.
+- ⚠️ Rischio noto (non bloccante): in KG, link paralleli con `rel` diversi verso lo
+  stesso target vengono deduplicati silenziosamente (si tiene il primo).
 
 ---
 
