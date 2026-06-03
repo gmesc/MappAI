@@ -151,6 +151,19 @@ const appState = {
 - Struttura: `index.yaml`, `links.json`, `Nodi/*.md`, `Allegati/`
 - Compatibile con Obsidian (Markdown con frontmatter YAML)
 
+#### Retrocompatibilità e integrità del vault (DAL Protocol)
+Ogni modifica alla logica di persistenza DEVE rispettare questi fallback:
+
+- **`links.json` legacy**: se manca la proprietà `rel`, impostare di default
+  `rel = "include"` — evita link vuoti sul canvas per vault creati prima della
+  funzione linking words.
+- **Fonti nei nodi**: il parser deve gestire entrambi i formati:
+  - Nuovo: `- [Titolo | Sorgente]: Testo`
+  - Vecchio: `- [Titolo]: Testo` → valorizzare `source = "Originale"` se assente
+- **Allegati multimediali**: NON salvare mai percorsi assoluti locali
+  (es. `/Users/giacomo/...`) nei markdown. Usare sempre percorsi relativi
+  alla cartella del Vault (`../Allegati/nome_file`).
+
 ---
 
 ## 6. FILE NUOVI AGGIUNTI (sessione 28-30 maggio 2026)
@@ -369,6 +382,15 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 - Sistema di licensing (machine-id)
 - Cartella `ios/` (Capacitor)
 - File di build
+
+### Quando si riprenderà il lavoro iPadOS
+Quando si lavora su funzionalità che potrebbero essere portate su iPadOS
+(branch Capacitor separato), verificare sempre la compatibilità:
+- Accesso al file system locale → non supportato su iPadOS, proporre
+  alternativa via Capacitor Filesystem API o cloud storage
+- IPC Electron (`electronAPI.*`) → non disponibile su iPadOS, usare
+  `storageAdapter.js` che già astrae le differenze di piattaforma
+- Ogni nuova funzione nativa Electron va documentata con un TODO iPadOS
 
 ---
 
