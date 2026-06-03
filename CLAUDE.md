@@ -251,8 +251,11 @@ generiche "correlato a". Grafo povero di spunti di ragionamento.
   Infomaniak GEMMA arriva solo a densità **1.31**, 36% generiche. Aderisce al
   prompt a metà perché `responseMimeType:"application/json"` (payload KG in
   `app.js` ~3438) viene convertito dal bridge in reminder testuale (§10.6).
-  **PROSSIMA AZIONE:** branch per rimuovere `responseMimeType`+`responseSchema`
-  quando `aiProvider==='infomaniak'`, affidando il parsing a `salvageTruncatedJSON`.
+  **PROSSIMA AZIONE:** vedi `ROADMAP_jsonl_sse.md` — Fase 1 sostituisce il
+  mega-oggetto JSON con **JSONL** (un record per riga) sul transport SSE già
+  attivo, rimuovendo `responseMimeType`+`responseSchema` su Infomaniak. Il parsing
+  diventa per-riga in `main.js` (un troncamento perde solo l'ultima riga, non
+  l'intero array `links`). `salvageTruncatedJSON` resta come rete di sicurezza.
 **Da fare ancora:** mirror template su `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` + `_EN`.
 
 ### 🟠 Bug: Gemini Pro tronca risposta KG

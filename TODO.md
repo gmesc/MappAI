@@ -121,6 +121,24 @@ Piano 1.2 — pannello suggerimenti strutturali.
 
 ## 🔴 PRIORITÀ ALTA
 
+### 0. JSONL su SSE per Infomaniak — FASE 1 (robustezza) ⭐ NUOVO
+**Piano completo**: `ROADMAP_jsonl_sse.md` (branch `claude/infomaniak-jsonl-sse-plan-glEIO`)
+**Obiettivo**: sostituire il mega-oggetto JSON `{nodes,links}` con JSONL
+(un record JSON per riga) sul transport SSE già attivo. Risolve in radice:
+- troncamento catastrofico (oggi un troncamento perde tutto l'array `links`)
+- distorsione del bridge da `responseMimeType` (§8 Causa C, regola #6)
+- innalza il ceiling density GEMMA (1.37) sfruttando la forza dei modelli
+  sulla forma piatta ripetuta invece dello schema annidato
+**Scope Fase 1** (accumula-poi-processa, renderer invariato, rischio basso):
+- `main.js` (handler `generate-infomaniak`, ~128): buffer di riga + parse per `\n`
+  + fallback splitter a profondità di graffe
+- `infomaniak_bridge.js`: ramo `jsonlMode` (no `response_format`, no schema testuale)
+- `app.js` `fetchModelAPI` (1634): attiva `jsonlMode` solo se infomaniak + feature flag
+- variante template `KNOWLEDGE_GRAPH_SINGLE_JSONL_IT` (backup `.bak` prima)
+- feature flag `localStorage 'infomaniak_jsonl_mode'` per rollback istantaneo
+**Validazione**: matrice Gemma/Kimi/Qwen/Apertus + confronto density vs §8.
+**Fase 2** (streaming live UI verso D3): pianificare DOPO validazione Fase 1.
+
 ### 1. Test KG con lenti AREA DISCIPLINARE attive
 **Stato**: non testato. Rischio noto (sessione 31 maggio): lenti creavano KG sparsi
 (37K token, 13 nodi) per anomalia da investigare. Prima di produzione:
