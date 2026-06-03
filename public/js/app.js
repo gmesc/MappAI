@@ -552,6 +552,71 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     };
 }
 
+const FAMILY_DEFAULT_REL = {
+    trasformazione: 'causa',
+    dipendenza: 'richiede',
+    sequenza: 'precede',
+    appartenenza: 'fa parte di',
+    regolazione: 'regola',
+    opposizione: 'si oppone a',
+    altro: ''
+};
+
+window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
+    const modal = document.getElementById('link-family-modal');
+    const box = document.getElementById('link-family-box');
+    const question = document.getElementById('link-family-question');
+    const grid = document.getElementById('link-family-grid');
+    const input = document.getElementById('link-family-input');
+    const btnCancel = document.getElementById('link-family-cancel');
+    const btnOk = document.getElementById('link-family-ok');
+
+    question.innerHTML = `Che relazione c'è tra <strong>${srcLabel}</strong> e <strong>${tgtLabel}</strong>?`;
+    input.value = '';
+    grid.innerHTML = '';
+
+    Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-transparent text-white text-xs font-semibold transition-all cursor-pointer hover:scale-105 hover:shadow-md';
+        btn.style.backgroundColor = fam.color;
+        btn.innerHTML = `<i data-lucide="${fam.icon}" class="w-4 h-4"></i><span>${fam.label}</span>`;
+        btn.onclick = () => {
+            grid.querySelectorAll('button').forEach(b => b.style.outline = '');
+            btn.style.outline = '3px solid #1e293b';
+            const def = FAMILY_DEFAULT_REL[key] || '';
+            if (def) input.value = def;
+            input.focus();
+        };
+        grid.appendChild(btn);
+    });
+    window.safeCreateIcons();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+        input.focus();
+    }, 10);
+
+    const cleanup = () => {
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+    };
+
+    const confirm = () => {
+        const rel = input.value.trim() || 'collegato_a';
+        cleanup();
+        onConfirm(rel);
+    };
+
+    btnCancel.onclick = cleanup;
+    btnOk.onclick = confirm;
+    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } };
+};
+
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
     if (appState.studentMode) {
@@ -5907,7 +5972,7 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
 
         if (linkingState.active) {
             if (linkingState.sourceNode.id !== d.id) {
-                window.showPrompt(`Che relazione c'è tra "${cleanLabel(linkingState.sourceNode.label)}" e "${cleanLabel(d.label)}"?`, "collegato_a", (rel) => {
+                window.showLinkFamilyPrompt(cleanLabel(linkingState.sourceNode.label), cleanLabel(d.label), (rel) => {
                     if (rel) {
                         appState.db.links.push({ source: linkingState.sourceNode.id, target: d.id, rel: rel });
                         window.updateDegreeStats(); renderGraph();
