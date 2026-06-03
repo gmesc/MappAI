@@ -438,6 +438,292 @@
         return { basic: b, crosslinks: cx, relations: r, degree: d, groups: g, levels: lv, sources: s, studyStatus: ss, betweenness: bt, truncations: tr };
     }
 
+    // ── 11b. EXPORT REPORT — Markdown completo + clipboard + localStorage ───
+    //
+    // Produce un report Markdown autocontenuto con TUTTE le sezioni metriche.
+    // Salva in localStorage['mappai_last_report.md'] e copia in clipboard.
+    // Usa downloadReport() per ottenerlo come file .md scaricabile.
+
+    function _mdTable(rows) {
+        if (!Array.isArray(rows) || !rows.length) return '_(nessun dato)_\n';
+        const keys = Object.keys(rows[0]);
+        const head = '| ' + keys.join(' | ') + ' |';
+        const sep  = '| ' + keys.map(() => '---').join(' | ') + ' |';
+        const body = rows.map(r =>
+            '| ' + keys.map(k => {
+                const v = r[k];
+                if (v == null) return '';
+                if (typeof v === 'object') return JSON.stringify(v);
+                return String(v).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+            }).join(' | ') + ' |'
+        ).join('\n');
+        return `${head}\n${sep}\n${body}\n`;
+    }
+
+    function _mdKeyVal(obj) {
+        return _mdTable(
+            Object.entries(obj).map(([k, v]) => ({
+                Campo: k,
+                Valore: typeof v === 'object' ? JSON.stringify(v) : String(v)
+            }))
+        );
+    }
+
+    function exportReport(label) {
+        const state = _state();
+        const nodes = _nodes(), links = _links();
+        const adj = _adj(nodes, links);
+        const provider = _resolveProvider(state);
+        const model    = _resolveModel(state);
+        const topic    = state.rootNodeLabel || 'N/A';
+        const mode     = state.extractionMode || 'N/A';
+        const ts       = new Date().toISOString();
+        const reportLabel = label || `${provider}_${(model || '').replace(/[^a-z0-9]/gi, '-')}_${Date.now()}`;
+
+        const lines = [];
+        const push  = (s) => lines.push(s);
+
+        push(`# MappAI Metrics Report — ${reportLabel}`);
+        push('');
+        push(`- **Topic:** ${topic}`);
+        push(`- **Provider:** ${provider}`);
+        push(`- **Model:** ${model}`);
+        push(`- **Mode:** ${mode}`);
+        push(`- **Generated at:** ${ts}`);
+        push('');
+
+        // ── 1. Basic ──
+        push('## 1. Basic metrics');
+        push('');
+        const density = nodes.length ? links.length / nodes.length : 0;
+        push(_mdKeyVal({
+            Nodes: nodes.length,
+            Links: links.length,
+            Density: density.toFixed(3),
+            Topology: density < 1.1 ? 'tree-like' : 'networked',
+            Groups: new Set(nodes.map(n => n.group).filter(Boolean)).size,
+            MaxLevel: Math.max(0, ...nodes.map(n => n.level ?? 0))
+        }));
+        push('');
+
+        // ── 2. Crosslinks ──
+        push('## 2. Crosslinks (KG quality)');
+        push('');
+        const cross = links.filter(l => l.isCross === true).length;
+        const ratio = cross / (links.length || 1);
+        push(_mdKeyVal({
+            Total: links.length,
+            Hierarchical: links.length - cross,
+            CrossLink: cross,
+            CrossRatio: _pct(cross, links.length),
+            Quality: ratio >= 0.3 ? 'buono' : ratio >= 0.15 ? 'mediocre' : 'scarso'
+        }));
+        push('');
+
+        // ── 3. Relation types ──
+        push('## 3. Relation types');
+        push('');
+        const relFreq = {};
+        links.forEach(l => { const r = l.rel || '(nessuna)'; relFreq[r] = (relFreq[r] || 0) + 1; });
+        const relRows = Object.entries(relFreq).sort((a, b) => b[1] - a[1])
+            .map(([rel, count]) => ({ rel, count, pct: _pct(count, links.length) }));
+        push(`_${relRows.length} tipi unici su ${links.length} link totali_`);
+        push('');
+        push(_mdTable(relRows));
+        push('');
+
+        // ── 4. Levels ──
+        push('## 4. Level distribution');
+        push('');
+        const lvFreq = {};
+        nodes.forEach(n => { const lv = n.level ?? 0; lvFreq[lv] = (lvFreq[lv] || 0) + 1; });
+        push(_mdTable(
+            Object.entries(lvFreq).sort((a, b) => Number(a[0]) - Number(b[0]))
+                .map(([lv, c]) => ({ level: `L${lv}`, count: c, pct: _pct(c, nodes.length) }))
+        ));
+        push('');
+
+        // ── 5. Groups ──
+        push('## 5. Group distribution');
+        push('');
+        const gFreq = {};
+        nodes.forEach(n => { const g = n.group || '(nessun gruppo)'; gFreq[g] = (gFreq[g] || 0) + 1; });
+        push(_mdTable(
+            Object.entries(gFreq).sort((a, b) => b[1] - a[1])
+                .map(([g, c]) => ({ group: g, count: c, pct: _pct(c, nodes.length) }))
+        ));
+        push('');
+
+        // ── 6. Degree ──
+        push('## 6. Degree distribution');
+        push('');
+        const degs = nodes.map(n => ({ label: n.label, degree: adj.get(n.id)?.size || 0 }));
+        const vals = degs.map(d => d.degree);
+        const sorted = [...vals].sort((a, b) => a - b);
+        const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        push(_mdKeyVal({
+            min: sorted[0] ?? 0,
+            p25: sorted[Math.floor(sorted.length * 0.25)] ?? 0,
+            median: sorted[Math.floor(sorted.length * 0.5)] ?? 0,
+            p75: sorted[Math.floor(sorted.length * 0.75)] ?? 0,
+            max: sorted[sorted.length - 1] ?? 0,
+            mean: mean.toFixed(2),
+            stddev: _stddev(vals).toFixed(2)
+        }));
+        push('');
+        push('### Top-10 hub (per degree)');
+        push('');
+        push(_mdTable(degs.sort((a, b) => b.degree - a.degree).slice(0, 10)));
+        push('');
+
+        // ── 7. Betweenness ──
+        push('## 7. Betweenness centrality (top-10)');
+        push('');
+        if (window.MappAIStructureAnalyzer?.computeBetweenness && nodes.length) {
+            const ranked = window.MappAIStructureAnalyzer.computeBetweenness(nodes, links);
+            const nMap = new Map(nodes.map(n => [n.id, n]));
+            const maxScore = ranked[0]?.score || 1;
+            push(_mdTable(ranked.filter(r => r.score > 0).slice(0, 10).map(r => ({
+                label: nMap.get(r.id)?.label || r.id,
+                betweenness: r.score.toFixed(2),
+                normalised: (r.score / maxScore).toFixed(3),
+                degree: adj.get(r.id)?.size || 0,
+                level: nMap.get(r.id)?.level ?? '?',
+                hiddenHub: (adj.get(r.id)?.size || 0) <= 3 && r.score >= maxScore * 0.5 ? 'yes' : ''
+            }))));
+        } else {
+            push('_StructureAnalyzer non disponibile_');
+        }
+        push('');
+
+        // ── 8. Sources ──
+        push('## 8. Sources coverage');
+        push('');
+        const sd = state.db.sourcesDict || {};
+        const withSrc    = nodes.filter(n => sd[n.id]?.length).length;
+        const withChunks = nodes.filter(n => n.chunks?.length).length;
+        push(_mdKeyVal({
+            total: nodes.length, withSource: withSrc, withChunks: withChunks,
+            sourceRatio: _pct(withSrc, nodes.length),
+            chunksRatio: _pct(withChunks, nodes.length)
+        }));
+        push('');
+
+        // ── 9. Study status ──
+        push('## 9. Study status');
+        push('');
+        const ssFreq = {};
+        nodes.forEach(n => { const st = n.studyStatus || 'none'; ssFreq[st] = (ssFreq[st] || 0) + 1; });
+        push(_mdTable(
+            Object.entries(ssFreq).sort((a, b) => b[1] - a[1])
+                .map(([s, c]) => ({ status: s, count: c, pct: _pct(c, nodes.length) }))
+        ));
+        push('');
+
+        // ── 10. Structural ──
+        push('## 10. Structural analysis');
+        push('');
+        if (window.MappAIStructureAnalyzer) {
+            const struct = window.MappAIStructureAnalyzer.analyzeCurrentMap();
+            push(_mdKeyVal(struct.stats));
+            push('');
+            const bySev = { high: 0, medium: 0, low: 0 };
+            const byType = {};
+            struct.suggestions.forEach(sg => {
+                bySev[sg.severity] = (bySev[sg.severity] || 0) + 1;
+                byType[sg.type] = (byType[sg.type] || 0) + 1;
+            });
+            push(`**Suggerimenti:** ${struct.suggestions.length} totali — high: ${bySev.high}, medium: ${bySev.medium}, low: ${bySev.low}`);
+            push('');
+            if (struct.suggestions.length) {
+                push('### Per tipo');
+                push('');
+                push(_mdTable(Object.entries(byType).map(([t, c]) => ({ type: t, count: c }))));
+                push('');
+                const top = struct.suggestions.filter(sg => sg.severity === 'high');
+                if (top.length) {
+                    push('### Suggerimenti high-severity');
+                    push('');
+                    top.forEach(sg => push(`- **[${sg.type}]** ${sg.message}`));
+                    push('');
+                }
+            }
+        } else {
+            push('_StructureAnalyzer non disponibile_');
+            push('');
+        }
+
+        // ── 11. Truncations (Strategia 0) ──
+        push('## 11. Truncations (Strategia 0)');
+        push('');
+        const t = window.MappAITruncationTracker;
+        if (t) {
+            const sum = t.summary(true);
+            push(_mdKeyVal({
+                'API calls': sum.calls,
+                'Truncated': sum.truncated,
+                'Truncation rate': (sum.truncationRate * 100).toFixed(1) + '%'
+            }));
+            push('');
+            if (Object.keys(sum.byModel).length) {
+                push('### Per modello');
+                push('');
+                push(_mdTable(Object.entries(sum.byModel).map(([m, st]) => ({
+                    model: m, calls: st.calls, truncated: st.truncated,
+                    rate: (st.truncated / st.calls * 100).toFixed(1) + '%'
+                }))));
+                push('');
+            }
+            const trunc = t.currentRun.filter(e => e.truncated);
+            if (trunc.length) {
+                push('### Dettaglio chiamate troncate');
+                push('');
+                push(_mdTable(trunc.map(e => ({
+                    ts: new Date(e.ts).toLocaleTimeString(),
+                    model: e.model, finishReason: e.finishReason,
+                    requestedMax: e.requestedMax, outputTokens: e.candidateTokens,
+                    utilizzo: e.requestedMax ? ((e.candidateTokens / e.requestedMax) * 100).toFixed(1) + '%' : 'N/A'
+                }))));
+                push('');
+            }
+        } else {
+            push('_Tracker non disponibile_');
+            push('');
+        }
+
+        push('---');
+        push(`_Generato da MappAIMetrics.exportReport() il ${ts}_`);
+
+        const md = lines.join('\n');
+        try { localStorage.setItem('mappai_last_report.md', md); } catch (_) {}
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(md).then(
+                () => console.log('%c✅ Report Markdown copiato in clipboard e salvato in localStorage["mappai_last_report.md"]', 'color:green;font-weight:bold'),
+                () => console.log('%c💾 Report salvato in localStorage (clipboard non disponibile)', 'color:#6366f1')
+            );
+        } else {
+            console.log('%c💾 Report salvato in localStorage["mappai_last_report.md"]', 'color:#6366f1');
+        }
+        console.log(`%c   ${md.length.toLocaleString()} caratteri · ${md.split('\n').length} righe`, 'color:#888');
+        return md;
+    }
+
+    function downloadReport(filename) {
+        const md = localStorage.getItem('mappai_last_report.md');
+        if (!md) {
+            console.warn('[MappAIMetrics] Nessun report. Esegui prima exportReport().');
+            return;
+        }
+        const name = filename || `mappai-report-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        console.log(`%c📥 Report scaricato: ${name}`, 'color:green');
+    }
+
     // ── 12. TABLE ─────────────────────────────────────────────────────────────
 
     function table() {
@@ -652,6 +938,8 @@
         studyStatus,
         structural,
         truncations,
+        exportReport,
+        downloadReport,
         snapshot,
         table,
         compare,
