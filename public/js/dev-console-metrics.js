@@ -25,8 +25,18 @@
 
     // ── Helpers interni ──────────────────────────────────────────────────────
 
+    // appState è dichiarato con 'let' in app.js → NON è su window.
+    // Usiamo il bare name (condiviso tra script della stessa pagina) con
+    // fallback su window per compatibilità con eventuali contesti diversi.
+    function _getAppState() {
+        /* eslint-disable no-undef */
+        try { return (typeof appState !== 'undefined') ? appState : window.appState; }
+        catch (e) { return window.appState; }
+        /* eslint-enable no-undef */
+    }
+
     function _state() {
-        const s = window.appState;
+        const s = _getAppState();
         if (!s || !s.db) throw new Error('[MappAIMetrics] appState.db non disponibile — mappa caricata?');
         return s;
     }
@@ -501,8 +511,8 @@
         function _autoLog() {
             clearTimeout(_timer);
             _timer = setTimeout(() => {
-                const nodes = window.appState?.db?.nodes || [];
-                const links = window.appState?.db?.links || [];
+                const nodes = _getAppState()?.db?.nodes || [];
+                const links = _getAppState()?.db?.links || [];
                 if (nodes.length < 5) return;
                 const dN = Math.abs(nodes.length - _lastN);
                 const dL = Math.abs(links.length - _lastL);
