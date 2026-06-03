@@ -14,6 +14,20 @@ strutturali.
 
 ---
 
+## ✅ COMPLETATO — Sessione 3 giugno 2026 (pulizia repo)
+
+### Pulizia branch git
+- ✅ Eliminati 3 branch obsoleti: `MappAI_studente` (vecchio, era default su GitHub),
+  `MappAI_main` (alias esatto di `main`), `test-macos-mappai-packaging` (test CI maggio).
+- ✅ Rimosso worktree orfano di Antigravity agganciato a `test-macos-mappai-packaging`.
+- ✅ `main` impostato come default branch su GitHub.
+- ✅ Contenuto utile salvato nel `CLAUDE.md`: DAL Protocol (vault retrocompatibilità)
+  e nota compatibilità iPadOS — estratti da `.agents/rules/` del branch eliminato.
+- Branch rimasti: `main`, `global`, `dev`, `feat/structural-suggestions`,
+  `feat/kg-hub-extraction`, `MappAI_iPad`, `MappAI_iPad_studente`.
+
+---
+
 ## ✅ COMPLETATO — Sessione 3 giugno 2026
 
 ### `mappai-node-merge.js` — editing strutturale del grafo
@@ -222,6 +236,7 @@ Candidati: funzioni KG, MM, D3, vault, UI landing.
 
 ### 15. Pulizia root progetto
 ~20 script Python e file `.bak` nella root.
+Branch git già puliti (3 giugno 2026) — vedi sezione COMPLETATO sopra.
 
 ---
 

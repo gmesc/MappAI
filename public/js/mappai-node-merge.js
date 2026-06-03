@@ -93,10 +93,15 @@ window.executeMerge = function (A, B) {
     }
     delete cc[A.id];
 
-    // 7. Ricalcola i livelli del sottoalbero di B (solo MindMap)
+    // 7. Ricalcola livelli del sottoalbero di B (solo MindMap)
     if (appState.extractionMode !== 'kg') {
         _recalcLevels(B.id, B.level, nodes, appState.db.links);
     }
+
+    // 7b. Propaga il group di B a tutto il suo sottoalbero (MM e KG).
+    // I figli di A che sono stati rimappati su B mantengono ancora il group di A:
+    // questo causa due "rami" visivamente identici e il color picker che li cambia entrambi.
+    _recalcGroups(B.id, B.group, nodes, appState.db.links);
 
     // 8. Rimuovi A
     appState.db.nodes = nodes.filter(n => n.id !== A.id);
@@ -156,9 +161,31 @@ window.executeRelink = function (A, newParent, rel) {
     // Aggiungi il nuovo link genitore→A
     appState.db.links.push({ source: newParent.id, target: A.id, rel });
 
-    // Ricalcola i livelli di A e del suo sottoalbero
+    // Ricalcola livelli di A e del suo sottoalbero
     A.level = newParent.level + 1;
     _recalcLevels(A.id, A.level, appState.db.nodes, appState.db.links);
+
+    // Aggiorna group di A e dell'intero sottoalbero.
+    // Caso critico: se il nuovo genitore è il root (L0), A diventa L1 e deve avere
+    // un group unico — altrimenti condivide il group del vecchio genitore L1 e i due
+    // nodi L1 risultano indistinguibili per il color picker.
+    const oldGroup = A.group;
+    let newGroup;
+    if (newParent.level === 0) {
+        // A diventa L1 → assegna un group intero libero
+        newGroup = _nextFreeGroup(appState.db.nodes);
+        // Migra il custom color di A (se esiste per il vecchio group) al nuovo group
+        const cc = appState.db.customColors || {};
+        if (cc[oldGroup] !== undefined && cc[newGroup] === undefined) {
+            cc[newGroup] = cc[oldGroup];
+            // Non cancelliamo oldGroup: altri nodi L1 con quel group potrebbero esistere ancora
+        }
+    } else {
+        // A rimane un nodo intermedio: eredita il group del nuovo genitore
+        newGroup = newParent.group;
+    }
+    A.group = newGroup;
+    _recalcGroups(A.id, newGroup, appState.db.nodes, appState.db.links);
 
     if (typeof window.updateDegreeStats === 'function') window.updateDegreeStats();
     renderGraph();
@@ -181,4 +208,30 @@ function _recalcLevels(parentId, parentLevel, nodes, links) {
             _recalcLevels(childId, child.level, nodes, links);
         }
     });
+}
+
+// Propaga ricorsivamente il group a tutti i discendenti di parentId.
+// Necessario dopo merge e relink: _recalcLevels aggiorna solo level, non group.
+// Senza questo, due nodi L1 possono condividere lo stesso group → stesso colore.
+function _recalcGroups(parentId, parentGroup, nodes, links) {
+    const childLinks = links.filter(l => {
+        const src = typeof l.source === 'object' ? l.source.id : l.source;
+        return src === parentId;
+    });
+    childLinks.forEach(l => {
+        const childId = typeof l.target === 'object' ? l.target.id : l.target;
+        const child = nodes.find(n => n.id === childId);
+        if (child) {
+            child.group = parentGroup;
+            _recalcGroups(childId, parentGroup, nodes, links);
+        }
+    });
+}
+
+// Restituisce un intero group unico non ancora usato da nessun nodo.
+function _nextFreeGroup(nodes) {
+    const used = new Set(nodes.map(n => n.group).filter(g => typeof g === 'number'));
+    let g = 0;
+    while (used.has(g)) g++;
+    return g;
 }

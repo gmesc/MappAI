@@ -1614,7 +1614,16 @@
                 <h3 class="text-lg font-bold text-slate-800">Collega nodi</h3>
             </div>
             <p id="link-family-question" class="text-sm text-slate-600 mb-4 font-medium leading-snug"></p>
-            <div id="link-family-grid" class="flex flex-col gap-2 mb-4"></div>
+            <div id="link-family-grid" class="grid grid-cols-4 gap-2 mb-3"></div>
+            <!-- Toggle bidirezionale -->
+            <div class="flex items-center gap-2 mb-4">
+                <button id="link-bidir-toggle" type="button"
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-slate-300 text-slate-500 text-xs font-semibold transition-all hover:border-indigo-400 hover:text-indigo-600">
+                    <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                    <span>Bidirezionale</span>
+                </button>
+                <span class="text-xs text-slate-400">per relazioni simmetriche (si oppone a…)</span>
+            </div>
             <div class="mb-5">
                 <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Etichetta relazione</label>
                 <input id="link-family-input" type="text"

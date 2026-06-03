@@ -397,6 +397,18 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 6. Pulizia root progetto (20 script Python, file .bak)
 7. Decomposizione `app.js` in moduli separati
 
+### Branch git attivi
+| Branch | Ruolo |
+|--------|-------|
+| `main` | baseline stabile — default branch |
+| `global` | CSS/HTML refactoring (style.css, index.html) |
+| `dev` | JS/AI logic (app.js, prompts) |
+| `feat/structural-suggestions` | branch corrente WIP |
+| `feat/kg-hub-extraction` | feature KG link bidirezionali |
+| `MappAI_iPad` / `MappAI_iPad_studente` | iPadOS — in standby |
+
+Branch eliminati (3 giugno 2026): `MappAI_studente`, `MappAI_main`, `test-macos-mappai-packaging`.
+
 ### Non toccare ora
 - Sistema di licensing (machine-id)
 - Cartella `ios/` (Capacitor)

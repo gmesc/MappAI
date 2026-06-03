@@ -568,12 +568,27 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const question = document.getElementById('link-family-question');
     const grid = document.getElementById('link-family-grid');
     const input = document.getElementById('link-family-input');
+    const bidirToggle = document.getElementById('link-bidir-toggle');
     const btnCancel = document.getElementById('link-family-cancel');
     const btnOk = document.getElementById('link-family-ok');
 
     question.innerHTML = `Che relazione c'è tra <strong>${srcLabel}</strong> e <strong>${tgtLabel}</strong>?`;
     input.value = '';
     grid.innerHTML = '';
+
+    // Reset e gestione toggle bidirezionale
+    let isBidir = false;
+    const updateBidirStyle = () => {
+        if (isBidir) {
+            bidirToggle.classList.add('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+            bidirToggle.classList.remove('border-slate-300', 'text-slate-500');
+        } else {
+            bidirToggle.classList.remove('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+            bidirToggle.classList.add('border-slate-300', 'text-slate-500');
+        }
+    };
+    updateBidirStyle();
+    bidirToggle.onclick = () => { isBidir = !isBidir; updateBidirStyle(); };
 
     Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
         const btn = document.createElement('button');
@@ -609,7 +624,7 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const confirm = () => {
         const rel = input.value.trim() || 'collegato_a';
         cleanup();
-        onConfirm(rel);
+        onConfirm(rel, isBidir);
     };
 
     btnCancel.onclick = cleanup;
@@ -5627,7 +5642,8 @@ window.applyLensFamily = function () {
         .style('stroke', null)
         .style('stroke-width', null)
         .style('stroke-opacity', null)
-        .attr('marker-end', 'url(#arrowhead)');
+        .attr('marker-end', 'url(#arrowhead)')
+        .attr('marker-start', d => d.bidirectional ? 'url(#arrowhead-rev)' : null);
     g.selectAll('.link-group').classed('lens-dimmed', false);
     g.selectAll('.node-group').classed('lens-dimmed', false);
     g.selectAll('circle.node-circle')
@@ -5670,12 +5686,15 @@ window.applyLensFamily = function () {
     g.selectAll('.link-group').each(function (d) {
         const isActive = activeLinkSet.has(d);
         d3.select(this).classed('lens-dimmed', !isActive);
-        // Line + freccia colorate per i link attivi
-        d3.select(this).select('line.link')
+        // Path + frecce colorate per i link attivi
+        d3.select(this).select('.link')
             .style('stroke', isActive ? fam.color : null)
             .style('stroke-width', isActive ? '2.5px' : null)
             .style('stroke-opacity', isActive ? '1' : null)
-            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)');
+            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)')
+            .attr('marker-start', d => d.bidirectional
+                ? (isActive ? `url(#arrowhead-rev-${key})` : 'url(#arrowhead-rev)')
+                : null);
         // Label: forza visibile + font ×1.5 + colore famiglia + outline NERO per contrasto
         // (replica il pattern di .node-text, ma stroke nero come richiesto)
         d3.select(this).select('text.link-label')
@@ -6117,9 +6136,11 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
 
         if (linkingState.active) {
             if (linkingState.sourceNode.id !== d.id) {
-                window.showLinkFamilyPrompt(cleanLabel(linkingState.sourceNode.label), cleanLabel(d.label), (rel) => {
+                window.showLinkFamilyPrompt(cleanLabel(linkingState.sourceNode.label), cleanLabel(d.label), (rel, bidir) => {
                     if (rel) {
-                        appState.db.links.push({ source: linkingState.sourceNode.id, target: d.id, rel: rel });
+                        const link = { source: linkingState.sourceNode.id, target: d.id, rel: rel };
+                        if (bidir) link.bidirectional = true;
+                        appState.db.links.push(link);
                         window.updateDegreeStats(); renderGraph();
                     }
                 });
