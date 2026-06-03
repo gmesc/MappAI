@@ -578,9 +578,9 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'flex flex-col items-center justify-center gap-1.5 p-3 min-h-[72px] rounded-xl border-2 border-transparent text-white text-xs font-semibold text-center transition-all cursor-pointer hover:scale-105 hover:shadow-md';
+        btn.className = 'flex flex-row items-center gap-3 px-4 py-3 w-full rounded-xl border-2 border-transparent text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110 hover:shadow-md';
         btn.style.backgroundColor = fam.color;
-        btn.innerHTML = `<i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i><span class="leading-tight">${fam.label}</span>`;
+        btn.innerHTML = `<i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i><span>${fam.label}</span>`;
         btn.onclick = () => {
             grid.querySelectorAll('button').forEach(b => b.style.outline = '');
             btn.style.outline = '3px solid #1e293b';
