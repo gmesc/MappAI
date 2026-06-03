@@ -77,6 +77,13 @@ function initDefaultVaultFolder() {
     }
 }
 
+// In dev mode (npm start), separa userData in una sottocartella "dev/"
+// per non contaminare il localStorage dell'app installata sullo stesso Mac.
+// In produzione (.app installata) usa il path standard.
+if (!app.isPackaged) {
+    app.setPath('userData', path.join(app.getPath('userData'), 'dev'));
+}
+
 app.whenReady().then(() => {
     initDefaultVaultFolder();
     createWindow();
