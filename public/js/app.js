@@ -5757,6 +5757,7 @@ function calculatePath(start, end) {
 }
 
 function handleBackgroundClick() {
+    if (window.mergeState && window.mergeState.active) window.cancelMergeMode();
     if (linkingState.active) { linkingState.active = false; document.getElementById('mode-hint').classList.add('hidden'); }
 
     // PATHFINDER: il click sullo sfondo NON resetta più la selezione (era troppo
@@ -5969,6 +5970,11 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
     try {
         if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
+
+        if (window.mergeState && window.mergeState.active) {
+            window.handleMergeTargetClick(d);
+            return;
+        }
 
         if (linkingState.active) {
             if (linkingState.sourceNode.id !== d.id) {
@@ -8887,6 +8893,7 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
                     <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
+                    ${!appState.studentMode ? `<div class="ctx-item text-amber-600" onclick="window.ctxAction('merge')"><i data-lucide="git-merge"></i> Fondi con...</div>` : ''}
                     <hr class="my-1 border-slate-200">
                     ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
@@ -9038,6 +9045,9 @@ window.ctxAction = function (action) {
             if (currentNode?.id === data.id) handleBackgroundClick();
             window.updateDegreeStats(); renderGraph();
         });
+    }
+    else if (action === 'merge') {
+        window.startMergeMode(data);
     }
     else if (action === 'rename_link') {
         window.showPrompt("Nuova etichetta relazione:", data.rel, (newRel) => {
