@@ -436,7 +436,86 @@
         return payload;
     }
 
-    // ── 14. DIFF — confronta due payload compare() ────────────────────────────
+    // ── 14. SAVE / LOAD / LIST — persistenza snapshot in localStorage ────────
+    //
+    // Gli snapshot sopravvivono ai reload dell'app Electron.
+    // Chiave localStorage: 'mappai_metrics_snapshots' → array di payload.
+    //
+    // Uso tipico:
+    //   MappAIMetrics.save('gemini-flash')     // salva mappa A
+    //   // ricarica / genera mappa B
+    //   MappAIMetrics.save('infomaniak-gemma') // salva mappa B
+    //   MappAIMetrics.list()                   // vedi tutti gli snapshot
+    //   MappAIMetrics.diff(
+    //       MappAIMetrics.load('gemini-flash'),
+    //       MappAIMetrics.load('infomaniak-gemma')
+    //   )
+
+    const LS_KEY = 'mappai_metrics_snapshots';
+
+    function _readStore() {
+        try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+        catch { return []; }
+    }
+
+    function _writeStore(arr) {
+        localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    }
+
+    function save(label) {
+        if (!label) { console.warn('[MappAIMetrics] save() richiede un label, es. save("gemini-flash")'); return; }
+        const payload = compare(label);  // calcola + copia in clipboard
+        const store = _readStore().filter(s => s.label !== label); // sovrascrive se esiste
+        store.push(payload);
+        _writeStore(store);
+        console.log(`%c💾 Snapshot "${label}" salvato in localStorage (${store.length} totali)`, 'color:green');
+        return payload;
+    }
+
+    function load(label) {
+        const store = _readStore();
+        const found = label
+            ? store.find(s => s.label === label)
+            : store[store.length - 1]; // senza label → l'ultimo
+        if (!found) {
+            console.warn(`[MappAIMetrics] Snapshot "${label}" non trovato. Usa .list() per vedere quelli disponibili.`);
+            return null;
+        }
+        console.log(`%c📂 Snapshot caricato: "${found.label}" (${new Date(found.ts).toLocaleString()})`, 'color:#6366f1');
+        return found;
+    }
+
+    function list() {
+        const store = _readStore();
+        if (!store.length) { console.log('[MappAIMetrics] Nessuno snapshot salvato.'); return []; }
+        const rows = store.map(s => ({
+            label:    s.label,
+            provider: s.provider,
+            model:    s.model,
+            mode:     s.mode,
+            nodes:    s.nodes,
+            links:    s.links,
+            density:  s.density,
+            'cross%': (s.crossRatio * 100).toFixed(1) + '%',
+            saved:    new Date(s.ts).toLocaleString()
+        }));
+        console.log('%c── SNAPSHOTS SALVATI ──', 'color:#6366f1;font-weight:bold');
+        console.table(rows);
+        return store;
+    }
+
+    function remove(label) {
+        const store = _readStore().filter(s => s.label !== label);
+        _writeStore(store);
+        console.log(`%c🗑 Snapshot "${label}" rimosso (${store.length} rimasti)`, 'color:orange');
+    }
+
+    function clearAll() {
+        localStorage.removeItem(LS_KEY);
+        console.log('%c🗑 Tutti gli snapshot rimossi', 'color:orange');
+    }
+
+    // ── 15. DIFF — confronta due payload compare() ────────────────────────────
     //
     // Uso:
     //   const a = MappAIMetrics.compare('gemini-flash')
@@ -477,6 +556,11 @@
         snapshot,
         table,
         compare,
+        save,
+        load,
+        list,
+        remove,
+        clearAll,
         diff
     };
 
