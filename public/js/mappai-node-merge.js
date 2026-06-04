@@ -161,8 +161,9 @@ window.executeRelink = function (A, newParent, rel) {
     // Aggiungi il nuovo link genitore→A
     appState.db.links.push({ source: newParent.id, target: A.id, rel });
 
-    // Ricalcola livelli di A e del suo sottoalbero
-    A.level = newParent.level + 1;
+    // Assegna il livello di A in base alla nuova posizione gerarchica,
+    // poi propaga ai figli. Il visited set previene cicli e cross-link.
+    A.level = typeof newParent.level === 'number' ? newParent.level + 1 : 2;
     _recalcLevels(A.id, A.level, appState.db.nodes, appState.db.links);
 
     // Aggiorna group di A e dell'intero sottoalbero.
@@ -194,18 +195,22 @@ window.executeRelink = function (A, newParent, rel) {
 
 // ==========================================
 
-// Ricalcola ricorsivamente i livelli del sottoalbero radicato in parentId
-function _recalcLevels(parentId, parentLevel, nodes, links) {
+// Ricalcola ricorsivamente i livelli del sottoalbero radicato in parentId.
+// visited evita: (a) cicli → stack overflow; (b) cross-link verso altri rami
+// che verrebbero raggiunti da più percorsi con livelli diversi.
+function _recalcLevels(parentId, parentLevel, nodes, links, _visited = new Set()) {
+    _visited.add(parentId);
     const childLinks = links.filter(l => {
         const src = typeof l.source === 'object' ? l.source.id : l.source;
-        return src === parentId;
+        const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+        return src === parentId && !_visited.has(tgt) && !l.isCross;
     });
     childLinks.forEach(l => {
         const childId = typeof l.target === 'object' ? l.target.id : l.target;
         const child = nodes.find(n => n.id === childId);
         if (child) {
             child.level = parentLevel + 1;
-            _recalcLevels(childId, child.level, nodes, links);
+            _recalcLevels(childId, child.level, nodes, links, _visited);
         }
     });
 }
@@ -213,17 +218,19 @@ function _recalcLevels(parentId, parentLevel, nodes, links) {
 // Propaga ricorsivamente il group a tutti i discendenti di parentId.
 // Necessario dopo merge e relink: _recalcLevels aggiorna solo level, non group.
 // Senza questo, due nodi L1 possono condividere lo stesso group → stesso colore.
-function _recalcGroups(parentId, parentGroup, nodes, links) {
+function _recalcGroups(parentId, parentGroup, nodes, links, _visited = new Set()) {
+    _visited.add(parentId);
     const childLinks = links.filter(l => {
         const src = typeof l.source === 'object' ? l.source.id : l.source;
-        return src === parentId;
+        const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+        return src === parentId && !_visited.has(tgt) && !l.isCross;
     });
     childLinks.forEach(l => {
         const childId = typeof l.target === 'object' ? l.target.id : l.target;
         const child = nodes.find(n => n.id === childId);
         if (child) {
             child.group = parentGroup;
-            _recalcGroups(childId, parentGroup, nodes, links);
+            _recalcGroups(childId, parentGroup, nodes, links, _visited);
         }
     });
 }

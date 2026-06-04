@@ -102,6 +102,180 @@
         return state?.aiProvider || 'N/A';
     }
 
+    // ── Log capture per report unificato ──────────────────────────────────────
+    //
+    // Hook su console.log/warn/error che cattura i log con pattern rilevanti
+    // (Phase 1.5 / 4 / 5, JSONL, troncamenti, dedup, errori rami) in un buffer
+    // capped. Il buffer viene azzerato all'inizio di ogni nuova generazione
+    // (hook su MappAITruncationTracker.reset).
+    //
+    // Espone MappAIMetrics.report() che produce un Markdown unificato con
+    // tutto il contesto + lo copia in clipboard. Workflow: 1 comando, 1 paste.
+
+    const _LOG_PATTERNS = [
+        /\[Phase\s*[\d.]+\]/i,
+        /\[Phase4\]/, /\[Phase5\]/,
+        /\[JSONL\]/, /\[MappAI/,
+        /Troncamento rilevato/,
+        /Errore nel ramo/,
+        /Parse fallito/,
+        /Dedup:/, /Rimossi/,
+        /BRANCH BOUNDARIES/, /JSONL/, /PHASE/
+    ];
+    const _LOG_BUFFER_CAP = 1000;
+    let _logBuffer = [];
+    let _consoleHooked = false;
+
+    function _captureLog(level, args) {
+        try {
+            const str = args.map(a => {
+                if (typeof a === 'string') return a;
+                try { return JSON.stringify(a); } catch { return String(a); }
+            }).join(' ');
+            // Rimuovi codici di stile CSS (%c...) per leggibilità
+            const clean = str.replace(/%c/g, '').replace(/color:[^;'"]+[;'"]?/gi, '').replace(/font-weight:[^;'"]+[;'"]?/gi, '').trim();
+            if (_LOG_PATTERNS.some(p => p.test(clean))) {
+                _logBuffer.push({ ts: Date.now(), level, content: clean.slice(0, 1500) });
+                if (_logBuffer.length > _LOG_BUFFER_CAP) _logBuffer.shift();
+            }
+        } catch (e) { /* mai fail dentro un hook console */ }
+    }
+
+    function _hookConsole() {
+        if (_consoleHooked) return;
+        const orig = { log: console.log, warn: console.warn, error: console.error };
+        console.log   = function (...a) { _captureLog('log',   a); orig.log.apply(console, a);   };
+        console.warn  = function (...a) { _captureLog('warn',  a); orig.warn.apply(console, a);  };
+        console.error = function (...a) { _captureLog('error', a); orig.error.apply(console, a); };
+        _consoleHooked = true;
+    }
+
+    function _hookGenerationReset() {
+        const tracker = window.MappAITruncationTracker;
+        if (!tracker || tracker._hookedForLogReset) return;
+        const origReset = tracker.reset.bind(tracker);
+        tracker.reset = function () {
+            _logBuffer = [];
+            return origReset();
+        };
+        tracker._hookedForLogReset = true;
+    }
+
+    _hookConsole();
+    // Aspetta che app.js abbia creato il tracker prima di hookarlo
+    setTimeout(_hookGenerationReset, 800);
+    setTimeout(_hookGenerationReset, 3000); // retry safety
+
+    function clearLogs() {
+        _logBuffer = [];
+        console.log('%c🗑 Log buffer svuotato', 'color:orange');
+    }
+
+    function logsBuffer() {
+        return _logBuffer.slice();
+    }
+
+    // ── Report unificato ──────────────────────────────────────────────────────
+
+    function report(options = {}) {
+        const { save = true } = options;
+        const state = _getAppState();
+        const nodes = state?.db?.nodes || [];
+        const links = state?.db?.links || [];
+
+        if (!nodes.length) {
+            console.warn('[Report] Nessuna mappa caricata');
+            return null;
+        }
+
+        // 1. Snapshot metriche
+        const snapshot = _buildPayload('report_' + new Date().toISOString().slice(0, 19));
+
+        // 2. L1 finali
+        const l1s = nodes.filter(n => n.level === 1).map(n => n.label);
+
+        // 3. L2 per ramo
+        const getId = l => ({
+            src: typeof l.source === 'object' ? l.source.id : l.source,
+            tgt: typeof l.target === 'object' ? l.target.id : l.target
+        });
+        const l2ByL1 = {};
+        nodes.filter(n => n.level === 1).forEach(l1 => {
+            const childIds = new Set(links.filter(l => getId(l).src === l1.id).map(l => getId(l).tgt));
+            const l2s = nodes.filter(n => n.level === 2 && childIds.has(n.id)).map(n => n.label);
+            l2ByL1[l1.label] = l2s;
+        });
+
+        // 4. Suggerimenti per tipo
+        const sa = window.MappAIStructureAnalyzer?.analyzeCurrentMap();
+        const sugByType = (sa?.suggestions || []).reduce((a, s) => { a[s.type] = (a[s.type] || 0) + 1; return a; }, {});
+
+        // 5. Flag attivi
+        const flagsMap = {
+            jsonl:            localStorage.getItem('mappai_jsonl_enabled') === '1',
+            l1Validation:     localStorage.getItem('mappai_l1_validation_enabled') === '1',
+            branchBoundaries: localStorage.getItem('mappai_branch_boundaries_enabled') === '1',
+            phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
+            phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1'
+        };
+        const activeFlags = Object.entries(flagsMap).filter(([_, v]) => v).map(([k]) => k);
+        const flagsStr = activeFlags.length ? activeFlags.join(' ✓ | ') + ' ✓' : '(nessun flag attivo)';
+
+        // 6. Truncations summary
+        const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0, truncationRate: 0 };
+
+        const md = [
+            `# MappAI Generation Report — ${new Date().toLocaleString()}`,
+            '',
+            `**Topic:** ${snapshot.topic || 'N/A'} | **Model:** ${snapshot.model || 'N/A'} | **Mode:** ${snapshot.mode || 'N/A'}`,
+            `**Flags:** ${flagsStr}`,
+            '',
+            '## Compact metrics',
+            '```',
+            `nodes: ${snapshot.nodes}    links: ${snapshot.links}    density: ${snapshot.density}    topology: ${snapshot.topology}`,
+            `crossLinks: ${snapshot.crossLinks} (${(snapshot.crossRatio * 100).toFixed(1)}%)    relTypes: ${snapshot.relTypes}    generic: ${(snapshot.genericRatio * 100).toFixed(1)}%`,
+            `avgDegree: ${snapshot.avgDegree}    maxDegree: ${snapshot.maxDegree}    stddev: ${snapshot.stddevDegree}`,
+            `groups: ${snapshot.groups}    maxLevel: ${snapshot.maxLevel}    sourceCov: ${(snapshot.sourceCovRatio * 100).toFixed(1)}%`,
+            `apiCalls: ${trunc.calls}    truncated: ${trunc.truncated} (${(trunc.truncationRate * 100).toFixed(1)}%)`,
+            '```',
+            '',
+            `## L1 finali (${l1s.length})`,
+            ...l1s.map(l => `- ${l}`),
+            '',
+            '## L2 per ramo',
+            ...Object.entries(l2ByL1).map(([l1, l2s]) =>
+                `- **${l1}** (${l2s.length}): ${l2s.length ? l2s.join(', ') : '_(nessun L2)_'}`
+            ),
+            '',
+            '## Suggerimenti strutturali per tipo',
+            '```',
+            ...Object.entries(sugByType).sort((a, b) => b[1] - a[1]).map(([t, c]) => `${t}: ${c}`),
+            '```',
+            '',
+            `## Log generazione (${_logBuffer.length} eventi catturati)`,
+            '```',
+            ..._logBuffer.map(e => {
+                const t = new Date(e.ts).toLocaleTimeString();
+                const prefix = e.level === 'warn' ? '⚠️ ' : e.level === 'error' ? '❌ ' : '  ';
+                return `[${t}] ${prefix}${e.content}`;
+            }),
+            '```',
+            ''
+        ].join('\n');
+
+        if (save && navigator.clipboard) {
+            navigator.clipboard.writeText(md).then(
+                () => console.log(`%c📋 Report copiato in clipboard (${md.length} chars, ${_logBuffer.length} log)`, 'color:green;font-weight:bold'),
+                () => { console.log('Clipboard fallita. Report:\n\n' + md); }
+            );
+        }
+
+        console.log('%c── REPORT GENERATO ──', 'color:#6366f1;font-weight:bold');
+        console.log(`Caratteri: ${md.length} | Log: ${_logBuffer.length} | Suggerimenti: ${sa?.suggestions?.length || 0}`);
+
+        return { md, snapshot, l1s, l2ByL1, sugByType, flags: flagsMap, trunc, logs: _logBuffer.slice() };
+    }
+
     // ── Core: costruisce il payload metriche (senza side-effect) ─────────────
 
     function _buildPayload(label) {
@@ -1128,6 +1302,9 @@
         truncations,
         exportReport,
         downloadReport,
+        report,
+        clearLogs,
+        logsBuffer,
         snapshot,
         table,
         compare,
