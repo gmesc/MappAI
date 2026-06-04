@@ -3835,10 +3835,33 @@ window.parseJSONLResponse = function (text) {
         if (!s || s.startsWith('//')) return null;
         // Rimuovi virgole trailing tipiche degli array (es. "{...},")
         const trimmed = s.replace(/,\s*$/, '');
+
+        // Tentativo 1: parse diretto
         try {
-            const parsed = JSON.parse(trimmed);
-            return normalizeKeys(parsed);
-        } catch { return undefined; } // undefined = riga rotta (vs null = riga vuota)
+            return normalizeKeys(JSON.parse(trimmed));
+        } catch (e1) { /* fall through */ }
+
+        // Tentativo 2: double-escape recovery (pattern frequente Mistral Small).
+        // Il modello produce {\"id\":\"X\"} invece di {"id":"X"}. Rimuoviamo i
+        // backslash davanti alle virgolette e riproviamo.
+        if (trimmed.includes('\\"')) {
+            try {
+                const unescaped = trimmed.replace(/\\"/g, '"');
+                return normalizeKeys(JSON.parse(unescaped));
+            } catch (e2) { /* fall through */ }
+        }
+
+        // Tentativo 3: parser ha visto `\n` letterale dentro stringhe (errore tipico
+        // quando il modello mette newline reale invece di \\n). Sostituisce \n con
+        // spazio e riprova. Pattern visto su Mistral: "desc":"...\nseguito..."
+        if (trimmed.includes('\n')) {
+            try {
+                const inlined = trimmed.replace(/\n/g, ' ');
+                return normalizeKeys(JSON.parse(inlined));
+            } catch (e3) { /* fall through */ }
+        }
+
+        return undefined; // undefined = riga rotta (vs null = riga vuota)
     };
 
     // Estendi meta.recovered/lost per tutte le sezioni note
