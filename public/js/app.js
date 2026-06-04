@@ -3813,13 +3813,32 @@ window.parseJSONLResponse = function (text) {
         markers.push({ kind: classifyKind(m[1]), start: m.index, headerEnd: m.index + m[0].length });
     }
 
+    // Normalizza le chiavi di un oggetto: rimuove spazi iniziali/finali.
+    // Mistral Small produce sistematicamente "id ", "label ", "content " con
+    // uno spazio finale → senza questo, obj.id sarebbe undefined.
+    // Idempotente: se le chiavi sono già pulite, restituisce l'oggetto invariato
+    // (no allocazione extra) per non penalizzare i provider corretti.
+    const normalizeKeys = (obj) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+        let needsRebuild = false;
+        for (const k of Object.keys(obj)) {
+            if (k !== k.trim()) { needsRebuild = true; break; }
+        }
+        if (!needsRebuild) return obj;
+        const out = {};
+        for (const k of Object.keys(obj)) out[k.trim()] = obj[k];
+        return out;
+    };
+
     const parseLine = (line) => {
         const s = line.trim();
         if (!s || s.startsWith('//')) return null;
         // Rimuovi virgole trailing tipiche degli array (es. "{...},")
         const trimmed = s.replace(/,\s*$/, '');
-        try { return JSON.parse(trimmed); }
-        catch { return undefined; } // undefined = riga rotta (vs null = riga vuota)
+        try {
+            const parsed = JSON.parse(trimmed);
+            return normalizeKeys(parsed);
+        } catch { return undefined; } // undefined = riga rotta (vs null = riga vuota)
     };
 
     // Estendi meta.recovered/lost per tutte le sezioni note
@@ -3946,6 +3965,10 @@ REGOLE TASSATIVE SUL FORMATO:
 - Header sezione esattamente "===NODES===" e "===LINKS===" (tre uguali, maiuscolo)
 - Nessun commento, nessun markdown, nessun testo prima o dopo le sezioni
 - Se vai a capo dentro una stringa devi escaparlo come \\n
+- Le CHIAVI JSON devono essere ESATTAMENTE: id, label, content, desc, level, chunks (senza spazi, senza spazi finali — NON "id ", NON "label ")
+- Ogni virgoletta " dentro un valore stringa DEVE essere escapata come \\" (es: "desc":"Il \\"piano Wahlen\\" del 1940...")
+- NIENTE prosa libera: se non sai cosa scrivere per un campo, scrivi "" (stringa vuota), NON una frase descrittiva fuori dal JSON
+- Ogni riga deve INIZIARE con "{" e FINIRE con "}" — niente eccezioni
 
 ${userProfileStr}
 ${focusInjection}
