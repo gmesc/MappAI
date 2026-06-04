@@ -1,15 +1,144 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 3 giugno 2026 (sera).
+> Priorità in ordine decrescente. Aggiornato: 4 giugno 2026 (sessione mattino/pomeriggio — MM quality pipeline).
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Obiettivo sessione suggerito**: decidere sovrapposizione lenti/discipline (design),
-poi UI Piano 1.2 — pannello suggerimenti strutturali + 4 regole `MIND_MAP_BRANCH_IT`.
+**Obiettivo sessione suggerito**: testare Kimi-K2.6 con il pipeline completo (ora che il fix
+`responseSchema` Infomaniak è applicato alla Fase 1), poi valutare se i risultati
+giustificano raccomandare Kimi come modello di default per Infomaniak.
 
 **Branch attivo**: `feat/structural-suggestions`
 **Stato**: working tree pulito (auto-save hook attivo).
+
+**Setup console per riprendere (5 flag disponibili):**
+```js
+MappAIMetrics.enableJSONL()             // Strategia 1A
+MappAIMetrics.enableBranchBoundaries()  // Strategia A — ambits L1
+MappAIMetrics.enablePhase4()            // merge + cross-link semantici
+MappAIMetrics.enablePhase5()            // riclassificazione mal-collocati
+// MappAIMetrics.enableL1Validation()   // Pass 1.5 — no-op su run buoni, skip
+```
+
+**Per rivedere risultati salvati:**
+```js
+MappAIMetrics.list()                    // tutti gli snapshot
+MappAIMetrics.diff(MappAIMetrics.load('X'), MappAIMetrics.load('Y'))
+```
+
+---
+
+---
+
+## ✅ COMPLETATO — Sessione 4 giugno 2026 (mattino/pomeriggio — MM quality pipeline)
+
+### `dev-console-metrics.js` — toolkit metriche dev console
+- ✅ File `public/js/dev-console-metrics.js` caricato automaticamente da `index.html`
+  (dopo `mappai-node-styling.js`). Nessun copia/incolla necessario.
+- ✅ Bugfix critico: `appState` è `let` in `app.js` → non è su `window`. Aggiunto
+  `_getAppState()` con fallback `typeof appState !== 'undefined'`.
+- ✅ Auto-metriche dopo ogni generazione: hook su `renderGraph` con debounce 2s,
+  soglia minima 3 nodi/link, auto-save in `localStorage`.
+- ✅ `MappAIMetrics.report()` — report Markdown unificato copiato in clipboard:
+  topic, model, flags, compact metrics, L1, L2 per ramo, suggerimenti per tipo, log.
+- ✅ Log capture automatico: hook `console.log/warn/error` con pattern matching
+  selettivo (cattura `[Phase*]`, `[JSONL]`, `[MappAI*]`, troncamenti, errori rami).
+  Bugfix CSS stripping (argomenti CSS-style erano mangiati dalla regex).
+- ✅ `MappAIMetrics.save/load/loadLast/list/remove/clearAll/diff` — persistenza localStorage.
+- ✅ Comandi completi: `basic`, `relations`, `crosslinks`, `levels`, `groups`, `degree`,
+  `betweenness`, `sources`, `studyStatus`, `structural`, `truncations`,
+  `enableJSONL/disableJSONL/jsonlStatus`, `enablePhase4/5`, `enableBranchBoundaries`,
+  `enableL1Validation`, `phase4/5Status`, `branchBoundariesStatus`, `l1ValidationStatus`.
+
+### Strategia 0 — Rilevamento troncamenti (`MappAITruncationTracker`)
+- ✅ `window.MappAITruncationTracker` in `app.js`: registra ogni chiamata API con
+  model, provider, finishReason, requestedMax, candidateTokens, ts.
+- ✅ `_detectTruncation(response)`: riconosce `MAX_TOKENS` (Gemini) e `length` (Infomaniak/OpenAI).
+- ✅ Hook in `fetchModelAPI`: ogni risposta annotata, warning immediato se troncata.
+- ✅ Reset automatico a ogni nuova generazione (hook su `MappAITruncationTracker.reset`).
+- ✅ Diagnostica `salvageTruncatedJSON`: ora distingue "JSON malformato" vs "troncamento confermato".
+- ✅ `MappAIMetrics.truncations()`: report con chiamate/troncate/tasso/breakdown modello.
+- ✅ Colonna `Trunc` in `.table()`: `⚠️ 2/12` o `✓ 0/12`.
+- ✅ `MappAIMetrics.save()` include `apiCalls`, `truncatedCalls`, `truncationRate` nel diff.
+
+### Strategia 1A — JSONL sezionato (resistenza al troncamento Infomaniak)
+- ✅ `window.parseJSONLResponse(text)` in `app.js`: parser tollerante con sezioni
+  `===NODES===` / `===LINKS===` / `===MERGES===` / `===CROSSLINKS===` + varianti header.
+  7/7 test unitari verdi (troncamento, markdown, fallback no-header, preambolo testuale).
+- ✅ `window.buildBranchPromptJSONL(branch, opts)` — prompt JSONL per Fase 3.
+- ✅ `window.isJSONLEnabled()` — feature flag `mappai_jsonl_enabled + infomaniak`.
+- ✅ Hook condizionale nel branch expansion loop (Fase 3): `if (useJSONL)` → prompt e
+  parser JSONL, altrimenti path JSON legacy.
+- ✅ Payload Infomaniak senza `responseMimeType`/`responseSchema` in modalità JSONL.
+- ✅ Fix `normalizeKeys`: Mistral produce `"id "` (chiave con spazio) → ora recuperato.
+- ✅ Fix double-escape: Mistral produce `{\"id\":\"X\"}` → 3 tentativi di parse in cascade.
+- ✅ Fix `isValid(obj, kind)`: scarta oggetti senza `id+label` (nodi) o `source+target` (link)
+  prima che arrivino al consumer — previene `TypeError: Cannot read ... toLowerCase`.
+- ✅ Log `[JSONL] Esempi righe scartate` con campioni delle righe malformate (debug).
+- ⚠️ **Limiti noti Mistral Small**: produce ancora JSON rotto su rami profondi (~30% loss
+  su rami Difesa/Politica). Il problema è intrinseco al modello, non al parser.
+
+### Fix `maxOutputTokens` Mistral Small + Infomaniak Fase 1
+- ✅ `getMaxOutputTokens` Mistral/Mixtral: 3000 → **8192** (riduce troncamenti Fase 3).
+- ✅ Fase 1 (`payloadL1`): rimosso `responseMimeType + responseSchema` per Infomaniak.
+  Fix necessario per Kimi-K2.6 che restituiva 0 caratteri con lo schema attivo.
+
+### `MIND_MAP_BRANCH_IT/EN` — 4 regole anti-Mistral
+- ✅ Regola 11: LABEL SENZA DATE (`"1914-1918"` è SBAGLIATO)
+- ✅ Regola 12: LABEL SENZA LISTE (virgole che separano elementi)
+- ✅ Regola 13: NIENTE DUPLICATI CROSS-RAMO (suggerisci link verso ID esistente)
+- ✅ Regola 14: CONCETTI PIVOTALI A L2 (non seppellirli a L3/L4)
+  Applicate su `prompts_default.json` e `prompts_config.json`, IT + EN.
+
+### Strategia B — Phase 4 (consolidamento semantico post-generazione)
+- ✅ `window.isPhase4Enabled()` — flag `mappai_mm_phase4_enabled + mindmap`.
+- ✅ `window.buildPhase4Prompt(nodes)` — compatto (id, Lx, label, desc[:60]).
+  Ora include catalogo L1 con ambits, e prompt rinforzato: merge aggressivi su
+  duplicati cross-ramo con 6 esempi concreti ("Oro Nazista" / "Oro controverso" = fondere).
+- ✅ `window.executePhase4Consolidation()` — applica MERGES (`executeMerge`) +
+  CROSSLINKS validati (no self-loop, no duplicati, rimappa drop→keep).
+- ✅ Hook nel flusso: dopo `dedupeNodesAsCrossLinks`, prima del filtro link orfani.
+- ✅ Report dettagliato: `applied/skipped/errors` per merges e crosslinks.
+- ✅ Risultato su run buoni: crossRatio fino al **20.8%** (vs 0% baseline).
+
+### Phase 5 — Riclassificazione semantica
+- ✅ `window.isPhase5Enabled()` — flag `mappai_mm_phase5_enabled + mindmap`.
+- ✅ `window.buildPhase5Prompt(nodes, links, l1NodesData)` — mostra L1 con ambiti
+  + figli L2 correnti + candidati L2/L3 con L1 attuale.
+- ✅ `window.executePhase5Reclassification()` — parsa `===RECLASSIFY===`, applica
+  spostamenti (rimuove link gerarchico parent→node, aggiunge link nuovoL1→node,
+  aggiorna `node.group`). Max 8 op per run.
+- ✅ **Safeguard anti-svuotamento**: se ramo sorgente ha ≤2 L2, spostamento rifiutato.
+- ✅ Risultato: `misplaced` da 2 → 0, `undeveloped_branch` da 9 → 2-4.
+- ✅ Log dettagliato operazioni visibile nel `report()`.
+
+### Strategia A — Branch Boundaries (confini di ramo in Fase 3)
+- ✅ `window.isBranchBoundariesEnabled()` — flag `mappai_branch_boundaries_enabled + mindmap`.
+- ✅ `buildSiblingL1Catalog(currentBranchId)` — inietta nel prompt branch la lista
+  degli ALTRI L1 con label, rel, **e ambito semantico** (se disponibile).
+- ✅ Iniezione in entrambi i path (JSON inline e builder JSONL).
+- ✅ Risultato: `undeveloped_branch` da 9 → **2** sul run migliore.
+- ⚠️ Trade-off: prompt più lungo → Mistral taglia chunks → `sourceCovRatio` -12%.
+
+### Campo `ambito` sugli L1 (memoria semantica cross-ramo)
+- ✅ Template `L1_MACRO_CATEGORIES_IT/EN`: aggiunto campo `ambito` (3-5 keyword)
+  nell'esempio di output. Il modello genera `label + rel + ambito` insieme.
+- ✅ `l1NodesData` propaga `ambito` al nodo L1 in `appState.db.nodes`.
+- ✅ Usato da: BranchBoundaries (prompt Fase 3), Phase 4 (catalogo L1 con ambiti),
+  Phase 5 (catalogo L1 con ambiti + figli L2 correnti).
+- ⚠️ Mistral Small genera ambits non ortogonali (es. "invasione" in Neutralità invece di Difesa).
+  Kimi-K2.6 da testare — probabilmente più preciso.
+
+### Phase 1.5 — Validazione semantica L1 (feature opzionale)
+- ✅ `window.validateL1Categories(l1Data, rootLabel)` — chiamata AI dopo Fase 1
+  che verifica sinonimi e meta-categorie. Prompt massimamente conservativo
+  ("DEFAULT = nessuna modifica"). Guard anti-overcorrection: se >50% label
+  modificati, rigetta output e mantiene originale.
+- ✅ Hook nei 2 punti Fase 1, gated da `mappai_l1_validation_enabled`.
+- 📊 **Risultato empirico**: su run buoni → "L1 già coerenti, nessuna modifica" (no-op).
+  Utile come rete sicurezza ma non migliora sistematicamente.
+  **Raccomandazione: lasciare spento di default**.
 
 ---
 
@@ -205,7 +334,20 @@ poi UI Piano 1.2 — pannello suggerimenti strutturali + 4 regole `MIND_MAP_BRAN
 
 ## 🔴 PRIORITÀ ALTA
 
-### 1. Test KG con lenti AREA DISCIPLINARE attive
+### 1. Test Kimi-K2.6 con pipeline completo
+**Stato**: fallito per bug responseSchema (ora fixato — 4 giugno 2026).
+**Prossima azione**: rigenerare MM Svizzera con Kimi-K2.6 + tutti e 4 i flag attivi.
+**Aspettative**: JSONL pulito (zero righe scartate), ambits L1 ortogonali,
+merges Phase 4 effettivi, `undeveloped_branch ≤ 2`, `crossRatio ≥ 20%`.
+**Comandi**:
+```js
+MappAIMetrics.save('kimi_full_setup')
+// Verifica ambits: appState.db.nodes.filter(n => n.level===1).map(n => ({label:n.label,ambito:n.ambito}))
+MappAIMetrics.report()
+MappAIMetrics.diff(MappAIMetrics.load('phase4_JSONL_3'), MappAIMetrics.load('kimi_full_setup'))
+```
+
+### 2. Test KG con lenti AREA DISCIPLINARE attive
 **Stato**: non testato. Rischio noto (sessione 31 maggio): lenti creavano KG sparsi
 (37K token, 13 nodi) per anomalia da investigare. Prima di produzione:
 - Rigenerare KG fotosintesi 4aMEDIA con alcune lenti attive su `gemini-2.5-flash-lite`
@@ -213,10 +355,10 @@ poi UI Piano 1.2 — pannello suggerimenti strutturali + 4 regole `MIND_MAP_BRAN
   sotto 1.3 rispetto al baseline 1.59 senza lenti
 - Investigare la causa dell'anomalia 37K token (punto 10 backlog)
 
-### 2. ✅ Mirror template KG su varianti Student e EN — CHIUSO
+### 3. ✅ Mirror template KG su varianti Student e EN — CHIUSO
 Completato sessione 2 giugno 2026 sera.
 
-### 3. UI Piano 1.2 — pannello suggerimenti strutturali
+### 4. UI Piano 1.2 — pannello suggerimenti strutturali
 **Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile) + analisi god_node fix (✅)
 **Stato**: non ancora iniziato.
 **Da costruire**:
@@ -225,14 +367,8 @@ Completato sessione 2 giugno 2026 sera.
 - Bottone "Mostra percorso" sui keystone/meaning_hub
 - Entry point: bottone nella toolbar mappa (accanto a "Analizza")
 
-### 4. Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti
-**Origine**: analisi GEMMA vs MISTRAL (sessione 1 giugno).
-Regole da aggiungere in `MIND_MAP_BRANCH_IT` e `MIND_MAP_BRANCH_INFOMANIAK_IT`:
-1. Anti-date nei label
-2. Anti-lista nei label (elenchi con virgole)
-3. Anti-duplicato cross-ramo
-4. Concetti pivotali a L2
-**File**: `prompts_config.json` e `public/prompts_default.json`
+### 5. ✅ Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti — CHIUSO
+Completato sessione 4 giugno 2026. Regole 11-14 aggiunte a IT + EN.
 
 ---
 

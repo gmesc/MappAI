@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 3 giugno 2026 (sessione sera — link bidirezionali + dropdown famiglie)
+> Ultimo aggiornamento: 4 giugno 2026 (sessione — MM quality pipeline: JSONL 1A, Phase 4/5, BranchBoundaries, ambits L1)
 
 ---
 
@@ -47,21 +47,25 @@ MappAI/
 │   ├── css/
 │   │   └── style.css    ← CSS principale (2.724 righe)
 │   ├── js/
-│   │   ├── app.js       ← MONOLITE principale (~12.500 righe)
+│   │   ├── app.js       ← MONOLITE principale (~14.000+ righe)
 │   │   ├── storageAdapter.js  ← Storage Electron/Capacitor
 │   │   ├── admin_prompts.js   ← Gestione prompt templates
 │   │   ├── infomaniak_bridge.js ← Bridge API Infomaniak
 │   │   ├── preload.js         ← Electron contextBridge
-│   │   ├── mappai-latex.js    ← KaTeX rendering (NUOVO)
-│   │   ├── mappai-lenses.js   ← Extraction Lenses (NUOVO)
-│   │   ├── mappai-timeline.js ← Timeline cronologica (NUOVO)
-│   │   ├── mappai-glossary.js ← Glossario (NUOVO, nascosto)
-│   │   └── mappai-quiz-print.js ← Stampa quiz/flashcard (NUOVO)
+│   │   ├── mappai-latex.js    ← KaTeX rendering
+│   │   ├── mappai-lenses.js   ← Extraction Lenses
+│   │   ├── mappai-timeline.js ← Timeline cronologica
+│   │   ├── mappai-glossary.js ← Glossario (nascosto)
+│   │   ├── mappai-quiz-print.js ← Stampa quiz/flashcard
+│   │   ├── mappai-structure-analyzer.js ← Analisi strutturale deterministica
+│   │   ├── mappai-node-styling.js ← Ruolo strutturale nodi (keystone, bridge)
+│   │   ├── mappai-node-merge.js   ← Fondi con... / Cambia Link
+│   │   └── dev-console-metrics.js ← Toolkit metriche dev console (MappAIMetrics)
 │   ├── traduzioni/
 │   │   ├── it_translations.js
 │   │   └── en_translations.js
 │   └── prompts_default.json   ← Template AI (caricati da admin_prompts.js)
-└── prompts_config.json        ← Config AI attiva (36 KB)
+└── prompts_config.json        ← Config AI attiva
 ```
 
 ### Pattern architetturale
@@ -71,6 +75,14 @@ MappAI/
   `window.showToast`, `window.showLoadingOverlay` — usate dai nuovi moduli
 - `appState` è l'oggetto globale di stato — i nodi sono in `appState.db.nodes`
   (MAI in `appState.nodes` direttamente)
+- ⚠️ **`appState` è `let` (NON `var`)** → NON è su `window`. Da moduli esterni
+  usare il pattern di `dev-console-metrics.js`:
+  ```js
+  function _getAppState() {
+      try { return (typeof appState !== 'undefined') ? appState : window.appState; }
+      catch (e) { return window.appState; }
+  }
+  ```
 
 ---
 
@@ -98,6 +110,8 @@ MappAI supporta due provider AI selezionabili dall'utente:
   converte il formato Gemini → OpenAI-compatible
 - ⚠️ `responseMimeType: "application/json"` NON supportato nativamente —
   il bridge lo converte in un reminder testuale che altera il contesto
+- ⚠️ `responseSchema` causa risposta vuota (0 caratteri) su Kimi-K2.6 — **rimosso
+  dalla Fase 1 e Fase 3 su Infomaniak** (4 giugno 2026). Su Google funziona.
 - ⚠️ `temperature` è hardcoded a 0.3 nel bridge (ignora il valore del payload)
 - ⚠️ Streaming SSE obbligatorio (per bypassare Gateway Timeout)
 
@@ -287,23 +301,28 @@ Sostituisce il vecchio `showPrompt` nel flusso di creazione manuale link (`linki
 
 ---
 
-## 7. MODELLI INFOMANIAK — VALUTAZIONE (1 giugno 2026)
+## 7. MODELLI INFOMANIAK — VALUTAZIONE (aggiornato 4 giugno 2026)
 
 ### Raccomandazione per profilo
 | Modello | Profilo ottimale | MM | KG | Note |
 |---------|-----------------|----|----|------|
-| **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti, 100% fonti. KG scarso con lenti (anomalia token). |
-| **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ (fix pending) | ⚠️ | Profondità L5, 200K context. Problemi label prompt-addressable. |
-| **Ministral 3B** | Non adatto per KG | ⚠️ | 🔴 | Troppo piccolo. IDs con markdown, auto-relazioni. |
+| **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti. KG scarso con lenti (anomalia token). |
+| **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ | ⚠️ | Profondità L5, 200K context. **JSON spesso malformato** (~30% loss JSONL). Variabilità alta tra run. |
+| **Kimi-K2.6** | Corpus lunghi, alta qualità | 🔬 in test | 🔬 | 256K context. Bug responseSchema risolto (4/6/26). Test completo da fare. |
 | **Apertus 70B** | Solo MM semplici | ⚠️ | ❌ | NO function calling. Nessun KG. |
 
-### Problemi Mistral Small (tutti correggibili con template)
-4 regole da aggiungere a `MIND_MAP_BRANCH_IT`: no-date-in-label, no-lista-in-label,
-no-duplicato-cross-ramo, concetti-pivotali-a-L2. Vedere TODO punti 1-2.
+### Problemi Mistral Small — stato attuale (4 giugno 2026)
+- ✅ 4 regole anti-label aggiunte a `MIND_MAP_BRANCH_IT` (regole 11-14)
+- ✅ `maxOutputTokens` 3000→8192 per ridurre troncamenti Fase 3
+- ⚠️ **Problema strutturale irrisolto**: produce JSON con chiavi-spazio (`"id "`),
+  double-escape (`{\"id\":\"X\"}`), oggetti spezzati su più righe. Il parser JSONL
+  ora recupera parte di questi errori ma su rami profondi perde ~30% dei nodi.
+- ⚠️ **Alta variabilità**: stesso documento, stessa config → crossRatio tra 8% e 21%
+  a seconda del run. Non adatto per benchmark ripetibili.
 
 ### Anomalia da investigare: KG GEMMA + lenti → 37K token (atteso 65K)
 Solo 13 nodi generati. Causa: `extractKnowledgeGraphSinglePass` con `focusTopic`
-non vuoto potrebbe troncare il testo sorgente. Vedere TODO punto 9.
+non vuoto potrebbe troncare il testo sorgente. Vedere TODO punto 10 backlog.
 
 ---
 
@@ -447,30 +466,49 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### Completato in questa sessione (3 giugno 2026 sera — continua)
-- ✅ Timeline: titolo progetto dinamico (`_getTimelineProjectName`)
-- ✅ Timeline: deduplicazione eventi (anno + label normalizzata)
-- ✅ Timeline: modal semplificato (2 radio: Compatta / Con contesto)
-- ✅ Timeline: migrazione a pm-* + Lucide, niente emoji né Space Mono nel modal
-- ✅ CSS: sistema `.pm-*` gerarchia tipografica prompt-modal (§11 `@layer components`)
-- ✅ Modal Stampa Dossier: applicato pm-* (header, badge, radio, bottoni)
-- ✅ Modal link family (`#link-family-modal`): colonna unica, max-w-[600px], bottoni larghezza piena
-- ✅ Bug fix: collisione group dopo merge/relink (`_recalcGroups`, `_nextFreeGroup`)
-- ✅ **Feature 4b**: `showLinkFamilyPrompt` — modale creazione link con dropdown 7 famiglie + campo testo
-- ✅ **Link bidirezionali**: `<line>` → `<path>`, curva Bezier 40px, marker-start con `auto-start-reverse`,
-  toggle ↔ nel modale, flag `bidirectional` nel modello dati, Lente Relazioni aggiornata
+### Completato in questa sessione (4 giugno 2026 — MM quality pipeline)
+Vedi TODO.md §COMPLETATO per il dettaglio completo. Riassunto:
+- ✅ `dev-console-metrics.js` — toolkit metriche auto-caricato, `MappAIMetrics.report()`
+- ✅ Strategia 0: `MappAITruncationTracker` — rilevamento troncamenti in tempo reale
+- ✅ Strategia 1A: JSONL sezionato per Infomaniak (parser + prompt + feature flag)
+- ✅ Fix `maxOutputTokens` Mistral 3000→8192; fix Fase 1 Infomaniak senza responseSchema
+- ✅ 4 regole `MIND_MAP_BRANCH_IT` (anti-date, anti-lista, anti-duplicato, pivotali-L2)
+- ✅ Phase 4: merge semantici cross-ramo + cross-link (flag `mappai_mm_phase4_enabled`)
+- ✅ Phase 5: riclassificazione L2/L3 mal collocati (flag `mappai_mm_phase5_enabled`)
+- ✅ Branch Boundaries: catalogo L1 fratelli nei prompt Fase 3 (flag `mappai_branch_boundaries_enabled`)
+- ✅ Campo `ambito` su L1: template Fase 1 genera keyword di perimetro, propagato a tutti i pass
+- ✅ Phase 1.5: validazione L1 opzionale (conservativa, utile solo come rete di sicurezza)
 
 ### Da fare subito (prossima sessione)
-1. **4 regole mancanti in `MIND_MAP_BRANCH_IT`** — TODO punto 4
-2. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO punto 3
-3. **Sovrapposizione lenti vs discipline** — decidere se tenere entrambi o unificare (vedi NEXT_SESSION_PROMPT)
+1. **Test Kimi-K2.6 con pipeline completo** — TODO §1 (fix responseSchema applicato, ora si può)
+2. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO §4
+3. **Test KG con lenti AREA DISCIPLINARE** — TODO §2
 4. **Installer da rifare** (Intel x64, Linux, Windows) — 15 min, comando pronto
 
 ### Da fare dopo
-4. Chunking map-reduce per Infomaniak (TODO punto 11)
-5. Refactoring CSS (703 `!important`)
-6. Pulizia root progetto (20 script Python, file .bak)
-7. Decomposizione `app.js` in moduli separati
+5. Chunking map-reduce per Infomaniak (TODO backlog §11)
+6. Refactoring CSS (703 `!important`)
+7. Pulizia root progetto (20 script Python, file .bak)
+8. Decomposizione `app.js` in moduli separati
+
+### Flag feature disponibili (tutti gated da localStorage)
+| Flag localStorage key | Funzione | Default |
+|---|---|---|
+| `mappai_jsonl_enabled` | JSONL sezionato in Fase 3 (solo Infomaniak) | OFF |
+| `mappai_branch_boundaries_enabled` | Catalogo L1 fratelli nei prompt Fase 3 | OFF |
+| `mappai_mm_phase4_enabled` | Merge + cross-link semantici post-gen | OFF |
+| `mappai_mm_phase5_enabled` | Riclassificazione L2/L3 mal collocati | OFF |
+| `mappai_l1_validation_enabled` | Validazione L1 dopo Fase 1 (conservativa) | OFF |
+
+**Comandi console:**
+```js
+MappAIMetrics.enableJSONL()            MappAIMetrics.disableJSONL()
+MappAIMetrics.enableBranchBoundaries() MappAIMetrics.disableBranchBoundaries()
+MappAIMetrics.enablePhase4()           MappAIMetrics.disablePhase4()
+MappAIMetrics.enablePhase5()           MappAIMetrics.disablePhase5()
+MappAIMetrics.enableL1Validation()     MappAIMetrics.disableL1Validation()
+MappAIMetrics.report()                 // Markdown in clipboard
+```
 
 ### Branch git attivi
 | Branch | Ruolo |
