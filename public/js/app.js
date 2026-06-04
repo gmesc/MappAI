@@ -5957,6 +5957,24 @@ function renderGraph() {
 
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
+
+    // Adatta il max dello slider di profondità alla profondità reale della mappa.
+    // Necessario quando operazioni come relink o merge creano nodi oltre L5.
+    const ls = document.getElementById('level-slider');
+    if (ls) {
+        const actualMax = nodes.reduce((m, n) => Math.max(m, n.level || 0), 5);
+        const sliderMax = parseInt(ls.max);
+        if (actualMax !== sliderMax) {
+            const wasAtMax = parseInt(ls.value) === sliderMax;
+            ls.max = actualMax;
+            if (wasAtMax) {
+                ls.value = actualMax;
+                const lv = document.getElementById('level-slider-val');
+                if (lv) lv.textContent = 'L' + actualMax;
+            }
+        }
+    }
+
     window.applyVisualFilters();
     // Riapplica la lente relazioni se attiva (dopo ogni render)
     if (window.activeLensFamily) window.applyLensFamily();
