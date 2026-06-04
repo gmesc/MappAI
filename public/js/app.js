@@ -3435,6 +3435,18 @@ ${textParts.join('\n\n')}`;
             }
         }
 
+        // Fase 5 — riclassificazione semantica (Pass 5).
+        // Riguarda i nodi L2/L3 e sposta quelli mal classificati sotto la L1 corretta.
+        // Va eseguita DOPO Phase 4 (così agisce su un grafo già consolidato).
+        if (window.isPhase5Enabled && window.isPhase5Enabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Riclassificazione (Fase 5)...');
+                await window.executePhase5Reclassification();
+            } catch (e) {
+                console.warn('[Phase5] Errore non bloccante:', e.message);
+            }
+        }
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -4116,6 +4128,248 @@ window.isBranchBoundariesEnabled = function () {
         return localStorage.getItem('mappai_branch_boundaries_enabled') === '1'
             && appState?.extractionMode === 'mindmap';
     } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 5 — Riclassificazione semantica
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo Phase 4, riguarda i nodi L2/L3 e propone spostamenti se sono finiti
+// sotto una L1 sbagliata. Differenza con Phase 4:
+//   - Phase 4 FONDE nodi (rimuove A, tiene B) e aggiunge cross-link
+//   - Phase 5 SPOSTA il parent di un nodo (cambia l'L1 di appartenenza)
+//
+// Esempio reale dai run: "Minaccia invasione" appare sotto Neutralità Statale
+// e Difesa Territoriale → Phase 5 sposta uno dei due sotto l'L1 corretta.
+//
+// Gated dal feature flag mappai_mm_phase5_enabled.
+
+window.isPhase5Enabled = function () {
+    try {
+        return localStorage.getItem('mappai_mm_phase5_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Costruisce il prompt Fase 5. Per ogni nodo non-L0/L1 mostra il PATH
+// gerarchico (es. "Svizzera > Difesa Territoriale > L2 > L3") + l'elenco
+// degli L1 esistenti con il loro "ambito" (i loro figli diretti).
+window.buildPhase5Prompt = function (nodes, links, l1NodesData) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    // parent diretto di ogni nodo (primo source nei link che lo puntano)
+    const parentOf = new Map();
+    for (const l of links) {
+        const { src, tgt } = getId(l);
+        if (!parentOf.has(tgt)) parentOf.set(tgt, src);
+    }
+    // L1 di appartenenza (risale finché non trova un L1)
+    const l1Of = (nodeId) => {
+        let cur = nodeId, hops = 0;
+        while (cur && hops < 10) {
+            const n = nodeMap.get(cur);
+            if (!n) return null;
+            if (n.level === 1) return n.id;
+            cur = parentOf.get(cur);
+            hops++;
+        }
+        return null;
+    };
+
+    // Costruisci catalogo L1 con i figli diretti per dare contesto al modello
+    const l1Catalog = l1NodesData.map(l1 => {
+        const directChildren = links
+            .filter(l => getId(l).src === l1.id)
+            .map(l => nodeMap.get(getId(l).tgt))
+            .filter(n => n && n.level === 2)
+            .map(n => `"${n.label}"`)
+            .slice(0, 8);
+        return `- ${l1.id} "${l1.label}" — contiene: ${directChildren.join(', ') || '(nessun figlio L2)'}`;
+    }).join('\n');
+
+    // Lista compatta dei nodi candidati alla riclassificazione (L2 e L3)
+    const candidates = nodes
+        .filter(n => n.level === 2 || n.level === 3)
+        .map(n => {
+            const myL1 = l1Of(n.id);
+            const l1Label = nodeMap.get(myL1)?.label || '?';
+            return `- ${n.id} (L${n.level}) "${n.label}" — attualmente sotto L1 "${l1Label}" (${myL1})`;
+        })
+        .join('\n');
+
+    return `Sei un VALIDATORE DI CLASSIFICAZIONE per Mappe Mentali su "${appState.rootNodeLabel}".
+Ti viene mostrata la struttura della mappa: gli L1 esistenti (con il loro ambito) e i nodi L2/L3 con la loro attuale appartenenza.
+Il tuo compito è IDENTIFICARE i nodi L2/L3 che sono finiti sotto la L1 SBAGLIATA e proporre uno spostamento.
+
+⚠️ REGOLA PRIMARIA — DEFAULT: NESSUNA RICLASSIFICAZIONE
+Nella maggioranza dei casi i nodi sono già nel posto giusto. Proponi uno spostamento SOLO se sei SICURO al 90%+ che il nodo appartenga più chiaramente a un'altra L1. In dubbio NON toccare.
+
+L1 ESISTENTI (e i loro ambiti tematici, dedotti dai figli L2):
+${l1Catalog}
+
+NODI CANDIDATI ALLA VALUTAZIONE (L2 e L3):
+${candidates}
+
+CRITERI DI RICLASSIFICAZIONE:
+- Un nodo va spostato SOLO se la sua appartenenza tematica all'L1 di destinazione è NETTAMENTE più appropriata di quella attuale.
+- "Minaccia invasione" appartiene a "Difesa Territoriale" più che a "Neutralità Statale" (la minaccia è il presupposto della difesa, non della neutralità).
+- "Razionamento" appartiene a "Economia di Guerra" più che a "Difesa Militare".
+- NON spostare un nodo se l'L1 attuale è "altrettanto valida" come destinazione.
+- NON spostare L1 (sono la base).
+- Massimo 8 riclassificazioni per chiamata.
+
+FORMATO OUTPUT — TASSATIVO:
+JSONL sezionato, ogni operazione su una riga. Niente markdown, niente commenti.
+
+===RECLASSIFY===
+{"node_id":"ID_DEL_NODO","from":"L1_ATTUALE","to":"L1_DESTINAZIONE","reason":"motivazione breve"}
+{"node_id":"X","from":"L1_2","to":"L1_4","reason":"appartiene tematicamente a..."}
+
+Se non trovi nodi mal classificati, restituisci una sola riga:
+===RECLASSIFY===
+(e basta — nessuna operazione)`;
+};
+
+// Esegue Phase 5. Per ogni riclassificazione valida:
+//   1. Rimuove il link parent_attuale → node
+//   2. Aggiunge il link nuovo_L1 → node
+//   3. Aggiorna il group del nodo (e propaga al sottoalbero se serve)
+window.executePhase5Reclassification = async function () {
+    const report = { applied: 0, skipped: 0, errors: [], parser: null };
+
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) {
+        console.warn('[Phase5] API key non disponibile — skip');
+        return report;
+    }
+
+    const nodes = appState.db.nodes || [];
+    const links = appState.db.links || [];
+    const l1NodesData = nodes.filter(n => n.level === 1);
+    if (l1NodesData.length < 2 || nodes.length < 8) {
+        console.log('[Phase5] Mappa troppo piccola per riclassificazione — skip');
+        return report;
+    }
+
+    const prompt = window.buildPhase5Prompt(nodes, links, l1NodesData);
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: 'Sei un validatore di classificazione. Rispondi SOLO in JSONL sezionato come richiesto, default = nessuna riclassificazione.' }] },
+        generationConfig: { temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(1500) }
+    };
+
+    let response;
+    try {
+        response = await window.fetchModelAPI(payload, apiKey);
+    } catch (e) {
+        console.warn('[Phase5] Chiamata AI fallita:', e.message);
+        report.errors.push(e.message);
+        return report;
+    }
+
+    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Riutilizzo parseJSONLResponse esteso (riconosce sezioni custom):
+    // estraggo manualmente la sezione RECLASSIFY perché non rientra in NODES/LINKS/MERGES/CROSSLINKS.
+    const reclassifyOps = [];
+    const cleaned = text.replace(/```jsonl?\s*/gi, '').replace(/```\s*/g, '').trim();
+    const sectionMatch = /===\s*RECLASSIFY\s*===\s*\n([\s\S]*?)(?:\n===|\s*$)/i.exec(cleaned);
+    if (sectionMatch) {
+        for (const line of sectionMatch[1].split('\n')) {
+            const s = line.trim();
+            if (!s || s.startsWith('//')) continue;
+            try {
+                const obj = JSON.parse(s.replace(/,\s*$/, ''));
+                if (obj && typeof obj.node_id === 'string' && typeof obj.to === 'string') {
+                    reclassifyOps.push(obj);
+                }
+            } catch (e) { /* riga rotta, skip */ }
+        }
+    }
+    report.parser = { found: reclassifyOps.length };
+
+    if (reclassifyOps.length === 0) {
+        console.log('%c[Phase5] Nessuna riclassificazione proposta — mappa già coerente', 'color:#10b981');
+        return report;
+    }
+
+    // Indice nodi e helper
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const nodeByIdNorm = new Map(nodes.map(n => [String(n.id).toUpperCase(), n.id]));
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    const resolveId = (raw) => nodeByIdNorm.get(String(raw || '').toUpperCase());
+
+    // Applica al massimo 8 riclassificazioni
+    for (const op of reclassifyOps.slice(0, 8)) {
+        try {
+            const nodeId = resolveId(op.node_id);
+            const toL1Id = resolveId(op.to);
+            const node = nodeId ? nodeById.get(nodeId) : null;
+            const toL1 = toL1Id ? nodeById.get(toL1Id) : null;
+            if (!node || !toL1) {
+                report.skipped++;
+                report.errors.push(`ID non trovato: node=${op.node_id} to=${op.to}`);
+                continue;
+            }
+            if (toL1.level !== 1) {
+                report.skipped++;
+                report.errors.push(`Destinazione non è un L1: ${toL1Id}`);
+                continue;
+            }
+            if (node.level <= 1) {
+                report.skipped++;
+                report.errors.push(`Non sposto L0/L1: ${nodeId}`);
+                continue;
+            }
+
+            // Rimuovi link parent attuale → node (solo i link gerarchici, non i cross-link)
+            const beforeCount = appState.db.links.length;
+            appState.db.links = appState.db.links.filter(l => {
+                const { src, tgt } = getId(l);
+                if (tgt !== nodeId) return true;
+                // mantieni cross-link (isCross) e link da nodi non-L1 (gerarchia profonda)
+                if (l.isCross) return true;
+                const srcNode = nodeById.get(src);
+                if (!srcNode) return true;
+                if (srcNode.level !== 1) return true;
+                // questo è il link L1_attuale → node, da rimuovere
+                return false;
+            });
+            const removed = beforeCount - appState.db.links.length;
+
+            // Aggiungi nuovo link L1_destinazione → node
+            appState.db.links.push({
+                source: toL1.id,
+                target: node.id,
+                rel: 'include',
+                _phase5: true
+            });
+
+            // Aggiorna group del nodo (gli verrà ricalcolato il colore dal cluster)
+            node.group = toL1.group;
+
+            report.applied++;
+        } catch (e) {
+            report.errors.push(e.message);
+            report.skipped++;
+        }
+    }
+
+    console.log(
+        '%c[Phase5] Riclassificazione completata',
+        'color:#10b981;font-weight:bold',
+        report
+    );
+    if (report.applied > 0) {
+        console.log('   Operazioni applicate:', reclassifyOps.slice(0, report.applied)
+            .map(o => `${o.node_id}: ${o.from} → ${o.to} (${o.reason})`));
+    }
+    return report;
 };
 
 window.validateL1Categories = async function (l1Data, rootLabel) {

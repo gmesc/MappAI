@@ -984,6 +984,43 @@
         return info;
     }
 
+    // ── Phase 5 flag (riclassificazione semantica) ─────────────────────────
+
+    function enablePhase5() {
+        localStorage.setItem('mappai_mm_phase5_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode !== 'mindmap') {
+            console.warn(`%c⚠️ Phase 5 attivata ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ PHASE 5 ATTIVA (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Dopo Phase 4, una chiamata AI proporrà spostamenti di nodi mal classificati.');
+        }
+        return true;
+    }
+
+    function disablePhase5() {
+        localStorage.removeItem('mappai_mm_phase5_enabled');
+        console.log('%c⛔ PHASE 5 DISATTIVATA', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function phase5Status() {
+        const enabled = localStorage.getItem('mappai_mm_phase5_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const active = enabled && mode === 'mindmap';
+        const info = {
+            flagSet:  enabled,
+            mode,
+            active,
+            note: !enabled ? 'Flag spento — usa .enablePhase5() per attivare'
+                : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (attivo solo in MindMap)`
+                : 'Phase 5 attiva — la prossima generazione MM riclassificherà nodi mal collocati'
+        };
+        console.log('%c── PHASE 5 STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Branch Boundaries flag (Strategia A — confini di ramo in Fase 3) ───
 
     function enableBranchBoundaries() {
@@ -1112,7 +1149,10 @@
         branchBoundariesStatus,
         enablePhase4,
         disablePhase4,
-        phase4Status
+        phase4Status,
+        enablePhase5,
+        disablePhase5,
+        phase5Status
     };
 
     console.log(
