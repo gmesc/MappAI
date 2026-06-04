@@ -120,7 +120,13 @@
         /Errore nel ramo/,
         /Parse fallito/,
         /Dedup:/, /Rimossi/,
-        /BRANCH BOUNDARIES/, /JSONL/, /PHASE/
+        /BRANCH BOUNDARIES/, /JSONL/, /PHASE/,
+        // Pattern di dettaglio per le operazioni Phase 4 / Phase 5
+        /Operazioni applicate/i,
+        /Operazione applicata/i,
+        /\bfrom['":]?\s*L\d/i,    // operazioni di spostamento Phase 5 (es. "L1_3 → L1_2")
+        /MERGES?:/i,
+        /CROSSLINKS?:/i
     ];
     const _LOG_BUFFER_CAP = 1000;
     let _logBuffer = [];
