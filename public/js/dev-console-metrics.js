@@ -126,14 +126,23 @@
     let _logBuffer = [];
     let _consoleHooked = false;
 
+    // Pattern di stringhe CSS-stile passate a console.log come argomenti separati
+    // dopo un placeholder %c. Esempi: "color:green;font-weight:bold", "color:#10b981".
+    // Identifico l'argomento come stile se INIZIA con una proprietà CSS nota → skip.
+    const _CSS_STYLE_RE = /^\s*(?:color|font-weight|font-size|font-style|background(?:-color)?|padding|margin|border|display|text-decoration)\s*:/i;
+
     function _captureLog(level, args) {
         try {
-            const str = args.map(a => {
-                if (typeof a === 'string') return a;
-                try { return JSON.stringify(a); } catch { return String(a); }
-            }).join(' ');
-            // Rimuovi codici di stile CSS (%c...) per leggibilità
-            const clean = str.replace(/%c/g, '').replace(/color:[^;'"]+[;'"]?/gi, '').replace(/font-weight:[^;'"]+[;'"]?/gi, '').trim();
+            const parts = [];
+            for (let i = 0; i < args.length; i++) {
+                const a = args[i];
+                // Salta gli argomenti che sono solo stringhe-stile CSS
+                if (typeof a === 'string' && _CSS_STYLE_RE.test(a)) continue;
+                if (typeof a === 'string') parts.push(a);
+                else { try { parts.push(JSON.stringify(a)); } catch { parts.push(String(a)); } }
+            }
+            // Rimuovi i placeholder %c dal testo finale
+            const clean = parts.join(' ').replace(/%c/g, '').replace(/\s+/g, ' ').trim();
             if (_LOG_PATTERNS.some(p => p.test(clean))) {
                 _logBuffer.push({ ts: Date.now(), level, content: clean.slice(0, 1500) });
                 if (_logBuffer.length > _LOG_BUFFER_CAP) _logBuffer.shift();
