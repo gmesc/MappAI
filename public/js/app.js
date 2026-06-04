@@ -276,13 +276,38 @@ const KG_REL_ENUM = [
 //   label    : nome leggibile nel menu
 //   icon     : icona Lucide
 const EDGE_FAMILIES = {
-    trasformazione: { color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Trasformazione', icon: 'zap' },
-    dipendenza: { color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza', icon: 'link-2' },
-    sequenza: { color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza', icon: 'arrow-right' },
-    appartenenza: { color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Appartenenza', icon: 'folder-tree' },
-    regolazione: { color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Regolazione', icon: 'sliders-horizontal' },
-    opposizione: { color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Opposizione', icon: 'shield-x' },
-    altro: { color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro', icon: 'circle-help' }
+    trasformazione: {
+        color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Causa / Effetto', icon: 'zap',
+        keywords: ['causa', 'genera', 'produce', 'porta a', 'trasforma', 'provoca', 'determina']
+    },
+    dipendenza: {
+        color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza / Prerequisito', icon: 'link-2',
+        keywords: ['richiede', 'dipende da', 'utilizza', 'permette', 'è necessario per', 'è condizione di']
+    },
+    sequenza: {
+        color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza / Processo', icon: 'arrow-right',
+        keywords: ['precede', 'segue', 'deriva da', 'porta a', 'avvia', 'è seguito da']
+    },
+    appartenenza: {
+        color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Gerarchia / Parte di', icon: 'folder-tree',
+        keywords: ['fa parte di', 'comprende', 'include', 'contiene', 'è esempio di', 'appartiene a']
+    },
+    regolazione: {
+        color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Controllo / Regola', icon: 'sliders-horizontal',
+        keywords: ['regola', 'governa', 'controlla', 'limita', 'guida', 'sostiene', 'avviene in']
+    },
+    opposizione: {
+        color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Contrasto / Opposto', icon: 'shield-x',
+        keywords: ['si oppone a', 'contrasta', 'esclude', 'differisce da', 'nega', 'ostacola']
+    },
+    analogia: {
+        color: 'hsl(158,60%,40%)', colorBtn: 'hsl(158,60%,30%)', label: 'Analogia / Similitudine', icon: 'git-compare',
+        keywords: ['è simile a', 'come', 'corrisponde a', 'assomiglia a', 'paragonabile a', 'richiama']
+    },
+    altro: {
+        color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro / Libero', icon: 'circle-help',
+        keywords: ['collega', 'riferisce a', 'associato a', 'vedi anche', 'è correlato a']
+    }
 };
 
 // Mappa verbo → famiglia (normalizzato lowercase)
@@ -298,7 +323,9 @@ const REL_FAMILY_MAP = {
     'rappresenta': 'appartenenza', 'coinvolge': 'appartenenza',
     'è regolato da': 'regolazione', 'regola': 'regolazione', 'governa': 'regolazione',
     'guida': 'regolazione', 'sostiene': 'regolazione', 'avviene in': 'regolazione',
-    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione'
+    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione',
+    'è simile a': 'analogia', 'come': 'analogia', 'corrisponde a': 'analogia',
+    'assomiglia a': 'analogia', 'paragonabile a': 'analogia', 'richiama': 'analogia'
 };
 
 // Restituisce la famiglia per un rel (normalizzato, fallback 'altro')
@@ -559,6 +586,7 @@ const FAMILY_DEFAULT_REL = {
     appartenenza: 'fa parte di',
     regolazione: 'regola',
     opposizione: 'si oppone a',
+    analogia: 'è simile a',
     altro: ''
 };
 
@@ -568,6 +596,8 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const question = document.getElementById('link-family-question');
     const grid = document.getElementById('link-family-grid');
     const input = document.getElementById('link-family-input');
+    const tagsDiv = document.getElementById('link-family-tags');
+    const chipsDiv = document.getElementById('link-family-chips');
     const bidirToggle = document.getElementById('link-bidir-toggle');
     const btnCancel = document.getElementById('link-family-cancel');
     const btnOk = document.getElementById('link-family-ok');
@@ -575,9 +605,13 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     question.innerHTML = `Che relazione c'è tra <strong>${srcLabel}</strong> e <strong>${tgtLabel}</strong>?`;
     input.value = '';
     grid.innerHTML = '';
+    chipsDiv.innerHTML = '';
+    tagsDiv.classList.add('hidden');
+    tagsDiv.classList.remove('flex');
 
     // Reset e gestione toggle bidirezionale
     let isBidir = false;
+    let selectedFamKey = null;
     const updateBidirStyle = () => {
         if (isBidir) {
             bidirToggle.classList.add('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
@@ -593,14 +627,48 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'flex flex-row items-center gap-3 px-4 py-3 w-full rounded-xl border-2 border-transparent text-white text-sm font-semibold transition-all cursor-pointer hover:brightness-110 hover:shadow-md';
+        btn.className = 'flex flex-row items-center gap-3 px-4 py-2.5 w-full rounded-xl border-2 border-transparent text-white transition-all cursor-pointer hover:brightness-110 hover:shadow-md';
         btn.style.backgroundColor = fam.color;
-        btn.innerHTML = `<i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i><span>${fam.label}</span>`;
+        const kw = (fam.keywords || []).slice(0, 3).join(' · ');
+        btn.innerHTML = `
+            <i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i>
+            <div class="flex flex-col items-start min-w-0">
+                <span class="text-sm font-semibold leading-tight">${fam.label}</span>
+                ${kw ? `<span class="text-[11px] font-normal opacity-75 leading-tight">${kw}</span>` : ''}
+            </div>`;
         btn.onclick = () => {
-            grid.querySelectorAll('button').forEach(b => b.style.outline = '');
+            // Step 1 → Step 2: evidenzia famiglia, attenua le altre
+            selectedFamKey = key;
+            grid.querySelectorAll('button').forEach(b => {
+                b.style.outline = '';
+                b.style.opacity = '0.45';
+            });
             btn.style.outline = '3px solid #1e293b';
+            btn.style.opacity = '1';
+
+            // Pre-compila input con il verbo default
             const def = FAMILY_DEFAULT_REL[key] || '';
-            if (def) input.value = def;
+            input.value = def;
+
+            // Costruisce i chip delle keyword
+            chipsDiv.innerHTML = '';
+            (fam.keywords || []).forEach(kw => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition-all cursor-pointer hover:brightness-90';
+                chip.style.cssText = `border-color:${fam.color}; color:${fam.colorBtn}; background:${fam.color}22;`;
+                chip.textContent = kw;
+                chip.onclick = () => {
+                    input.value = kw;
+                    chipsDiv.querySelectorAll('button').forEach(c => { c.style.background = fam.color + '22'; });
+                    chip.style.background = fam.color + '55';
+                    input.focus();
+                };
+                chipsDiv.appendChild(chip);
+            });
+
+            tagsDiv.classList.remove('hidden');
+            tagsDiv.classList.add('flex');
             input.focus();
         };
         grid.appendChild(btn);
@@ -622,7 +690,9 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     };
 
     const confirm = () => {
-        const rel = input.value.trim() || 'collegato_a';
+        const rel = input.value.trim()
+            || (selectedFamKey ? FAMILY_DEFAULT_REL[selectedFamKey] : '')
+            || 'collegato_a';
         cleanup();
         onConfirm(rel, isBidir);
     };
@@ -10222,8 +10292,9 @@ window.ctxAction = function (action) {
         window.startRelinkMode(data);
     }
     else if (action === 'rename_link') {
-        window.showPrompt("Nuova etichetta relazione:", data.rel, (newRel) => {
-            if (newRel) { data.rel = newRel; renderGraph(); }
+        window.showPrompt("Etichetta relazione (lascia vuoto per nascondere la label):", data.rel || '', (newRel) => {
+            data.rel = newRel; // stringa vuota = link senza label visibile
+            renderGraph();
         });
     }
     else if (action === 'delete_link') {
