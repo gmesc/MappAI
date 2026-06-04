@@ -1362,12 +1362,21 @@ const MODEL_KB = {
     'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
-    // ── Infomaniak (Limit to Google/Gemma) ──
+    // ── Infomaniak ──
+    // Mistral Small — prefix matches mistral-small-4-119b-2603, mistralai/mistral-small-*, ecc.
+    'mistralai/mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
+    'mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
+    'ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
+    'mistralai/ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
+    'qwen': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 200K ctx · reasoning inadatto per MM/KG' },
+    'kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
+    'moonshotai/kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
     'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
     'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa google/gemma-4 (versione specifica)' },
     'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
     'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa gemma-4 (versione specifica)' },
     'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
+    'swiss-ai/apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -1489,13 +1498,9 @@ function renderModelSelect(models, selectEl, currentValue) {
     if (currentValue && [...selectEl.options].some(o => o.value === currentValue)) {
         selectEl.value = currentValue;
     } else if (selectEl.options.length > 0) {
-        // If current value is invalid, pick the first available
+        // Saved model not found in list (e.g. model removed from API): pick first available
+        // but DON'T overwrite localStorage — the saved model might reappear next fetch
         selectEl.value = selectEl.options[0].value;
-        if (window.appState && window.appState.aiProvider === 'infomaniak') {
-            localStorage.setItem('infomaniak_selected_model', selectEl.value);
-        } else {
-            localStorage.setItem('gemini_selected_model', selectEl.value);
-        }
     }
     if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
 }
