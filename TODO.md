@@ -1,5 +1,5 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 4 giugno 2026 (sessione mattino/pomeriggio — MM quality pipeline).
+> Priorità in ordine decrescente. Aggiornato: 5 giugno 2026 (cherry-pick merge/relink su dev).
 
 ---
 
@@ -192,6 +192,23 @@ MappAIMetrics.diff(MappAIMetrics.load('X'), MappAIMetrics.load('Y'))
   - `executeRelink`: se A diventa L1 (genitore = root L0) assegna un intero libero;
     altrimenti eredita `newParent.group`. Poi `_recalcGroups` propaga all'intero sottoalbero.
   - Effetto: due L1 non possono più condividere lo stesso group → color picker isolato.
+
+---
+
+## ✅ COMPLETATO — Sessione 5 giugno 2026 (cherry-pick dev)
+
+### Porting merge/relink su branch `dev`
+- ✅ `mappai-node-merge.js` copiato su `dev` (Fondi con... + Cambia Link + helper)
+- ✅ `dev-console-metrics.js` copiato su `dev` (MappAIMetrics toolkit)
+- ✅ `index.html` su `dev`: modale `#link-family-modal` + tag script per entrambi i file
+- ✅ `app.js` su `dev`:
+  - `EDGE_FAMILIES` aggiornato (aggiunta `keywords` per chip-selector + famiglia `analogia`)
+  - `FAMILY_DEFAULT_REL` costante aggiunta
+  - `window.showLinkFamilyPrompt()` portata integralmente
+  - Flusso click nodo: `showPrompt` → `showLinkFamilyPrompt` + flag `bidirectional`
+  - Dispatch `mergeState`/`relinkState` aggiunto prima del blocco `linkingState`
+  - Voci menu contestuale "Fondi con..." (ambra) e "Cambia Link" (azzurro, solo MM)
+  - Handler `ctxAction('merge')` e `ctxAction('relink')` aggiunti
 
 ---
 

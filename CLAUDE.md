@@ -466,7 +466,16 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### Completato in questa sessione (4 giugno 2026 — MM quality pipeline)
+### Completato in questa sessione (5 giugno 2026 — cherry-pick merge/relink su dev)
+- ✅ Portato su branch `dev` (cherry-pick manuale da `feat/structural-suggestions`):
+  - `mappai-node-merge.js` (nuovo file — Fondi con... + Cambia Link)
+  - `dev-console-metrics.js` (nuovo file — MappAIMetrics toolkit)
+  - `index.html`: modale `#link-family-modal` + tag script per entrambi i file
+  - `app.js`: `EDGE_FAMILIES` aggiornato (keywords + famiglia `analogia`),
+    `FAMILY_DEFAULT_REL`, `showLinkFamilyPrompt`, flusso link aggiornato,
+    voci menu contestuale "Fondi con..." e "Cambia Link", dispatch `ctxAction`
+
+### Completato nella sessione precedente (4 giugno 2026 — MM quality pipeline)
 Vedi TODO.md §COMPLETATO per il dettaglio completo. Riassunto:
 - ✅ `dev-console-metrics.js` — toolkit metriche auto-caricato, `MappAIMetrics.report()`
 - ✅ Strategia 0: `MappAITruncationTracker` — rilevamento troncamenti in tempo reale
@@ -515,7 +524,7 @@ MappAIMetrics.report()                 // Markdown in clipboard
 |--------|-------|
 | `main` | baseline stabile — default branch |
 | `global` | CSS/HTML refactoring (style.css, index.html) |
-| `dev` | JS/AI logic (app.js, prompts) |
+| `dev` | JS/AI logic (app.js, prompts) — include merge/relink (5/6/26) |
 | `feat/structural-suggestions` | branch corrente WIP |
 | `feat/kg-hub-extraction` | feature KG link bidirezionali |
 | `MappAI_iPad` / `MappAI_iPad_studente` | iPadOS — in standby |
