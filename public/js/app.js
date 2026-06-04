@@ -4215,7 +4215,8 @@ window.isJSONLEnabled = function () {
 window.isL1ValidationEnabled = function () {
     try {
         return localStorage.getItem('mappai_l1_validation_enabled') === '1'
-            && appState?.extractionMode === 'mindmap';
+            && appState?.extractionMode === 'mindmap'
+            && appState?.aiProvider === 'infomaniak';
     } catch (e) { return false; }
 };
 
@@ -4382,7 +4383,8 @@ window.executeSemanticDedup = async function (options = {}) {
 window.isPhase5Enabled = function () {
     try {
         return localStorage.getItem('mappai_mm_phase5_enabled') === '1'
-            && appState?.extractionMode === 'mindmap';
+            && appState?.extractionMode === 'mindmap'
+            && appState?.aiProvider === 'infomaniak';
     } catch (e) { return false; }
 };
 
@@ -4755,7 +4757,8 @@ Se la lista era già perfetta, restituiscila identica. Questa è la risposta COR
 window.isPhase4Enabled = function () {
     try {
         return localStorage.getItem('mappai_mm_phase4_enabled') === '1'
-            && appState?.extractionMode === 'mindmap';
+            && appState?.extractionMode === 'mindmap'
+            && appState?.aiProvider === 'infomaniak';
     } catch (e) { return false; }
 };
 
