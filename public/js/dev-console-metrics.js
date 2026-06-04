@@ -1301,6 +1301,31 @@
         return info;
     }
 
+    // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
+
+    function enableSemanticDedup() {
+        localStorage.setItem('mappai_semantic_dedup_enabled', '1');
+        console.log('%c✅ SEMANTIC DEDUP ATTIVO', 'color:green;font-weight:bold');
+        console.log('   Richiede provider=infomaniak e mode=mindmap. Esegui dopo la generazione con MappAIMetrics.runSemanticDedup()');
+        return true;
+    }
+
+    function disableSemanticDedup() {
+        localStorage.removeItem('mappai_semantic_dedup_enabled');
+        console.log('%c⛔ SEMANTIC DEDUP DISATTIVATO', 'color:#6366f1');
+        return false;
+    }
+
+    async function runSemanticDedup(threshold = 0.85) {
+        if (!window.executeSemanticDedup) {
+            console.error('executeSemanticDedup non disponibile (restart app richiesto)');
+            return null;
+        }
+        const r = await window.executeSemanticDedup({ threshold });
+        if (typeof window.renderGraph === 'function') window.renderGraph();
+        return r;
+    }
+
     // ── Export ────────────────────────────────────────────────────────────────
 
     window.MappAIMetrics = {
@@ -1344,7 +1369,10 @@
         phase4Status,
         enablePhase5,
         disablePhase5,
-        phase5Status
+        phase5Status,
+        enableSemanticDedup,
+        disableSemanticDedup,
+        runSemanticDedup
     };
 
     console.log(

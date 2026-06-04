@@ -231,6 +231,36 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
     }
 });
 
+// IPC handler per embeddings Infomaniak (default: bge-multilingual-gemma2).
+// Endpoint: /openai/v1/embeddings (OpenAI-compatible, no streaming).
+ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, productId, model, texts }) => {
+    const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/embeddings`;
+    const payload = {
+        model: model || 'bge-multilingual-gemma2',
+        input: Array.isArray(texts) ? texts : [String(texts || '')]
+    };
+    try {
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        });
+        const data = response.data || {};
+        const embeddings = (data.data || []).map(item => item.embedding);
+        return {
+            embeddings,
+            model: data.model || payload.model,
+            usage: data.usage || null
+        };
+    } catch (error) {
+        const msg = error.response?.data?.error?.message || error.message;
+        const code = error.response?.status || 'N/A';
+        throw new Error(`Infomaniak Embeddings Error (${code}): ${msg}`);
+    }
+});
+
 // IPC handler for listing available Infomaniak models
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {

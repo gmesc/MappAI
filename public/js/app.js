@@ -4238,6 +4238,134 @@ window.isBranchBoundariesEnabled = function () {
 };
 
 // ──────────────────────────────────────────────────────────────────────────
+// EMBEDDING-DRIVEN SEMANTIC DEDUP (deterministico, no LLM)
+// ──────────────────────────────────────────────────────────────────────────
+// Usa bge-multilingual-gemma2 via Infomaniak. Cosine similarity > threshold
+// → merge automatico via window.executeMerge.
+window.isSemanticDedupEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_semantic_dedup_enabled') === '1'
+            && appState?.aiProvider === 'infomaniak'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+window.fetchEmbeddings = async function (texts, model) {
+    if (!Array.isArray(texts) || texts.length === 0) return [];
+    if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
+        throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
+    }
+    const productId = appState.infomaniakProductId
+        || document.getElementById('infomaniak-product-id')?.value
+        || localStorage.getItem('infomaniak_product_id');
+    if (!productId) throw new Error('Infomaniak product ID mancante');
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) throw new Error('API key Infomaniak mancante');
+    const result = await window.electronAPI.generateEmbeddingsInfomaniak({
+        apiKey, productId,
+        model: model || 'bge-multilingual-gemma2',
+        texts
+    });
+    return result?.embeddings || [];
+};
+
+window.cosineSimilarity = function (a, b) {
+    if (!a || !b || a.length !== b.length) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        na  += a[i] * a[i];
+        nb  += b[i] * b[i];
+    }
+    const denom = Math.sqrt(na) * Math.sqrt(nb);
+    return denom > 0 ? dot / denom : 0;
+};
+
+window.executeSemanticDedup = async function (options = {}) {
+    const { threshold = 0.85, maxMerges = 15 } = options;
+    const report = { embeddingsRequested: 0, candidatesFound: 0, applied: 0, skipped: 0, errors: [] };
+
+    const nodes = (appState.db.nodes || []).filter(n => n.level >= 2);
+    if (nodes.length < 4) {
+        console.log('[SemanticDedup] Mappa troppo piccola — skip');
+        return report;
+    }
+
+    const texts = nodes.map(n => {
+        const desc = (n.content || n.desc || '').replace(/\s+/g, ' ').slice(0, 100);
+        return `${n.label}. ${desc}`.trim();
+    });
+    report.embeddingsRequested = texts.length;
+
+    let embs;
+    try {
+        embs = await window.fetchEmbeddings(texts);
+    } catch (e) {
+        console.warn('[SemanticDedup] Fetch embeddings fallito:', e.message);
+        report.errors.push(e.message);
+        return report;
+    }
+    if (embs.length !== nodes.length) {
+        console.warn(`[SemanticDedup] Mismatch: ${embs.length} embeddings vs ${nodes.length} nodi`);
+        return report;
+    }
+
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    const parentOf = new Map();
+    appState.db.links.forEach(l => {
+        const { src, tgt } = getId(l);
+        if (!parentOf.has(tgt)) parentOf.set(tgt, src);
+    });
+    const nodeMapById = new Map(appState.db.nodes.map(n => [n.id, n]));
+    const l1Of = (nodeId) => {
+        let cur = nodeId, hops = 0;
+        while (cur && hops < 10) {
+            const n = nodeMapById.get(cur);
+            if (!n) return null;
+            if (n.level === 1) return n.id;
+            cur = parentOf.get(cur);
+            hops++;
+        }
+        return null;
+    };
+
+    const candidates = [];
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const sim = window.cosineSimilarity(embs[i], embs[j]);
+            if (sim < threshold) continue;
+            const l1i = l1Of(nodes[i].id), l1j = l1Of(nodes[j].id);
+            if (l1i && l1j && l1i === l1j) continue;
+            candidates.push({ a: nodes[i], b: nodes[j], sim, l1a: l1i, l1b: l1j });
+        }
+    }
+    candidates.sort((x, y) => y.sim - x.sim);
+    report.candidatesFound = candidates.length;
+
+    const consumed = new Set();
+    for (const c of candidates.slice(0, maxMerges)) {
+        if (consumed.has(c.a.id) || consumed.has(c.b.id)) { report.skipped++; continue; }
+        let keep = c.a, drop = c.b;
+        if (c.b.level < c.a.level) { keep = c.b; drop = c.a; }
+        else if (c.b.level === c.a.level && c.b.label.length > c.a.label.length) { keep = c.b; drop = c.a; }
+        try {
+            window.executeMerge(drop, keep);
+            consumed.add(drop.id);
+            report.applied++;
+            console.log(`%c[SemanticDedup] merge: "${drop.label}" → "${keep.label}" (sim=${c.sim.toFixed(3)})`, 'color:#10b981');
+        } catch (e) {
+            report.errors.push(e.message);
+            report.skipped++;
+        }
+    }
+    console.log('%c[SemanticDedup] Completato', 'color:#10b981;font-weight:bold', report);
+    return report;
+};
+
+// ──────────────────────────────────────────────────────────────────────────
 // FASE 5 — Riclassificazione semantica
 // ──────────────────────────────────────────────────────────────────────────
 //
