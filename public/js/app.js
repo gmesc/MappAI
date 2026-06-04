@@ -2643,7 +2643,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 level: 1,
                 group: idx + 1,
                 chunks: [],
-                studyStatus: 'none'
+                studyStatus: 'none',
+                // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
+                // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
+                // duplicati cross-ramo e classificazioni errate.
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -3079,7 +3083,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 level: 1,
                 group: idx + 1,
                 chunks: [],
-                studyStatus: 'none'
+                studyStatus: 'none',
+                // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
+                // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
+                // duplicati cross-ramo e classificazioni errate.
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -3151,14 +3159,22 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return '';
             const siblings = l1NodesData.filter(n => n.id !== currentBranchId);
             if (siblings.length === 0) return '';
-            const lines = siblings.map(s => `- "${s.label}" (rel: ${s.rel || 'include'})`).join('\n');
+            // Includi l'ambito semantico se disponibile (popolato dalla Fase 1 con il nuovo campo)
+            const lines = siblings.map(s => {
+                const ambitoPart = s.ambito ? ` — ambito: ${s.ambito}` : '';
+                return `- "${s.label}" (rel: ${s.rel || 'include'})${ambitoPart}`;
+            }).join('\n');
             return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
 ${lines}
 
 REGOLA TASSATIVA SUI CONFINI DI RAMO:
-Stai sviluppando SOLO il ramo "${currentBranchId}". Se durante la generazione ti accorgi che un concetto appartiene chiaramente a uno degli altri rami sopra elencati, NON crearlo come tuo sotto-nodo. Lascia che venga sviluppato dal ramo competente. Esempi di errori da evitare:
-- Se stai sviluppando "Difesa Militare" e ti vengono in mente concetti come "Razionamento" o "Piano Wahlen", quelli appartengono a "Economia di Guerra": NON crearli qui.
-- Se stai sviluppando "Politica Migratoria" e ti vengono in mente "Dichiarazione di Neutralità", appartiene a "Neutralità Statale": NON crearlo qui.
+Stai sviluppando SOLO il ramo "${currentBranchId}". Se un concetto rientra nell'AMBITO di un altro ramo qui sopra, NON crearlo come tuo sotto-nodo. Lascia che venga sviluppato dal ramo competente.
+
+Esempi di errori GRAVI da evitare:
+- Se stai sviluppando "Neutralità Statale" e ti vengono in mente "Oro Nazista" o "Commercio Germania", quelli rientrano in un ramo dedicato al commercio/oro: NON crearli qui.
+- Se stai sviluppando "Difesa Militare" e ti vengono in mente "Razionamento" o "Piano Wahlen", quelli appartengono al ramo economico: NON crearli qui.
+- Se un concetto contiene una PAROLA-CHIAVE che compare nell'AMBITO di un altro ramo (es. "oro" → ramo "Rapporto Oro Nazista"), quasi sempre appartiene a quel ramo.
+
 Quando un concetto è davvero al confine tra due rami, scegli quello che lo descrive più SPECIFICAMENTE per dominio (non per associazione superficiale).`;
         };
 
@@ -4249,7 +4265,7 @@ window.buildPhase5Prompt = function (nodes, links, l1NodesData) {
         return null;
     };
 
-    // Costruisci catalogo L1 con i figli diretti per dare contesto al modello
+    // Costruisci catalogo L1 con AMBITO semantico (se disponibile) + figli diretti
     const l1Catalog = l1NodesData.map(l1 => {
         const directChildren = links
             .filter(l => getId(l).src === l1.id)
@@ -4257,7 +4273,8 @@ window.buildPhase5Prompt = function (nodes, links, l1NodesData) {
             .filter(n => n && n.level === 2)
             .map(n => `"${n.label}"`)
             .slice(0, 8);
-        return `- ${l1.id} "${l1.label}" — contiene: ${directChildren.join(', ') || '(nessun figlio L2)'}`;
+        const ambitoPart = l1.ambito ? `\n    ambito: ${l1.ambito}` : '';
+        return `- ${l1.id} "${l1.label}"${ambitoPart}\n    contiene: ${directChildren.join(', ') || '(nessun figlio L2)'}`;
     }).join('\n');
 
     // Lista compatta dei nodi candidati alla riclassificazione (L2 e L3)
@@ -4597,6 +4614,16 @@ window.isPhase4Enabled = function () {
 // per minimizzare i token: il modello deve ragionare sulla struttura, non
 // rileggere tutto il contenuto.
 window.buildPhase4Prompt = function (nodes) {
+    // Catalogo L1 con ambiti semantici (se disponibili dalla Fase 1)
+    const l1List = nodes.filter(n => n.level === 1);
+    const l1Catalog = l1List.length
+        ? '\nMACRO-AREE L1 DELLA MAPPA (con i loro ambiti tematici):\n' +
+          l1List.map(l1 => {
+              const ambitoPart = l1.ambito ? ` — ambito: ${l1.ambito}` : '';
+              return `- ${l1.id} "${l1.label}"${ambitoPart}`;
+          }).join('\n') + '\n'
+        : '';
+
     const compact = nodes
         .filter(n => n.level !== 0) // escludi root
         .map(n => {
@@ -4609,10 +4636,27 @@ window.buildPhase4Prompt = function (nodes) {
 Ricevi l'elenco di tutti i nodi della mappa (generati in fasi precedenti ramo per ramo).
 Devi produrre DUE risultati che migliorano la coerenza della mappa:
 
-1. MERGES — Identifica i nodi che esprimono lo STESSO concetto con etichette diverse.
-   Esempi reali da sessioni precedenti: "Politica Asilo" / "Politiche di Asilo" / "Politica dei Profughi"
-   sono lo stesso concetto e vanno fusi. Per ogni coppia indica il nodo CANONICO da tenere
-   (preferisci quello con livello più alto, etichetta più chiara) e quello da rimuovere.
+1. MERGES — CERCA ATTIVAMENTE DUPLICATI SEMANTICI CROSS-RAMO (priorità alta)
+   I rami sono stati generati in isolamento: spesso lo stesso concetto compare in 2-3 rami
+   con label leggermente diversi. Devi trovarli e fonderli.
+
+   ESEMPI CONCRETI di duplicati da fondere SEMPRE:
+   • "Oro Nazista" + "Oro controverso nazista" + "Oro tedesco" + "Oro saccheggiato" → STESSO concetto
+   • "Politica Asilo" + "Politiche di Asilo" + "Politica dei Profughi" + "Restrizioni asilo" → fondere
+   • "Dichiarazione Neutralità" + "Dichiarazione 1939" + "Neutralità Svizzera" (a livello L2/L3) → fondere
+   • "Misure Difensive" + "Misure militari" + "Difesa militare" + "Difesa Frontiere" → fondere
+   • "Minaccia Invasione" + "Minaccia tedesca" + "Pericolo Nazi" → fondere
+   • "Commercio armi" + "Industria Armiera" + "Esportazioni belliche" → fondere
+
+   REGOLA D'ORO: se due label condividono ≥1 parola-chiave centrale (oro, neutralità, difesa,
+   profughi, commercio, asilo) E sono in rami diversi E descrivono lo stesso fenomeno,
+   FONDILI. Non essere timido: 5-10 merge per mappa sono normali, non eccessivi.
+
+   Per ogni merge indica:
+   - "keep": ID del nodo CANONICO (preferisci quello con livello più alto se possibile,
+     altrimenti l'etichetta più specifica e chiara)
+   - "drop": ID del nodo da rimuovere
+   - "reason": breve motivazione (es. "duplicato cross-ramo", "sinonimi")
 
 2. CROSSLINKS — Aggiungi collegamenti TRA RAMI DIVERSI per esplicitare relazioni di:
    causa, prerequisito, conseguenza, contrasto, esempio-di. Solo tra nodi GIÀ esistenti
@@ -4623,21 +4667,23 @@ FORMATO DI OUTPUT — TASSATIVO ⚠️
 Restituisci DUE sezioni JSONL, una riga JSON per oggetto, niente altro:
 
 ===MERGES===
-{"keep":"ID_CANONICO","drop":"ID_DA_RIMUOVERE","reason":"sinonimi/plurale/parafrasi"}
-{"keep":"ID_X","drop":"ID_Y","reason":"..."}
+{"keep":"ID_CANONICO","drop":"ID_DA_RIMUOVERE","reason":"duplicato cross-ramo"}
+{"keep":"ID_X","drop":"ID_Y","reason":"sinonimi"}
 ===CROSSLINKS===
 {"source":"ID_A","target":"ID_B","rel":"causa"}
 {"source":"ID_C","target":"ID_D","rel":"prerequisito"}
 
 REGOLE:
 - Usa SOLO ID presenti nell'elenco sotto. Mai inventare nuovi ID.
-- Conservativo sui MERGES: in dubbio, NON fondere. Massimo 15 merge per mappa.
+- Massimo 20 merge per mappa (5-10 è normale, di più rischia overfit).
 - Massimo 20 nuovi cross-link, scegli i più significativi pedagogicamente.
 - Nessun commento, nessun markdown, nessun testo prima/dopo le sezioni.
 - "rel" deve essere un verbo italiano breve: causa, richiede, precede, genera,
   si oppone a, è esempio di, dipende da, regola, finanzia, influenza.
 
-ELENCO NODI DELLA MAPPA:
+${l1Catalog}
+ELENCO NODI DELLA MAPPA (cerca le parole-chiave ricorrenti per identificare duplicati,
+e confronta i label con gli AMBITI degli L1 sopra per individuare nodi mal classificati):
 ${compact}`;
 };
 
