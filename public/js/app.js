@@ -3072,6 +3072,26 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '') : id;
 
+        // Strategia A — catalogo dei rami fratelli, da iniettare in ogni prompt Fase 3.
+        // Quando si espande il ramo X, mostra i label degli ALTRI L1 + il rel di ognuno.
+        // Il modello sa quali aree NON sono di sua competenza → evita di creare L2 che
+        // appartengono ad altri rami (problema undeveloped_branch).
+        // Gated dal feature flag mappai_branch_boundaries_enabled (default ON se non MM-specific issue).
+        const buildSiblingL1Catalog = (currentBranchId) => {
+            if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return '';
+            const siblings = l1NodesData.filter(n => n.id !== currentBranchId);
+            if (siblings.length === 0) return '';
+            const lines = siblings.map(s => `- "${s.label}" (rel: ${s.rel || 'include'})`).join('\n');
+            return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
+${lines}
+
+REGOLA TASSATIVA SUI CONFINI DI RAMO:
+Stai sviluppando SOLO il ramo "${currentBranchId}". Se durante la generazione ti accorgi che un concetto appartiene chiaramente a uno degli altri rami sopra elencati, NON crearlo come tuo sotto-nodo. Lascia che venga sviluppato dal ramo competente. Esempi di errori da evitare:
+- Se stai sviluppando "Difesa Militare" e ti vengono in mente concetti come "Razionamento" o "Piano Wahlen", quelli appartengono a "Economia di Guerra": NON crearli qui.
+- Se stai sviluppando "Politica Migratoria" e ti vengono in mente "Dichiarazione di Neutralità", appartiene a "Neutralità Statale": NON crearlo qui.
+Quando un concetto è davvero al confine tra due rami, scegli quello che lo descrive più SPECIFICAMENTE per dominio (non per associazione superficiale).`;
+        };
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
         const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
@@ -3090,6 +3110,9 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             // Altrimenti: prompt JSON monolitico originale + salvageTruncatedJSON.
             const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled();
 
+            // Strategia A — calcola il catalogo dei rami fratelli per questo branch
+            const siblingCatalog = buildSiblingL1Catalog(branch.id);
+
             const promptBranch = useJSONL
                 ? window.buildBranchPromptJSONL(branch, {
                     rootNodeLabel: appState.rootNodeLabel,
@@ -3097,7 +3120,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                     userProfileStr,
                     focusInjection,
                     textParts,
-                    fileParts
+                    fileParts,
+                    siblingCatalog
                 })
                 : `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
 Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
@@ -3125,7 +3149,8 @@ Formato richiesto:
 }
 
 ${userProfileStr}
-${focusInjection}
+${focusInjection}${siblingCatalog}
+
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
@@ -3982,7 +4007,8 @@ window.parseJSONLResponse = function (text) {
 // desc, level, chunks) ma cambia il formato di output per resistere al
 // troncamento. Usato in extractMindMapMultiPass quando isJSONLEnabled().
 window.buildBranchPromptJSONL = function (branch, opts) {
-    const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts } = opts;
+    const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts, siblingCatalog } = opts;
+    const sc = siblingCatalog || '';
     return `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
 Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
 
@@ -4018,7 +4044,8 @@ REGOLE TASSATIVE SUL FORMATO:
 - Ogni riga deve INIZIARE con "{" e FINIRE con "}" — niente eccezioni
 
 ${userProfileStr}
-${focusInjection}
+${focusInjection}${sc}
+
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 };
@@ -4069,6 +4096,24 @@ window.isJSONLEnabled = function () {
 window.isL1ValidationEnabled = function () {
     try {
         return localStorage.getItem('mappai_l1_validation_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// STRATEGIA A — Confini di ramo (catalogo L1 fratelli nei prompt Fase 3)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Inietta nel prompt di espansione ogni ramo la lista dei rami fratelli.
+// Il modello sa quali concetti NON sono di sua competenza → riduce i
+// duplicati cross-ramo (undeveloped_branch) e migliora la classificazione
+// L2/L3 nelle macro-aree corrette.
+//
+// Gated dal feature flag mappai_branch_boundaries_enabled.
+
+window.isBranchBoundariesEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_branch_boundaries_enabled') === '1'
             && appState?.extractionMode === 'mindmap';
     } catch (e) { return false; }
 };

@@ -984,6 +984,43 @@
         return info;
     }
 
+    // ── Branch Boundaries flag (Strategia A — confini di ramo in Fase 3) ───
+
+    function enableBranchBoundaries() {
+        localStorage.setItem('mappai_branch_boundaries_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode !== 'mindmap') {
+            console.warn(`%c⚠️ Branch Boundaries attivati ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ BRANCH BOUNDARIES ATTIVI (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Ogni ramo Fase 3 riceverà nel prompt il catalogo degli altri L1.');
+        }
+        return true;
+    }
+
+    function disableBranchBoundaries() {
+        localStorage.removeItem('mappai_branch_boundaries_enabled');
+        console.log('%c⛔ BRANCH BOUNDARIES DISATTIVATI', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function branchBoundariesStatus() {
+        const enabled = localStorage.getItem('mappai_branch_boundaries_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const active = enabled && mode === 'mindmap';
+        const info = {
+            flagSet:  enabled,
+            mode,
+            active,
+            note: !enabled ? 'Flag spento — usa .enableBranchBoundaries() per attivare'
+                : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (attivo solo in MindMap)`
+                : 'Confini di ramo attivi — la prossima Fase 3 vedrà gli altri L1 nei prompt'
+        };
+        console.log('%c── BRANCH BOUNDARIES STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Phase 4 feature flag (Strategia B — consolidamento + cross-link) ────
 
     function enablePhase4() {
@@ -1070,6 +1107,9 @@
         enableL1Validation,
         disableL1Validation,
         l1ValidationStatus,
+        enableBranchBoundaries,
+        disableBranchBoundaries,
+        branchBoundariesStatus,
         enablePhase4,
         disablePhase4,
         phase4Status
