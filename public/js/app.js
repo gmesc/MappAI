@@ -4082,36 +4082,44 @@ window.validateL1Categories = async function (l1Data, rootLabel) {
         .map((c, i) => `${i + 1}. "${c.label}" (rel: ${c.rel || 'include'})`)
         .join('\n');
 
-    const prompt = `Sei un consulente di organizzazione concettuale. Riguarda queste macro-categorie generate per una Mappa Mentale su "${rootLabel}":
+    const prompt = `Sei un VALIDATORE CONSERVATIVO di macro-categorie per Mappe Mentali su "${rootLabel}".
 
+CATEGORIE DA VALIDARE:
 ${listStr}
 
-PROBLEMI TIPICI DA RILEVARE E CORREGGERE:
+⚠️ REGOLA PRIMARIA — DEFAULT: NESSUNA MODIFICA ⚠️
+Nella stragrande maggioranza dei casi la lista è già buona e va restituita INVARIATA.
+Modifica SOLO se identifichi con CERTEZZA uno dei due antipattern qui sotto.
+In ogni dubbio, NON toccare.
 
-1. SINONIMI tra L1 (errore più frequente)
-   Esempio SBAGLIATO: "Difesa Militare" + "Sicurezza Difensiva" + "Misure Difensive" = tre nomi per lo stesso concetto.
-   CORREZIONE: tieni UNA sola categoria con il label più chiaro. Le altre erano duplicati.
+ANTIPATTERN 1 — Sinonimi tra L1 (raro, solo se EVIDENTI)
+Due o più L1 esprimono lo STESSO concetto con parole diverse. Devi essere SICURO al 100%.
+Esempio CHIARO: ["Difesa Militare", "Sicurezza Difensiva", "Misure Difensive"] → tieni solo "Difesa Militare".
+NON è sinonimia: ["Difesa Militare", "Economia Bellica"] (campi diversi anche se entrambi sul periodo bellico).
+Azione: rimuovi i duplicati, tieni il label più chiaro e specifico.
 
-2. META-CATEGORIE fuori livello
-   Esempio SBAGLIATO: "Memoria Storica" o "Revisione Storiografica" mentre le altre sono aspetti CONCRETI del tema.
-   Le meta-categorie parlano del COME si studia il tema, non di un suo aspetto.
-   CORREZIONE: sostituiscile con un aspetto concreto (es. "Controversie Storiche", "Eredità del periodo").
+ANTIPATTERN 2 — Meta-categorie fuori livello (più frequente, segnale chiaro)
+Una L1 parla del COME si studia il tema invece che di un ASPETTO del tema.
+Segnali tipici: contiene parole come "Indagine", "Memoria", "Revisione", "Storiografia", "Analisi", "Studio", "Ricerca".
+Azione: sostituisci con un aspetto concreto del tema (es. "Indagine Storica" → "Controversie Storiche", "Memoria Storica" → "Eredità Postbellica").
 
-3. SOTTO-CAMPI dello stesso campo
-   Esempio SBAGLIATO: tre L1 tutte militari (Difesa + Esercito + Strategie) o tre tutte economiche.
-   CORREZIONE: fondile in UNA sola macro-area (es. "Politica Militare") e libera spazio per altri aspetti del tema.
+❌ COSE CHE NON DEVI FARE (anche se ti sembra "migliorabile"):
+- NON allargare perimetri con "X e Y": "Difesa" → "Difesa e Sicurezza" è SBAGLIATO se non c'era una L1 "Sicurezza" da fondere.
+- NON rimuovere qualificatori disciplinari: "Neutralità Statale" → "Neutralità" è SBAGLIATO (perde specificità).
+- NON riformulare per "stile": "Commercio Oro" → "Commercio e Oro" è inutile cosmesi.
+- NON aggiungere/togliere categorie se non c'è un antipattern certo.
+- NON modificare il "rel" se non strettamente necessario.
 
-REGOLE DI OUTPUT:
-- Se le categorie sono GIÀ OK così, restituiscile invariate.
-- Se trovi sinonimi, FONDI tieni il label più chiaro/specifico.
-- Se trovi meta-categorie, SOSTITUISCI con un aspetto concreto del tema.
-- Mantieni un numero finale tra 3 e 6 categorie (mai meno di 3).
-- Ogni "rel" è un verbo italiano breve (max 3 parole), default "include".
-- NON aggiungere campi extra, NON aggiungere date o nomi tra parentesi nei label.
+REGOLE STRUTTURALI:
+- Numero finale: tra 3 e 6 (preferibilmente lo stesso del numero di input).
+- Ogni "rel" è un verbo italiano breve, default "include".
+- NIENTE date, nomi tra parentesi, congiunzioni "e" inutili nei label.
 
 FORMATO OUTPUT — TASSATIVO:
-Restituisci SOLO un array JSON, niente markdown, niente commenti, niente testo prima o dopo:
-[{"label":"Categoria 1","rel":"include"},{"label":"Categoria 2","rel":"comprende"},{"label":"Categoria 3","rel":"include"}]`;
+Restituisci SOLO un array JSON, identico per struttura all'input. Niente markdown, niente commenti, niente testo prima o dopo:
+[{"label":"Categoria 1","rel":"include"},{"label":"Categoria 2","rel":"comprende"}]
+
+Se la lista era già perfetta, restituiscila identica. Questa è la risposta CORRETTA nella maggioranza dei casi.`;
 
     try {
         const payload = {
@@ -4150,6 +4158,24 @@ Restituisci SOLO un array JSON, niente markdown, niente commenti, niente testo p
         const after = valid.map(x => x.label);
         const changed = before.length !== after.length
             || before.some((b, i) => b !== after[i]);
+
+        // ── Guard anti-overcorrection ──
+        // Se il Pass 1.5 ha modificato più del 50% dei label, è probabile che abbia
+        // applicato il pattern "X → X e Y" o riformulazioni cosmetiche invece di
+        // veri fix di sinonimi/meta-categorie. In quel caso rigettiamo l'output
+        // e teniamo l'originale (fail-safe contro Mistral over-creative).
+        const beforeSet = new Set(before.map(s => s.toLowerCase().trim()));
+        const unchanged = after.filter(a => beforeSet.has(a.toLowerCase().trim())).length;
+        const modifiedRatio = 1 - (unchanged / Math.max(before.length, after.length));
+        if (modifiedRatio > 0.5) {
+            console.warn(
+                `%c[Phase 1.5] Rigettato output: troppo aggressivo (${Math.round(modifiedRatio * 100)}% label modificati)`,
+                'color:orange;font-weight:bold'
+            );
+            console.log('   Proposto (scartato):', after);
+            console.log('   Mantengo originale: ', before);
+            return l1Data;
+        }
 
         if (changed) {
             console.log(
