@@ -4374,6 +4374,14 @@ window.executePhase5Reclassification = async function () {
     });
     const resolveId = (raw) => nodeByIdNorm.get(String(raw || '').toUpperCase());
 
+    // Helper: conta i figli L2 di un L1 (sottoalbero diretto)
+    const countL2Children = (l1Id) => appState.db.links.filter(l => {
+        const { src, tgt } = getId(l);
+        if (src !== l1Id) return false;
+        const tgtNode = nodeById.get(tgt);
+        return tgtNode && tgtNode.level === 2;
+    }).length;
+
     // Applica al massimo 8 riclassificazioni
     for (const op of reclassifyOps.slice(0, 8)) {
         try {
@@ -4395,6 +4403,21 @@ window.executePhase5Reclassification = async function () {
                 report.skipped++;
                 report.errors.push(`Non sposto L0/L1: ${nodeId}`);
                 continue;
+            }
+
+            // Safeguard: non svuotare il ramo di origine.
+            // Se il nodo è L2 e il ramo sorgente ne ha ≤2, rifiuta lo spostamento
+            // per evitare di lasciare rami completamente vuoti (come "Difesa Territoriale: 0 L2").
+            if (node.level === 2 && op.from) {
+                const fromL1Id = resolveId(op.from);
+                if (fromL1Id) {
+                    const childrenLeft = countL2Children(fromL1Id);
+                    if (childrenLeft <= 2) {
+                        report.skipped++;
+                        report.errors.push(`Non svuoto L1 "${op.from}" (solo ${childrenLeft} L2 rimasti)`);
+                        continue;
+                    }
+                }
             }
 
             // Rimuovi link parent attuale → node (solo i link gerarchici, non i cross-link)
