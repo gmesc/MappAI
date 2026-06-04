@@ -1852,7 +1852,7 @@ window.fetchModelAPI = async function (payload, apiKey) {
         model = localStorage.getItem(storageKey);
     }
     if (!model) {
-        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-nemo');
+        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
     }
 
     // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
@@ -12256,7 +12256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const modelsStorageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
     const selectionStorageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const defaultModel = isInfomaniak ? 'google/gemma-4-31B-it' : 'gemini-2.0-flash';
+    const defaultModel = isInfomaniak ? 'mistral-small-4-119B-2603' : 'gemini-2.0-flash';
 
     const savedModelsStr = localStorage.getItem(modelsStorageKey);
     const selectEl = document.getElementById('model-select');
