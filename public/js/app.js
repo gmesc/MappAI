@@ -5371,6 +5371,7 @@ function initD3Visualization() {
             const k = event.transform.k;
             const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
+            if (window.applyDeepNodeDim) window.applyDeepNodeDim(k);
         });
     svg.call(zoom);
 
@@ -5714,6 +5715,7 @@ function renderGraph() {
             else if (d.level === 1) baseSize = 12;
             else if (d.level === 2) baseSize = 10;
             else if (d.level === 3) baseSize = 9;
+            else if (d.level >= 5) baseSize = 8 * Math.pow(0.93, d.level - 5);
             return (baseSize * globalFontScale) + "px";
         });
 
@@ -5829,6 +5831,17 @@ function renderGraph() {
         }
         return out;
     };
+
+    nodeMerge.select("text.node-text")
+        .style("font-size", d => {
+            let baseSize = 8;
+            if (d.level === 0) baseSize = 14;
+            else if (d.level === 1) baseSize = 12;
+            else if (d.level === 2) baseSize = 10;
+            else if (d.level === 3) baseSize = 9;
+            else if (d.level >= 5) baseSize = 8 * Math.pow(0.93, d.level - 5);
+            return (baseSize * globalFontScale) + "px";
+        });
 
     nodeMerge.select("text.node-text")
         .each(function (d) {
@@ -6000,7 +6013,26 @@ function renderGraph() {
         if (d.level === 2) return 800;
         return 1200;
     }).style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
+
+    window.applyDeepNodeDim();
 }
+
+// Effetto dim sui nodi L5+: più profondi = più trasparenti quando si è in panoramica;
+// a zoom = 1 i nodi sono completamente opachi.
+window.applyDeepNodeDim = function (k) {
+    if (k === undefined) {
+        const svgNode = document.getElementById('map-svg');
+        k = svgNode ? d3.zoomTransform(svgNode).k : 1;
+    }
+    if (!g) return;
+    g.selectAll(".node-group").each(function (d) {
+        if (!d || d.level < 5) return;
+        const depth = d.level - 5;              // 0 per L5, 1 per L6, 2 per L7 …
+        const minOp = Math.max(0.12, 0.88 - depth * 0.18); // L5:0.88 L6:0.70 L7:0.52 L8:0.34
+        const opacity = minOp + (1 - minOp) * Math.min(1, k);
+        d3.select(this).style("opacity", opacity);
+    });
+};
 
 function tick() {
     g.selectAll(".link").each(function (d) {
