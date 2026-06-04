@@ -3138,6 +3138,10 @@ ${textParts.join('\n\n')}`;
                             `${parsed.nodes.length} nodi, ${parsed.links.length} link recuperati`,
                             parsed.meta.partial ? `(⚠️ persi: ${parsed.meta.lost.nodes}N/${parsed.meta.lost.links}L)` : '✓ integro'
                         );
+                        // Mostra esempi delle righe scartate per capire COSA è andato storto
+                        if (parsed.meta.lostSamples && parsed.meta.lostSamples.length) {
+                            console.warn('[JSONL] Esempi righe scartate:', parsed.meta.lostSamples);
+                        }
                     } else {
                         // Path JSON legacy + salvage
                         branchData = salvageTruncatedJSON(cleanText);
@@ -3823,6 +3827,24 @@ window.parseJSONLResponse = function (text) {
         if (meta.recovered[k] === undefined) meta.recovered[k] = 0;
         if (meta.lost[k] === undefined) meta.lost[k] = 0;
     });
+    meta.lostSamples = meta.lostSamples || []; // primi 3 esempi di righe scartate
+
+    // Validazione per tipo: rifiuta oggetti che mancano dei campi minimi.
+    // Un nodo senza id o label è inutilizzabile (il consumer chiama normalizeLabel
+    // e normalizeId che esplodono su undefined). Un link senza source/target è
+    // irrilevante. I merges e crosslinks hanno requisiti propri.
+    const isValid = (obj, kind) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+        switch (kind) {
+            case 'nodes':      return typeof obj.id === 'string' && obj.id.trim()
+                                   && typeof obj.label === 'string' && obj.label.trim();
+            case 'links':      return typeof obj.source === 'string' && obj.source.trim()
+                                   && typeof obj.target === 'string' && obj.target.trim();
+            case 'merges':     return typeof obj.keep === 'string' && typeof obj.drop === 'string';
+            case 'crosslinks': return typeof obj.source === 'string' && typeof obj.target === 'string';
+            default:           return true;
+        }
+    };
 
     const parseSection = (raw, kind) => {
         const lines = raw.split('\n');
@@ -3831,10 +3853,23 @@ window.parseJSONLResponse = function (text) {
         for (const line of lines) {
             const r = parseLine(line);
             if (r === null) continue;            // riga vuota/commento → ignora
-            if (r === undefined) { lost++; continue; }
-            // Accetta solo oggetti, no array/scalari
-            if (typeof r === 'object' && !Array.isArray(r)) out.push(r);
-            else lost++;
+            const trimmed = line.trim();
+            if (r === undefined) {
+                // riga JSON malformato → sample per debug
+                lost++;
+                if (meta.lostSamples.length < 3 && trimmed) {
+                    meta.lostSamples.push({ kind, reason: 'json invalido', sample: trimmed.slice(0, 120) });
+                }
+                continue;
+            }
+            if (!isValid(r, kind)) {
+                lost++;
+                if (meta.lostSamples.length < 3) {
+                    meta.lostSamples.push({ kind, reason: 'campi obbligatori mancanti', sample: trimmed.slice(0, 120) });
+                }
+                continue;
+            }
+            out.push(r);
         }
         meta.recovered[kind] = (meta.recovered[kind] || 0) + out.length;
         meta.lost[kind] = (meta.lost[kind] || 0) + lost;
