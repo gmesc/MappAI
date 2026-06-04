@@ -2549,6 +2549,18 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
 
+        // Fase 1.5 — validazione semantica delle macro-categorie (gated dal flag).
+        // Se trova sinonimi o meta-categorie, propone una lista raffinata.
+        // Se la validazione fallisce, mantiene la lista originale (no-op safe).
+        if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
+
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
@@ -2973,6 +2985,18 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         }
 
         if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
+
+        // Fase 1.5 — validazione semantica delle macro-categorie (gated dal flag).
+        // Se trova sinonimi o meta-categorie, propone una lista raffinata.
+        // Se la validazione fallisce, mantiene la lista originale (no-op safe).
+        if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
 
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
@@ -4024,6 +4048,125 @@ window.isJSONLEnabled = function () {
 // (ID esistenti, no self-loop, no duplicati).
 //
 // Gated dal feature flag mappai_mm_phase4_enabled.
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 1.5 — Validazione semantica delle macro-categorie L1
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo che la Fase 1 ha prodotto la lista degli L1, una chiamata AI rapida
+// verifica i tre antipattern più comuni e propone fusioni/sostituzioni:
+//
+//   - SINONIMI: due L1 che esprimono lo stesso concetto
+//   - META-CATEGORIE: L1 che parlano del "come" invece che del "cosa"
+//   - SOTTO-CAMPI dello stesso campo: 3 L1 tutte militari, ecc.
+//
+// L'output del Pass 1.5 sostituisce l1Data prima della costruzione di
+// l1NodesData. Se la validazione fallisce o produce output invalido,
+// degrada silenziosamente all'output originale (nessun crash).
+//
+// Gated dal feature flag mappai_l1_validation_enabled.
+
+window.isL1ValidationEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_l1_validation_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+window.validateL1Categories = async function (l1Data, rootLabel) {
+    if (!Array.isArray(l1Data) || l1Data.length < 3) return l1Data;
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) return l1Data;
+
+    const listStr = l1Data
+        .map((c, i) => `${i + 1}. "${c.label}" (rel: ${c.rel || 'include'})`)
+        .join('\n');
+
+    const prompt = `Sei un consulente di organizzazione concettuale. Riguarda queste macro-categorie generate per una Mappa Mentale su "${rootLabel}":
+
+${listStr}
+
+PROBLEMI TIPICI DA RILEVARE E CORREGGERE:
+
+1. SINONIMI tra L1 (errore più frequente)
+   Esempio SBAGLIATO: "Difesa Militare" + "Sicurezza Difensiva" + "Misure Difensive" = tre nomi per lo stesso concetto.
+   CORREZIONE: tieni UNA sola categoria con il label più chiaro. Le altre erano duplicati.
+
+2. META-CATEGORIE fuori livello
+   Esempio SBAGLIATO: "Memoria Storica" o "Revisione Storiografica" mentre le altre sono aspetti CONCRETI del tema.
+   Le meta-categorie parlano del COME si studia il tema, non di un suo aspetto.
+   CORREZIONE: sostituiscile con un aspetto concreto (es. "Controversie Storiche", "Eredità del periodo").
+
+3. SOTTO-CAMPI dello stesso campo
+   Esempio SBAGLIATO: tre L1 tutte militari (Difesa + Esercito + Strategie) o tre tutte economiche.
+   CORREZIONE: fondile in UNA sola macro-area (es. "Politica Militare") e libera spazio per altri aspetti del tema.
+
+REGOLE DI OUTPUT:
+- Se le categorie sono GIÀ OK così, restituiscile invariate.
+- Se trovi sinonimi, FONDI tieni il label più chiaro/specifico.
+- Se trovi meta-categorie, SOSTITUISCI con un aspetto concreto del tema.
+- Mantieni un numero finale tra 3 e 6 categorie (mai meno di 3).
+- Ogni "rel" è un verbo italiano breve (max 3 parole), default "include".
+- NON aggiungere campi extra, NON aggiungere date o nomi tra parentesi nei label.
+
+FORMATO OUTPUT — TASSATIVO:
+Restituisci SOLO un array JSON, niente markdown, niente commenti, niente testo prima o dopo:
+[{"label":"Categoria 1","rel":"include"},{"label":"Categoria 2","rel":"comprende"},{"label":"Categoria 3","rel":"include"}]`;
+
+    try {
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 1500 }
+        };
+        const response = await window.fetchModelAPI(payload, apiKey);
+        const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        let refined;
+        try {
+            refined = salvageTruncatedJSON(cleanText);
+        } catch (parseErr) {
+            console.warn('[Phase 1.5] Parse fallito, mantengo L1 originali:', parseErr.message);
+            return l1Data;
+        }
+
+        // Validazione output
+        if (!Array.isArray(refined)) {
+            console.warn('[Phase 1.5] Output non è un array, mantengo L1 originali');
+            return l1Data;
+        }
+        const valid = refined.filter(c =>
+            c && typeof c === 'object'
+            && typeof c.label === 'string' && c.label.trim()
+        );
+        if (valid.length < 3) {
+            console.warn(`[Phase 1.5] Solo ${valid.length} categorie valide (servono ≥3), mantengo L1 originali`);
+            return l1Data;
+        }
+        // Normalizza rel mancante
+        valid.forEach(c => { if (!c.rel || typeof c.rel !== 'string') c.rel = 'include'; });
+
+        const before = l1Data.map(x => x.label);
+        const after = valid.map(x => x.label);
+        const changed = before.length !== after.length
+            || before.some((b, i) => b !== after[i]);
+
+        if (changed) {
+            console.log(
+                `%c[Phase 1.5] L1 raffinati: ${l1Data.length} → ${valid.length}`,
+                'color:#10b981;font-weight:bold'
+            );
+            console.log('   Prima:', before);
+            console.log('   Dopo: ', after);
+        } else {
+            console.log(`%c[Phase 1.5] L1 già coerenti, nessuna modifica`, 'color:#6366f1');
+        }
+        return valid;
+    } catch (e) {
+        console.warn('[Phase 1.5] Errore non bloccante:', e.message);
+        return l1Data;
+    }
+};
 
 window.isPhase4Enabled = function () {
     try {

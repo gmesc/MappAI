@@ -947,6 +947,43 @@
         return false;
     }
 
+    // ── Phase 1.5 feature flag (validazione semantica L1) ──────────────────
+
+    function enableL1Validation() {
+        localStorage.setItem('mappai_l1_validation_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode !== 'mindmap') {
+            console.warn(`%c⚠️ Phase 1.5 attivata ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ PHASE 1.5 ATTIVA (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Le prossime generazioni MM valideranno semanticamente le L1 prima di espanderle.');
+        }
+        return true;
+    }
+
+    function disableL1Validation() {
+        localStorage.removeItem('mappai_l1_validation_enabled');
+        console.log('%c⛔ PHASE 1.5 DISATTIVATA', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function l1ValidationStatus() {
+        const enabled = localStorage.getItem('mappai_l1_validation_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const active = enabled && mode === 'mindmap';
+        const info = {
+            flagSet:  enabled,
+            mode,
+            active,
+            note: !enabled ? 'Flag spento — usa .enableL1Validation() per attivare'
+                : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (Phase 1.5 attivo solo in MindMap)`
+                : 'Phase 1.5 attivo — la prossima generazione MM validerà le L1 prima della Fase 3'
+        };
+        console.log('%c── PHASE 1.5 STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Phase 4 feature flag (Strategia B — consolidamento + cross-link) ────
 
     function enablePhase4() {
@@ -1030,6 +1067,9 @@
         enableJSONL,
         disableJSONL,
         jsonlStatus,
+        enableL1Validation,
+        disableL1Validation,
+        l1ValidationStatus,
         enablePhase4,
         disablePhase4,
         phase4Status
