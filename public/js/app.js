@@ -2598,10 +2598,18 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 }
             };
 
-            const payloadL1 = {
-                contents: [{ parts: [{ text: promptL1 }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
-            };
+            // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
+            // (il bridge li converte in un reminder testuale che spesso manda in confusione
+            // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
+            const payloadL1 = appState.aiProvider === 'infomaniak'
+                ? {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1000) }
+                  }
+                : {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
+                  };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
@@ -3040,10 +3048,18 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 }
             };
 
-            const payloadL1 = {
-                contents: [{ parts: [{ text: promptL1 }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
-            };
+            // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
+            // (il bridge li converte in un reminder testuale che spesso manda in confusione
+            // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
+            const payloadL1 = appState.aiProvider === 'infomaniak'
+                ? {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1000) }
+                  }
+                : {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
+                  };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
