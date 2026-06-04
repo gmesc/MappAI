@@ -5294,7 +5294,7 @@ function getNodeRadius(d) {
         return 12 + degRatio * 18;                       // 12–30 px
     }
     // MM: base dal livello + bonus proporzionale al degree (max +50% del base)
-    const base = radiusScale[d.level !== undefined ? d.level : 1] || 15;
+    const base = radiusScale[d.level !== undefined ? Math.min(d.level, 5) : 1] || 15;
     return base + degRatio * (base * 0.5);
 }
 
