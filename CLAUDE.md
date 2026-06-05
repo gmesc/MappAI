@@ -301,7 +301,7 @@ Sostituisce il vecchio `showPrompt` nel flusso di creazione manuale link (`linki
 
 ---
 
-## 7. MODELLI INFOMANIAK — VALUTAZIONE (aggiornato 4 giugno 2026)
+## 7. MODELLI INFOMANIAK — VALUTAZIONE (aggiornato 5 giugno 2026)
 
 ### Raccomandazione per profilo
 | Modello | Profilo ottimale | MM | KG | Note |
@@ -309,7 +309,37 @@ Sostituisce il vecchio `showPrompt` nel flusso di creazione manuale link (`linki
 | **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti. KG scarso con lenti (anomalia token). |
 | **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ | ⚠️ | Profondità L5, 200K context. **JSON spesso malformato** (~30% loss JSONL). Variabilità alta tra run. |
 | **Kimi-K2.6** | Corpus lunghi, alta qualità | 🔬 in test | 🔬 | 256K context. Bug responseSchema risolto (4/6/26). Test completo da fare. |
-| **Apertus 70B** | Solo MM semplici | ⚠️ | ❌ | NO function calling. Nessun KG. |
+| **Apertus 70B** | MM semplici (4a Media, BES/DSA) | ✅ | ❌ | **PROMOSSO 5/6/26**: JSONL pulitissimo, pipeline completo OK dopo fix. ~20-25 nodi, L3-L4, densità ~1.4, topology networked. Costo bassissimo (~0.008 CHF/run). NO function calling → nessun KG. Limite: rami poco profondi e concetti "ovvi". |
+
+### Apertus 70B — test pipeline completo (5 giugno 2026) ✅
+Modello svizzero (ETH/EPFL), GDPR-friendly. Dopo 6 run su "Svizzera e 2a GM" con
+tutti i flag ON (jsonl/branchBoundaries/phase4/phase5), Apertus è passato da
+**inutilizzabile** (22 nodi, 0 L2, densità 0.09 per crash) a **stabile e funzionale**
+(20-25 nodi, densità ~1.4, topology networked, crossLinks applicati, sourceCov ~75-80%).
+
+**Caratteristica chiave:** Apertus produce **JSONL sintatticamente pulito** (zero nodi
+malformati, a differenza di Mistral). Le sue uniche "righe scartate" sono prosa verbosa
+(`**Nota:**`, `Questo output rispetta...`) e placeholder per le foglie (`target:null`,
+`target:"L5"`) — non JSON rotto. È il modello Infomaniak **più disciplinato sul formato**.
+
+**5 fix applicati per renderlo utilizzabile** (tutti in `app.js`, branch `feat/structural-suggestions`):
+1. **Crash `tick()` `g undefined`** — guard `if (!g) return;` in `renderGraph` (L.5676)
+   e `tick` (L.6326). Phase4 chiamava `executeMerge→renderGraph` prima di
+   `initD3Visualization`. Era questo a distruggere la mappa (non Apertus).
+2. **Anti-duplicati L2 cross-ramo** — `buildSiblingL1Catalog(branchId, completedL2s)`
+   ora passa i label L2 dei rami già generati con regola "NON ricreare". Tracking via
+   `completedBranchL2s` aggiornato dopo ogni ramo.
+3. **Ghost link foglie** — `parseJSONLResponse` scarta i link con `target` = `"L5"`/`"L4"`
+   (regex `/^L\d+$/`), `target` con `*` o "non specificato". Apertus li usa come
+   placeholder. Prompt JSONL aggiornato con regola anti-foglie. Riduceva i link persi
+   da 94 a ~1 sul ramo peggiore.
+4. **`parsed.merges is not iterable`** — guard `(parsed.merges || [])` /
+   `(parsed.crosslinks || [])` in Phase4. Apertus a volte risponde senza header
+   `===MERGES===` → fallback parser senza quelle chiavi.
+5. **Crosslink verso nodi fusi** — `report._dropToKeep` (Map drop→keep dei merge
+   realmente applicati) + `resolveId` che segue la chain. Prima i crosslink Phase4
+   venivano tutti skippati perché puntavano a ID fusi. Bonus: fix self-loop in Fase 3
+   (`realMatch` escludeva il nodo L1 del ramo stesso → ramo non più svuotato).
 
 ### Problemi Mistral Small — stato attuale (4 giugno 2026)
 - ✅ 4 regole anti-label aggiunte a `MIND_MAP_BRANCH_IT` (regole 11-14)

@@ -1,5 +1,5 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 5 giugno 2026 (cherry-pick merge/relink su dev).
+> Priorità in ordine decrescente. Aggiornato: 5 giugno 2026 (sera — pipeline Apertus stabilizzata).
 
 ---
 
@@ -28,6 +28,31 @@ MappAIMetrics.diff(MappAIMetrics.load('X'), MappAIMetrics.load('Y'))
 ```
 
 ---
+
+---
+
+## ✅ COMPLETATO — Sessione 5 giugno 2026 (sera — pipeline Apertus stabilizzata)
+
+### Apertus 70B reso utilizzabile per MM (da inutilizzabile a stabile)
+Benchmark 6 run "Svizzera e 2a GM", tutti i flag ON. Vedi CLAUDE.md §7 per dettaglio.
+Tutti i fix in `app.js` (branch `feat/structural-suggestions`):
+- ✅ Fix crash `tick()` `g undefined` — guard in `renderGraph` + `tick` (era questo a
+  distruggere la mappa Apertus, non il modello: Phase4→executeMerge→renderGraph girava
+  prima di `initD3Visualization`).
+- ✅ Anti-duplicati L2 cross-ramo — `buildSiblingL1Catalog(branchId, completedL2s)` passa
+  i label L2 già generati. Tracking `completedBranchL2s`.
+- ✅ Ghost-link foglie — `parseJSONLResponse` scarta `target` = `"L5"`/`"L4"` (regex),
+  con `*` o "non specificato". Prompt JSONL con regola anti-foglie. Link persi 94→1.
+- ✅ Guard `(parsed.merges||[])` / `(parsed.crosslinks||[])` in Phase4 (Apertus a volte
+  omette gli header sezione).
+- ✅ Crosslink verso nodi fusi — `report._dropToKeep` + `resolveId` con chain-follow.
+  Fix self-loop Fase 3 (`realMatch` esclude il nodo L1 del ramo stesso).
+- ✅ Cosmetic: log Phase4 serializzato con `JSON.stringify` (esclusa la Map interna).
+
+**Esito**: Apertus promosso da "❌ solo MM semplici" a "✅ MM semplici" in tabella §7.
+JSONL pulitissimo. Limite residuo: rami poco profondi, concetti "ovvi" (limite del 70B).
+**Da fare dopo**: PRIORITÀ ALTA punto 6 (split chunks in extra-pass) — beneficia tutti
+i modelli Infomaniak, non solo Apertus.
 
 ---
 
@@ -386,6 +411,38 @@ Completato sessione 2 giugno 2026 sera.
 
 ### 5. ✅ Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti — CHIUSO
 Completato sessione 4 giugno 2026. Regole 11-14 aggiunte a IT + EN.
+
+### 6. Separare i `chunks` verbatim in un extra-pass dedicato
+**Motivazione** (emersa dai test Apertus 5/6/26): chiedere le citazioni `chunks`
+VERBATIM nello stesso prompt che genera la struttura (id/label/content/desc/level)
+**satura la memoria di lavoro del modello**. Effetti osservati su Apertus/Mistral:
+il modello "inventa" citazioni, le tronca, sbaglia gli ID, o aggiunge prosa per
+giustificare i chunks → righe JSONL scartate. La struttura ne soffre (rami poco
+profondi, label duplicate) perché parte del budget cognitivo va sulle citazioni.
+
+**Approccio: split in due pass.**
+- **Pass 1 (struttura pura)**: i prompt Fase 3 (`buildBranchPromptJSONL` + variante
+  JSON legacy) generano SOLO `id, label, content, desc, level`. Rimuovere `chunks`
+  dallo schema e dalle regole. Prompt più leggero → albero più profondo e pulito.
+- **Pass 2 (estrazione citazioni)**: per ogni ramo (o per l'intera mappa post-Phase5),
+  una chiamata supplementare riceve il documento intero + la lista dei nodi di quel
+  ramo (id+label+desc) e restituisce SOLO `{nodeId, chunks:[...]}` per i nodi che
+  hanno una citazione testuale reale. Il modello fa UN solo lavoro: trovare frasi
+  verbatim. Risultato: zero allucinazioni di citazioni, struttura non penalizzata.
+
+**Punti di intervento:**
+- `extractMindMapMultiPass` (app.js ~3211): togliere `chunks` dal loop rami, aggiungere
+  un loop Pass 2 dopo Phase5 (o per-ramo) che popola `appState.db.sourcesDict[nodeId]`.
+- `buildBranchPromptJSONL` (app.js ~4128): rimuovere riga `chunks` + esempio + regola.
+- Nuova `window.buildChunkExtractionPrompt(branchNodes, fullText)` + parser dedicato
+  (può riusare `parseJSONLResponse` con sezione `===CHUNKS===`).
+- Gate dietro feature flag `mappai_chunks_extrapass_enabled` (default OFF) + comandi
+  `MappAIMetrics.enableChunksExtraPass()/disableChunksExtraPass()`.
+
+**Costo**: +N chiamate (una per ramo) → valutare su Infomaniak (latenza/costo) vs
+qualità. Su corpus lunghi conviene una chiamata per ramo per non superare i 65K token.
+**Metrica di successo**: `sourceCov%` stabile o superiore, righe JSONL scartate ↓,
+profondità media albero ↑, zero citazioni inventate (verifica a campione).
 
 ---
 
