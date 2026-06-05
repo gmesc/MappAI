@@ -3176,20 +3176,26 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         // Il modello sa quali aree NON sono di sua competenza → evita di creare L2 che
         // appartengono ad altri rami (problema undeveloped_branch).
         // Gated dal feature flag mappai_branch_boundaries_enabled (default ON se non MM-specific issue).
-        const buildSiblingL1Catalog = (currentBranchId) => {
+        const buildSiblingL1Catalog = (currentBranchId, completedL2s = {}) => {
             if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return '';
             const siblings = l1NodesData.filter(n => n.id !== currentBranchId);
             if (siblings.length === 0) return '';
-            // Includi l'ambito semantico se disponibile (popolato dalla Fase 1 con il nuovo campo)
             const lines = siblings.map(s => {
                 const ambitoPart = s.ambito ? ` — ambito: ${s.ambito}` : '';
-                return `- "${s.label}" (rel: ${s.rel || 'include'})${ambitoPart}`;
+                const l2Labels = completedL2s[s.id];
+                const statusPart = l2Labels && l2Labels.length > 0
+                    ? ` (GIÀ SVILUPPATO) — concetti già mappati: ${l2Labels.join(', ')}`
+                    : ` (ramo futuro — non anticiparlo)`;
+                return `- "${s.label}"${ambitoPart}${statusPart}`;
             }).join('\n');
             return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
 ${lines}
 
 REGOLA TASSATIVA SUI CONFINI DI RAMO:
-Stai sviluppando SOLO il ramo "${currentBranchId}". Se un concetto rientra nell'AMBITO di un altro ramo qui sopra, NON crearlo come tuo sotto-nodo. Lascia che venga sviluppato dal ramo competente.
+Stai sviluppando SOLO il ramo "${currentBranchId}". Se un concetto rientra nell'AMBITO di un altro ramo qui sopra, NON crearlo come tuo sotto-nodo.
+
+REGOLA ANTI-DUPLICATI (critica per la qualità della mappa):
+I concetti elencati come "già mappati" nei rami GIÀ SVILUPPATI esistono già nella mappa. NON ricrearli con lo stesso label o un sinonimo diretto — se sono rilevanti per il tuo ramo, verranno collegati da crosslink nella fase successiva.
 
 Esempi di errori GRAVI da evitare:
 - Se stai sviluppando "Neutralità Statale" e ti vengono in mente "Oro Nazista" o "Commercio Germania", quelli rientrano in un ramo dedicato al commercio/oro: NON crearli qui.
@@ -3202,6 +3208,7 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
         const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
+        const completedBranchL2s = {}; // { branchId: ['label1', 'label2', ...] } — aggiornato dopo ogni ramo
 
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
@@ -3218,7 +3225,7 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
             const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled();
 
             // Strategia A — calcola il catalogo dei rami fratelli per questo branch
-            const siblingCatalog = buildSiblingL1Catalog(branch.id);
+            const siblingCatalog = buildSiblingL1Catalog(branch.id, completedBranchL2s);
 
             const promptBranch = useJSONL
                 ? window.buildBranchPromptJSONL(branch, {
@@ -3401,6 +3408,11 @@ ${textParts.join('\n\n')}`;
                         });
                     }
                 }
+
+                // Registra i label L2 di questo ramo per i rami successivi (anti-duplicati)
+                completedBranchL2s[branch.id] = appState.db.nodes
+                    .filter(n => n.level === 2 && appState.db.links.some(l => l.source === branch.id && l.target === n.id))
+                    .map(n => window.cleanLabel ? window.cleanLabel(n.label) : n.label);
             } catch (branchErr) {
                 console.error(`Errore nel ramo ${branch.label}:`, branchErr);
                 // Fallback auto-healing per questo ramo
