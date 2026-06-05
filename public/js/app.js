@@ -5673,6 +5673,7 @@ function initD3Visualization() {
 }
 
 function renderGraph() {
+    if (!g) return; // SVG non ancora inizializzato (es. Phase4 che gira prima di initD3Visualization)
     if (window.renderStudySets) window.renderStudySets();
     const nodes = appState.db.nodes;
     const links = appState.db.links;
@@ -6323,6 +6324,7 @@ window.applyDeepNodeDim = function (k) {
 };
 
 function tick() {
+    if (!g) return;
     g.selectAll(".link").each(function (d) {
         const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
         const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
