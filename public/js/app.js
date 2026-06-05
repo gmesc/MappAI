@@ -4060,8 +4060,17 @@ window.parseJSONLResponse = function (text) {
         switch (kind) {
             case 'nodes':      return typeof obj.id === 'string' && obj.id.trim()
                                    && typeof obj.label === 'string' && obj.label.trim();
-            case 'links':      return typeof obj.source === 'string' && obj.source.trim()
-                                   && typeof obj.target === 'string' && obj.target.trim();
+            case 'links': {
+                if (typeof obj.source !== 'string' || !obj.source.trim()) return false;
+                if (typeof obj.target !== 'string' || !obj.target.trim()) return false;
+                // Filtra i "ghost link" di Apertus: usa "L5", "L4", "L3" ecc. come
+                // placeholder generici per le foglie invece di ID reali. Pattern: target
+                // è esattamente "L5" (o L4/L3/L2) oppure contiene "*" o "non specificato".
+                const t = obj.target.trim();
+                if (/^L\d+$/.test(t)) return false;
+                if (t.includes('*') || t.toLowerCase().includes('non specificato')) return false;
+                return true;
+            }
             case 'merges':     return typeof obj.keep === 'string' && typeof obj.drop === 'string';
             case 'crosslinks': return typeof obj.source === 'string' && typeof obj.target === 'string';
             default:           return true;
@@ -4173,6 +4182,8 @@ REGOLE TASSATIVE SUL FORMATO:
 - Ogni virgoletta " dentro un valore stringa DEVE essere escapata come \\" (es: "desc":"Il \\"piano Wahlen\\" del 1940...")
 - NIENTE prosa libera: se non sai cosa scrivere per un campo, scrivi "" (stringa vuota), NON una frase descrittiva fuori dal JSON
 - Ogni riga deve INIZIARE con "{" e FINIRE con "}" — niente eccezioni
+- ⛔ FOGLIE: i nodi foglia (livello ${maxMapLevel}) NON hanno figli — NON scrivere nessun link con "source" uguale all'ID di una foglia. NON usare "L5", "L${maxMapLevel}" o qualsiasi placeholder come "target" — usa solo ID reali definiti nella sezione NODES
+- ⛔ NESSUN link con "target": null, "target": "L5", o "target" che contiene "*" — questi verranno scartati
 
 ${userProfileStr}
 ${focusInjection}${sc}
