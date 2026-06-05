@@ -4906,7 +4906,7 @@ window.executePhase4Consolidation = async function () {
     // Per ogni merge: valida ID, recupera oggetti nodo, chiama executeMerge(drop, keep)
     // (executeMerge(A, B) fonde A→B: A scompare, B sopravvive — quindi A=drop, B=keep)
     const consumedDrops = new Set();
-    for (const m of parsed.merges) {
+    for (const m of (parsed.merges || [])) {
         try {
             const keepId = idByNorm.get(String(m.keep || '').toUpperCase());
             const dropId = idByNorm.get(String(m.drop || '').toUpperCase());
@@ -4947,14 +4947,14 @@ window.executePhase4Consolidation = async function () {
         let id = idByNorm.get(norm);
         // se id non esiste più (è stato dropped), cerca se è apparso nei merges
         if (id && !validIdsAfterMerge.has(id)) {
-            const merge = parsed.merges.find(m =>
+            const merge = (parsed.merges || []).find(m =>
                 idByNorm.get(String(m.drop || '').toUpperCase()) === id);
             if (merge) id = idByNorm.get(String(merge.keep || '').toUpperCase());
         }
         return validIdsAfterMerge.has(id) ? id : null;
     };
 
-    for (const cl of parsed.crosslinks) {
+    for (const cl of (parsed.crosslinks || [])) {
         const src = resolveId(cl.source);
         const tgt = resolveId(cl.target);
         if (!src || !tgt || src === tgt) { report.crosslinks.skipped++; continue; }
