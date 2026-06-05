@@ -4979,10 +4979,11 @@ window.executePhase4Consolidation = async function () {
         report.crosslinks.applied++;
     }
 
+    const { _dropToKeep, ...reportLog } = report;
     console.log(
         '%c[Phase4] Consolidamento completato',
         'color:#10b981;font-weight:bold',
-        report
+        JSON.stringify(reportLog)
     );
     return report;
 };
