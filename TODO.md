@@ -412,37 +412,74 @@ Completato sessione 2 giugno 2026 sera.
 ### 5. ✅ Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti — CHIUSO
 Completato sessione 4 giugno 2026. Regole 11-14 aggiunte a IT + EN.
 
-### 6. Separare i `chunks` verbatim in un extra-pass dedicato
-**Motivazione** (emersa dai test Apertus 5/6/26): chiedere le citazioni `chunks`
-VERBATIM nello stesso prompt che genera la struttura (id/label/content/desc/level)
-**satura la memoria di lavoro del modello**. Effetti osservati su Apertus/Mistral:
-il modello "inventa" citazioni, le tronca, sbaglia gli ID, o aggiunge prosa per
-giustificare i chunks → righe JSONL scartate. La struttura ne soffre (rami poco
-profondi, label duplicate) perché parte del budget cognitivo va sulle citazioni.
+### 6. ⭐ RIARCHITETTURA Fase 3 — generazione a fasce di livello + L1 charter + chunks extra-pass
+**Il refactoring con più impatto pedagogico su tutto il pipeline Infomaniak.**
+Emerso dall'analisi del vault "APERTUS 6" (5/6/26 sera). Affronta alla radice i tre
+difetti che rendono le mappe povere: nodi doppi, rami senza interlink, sconfinamenti.
 
-**Approccio: split in due pass.**
-- **Pass 1 (struttura pura)**: i prompt Fase 3 (`buildBranchPromptJSONL` + variante
-  JSON legacy) generano SOLO `id, label, content, desc, level`. Rimuovere `chunks`
-  dallo schema e dalle regole. Prompt più leggero → albero più profondo e pulito.
-- **Pass 2 (estrazione citazioni)**: per ogni ramo (o per l'intera mappa post-Phase5),
-  una chiamata supplementare riceve il documento intero + la lista dei nodi di quel
-  ramo (id+label+desc) e restituisce SOLO `{nodeId, chunks:[...]}` per i nodi che
-  hanno una citazione testuale reale. Il modello fa UN solo lavoro: trovare frasi
-  verbatim. Risultato: zero allucinazioni di citazioni, struttura non penalizzata.
+#### Diagnosi (evidenze dal vault APERTUS 6)
+1. **Gli L1 sono gusci vuoti**: la desc L1 è letteralmente `Categoria principale: {label}`.
+   Nessun contenuto semantico per guidare gli L2 → Apertus indovina e sconfina.
+2. **Le citazioni verbatim divorano il budget**: log pieni di prosa che giustifica i
+   chunks (`Nota: Le citazioni sono state generate come esempi...`) invece di link.
+   Su 8 nodi generati, solo 3 link → 5 nodi orfani ripuliti → rami poveri.
+3. **Depth-first = caos di ID**: ogni ramo intero in UNA chiamata → Apertus riusa gli
+   stessi suffissi (`L3_A1`, `L4_A1A`, `L5_1`) in ogni ramo → collisioni. `links.json`
+   mostra `L1_1 → L1_0` (ramo include ramo!), `L1_0_L2_A → L1_2_L3_A2` (figlio di altro
+   ramo). 4 doppioni confermati: Mobilitazione generale, Piano Wahlen, Accoglienza
+   profughi, Ridotto nazionale.
 
-**Punti di intervento:**
-- `extractMindMapMultiPass` (app.js ~3211): togliere `chunks` dal loop rami, aggiungere
-  un loop Pass 2 dopo Phase5 (o per-ramo) che popola `appState.db.sourcesDict[nodeId]`.
-- `buildBranchPromptJSONL` (app.js ~4128): rimuovere riga `chunks` + esempio + regola.
-- Nuova `window.buildChunkExtractionPrompt(branchNodes, fullText)` + parser dedicato
-  (può riusare `parseJSONLResponse` con sezione `===CHUNKS===`).
-- Gate dietro feature flag `mappai_chunks_extrapass_enabled` (default OFF) + comandi
-  `MappAIMetrics.enableChunksExtraPass()/disableChunksExtraPass()`.
+#### Architettura proposta: cascata breadth-first per fasce di livello
+Sostituire l'attuale Fase 3 "un ramo intero per chiamata" con:
 
-**Costo**: +N chiamate (una per ramo) → valutare su Infomaniak (latenza/costo) vs
-qualità. Su corpus lunghi conviene una chiamata per ramo per non superare i 65K token.
-**Metrica di successo**: `sourceCov%` stabile o superiore, righe JSONL scartate ↓,
-profondità media albero ↑, zero citazioni inventate (verifica a campione).
+| Pass | Genera | Contesto ricevuto | Output per nodo |
+|------|--------|-------------------|-----------------|
+| **A** | L1 + desc RICCHE (carta del ramo) | documento + topic | label + desc 40-60 parole + confini espliciti (cosa NON includere) |
+| **B** | L2 di TUTTI i rami | desc L1 padre + desc L1 fratelli | label + desc 30-40 parole |
+| **C** | L3-L4 per ogni L2 | desc L2 + desc L1 padre | label + desc |
+| **D** | chunks verbatim (extra-pass) | documento intero + nodi finali | SOLO `{nodeId, chunks:[...]}` |
+
+**Principio chiave**: ogni chiamata genera SOLO i figli diretti di un nodo → input
+piccolo e focalizzato → il modello non satura la memoria, non riusa ID, non droppa
+link, non duplica. La desc ricca del padre nel prompt del figlio elimina i doppioni
+ALLA RADICE (rende superfluo il catalogo-fratelli come pezza).
+
+**Effetto cascata atteso**: desc L1 ricca → L2 mirati e dentro i confini → desc L2
+ricca → L3 pertinenti. La qualità si propaga verso il basso.
+
+#### Implementazione incrementale (ordine di impatto/costo)
+**STEP 1 — Arricchire le desc L1 (Pass A) — alto impatto, basso costo, FARE PER PRIMO**
+- Fase 2 (`L1_MACRO_CATEGORIES`, app.js ~3032): il template deve produrre per ogni L1
+  una desc di 40-60 parole + un campo `confini` (cosa NON va nel ramo). Già esiste il
+  campo `ambito` (keyword di perimetro) — estenderlo a desc narrativa completa.
+- Iniettare la desc L1 ricca nel prompt Fase 3 esistente PRIMA di toccare la struttura
+  a cascata. Da solo questo step potrebbe già ridurre i doppioni. Misurare l'effetto.
+
+**STEP 2 — Chunks extra-pass (Pass D) — disaccoppia citazioni da struttura**
+- `buildBranchPromptJSONL` (app.js ~4128) + variante JSON legacy: rimuovere `chunks`
+  da schema, esempio e regole. Prompt struttura più leggero.
+- Nuova `window.buildChunkExtractionPrompt(nodes, fullText)` → riceve documento + nodi
+  (id+label+desc), restituisce SOLO `===CHUNKS===` con `{nodeId, chunks:[...]}`.
+  Riusa `parseJSONLResponse`. Loop dopo Phase5, popola `appState.db.sourcesDict[nodeId]`.
+
+**STEP 3 — Cascata breadth-first completa (Pass B/C)** — il pezzo grosso
+- Spezzare il loop rami in: generazione L2-per-tutti, poi L3-L4-per-L2.
+- ID deterministici lato app (non lasciati al modello) per eliminare le collisioni:
+  l'app assegna `{parentId}_L{n}_{lettera}` quando inserisce i figli, il modello
+  fornisce solo label+desc+ordine. Risolve il caos ID alla radice.
+
+**Gate**: feature flag `mappai_cascade_gen_enabled` (default OFF) + comandi
+`MappAIMetrics.enableCascade()/disableCascade()`. Step 2 sotto
+`mappai_chunks_extrapass_enabled` separato (componibili).
+
+#### Costo e metrica
+**Costo**: oggi ~5 chiamate (1 L1 + 4 rami). Cascata completa: ~14 (1+4+8+1). Più lento
+e ~0.02 CHF vs 0.008 su Infomaniak. Mitigazione: chiamate piccole; per BES/DSA cappare
+a L3-L4 (no L5). Su Google (1M context) il costo extra è trascurabile.
+**Metrica di successo**: zero nodi doppi, `undeveloped_branch ≤ 1`, `crossRatio` ↑,
+profondità media ramo ↑, `sourceCov%` stabile, zero citazioni inventate.
+**Benefici trasversali**: non solo Apertus — riduce la variabilità di Mistral e rende
+finalmente utile Kimi-K2.6.
 
 ---
 
