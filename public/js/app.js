@@ -3320,7 +3320,11 @@ ${textParts.join('\n\n')}`;
                         branchData.nodes.forEach(n => {
                             n.id = normalizeId(n.id);
                             let existingNode = appState.db.nodes.find(x => normalizeId(x.id) === n.id);
-                            let realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
+                            // Non dedupare con il nodo L1 del ramo stesso: causerebbe un self-loop
+                            // (source=L1_X → target=L1_X) che viene scartato, svuotando il ramo.
+                            let realMatch = !existingNode ? appState.db.nodes.find(ex =>
+                                normalizeLabel(ex.label) === normalizeLabel(n.label) && ex.id !== branch.id
+                            ) : null;
 
                             let targetId = n.id;
                             if (existingNode) {
@@ -4906,6 +4910,7 @@ window.executePhase4Consolidation = async function () {
     // Per ogni merge: valida ID, recupera oggetti nodo, chiama executeMerge(drop, keep)
     // (executeMerge(A, B) fonde A→B: A scompare, B sopravvive — quindi A=drop, B=keep)
     const consumedDrops = new Set();
+    report._dropToKeep = new Map(); // drop_id → keep_id, per resolveId crosslinks
     for (const m of (parsed.merges || [])) {
         try {
             const keepId = idByNorm.get(String(m.keep || '').toUpperCase());
@@ -4924,6 +4929,7 @@ window.executePhase4Consolidation = async function () {
             if (keepNode.level === 0 || dropNode.level === 0) { report.merges.skipped++; continue; }
             window.executeMerge(dropNode, keepNode);
             consumedDrops.add(dropId);
+            report._dropToKeep.set(dropId, keepId);
             report.merges.applied++;
         } catch (e) {
             report.merges.errors.push(e.message);
@@ -4941,17 +4947,19 @@ window.executePhase4Consolidation = async function () {
             return `${s}→${t}`;
         })
     );
-    // Rimappa drop→keep se il drop è stato fuso in keep (idByNorm potrebbe puntare a drop)
+    // dropToKeep traccia i merge REALMENTE applicati (non solo le proposte AI).
+    // Più robusto di parsed.merges perché segue la chain effettiva post-executeMerge.
     const resolveId = (rawId) => {
         const norm = String(rawId || '').toUpperCase();
         let id = idByNorm.get(norm);
-        // se id non esiste più (è stato dropped), cerca se è apparso nei merges
-        if (id && !validIdsAfterMerge.has(id)) {
-            const merge = (parsed.merges || []).find(m =>
-                idByNorm.get(String(m.drop || '').toUpperCase()) === id);
-            if (merge) id = idByNorm.get(String(merge.keep || '').toUpperCase());
+        if (!id) return null;
+        // Segui la chain drop→keep finché il nodo esiste nel grafo post-merge
+        let steps = 0;
+        while (id && !validIdsAfterMerge.has(id) && steps < 10) {
+            id = report._dropToKeep && report._dropToKeep.get(id);
+            steps++;
         }
-        return validIdsAfterMerge.has(id) ? id : null;
+        return id && validIdsAfterMerge.has(id) ? id : null;
     };
 
     for (const cl of (parsed.crosslinks || [])) {
