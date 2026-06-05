@@ -530,6 +530,22 @@ Guerra di specificità tra Tailwind e CSS custom. Non urgente.
 ### 14. Decomposizione `app.js` (~13.500 righe)
 Candidati: funzioni KG, MM, D3, vault, UI landing.
 
+**PREP consigliata (deciso 5/6/26): lanciare `/graphify` sul codice come primo task.**
+La community detection di graphify propone i confini naturali dei moduli — risponde
+direttamente alla domanda "dove tagliare". I god node (probabilmente `renderGraph`,
+`fetchModelAPI`, `extractMindMapMultiPass`) segnalano le funzioni ad alta connettività
+da maneggiare con cura.
+- **Modello**: aprire la sessione con **Sonnet** (NON Opus — è lavoro meccanico).
+  Haiku basta solo se vuoi uno skeleton AST veloce senza semantica.
+- **Tempo**: ~10-15 min per il run semantico completo (`app.js` 14k è il collo di bottiglia).
+- **Scope**: solo codice scritto a mano — `main.js`, `public/js/app.js`,
+  `public/js/mappai-*.js`, `storageAdapter.js`. ESCLUDERE i vendor minificati
+  (`jspdf.umd.min.js`, `pdf.min.js`, `lucide.min.js`, `tailwind.js`, `svg2pdf`, ecc.).
+- ⚠️ Il `graphify-out/graph.json` attuale è un grafo STALE sulla Guerra Fredda
+  (test del 1/6) — verrà sovrascritto. Salvarlo prima se serve.
+- Comando: `/graphify public/js/app.js public/js/mappai-*.js main.js public/js/storageAdapter.js`
+  (o scope dir con esclusioni). Poi partire dalle community proposte.
+
 ### 15. Pulizia root progetto
 ~20 script Python e file `.bak` nella root.
 Branch git già puliti (3 giugno 2026) — vedi sezione COMPLETATO sopra.
