@@ -2702,7 +2702,9 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
-                content: item.label,
+                // content: usa ambito se disponibile (è più informativo del solo label).
+                // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
+                content: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : item.label,
                 desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
@@ -3153,7 +3155,9 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
-                content: item.label,
+                // content: usa ambito se disponibile (è più informativo del solo label).
+                // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
+                content: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : item.label,
                 desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
@@ -4773,6 +4777,16 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
             if (!item) continue;
             if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
             if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
+            // Aggiorna content con la prima frase del desc ricco (max 80 caratteri)
+            // solo se content è ancora il label o l'ambito (cioè non ancora arricchito)
+            if (node.desc && !node.desc.startsWith('Categoria principale:')) {
+                const firstSentence = node.desc.split(/[.!?]/)[0].trim();
+                if (firstSentence && firstSentence.length > 20) {
+                    node.content = firstSentence.length <= 80
+                        ? firstSentence
+                        : firstSentence.slice(0, 77) + '…';
+                }
+            }
             applied++;
         }
         console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti`);
