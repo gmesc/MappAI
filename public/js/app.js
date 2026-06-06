@@ -2652,7 +2652,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 id: l1Id,
                 label: item.label,
                 content: item.label,
-                desc: `Categoria principale: ${item.label}`,
+                desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
                 chunks: [],
@@ -2660,7 +2660,9 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
                 // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
                 // duplicati cross-ramo e classificazioni errate.
-                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : ''
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : '',
+                // Confini narrativi: cosa NON va in questo ramo (genera con PASS A, iniettato nel siblingCatalog).
+                confini: (typeof item.confini === 'string' && item.confini.trim()) ? item.confini.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -3100,7 +3102,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 id: l1Id,
                 label: item.label,
                 content: item.label,
-                desc: `Categoria principale: ${item.label}`,
+                desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
                 chunks: [],
@@ -3108,7 +3110,9 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
                 // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
                 // duplicati cross-ramo e classificazioni errate.
-                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : ''
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : '',
+                // Confini narrativi: cosa NON va in questo ramo (genera con PASS A, iniettato nel siblingCatalog).
+                confini: (typeof item.confini === 'string' && item.confini.trim()) ? item.confini.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
@@ -3182,11 +3186,13 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             if (siblings.length === 0) return '';
             const lines = siblings.map(s => {
                 const ambitoPart = s.ambito ? ` — ambito: ${s.ambito}` : '';
+                const descPart = s.desc && !s.desc.startsWith('Categoria principale:') ? `\n    desc: ${s.desc}` : '';
+                const confiniPart = s.confini ? `\n    confini (NON sovrapporre): ${s.confini}` : '';
                 const l2Labels = completedL2s[s.id];
                 const statusPart = l2Labels && l2Labels.length > 0
                     ? ` (GIÀ SVILUPPATO) — concetti già mappati: ${l2Labels.join(', ')}`
                     : ` (ramo futuro — non anticiparlo)`;
-                return `- "${s.label}"${ambitoPart}${statusPart}`;
+                return `- "${s.label}"${ambitoPart}${descPart}${confiniPart}${statusPart}`;
             }).join('\n');
             return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
 ${lines}
