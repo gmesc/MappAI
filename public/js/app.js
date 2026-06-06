@@ -2669,6 +2669,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
         const schemaBranch = {
             type: "OBJECT",
             properties: {
@@ -3119,6 +3120,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
         // Fase 3: Generazione dei rami Branch-by-Branch (Multi-Pass HD)
         const schemaBranch = {
             type: "OBJECT",
@@ -4022,9 +4024,11 @@ window.parseJSONLResponse = function (text) {
 
     const parseLine = (line) => {
         const s = line.trim();
-        if (!s || s.startsWith('//')) return null;
+        if (!s || s.startsWith('//') || s.startsWith('#')) return null;
+        // Rimuovi commenti in coda tipo "} // nota" o "} # nota" (Apertus foglie)
+        const noComment = s.replace(/\}\s*\/\/.*$/, '}').replace(/\}\s*#.*$/, '}').trim();
         // Rimuovi virgole trailing tipiche degli array (es. "{...},")
-        const trimmed = s.replace(/,\s*$/, '');
+        const trimmed = noComment.replace(/,\s*$/, '');
 
         // Tentativo 1: parse diretto
         try {
@@ -4662,6 +4666,62 @@ window.executePhase5Reclassification = async function () {
             .map(o => `${o.node_id}: ${o.from} → ${o.to} (${o.reason})`));
     }
     return report;
+};
+
+// Arricchisce i nodi L1 con desc narrativa e confini espliciti tramite una
+// micro-chiamata AI separata. Attivo solo se BranchBoundaries è ON e almeno
+// un nodo ha ancora il desc placeholder (cioè il modello non l'ha generato da solo).
+window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
+    if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return;
+    const needsEnrich = l1NodesData.some(
+        n => !n.confini || n.desc.startsWith('Categoria principale:')
+    );
+    if (!needsEnrich || !apiKey) return;
+
+    window.showLoadingOverlay(true, 'Mappa HD - Arricchimento descrizioni rami L1...');
+
+    const l1List = l1NodesData.map(n => {
+        const ambitoPart = n.ambito ? ` (ambito: ${n.ambito})` : '';
+        return `- "${n.label}"${ambitoPart}`;
+    }).join('\n');
+
+    const isIT = document.documentElement.lang !== 'en';
+    const prompt = isIT
+        ? `Hai una mappa mentale sul tema "${rootNodeLabel}" con queste macro-categorie di livello 1:\n\n${l1List}\n\nPer CIASCUNA categoria genera:\n- "desc": 40-60 parole narrative che spiegano COSA copre questa categoria, PERCHÉ esiste come categoria separata e QUALI concetti chiave contiene.\n- "confini": 1-2 frasi che indicano ESPLICITAMENTE cosa NON appartiene a questa categoria, con riferimento alle ALTRE categorie della lista.\n\nRestituisci SOLO un Array JSON: [{"label": "...", "desc": "...", "confini": "..."}]\nNessun commento o testo aggiuntivo.`
+        : `You have a mind map on the topic "${rootNodeLabel}" with these level 1 macro-categories:\n\n${l1List}\n\nFor EACH category generate:\n- "desc": 40-60 word narrative explaining WHAT this category covers, WHY it exists as a separate category, and WHICH key concepts it contains.\n- "confini": 1-2 sentences explicitly stating what does NOT belong in this category, referencing the OTHER categories in the list.\n\nReturn ONLY a JSON Array: [{"label": "...", "desc": "...", "confini": "..."}]\nNo comments or additional text.`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(1000) : 1000
+        }
+    };
+
+    try {
+        const data = await window.fetchModelAPI(payload, apiKey);
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const enriched = window.salvageTruncatedJSON(cleanText);
+        if (!Array.isArray(enriched)) return;
+
+        const byLabel = new Map(enriched
+            .filter(item => typeof item.label === 'string')
+            .map(item => [item.label.trim().toLowerCase(), item])
+        );
+
+        let applied = 0;
+        for (const node of l1NodesData) {
+            const item = byLabel.get(node.label.trim().toLowerCase());
+            if (!item) continue;
+            if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
+            if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
+            applied++;
+        }
+        console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti`);
+    } catch (e) {
+        console.warn('[enrichL1Descs] errore non bloccante:', e.message);
+    }
 };
 
 window.validateL1Categories = async function (l1Data, rootLabel) {
