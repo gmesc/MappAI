@@ -1288,6 +1288,11 @@
                     <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown">
                         <i data-lucide="folder-open"></i> Importa dal Vault
                     </button>
+                    <label for="menu-import-json" title="Importa una mappa JSON">
+                        <i data-lucide="upload"></i> Importa JSON
+                    </label>
+                    <input type="file" id="menu-import-json" accept=".json" class="hidden"
+                        onchange="window.importGraph(event)">
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
                         title="Sincronizza modifiche nel Vault">
