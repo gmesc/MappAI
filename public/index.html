@@ -1308,6 +1308,10 @@
                     <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
                         <i data-lucide="gantt-chart"></i> Crea Timeline
                     </button>
+                    <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
+                        title="Nulla da annullare" style="opacity:0.4;">
+                        <i data-lucide="rotate-ccw"></i> Annulla<span class="undo-count"></span>
+                    </button>
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto">
                         <i data-lucide="arrow-left"></i> Torna alla Home
@@ -2236,11 +2240,16 @@
                 Vuoi salvare la disposizione corrente prima di uscire, o preferisci chiudere senza salvare?
             </p>
 
-            <div class="flex gap-4 justify-center">
+            <div class="flex gap-4 justify-center flex-wrap">
                 <!-- Bottone Rosso: Annulla (Chiudi senza salvare) -->
                 <button onclick="window.closeLayoutModalDirectWithoutSaving()"
                     class="btn_annulla_action !h-12 !px-8 flex items-center justify-center gap-2">
-                    <i data-lucide="x" class="w-5 h-5"></i> Annulla
+                    <i data-lucide="x" class="w-5 h-5"></i> Chiudi senza salvare
+                </button>
+                <!-- Bottone Undo: ripristina ultima operazione -->
+                <button onclick="window.undoLastAction(); window.closeExitConfirmModal();" type="button"
+                    class="!h-12 !px-6 flex items-center justify-center gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition text-sm">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i> Annulla ultima azione
                 </button>
                 <!-- Bottone Verde: Salva (Salva ed esci) -->
                 <button onclick="window.saveLayoutAndClose()"
@@ -3294,6 +3303,7 @@
     <script src="js/mappai-quiz-print.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-node-merge.js"></script>
+    <script src="js/mappai-undo.js"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-node-styling.js"></script>
     <script src="js/dev-console-metrics.js"></script>

@@ -35,6 +35,8 @@ window.handleMergeTargetClick = function (targetNode) {
 };
 
 window.executeMerge = function (A, B) {
+    if (typeof window.pushUndoSnapshot === 'function')
+        window.pushUndoSnapshot('Fondi: ' + window.cleanLabel(A.label) + ' → ' + window.cleanLabel(B.label));
     const nodes = appState.db.nodes;
     const links = appState.db.links;
 
@@ -147,6 +149,8 @@ window.handleRelinkTargetClick = function (targetNode) {
 };
 
 window.executeRelink = function (A, newParent, rel) {
+    if (typeof window.pushUndoSnapshot === 'function')
+        window.pushUndoSnapshot('Cambia link: ' + window.cleanLabel(A.label) + ' → ' + window.cleanLabel(newParent.label));
     const getId = l => ({
         src: typeof l.source === 'object' ? l.source.id : l.source,
         tgt: typeof l.target === 'object' ? l.target.id : l.target,

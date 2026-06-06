@@ -10599,6 +10599,7 @@ window.ctxAction = function (action) {
     }
     else if (action === 'delete_node') {
         window.showConfirm("Elimina Nodo", "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?", () => {
+            if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina nodo: ' + data.label);
             appState.db.nodes = appState.db.nodes.filter(n => n.id !== data.id);
             appState.db.links = appState.db.links.filter(l => {
                 let sid = typeof l.source === 'object' ? l.source.id : l.source;
@@ -10622,6 +10623,7 @@ window.ctxAction = function (action) {
         });
     }
     else if (action === 'delete_link') {
+        if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina link: ' + (data.rel || data.source + '→' + data.target));
         appState.db.links = appState.db.links.filter(l => l !== data);
         window.updateDegreeStats(); renderGraph();
     }
