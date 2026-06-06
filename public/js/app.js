@@ -2702,9 +2702,9 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
-                // content: usa ambito se disponibile (è più informativo del solo label).
+                // content: usa il label come fallback leggibile.
                 // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
-                content: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : item.label,
+                content: item.label,
                 desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
@@ -3155,9 +3155,9 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
-                // content: usa ambito se disponibile (è più informativo del solo label).
+                // content: usa il label come fallback leggibile.
                 // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
-                content: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : item.label,
+                content: item.label,
                 desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
@@ -4755,7 +4755,7 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(1000) : 1000
+            maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
         }
     };
 
