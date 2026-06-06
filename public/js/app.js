@@ -8685,6 +8685,11 @@ window.handleIPadVaultFileSelected = async function (event) {
     event.target.value = "";
 };
 
+window.openJSONUploader = function () {
+    const fileInput = document.getElementById('landing-import');
+    if (fileInput) fileInput.click();
+};
+
 window.startEmptyMap = function () {
     // Reset DB to a single root node
     const rootId = "node_" + Math.random().toString(36).substr(2, 9);
