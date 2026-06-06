@@ -2848,6 +2848,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 });
 
                 if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                    // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+                    window.stripChunksIfFrozen(branchData.nodes);
                     // Pre-calculate parent mapping from links to aggregate chunks
                     const parentMap = {};
                     if (branchData.links) {
@@ -3375,6 +3377,8 @@ ${textParts.join('\n\n')}`;
                     }
 
                     if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                        // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+                        window.stripChunksIfFrozen(branchData.nodes);
                         // Pre-calcola parent mapping
                         const parentMap = {};
                         if (branchData.links) {
@@ -4016,6 +4020,39 @@ function salvageTruncatedJSON(text) {
     );
     throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// FREEZE CHUNK VERBATIM (preparazione STEP 2 — chunks extra-pass)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Interruttore reversibile (localStorage 'mappai_freeze_chunks'). Quando attivo,
+// i chunk verbatim NON vengono salvati: né su node.chunks (→ niente sezione
+// "## Fonti" nel vault), né in appState.db.sourcesDict (→ niente fonte nel modale).
+//
+// Implementazione: stripChunksIfFrozen() azzera n.chunks sugli oggetti nodo AI
+// GREZZI prima che vengano consumati. A valle, sia `chunks: n.chunks || []` sia
+// la popolazione di sourcesDict (entrambe leggono n.chunks) diventano no-op.
+//
+// NON tocca i prompt (i modelli continuano a generare chunk, ma vengono scartati)
+// né il caricamento dei vault esistenti (i chunk già salvati restano leggibili).
+// Comandi: MappAIMetrics.enableChunkFreeze() / .disableChunkFreeze() / .chunkFreezeStatus()
+window.areChunksFrozen = function () {
+    try { return localStorage.getItem('mappai_freeze_chunks') === '1'; }
+    catch (e) { return false; }
+};
+
+window.stripChunksIfFrozen = function (nodeArr) {
+    if (!Array.isArray(nodeArr) || !window.areChunksFrozen()) return nodeArr;
+    let stripped = 0;
+    nodeArr.forEach(n => {
+        if (n && typeof n === 'object' && Array.isArray(n.chunks) && n.chunks.length) {
+            n.chunks = [];
+            stripped++;
+        }
+    });
+    if (stripped) console.log(`[Freeze chunks] ${stripped} nodi: chunk verbatim scartati (non salvati)`);
+    return nodeArr;
+};
 
 // ──────────────────────────────────────────────────────────────────────────
 // JSONL parser (Strategia 1A — formato sezionato resistente al troncamento)
@@ -5278,6 +5315,8 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         });
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
+        // Freeze chunk verbatim (se attivo): azzera i chunk prima di costruire sourcesDict
+        window.stripChunksIfFrozen(appState.db.nodes);
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
             if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
@@ -5582,6 +5621,9 @@ ${textParts.join('\n\n')}`;
                 studyStatus: 'none'
             };
         });
+
+        // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+        window.stripChunksIfFrozen(finalNodes);
 
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();

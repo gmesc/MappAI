@@ -231,7 +231,8 @@
             l1Validation:     localStorage.getItem('mappai_l1_validation_enabled') === '1',
             branchBoundaries: localStorage.getItem('mappai_branch_boundaries_enabled') === '1',
             phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
-            phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1'
+            phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1',
+            chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1'
         };
         const activeFlags = Object.entries(flagsMap).filter(([_, v]) => v).map(([k]) => k);
         const flagsStr = activeFlags.length ? activeFlags.join(' ✓ | ') + ' ✓' : '(nessun flag attivo)';
@@ -1301,6 +1302,39 @@
         return info;
     }
 
+    // ── Freeze chunk verbatim (preparazione STEP 2 — chunks extra-pass) ───────
+    //
+    // Interruttore reversibile: quando ON i chunk verbatim NON vengono salvati
+    // (né su node.chunks → niente "## Fonti" nel vault, né in sourcesDict → niente
+    // fonte nel modale). Non tocca i prompt né i vault già esistenti.
+
+    function enableChunkFreeze() {
+        localStorage.setItem('mappai_freeze_chunks', '1');
+        console.log('%c🧊 FREEZE CHUNK ATTIVO', 'color:#0ea5e9;font-weight:bold');
+        console.log('   Le prossime generazioni NON salveranno i chunk verbatim (vault senza "## Fonti", modale senza fonte).');
+        console.log('   I vault già salvati restano leggibili. Reversibile con .disableChunkFreeze()');
+        return true;
+    }
+
+    function disableChunkFreeze() {
+        localStorage.removeItem('mappai_freeze_chunks');
+        console.log('%c♨️ FREEZE CHUNK DISATTIVATO — i chunk verbatim tornano a essere salvati', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function chunkFreezeStatus() {
+        const frozen = localStorage.getItem('mappai_freeze_chunks') === '1';
+        const info = {
+            frozen,
+            note: frozen
+                ? 'Freeze attivo — le nuove generazioni scartano i chunk verbatim'
+                : 'Freeze spento — i chunk verbatim vengono salvati normalmente'
+        };
+        console.log('%c── FREEZE CHUNK STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
 
     function enableSemanticDedup() {
@@ -1372,7 +1406,10 @@
         phase5Status,
         enableSemanticDedup,
         disableSemanticDedup,
-        runSemanticDedup
+        runSemanticDedup,
+        enableChunkFreeze,
+        disableChunkFreeze,
+        chunkFreezeStatus
     };
 
     console.log(
