@@ -3188,13 +3188,14 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             if (siblings.length === 0) return '';
             const lines = siblings.map(s => {
                 const ambitoPart = s.ambito ? ` — ambito: ${s.ambito}` : '';
-                const descPart = s.desc && !s.desc.startsWith('Categoria principale:') ? `\n    desc: ${s.desc}` : '';
-                const confiniPart = s.confini ? `\n    confini (NON sovrapporre): ${s.confini}` : '';
+                // desc esclusa dal catalog: 40-60 parole × N fratelli saturano Apertus.
+                // confini (breve) è sufficiente come segnale di confine.
+                const confiniPart = s.confini ? `\n    confini: ${s.confini}` : '';
                 const l2Labels = completedL2s[s.id];
                 const statusPart = l2Labels && l2Labels.length > 0
                     ? ` (GIÀ SVILUPPATO) — concetti già mappati: ${l2Labels.join(', ')}`
                     : ` (ramo futuro — non anticiparlo)`;
-                return `- "${s.label}"${ambitoPart}${descPart}${confiniPart}${statusPart}`;
+                return `- "${s.label}"${ambitoPart}${confiniPart}${statusPart}`;
             }).join('\n');
             return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
 ${lines}
