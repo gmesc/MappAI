@@ -513,7 +513,24 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         // Collect all links for the summary file
         const globalLinks = [];
 
-        // 4. Save each node as a Markdown file
+        // 4a. Elimina i file .md orfani (nodi rimossi via merge/relink non sono più in mapData.nodes)
+        const validNodeFileNames = new Set(
+            (mapData.nodes || []).map(node => {
+                const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                return `${safeLabel}_${node.id}.md`;
+            })
+        );
+        try {
+            fs.readdirSync(nodesDir).forEach(file => {
+                if (file.endsWith('.md') && !validNodeFileNames.has(file)) {
+                    fs.unlinkSync(path.join(nodesDir, file));
+                }
+            });
+        } catch(e) {
+            console.warn('[Vault] Pulizia file orfani fallita:', e.message);
+        }
+
+        // 4b. Save each node as a Markdown file
         (mapData.nodes || []).forEach(node => {
             const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const fileName = `${safeLabel}_${node.id}.md`;
