@@ -4777,15 +4777,11 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
             if (!item) continue;
             if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
             if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
-            // Aggiorna content con la prima frase del desc ricco (max 80 caratteri)
-            // solo se content è ancora il label o l'ambito (cioè non ancora arricchito)
+            // Aggiorna content con il desc ricco completo.
+            // Il card (d.content || d.desc) mostra questo testo come descrizione del nodo L1.
+            // Non tronchiamo: il desc è una paragrafo leggibile, non una keyword.
             if (node.desc && !node.desc.startsWith('Categoria principale:')) {
-                const firstSentence = node.desc.split(/[.!?]/)[0].trim();
-                if (firstSentence && firstSentence.length > 20) {
-                    node.content = firstSentence.length <= 80
-                        ? firstSentence
-                        : firstSentence.slice(0, 77) + '…';
-                }
+                node.content = node.desc;
             }
             applied++;
         }
