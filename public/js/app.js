@@ -155,6 +155,35 @@ window.toggleInfomaniakProMode = function () {
     }
 };
 
+// Inizializzazione: ripristina il provider e il modello salvato
+window.initializeAIProvider = function () {
+    const provider = appState.aiProvider;
+    const storageKey = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const savedModel = localStorage.getItem(storageKey);
+    const modelSelect = document.getElementById('model-select');
+
+    // Aggiorna UI del provider
+    window.switchAIProvider(provider);
+
+    // Se c'è un modello salvato e il dropdown è già compilato, selezionalo
+    if (savedModel && modelSelect && modelSelect.options.length > 0) {
+        const option = Array.from(modelSelect.options).find(o => o.value === savedModel);
+        if (option) {
+            modelSelect.value = savedModel;
+            console.log(`[Init] Modello ripristinato: ${savedModel} (${provider})`);
+        }
+    }
+};
+
+// Chiama l'inizializzazione non appena il DOM è pronto
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (typeof window.initializeAIProvider === 'function') {
+            window.initializeAIProvider();
+        }
+    }, 100);
+});
+
 window.applyStudentModeUI = function () {
     const btnUrl = document.getElementById('btn-src-url');
     const btnYoutube = document.getElementById('btn-src-youtube');
@@ -365,9 +394,31 @@ window.updateInfomaniakProductId = function (value) {
     localStorage.setItem('infomaniak_product_id', val);
     appState.infomaniakProductId = val;
 }
+// Gestore per il cambio di modello nel dropdown — salva in localStorage
+window.onModelSelectChange = function (selectedModel) {
+    const storageKey = appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    localStorage.setItem(storageKey, selectedModel);
+    console.log(`[Modello] Salvato: ${selectedModel} (${appState.aiProvider})`);
+
+    // Aggiorna le capability del modello
+    if (typeof updateModelCapabilities === 'function') {
+        updateModelCapabilities();
+    }
+};
+
 window.switchAIProvider = function (provider) {
     appState.aiProvider = provider;
     localStorage.setItem('ai_provider', provider);
+
+    // Ripristina il modello salvato per questo provider dal localStorage
+    const modelSelect = document.getElementById('model-select');
+    const storageKey = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const savedModel = localStorage.getItem(storageKey);
+    if (modelSelect && savedModel) {
+        // Se il modello salvato è già nel dropdown, selezionalo
+        const option = Array.from(modelSelect.options).find(o => o.value === savedModel);
+        if (option) modelSelect.value = savedModel;
+    }
 
     const btnGoogle = document.getElementById('provider-google');
     const btnInfomaniak = document.getElementById('provider-infomaniak');

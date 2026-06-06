@@ -3025,7 +3025,7 @@
                         <i data-lucide="cpu"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <select id="model-select"
-                            onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); if(window.appState && window.appState.aiProvider === 'infomaniak') { localStorage.setItem('infomaniak_selected_model', this.value); } else { localStorage.setItem('gemini_selected_model', this.value); }"
+                            onchange="window.onModelSelectChange && window.onModelSelectChange(this.value)"
                             class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 appearance-none cursor-pointer focus_ring_standard">
                             <option value="">Caricamento modelli in corso...</option>
                         </select>
