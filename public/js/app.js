@@ -3578,6 +3578,10 @@ ${textParts.join('\n\n')}`;
             }
         }
 
+        // Tree-sanitizer: impone single-parent, rimuove L1→L1, ricalcola livelli
+        // e group. Deterministico, zero AI. Solo su mindmap.
+        if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
