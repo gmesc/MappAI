@@ -4030,10 +4030,11 @@ window.parseJSONLResponse = function (text) {
     const parseLine = (line) => {
         const s = line.trim();
         if (!s || s.startsWith('//') || s.startsWith('#')) return null;
-        // Rimuovi commenti in coda tipo "} // nota" o "} # nota" (Apertus foglie)
-        const noComment = s.replace(/\}\s*\/\/.*$/, '}').replace(/\}\s*#.*$/, '}').trim();
-        // Rimuovi virgole trailing tipiche degli array (es. "{...},")
-        const trimmed = noComment.replace(/,\s*$/, '');
+        // Rimuovi commenti in coda: "} // nota", "} # nota", "} <!-- nota -->"
+        const noComment = s.replace(/\}\s*\/\/.*$/, '}').replace(/\}\s*#.*$/, '}').replace(/\}\s*<!--.*?-->\s*$/, '}').replace(/\}\s*<!--.*$/, '}').trim();
+        // Normalizza chiavi con spazi ("desc ": → "desc":) prodotte da Mistral
+        const spaceFixed = noComment.replace(/"([^"]+)"\s*:/g, (_, k) => '"' + k.trim() + '":');
+        const trimmed = spaceFixed.replace(/,\s*$/, '');
 
         // Tentativo 1: parse diretto
         try {
