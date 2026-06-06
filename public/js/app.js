@@ -4270,16 +4270,20 @@ ISTRUZIONI PER IL RAMO:
    - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
-   - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+   - "desc": paragrafo descrittivo approfondito e chiaro (da 50 a 80 parole). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
    - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
-3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare connessioni trasversali verso nodi di altri rami — quelle verranno aggiunte in una fase successiva.
+
+ESEMPI DI NODI BEN FORMATI — studia il FORMATO (label conciso, desc denso), non copiare il contenuto:
+{"id":"ES_L3","label":"Ridotto Nazionale","content":"Piano di ritirata estrema nelle Alpi.","desc":"Piuttosto che difendere i confini pianeggianti indifendibili contro i carri armati, la strategia elvetica puntò sulla resistenza a oltranza in quota. Il cuore del sistema era un complesso di fortezze scavate nella roccia alpina: tunnel, bunker, ospedali militari e viveri nascosti per mesi. Gli ingressi erano mascherati da fienili e abitazioni civili per ingannare la ricognizione aerea.","level":3,"chunks":["Il cuore di questo sistema difensivo era il Ridotto Nazionale, un complesso di fortezze inespugnabili scavate nel cuore delle Alpi"]}
+{"id":"ES_L4","label":"Tessere Annonarie","content":"Documenti per razioni controllate di beni essenziali.","desc":"Il sistema di razionamento assegnava a ogni cittadino quantità fisse di alimenti, carburante e beni di prima necessità tramite libretti personali. Il meccanismo impediva l'accaparramento, garantiva che le fasce più povere avessero il minimo vitale e scoraggiava il mercato nero con sanzioni penali severe. Ogni famiglia doveva presentare il libretto al momento dell'acquisto.","level":4,"chunks":["Un rigoroso sistema di razionamento delle derrate alimentari distribuiva equamente le scarse risorse tra la popolazione civile"]}
 
 ⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
 NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
 
 ===NODES===
-{"id":"${branch.id}_L2_A","label":"Esempio","content":"breve","desc":"descrizione completa di 30-50 parole","level":2,"chunks":["citazione verbatim dalla fonte"]}
+{"id":"${branch.id}_L2_A","label":"Esempio","content":"breve (max 10 parole)","desc":"paragrafo descrittivo specifico e denso di 50-80 parole con dati concreti","level":2,"chunks":["citazione verbatim dalla fonte"]}
 {"id":"${branch.id}_L2_B","label":"Altro","content":"breve","desc":"...","level":2,"chunks":["..."]}
 ===LINKS===
 {"source":"${branch.id}","target":"${branch.id}_L2_A","rel":"include"}
@@ -5024,8 +5028,17 @@ REGOLE:
 - Massimo 20 merge per mappa (5-10 è normale, di più rischia overfit).
 - Massimo 20 nuovi cross-link, scegli i più significativi pedagogicamente.
 - Nessun commento, nessun markdown, nessun testo prima/dopo le sezioni.
-- "rel" deve essere un verbo italiano breve: causa, richiede, precede, genera,
-  si oppone a, è esempio di, dipende da, regola, finanzia, influenza.
+- "rel" deve essere un verbo italiano SPECIFICO che esprima il TIPO reale di relazione:
+  causa, richiede, precede, genera, si oppone a, è esempio di, dipende da, regola,
+  finanzia, influenza, smaschera, condanna, contraddice, rafforza, giustifica,
+  è condizione di, è conseguenza di, legittima, alimenta.
+  REGOLA QUALITÀ: preferisci verbi precisi e critici (es. "smaschera" per una relazione
+  rivelativa, "condanna" per una relazione valutativa, "è condizione di" per un prerequisito
+  strutturale) invece di generici come "influenza" o "collega".
+  Esempi di cross-link ad alta qualità semantica:
+  {"source":"ID_INDAGINE","target":"ID_COMMERCIO_ORO","rel":"smaschera"}
+  {"source":"ID_COMMISSIONE","target":"ID_POLITICA_RESPINGIMENTI","rel":"condanna"}
+  {"source":"ID_TIMORE_INVASIONE","target":"ID_CONCESSIONI_ECONOMICHE","rel":"giustifica"}
 
 ${l1Catalog}
 ELENCO NODI DELLA MAPPA (cerca le parole-chiave ricorrenti per identificare duplicati,
