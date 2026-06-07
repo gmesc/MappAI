@@ -4249,6 +4249,16 @@ window.parseJSONLResponse = function (text) {
                 continue;
             }
             if (!isValid(r, kind)) {
+                // Apertus a volte "narra" le foglie invece di ometterle: emette un oggetto
+                // link con target assente/null e un commento esplicativo
+                // (es. {"source":"L1_2_L3_A1","target":null} // Foglia: no figli).
+                // Non è un link perso: è un modo (maldestro) di dire "qui non c'è link".
+                // Lo scartiamo senza contarlo come "lost" per non inquinare le metriche
+                // di recupero con falsi positivi (il grafo non ne risente: era già filtrato).
+                if (kind === 'links' && typeof r.source === 'string' && r.source.trim()
+                    && (r.target === null || r.target === undefined)) {
+                    continue;
+                }
                 lost++;
                 if (meta.lostSamples.length < 3) {
                     meta.lostSamples.push({ kind, reason: 'campi obbligatori mancanti', sample: trimmed.slice(0, 120) });
