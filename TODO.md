@@ -1,28 +1,68 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 7 giugno 2026 (notte — nuovo obiettivo qualità intra-ramo).
+> Priorità in ordine decrescente. Aggiornato: 7 giugno 2026 (notte — desc ricche + run di verifica Apertus in corso).
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Obiettivo sessione**: mappe tree-like con coerenza semantica interna eccellente.
-Cross-link solo come effetto dei merge Phase 4 (non come target di density).
+**Stato**: Run di generazione Apertus 70B **in corso** (lanciata dall'utente la sera del 7/6),
+con TUTTI i flag attivi incluse le novità appena costruite (`enrichThinDescs`, `freezeChunks`).
+Il prossimo step è leggere il `MappAIMetrics.report()` di questa run e valutare:
+1. se le desc sono effettivamente più ricche (target ≥ 50-80 parole, ancorate alla fonte)
+2. se il freeze dei chunk funziona senza effetti collaterali (vault pulito, niente "## Fonti")
+3. se si può procedere con items 1+2 (merge direzionale + cross-link intelligenti)
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato**: WIP — `app.js` e `dev-console-metrics.js` modificati (auto-save hook attivo).
+**Stato repo**: WIP — `app.js`/`dev-console-metrics.js` aggiornati. ⚠️ L'auto-save delle 23:25
+(`c661ebc`) aveva accidentalmente CANCELLATO `public/index.html` e `public/css/style.css`
+dal repo (causa `ERR_FILE_NOT_FOUND` all'avvio) — **già ripristinati** da `d02e6dc` e
+ristagiati (`A public/index.html`, `A public/css/style.css`). Verificare che il prossimo
+commit li includa.
+
+### ✅ Completato in questa sessione (7 giugno notte) — Item 3: "desc ricche nei modali"
+Commissionato dall'utente con priorità: **"Prima 3, poi 1+2"**.
+- ✅ **3a Display**: tutte le superfici di studio ora leggono `desc || content` (era `content || desc`,
+  bug architetturale che faceva sovrascrivere le desc ricche col content breve in fase di edit)
+- ✅ **3b Robustezza**: `enrichL1Descs` con fuzzy label-matching (niente più placeholder tipo
+  "Categoria principale: Commercio con l'Asse")
+- ✅ **3b Completo**: nuova `window.enrichThinDescs` — pass automatico post-gen, ancorato alla
+  fonte (`textParts`), riscrive le desc <35 parole in narrazioni 50-80 parole, batch da 6,
+  gated da flag `mappai_enrich_descs_enabled`
+- ✅ Nuovo flag `mappai_freeze_chunks` + `window.stripChunksIfFrozen` (prep STEP 2 cascata,
+  bypassa temporaneamente il salvataggio dei chunk verbatim)
+- ✅ CLAUDE.md aggiornato (tabella flag + sezione "modello content/desc")
+
+### 🔜 Items 1+2 — PROSSIMI (dopo verifica report Apertus)
+Decisi dall'utente nell'ordine "prima 3, poi 1+2":
+1. **Smart merge direzionale**: nodi doppi vanno fusi DAL nodo nella macro-area MENO
+   pertinente VERSO quello nella macro-area PIÙ pertinente (non a caso/primo-trovato)
+2. **Cross-link intelligenti**: quando avviene un merge cross-ramo, lasciare un cross-link
+   che preserva la connessione semantica con il ramo di provenienza
+
+**Metodologia proposta (da confermare con l'utente)**: usare gli embedding
+(bge-multilingual-gemma2, già disponibili via `executeSemanticDedup`) sia per:
+- rilevare i duplicati semantici (soglia ~0.88, cattura sinonimi tipo "Mobilitazione
+  Militare 1939" ↔ "Mobilitazione Generale")
+- decidere la DIREZIONE del merge (confrontando l'embedding del nodo duplicato con
+  l'embedding della desc ricca di ciascun L1 candidato — ora affidabile grazie a item 3)
+- generare il cross-link "intelligente" risultante
 
 **Setup console per riprendere:**
 ```js
-MappAIMetrics.enableJSONL()             // Strategia 1A — Apertus
-MappAIMetrics.enableBranchBoundaries()  // ambits L1 + confini di ramo
-MappAIMetrics.enablePhase4()            // merge semantici (+ eventuale test solo-merge)
-MappAIMetrics.enablePhase5()            // riclassificazione mal-collocati
+MappAIMetrics.enableJSONL()
+MappAIMetrics.enableBranchBoundaries()
+MappAIMetrics.enablePhase4()
+MappAIMetrics.enablePhase5()
+MappAIMetrics.enableL1Validation()
+MappAIMetrics.enableChunkFreeze()
+MappAIMetrics.enableEnrichDescs()
 ```
 
 **Per rivedere risultati salvati:**
 ```js
 MappAIMetrics.list()
 MappAIMetrics.diff(MappAIMetrics.load('X'), MappAIMetrics.load('Y'))
+MappAIMetrics.report()
 ```
 
 ---

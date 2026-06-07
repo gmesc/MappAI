@@ -496,6 +496,33 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ⏳ IN CORSO (notte 7 giugno 2026): run di verifica Apertus 70B con tutti i flag
+Lanciata dall'utente con: JSONL, Branch Boundaries, Phase4, Phase5, L1 Validation,
+**Freeze Chunks** e **Enrich Descs** (i due nuovi flag di questa sessione) tutti attivi.
+**Prossima sessione**: leggere `MappAIMetrics.report()` di questa run e valutare se
+(a) le desc sono effettivamente più ricche/ancorate alla fonte, (b) il freeze chunk
+non ha effetti collaterali, (c) si può procedere con items 1+2 (vedi TODO.md).
+
+### ✅ Completato in questa sessione (7 giugno notte) — Item 3 "desc ricche nei modali"
+Su richiesta esplicita dell'utente ("le descrizioni sono lo strumento principale che lo
+studente BES/DSA usa per studiare"), priorità scelta dall'utente: **"Prima 3, poi 1+2"**.
+- ✅ Flip priorità display `content||desc` → `desc||content` su TUTTE le superfici di studio
+  (sidebar dettaglio, Scheda Focus, modale edit, tutor, quiz/flashcard, embedding dedup)
+  — bug architetturale risolto: il modale di edit sovrascriveva `desc` ricca con `content` breve
+- ✅ Fix `enrichL1Descs` con fuzzy label-matching (placeholder L1 tipo "Categoria principale: X" eliminati)
+- ✅ Nuova `window.enrichThinDescs` — pass automatico post-gen, ancorato a `textParts`,
+  riscrive desc <35 parole in narrazioni 50-80 parole (no hallucination, fedeltà alla fonte)
+- ✅ Nuovo flag `mappai_freeze_chunks` + `window.stripChunksIfFrozen` — bypass temporaneo
+  salvataggio chunk verbatim, prep per STEP 2 della riarchitettura cascata Fase 3
+- ✅ Documentato in CLAUDE.md §"Modello content/desc"
+
+### ⚠️ Recovery: index.html + style.css cancellati da auto-save (risolto)
+L'auto-save delle 23:25 (`c661ebc`) aveva accidentalmente eliminato `public/index.html`
+(3496 righe) e `public/css/style.css` (2727 righe) dal repo → `ERR_FILE_NOT_FOUND` all'avvio.
+**Fix**: ripristinati da `d02e6dc` (auto-save 02:39, ultima versione integra), ristagiati
+come `A`. App verificata funzionante (`npm start` → carica, fetch modelli Infomaniak OK).
+⚠️ Verificare che il prossimo commit includa questi due file.
+
 ### Completato in questa sessione (7 giugno 2026 — calibrazione Apertus + UI JSON import)
 - ✅ Bottone "Apri JSON" sulla landing page — `window.openJSONUploader()` → trigger su `#landing-import`
 - ✅ Bottone "Importa JSON" nel menu floating actions (con grafo aperto) — `label for="menu-import-json"`
