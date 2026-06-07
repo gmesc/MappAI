@@ -1,33 +1,107 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 5 giugno 2026 (sera — pipeline Apertus stabilizzata).
+> Priorità in ordine decrescente. Aggiornato: 7 giugno 2026 (notte — nuovo obiettivo qualità intra-ramo).
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Obiettivo sessione suggerito**: testare Kimi-K2.6 con il pipeline completo (ora che il fix
-`responseSchema` Infomaniak è applicato alla Fase 1), poi valutare se i risultati
-giustificano raccomandare Kimi come modello di default per Infomaniak.
+**Obiettivo sessione**: mappe tree-like con coerenza semantica interna eccellente.
+Cross-link solo come effetto dei merge Phase 4 (non come target di density).
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato**: working tree pulito (auto-save hook attivo).
+**Stato**: WIP — `app.js` e `dev-console-metrics.js` modificati (auto-save hook attivo).
 
-**Setup console per riprendere (5 flag disponibili):**
+**Setup console per riprendere:**
 ```js
-MappAIMetrics.enableJSONL()             // Strategia 1A
-MappAIMetrics.enableBranchBoundaries()  // Strategia A — ambits L1
-MappAIMetrics.enablePhase4()            // merge + cross-link semantici
+MappAIMetrics.enableJSONL()             // Strategia 1A — Apertus
+MappAIMetrics.enableBranchBoundaries()  // ambits L1 + confini di ramo
+MappAIMetrics.enablePhase4()            // merge semantici (+ eventuale test solo-merge)
 MappAIMetrics.enablePhase5()            // riclassificazione mal-collocati
-// MappAIMetrics.enableL1Validation()   // Pass 1.5 — no-op su run buoni, skip
 ```
 
 **Per rivedere risultati salvati:**
 ```js
-MappAIMetrics.list()                    // tutti gli snapshot
+MappAIMetrics.list()
 MappAIMetrics.diff(MappAIMetrics.load('X'), MappAIMetrics.load('Y'))
 ```
 
 ---
+
+## 🔴 PRIORITÀ ALTA
+
+### 1. ⭐ Mappe tree-like con coerenza semantica interna — NUOVO OBIETTIVO
+**Contesto**: il run Apertus del 7/6/26 conferma che la density 0.95 (tree-like) non è
+un problema — è la forma naturale per modelli 70B. Il problema è la QUALITÀ dentro ogni ramo:
+desc generiche, rami poco profondi, nodi senza dati specifici.
+
+**Obiettivo**: mappe ad albero pulite dove ogni ramo è semanticamente autosufficiente.
+I cross-link non sono un target di qualità: emergono SOLO dai merge Phase 4 quando un nodo
+doppio in una macro-area meno pertinente viene fuso verso quella più pertinente.
+
+**Cosa fare**:
+
+#### A. Valutare Phase 4 in modalità solo-MERGES
+- Investigare se disabilitare la sezione `===CROSSLINKS===` in Phase 4 e lasciare solo `===MERGES===`
+- I merge naturali creano già cross-link impliciti (il nodo fuso "entra" nel nuovo ramo)
+- Pro: zero cross-link inventati, zero ID-mismatch; i link che restano sono tutti semanticamente motivati
+- Implementazione: aggiungere flag `mappai_mm_phase4_mergeonly_enabled` o parametro al prompt
+
+#### B. Migliorare profondità rami Apertus
+- Problema attuale: "Economia e Commercio" ha generato 0 L2, "Accoglienza Profughi" 1 L2
+- Causa ipotizzata: i rami perdono nodi per JSON invalido (commenti inline)
+  — già mitigato parzialmente con desc 50-80 parole (meno divagazioni)
+- Da investigare: aggiungere nel prompt JSONL una regola esplicita contro la prosa inline
+  ("NON aggiungere commenti o note tra le righe JSON — ogni riga deve iniziare con { e finire con }")
+  NB: questa regola esiste già (`⚠️ FORMATO DI OUTPUT`) ma potrebbe essere rinforzata
+
+#### C. Misurare coerenza semantica intra-ramo
+- Metriche da aggiungere a `MappAIMetrics`: "desc quality score" — % nodi con desc ≥ 40 parole
+- Alternativa semplice: `appState.db.nodes.filter(n=>n.desc&&n.desc.split(' ').length>=40).length`
+- Confrontare Apertus run 7/6 vs run precedenti
+
+**Metriche di successo**:
+- `undeveloped_branch = 0` (tutti i rami L1 hanno ≥ 2 L2)
+- Ogni ramo L2 ha ≥ 1 figlio L3
+- Almeno il 70% dei nodi con desc ≥ 40 parole e almeno 1 dato specifico (cifra, nome, meccanismo)
+- Cross-link = solo quelli prodotti dai merge Phase 4 (non target di numero)
+
+---
+
+### 2. Test Kimi-K2.6 con pipeline completo
+**Stato**: fallito per bug responseSchema (fixato 4/6/26). Da riprendere.
+**Aspettative**: JSONL pulito, ambits L1 ortogonali, merges Phase 4 effettivi.
+```js
+MappAIMetrics.save('kimi_full_setup')
+MappAIMetrics.report()
+```
+
+### 3. UI Piano 1.2 — pannello suggerimenti strutturali
+**Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile)
+- Pannello `#structural-suggestions-panel` con card per ogni suggerimento
+- Primitiva `highlightSubgraph(nodeIds)` per evidenziare il sottografo
+- Entry point: bottone nella toolbar mappa
+
+---
+
+## ✅ COMPLETATO — Sessione 7 giugno 2026 (notte — calibrazione Apertus + UI import)
+
+### Import JSON UI
+- ✅ `window.openJSONUploader()` — attiva `#landing-import` dalla landing page
+- ✅ Bottone "Apri JSON" nella quick actions landing (richiamava funzione inesistente)
+- ✅ Bottone "Importa JSON" nel floating menu del grafo (`menu-import-json`)
+
+### Calibrazione Apertus via Gemini exemplar — esperimento + lezione
+- ✅ Analisi mappa Gemini WWII (61 nodi, density 1.02, solo 2 cross-link): ottima qualità
+  label/content, ma tree-like — Apertus (density 1.4) era già più connesso
+- ✅ `buildBranchPromptJSONL`: desc 30-50 → **50-80 parole** con dati specifici obbligatori
+- ✅ `buildPhase4Prompt`: vocabolario `rel` arricchito (smaschera, condanna, giustifica, ecc.)
+- ❌ Few-shot exemplar JSON nel prompt JSONL → **backfire**: Apertus genera gli esempi come
+  nodi reali nel ramo sbagliato + aggiunge prosa inline tra le righe JSONL (90N/38L persi)
+- ❌ Placeholder ID Phase 4 → **backfire**: Apertus usa `ID_COMMERCIO_ORO` come target reale
+  → 0 cross-link applicati su 4 recuperati
+- ✅ File `public/esempi/formato-esempio-claude.json` + `prompt-genera-mappa.md` per uso futuro
+- **Regola documentata**: Apertus NON regge few-shot JSON in-context. Usare solo linguaggio
+  naturale per descrivere qualità richieste.
 
 ---
 
@@ -374,45 +448,8 @@ i modelli Infomaniak, non solo Apertus.
 
 ---
 
-## 🔴 PRIORITÀ ALTA
-
-### 1. Test Kimi-K2.6 con pipeline completo
-**Stato**: fallito per bug responseSchema (ora fixato — 4 giugno 2026).
-**Prossima azione**: rigenerare MM Svizzera con Kimi-K2.6 + tutti e 4 i flag attivi.
-**Aspettative**: JSONL pulito (zero righe scartate), ambits L1 ortogonali,
-merges Phase 4 effettivi, `undeveloped_branch ≤ 2`, `crossRatio ≥ 20%`.
-**Comandi**:
-```js
-MappAIMetrics.save('kimi_full_setup')
-// Verifica ambits: appState.db.nodes.filter(n => n.level===1).map(n => ({label:n.label,ambito:n.ambito}))
-MappAIMetrics.report()
-MappAIMetrics.diff(MappAIMetrics.load('phase4_JSONL_3'), MappAIMetrics.load('kimi_full_setup'))
-```
-
-### 2. Test KG con lenti AREA DISCIPLINARE attive
-**Stato**: non testato. Rischio noto (sessione 31 maggio): lenti creavano KG sparsi
-(37K token, 13 nodi) per anomalia da investigare. Prima di produzione:
-- Rigenerare KG fotosintesi 4aMEDIA con alcune lenti attive su `gemini-2.5-flash-lite`
-- Misurare `MappAIStructureAnalyzer.analyzeCurrentMap()` — density non deve scendere
-  sotto 1.3 rispetto al baseline 1.59 senza lenti
-- Investigare la causa dell'anomalia 37K token (punto 10 backlog)
-
-### 3. ✅ Mirror template KG su varianti Student e EN — CHIUSO
-Completato sessione 2 giugno 2026 sera.
-
-### 4. UI Piano 1.2 — pannello suggerimenti strutturali
-**Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile) + analisi god_node fix (✅)
-**Stato**: non ancora iniziato.
-**Da costruire**:
-- Pannello `#structural-suggestions-panel` con card per ogni suggerimento
-- Primitiva `highlightSubgraph(nodeIds)` per evidenziare il sottografo
-- Bottone "Mostra percorso" sui keystone/meaning_hub
-- Entry point: bottone nella toolbar mappa (accanto a "Analizza")
-
-### 5. ✅ Template `MIND_MAP_BRANCH_IT` — 4 regole mancanti — CHIUSO
-Completato sessione 4 giugno 2026. Regole 11-14 aggiunte a IT + EN.
-
-### 6. ⭐ RIARCHITETTURA Fase 3 — generazione a fasce di livello + L1 charter + chunks extra-pass
+## ⭐ RIARCHITETTURA Fase 3 — generazione a fasce di livello + L1 charter + chunks extra-pass
+(era punto 6 — spostato qui come riferimento architetturale per il punto 1 sopra)
 **Il refactoring con più impatto pedagogico su tutto il pipeline Infomaniak.**
 Emerso dall'analisi del vault "APERTUS 6" (5/6/26 sera). Affronta alla radice i tre
 difetti che rendono le mappe povere: nodi doppi, rami senza interlink, sconfinamenti.
@@ -485,7 +522,7 @@ finalmente utile Kimi-K2.6.
 
 ## 🟠 PRIORITÀ MEDIA
 
-### 5. Testare KG con gemini-2.5-flash e gemini-3.5-flash
+### 4. Testare KG con gemini-2.5-flash e gemini-3.5-flash
 - `gemini-2.5-flash` (non-lite): da verificare density e cross-link
 - `gemini-3.5-flash`: testato brevemente (JSON truncation era bug nostro, ora fixato)
   — rigenerare con fix applicato

@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 4 giugno 2026 (sessione — MM quality pipeline: JSONL 1A, Phase 4/5, BranchBoundaries, ambits L1)
+> Ultimo aggiornamento: 7 giugno 2026 (sessione — calibrazione Apertus via exemplar: backfire documentato + nuovo obiettivo qualità intra-ramo)
 
 ---
 
@@ -496,33 +496,48 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### Completato in questa sessione (5 giugno 2026 — cherry-pick merge/relink su dev)
+### Completato in questa sessione (7 giugno 2026 — calibrazione Apertus + UI JSON import)
+- ✅ Bottone "Apri JSON" sulla landing page — `window.openJSONUploader()` → trigger su `#landing-import`
+- ✅ Bottone "Importa JSON" nel menu floating actions (con grafo aperto) — `label for="menu-import-json"`
+- ✅ `public/esempi/formato-esempio-claude.json` — mappa La Fotosintesi in formato MappAI
+  (17 nodi L0-L3, 4 rami, 7 cross-link con verbi semantici) — per test import + calibrazione Claude
+- ✅ `public/esempi/prompt-genera-mappa.md` — prompt da dare a Claude Sonnet/Opus per generare
+  mappe importabili in MappAI (schema JSON completo + metriche di valutazione post-import)
+- ✅ `buildBranchPromptJSONL`: desc richiesta estesa 30-50 → **50-80 parole** con obbligo dati specifici
+- ✅ `buildPhase4Prompt`: vocabolario `rel` arricchito (smaschera, condanna, contraddice, rafforza,
+  giustifica, è condizione di, è conseguenza di, legittima, alimenta) + avviso "usa solo ID reali"
+
+### ⚠️ Lezione appresa — Apertus NON regge few-shot JSON in-context (7 giugno 2026)
+Tentativo: iniettare 2 nodi Gemini WWII come exemplar nel prompt JSONL per calibrare lo stile
+label/content. Risultato: **backfire completo** su tutti i fronti.
+
+**Regola da ricordare per sempre**: qualsiasi oggetto JSON nel prompt JSONL viene trattato da
+Apertus come contenuto da generare, non come modello di formato — indipendentemente dal testo
+esplicativo che lo precede.
+- Exemplar `{"id":"ES_L3","label":"Ridotto Nazionale",...}` → generato come nodo reale nel ramo sbagliato ("Accoglienza Profughi")
+- Placeholder Phase 4 `{"source":"ID_COMMERCIO_ORO",...}` → usati come target reali → 0 cross-link applicati su 4 recuperati
+- Prosa esplicativa adiacente al JSONL → Apertus impara che può commentare inline → 90N/38L persi nel ramo "Economia e Commercio"
+
+**Alternativa valida**: descrivere le qualità richieste in linguaggio naturale (già fatto con desc 50-80 parole).
+Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
+
+### Completato nella sessione 5 giugno 2026 (cherry-pick merge/relink su dev)
 - ✅ Portato su branch `dev` (cherry-pick manuale da `feat/structural-suggestions`):
-  - `mappai-node-merge.js` (nuovo file — Fondi con... + Cambia Link)
-  - `dev-console-metrics.js` (nuovo file — MappAIMetrics toolkit)
-  - `index.html`: modale `#link-family-modal` + tag script per entrambi i file
-  - `app.js`: `EDGE_FAMILIES` aggiornato (keywords + famiglia `analogia`),
-    `FAMILY_DEFAULT_REL`, `showLinkFamilyPrompt`, flusso link aggiornato,
-    voci menu contestuale "Fondi con..." e "Cambia Link", dispatch `ctxAction`
+  `mappai-node-merge.js`, `dev-console-metrics.js`, modale `#link-family-modal`, voci menu contestuale
 
-### Completato nella sessione precedente (4 giugno 2026 — MM quality pipeline)
-Vedi TODO.md §COMPLETATO per il dettaglio completo. Riassunto:
-- ✅ `dev-console-metrics.js` — toolkit metriche auto-caricato, `MappAIMetrics.report()`
-- ✅ Strategia 0: `MappAITruncationTracker` — rilevamento troncamenti in tempo reale
-- ✅ Strategia 1A: JSONL sezionato per Infomaniak (parser + prompt + feature flag)
-- ✅ Fix `maxOutputTokens` Mistral 3000→8192; fix Fase 1 Infomaniak senza responseSchema
-- ✅ 4 regole `MIND_MAP_BRANCH_IT` (anti-date, anti-lista, anti-duplicato, pivotali-L2)
-- ✅ Phase 4: merge semantici cross-ramo + cross-link (flag `mappai_mm_phase4_enabled`)
-- ✅ Phase 5: riclassificazione L2/L3 mal collocati (flag `mappai_mm_phase5_enabled`)
-- ✅ Branch Boundaries: catalogo L1 fratelli nei prompt Fase 3 (flag `mappai_branch_boundaries_enabled`)
-- ✅ Campo `ambito` su L1: template Fase 1 genera keyword di perimetro, propagato a tutti i pass
-- ✅ Phase 1.5: validazione L1 opzionale (conservativa, utile solo come rete di sicurezza)
+### Da fare subito (prossima sessione — 8 giugno 2026)
+1. **Mappe tree-like con coerenza semantica interna** — NUOVO OBIETTIVO PRINCIPALE
+   Vedi TODO.md §1 per la specifica completa. In sintesi:
+   - Ogni ramo deve essere semanticamente coerente e profondo (L3-L4 reali, desc dense)
+   - I cross-link sono ammessi SOLO come conseguenza di Phase 4 MERGE: quando un nodo
+     duplicato in una macro-area meno pertinente viene fuso verso quella più pertinente,
+     il link di fusione diventa l'unico cross-link ammesso
+   - Nessun cross-link sintetico generato solo per aumentare la density
+   - **Implicazione pratica**: valutare se disabilitare la sezione CROSSLINKS in Phase 4,
+     lasciando solo MERGES. Le relazioni inter-ramo emergono naturalmente dai merge.
 
-### Da fare subito (prossima sessione)
-1. **Test Kimi-K2.6 con pipeline completo** — TODO §1 (fix responseSchema applicato, ora si può)
-2. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO §4
-3. **Test KG con lenti AREA DISCIPLINARE** — TODO §2
-4. **Installer da rifare** (Intel x64, Linux, Windows) — 15 min, comando pronto
+2. **Test Kimi-K2.6 con pipeline completo** — TODO §2
+3. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO §3
 
 ### Da fare dopo
 5. Chunking map-reduce per Infomaniak (TODO backlog §11)
