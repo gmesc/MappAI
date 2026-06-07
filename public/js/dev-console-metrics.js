@@ -233,7 +233,9 @@
             phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
             phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1',
             chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1',
-            enrichDescs:      localStorage.getItem('mappai_enrich_descs_enabled') === '1'
+            enrichDescs:      localStorage.getItem('mappai_enrich_descs_enabled') === '1',
+            l1Split:          localStorage.getItem('mappai_l1_split_enabled') === '1',
+            richRel:          localStorage.getItem('mappai_rich_rel_enabled') === '1'
         };
         const activeFlags = Object.entries(flagsMap).filter(([_, v]) => v).map(([k]) => k);
         const flagsStr = activeFlags.length ? activeFlags.join(' ✓ | ') + ' ✓' : '(nessun flag attivo)';
@@ -1376,6 +1378,46 @@
         return info;
     }
 
+    // ── L1 Split: macro-aree atomiche (Fase 1.6) ──────────────────────────────
+
+    function enableL1Split() {
+        localStorage.setItem('mappai_l1_split_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode && mode !== 'mindmap') {
+            console.warn(`%c⚠️ L1 Split attivato ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ L1 SPLIT ATTIVO (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Fase 1.6: le macro-aree composte (es. "Neutralità e Difesa") verranno spezzate in due aree atomiche.');
+        }
+        return true;
+    }
+
+    function disableL1Split() {
+        localStorage.removeItem('mappai_l1_split_enabled');
+        console.log('%c⛔ L1 SPLIT DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    // ── Rich Rel: linking words significative su ogni arco (Fase 3) ────────────
+
+    function enableRichRel() {
+        localStorage.setItem('mappai_rich_rel_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode && mode !== 'mindmap') {
+            console.warn(`%c⚠️ Rich Rel attivato ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ RICH REL ATTIVO (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Fase 3: ogni arco userà un verbo significativo (concept-map), non "include".');
+        }
+        return true;
+    }
+
+    function disableRichRel() {
+        localStorage.removeItem('mappai_rich_rel_enabled');
+        console.log('%c⛔ RICH REL DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
     // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
 
     function enableSemanticDedup() {
@@ -1453,6 +1495,10 @@
         chunkFreezeStatus,
         enableEnrichDescs,
         disableEnrichDescs,
+        enableL1Split,
+        disableL1Split,
+        enableRichRel,
+        disableRichRel,
         enrichDescsStatus
     };
 

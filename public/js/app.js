@@ -2643,7 +2643,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                     type: "OBJECT",
                     properties: {
                         label: { type: "STRING" },
-                        rel: { type: "STRING" }
+                        rel: { type: "STRING" },
+                        ambito: { type: "STRING" },
+                        desc: { type: "STRING" },
+                        confini: { type: "STRING" }
                     },
                     required: ["label", "rel"]
                 }
@@ -2655,7 +2658,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
@@ -2692,6 +2695,17 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
             } catch (e) {
                 console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
+
+        // Fase 1.6 — split macro-categorie composte (gated dal flag mappai_l1_split_enabled).
+        // Pre-rami: spezza "Neutralità e Difesa" → "Neutralità" + "Difesa".
+        if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.6] split non bloccante:', e.message);
             }
         }
 
@@ -3107,7 +3121,10 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                     type: "OBJECT",
                     properties: {
                         label: { type: "STRING" },
-                        rel: { type: "STRING" }
+                        rel: { type: "STRING" },
+                        ambito: { type: "STRING" },
+                        desc: { type: "STRING" },
+                        confini: { type: "STRING" }
                     },
                     required: ["label", "rel"]
                 }
@@ -3119,7 +3136,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
@@ -3155,6 +3172,17 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
             } catch (e) {
                 console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
+
+        // Fase 1.6 — split macro-categorie composte (gated dal flag mappai_l1_split_enabled).
+        // Pre-rami: spezza "Neutralità e Difesa" → "Neutralità" + "Difesa".
+        if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.6] split non bloccante:', e.message);
             }
         }
 
@@ -4276,9 +4304,33 @@ window.parseJSONLResponse = function (text) {
 window.buildBranchPromptJSONL = function (branch, opts) {
     const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts, siblingCatalog } = opts;
     const sc = siblingCatalog || '';
+
+    // ── C: Carta del ramo (gated dal flag branch boundaries; graceful se i campi mancano) ──
+    const _ambitoPart = branch.ambito ? `\n- Ambito (concetti che DEVONO stare qui): ${branch.ambito}` : '';
+    const _descPart = (branch.desc && !/^Categoria principale:/.test(branch.desc)) ? `\n- Descrizione: ${branch.desc}` : '';
+    const _confiniPart = branch.confini ? `\n- Confini (NON sconfinare negli altri rami): ${branch.confini}` : '';
+    const charter = (window.isBranchBoundariesEnabled && window.isBranchBoundariesEnabled() && (_ambitoPart || _descPart || _confiniPart))
+        ? `\n📋 CARTA DEL RAMO "${branch.label}" — resta rigorosamente dentro questi confini:${_descPart}${_ambitoPart}${_confiniPart}\n`
+        : '';
+
+    // ── D: Linking words significative (gated dal flag mappai_rich_rel_enabled) ──
+    const relGuide = (window.isRichRelEnabled && window.isRichRelEnabled())
+        ? `
+🔗 LINKING WORDS — OGNI ARCO È UNA PROPOSIZIONE (stile concept-map)
+Il campo "rel" NON deve quasi mai essere "include". Scegli il verbo/locuzione che rende la frase "GENITORE → rel → FIGLIO" una proposizione VERA e leggibile, supportata dalla fonte. Pesca dal vocabolario per famiglia:
+- Causa/effetto: causa, provoca, genera, determina, porta a, alimenta
+- Dipendenza/prerequisito: richiede, dipende da, è condizione di, permette
+- Sequenza/processo: precede, segue, deriva da, evolve in
+- Regolazione/controllo: regola, governa, guida, limita, sostiene
+- Opposizione/contrasto: si oppone a, contrasta, ostacola, smaschera, condanna
+- Contenimento (SOLO se non esiste relazione più precisa): comprende, è formato da, è esempio di, fa parte di
+Evita "include"/"correlato a" salvo pura appartenenza gerarchica.
+`
+        : '';
+
     return `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
 Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
-
+${charter}
 ISTRUZIONI PER IL RAMO:
 1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
 2. Ciascun sotto-nodo generato deve definire:
@@ -4289,7 +4341,7 @@ ISTRUZIONI PER IL RAMO:
    - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
 3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare connessioni trasversali verso nodi di altri rami — quelle verranno aggiunte in una fase successiva.
-
+${relGuide}
 ⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
 NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
 
@@ -4297,8 +4349,8 @@ NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI O
 {"id":"${branch.id}_L2_A","label":"Esempio","content":"breve (max 10 parole)","desc":"paragrafo descrittivo specifico e denso di 50-80 parole con dati concreti","level":2,"chunks":["citazione verbatim dalla fonte"]}
 {"id":"${branch.id}_L2_B","label":"Altro","content":"breve","desc":"...","level":2,"chunks":["..."]}
 ===LINKS===
-{"source":"${branch.id}","target":"${branch.id}_L2_A","rel":"include"}
-{"source":"${branch.id}_L2_A","target":"${branch.id}_L3_A1","rel":"include"}
+{"source":"${branch.id}","target":"${branch.id}_L2_A","rel":"${(window.isRichRelEnabled && window.isRichRelEnabled()) ? 'comprende' : 'include'}"}
+{"source":"${branch.id}_L2_A","target":"${branch.id}_L3_A1","rel":"${(window.isRichRelEnabled && window.isRichRelEnabled()) ? 'è condizione di' : 'include'}"}
 
 REGOLE TASSATIVE SUL FORMATO:
 - UN oggetto JSON PER RIGA, niente array racchiudenti, niente virgole tra le righe
@@ -4369,6 +4421,16 @@ window.isL1ValidationEnabled = function () {
     } catch (e) { return false; }
 };
 
+// Fase 1.6 — split macro-categorie composte ("Neutralità e Difesa" → due aree atomiche).
+// Pre-rami, quindi sicuro: nessun figlio da ridistribuire.
+// Gated dal feature flag mappai_l1_split_enabled.
+window.isL1SplitEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_l1_split_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
 // ──────────────────────────────────────────────────────────────────────────
 // STRATEGIA A — Confini di ramo (catalogo L1 fratelli nei prompt Fase 3)
 // ──────────────────────────────────────────────────────────────────────────
@@ -4383,6 +4445,16 @@ window.isL1ValidationEnabled = function () {
 window.isBranchBoundariesEnabled = function () {
     try {
         return localStorage.getItem('mappai_branch_boundaries_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Linking words significative su ogni arco (stile concept-map): inietta il vocabolario
+// dei verbi nel prompt di ramo. Vale per entrambi i provider, solo in mindmap.
+// Gated dal feature flag mappai_rich_rel_enabled.
+window.isRichRelEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_rich_rel_enabled') === '1'
             && appState?.extractionMode === 'mindmap';
     } catch (e) { return false; }
 };
@@ -5080,6 +5152,91 @@ Se la lista era già perfetta, restituiscila identica. Questa è la risposta COR
         console.warn('[Phase 1.5] Errore non bloccante:', e.message);
         return l1Data;
     }
+};
+
+// Rileva un label che unisce due concetti distinti tramite congiunzione o separatore.
+// Conservativo: solo "e"/"ed"/"e/o"/"and" come parola separata, oppure "/" o "&".
+window._isCompoundLabel = function (label) {
+    if (!label || typeof label !== 'string') return false;
+    const s = label.trim();
+    if (/[\/&]/.test(s)) return true;
+    if (/(^|\s)(ed|e\/o|e|and)(\s)/i.test(s)) return true;
+    return false;
+};
+
+// Fase 1.6 — split deterministico+AI delle macro-categorie composte.
+// Per ogni L1 composta fa una piccola chiamata AI (array JSON semplice, Apertus-safe)
+// che ritorna 2 aree atomiche (con label/rel/ambito/desc/confini) oppure 1 sola se la
+// nozione è inscindibile. Degrada in modo sicuro: se l'output non è valido, tiene l'L1
+// originale. Rispetta il tetto massimo di macro-aree (MAX_L1 = 7).
+window.splitCompoundL1s = async function (l1Data, rootLabel) {
+    if (!Array.isArray(l1Data) || l1Data.length === 0) return l1Data;
+    const MAX_L1 = 7;
+    const compounds = l1Data.filter(c => c && window._isCompoundLabel(c.label));
+    if (compounds.length === 0) {
+        console.log('%c[Phase 1.6] Nessuna macro-area composta da spezzare', 'color:#6366f1');
+        return l1Data;
+    }
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) return l1Data;
+
+    let result = [...l1Data];
+    for (const comp of compounds) {
+        if (result.length >= MAX_L1) {
+            console.warn(`[Phase 1.6] Tetto ${MAX_L1} raggiunto, salto split di "${comp.label}"`);
+            break;
+        }
+        const otherLabels = result.filter(c => c !== comp).map(c => c.label);
+        const prompt = `La macro-categoria "${comp.label}" di una mappa mentale su "${rootLabel}" sembra unire due concetti distinti tramite una congiunzione.
+Se i due concetti sono SEPARABILI, spezzala in DUE macro-categorie atomiche e mono-concetto (una per concetto).
+Se invece è una nozione realmente INSCINDIBILE (un'unica entità che perde senso se divisa), restituiscila INVARIATA come singolo elemento.
+
+Altre macro-aree già presenti (NON duplicarle): ${otherLabels.join(', ') || '(nessuna)'}
+
+Per ogni macro-categoria risultante fornisci:
+- "label": titolo BREVE e mono-concetto (max 3-4 parole, niente congiunzioni)
+- "rel": verbo o locuzione breve che la lega al tema "${rootLabel}" (1-3 parole)
+- "ambito": 3-5 parole-chiave separate da virgola
+- "desc": 40-60 parole su cosa copre e perché è una categoria a sé
+- "confini": 1-2 frasi su cosa NON va in questo ramo
+
+Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Niente markdown, niente commenti:
+[{"label":"...","rel":"...","ambito":"...","desc":"...","confini":"..."}]`;
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
+                generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(1500) : 1500 }
+            };
+            const response = await window.fetchModelAPI(payload, apiKey);
+            const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+            let parts;
+            try { parts = salvageTruncatedJSON(cleanText); } catch (e) { parts = null; }
+            if (!Array.isArray(parts)) {
+                console.warn(`[Phase 1.6] Output non valido per "${comp.label}", lo tengo intero`);
+                continue;
+            }
+            const valid = parts.filter(c => c && typeof c === 'object' && typeof c.label === 'string' && c.label.trim());
+            if (valid.length < 2) {
+                console.log(`%c[Phase 1.6] "${comp.label}" giudicata inscindibile, invariata`, 'color:#6366f1');
+                continue;
+            }
+            const replacement = valid.slice(0, 2);
+            replacement.forEach(c => { if (!c.rel || typeof c.rel !== 'string') c.rel = comp.rel || 'include'; });
+            const idx = result.indexOf(comp);
+            if (idx === -1) continue;
+            if (result.length - 1 + replacement.length > MAX_L1) {
+                console.warn(`[Phase 1.6] Split di "${comp.label}" sforerebbe il tetto ${MAX_L1}, salto`);
+                continue;
+            }
+            result.splice(idx, 1, ...replacement);
+            console.log(`%c[Phase 1.6] "${comp.label}" → ${replacement.map(r => `"${r.label}"`).join(' + ')}`, 'color:#10b981;font-weight:bold');
+        } catch (e) {
+            console.warn(`[Phase 1.6] split "${comp.label}" non bloccante:`, e.message);
+        }
+    }
+    return result;
 };
 
 window.isPhase4Enabled = function () {

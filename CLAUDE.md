@@ -582,6 +582,8 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | `mappai_l1_validation_enabled` | Validazione L1 dopo Fase 1 (conservativa) | OFF |
 | `mappai_freeze_chunks` | Freeze: NON salva i chunk verbatim (prep STEP 2) | OFF |
 | `mappai_enrich_descs_enabled` | Arricchisce desc sottili (<35 parole) dalla fonte, post-gen | OFF |
+| `mappai_l1_split_enabled` | Fase 1.6: spezza macro-aree composte ("Neutralità e Difesa" → 2 atomiche) | OFF |
+| `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
 
 **Comandi console:**
 ```js
@@ -592,8 +594,18 @@ MappAIMetrics.enablePhase5()           MappAIMetrics.disablePhase5()
 MappAIMetrics.enableL1Validation()     MappAIMetrics.disableL1Validation()
 MappAIMetrics.enableChunkFreeze()      MappAIMetrics.disableChunkFreeze()
 MappAIMetrics.enableEnrichDescs()      MappAIMetrics.disableEnrichDescs()
+MappAIMetrics.enableL1Split()          MappAIMetrics.disableL1Split()
+MappAIMetrics.enableRichRel()          MappAIMetrics.disableRichRel()
 MappAIMetrics.report()                 // Markdown in clipboard
 ```
+
+> ⚠️ **Nota schema L1 (7 giugno 2026):** la config attiva è `prompts_config.json` (root),
+> non `prompts_default.json`. Entrambi ora chiedono 5 chiavi L1 (`label, rel, ambito, desc,
+> confini`) + regola di atomicità + tetto 3-7. Lo `schemaL1` in `app.js` (×2) include i 5
+> campi. Se esiste un override utente in `userData/prompts_config.json`, usare "Ripristina
+> Default" nell'admin dashboard (CTRL+SHIFT+P,O,I,U) per ricaricare il template aggiornato.
+> Carta del ramo (ambito/desc/confini del ramo corrente nel prompt Fase 3) gated dal flag
+> esistente `mappai_branch_boundaries_enabled`. Backup template: `*.json.bak`.
 
 **Modello content/desc (rilevante per i modali di studio):**
 - `desc` = campo RICCO (paragrafo di studio) → mostrato in tutti i modali, dossier, quiz, tutor.
