@@ -3034,6 +3034,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             window.showToast("Errore durante la generazione dell'albero.", "error");
         }
 
+        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
+        }
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -3641,6 +3648,14 @@ ${textParts.join('\n\n')}`;
         // Tree-sanitizer: impone single-parent, rimuove L1→L1, ricalcola livelli
         // e group. Deterministico, zero AI. Solo su mindmap.
         if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+
+        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
+        }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -4427,7 +4442,7 @@ window.executeSemanticDedup = async function (options = {}) {
     }
 
     const texts = nodes.map(n => {
-        const desc = (n.content || n.desc || '').replace(/\s+/g, ' ').slice(0, 100);
+        const desc = (n.desc || n.content || '').replace(/\s+/g, ' ').slice(0, 100);
         return `${n.label}. ${desc}`.trim();
     });
     report.embeddingsRequested = texts.length;
@@ -4803,29 +4818,147 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
         const enriched = window.salvageTruncatedJSON(cleanText);
         if (!Array.isArray(enriched)) return;
 
-        const byLabel = new Map(enriched
-            .filter(item => typeof item.label === 'string')
-            .map(item => [item.label.trim().toLowerCase(), item])
-        );
+        // Normalizzazione robusta: rimuove articoli iniziali, punteggiatura e
+        // contenuto tra parentesi. Evita che un L1 resti col placeholder solo
+        // perché il modello ha risposto con un label leggermente diverso
+        // (es. "Commercio con l'Asse" vs "Commercio con l'Asse (Germania e Italia)").
+        const normLbl = (s) => (s || '')
+            .toLowerCase()
+            .replace(/\([^)]*\)/g, ' ')                 // togli "(...)"
+            .replace(/^(il|lo|la|i|gli|le|un|uno|una|l['']|dell['']|della|delle|dei|degli)\s+/i, '')
+            .replace(/[^a-z0-9àèéìòù ]/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        let applied = 0;
+        const enrichedItems = enriched.filter(item => typeof item.label === 'string');
+        const byExact = new Map(enrichedItems.map(item => [normLbl(item.label), item]));
+
+        // Match fuzzy: esatto su label normalizzato, poi inclusione bidirezionale
+        // (uno è prefisso/sottostringa dell'altro), che cattura le varianti con suffissi.
+        const findItem = (node) => {
+            const key = normLbl(node.label);
+            if (byExact.has(key)) return byExact.get(key);
+            return enrichedItems.find(item => {
+                const ik = normLbl(item.label);
+                return ik && key && (ik.includes(key) || key.includes(ik));
+            }) || null;
+        };
+
+        let applied = 0, placeholdersLeft = 0;
         for (const node of l1NodesData) {
-            const item = byLabel.get(node.label.trim().toLowerCase());
-            if (!item) continue;
-            if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
-            if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
-            // Aggiorna content con il desc ricco completo.
-            // Il card (d.content || d.desc) mostra questo testo come descrizione del nodo L1.
-            // Non tronchiamo: il desc è una paragrafo leggibile, non una keyword.
-            if (node.desc && !node.desc.startsWith('Categoria principale:')) {
-                node.content = node.desc;
+            const item = findItem(node);
+            if (item) {
+                if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
+                if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
+                node.aiDesc = node.desc;
+                // I modali di studio ora leggono `desc || content` (desc = campo ricco),
+                // quindi non serve più copiare desc su content: il modale mostra desc.
+                applied++;
             }
-            applied++;
+            if (!node.desc || node.desc.startsWith('Categoria principale:')) placeholdersLeft++;
         }
-        console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti`);
+        console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti` +
+            (placeholdersLeft ? ` — ⚠️ ${placeholdersLeft} L1 ancora con desc placeholder` : ''));
     } catch (e) {
         console.warn('[enrichL1Descs] errore non bloccante:', e.message);
     }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// 3b — ARRICCHIMENTO DESC SOTTILI, ANCORATO ALLA FONTE (post-gen)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// I modali dei nodi sono lo strumento di studio principale per gli studenti
+// BES/DSA → le desc devono essere ricche. Questo post-pass individua i nodi
+// con desc sotto soglia (a QUALSIASI livello) e le riscrive in 50-80 parole
+// FEDELI al documento sorgente (zero allucinazioni). Batched per contenere i
+// token. Gated da `mappai_enrich_descs_enabled` (default OFF). Non bloccante.
+window.isEnrichDescsEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_enrich_descs_enabled') === '1'
+            && (appState.extractionMode === 'mindmap' || !appState.extractionMode);
+    } catch (e) { return false; }
+};
+
+// Conta le parole di una desc. Placeholder e vuoti contano 0 → sempre arricchiti.
+window._descWordCount = function (s) {
+    if (!s || typeof s !== 'string') return 0;
+    if (s.startsWith('Categoria principale:')) return 0;
+    return s.trim().split(/\s+/).filter(Boolean).length;
+};
+
+window.enrichThinDescs = async function (textParts, apiKey) {
+    if (!window.isEnrichDescsEnabled || !window.isEnrichDescsEnabled()) return;
+    if (!apiKey) return;
+
+    const THRESHOLD = 35;       // parole minime perché una desc sia "ricca"
+    const BATCH = 6;            // nodi per chiamata
+    const SOURCE_CAP = 28000;   // caratteri di fonte per chiamata (~7k token)
+
+    const nodes = appState.db.nodes || [];
+    const links = appState.db.links || [];
+    const idToNode = new Map(nodes.map(n => [n.id, n]));
+    const linkId = (v) => (typeof v === 'object' && v) ? v.id : v;
+    const parentNodeOf = (id) => {
+        const link = links.find(l => linkId(l.target) === id && !l.isCross);
+        return link ? (idToNode.get(linkId(link.source)) || null) : null;
+    };
+
+    const thin = nodes.filter(n => (n.level ?? 0) >= 1 && window._descWordCount(n.desc) < THRESHOLD);
+    if (!thin.length) { console.log('[enrichThinDescs] nessuna desc sottile — skip'); return; }
+
+    const source = (Array.isArray(textParts) ? textParts.join('\n\n') : String(textParts || '')).slice(0, SOURCE_CAP);
+    if (!source.trim()) { console.warn('[enrichThinDescs] nessun testo fonte — skip'); return; }
+
+    const isIT = document.documentElement.lang !== 'en';
+    let applied = 0;
+    window.showLoadingOverlay(true, isIT ? `Arricchimento descrizioni (${thin.length} nodi)...` : `Enriching descriptions (${thin.length} nodes)...`);
+
+    for (let i = 0; i < thin.length; i += BATCH) {
+        const batch = thin.slice(i, i + BATCH);
+        const listStr = batch.map((n, idx) => {
+            const p = parentNodeOf(n.id);
+            const ctx = p ? ` (sotto la categoria "${window.cleanLabel(p.label)}")` : '';
+            return `${idx + 1}. "${window.cleanLabel(n.label)}"${ctx}`;
+        }).join('\n');
+
+        const prompt = isIT
+            ? `Sei un redattore didattico per studenti con DSA/BES. Basandoti ESCLUSIVAMENTE sul DOCUMENTO qui sotto, scrivi per ciascun concetto elencato una descrizione chiara di 50-80 parole, in frasi semplici, lineari e fedeli al documento. NON inventare fatti non presenti nel documento. Se il documento non contiene abbastanza informazioni su un concetto, scrivi una descrizione più breve ma corretta.\n\nDOCUMENTO:\n${source}\n\nCONCETTI DA DESCRIVERE:\n${listStr}\n\nRestituisci SOLO un array JSON: [{"n": 1, "desc": "..."}]. Il campo "n" è il numero del concetto. Nessun altro testo.`
+            : `You are an educational editor for students with learning disabilities (SLD/SEN). Based EXCLUSIVELY on the DOCUMENT below, write for each listed concept a clear 50-80 word description, in simple linear sentences faithful to the document. Do NOT invent facts not present in the document. If the document lacks enough information on a concept, write a shorter but accurate description.\n\nDOCUMENT:\n${source}\n\nCONCEPTS TO DESCRIBE:\n${listStr}\n\nReturn ONLY a JSON array: [{"n": 1, "desc": "..."}]. The "n" field is the concept number. No other text.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
+            }
+        };
+
+        try {
+            const data = await window.fetchModelAPI(payload, apiKey);
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            const arr = window.salvageTruncatedJSON(cleanText);
+            if (!Array.isArray(arr)) continue;
+            for (const item of arr) {
+                const idx = parseInt(item && item.n);
+                if (isNaN(idx) || idx < 1 || idx > batch.length) continue;
+                const node = batch[idx - 1];
+                if (item.desc && typeof item.desc === 'string'
+                    && window._descWordCount(item.desc) > window._descWordCount(node.desc)) {
+                    node.desc = item.desc.trim();
+                    node.aiDesc = node.desc;
+                    applied++;
+                }
+            }
+        } catch (e) {
+            console.warn(`[enrichThinDescs] batch ${Math.floor(i / BATCH) + 1} fallito:`, e.message);
+        }
+    }
+
+    window.showLoadingOverlay(false);
+    console.log(`%c[enrichThinDescs] ${applied}/${thin.length} desc arricchite (soglia ${THRESHOLD} parole, ancorate alla fonte)`,
+        'color:#10b981;font-weight:bold');
 };
 
 window.validateL1Categories = async function (l1Data, rootLabel) {
@@ -7722,7 +7855,7 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
                         </div>
                     ` : ''}
 
-                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">${cleanLabel(d.content || d.desc) || "Nessuna descrizione."}</div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">${cleanLabel(d.desc || d.content) || "Nessuna descrizione."}</div>
                     
                     <!-- Links in Details -->
                     ${(d.urls && d.urls.length > 0) || d.url ? `
@@ -7862,7 +7995,7 @@ window.openSourceModal = function (nodeId) {
         sourceModalTitle.textContent = cleanLabel(d.label);
         sourceModalSubtitle.textContent = `Scheda Focus - Livello ${d.level}`;
 
-        let descStr = cleanLabel(d.content || d.desc) || "Nessuna descrizione.";
+        let descStr = cleanLabel(d.desc || d.content) || "Nessuna descrizione.";
         descStr = descStr.replace(/\n/g, '<br>');
         descStr = window.highlightQuery ? window.highlightQuery(descStr, appState.searchQuery) : descStr;
         let html = `<p class="text-slate-800 desc-text rich-desc mb-6 leading-relaxed">${descStr}</p>`;
@@ -10767,7 +10900,7 @@ let editImages = [];
 window.openEditModal = function (nodeData) {
     editTarget = nodeData;
     document.getElementById('edit-n-label').value = cleanLabel(nodeData.label) || "";
-    document.getElementById('edit-n-content').value = cleanLabel(nodeData.content || nodeData.desc) || "";
+    document.getElementById('edit-n-content').value = cleanLabel(nodeData.desc || nodeData.content) || "";
 
     // Migration to arrays
     editLinks = nodeData.urls ? [...nodeData.urls] : (nodeData.url ? [nodeData.url] : []);
@@ -11039,7 +11172,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
 
     const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
         nodeLabel: node.label,
-        nodeContent: node.content || node.desc
+        nodeContent: node.desc || node.content
     });
 
     const schema = {
@@ -12742,17 +12875,17 @@ window.startStudySession = async function () {
 
     if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
         const n = window.studyConfig.target;
-        studyText = `${n.label}: ${n.content || n.desc}`;
+        studyText = `${n.label}: ${n.desc || n.content}`;
         const isKG = appState.db.extractionMode === 'knowledge_graph';
         const nodePrefix = (isKG && n.level === 1) ? 'Hub' : 'Nodo';
         targetLabel = `${nodePrefix}: ${n.label}`;
     } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
         const root = window.studyConfig.target;
         const branchNodes = [root, ...window.getDescendants(root.id)];
-        studyText = branchNodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+        studyText = branchNodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
         targetLabel = `Ramo: ${root.label}`;
     } else {
-        studyText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+        studyText = appState.db.nodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
     }
 
     if (!studyText || studyText.trim() === '') {

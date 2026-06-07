@@ -553,6 +553,8 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | `mappai_mm_phase4_enabled` | Merge + cross-link semantici post-gen | OFF |
 | `mappai_mm_phase5_enabled` | Riclassificazione L2/L3 mal collocati | OFF |
 | `mappai_l1_validation_enabled` | Validazione L1 dopo Fase 1 (conservativa) | OFF |
+| `mappai_freeze_chunks` | Freeze: NON salva i chunk verbatim (prep STEP 2) | OFF |
+| `mappai_enrich_descs_enabled` | Arricchisce desc sottili (<35 parole) dalla fonte, post-gen | OFF |
 
 **Comandi console:**
 ```js
@@ -561,8 +563,16 @@ MappAIMetrics.enableBranchBoundaries() MappAIMetrics.disableBranchBoundaries()
 MappAIMetrics.enablePhase4()           MappAIMetrics.disablePhase4()
 MappAIMetrics.enablePhase5()           MappAIMetrics.disablePhase5()
 MappAIMetrics.enableL1Validation()     MappAIMetrics.disableL1Validation()
+MappAIMetrics.enableChunkFreeze()      MappAIMetrics.disableChunkFreeze()
+MappAIMetrics.enableEnrichDescs()      MappAIMetrics.disableEnrichDescs()
 MappAIMetrics.report()                 // Markdown in clipboard
 ```
+
+**Modello content/desc (rilevante per i modali di studio):**
+- `desc` = campo RICCO (paragrafo di studio) → mostrato in tutti i modali, dossier, quiz, tutor.
+- `content` = campo breve/legacy, tenuto in sync su edit, usato solo come fallback.
+- Tutte le superfici di studio leggono `desc || content` (mai `content || desc`).
+- La card sul canvas mostra sempre `label` (né content né desc).
 
 ### Branch git attivi
 | Branch | Ruolo |

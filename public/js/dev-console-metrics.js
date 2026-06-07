@@ -232,7 +232,8 @@
             branchBoundaries: localStorage.getItem('mappai_branch_boundaries_enabled') === '1',
             phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
             phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1',
-            chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1'
+            chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1',
+            enrichDescs:      localStorage.getItem('mappai_enrich_descs_enabled') === '1'
         };
         const activeFlags = Object.entries(flagsMap).filter(([_, v]) => v).map(([k]) => k);
         const flagsStr = activeFlags.length ? activeFlags.join(' ✓ | ') + ' ✓' : '(nessun flag attivo)';
@@ -1335,6 +1336,46 @@
         return info;
     }
 
+    // ── Arricchimento desc sottili ancorato alla fonte (3b) ───────────────────
+    //
+    // Post-pass automatico a fine generazione: riscrive le desc sotto soglia
+    // (qualsiasi livello) in 50-80 parole fedeli al documento sorgente. Costo
+    // extra (chiamate batched con il testo fonte). Default OFF.
+
+    function enableEnrichDescs() {
+        localStorage.setItem('mappai_enrich_descs_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode && mode !== 'mindmap') {
+            console.warn(`%c⚠️ Arricchimento attivato ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ ARRICCHIMENTO DESC ATTIVO (MindMap)', 'color:green;font-weight:bold');
+            console.log('   A fine generazione le desc sottili (<35 parole) verranno riscritte in 50-80 parole ancorate alla fonte.');
+        }
+        return true;
+    }
+
+    function disableEnrichDescs() {
+        localStorage.removeItem('mappai_enrich_descs_enabled');
+        console.log('%c⛔ ARRICCHIMENTO DESC DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function enrichDescsStatus() {
+        const enabled = localStorage.getItem('mappai_enrich_descs_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const info = {
+            flagSet: enabled,
+            mode,
+            active: enabled && (mode === 'mindmap' || !mode),
+            note: !enabled ? 'Flag spento — usa .enableEnrichDescs() per attivare'
+                : (mode && mode !== 'mindmap') ? `Flag acceso ma extractionMode=${mode} (attivo solo in MindMap)`
+                : 'Attivo — la prossima generazione MM arricchirà le desc sottili dalla fonte'
+        };
+        console.log('%c── ARRICCHIMENTO DESC STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
 
     function enableSemanticDedup() {
@@ -1409,7 +1450,10 @@
         runSemanticDedup,
         enableChunkFreeze,
         disableChunkFreeze,
-        chunkFreezeStatus
+        chunkFreezeStatus,
+        enableEnrichDescs,
+        disableEnrichDescs,
+        enrichDescsStatus
     };
 
     console.log(
