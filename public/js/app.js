@@ -5897,6 +5897,16 @@ REGOLE:
         catch (e) { console.warn('[enrichThinDescs] errore non bloccante (KG community):', e.message); }
         window.stripChunksIfFrozen(appState.db.nodes);
 
+        // Popola sourcesDict dalle desc (arricchite o originali).
+        // Community KG non genera chunk verbatim: le desc ancorate alla fonte
+        // sono il sostituto funzionale per vault Obsidian, modale "Fonti" e
+        // metrica sourceCov. Gli hub sintetici (COMM_*) non hanno fonte propria.
+        appState.db.nodes.forEach(n => {
+            if (n.isCommunityHub) return;
+            const text = (n.desc || n.content || '').trim();
+            if (text) appState.db.sourcesDict[n.id] = [{ title: n.label, source: 'Fonte analizzata', text }];
+        });
+
         window.showLoadingOverlay(false);
         window.switchToMapLayout();
         setTimeout(() => { initD3Visualization(); }, 200);
