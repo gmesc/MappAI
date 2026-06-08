@@ -10067,7 +10067,13 @@ window.generateDossierPDFFromOptions = async function () {
                 if (scope === 'single') {
                     targetNodes = [selectedNode];
                 } else {
-                    targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+                    // Ordina per macro-area (group) poi per livello: tutti i nodi di
+                    // ogni colore/comunità restano in sequenza nel dossier stampato.
+                    targetNodes = [...(appState.db.nodes || [])].sort((a, b) => {
+                        const ga = a.group ?? 0, gb = b.group ?? 0;
+                        if (ga !== gb) return ga - gb;
+                        return (a.level || 0) - (b.level || 0);
+                    });
                 }
             }
         }
@@ -10217,9 +10223,9 @@ window.generateDossierPDFFromOptions = async function () {
             dossierSubtitle = cleanLabel(targetNodes[0]?.label || projectTitle);
         } else {
             // scope === 'all' oppure selectedNodeId === 'all'
-            const rootNodeObj = appState.db.nodes?.find(n => n.level === 0);
-            dossierTitle = 'Struttura della Mappa';
-            dossierSubtitle = cleanLabel(rootNodeObj?.label || projectTitle);
+            // Titolo prima pagina = nome del progetto assegnato in MappAI
+            dossierTitle = cleanLabel(appState.rootNodeLabel || appState.db?.rootNodeLabel || projectTitle);
+            dossierSubtitle = isMM ? 'Mappa Mentale' : 'Knowledge Graph';
         }
 
         let dossierCardsHtml = '';
@@ -10522,7 +10528,7 @@ window.generateDossierPDFFromOptions = async function () {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Dossier Fonti A4 - ${projectTitle}</title>
+            <title>Dossier ${projectTitle} ${isMM ? 'MM' : 'KG'}</title>
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
                 :root {
@@ -10667,14 +10673,15 @@ window.generateDossierPDFFromOptions = async function () {
 
                 /* ── HEADER CARD FULL-WIDTH (layout allineato al #source-modal) ─── */
                 .dossier-card-header {
-                    /* Rettangolo colorato full-width che rompe il padding della card */
+                    /* Rettangolo colorato full-width che rompe il padding della card.
+                       Padding ridotto per risparmiare toner e spazio in stampa. */
                     display: flex;
                     align-items: flex-start;
                     justify-content: space-between;
-                    gap: 12px;
-                    padding: 18pt 20pt 14pt 20pt;
+                    gap: 8px;
+                    padding: 8pt 16pt 7pt 16pt;
                     margin: calc(-1 * var(--pdf-card-padding));
-                    margin-bottom: calc(var(--pdf-card-padding) * 0.7);
+                    margin-bottom: calc(var(--pdf-card-padding) * 0.5);
                 }
 
                 .dossier-card-header-main {
@@ -10700,8 +10707,9 @@ window.generateDossierPDFFromOptions = async function () {
                 }
 
                 .dossier-title {
-                    /* Titolo nodo nell'header: bianco, bold, grande */
-                    font-size: 22pt;
+                    /* Titolo nodo nell'header: bianco, bold — ridotto da 22pt a 14pt
+                       per contenere l'altezza del blocco colorato e risparmiare toner */
+                    font-size: 14pt;
                     font-weight: 700;
                     margin: 0;
                     color: #ffffff;
@@ -10709,15 +10717,15 @@ window.generateDossierPDFFromOptions = async function () {
                 }
 
                 .dossier-level-tag {
-                    /* "Livello X · MacroArea": bianco 10pt, opacità ridotta */
-                    font-size: 10pt;
+                    /* "Livello X · MacroArea": bianco 8pt, opacità ridotta */
+                    font-size: 8pt;
                     color: rgba(255,255,255,0.75);
                     display: block;
                 }
 
                 .dossier-breadcrumb {
-                    /* Percorso parentela: bianco italic 9pt */
-                    font-size: 9pt;
+                    /* Percorso parentela: bianco italic 8pt */
+                    font-size: 8pt;
                     color: rgba(255,255,255,0.65);
                     font-style: italic;
                     display: block;
