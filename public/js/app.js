@@ -10141,12 +10141,13 @@ window.generateDossierPDFFromOptions = async function () {
         // ─── Helper: genera la card di un nodo (layout allineato al #source-modal) ─
         function buildNodeCard(node, showCitations, citationsHtml, notesCount, relationsHtml) {
             // ── Calcolo colore header e contrasto testo ──────────────────────────
-            // getMacroAreaColor garantisce colore della macroarea (L1) per ogni livello
             const headerColor = getMacroAreaColor(node);
             const hex = headerColor.replace('#', '');
             const r = parseInt(hex.substr(0, 2), 16) || 0, g = parseInt(hex.substr(2, 2), 16) || 0, b = parseInt(hex.substr(4, 2), 16) || 0;
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-            const textColor = luma > 160 ? '#1e293b' : '#ffffff'; // usato solo per badge Modo B
+            const textColor = luma > 160 ? '#1e293b' : '#ffffff';
+
+            const isL1 = (node.level || 0) <= 1;
 
             // ── Nome macro-area (L1) di appartenenza ────────────────────────────
             const macroareaName = (() => {
@@ -10154,42 +10155,63 @@ window.generateDossierPDFFromOptions = async function () {
                 return l1 ? cleanLabel(l1.label) : `Gruppo ${node.group !== undefined ? node.group : '–'}`;
             })();
 
-            // ── Breadcrumb: percorso parentela macroArea › nodo ──────────────────
-            const breadcrumb = (() => {
-                if (!node.level || node.level <= 1) return '';
-                const l1 = appState.db.nodes.find(nd => nd.level === 1 && nd.group === node.group);
-                return l1 ? `${cleanLabel(l1.label)} › ${cleanLabel(node.label)}` : '';
+            // ── Relazioni nel header: predecessori e successori ──────────────────
+            // Mostrate solo sui nodi L2+ per non ingolfare gli hub
+            const headerRelHints = (() => {
+                if (isL1) return '';
+                const nodeMap = {};
+                (appState.db.nodes || []).forEach(nd => { nodeMap[nd.id] = nd; });
+                const rawLinks = appState.db.links || [];
+                const nodeId = node.id;
+
+                const formatRef = (nd) => {
+                    if (!nd) return null;
+                    const isHub = (nd.level || 0) <= 1;
+                    return (isHub ? 'HUB+' : '') + cleanLabel(nd.label);
+                };
+
+                // Predecessori: nodi che puntano A questo nodo
+                const fromRefs = rawLinks
+                    .filter(l => (typeof l.target === 'object' ? l.target.id : l.target) === nodeId)
+                    .map(l => formatRef(nodeMap[typeof l.source === 'object' ? l.source.id : l.source]))
+                    .filter(Boolean);
+
+                // Successori: nodi a cui questo nodo punta
+                const toRefs = rawLinks
+                    .filter(l => (typeof l.source === 'object' ? l.source.id : l.source) === nodeId)
+                    .map(l => formatRef(nodeMap[typeof l.target === 'object' ? l.target.id : l.target]))
+                    .filter(Boolean);
+
+                let html = '';
+                if (fromRefs.length) html += `<span class="dossier-rel-hint">&#8592; ${fromRefs.join(' / ')}</span>`;
+                if (toRefs.length)   html += `<span class="dossier-rel-hint">&#8594; ${toRefs.join(' / ')}</span>`;
+                return html;
             })();
 
-            // ── Sezione FONTI: titolo con barra sinistra colorata (come il modale) ─
+            // ── Sezione FONTI: titolo con barra sinistra colorata ────────────────
             const citationsSection = showCitations ? `
-            <!-- Titolo fonti: barra verticale sinistra = 3pt, colore nodo -->
             <div class="dossier-sources-header" style="border-left:3pt solid ${headerColor};padding-left:8pt;margin:12pt 0 6pt 0;">
                 <span class="dossier-section-title sources-title" style="color:${headerColor};">&#9612; FONTI E NOTE APPROFONDITE (${notesCount})</span>
             </div>
-            <!-- Lista citazioni: box sfondo grigio chiaro con bordo sinistro -->
             <div class="citations-container">${citationsHtml}</div>
         ` : '';
 
+            // Header: L1 (macro-area) → dimensioni originali grandi per impatto visivo
+            //         L2+ → padding compatto, titolo riempie bene il rettangolo
+            const headerClass = isL1 ? 'dossier-card-header is-l1' : 'dossier-card-header';
+
             return `<div class="dossier-card">
 
-            <!-- ── HEADER PAGINA: rettangolo colorato full-width ─────────────── -->
-            <div class="dossier-card-header" style="background:${headerColor};color:white;">
+            <!-- ── HEADER: rettangolo colorato full-width ──────────────────────── -->
+            <div class="${headerClass}" style="background:${headerColor};color:white;">
                 <div class="dossier-card-header-main">
-                    <!-- Titolo nodo: bianco, bold, ~22pt -->
                     <h2 class="dossier-title">${cleanLabel(node.label)}</h2>
-                    <!-- Sottotitolo: "Livello X · MacroArea" bianco 10pt opacità ridotta -->
-                    <span class="dossier-level-tag">Livello ${node.level || 0} · ${macroareaName}</span>
-                    ${breadcrumb ? `<!-- Breadcrumb parentela: bianco italic 9pt -->
-                    <span class="dossier-breadcrumb">${breadcrumb}</span>` : ''}
+                    ${headerRelHints}
                 </div>
             </div>
 
-            <!-- ── SEZIONE SINTESI ──────────────────────────────────────────── -->
+            <!-- ── CORPO NODO ───────────────────────────────────────────────────── -->
             <div class="dossier-body">
-                <!-- Etichetta "SINTESI DEL CONCETTO": maiuscoletto, accent, 8pt, tracking largo -->
-                <span class="dossier-section-label">SINTESI DEL CONCETTO</span>
-                <!-- Testo sintesi: Space Mono, interlinea 1.6, colore #1e293b -->
                 <p class="dossier-desc">${cleanLabel(node.desc || node.content || 'Nessuna descrizione presente.')}</p>
 
                 <!-- ── SEZIONE FONTI E CITAZIONI ────────────────────────── -->
@@ -10673,15 +10695,19 @@ window.generateDossierPDFFromOptions = async function () {
 
                 /* ── HEADER CARD FULL-WIDTH (layout allineato al #source-modal) ─── */
                 .dossier-card-header {
-                    /* Rettangolo colorato full-width che rompe il padding della card.
-                       Padding ridotto per risparmiare toner e spazio in stampa. */
+                    /* Header nodi L2+: compatto, titolo riempie il rettangolo */
                     display: flex;
                     align-items: flex-start;
                     justify-content: space-between;
                     gap: 8px;
-                    padding: 8pt 16pt 7pt 16pt;
+                    padding: 10pt 16pt 9pt 16pt;
                     margin: calc(-1 * var(--pdf-card-padding));
                     margin-bottom: calc(var(--pdf-card-padding) * 0.5);
+                }
+
+                .dossier-card-header.is-l1 {
+                    /* Header macro-aree L1: dimensioni originali per impatto visivo */
+                    padding: 18pt 20pt 14pt 20pt;
                 }
 
                 .dossier-card-header-main {
@@ -10707,28 +10733,40 @@ window.generateDossierPDFFromOptions = async function () {
                 }
 
                 .dossier-title {
-                    /* Titolo nodo nell'header: bianco, bold — ridotto da 22pt a 14pt
-                       per contenere l'altezza del blocco colorato e risparmiare toner */
-                    font-size: 14pt;
+                    /* Titolo nell'header: bianco, bold, riempie il rettangolo */
+                    font-size: 17pt;
                     font-weight: 700;
                     margin: 0;
                     color: #ffffff;
                     line-height: 1.2;
                 }
 
+                .is-l1 .dossier-title {
+                    /* Macro-aree L1: titolo grande come nell'originale */
+                    font-size: 22pt;
+                }
+
                 .dossier-level-tag {
-                    /* "Livello X · MacroArea": bianco 8pt, opacità ridotta */
                     font-size: 8pt;
                     color: rgba(255,255,255,0.75);
                     display: block;
                 }
 
                 .dossier-breadcrumb {
-                    /* Percorso parentela: bianco italic 8pt */
                     font-size: 8pt;
                     color: rgba(255,255,255,0.65);
                     font-style: italic;
                     display: block;
+                }
+
+                .dossier-rel-hint {
+                    /* Predecessori / successori nel header: piccoli, bianchi, italic */
+                    display: block;
+                    font-size: 7.5pt;
+                    color: rgba(255,255,255,0.72);
+                    font-style: italic;
+                    margin-top: 2pt;
+                    line-height: 1.3;
                 }
 
                 /* Backward compat: vecchio tag per Modo B */
