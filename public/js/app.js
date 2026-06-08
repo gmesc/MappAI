@@ -1911,22 +1911,22 @@ window.fetchModelAPI = async function (payload, apiKey) {
         model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
     }
 
-    // ── Gemini 2.5+: disabilita il thinking per output JSON strutturato ─────────
-    // Il thinking mode genera decine di migliaia di token interni PRIMA della
-    // risposta — non sono limitati da maxOutputTokens e consumano il budget
-    // silenziosamente. Su task a risposta JSON deterministica (pipeline MindMap,
-    // KG multi-pass) il thinking non aggiunge valore ed è catastrofico: tronca
-    // le fasi brevi e impedisce la generazione corretta dell'output.
-    // thinkingBudget:0 disabilita il thinking senza toccare la qualità del JSON.
+    // ── Gemini 2.5+: disabilita il thinking per fasi con budget ridotto ─────────
+    // Il thinking mode genera token interni PRIMA della risposta: non sono
+    // limitati da maxOutputTokens e consumano il budget silenziosamente.
+    // - Fasi MindMap (budget ≤ 8192): thinking = catastrofico (62K token bruciati,
+    //   JSON troncato, 1 solo L1 invece di 5-7). Disabilitato qui.
+    // - KG Community (budget = 16384): thinking produce +relTypes e cross-link
+    //   di qualità (run 9/6: 38 nodi, 29 relTypes, 47.7% cross-links). Preservato.
+    // Soglia 8192: copre tutte le fasi MindMap, esclude il KG Community.
+    const _gcfg = payload?.generationConfig || {};
     if (appState.aiProvider === 'google' &&
         (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
-        payload?.generationConfig?.responseMimeType === 'application/json') {
+        _gcfg.responseMimeType === 'application/json' &&
+        (_gcfg.maxOutputTokens || 0) <= 8192) {
         payload = {
             ...payload,
-            generationConfig: {
-                ...payload.generationConfig,
-                thinkingConfig: { thinkingBudget: 0 }
-            }
+            generationConfig: { ..._gcfg, thinkingConfig: { thinkingBudget: 0 } }
         };
     }
 
