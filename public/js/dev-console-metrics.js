@@ -1443,6 +1443,30 @@
         return r;
     }
 
+    // ── Entity Backbone (diagnostica READ-ONLY — clustering cross-ramo) ───────
+
+    function enableEntityBackbone() {
+        localStorage.setItem('mappai_entity_backbone_enabled', '1');
+        console.log('%c✅ ENTITY BACKBONE ATTIVO (diagnostica)', 'color:green;font-weight:bold');
+        console.log('   Esegui MappAIMetrics.analyzeBackbone() dopo la generazione — non modifica la mappa.');
+        return true;
+    }
+
+    function disableEntityBackbone() {
+        localStorage.removeItem('mappai_entity_backbone_enabled');
+        console.log('%c⛔ ENTITY BACKBONE DISATTIVATO', 'color:#6366f1');
+        return false;
+    }
+
+    async function analyzeBackbone(threshold) {
+        if (!window.MappAIEntityBackbone) {
+            console.error('MappAIEntityBackbone non disponibile (restart app richiesto)');
+            return null;
+        }
+        const opts = (typeof threshold === 'number') ? { clusterThreshold: threshold } : {};
+        return window.MappAIEntityBackbone.analyzeCurrentMap(opts);
+    }
+
     // ── Export ────────────────────────────────────────────────────────────────
 
     window.MappAIMetrics = {
@@ -1490,6 +1514,9 @@
         enableSemanticDedup,
         disableSemanticDedup,
         runSemanticDedup,
+        enableEntityBackbone,
+        disableEntityBackbone,
+        analyzeBackbone,
         enableChunkFreeze,
         disableChunkFreeze,
         chunkFreezeStatus,
