@@ -1825,7 +1825,12 @@ window.getMaxOutputTokens = function (baseTokens) {
     // → null = nessun limite → thinking illimitato su gemini-2.5. Default: 4096.
     if (!baseTokens || typeof baseTokens !== 'number' || isNaN(baseTokens)) baseTokens = 4096;
     const modelEl = document.getElementById('model-select');
-    const model = (modelEl ? modelEl.value : '').toLowerCase();
+    // Fallback a localStorage: il DOM può essere null durante le fasi async
+    // del multi-pass (loop rami, Phase4, Phase5) → il modello non viene rilevato
+    // → moltiplicatori ignorati → budget troppo piccolo → troncamenti.
+    // Stesso pattern già usato in fetchModelAPI.
+    const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const model = ((modelEl ? modelEl.value : '') || localStorage.getItem(storageKey) || '').toLowerCase();
     if (appState.aiProvider === 'infomaniak') {
         if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
             return Math.max(baseTokens, 16384);
@@ -1915,18 +1920,24 @@ window.fetchModelAPI = async function (payload, apiKey) {
     }
 
     // ── Gemini 2.5+: disabilita il thinking per fasi con budget ridotto ─────────
-    // Il thinking mode genera token interni PRIMA della risposta: non sono
-    // limitati da maxOutputTokens e consumano il budget silenziosamente.
-    // - Fasi MindMap (budget ≤ 8192): thinking = catastrofico (62K token bruciati,
-    //   JSON troncato, 1 solo L1 invece di 5-7). Disabilitato qui.
-    // - KG Community (budget = 16384): thinking produce +relTypes e cross-link
-    //   di qualità (run 9/6: 38 nodi, 29 relTypes, 47.7% cross-links). Preservato.
-    // Soglia 8192: copre tutte le fasi MindMap, esclude il KG Community.
+    // Il thinking mode genera token interni PRIMA della risposta: consumano il
+    // budget silenziosamente anche per Phase 4/5 che usano output testuale (no
+    // responseMimeType). Rilevato: Phase 4 con 3842 token di thinking / 4000 budget
+    // → output 158 token (troncato). Stessa patologia su Phase 5 e Phase 1.5.
+    //
+    // SOGLIA 12288 (era 8192):
+    // - Fasi MindMap (budget 3000-8192): thinking disabilitato ✓
+    // - KG Community (budget ~16000 con ×2 su base 8000): thinking preservato ✓
+    //   (run 9/6: 38 nodi, 29 relTypes, 47.7% cross-links — qualità dipende dal thinking)
+    //
+    // CONDIZIONE responseMimeType RIMOSSA: Phase 4/5/1.5 usano output testuale
+    // (===MERGES===, ===RECLASSIFY===, array JSON raw) → non hanno responseMimeType
+    // ma subiscono comunque il problema thinking. La condizione li escludeva.
     const _gcfg = payload?.generationConfig || {};
     if (appState.aiProvider === 'google' &&
         (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
-        _gcfg.responseMimeType === 'application/json' &&
-        (_gcfg.maxOutputTokens || 0) <= 8192) {
+        (_gcfg.maxOutputTokens || 0) > 0 &&
+        (_gcfg.maxOutputTokens || 0) <= 12288) {
         payload = {
             ...payload,
             generationConfig: { ..._gcfg, thinkingConfig: { thinkingBudget: 0 } }
@@ -3438,12 +3449,12 @@ ${textParts.join('\n\n')}`;
                 ? {
                     contents: [{ parts: [...fileParts, { text: promptBranch }] }],
                     systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi in JSONL sezionato come richiesto, una riga per oggetto.") }] },
-                    generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [...fileParts, { text: promptBranch }] }],
                     systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
-                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   };
 
             try {
@@ -5157,7 +5168,7 @@ Se la lista era già perfetta, restituiscila identica. Questa è la risposta COR
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
-            generationConfig: { temperature: 0.2, maxOutputTokens: 1500 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1500) }
         };
         const response = await window.fetchModelAPI(payload, apiKey);
         const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
