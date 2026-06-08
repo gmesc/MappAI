@@ -5620,6 +5620,14 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         });
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
+        // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Mode-agnostico: agisce su appState.db.nodes (level >= 1 → tutti i nodi KG).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante (KG single-pass):', e.message);
+        }
+
         // Freeze chunk verbatim (se attivo): azzera i chunk prima di costruire sourcesDict
         window.stripChunksIfFrozen(appState.db.nodes);
         appState.db.sourcesDict = {};
@@ -5840,7 +5848,7 @@ ${userProfileStr}
 
 ISTRUZIONI PER OGNI CONCETTO:
 1. Genera "content": una sintesi concettuale brevissima (massimo 10 parole).
-2. Genera "desc": una descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+2. Genera "desc": una descrizione scientifica o storica approfondita ma chiarissima (da 50 a 80 parole, con dati concreti dal testo: nomi, date, numeri, esempi specifici) tarata sul profilo dello studente indicato.
 3. Genera "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (frasi intere di almeno 10-15 parole) copiate fedelmente e integralmente dal testo originale delle fonti che giustificano e supportano il concetto trattato. NON inventare o riassumere le citazioni!
 
 Restituisci SOLO un oggetto JSON con chiave "enrichedNodes". Nessun commento, nessun blocco markdown.
@@ -6020,6 +6028,14 @@ ${textParts.join('\n\n')}`;
             sourcesDict: {},
             customColors: {}
         };
+
+        // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Va dopo l'assemblaggio finale: agisce sul set di nodi consolidato.
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante (KG multi-pass):', e.message);
+        }
 
         appState.db.nodes.forEach(n => {
             if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
