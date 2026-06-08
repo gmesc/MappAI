@@ -1911,6 +1911,25 @@ window.fetchModelAPI = async function (payload, apiKey) {
         model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
     }
 
+    // ── Gemini 2.5+: disabilita il thinking per output JSON strutturato ─────────
+    // Il thinking mode genera decine di migliaia di token interni PRIMA della
+    // risposta — non sono limitati da maxOutputTokens e consumano il budget
+    // silenziosamente. Su task a risposta JSON deterministica (pipeline MindMap,
+    // KG multi-pass) il thinking non aggiunge valore ed è catastrofico: tronca
+    // le fasi brevi e impedisce la generazione corretta dell'output.
+    // thinkingBudget:0 disabilita il thinking senza toccare la qualità del JSON.
+    if (appState.aiProvider === 'google' &&
+        (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
+        payload?.generationConfig?.responseMimeType === 'application/json') {
+        payload = {
+            ...payload,
+            generationConfig: {
+                ...payload.generationConfig,
+                thinkingConfig: { thinkingBudget: 0 }
+            }
+        };
+    }
+
     // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
     const requestedMax = payload?.generationConfig?.maxOutputTokens || null;
 
