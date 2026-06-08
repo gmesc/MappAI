@@ -4320,7 +4320,7 @@ window.buildBranchPromptJSONL = function (branch, opts) {
     const _descPart = (branch.desc && !/^Categoria principale:/.test(branch.desc)) ? `\n- Descrizione: ${branch.desc}` : '';
     const _confiniPart = branch.confini ? `\n- Confini (NON sconfinare negli altri rami): ${branch.confini}` : '';
     const charter = (window.isBranchBoundariesEnabled && window.isBranchBoundariesEnabled() && (_ambitoPart || _descPart || _confiniPart))
-        ? `\n📋 CARTA DEL RAMO "${branch.label}" — resta rigorosamente dentro questi confini:${_descPart}${_ambitoPart}${_confiniPart}\n`
+        ? `\n📋 CARTA DEL RAMO "${branch.label}" — resta rigorosamente dentro questi confini:${_descPart}${_ambitoPart}${_confiniPart}\nApplica questi confini nelle tue scelte SENZA commentarli nell'output — niente note, spiegazioni o premesse: genera solo nodi e link.\n`
         : '';
 
     // ── D: Linking words significative (gated dal flag mappai_rich_rel_enabled) ──
