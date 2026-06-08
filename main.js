@@ -391,6 +391,43 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
     }
 });
 
+// IPC Handler: salva un artefatto intermedio di pipeline (es. checkpoint L1).
+// NON tocca il Vault dell'utente: scrive in una cartella "bus" sotto userData,
+// organizzata per run. Usato da mappai-l1-checkpoint.js per materializzare lo
+// stato tra una fase e l'altra (debug / resume / revisione umana).
+ipcMain.handle('save-pipeline-artifact', async (event, { runId, fileName, content }) => {
+    try {
+        const safeRun = String(runId || 'run').replace(/[^a-z0-9_\-]/gi, '_');
+        const safeName = String(fileName || 'artifact.json').replace(/[^a-z0-9_\-.]/gi, '_');
+        const baseDir = path.join(app.getPath('userData'), 'MappAI-Pipeline');
+        const runDir = path.join(baseDir, safeRun);
+        if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
+        const filePath = path.join(runDir, safeName);
+        fs.writeFileSync(filePath, typeof content === 'string' ? content : JSON.stringify(content, null, 2), 'utf-8');
+        return { success: true, path: filePath, folder: runDir, baseFolder: baseDir };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler: apre nel file manager la cartella bus di pipeline (root o di un run).
+ipcMain.handle('open-pipeline-folder', async (event, { runId } = {}) => {
+    try {
+        const baseDir = path.join(app.getPath('userData'), 'MappAI-Pipeline');
+        let target = baseDir;
+        if (runId) {
+            const safeRun = String(runId).replace(/[^a-z0-9_\-]/gi, '_');
+            const runDir = path.join(baseDir, safeRun);
+            if (fs.existsSync(runDir)) target = runDir;
+        }
+        if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+        await shell.openPath(target);
+        return { success: true, path: target };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // IPC Handler to save PDF binary files directly to the Vault
 ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultPath }) => {
     try {

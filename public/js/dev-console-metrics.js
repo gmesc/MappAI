@@ -229,6 +229,7 @@
         const flagsMap = {
             jsonl:            localStorage.getItem('mappai_jsonl_enabled') === '1',
             l1Validation:     localStorage.getItem('mappai_l1_validation_enabled') === '1',
+            l1Checkpoint:     localStorage.getItem('mappai_l1_checkpoint_enabled') === '1',
             branchBoundaries: localStorage.getItem('mappai_branch_boundaries_enabled') === '1',
             phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
             phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1',
@@ -1140,6 +1141,44 @@
         return false;
     }
 
+    // ── L1 Checkpoint feature flag (materializzazione + revisione umana) ────
+
+    function enableL1Checkpoint() {
+        localStorage.setItem('mappai_l1_checkpoint_enabled', '1');
+        const mode = _getAppState()?.extractionMode;
+        if (mode !== 'mindmap') {
+            console.warn(`%c⚠️ L1 Checkpoint attivato ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ L1 CHECKPOINT ATTIVO (MindMap)', 'color:green;font-weight:bold');
+            console.log('   La prossima generazione MM si fermerà dopo le macro-aree (L1) per la revisione umana.');
+            console.log('   Gli artefatti vengono salvati in userData/MappAI-Pipeline/{run}/ (fuori dal Vault).');
+        }
+        return true;
+    }
+
+    function disableL1Checkpoint() {
+        localStorage.removeItem('mappai_l1_checkpoint_enabled');
+        console.log('%c⛔ L1 CHECKPOINT DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
+    function l1CheckpointStatus() {
+        const enabled = localStorage.getItem('mappai_l1_checkpoint_enabled') === '1';
+        const mode = _getAppState()?.extractionMode;
+        const active = enabled && mode === 'mindmap';
+        const info = {
+            flagSet: enabled,
+            mode,
+            active,
+            note: !enabled ? 'Flag spento — usa .enableL1Checkpoint() per attivare'
+                : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (checkpoint attivo solo in MindMap)`
+                : 'L1 Checkpoint attivo — la prossima generazione MM si fermerà sulle macro-aree per la revisione'
+        };
+        console.log('%c── L1 CHECKPOINT STATUS ──', 'color:#6366f1;font-weight:bold');
+        console.table(info);
+        return info;
+    }
+
     // ── Phase 1.5 feature flag (validazione semantica L1) ──────────────────
 
     function enableL1Validation() {
@@ -1502,6 +1541,9 @@
         enableL1Validation,
         disableL1Validation,
         l1ValidationStatus,
+        enableL1Checkpoint,
+        disableL1Checkpoint,
+        l1CheckpointStatus,
         enableBranchBoundaries,
         disableBranchBoundaries,
         branchBoundariesStatus,

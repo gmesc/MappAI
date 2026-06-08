@@ -2709,6 +2709,21 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             }
         }
 
+        // Checkpoint L1 — materializza le macro-aree (cartella bus) e, se il flag
+        // mappai_l1_checkpoint_enabled è attivo, mette in pausa per la revisione umana
+        // prima di espandere i rami. Flag spento → no-op (proceed:true, dati invariati).
+        if (window.l1Checkpoint) {
+            const _cp = await window.l1Checkpoint(l1Data, { mode: 'mindmap' });
+            if (!_cp.proceed) {
+                window.showLoadingOverlay(false);
+                if (window.showToast) window.showToast('Generazione annullata al checkpoint L1', 'info');
+                return;
+            }
+            l1Data = _cp.l1Data;
+            window._mappaiRunId = _cp.runId;
+            window.showLoadingOverlay(true, 'Mappa HD: espansione dei rami...');
+        }
+
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
@@ -3184,6 +3199,21 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             } catch (e) {
                 console.warn('[Phase 1.6] split non bloccante:', e.message);
             }
+        }
+
+        // Checkpoint L1 — materializza le macro-aree (cartella bus) e, se il flag
+        // mappai_l1_checkpoint_enabled è attivo, mette in pausa per la revisione umana
+        // prima di espandere i rami. Flag spento → no-op (proceed:true, dati invariati).
+        if (window.l1Checkpoint) {
+            const _cp = await window.l1Checkpoint(l1Data, { mode: 'mindmap' });
+            if (!_cp.proceed) {
+                window.showLoadingOverlay(false);
+                if (window.showToast) window.showToast('Generazione annullata al checkpoint L1', 'info');
+                return;
+            }
+            l1Data = _cp.l1Data;
+            window._mappaiRunId = _cp.runId;
+            window.showLoadingOverlay(true, 'Mappa HD: espansione dei rami...');
         }
 
         let l1NodesData = [];

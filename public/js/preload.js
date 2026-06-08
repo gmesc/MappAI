@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listModels: (data) => ipcRenderer.invoke('list-models', data),
     listInfomaniakModels: (data) => ipcRenderer.invoke('list-infomaniak-models', data),
     saveMapJSON: (mapData) => ipcRenderer.invoke('save-map-json', mapData),
+    savePipelineArtifact: (data) => ipcRenderer.invoke('save-pipeline-artifact', data),
+    openPipelineFolder: (data) => ipcRenderer.invoke('open-pipeline-folder', data),
     openSaveFolder: () => ipcRenderer.invoke('open-save-folder'),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
     getPathForFile: (file) => webUtils.getPathForFile(file),
