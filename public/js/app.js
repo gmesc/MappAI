@@ -5489,9 +5489,17 @@ function extractResponseText(response) {
 // prompt (es. il blocco RELAZIONI) → grafi a stella, relazioni generiche (Causa C, §8).
 // Su Infomaniak ci affidiamo a salvageTruncatedJSON, come già per la MindMap.
 function _kgGenerationConfig(base, schema) {
-    return appState.aiProvider === 'infomaniak'
-        ? { ...base }
-        : { ...base, responseMimeType: "application/json", responseSchema: schema };
+    if (appState.aiProvider === 'infomaniak') {
+        // Senza responseSchema il modello è libero di aggiungere prosa/markdown/
+        // indentazione (prima lo schema lo costringeva a JSON compatto e minimale).
+        // Risultato osservato (8/6, slider 35): Fase 1 troncata a ~2000 token →
+        // solo 11/35 nodi recuperati da salvageTruncatedJSON, "Parse fallito" ×3.
+        // Compensiamo alzando il budget — stesso trattamento già riservato a
+        // Mistral/Kimi/Qwen in getMaxOutputTokens, ora serve anche a GEMMA.
+        const boosted = Math.round((base.maxOutputTokens || 2000) * 1.8);
+        return { ...base, maxOutputTokens: boosted };
+    }
+    return { ...base, responseMimeType: "application/json", responseSchema: schema };
 }
 
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
