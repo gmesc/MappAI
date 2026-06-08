@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 7 giugno 2026 (sessione — calibrazione Apertus via exemplar: backfire documentato + nuovo obiettivo qualità intra-ramo)
+> Ultimo aggiornamento: 9 giugno 2026 (sessione notte — fix token budget MM multi-pass + KG Community promosso a default Google)
 
 ---
 
@@ -496,12 +496,10 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### ⏳ IN CORSO (notte 7 giugno 2026): run di verifica Apertus 70B con tutti i flag
-Lanciata dall'utente con: JSONL, Branch Boundaries, Phase4, Phase5, L1 Validation,
-**Freeze Chunks** e **Enrich Descs** (i due nuovi flag di questa sessione) tutti attivi.
-**Prossima sessione**: leggere `MappAIMetrics.report()` di questa run e valutare se
-(a) le desc sono effettivamente più ricche/ancorate alla fonte, (b) il freeze chunk
-non ha effetti collaterali, (c) si può procedere con items 1+2 (vedi TODO.md).
+### ⏳ IN CORSO (prossima sessione): verifica run MM multi-pass gemini-2.5-flash
+Fix token budget completo (sessione 9/6 notte). Lanciare run multi-pass con gemini-2.5-flash
+e Phase4/5/L1Validation attivi. Atteso: `truncated: 0/17`.
+Setup console: `MappAIMetrics.enablePhase4(); MappAIMetrics.enablePhase5(); MappAIMetrics.enableL1Validation(); MappAIMetrics.enableEnrichDescs(); MappAIMetrics.report()`
 
 ### ✅ Completato in questa sessione (7 giugno notte) — Item 3 "desc ricche nei modali"
 Su richiesta esplicita dell'utente ("le descrizioni sono lo strumento principale che lo
@@ -564,15 +562,18 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | `enrichDescs` | ON (opzionale) | safety net gratuita: costo 0 se desc già ricche |
 | **Risultati attesi** | ~38 nodi, density ~1.7, ~47% cross-links, ~29 relTypes, 0% generic, SourceCov ~89% | Baseline run 9/6/26 |
 
-#### MindMap Multi-pass su Google — configurazione post-fix thinkingBudget
+#### MindMap Multi-pass su Google — configurazione post-fix thinkingBudget (finale 9/6)
 | Parametro | Valore | Note |
 |---|---|---|
 | Modello | `gemini-2.5-flash` | |
 | Modalità | Multi-pass (multiPassMode ON) | |
-| `thinkingConfig` | **OFF** automatico per fasi con budget ≤ 8192 | Iniettato in `fetchModelAPI` |
-| Soglia thinking | `maxOutputTokens ≤ 8192` → `thinkingBudget: 0` | Tutte le fasi MM; preserva KG Community (16384) |
-| **Bug risolto** | `getMaxOutputTokens(undefined)` → NaN → null → thinking illimitato | Guard aggiunto 9/6: default 4096 se input invalido |
-| **Risultati attesi** | 5-7 L1, 60-100 nodi, L4-L5, 0 troncamenti | Da confermare con run multi-pass post-fix |
+| `thinkingConfig` | **OFF** automatico per fasi con budget ≤ **12288** | Soglia alzata da 8192: copre Phase 1/1.5/1.6/3/4/5 |
+| Condizione thinking | `maxOutputTokens > 0 AND ≤ 12288` (rimosso vincolo responseMimeType) | Phase 4/5/1.5 usano output testuale, non JSON MIME |
+| **Phase 3 branch** | base **4096** → 8192 per gemini-2.5 | Era 3000 → 6000: JSON ramo da 5988 tok troncava |
+| **Phase 1.5 validation** | `window.getMaxOutputTokens(1500)` → 3000 | Era hardcoded 1500: thinking consumava 1424/1500 tok |
+| **Bug risolto** | `getMaxOutputTokens(undefined)` → NaN → null → thinking illimitato | Guard: default 4096 se input invalido |
+| `getMaxOutputTokens` | localStorage fallback per model detection async | DOM può essere null durante loop rami |
+| **Risultati attesi** | `truncated: 0/17`, 5-7 L1, 60-100 nodi, L4-L5 | Da verificare al prossimo run |
 
 #### MindMap Iterativa su Google — alternativa più robusta
 | Parametro | Valore | Note |
@@ -583,15 +584,18 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | **Risultati attesi** | ~56 nodi, 5 L1, maxLevel 3, 0 troncamenti | Run 9/6/26: `truncated: 0/16` |
 | **Limite** | maxLevel 3 (albero meno profondo del multi-pass) | Compensato da robustezza e velocità |
 
-#### Regola generale thinkingBudget (in `fetchModelAPI`)
+#### Regola generale thinkingBudget (in `fetchModelAPI`) — aggiornata 9/6
 ```
-provider=google AND model~=gemini-2.5|gemini-3 AND responseMimeType=application/json AND maxOutputTokens ≤ 8192
+provider=google AND model~=gemini-2.5|gemini-3 AND maxOutputTokens > 0 AND maxOutputTokens ≤ 12288
 → inietta thinkingConfig: { thinkingBudget: 0 }
 ```
-Questa regola protegge tutte le fasi MM senza toccare il KG Community.
+Rimosso vincolo `responseMimeType=application/json`: Phase 4 (===MERGES===) e Phase 5 (===RECLASSIFY===)
+usano output testuale ma subivano lo stesso problema thinking. Soglia alzata 8192 → **12288** per coprire
+Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori → thinking preservato.
 
-### Da fare subito (prossima sessione — 8 giugno 2026)
-1. **Mappe tree-like con coerenza semantica interna** — NUOVO OBIETTIVO PRINCIPALE
+### Da fare subito (prossima sessione)
+0. **Verifica `truncated: 0/17`** — run MM multi-pass gemini-2.5-flash (vedi §IN CORSO)
+1. **Mappe tree-like con coerenza semantica interna** — OBIETTIVO PRINCIPALE
    Vedi TODO.md §1 per la specifica completa. In sintesi:
    - Ogni ramo deve essere semanticamente coerente e profondo (L3-L4 reali, desc dense)
    - I cross-link sono ammessi SOLO come conseguenza di Phase 4 MERGE: quando un nodo

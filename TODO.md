@@ -1,23 +1,31 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 7 giugno 2026 (notte — desc ricche + run di verifica Apertus in corso).
+> Priorità in ordine decrescente. Aggiornato: 9 giugno 2026 (notte — fix token budget MM multi-pass).
 
 ---
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Stato**: Run di generazione Apertus 70B **in corso** (lanciata dall'utente la sera del 7/6),
-con TUTTI i flag attivi incluse le novità appena costruite (`enrichThinDescs`, `freezeChunks`).
-Il prossimo step è leggere il `MappAIMetrics.report()` di questa run e valutare:
-1. se le desc sono effettivamente più ricche (target ≥ 50-80 parole, ancorate alla fonte)
-2. se il freeze dei chunk funziona senza effetti collaterali (vault pulito, niente "## Fonti")
-3. se si può procedere con items 1+2 (merge direzionale + cross-link intelligenti)
+**Stato**: Fix token budget MM multi-pass completato (sessione 8-9/6/26).
+**Prossimo step**: lanciare un run MM multi-pass con `gemini-2.5-flash` e verificare
+`truncated: 0/17` nel report. Setup console:
+```js
+MappAIMetrics.enablePhase4()
+MappAIMetrics.enablePhase5()
+MappAIMetrics.enableL1Validation()
+MappAIMetrics.enableEnrichDescs()
+MappAIMetrics.report()
+```
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato repo**: WIP — `app.js`/`dev-console-metrics.js` aggiornati. ⚠️ L'auto-save delle 23:25
-(`c661ebc`) aveva accidentalmente CANCELLATO `public/index.html` e `public/css/style.css`
-dal repo (causa `ERR_FILE_NOT_FOUND` all'avvio) — **già ripristinati** da `d02e6dc` e
-ristagiati (`A public/index.html`, `A public/css/style.css`). Verificare che il prossimo
-commit li includa.
+**Stato repo**: pulito — tutti i fix dell'ultima sessione sono in commit `ea7d343` (auto-save)
+e in commit manuale dopo. `app.js` aggiornato con:
+- `getMaxOutputTokens` localStorage fallback
+- `thinkingBudget:0` esteso a Phase 4/5/1.5 (rimosso vincolo `responseMimeType`), soglia 12288
+- Phase 1.5: `maxOutputTokens` ora via `getMaxOutputTokens` (era hardcoded 1500)
+- Phase 3 branch: base 3000 → 4096 (→ 8192 per gemini-2.5)
+
+### ✅ Completato sessione 8-9 giugno 2026 — KG Community + Dossier + MM token budgets
+Vedi sezione COMPLETATO in fondo per il dettaglio.
 
 ### ✅ Completato in questa sessione (7 giugno notte) — Item 3: "desc ricche nei modali"
 Commissionato dall'utente con priorità: **"Prima 3, poi 1+2"**.
@@ -142,6 +150,54 @@ MappAIMetrics.report()
 - ✅ File `public/esempi/formato-esempio-claude.json` + `prompt-genera-mappa.md` per uso futuro
 - **Regola documentata**: Apertus NON regge few-shot JSON in-context. Usare solo linguaggio
   naturale per descrivere qualità richieste.
+
+---
+
+## ✅ COMPLETATO — Sessione 8-9 giugno 2026 (KG Community + Dossier + MM token budgets)
+
+### KG Community mode — ispirato a MiniMAP/GraphRAG
+- ✅ `extractKnowledgeGraphCommunity` — single-pass, 1 sola chiamata, community detection
+  3-6 macro-temi, link laterali come cross-link, hub sintetici `COMM_<id>` (level 1)
+- ✅ Routing: Google → Community default; Infomaniak → multi-pass default.
+  Flag `mappai_kg_community_mode='false'` per opt-out su Google.
+- ✅ `sourcesDict` popolato da `desc` post-enrichment (SourceCov 0% → 89.5%)
+- ✅ `thinkingBudget` preservato per KG Community (budget 16000 > soglia 12288)
+- ✅ Risultati 9/6: 38 nodi, density 1.7, 47.7% cross-link, 29 relTypes, 0% generic, sourceCov 89.5%
+- ✅ `MappAIMetrics.enableCommunityKG()` / `disableCommunityKG()`
+
+### Dossier PDF — fix aesthetics e struttura
+- ✅ Filename corretto: `Dossier_<progetto>_<MM|KG>.pdf`
+- ✅ Titolo pagina e titolo documento coerenti col nome progetto
+- ✅ Nodi ordinati per macro-area (`group`) poi livello — non casuali
+- ✅ Header L1 ripristinato a dimensione grande (`is-l1`, 22pt vs 17pt), separato dal normale
+- ✅ Rimosso "SINTESI DEL CONCETTO" ridondante
+- ✅ Relation hints `← predecessori / → successori` nell'header nodo (7.5pt, italic)
+
+### MM multi-pass — fix token budget per gemini-2.5-flash
+**Problema**: 4/17 chiamate troncate (23.5%) anche dopo il fix thinking Phase 1.
+**Cause multiple rilevate e corrette**:
+
+| Fase | Problema | Fix |
+|------|----------|-----|
+| Phase 1.5 | Hardcoded `1500`, no thinkingBudget → 76 token output | Ora `getMaxOutputTokens(1500)` + soglia 12288 |
+| Phase 3 branch | Budget 6000 (3000×2), JSON genuinamente da 5988 tok | Base 3000 → **4096** → 8192 per gemini-2.5 |
+| Phase 4 merge | No `responseMimeType` → thinkingBudget escluso → 3842 thinking / 4000 budget → output 158 tok | Rimossa condizione `responseMimeType` |
+| Phase 5 reclassif | Idem → 2881 thinking / 3000 budget → output 119 tok | Idem |
+
+**Tre fix in `app.js`**:
+1. `thinkingBudget:0`: rimosso vincolo `responseMimeType`, soglia alzata 8192 → **12288**
+   (preserva thinking su KG Community budget ~16000)
+2. Phase 1.5 `maxOutputTokens: 1500` → `window.getMaxOutputTokens(1500)`
+3. Phase 3 `getMaxOutputTokens(3000)` → `getMaxOutputTokens(4096)` (×2 dà 8192)
+4. Bonus: `getMaxOutputTokens` con localStorage fallback (difesa per chiamate async)
+
+**Atteso**: `truncated: 0/17` al prossimo run multi-pass gemini-2.5-flash.
+
+### Fix thinkingBudget:0 per MM (sessione 9/6 — precedente alla notte)
+- ✅ Guard `getMaxOutputTokens(undefined)` → NaN → null → thinking illimitato su Phase 1
+  (default 4096 se input non valido)
+- ✅ Soglia iniziale 8192: copriva Phase 1, Phase 3 (con responseMimeType)
+  ma non Phase 4/5/1.5 → fix notturno ha esteso a 12288 + rimosso responseMimeType
 
 ---
 
