@@ -584,6 +584,7 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | `mappai_enrich_descs_enabled` | Arricchisce desc sottili (<35 parole) dalla fonte, post-gen | OFF |
 | `mappai_l1_split_enabled` | Fase 1.6: spezza macro-aree composte ("Neutralità e Difesa" → 2 atomiche) | OFF |
 | `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
+| `mappai_kg_community_mode` | **KG Community (stile MiniMAP)**: single-pass + comunità GraphRAG invece dell'albero forzato. Solo modalità KG | OFF |
 
 **Comandi console:**
 ```js
@@ -596,8 +597,21 @@ MappAIMetrics.enableChunkFreeze()      MappAIMetrics.disableChunkFreeze()
 MappAIMetrics.enableEnrichDescs()      MappAIMetrics.disableEnrichDescs()
 MappAIMetrics.enableL1Split()          MappAIMetrics.disableL1Split()
 MappAIMetrics.enableRichRel()          MappAIMetrics.disableRichRel()
+MappAIMetrics.enableCommunityKG()      MappAIMetrics.disableCommunityKG()
 MappAIMetrics.report()                 // Markdown in clipboard
 ```
+
+> 🆕 **KG Community mode (8 giugno 2026) — ispirato a MiniMAP:** nuova funzione
+> `extractKnowledgeGraphCommunity` in `app.js` (prima di `extractKnowledgeGraphMultiPass`).
+> Routing in `startGeneration` (~L.2551): se `mappai_kg_community_mode==='true'` e mode=kg,
+> bypassa single/multi-pass. **Single-pass** (1 sola chiamata, no drift ID), **comunità
+> GraphRAG** (l'LLM fa community detection 3-6 macro-temi → niente god-node, rami bilanciati),
+> **prompt minimale** (15 righe vs centinaia), **link laterali** concetto↔concetto preservati
+> come cross-link. Crea hub sintetici `COMM_<id>` (level 1, desc=summary) per ancorare rendering
+> hub-and-spoke + modalità studio. Schema ON anche su Infomaniak (phase=1 in `_kgGenerationConfig`):
+> in single-pass un JSON rotto perde tutto → pulizia JSON prioritaria. Pienamente reversibile:
+> disattiva il flag e torna al comportamento precedente. Da testare su Google (path ottimale) e
+> Infomaniak/GEMMA.
 
 > ⚠️ **Nota schema L1 (7 giugno 2026):** la config attiva è `prompts_config.json` (root),
 > non `prompts_default.json`. Entrambi ora chiedono 5 chiavi L1 (`label, rel, ambito, desc,

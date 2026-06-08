@@ -236,7 +236,8 @@
             chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1',
             enrichDescs:      localStorage.getItem('mappai_enrich_descs_enabled') === '1',
             l1Split:          localStorage.getItem('mappai_l1_split_enabled') === '1',
-            richRel:          localStorage.getItem('mappai_rich_rel_enabled') === '1'
+            richRel:          localStorage.getItem('mappai_rich_rel_enabled') === '1',
+            communityKG:      localStorage.getItem('mappai_kg_community_mode') === 'true'
         };
         const activeFlags = Object.entries(flagsMap).filter(([_, v]) => v).map(([k]) => k);
         const flagsStr = activeFlags.length ? activeFlags.join(' ✓ | ') + ' ✓' : '(nessun flag attivo)';
@@ -1457,6 +1458,26 @@
         return false;
     }
 
+    // ── Community KG (ispirato a MiniMAP) ─────────────────────────────────────
+
+    function enableCommunityKG() {
+        localStorage.setItem('mappai_kg_community_mode', 'true');
+        const mode = _getAppState()?.extractionMode;
+        console.log('%c✅ COMMUNITY KG ATTIVO (stile MiniMAP)', 'color:green;font-weight:bold');
+        console.log('   Single-pass + comunità GraphRAG (3-6 macro-temi) invece della gerarchia ad albero.');
+        console.log('   Risolve lo squilibrio dei rami e preserva i link laterali di ragionamento.');
+        if (mode && mode === 'mindmap') {
+            console.warn('   ⚠️ extractionMode=mindmap → avrà effetto solo passando a Knowledge Graph.');
+        }
+        return true;
+    }
+
+    function disableCommunityKG() {
+        localStorage.removeItem('mappai_kg_community_mode');
+        console.log('%c⛔ COMMUNITY KG DISATTIVATO (torna a single/multi-pass)', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
     // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
 
     function enableSemanticDedup() {
@@ -1568,6 +1589,8 @@
         disableL1Split,
         enableRichRel,
         disableRichRel,
+        enableCommunityKG,
+        disableCommunityKG,
         enrichDescsStatus
     };
 

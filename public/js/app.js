@@ -2549,7 +2549,11 @@ window.startGeneration = async function () {
             await extractMindMapIterative(textParts, fileParts, apiKey);
         }
     } else {
-        if (appState.multiPassMode) {
+        // Modalità Community (ispirata a MiniMAP): single-pass + comunità GraphRAG
+        // invece della gerarchia ad albero forzata. Gated, default OFF, reversibile.
+        if (localStorage.getItem('mappai_kg_community_mode') === 'true') {
+            await extractKnowledgeGraphCommunity(textParts, fileParts, apiKey);
+        } else if (appState.multiPassMode) {
             await extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey);
         } else {
             await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
@@ -5690,6 +5694,210 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     } catch (err) {
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Graph", err.message);
+    }
+}
+
+// ============================================================================
+// MODALITÀ COMMUNITY KG — ispirata a MiniMAP (insegnai.ch/minimap)
+// ----------------------------------------------------------------------------
+// Lezioni portate da MiniMAP (vedi analisi 8/6/26):
+//  1. SINGLE-PASS: una sola chiamata. Nodi e link nascono insieme → nessun
+//     drift di ID tra fasi, nessuna cucitura che perde nodi.
+//  2. MODELLO A COMUNITÀ (non albero): l'LLM fa lui la community detection
+//     (3-6 macro-temi). Ogni concetto appartiene a una comunità ma NON è
+//     "figlio" di un hub → niente god-node, comunità naturalmente bilanciate
+//     (risolve lo squilibrio "26 L2 su un ramo, 0 sugli altri").
+//  3. PROMPT MINIMALE: poche regole chiare → attenzione del modello non diluita.
+//  4. LINK LATERALI concetto↔concetto come struttura primaria (il valore di
+//     ragionamento), non la stella hub→concetto.
+//
+// Adattamento per MappAI: creiamo un nodo-hub sintetico per comunità (level 1,
+// con summary come desc di studio) per ancorare il rendering hub-and-spoke e
+// la modalità studio, MA preserviamo tutti i link laterali del modello come
+// cross-link (isCross=true). Così uniamo struttura a comunità + ragionamento.
+//
+// Provider: single-pass usa _kgGenerationConfig(..., 1) → schema ON anche su
+// Infomaniak (in single-pass un JSON malformato perde TUTTO: la pulizia del
+// JSON ha priorità sul rischio di qualche relazione generica dal bridge).
+// ============================================================================
+async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
+    window.resetVaultState();
+
+    const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
+    const minNodesVal = Math.max(10, maxNodesVal - 5);
+
+    let userProfileStr = '';
+    if (appState.userProfile) {
+        userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO: Età ${appState.userProfile.age} anni, scuola ${appState.userProfile.grade} (${appState.userProfile.system}). ADATTA IL LINGUAGGIO a questa età: frasi brevi, parole semplici, esempi concreti. Evita linguaggio accademico.`;
+    }
+    if (appState.studentMode) {
+        userProfileStr += `\n\n[MODALITÀ STUDENTE]: le 'label' dei nodi devono avere AL MASSIMO 3 parole chiave.`;
+    }
+    const focusStr = appState.focusTopic
+        ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' +
+          appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        : '';
+
+    // --- Prompt minimale, ispirato al system_prompt di MiniMAP ---
+    const systemPrompt = `Sei un esperto estrattore GraphRAG. Analizzi un testo e produci un Knowledge Graph esplorabile. Pubblico: studenti di scuola media, anche con DSA/BES.
+
+REGOLE:
+1. 'communities': dividi il contenuto in 3-6 macro-temi coerenti. Per ciascuno: id (intero), name (2-4 parole), summary (2-3 frasi che spiegano il tema a uno studente).
+2. 'nodes': estrai da ${minNodesVal} a ${maxNodesVal} concetti chiave. Per ciascuno:
+   - id: nome breve del concetto (max 3 parole), UNIVOCO
+   - community: l'id della comunità a cui appartiene
+   - icon: una sola emoji rappresentativa
+   - desc: spiegazione chiara di 3-4 frasi con dati concreti dal testo (nomi, date, numeri, esempi). Tarata sullo studente.
+3. 'links': relazioni LOGICHE tra concetti. Collega concetti di comunità DIVERSE quando il testo lo giustifica (è qui che nasce il ragionamento). Per ciascuno: source (id concetto), target (id concetto), label.
+   - La 'label' DEVE essere un verbo/relazione SIGNIFICATIVA: causa, provoca, permette, impedisce, precede, deriva da, si oppone a, fa parte di, regola, finanzia, protegge, sfrutta...
+   - VIETATO usare "correlato a", "collegato a", "associato a" o relazioni generiche.
+   - Distribuisci i concetti in modo BILANCIATO tra le comunità: nessuna comunità deve restare vuota.${userProfileStr}`;
+
+    const schema = {
+        type: "OBJECT",
+        properties: {
+            communities: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        id: { type: "INTEGER" }, name: { type: "STRING" }, summary: { type: "STRING" }
+                    }, required: ["id", "name", "summary"]
+                }
+            },
+            nodes: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        id: { type: "STRING" }, community: { type: "INTEGER" },
+                        icon: { type: "STRING" }, desc: { type: "STRING" }
+                    }, required: ["id", "community", "desc"]
+                }
+            },
+            links: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        source: { type: "STRING" }, target: { type: "STRING" }, label: { type: "STRING" }
+                    }, required: ["source", "target", "label"]
+                }
+            }
+        },
+        required: ["communities", "nodes", "links"]
+    };
+
+    const userText = `Titolo del progetto: ${appState.rootNodeLabel || '(senza titolo)'}\n${focusStr}\nTesto da analizzare:\n\n${textParts.join('\n\n')}`;
+
+    const payload = {
+        contents: [{ parts: [...fileParts, { text: userText }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        // phase=1 → schema ON anche su Infomaniak: in single-pass la pulizia JSON è prioritaria.
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
+    };
+
+    try {
+        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Knowledge Graph a comunità (GraphRAG)...`, 'kg');
+        const data = await window.fetchModelAPI(payload, apiKey);
+        let rawText = extractResponseText(data);
+        let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        const parsed = salvageTruncatedJSON(cleanText);
+
+        const rawConcepts = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+        const rawComms = Array.isArray(parsed.communities) ? parsed.communities : [];
+        const rawLinks = Array.isArray(parsed.links) ? parsed.links : [];
+        if (rawConcepts.length === 0) throw new Error("Nessun concetto estratto dal testo.");
+
+        // --- Costruzione comunità (con fallback se l'LLM le omette) ---
+        const commById = {};
+        rawComms.forEach((c, i) => {
+            const cid = (c.id !== undefined && c.id !== null) ? parseInt(c.id) : (i + 1);
+            commById[cid] = { id: cid, name: (c.name || `Tema ${cid}`).trim(), summary: (c.summary || '').trim() };
+        });
+        // Comunità mancanti citate dai nodi → creale al volo
+        rawConcepts.forEach(n => {
+            const cid = parseInt(n.community);
+            if (!isNaN(cid) && !commById[cid]) commById[cid] = { id: cid, name: `Tema ${cid}`, summary: '' };
+        });
+        const commIds = Object.keys(commById).map(Number);
+        // Se nessuna comunità valida, mettine una sola di default
+        if (commIds.length === 0) { commById[1] = { id: 1, name: appState.rootNodeLabel || 'Concetti', summary: '' }; commIds.push(1); }
+
+        // group sequenziale 1..N per i colori; mappa commId → group
+        const commToGroup = {};
+        let g = 1;
+        commIds.forEach(cid => { commToGroup[cid] = g++; });
+
+        const finalNodes = [];
+        const finalLinks = [];
+
+        // 1. Nodo-hub sintetico per ogni comunità (level 1)
+        Object.values(commById).forEach(c => {
+            finalNodes.push({
+                id: `COMM_${c.id}`,
+                label: c.name,
+                desc: c.summary || c.name,
+                content: c.summary || c.name,
+                aiDesc: c.summary || '',
+                level: 1,
+                group: commToGroup[c.id],
+                icon: '🗂️',
+                isCommunityHub: true,
+                studyStatus: 'none',
+                chunks: []
+            });
+        });
+
+        // 2. Nodi-concetto (level 2) + link di appartenenza verso il loro hub
+        const conceptIds = new Set();
+        rawConcepts.forEach(n => {
+            const id = String(n.id || '').trim();
+            if (!id || conceptIds.has(id)) return;
+            conceptIds.add(id);
+            let cid = parseInt(n.community);
+            if (isNaN(cid) || !commById[cid]) cid = commIds[0];
+            const desc = (n.desc || n.description || '').trim();
+            finalNodes.push({
+                id,
+                label: id,
+                desc,
+                content: desc,
+                aiDesc: desc,
+                level: 2,
+                group: commToGroup[cid],
+                icon: (n.icon || '📌'),
+                studyStatus: 'none',
+                chunks: []
+            });
+            // link di appartenenza (gerarchico, leggero)
+            finalLinks.push({ source: `COMM_${cid}`, target: id, rel: 'fa parte di' });
+        });
+
+        // 3. Link laterali concetto↔concetto (il ragionamento — diventano cross-link)
+        const seen = new Set();
+        rawLinks.forEach(l => {
+            const s = String(typeof l.source === 'object' ? l.source.id : l.source || '').trim();
+            const t = String(typeof l.target === 'object' ? l.target.id : l.target || '').trim();
+            if (!conceptIds.has(s) || !conceptIds.has(t) || s === t) return;
+            const key = [s, t].sort().join('||');
+            if (seen.has(key)) return;
+            seen.add(key);
+            let rel = String(l.label || l.rel || '').trim();
+            // scarta relazioni generiche (regola MiniMAP)
+            if (!rel || /^(correlato a|collegato a|associato a|relazionato a|legato a)$/i.test(rel)) rel = 'è in relazione con';
+            finalLinks.push({ source: s, target: t, rel });
+        });
+
+        appState.db = { nodes: finalNodes, links: finalLinks, sourcesDict: {}, customColors: {} };
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
+
+        // Arricchimento desc sottili (gated) + freeze chunk (gated) — come gli altri path
+        try { await window.enrichThinDescs(textParts, apiKey); }
+        catch (e) { console.warn('[enrichThinDescs] errore non bloccante (KG community):', e.message); }
+        window.stripChunksIfFrozen(appState.db.nodes);
+
+        window.showLoadingOverlay(false);
+        window.switchToMapLayout();
+        setTimeout(() => { initD3Visualization(); }, 200);
+        setTimeout(() => { window.showGenerationReport(); }, 1500);
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Generazione Graph (Community)", err.message);
     }
 }
 
