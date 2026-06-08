@@ -1462,19 +1462,30 @@
 
     function enableCommunityKG() {
         localStorage.setItem('mappai_kg_community_mode', 'true');
+        const provider = _getAppState()?.aiProvider;
         const mode = _getAppState()?.extractionMode;
-        console.log('%c✅ COMMUNITY KG ATTIVO (stile MiniMAP)', 'color:green;font-weight:bold');
-        console.log('   Single-pass + comunità GraphRAG (3-6 macro-temi) invece della gerarchia ad albero.');
-        console.log('   Risolve lo squilibrio dei rami e preserva i link laterali di ragionamento.');
-        if (mode && mode === 'mindmap') {
+        if (provider === 'google') {
+            console.log('%c✅ COMMUNITY KG già attivo di default su Google', 'color:green;font-weight:bold');
+            console.log('   (flag impostato esplicitamente — nessun cambio di comportamento)');
+        } else {
+            console.log('%c✅ COMMUNITY KG ATTIVO su Infomaniak (stile MiniMAP)', 'color:green;font-weight:bold');
+            console.log('   Single-pass + comunità GraphRAG (3-6 macro-temi) invece della gerarchia ad albero.');
+        }
+        if (mode === 'mindmap') {
             console.warn('   ⚠️ extractionMode=mindmap → avrà effetto solo passando a Knowledge Graph.');
         }
         return true;
     }
 
     function disableCommunityKG() {
-        localStorage.removeItem('mappai_kg_community_mode');
-        console.log('%c⛔ COMMUNITY KG DISATTIVATO (torna a single/multi-pass)', 'color:#6366f1;font-weight:bold');
+        const provider = _getAppState()?.aiProvider;
+        localStorage.setItem('mappai_kg_community_mode', 'false');
+        if (provider === 'google') {
+            console.log('%c⛔ COMMUNITY KG DISATTIVATO su Google (torna a multi-pass legacy)', 'color:#e11d48;font-weight:bold');
+            console.log('   Per riattivare il default: MappAIMetrics.enableCommunityKG() oppure rimuovi il flag.');
+        } else {
+            console.log('%c⛔ COMMUNITY KG DISATTIVATO (Infomaniak usa già legacy di default)', 'color:#6366f1;font-weight:bold');
+        }
         return false;
     }
 

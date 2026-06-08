@@ -2549,9 +2549,15 @@ window.startGeneration = async function () {
             await extractMindMapIterative(textParts, fileParts, apiKey);
         }
     } else {
-        // Modalità Community (ispirata a MiniMAP): single-pass + comunità GraphRAG
-        // invece della gerarchia ad albero forzata. Gated, default OFF, reversibile.
-        if (localStorage.getItem('mappai_kg_community_mode') === 'true') {
+        // Routing KG:
+        // - Google: Community mode è il DEFAULT (best quality, single-pass, bilanciato).
+        //   Per tornare al legacy: MappAIMetrics.disableCommunityKG() → scrive 'false'.
+        // - Infomaniak: legacy (multi/single-pass) è il DEFAULT.
+        //   Per attivare community: MappAIMetrics.enableCommunityKG() → scrive 'true'.
+        const communityFlag = localStorage.getItem('mappai_kg_community_mode');
+        const useCommunity = communityFlag === 'true' ||
+            (appState.aiProvider === 'google' && communityFlag !== 'false');
+        if (useCommunity) {
             await extractKnowledgeGraphCommunity(textParts, fileParts, apiKey);
         } else if (appState.multiPassMode) {
             await extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey);
