@@ -4495,7 +4495,7 @@ window.fetchEmbeddings = async function (texts, model) {
     if (!apiKey) throw new Error('API key Infomaniak mancante');
     const result = await window.electronAPI.generateEmbeddingsInfomaniak({
         apiKey, productId,
-        model: model || 'bge-multilingual-gemma2',
+        model: model || 'bge_multilingual_gemma2',
         texts
     });
     return result?.embeddings || [];
