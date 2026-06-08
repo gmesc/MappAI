@@ -5484,6 +5484,16 @@ function extractResponseText(response) {
 }
 
 
+// Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente:
+// il bridge li converte in un reminder testuale che annacqua le regole vere del
+// prompt (es. il blocco RELAZIONI) → grafi a stella, relazioni generiche (Causa C, §8).
+// Su Infomaniak ci affidiamo a salvageTruncatedJSON, come già per la MindMap.
+function _kgGenerationConfig(base, schema) {
+    return appState.aiProvider === 'infomaniak'
+        ? { ...base }
+        : { ...base, responseMimeType: "application/json", responseSchema: schema };
+}
+
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
@@ -5522,12 +5532,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseSchema: schema,
-            maxOutputTokens: window.getMaxOutputTokens(8192)
-        }
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema)
     };
 
 
@@ -5716,7 +5721,7 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) }
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(2000) }, p1Schema)
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
@@ -5789,7 +5794,7 @@ ${textParts.join('\n\n')}`;
             // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
             // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
             // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(4096) }
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(4096) }, p2Schema)
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -5890,7 +5895,7 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(5000) }
+                generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(5000) }, p3Schema)
             };
 
             try {
