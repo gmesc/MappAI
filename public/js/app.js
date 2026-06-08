@@ -1821,6 +1821,9 @@ window.getSystemKey = function () {
 // Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
 // output più lunghi — scala il budget per evitare troncamenti.
 window.getMaxOutputTokens = function (baseTokens) {
+    // Guard: baseTokens undefined/NaN → NaN si serializza come null nel payload
+    // → null = nessun limite → thinking illimitato su gemini-2.5. Default: 4096.
+    if (!baseTokens || typeof baseTokens !== 'number' || isNaN(baseTokens)) baseTokens = 4096;
     const modelEl = document.getElementById('model-select');
     const model = (modelEl ? modelEl.value : '').toLowerCase();
     if (appState.aiProvider === 'infomaniak') {
@@ -2691,7 +2694,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3184,7 +3187,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);

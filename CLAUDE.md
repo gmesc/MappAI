@@ -552,6 +552,44 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 - ✅ Portato su branch `dev` (cherry-pick manuale da `feat/structural-suggestions`):
   `mappai-node-merge.js`, `dev-console-metrics.js`, modale `#link-family-modal`, voci menu contestuale
 
+### ✅ Parametri di riferimento qualità — Google/Gemini (9 giugno 2026)
+
+#### KG Community su Google — configurazione production-ready
+| Parametro | Valore | Note |
+|---|---|---|
+| Modello | `gemini-2.5-flash` | o `gemini-2.0-flash` per risparmio |
+| Modalità | KG Community (default su Google) | `mappai_kg_community_mode` non serve settarlo |
+| `maxOutputTokens` | 16384 | `getMaxOutputTokens(8192)` × 2, cap 16384 |
+| `thinkingConfig` | **ON** (thinking abilitato) | budget 16384 > soglia 8192 → thinking preservato |
+| `enrichDescs` | ON (opzionale) | safety net gratuita: costo 0 se desc già ricche |
+| **Risultati attesi** | ~38 nodi, density ~1.7, ~47% cross-links, ~29 relTypes, 0% generic, SourceCov ~89% | Baseline run 9/6/26 |
+
+#### MindMap Multi-pass su Google — configurazione post-fix thinkingBudget
+| Parametro | Valore | Note |
+|---|---|---|
+| Modello | `gemini-2.5-flash` | |
+| Modalità | Multi-pass (multiPassMode ON) | |
+| `thinkingConfig` | **OFF** automatico per fasi con budget ≤ 8192 | Iniettato in `fetchModelAPI` |
+| Soglia thinking | `maxOutputTokens ≤ 8192` → `thinkingBudget: 0` | Tutte le fasi MM; preserva KG Community (16384) |
+| **Bug risolto** | `getMaxOutputTokens(undefined)` → NaN → null → thinking illimitato | Guard aggiunto 9/6: default 4096 se input invalido |
+| **Risultati attesi** | 5-7 L1, 60-100 nodi, L4-L5, 0 troncamenti | Da confermare con run multi-pass post-fix |
+
+#### MindMap Iterativa su Google — alternativa più robusta
+| Parametro | Valore | Note |
+|---|---|---|
+| Modello | `gemini-2.5-flash` | |
+| Modalità | Iterativa (multiPassMode OFF) | |
+| Full tree call | `maxOutputTokens: 16384`, thinking abilitato | Single-pass per tutto l'albero |
+| **Risultati attesi** | ~56 nodi, 5 L1, maxLevel 3, 0 troncamenti | Run 9/6/26: `truncated: 0/16` |
+| **Limite** | maxLevel 3 (albero meno profondo del multi-pass) | Compensato da robustezza e velocità |
+
+#### Regola generale thinkingBudget (in `fetchModelAPI`)
+```
+provider=google AND model~=gemini-2.5|gemini-3 AND responseMimeType=application/json AND maxOutputTokens ≤ 8192
+→ inietta thinkingConfig: { thinkingBudget: 0 }
+```
+Questa regola protegge tutte le fasi MM senza toccare il KG Community.
+
 ### Da fare subito (prossima sessione — 8 giugno 2026)
 1. **Mappe tree-like con coerenza semantica interna** — NUOVO OBIETTIVO PRINCIPALE
    Vedi TODO.md §1 per la specifica completa. In sintesi:
