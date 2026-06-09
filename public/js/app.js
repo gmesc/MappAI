@@ -2682,6 +2682,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
+                              // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
                     type: "OBJECT",
                     properties: {
@@ -3182,6 +3184,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
+                              // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
                     type: "OBJECT",
                     properties: {
