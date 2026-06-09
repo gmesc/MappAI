@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pickFolder: () => ipcRenderer.invoke('pick-folder'),
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
+    getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),

@@ -13051,8 +13051,8 @@ const StorageManager = {
     // (senza toccare localStorage, il quale rimane integro)
     syncValidVaults: async function () {
         try {
-            if (!window.electronAPI) return;
-            this.validVaultFolders = await window.electronAPI.invoke('get-valid-vault-folders');
+            if (!window.electronAPI || !window.electronAPI.getValidVaultFolders) return;
+            this.validVaultFolders = await window.electronAPI.getValidVaultFolders();
         } catch (e) {
             console.warn("[StorageManager] Errore syncValidVaults:", e);
             this.validVaultFolders = [];
