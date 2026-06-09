@@ -2807,10 +2807,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             label: { type: "STRING" },
                             content: { type: "STRING" },
                             desc: { type: "STRING" },
-                            level: { type: "INTEGER" },
-                            chunks: { type: "ARRAY", items: { type: "STRING" } }
+                            level: { type: "INTEGER" }
+                            // chunks rimosso (stesso motivo del multi-pass)
                         },
-                        required: ["id", "label", "content", "desc", "level", "chunks"]
+                        required: ["id", "label", "content", "desc", "level"]
                     }
                 },
                 links: {
@@ -2967,7 +2967,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             lastNodeInBranch[l1Branch][n.level] = targetId;
                         }
 
-                        // Citations logic
+                        // Citations logic — priorità: chunks (se presenti) → desc → content
                         if (n.chunks && n.chunks.length > 0) {
                             let l1ParentName = "Documento";
                             let currentP = n.id;
@@ -2981,6 +2981,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                                 currentP = pId;
                             }
                             appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                        } else {
+                            // Fallback: chunks rimosso dallo schema → usa desc per sourcesDict
+                            // (necessario quando enrichThinDescs è disabilitato)
+                            const srcText = (n.desc || n.content || '').trim();
+                            if (srcText && !appState.db.sourcesDict[targetId]) {
+                                appState.db.sourcesDict[targetId] = [{ title: n.label || 'Nodo', source: 'Fonte analizzata', text: srcText }];
+                            }
                         }
                     });
                 }
@@ -3299,10 +3306,13 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                             label: { type: "STRING" },
                             content: { type: "STRING" },
                             desc: { type: "STRING" },
-                            level: { type: "INTEGER" },
-                            chunks: { type: "ARRAY", items: { type: "STRING" } }
+                            level: { type: "INTEGER" }
+                            // chunks rimosso: era required → l'AI riproduceva testo verbatim
+                            // dalla fonte (con \n\n\n\n dal PDF) → inflation 8180/8192 tok
+                            // su rami lunghi. sourcesDict ora popolato da desc (fallback inline
+                            // + enrichThinDescs). sourceCov invariato.
                         },
-                        required: ["id", "label", "content", "desc", "level", "chunks"]
+                        required: ["id", "label", "content", "desc", "level"]
                     }
                 },
                 links: {
@@ -3536,10 +3546,16 @@ ${textParts.join('\n\n')}`;
                             if (!lastNodeInBranch[l1Branch]) lastNodeInBranch[l1Branch] = { 1: l1Branch };
                             lastNodeInBranch[l1Branch][n.level] = targetId;
 
-                            // Citazioni
+                            // Citazioni — priorità: chunks → desc → content
                             if (n.chunks && n.chunks.length > 0) {
                                 let l1ParentName = branch.label;
                                 appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                            } else {
+                                // Fallback desc (chunks rimosso dallo schema)
+                                const srcText = (n.desc || n.content || '').trim();
+                                if (srcText && !appState.db.sourcesDict[targetId]) {
+                                    appState.db.sourcesDict[targetId] = [{ title: n.label || 'Nodo', source: branch.label || 'Fonte analizzata', text: srcText }];
+                                }
                             }
                         });
                     }
