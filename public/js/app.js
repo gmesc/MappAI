@@ -5305,7 +5305,9 @@ Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Nie
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
-                generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(1500) : 1500 }
+                // Phase 1.6 split: base 2500 → 5000 per gemini-2.5-flash (era 3000 → 6000 stretto,
+                // run 9/6: out=3988/4000). JSON split 2 L1 da 5000 parole ciascuna.
+                generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2500) }
             };
             const response = await window.fetchModelAPI(payload, apiKey);
             const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
