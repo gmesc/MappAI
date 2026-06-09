@@ -13045,6 +13045,36 @@ const StorageManager = {
         });
     },
 
+    // Ripulisce localStorage: rimuove i progetti il cui vault non esiste più
+    cleanStaleProjects: async function () {
+        try {
+            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+            if (projects.length === 0) return;
+
+            if (!window.electronAPI) return; // Non in Electron context
+
+            const validProjects = [];
+
+            for (const p of projects) {
+                const exists = await window.electronAPI.invoke('check-vault-exists', p.id);
+                if (exists) {
+                    validProjects.push(p);
+                } else {
+                    console.log(`[StorageManager] Rimosso progetto stale: ${p.name} (${p.id})`);
+                    localStorage.removeItem(p.id); // Rimuovi anche il dato del progetto
+                }
+            }
+
+            // Se almeno un progetto è stato rimosso, aggiorna localStorage e re-render
+            if (validProjects.length < projects.length) {
+                localStorage.setItem('tutor_ai_projects', JSON.stringify(validProjects));
+            }
+            this.renderRecentProjects();
+        } catch (e) {
+            console.error("[StorageManager] Errore cleanStaleProjects:", e);
+        }
+    },
+
     renderRecentProjects: function () {
         const container = document.getElementById('recent-projects-container');
         if (!container) return;
@@ -13291,7 +13321,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Multi-pass ON di default (silent=true: niente toast all'avvio)
     window.setMultiPassMode(true, true);
 
-    StorageManager.renderRecentProjects();
+    // Ripulisci progetti stale (il cui vault è stato cancellato) — async, poi renderizza
+    StorageManager.cleanStaleProjects().then(() => {
+        // renderRecentProjects è già chiamato da cleanStaleProjects, ma ridondante per sicurezza
+    }).catch(e => {
+        console.warn("[Init] Errore cleanStaleProjects:", e);
+        StorageManager.renderRecentProjects(); // Fallback: renderizza comunque
+    });
 
     // Load Gemini Key
     const savedGeminiKey = (window.secureKeys && window.secureKeys['gemini_api_key']) || localStorage.getItem('gemini_api_key');

@@ -908,6 +908,19 @@ ipcMain.handle('get-all-vaults', async () => {
     }
 });
 
+// Verifica se un vault esiste per un progetto dato l'ID (per ripulire progetti stale da localStorage)
+ipcMain.handle('check-vault-exists', async (event, projectId) => {
+    try {
+        if (!projectId) return false;
+        const docPath = app.getPath('documents');
+        const vaultPath = path.join(docPath, 'MappAI - Vault', projectId);
+        return fs.existsSync(vaultPath);
+    } catch (err) {
+        console.warn('[MappAI] Errore check-vault-exists:', err);
+        return false;
+    }
+});
+
 ipcMain.handle('pick-folder', async () => {
     const { dialog } = require('electron');
     const result = await dialog.showOpenDialog(mainWindow, {
