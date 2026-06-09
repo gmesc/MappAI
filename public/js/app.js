@@ -13045,33 +13045,17 @@ const StorageManager = {
         });
     },
 
-    // Ripulisce localStorage: rimuove i progetti il cui vault non esiste più
-    cleanStaleProjects: async function () {
+    validVaultFolders: [], // Cache dei nomi di cartelle vault che effettivamente esistono
+
+    // Verifica quali vault EFFETTIVAMENTE ESISTONO nel file system
+    // (senza toccare localStorage, il quale rimane integro)
+    syncValidVaults: async function () {
         try {
-            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
-            if (projects.length === 0) return;
-
-            if (!window.electronAPI) return; // Non in Electron context
-
-            const validProjects = [];
-
-            for (const p of projects) {
-                const exists = await window.electronAPI.invoke('check-vault-exists', p.id);
-                if (exists) {
-                    validProjects.push(p);
-                } else {
-                    console.log(`[StorageManager] Rimosso progetto stale: ${p.name} (${p.id})`);
-                    localStorage.removeItem(p.id); // Rimuovi anche il dato del progetto
-                }
-            }
-
-            // Se almeno un progetto è stato rimosso, aggiorna localStorage e re-render
-            if (validProjects.length < projects.length) {
-                localStorage.setItem('tutor_ai_projects', JSON.stringify(validProjects));
-            }
-            this.renderRecentProjects();
+            if (!window.electronAPI) return;
+            this.validVaultFolders = await window.electronAPI.invoke('get-valid-vault-folders');
         } catch (e) {
-            console.error("[StorageManager] Errore cleanStaleProjects:", e);
+            console.warn("[StorageManager] Errore syncValidVaults:", e);
+            this.validVaultFolders = [];
         }
     },
 
@@ -13080,7 +13064,7 @@ const StorageManager = {
         if (!container) return;
 
         try {
-            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+            let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
                 container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
@@ -13321,11 +13305,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Multi-pass ON di default (silent=true: niente toast all'avvio)
     window.setMultiPassMode(true, true);
 
-    // Ripulisci progetti stale (il cui vault è stato cancellato) — async, poi renderizza
-    StorageManager.cleanStaleProjects().then(() => {
-        // renderRecentProjects è già chiamato da cleanStaleProjects, ma ridondante per sicurezza
+    // Sincronizza la lista di vault che effettivamente esistono, poi renderizza
+    StorageManager.syncValidVaults().then(() => {
+        StorageManager.renderRecentProjects();
     }).catch(e => {
-        console.warn("[Init] Errore cleanStaleProjects:", e);
+        console.warn("[Init] Errore syncValidVaults:", e);
         StorageManager.renderRecentProjects(); // Fallback: renderizza comunque
     });
 

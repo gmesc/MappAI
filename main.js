@@ -908,16 +908,23 @@ ipcMain.handle('get-all-vaults', async () => {
     }
 });
 
-// Verifica se un vault esiste per un progetto dato l'ID (per ripulire progetti stale da localStorage)
-ipcMain.handle('check-vault-exists', async (event, projectId) => {
+// Restituisce l'elenco di cartelle vault che EFFETTIVAMENTE ESISTONO
+// (per ripulire progetti stale da localStorage)
+ipcMain.handle('get-valid-vault-folders', async (event) => {
     try {
-        if (!projectId) return false;
         const docPath = app.getPath('documents');
-        const vaultPath = path.join(docPath, 'MappAI - Vault', projectId);
-        return fs.existsSync(vaultPath);
+        const vaultBaseDir = path.join(docPath, 'MappAI - Vault');
+
+        if (!fs.existsSync(vaultBaseDir)) return [];
+
+        const folders = fs.readdirSync(vaultBaseDir).filter(f => {
+            return fs.statSync(path.join(vaultBaseDir, f)).isDirectory();
+        });
+
+        return folders; // Ritorna nomi delle cartelle che esistono
     } catch (err) {
-        console.warn('[MappAI] Errore check-vault-exists:', err);
-        return false;
+        console.warn('[MappAI] Errore get-valid-vault-folders:', err);
+        return [];
     }
 });
 
