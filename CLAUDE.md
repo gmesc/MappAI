@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 10 giugno 2026 (fix Phase 1 budget 3000→4096→6000 — tronca su doc scientifici + stale project cleanup)
+> Ultimo aggiornamento: 10 giugno 2026 (fix Phase 1: maxLength su schemaL1 — fine del budget-chase)
 
 ---
 
@@ -568,7 +568,8 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | Modalità | Multi-pass (multiPassMode ON) | |
 | `thinkingConfig` | **OFF** automatico per fasi con budget ≤ **12288** | Soglia alzata da 8192: copre Phase 1/1.5/1.6/3/4/5 |
 | Condizione thinking | `maxOutputTokens > 0 AND ≤ 12288` (rimosso vincolo responseMimeType) | Phase 4/5/1.5 usano output testuale, non JSON MIME |
-| **Phase 1 L1 gen** | `window.getMaxOutputTokens(6000)` → 12000 per gemini-2.5 | Era 3000→6000 poi 4096→8192: tronca su doc scientifici densi (Albero+Fotosintesi 8180/8192) |
+| **Phase 1 L1 gen** | `window.getMaxOutputTokens(3000)` → 6000 per gemini-2.5 | Fix definitivo: `maxLength` su schemaL1 — budget-chase interrotta |
+| **schemaL1 maxLength** | label:60, rel:30, ambito:120, desc:500, confini:300 | Hard limit Gemini constrained decoding. 7 L1 × ~250 tok = ~1750 tok totali attesi |
 | **Phase 1.5 validation** | `window.getMaxOutputTokens(1500)` → 3000 | |
 | **Phase 1.6 split** | `window.getMaxOutputTokens(3000)` → 6000 | Output: max 2 oggetti JSON — non tronca |
 | **Phase 3 branch** | base **4096** → 8192 per gemini-2.5 | Era 3000 → 6000: JSON ramo da 5988 tok troncava |

@@ -2685,11 +2685,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 items: {
                     type: "OBJECT",
                     properties: {
-                        label: { type: "STRING" },
-                        rel: { type: "STRING" },
-                        ambito: { type: "STRING" },
-                        desc: { type: "STRING" },
-                        confini: { type: "STRING" }
+                        label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
+                        rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
+                        ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
+                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
+                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
                     },
                     required: ["label", "rel"]
                 }
@@ -2701,11 +2701,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3185,11 +3185,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 items: {
                     type: "OBJECT",
                     properties: {
-                        label: { type: "STRING" },
-                        rel: { type: "STRING" },
-                        ambito: { type: "STRING" },
-                        desc: { type: "STRING" },
-                        confini: { type: "STRING" }
+                        label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
+                        rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
+                        ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
+                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
+                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
                     },
                     required: ["label", "rel"]
                 }
@@ -3201,11 +3201,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
