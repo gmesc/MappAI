@@ -2701,11 +2701,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3201,11 +3201,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -5305,8 +5305,8 @@ Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Nie
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
-                // Phase 1.6 split: base 2500 → 5000 per gemini-2.5-flash (era 3000 → 6000 stretto,
-                // run 9/6: out=3988/4000). JSON split 2 L1 da 5000 parole ciascuna.
+                // Phase 1.6 split: base 3000 → 6000 per gemini-2.5-flash.
+                // Output atteso: 1-2 oggetti JSON L1 — non tronca mai.
                 generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
             };
             const response = await window.fetchModelAPI(payload, apiKey);

@@ -1,7 +1,7 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 9 giugno 2026 (sessione notte — fix token budget MM multi-pass + KG Community promosso a default Google)
+> Ultimo aggiornamento: 10 giugno 2026 (fix Phase 1 budget 3000→4096 — tronca su doc scientifici + stale project cleanup)
 
 ---
 
@@ -568,8 +568,9 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | Modalità | Multi-pass (multiPassMode ON) | |
 | `thinkingConfig` | **OFF** automatico per fasi con budget ≤ **12288** | Soglia alzata da 8192: copre Phase 1/1.5/1.6/3/4/5 |
 | Condizione thinking | `maxOutputTokens > 0 AND ≤ 12288` (rimosso vincolo responseMimeType) | Phase 4/5/1.5 usano output testuale, non JSON MIME |
+| **Phase 1 L1 gen** | `window.getMaxOutputTokens(4096)` → 8192 per gemini-2.5 | Era 3000→6000: tronca su doc scientifici densi (Fotosintesi 5988/6000) |
 | **Phase 1.5 validation** | `window.getMaxOutputTokens(1500)` → 3000 | |
-| **Phase 1.6 split** | `window.getMaxOutputTokens(2500)` → 5000 | Era 1500 → 3000: L1 split troncava a 3988 tok |
+| **Phase 1.6 split** | `window.getMaxOutputTokens(3000)` → 6000 | Output: max 2 oggetti JSON — non tronca |
 | **Phase 3 branch** | base **4096** → 8192 per gemini-2.5 | Era 3000 → 6000: JSON ramo da 5988 tok troncava |
 | **Phase 4 merge** | base **6500** → 13000 per gemini-2.5 | Era 2000 → 4000 con thinkingBudget:0 → merge aggressivi |
 | **Schema branch** | `chunks` rimosso (era required) | Inflation token: AI riproduceva verbatim dalle fonti |
