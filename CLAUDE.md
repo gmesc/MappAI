@@ -496,10 +496,9 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### ⏳ IN CORSO (prossima sessione): verifica run MM multi-pass gemini-2.5-flash
-Fix token budget completo (sessione 9/6 notte). Lanciare run multi-pass con gemini-2.5-flash
-e Phase4/5/L1Validation attivi. Atteso: `truncated: 0/17`.
-Setup console: `MappAIMetrics.enablePhase4(); MappAIMetrics.enablePhase5(); MappAIMetrics.enableL1Validation(); MappAIMetrics.enableEnrichDescs(); MappAIMetrics.report()`
+### ✅ COMPLETATO (9/6/26 sera): token budget MM multi-pass finalizzato
+Run 77 nodi, 6 L1, density 1.221, 25.5% crosslinks, **truncated: 0/22** ✅
+Tutte le fasi in budget e thinking preservato dove utile (Phase 4 seleziona merge intelligenti).
 
 ### ✅ Completato in questa sessione (7 giugno notte) — Item 3 "desc ricche nei modali"
 Su richiesta esplicita dell'utente ("le descrizioni sono lo strumento principale che lo
@@ -562,18 +561,21 @@ Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
 | `enrichDescs` | ON (opzionale) | safety net gratuita: costo 0 se desc già ricche |
 | **Risultati attesi** | ~38 nodi, density ~1.7, ~47% cross-links, ~29 relTypes, 0% generic, SourceCov ~89% | Baseline run 9/6/26 |
 
-#### MindMap Multi-pass su Google — configurazione post-fix thinkingBudget (finale 9/6)
+#### MindMap Multi-pass su Google — configurazione finale validata (9/6/26, run 19:08)
 | Parametro | Valore | Note |
 |---|---|---|
 | Modello | `gemini-2.5-flash` | |
 | Modalità | Multi-pass (multiPassMode ON) | |
 | `thinkingConfig` | **OFF** automatico per fasi con budget ≤ **12288** | Soglia alzata da 8192: copre Phase 1/1.5/1.6/3/4/5 |
 | Condizione thinking | `maxOutputTokens > 0 AND ≤ 12288` (rimosso vincolo responseMimeType) | Phase 4/5/1.5 usano output testuale, non JSON MIME |
+| **Phase 1.5 validation** | `window.getMaxOutputTokens(1500)` → 3000 | |
+| **Phase 1.6 split** | `window.getMaxOutputTokens(2500)` → 5000 | Era 1500 → 3000: L1 split troncava a 3988 tok |
 | **Phase 3 branch** | base **4096** → 8192 per gemini-2.5 | Era 3000 → 6000: JSON ramo da 5988 tok troncava |
-| **Phase 1.5 validation** | `window.getMaxOutputTokens(1500)` → 3000 | Era hardcoded 1500: thinking consumava 1424/1500 tok |
-| **Bug risolto** | `getMaxOutputTokens(undefined)` → NaN → null → thinking illimitato | Guard: default 4096 se input invalido |
-| `getMaxOutputTokens` | localStorage fallback per model detection async | DOM può essere null durante loop rami |
-| **Risultati attesi** | `truncated: 0/17`, 5-7 L1, 60-100 nodi, L4-L5 | Da verificare al prossimo run |
+| **Phase 4 merge** | base **6500** → 13000 per gemini-2.5 | Era 2000 → 4000 con thinkingBudget:0 → merge aggressivi |
+| **Schema branch** | `chunks` rimosso (era required) | Inflation token: AI riproduceva verbatim dalle fonti |
+| **sourcesDict fallback** | Popola da `desc` se chunks assente | Preserva sourceCov invariato |
+| **`getMaxOutputTokens`** | localStorage fallback per model detection | DOM può essere null durante loop rami |
+| **Risultati validati** | `truncated: 0/22`, 77 nodi, 6 L1, density 1.221, 25.5% crosslinks, sourceCov 90.9%, 0% generic | Run 9/6 19:08 ✅ |
 
 #### MindMap Iterativa su Google — alternativa più robusta
 | Parametro | Valore | Note |
@@ -594,8 +596,8 @@ usano output testuale ma subivano lo stesso problema thinking. Soglia alzata 819
 Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori → thinking preservato.
 
 ### Da fare subito (prossima sessione)
-0. **Verifica `truncated: 0/17`** — run MM multi-pass gemini-2.5-flash (vedi §IN CORSO)
-1. **Mappe tree-like con coerenza semantica interna** — OBIETTIVO PRINCIPALE
+0. ✅ **Token budget MM multi-pass RISOLTO** — `truncated: 0/22` validato (9/6 sera)
+1. **Mappe tree-like con coerenza semantica interna** — NUOVO OBIETTIVO PRINCIPALE
    Vedi TODO.md §1 per la specifica completa. In sintesi:
    - Ogni ramo deve essere semanticamente coerente e profondo (L3-L4 reali, desc dense)
    - I cross-link sono ammessi SOLO come conseguenza di Phase 4 MERGE: quando un nodo

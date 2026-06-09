@@ -5,24 +5,17 @@
 
 ## ☀️ PROSSIMA SESSIONE INIZIA QUI
 
-**Stato**: Fix token budget MM multi-pass completato (sessione 8-9/6/26).
-**Prossimo step**: lanciare un run MM multi-pass con `gemini-2.5-flash` e verificare
-`truncated: 0/17` nel report. Setup console:
-```js
-MappAIMetrics.enablePhase4()
-MappAIMetrics.enablePhase5()
-MappAIMetrics.enableL1Validation()
-MappAIMetrics.enableEnrichDescs()
-MappAIMetrics.report()
-```
+**Stato**: ✅ Token budget MM multi-pass RISOLTO (sessione 9/6/26 sera).
+**Milestone**: run finale 77 nodi, 6 L1, density 1.221, 25.5% crosslinks, **truncated: 0/22** ✅
 
 **Branch attivo**: `feat/structural-suggestions`
-**Stato repo**: pulito — tutti i fix dell'ultima sessione sono in commit `ea7d343` (auto-save)
-e in commit manuale dopo. `app.js` aggiornato con:
-- `getMaxOutputTokens` localStorage fallback
-- `thinkingBudget:0` esteso a Phase 4/5/1.5 (rimosso vincolo `responseMimeType`), soglia 12288
-- Phase 1.5: `maxOutputTokens` ora via `getMaxOutputTokens` (era hardcoded 1500)
-- Phase 3 branch: base 3000 → 4096 (→ 8192 per gemini-2.5)
+**Commit ultimati**: 
+- `8c5b7c2` — rimuovi chunks da schemaBranch
+- `ee9109f` — Phase 4 budget 2000→6500 (preserva thinking)
+- `f5bb799` — Phase 1.6 budget 1500→2500
+
+**Prossimo obiettivo**: Item 1 — **Mappe tree-like con coerenza semantica intra-ramo**
+(vedi §PRIORITÀ ALTA punto 1). Goal: profondità e qualità nei rami, non cross-link artificiali.
 
 ### ✅ Completato sessione 8-9 giugno 2026 — KG Community + Dossier + MM token budgets
 Vedi sezione COMPLETATO in fondo per il dettaglio.
