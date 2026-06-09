@@ -2701,11 +2701,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3201,11 +3201,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
