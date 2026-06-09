@@ -1,5 +1,41 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 9 giugno 2026 (notte — fix token budget MM multi-pass).
+> Priorità in ordine decrescente. Aggiornato: 10 giugno 2026 (notte — fix Phase 1 maxItems + ATTENZIONE branch divergente).
+
+---
+
+## 🔴 PRIMA DI TUTTO — branch divergente da risolvere
+
+`feat/structural-suggestions` locale è **86 commit avanti** rispetto a
+`origin/feat/structural-suggestions`, ma origin ha **2 commit (4/6/26) che
+locale non ha**:
+
+- `815d4cd` "Gate MM phases 1.5/4/5 to Infomaniak provider only" — aggiunge
+  `&& appState?.aiProvider === 'infomaniak'` a `isL1ValidationEnabled`,
+  `isPhase4Enabled`, `isPhase5Enabled`. **CONTRADDICE la validazione di
+  stanotte** (Phase 1.5/4/5 funzionano bene su Google — run "OTTIME MAPPE",
+  Sistema Albero ecc.). Se questo merge entra pulito, disattiva silenziosamente
+  la pipeline di qualità su Google.
+- `af8b40d` "Add maxOutputTokens cap to Google L0/L1 payloads" — tocca la
+  STESSA riga `payloadL1` che stanotte abbiamo riscritto con `schemaL1` +
+  `maxItems:7` + `maxLength`. Conflitto testuale certo (1000 vs 3000).
+  La parte su `payloadL0` (riga ~2559/3009, `maxOutputTokens: getMaxOutputTokens(512)`)
+  invece è OK e non l'abbiamo toccata — può essere presa.
+
+**Lavoro di stanotte salvato su branch di backup**: `feat/structural-suggestions-night-0610`
+(pushato su origin, non mergiato). Working tree locale invariato (ancora 86
+commit avanti, non pushato su `feat/structural-suggestions`).
+
+**Piano consigliato per domani**:
+1. `git fetch origin`
+2. Decidere: rebase locale su `origin/feat/structural-suggestions` (2 commit)
+   risolvendo i 2 conflitti sopra — per `815d4cd` RIMUOVERE il vincolo
+   `aiProvider === 'infomaniak'` (o renderlo esplicitamente "anche su google",
+   visto che è validato); per `af8b40d` tenere la versione locale di `payloadL1`
+   (schemaL1 con maxItems) ma eventualmente prendere il fix `payloadL0` (riga
+   ~2559/3009, util per gemini-2.5-flash-lite).
+3. Dopo il rebase, force-push (con `--force-with-lease`) su `feat/structural-suggestions`.
+4. Eliminare il branch di backup `feat/structural-suggestions-night-0610` una
+   volta confermato che tutto è confluito.
 
 ---
 
