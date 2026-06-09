@@ -5450,7 +5450,12 @@ window.executePhase4Consolidation = async function () {
     const payload = {
         contents: [{ parts: [{ text: prompt }] }],
         systemInstruction: { parts: [{ text: 'Sei un consolidatore semantico di grafi. Rispondi SOLO in JSONL come richiesto.' }] },
-        generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(2000) }
+        // Phase 4 ha BISOGNO del thinking per fare merge di qualità:
+        // con thinkingBudget:0 (budget ≤ 12288) genera merge aggressivi e non pensa
+        // (run 9/6: 58 merge su 57 nodi → mappa collassata a 25).
+        // Base 6500 → doubled = 13000 per gemini-2.5 → 13000 > soglia 12288
+        // → thinking preservato automaticamente (consume ~3842 tok, output ~9158).
+        generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6500) }
     };
 
     let response;
