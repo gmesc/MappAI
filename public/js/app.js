@@ -2653,7 +2653,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain" }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
             };
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
@@ -3155,7 +3155,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain" }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
             };
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
