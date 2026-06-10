@@ -1494,7 +1494,7 @@
     function enableSemanticDedup() {
         localStorage.setItem('mappai_semantic_dedup_enabled', '1');
         console.log('%c✅ SEMANTIC DEDUP ATTIVO', 'color:green;font-weight:bold');
-        console.log('   Richiede provider=infomaniak e mode=mindmap. Esegui dopo la generazione con MappAIMetrics.runSemanticDedup()');
+        console.log('   Richiede provider=google|infomaniak e mode=mindmap. Esegui dopo la generazione con MappAIMetrics.runSemanticDedup()');
         return true;
     }
 
@@ -1536,6 +1536,21 @@
         }
         const opts = (typeof threshold === 'number') ? { clusterThreshold: threshold } : {};
         return window.MappAIEntityBackbone.analyzeCurrentMap(opts);
+    }
+
+    // ── Pannello Suggerimenti strutturali (UI tab Struttura) ──────────────────
+
+    function enableSuggestionsPanel() {
+        localStorage.setItem('mappai_structural_suggestions_panel_enabled', '1');
+        console.log('%c✅ PANNELLO SUGGERIMENTI ATTIVO', 'color:green;font-weight:bold');
+        console.log('   Riapri/aggiorna la tab "Struttura" per vedere il blocco "Suggerimenti".');
+        return true;
+    }
+
+    function disableSuggestionsPanel() {
+        localStorage.removeItem('mappai_structural_suggestions_panel_enabled');
+        console.log('%c⛔ PANNELLO SUGGERIMENTI DISATTIVATO', 'color:#6366f1');
+        return false;
     }
 
     // ── Export ────────────────────────────────────────────────────────────────
@@ -1591,6 +1606,8 @@
         enableEntityBackbone,
         disableEntityBackbone,
         analyzeBackbone,
+        enableSuggestionsPanel,
+        disableSuggestionsPanel,
         enableChunkFreeze,
         disableChunkFreeze,
         chunkFreezeStatus,

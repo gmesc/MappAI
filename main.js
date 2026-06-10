@@ -261,6 +261,38 @@ ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, product
     }
 });
 
+// IPC handler per embeddings Google (default: gemini-embedding-001).
+// Endpoint: batchEmbedContents (fino a 100 richieste per chiamata).
+ipcMain.handle('generate-embeddings-google', async (event, { apiKey, model, texts }) => {
+    const modelName = model || 'gemini-embedding-001';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:batchEmbedContents?key=${apiKey}`;
+    const payload = {
+        requests: (Array.isArray(texts) ? texts : [String(texts || '')]).map(t => ({
+            model: `models/${modelName}`,
+            content: { parts: [{ text: String(t || '') }] },
+            taskType: 'SEMANTIC_SIMILARITY',
+            outputDimensionality: 768
+        }))
+    };
+    try {
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+        });
+        const data = response.data || {};
+        const embeddings = (data.embeddings || []).map(item => item.values);
+        return {
+            embeddings,
+            model: modelName,
+            usage: null
+        };
+    } catch (error) {
+        const msg = error.response?.data?.error?.message || error.message;
+        const code = error.response?.status || 'N/A';
+        throw new Error(`Google Embeddings Error (${code}): ${msg}`);
+    }
+});
+
 // IPC handler for listing available Infomaniak models
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {

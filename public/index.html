@@ -1028,6 +1028,30 @@
             <!-- ═══ TAB: STRUTTURA ═══ -->
             <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll">
 
+                <!-- Pannello Suggerimenti strutturali (sperimentale, gated da localStorage) -->
+                <div id="structural-suggestions-block" class="hidden p-4 border-b border-slate-100 bg-slate-50/50">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> Suggerimenti strutturali
+                        </h3>
+                        <span id="structural-suggestions-status" class="text-[10px] text-slate-400"></span>
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <button onclick="window.renderStructuralSuggestions({withEmbeddings:false})"
+                            class="flex-1 text-xs font-bold bg-indigo-600 text-white py-2 rounded-lg shadow-sm hover:bg-indigo-700 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Analizza struttura
+                        </button>
+                        <button onclick="window.renderStructuralSuggestions({withEmbeddings:true})"
+                            title="Include 1 chiamata di embedding per rilevare entità duplicate tra rami"
+                            class="flex-1 text-xs font-bold bg-violet-100 text-violet-700 py-2 rounded-lg shadow-sm hover:bg-violet-200 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="git-merge" class="w-3.5 h-3.5"></i> + Analisi semantica
+                        </button>
+                    </div>
+                    <div id="structural-suggestions-list" class="space-y-2">
+                        <p class="text-xs text-slate-400 italic px-1">Clicca "Analizza struttura" per i suggerimenti.</p>
+                    </div>
+                </div>
+
                 <div id="tree-view-container" class="p-4 space-y-1"></div>
 
                 <!-- Node Details (shown when a node is selected) -->
@@ -3308,6 +3332,7 @@
     <script src="js/mappai-quiz-print.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-entity-backbone.js"></script>
+    <script src="js/mappai-suggestions-panel.js"></script>
     <script src="js/mappai-node-merge.js"></script>
     <script src="js/mappai-undo.js"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>

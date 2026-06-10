@@ -4565,18 +4565,34 @@ window.isRichRelEnabled = function () {
 // ──────────────────────────────────────────────────────────────────────────
 // EMBEDDING-DRIVEN SEMANTIC DEDUP (deterministico, no LLM)
 // ──────────────────────────────────────────────────────────────────────────
-// Usa bge-multilingual-gemma2 via Infomaniak. Cosine similarity > threshold
-// → merge automatico via window.executeMerge.
+// Google (gemini-embedding-001) o Infomaniak (bge-multilingual-gemma2),
+// a seconda del provider attivo. Cosine similarity > threshold → merge
+// automatico via window.executeMerge.
 window.isSemanticDedupEnabled = function () {
     try {
         return localStorage.getItem('mappai_semantic_dedup_enabled') === '1'
-            && appState?.aiProvider === 'infomaniak'
+            && (appState?.aiProvider === 'google' || appState?.aiProvider === 'infomaniak')
             && appState?.extractionMode === 'mindmap';
     } catch (e) { return false; }
 };
 
 window.fetchEmbeddings = async function (texts, model) {
     if (!Array.isArray(texts) || texts.length === 0) return [];
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) throw new Error('API key mancante');
+
+    if (appState.aiProvider === 'google') {
+        if (!window.electronAPI?.generateEmbeddingsGoogle) {
+            throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
+        }
+        const result = await window.electronAPI.generateEmbeddingsGoogle({
+            apiKey,
+            model: model || 'gemini-embedding-001',
+            texts
+        });
+        return result?.embeddings || [];
+    }
+
     if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
         throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
     }
@@ -4584,8 +4600,6 @@ window.fetchEmbeddings = async function (texts, model) {
         || document.getElementById('infomaniak-product-id')?.value
         || localStorage.getItem('infomaniak_product_id');
     if (!productId) throw new Error('Infomaniak product ID mancante');
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) throw new Error('API key Infomaniak mancante');
     const result = await window.electronAPI.generateEmbeddingsInfomaniak({
         apiKey, productId,
         model: model || 'bge_multilingual_gemma2',

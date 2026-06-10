@@ -43,7 +43,8 @@
         CONSOLIDATE_LEAVES: 'consolidate_leaves',  // L4-L5 dettagli sparsi
         LOW_CONNECTIVITY: 'low_connectivity',      // meta: mappa troppo ad albero
         KEYSTONE: 'keystone',                      // ponte / punto di articolazione
-        MEANING_HUB: 'meaning_hub'                 // alta betweenness centrality
+        MEANING_HUB: 'meaning_hub',                // alta betweenness centrality
+        DUPLICATE_ENTITY: 'duplicate_entity'       // entità frammentata su più rami (Entity Backbone)
     };
 
     // ── Helpers ─────────────────────────────────────────────
