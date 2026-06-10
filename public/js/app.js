@@ -34,7 +34,8 @@ let appState = {
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
     infomaniakAllModels: true,
-    multiPassMode: true
+    multiPassMode: true,
+    generationPipeline: localStorage.getItem('mappai_generation_pipeline') || 'A'
 };
 
 // ==========================================
@@ -277,6 +278,53 @@ window.setMultiPassMode = function (enabled, silent) {
     }
 
     if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
+};
+
+// ==========================================
+// PIPELINE A/B SELECTION
+// ==========================================
+window.setPipeline = function (pipelineMode) {
+    const validModes = ['A', 'B'];
+    if (!validModes.includes(pipelineMode)) {
+        console.error('Invalid pipeline mode. Use A or B.');
+        return;
+    }
+
+    appState.generationPipeline = pipelineMode;
+    localStorage.setItem('mappai_generation_pipeline', pipelineMode);
+
+    const btnA = document.getElementById('pipeline-a-btn');
+    const btnB = document.getElementById('pipeline-b-btn');
+    const pipelineDesc = document.getElementById('pipeline-desc');
+
+    if (btnA && btnB) {
+        if (pipelineMode === 'A') {
+            btnA.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnA.classList.remove('text-slate-500', 'hover:text-slate-700');
+            btnB.classList.remove('bg-white', 'shadow-sm', 'text-slate-700');
+            btnB.classList.add('text-slate-500', 'hover:text-slate-700');
+        } else {
+            btnB.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnB.classList.remove('text-slate-500', 'hover:text-slate-700');
+            btnA.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnA.classList.add('text-slate-500', 'hover:text-slate-700');
+        }
+    }
+
+    const descriptions = {
+        'A': 'Pipeline atomic-suggestions (con semantic dedup)',
+        'B': 'Pipeline structural-suggestions (semplificata)'
+    };
+
+    if (pipelineDesc) {
+        pipelineDesc.textContent = descriptions[pipelineMode] || 'Scegli l\'algoritmo di generazione mappe';
+    }
+
+    window.showToast(`Pipeline ${pipelineMode} attivata`, "info");
+};
+
+window.getPipeline = function () {
+    return appState.generationPipeline || localStorage.getItem('mappai_generation_pipeline') || 'A';
 };
 
 /**
@@ -2354,6 +2402,11 @@ window.handleFileUpload = async function (input, type) {
 }
 
 window.startGeneration = async function () {
+    // ========== PIPELINE A/B SELECTION ==========
+    const activePipeline = window.getPipeline();
+    appState.generationPipeline = activePipeline;
+    console.log(`[Generation Start] Pipeline: ${activePipeline} | Provider: ${appState.aiProvider} | Mode: ${appState.extractionMode}`);
+
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const inputId = isInfomaniak ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
     const storageKey = isInfomaniak ? 'infomaniak_api_key' : 'gemini_api_key';
@@ -13322,6 +13375,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Multi-pass ON di default (silent=true: niente toast all'avvio)
     window.setMultiPassMode(true, true);
+
+    // Initialize Pipeline A/B selector (silent=true to prevent toast on startup)
+    const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'A';
+    window.setPipeline(savedPipeline);
+    const desc = document.getElementById('pipeline-desc');
+    if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
 
     // Sincronizza la lista di vault che effettivamente esistono, poi renderizza
     StorageManager.syncValidVaults().then(() => {
