@@ -1354,6 +1354,9 @@
                     <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
                         <i data-lucide="gantt-chart"></i> Crea Timeline
                     </button>
+                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo">
+                        <i data-lucide="sparkles"></i> Sintesi di ramo (AI)
+                    </button>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" style="opacity:0.4;">
                         <i data-lucide="rotate-ccw"></i> Annulla<span class="undo-count"></span>
@@ -3350,6 +3353,7 @@
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-entity-backbone.js"></script>
     <script src="js/mappai-suggestions-panel.js"></script>
+    <script src="js/mappai-branch-synthesis.js"></script>
     <script src="js/mappai-node-merge.js"></script>
     <script src="js/mappai-undo.js"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>
