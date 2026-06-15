@@ -12,6 +12,11 @@
  *   MappAIMetrics.compare('label')    → payload JSON + copia in clipboard
  *   MappAIMetrics.diff(a, b)          → delta numerico tra due snapshot
  *
+ * FEATURE FLAGS (tutti disattivi di default)
+ *   MappAIMetrics.enableGraphologyAnalysis()   / disableGraphologyAnalysis()
+ *   MappAIMetrics.enableSuggestionsPanel()     / disableSuggestionsPanel()
+ *   MappAIMetrics.graphologyAnalysisStatus()   / suggestionsPanelStatus()
+ *
  * PERSISTENZA
  *   MappAIMetrics.save('label')       → salva snapshot in localStorage
  *   MappAIMetrics.load('label')       → carica snapshot (senza label → ultimo)
@@ -1489,12 +1494,60 @@
         return false;
     }
 
+    // ── Graphology Analysis Engine (betweenness + bridges/articulations) ──────
+
+    function enableGraphologyAnalysis() {
+        localStorage.setItem('mappai_graphology_analysis_enabled', '1');
+        console.log('%c✅ GRAPHOLOGY ANALYSIS ATTIVO', 'color:green;font-weight:bold');
+        console.log('   MappAIStructureAnalyzer userà graphology-metrics per betweenness e ponti/articolazioni.');
+        console.log('   Prossima esecuzione: MappAIStructureAnalyzer.analyzeCurrentMap() mostrerà engine: "graphology"');
+        return true;
+    }
+
+    function disableGraphologyAnalysis() {
+        localStorage.removeItem('mappai_graphology_analysis_enabled');
+        console.log('%c⛔ GRAPHOLOGY ANALYSIS DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        console.log('   Fallback automatico alle implementazioni custom (Brandes + Tarjan) — stesso output.');
+        return false;
+    }
+
+    function graphologyAnalysisStatus() {
+        const enabled = localStorage.getItem('mappai_graphology_analysis_enabled') === '1';
+        const icon = enabled ? '✅' : '⛔';
+        console.log(`${icon} Graphology analysis: ${enabled ? 'ON' : 'OFF'}`);
+        return enabled;
+    }
+
+    // ── Structural Suggestions Panel (UI nel sidebar) ────────────────────────
+
+    function enableSuggestionsPanel() {
+        localStorage.setItem('mappai_structural_suggestions_panel_enabled', '1');
+        console.log('%c✅ STRUCTURAL SUGGESTIONS PANEL ATTIVO', 'color:green;font-weight:bold');
+        console.log('   Visibile in tab "Struttura" della sidebar — clicca "Analizza struttura" per popolarlo.');
+        console.log('   Ricarica l\'app con location.reload() se il pannello non appare.');
+        return true;
+    }
+
+    function disableSuggestionsPanel() {
+        localStorage.removeItem('mappai_structural_suggestions_panel_enabled');
+        console.log('%c⛔ STRUCTURAL SUGGESTIONS PANEL DISATTIVATO', 'color:#6366f1;font-weight:bold');
+        console.log('   Pannello nascosto dal sidebar. L\'analizzatore funziona comunque via console.');
+        return false;
+    }
+
+    function suggestionsPanelStatus() {
+        const enabled = localStorage.getItem('mappai_structural_suggestions_panel_enabled') === '1';
+        const icon = enabled ? '✅' : '⛔';
+        console.log(`${icon} Suggestions panel: ${enabled ? 'ON (visibile)' : 'OFF (nascosto)'}`);
+        return enabled;
+    }
+
     // ── Semantic Dedup (embeddings bge-multilingual-gemma2) ───────────────────
 
     function enableSemanticDedup() {
         localStorage.setItem('mappai_semantic_dedup_enabled', '1');
         console.log('%c✅ SEMANTIC DEDUP ATTIVO', 'color:green;font-weight:bold');
-        console.log('   Richiede provider=infomaniak e mode=mindmap. Esegui dopo la generazione con MappAIMetrics.runSemanticDedup()');
+        console.log('   Richiede provider=google|infomaniak e mode=mindmap. Esegui dopo la generazione con MappAIMetrics.runSemanticDedup()');
         return true;
     }
 
@@ -1536,6 +1589,21 @@
         }
         const opts = (typeof threshold === 'number') ? { clusterThreshold: threshold } : {};
         return window.MappAIEntityBackbone.analyzeCurrentMap(opts);
+    }
+
+    // ── Pannello Suggerimenti strutturali (UI tab Struttura) ──────────────────
+
+    function enableSuggestionsPanel() {
+        localStorage.setItem('mappai_structural_suggestions_panel_enabled', '1');
+        console.log('%c✅ PANNELLO SUGGERIMENTI ATTIVO', 'color:green;font-weight:bold');
+        console.log('   Riapri/aggiorna la tab "Struttura" per vedere il blocco "Suggerimenti".');
+        return true;
+    }
+
+    function disableSuggestionsPanel() {
+        localStorage.removeItem('mappai_structural_suggestions_panel_enabled');
+        console.log('%c⛔ PANNELLO SUGGERIMENTI DISATTIVATO', 'color:#6366f1');
+        return false;
     }
 
     // ── Export ────────────────────────────────────────────────────────────────
@@ -1591,6 +1659,8 @@
         enableEntityBackbone,
         disableEntityBackbone,
         analyzeBackbone,
+        enableSuggestionsPanel,
+        disableSuggestionsPanel,
         enableChunkFreeze,
         disableChunkFreeze,
         chunkFreezeStatus,
@@ -1602,7 +1672,13 @@
         disableRichRel,
         enableCommunityKG,
         disableCommunityKG,
-        enrichDescsStatus
+        enrichDescsStatus,
+        enableGraphologyAnalysis,
+        disableGraphologyAnalysis,
+        graphologyAnalysisStatus,
+        enableSuggestionsPanel,
+        disableSuggestionsPanel,
+        suggestionsPanelStatus
     };
 
     console.log(
