@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MappAI - Pitch Deck</title>
+    
+    <!-- Google Fonts: Space Mono (UI allineata a MappAI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* MappAI Design System: Luminous & Clean */
+        :root {
+            --bg-color: #f8fafc; /* slate-50 */
+            --card-bg: #ffffff;
+            --text-primary: #1e293b; /* slate-800 */
+            --text-secondary: #64748b; /* slate-500 */
+            --accent-indigo: #6366f1; /* indigo-500 */
+            --accent-emerald: #10b981; /* emerald-500 */
+            --accent-amber: #f59e0b; /* amber-500 */
+            --accent-violet: #8b5cf6; /* violet-500 */
+            --border-color: #e2e8f0; /* slate-200 */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Space Mono', monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            /* Sfondo a griglia puntinata come in MappAI */
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 24px 24px;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Navigazione laterale a pallini */
+        .slide-nav {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-dot.active {
+            background-color: var(--accent-indigo);
+            transform: scale(1.3);
+        }
+
+        /* Container delle Slide */
+        .deck-container {
+            height: 100vh;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none; /* Firefox */
+        }
+        .deck-container::-webkit-scrollbar {
+            display: none; /* Chrome/Safari */
+        }
+
+        .slide {
+            height: 100vh;
+            width: 100vw;
+            scroll-snap-align: start;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Glass Card - Lo stile principale di MappAI */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.5rem; /* rounded-2xl */
+            box-shadow: 0 10px 40px -10px rgba(99, 102, 241, 0.15);
+            width: 100%;
+            max-width: 1100px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .glass-card::-webkit-scrollbar {
+            width: 6px;
+        }
+        .glass-card::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        /* Tipografia */
+        h1 { font-size: 3rem; font-weight: 700; color: var(--text-primary); letter-spacing: -1px; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.75rem; font-weight: 700; color: var(--accent-indigo); margin-bottom: 1.5rem; }
+        h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px;}
+        p, li { font-size: 1.1rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 1rem; }
+        strong { color: var(--text-primary); font-weight: 700; }
+
+        /* Etichette e Badge (UI MappAI) */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .badge-indigo { background-color: var(--accent-indigo); }
+        .badge-emerald { background-color: var(--accent-emerald); }
+        .badge-amber { background-color: var(--accent-amber); }
+        .badge-violet { background-color: var(--accent-violet); }
+
+        .tag {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            background: #e0e7ff;
+            color: var(--accent-indigo);
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        /* Layout divisi */
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+            height: 100%;
+        }
+
+        .split-layout.image-right { grid-template-columns: 1fr 1.2fr; }
+        .split-layout.image-left { grid-template-columns: 1.2fr 1fr; }
+
+        /* Immagini e Screenshot */
+        .screenshot-wrapper {
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .screenshot-wrapper img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .pdf-wrapper {
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            height: 500px;
+        }
+        .pdf-wrapper embed, .pdf-wrapper iframe {
+            width: 100%;
+            height: 100%;
+        }
+
+        .founder-img {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin: 0 auto 20px auto;
+            display: block;
+        }
+
+        /* Bottoni finti per UI */
+        .ui-box {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-indigo);
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: bold;
+        }
+
+        .icon-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .icon-header img { width: 60px; height: 60px; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navigazione a punti -->
+    <div class="slide-nav">
+        <div class="nav-dot active" onclick="document.getElementById('slide-1').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-2').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-3').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-4').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-5').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-6').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-7').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-8').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-9').scrollIntoView()"></div>
+    </div>
+
+    <div class="deck-container">
+
+        <!-- SLIDE 1: INTRO -->
+        <section class="slide" id="slide-1">
+            <div class="glass-card" style="align-items: center; justify-content: center; text-align: center;">
+                <img src="MappAI_icon.png" alt="MappAI Logo" style="width: 120px; margin-bottom: 30px;">
+                <h1>MappAI</h1>
+                <h2 style="color: var(--text-secondary); font-size: 1.5rem; font-weight: 400;">Trasformare la Conoscenza Visuale per la Neurodiversità</h2>
+                
+                <div style="margin-top: 40px; padding: 20px; background: #eef2ff; border: 1px dashed var(--accent-indigo); border-radius: 16px; display: inline-block;">
+                    <h3 style="color: var(--accent-indigo); margin-bottom: 0; font-size: 1.5rem;">"Progettato per pochi, utile a tutti."</h3>
+                </div>
+
+                <div style="margin-top: 50px; font-size: 0.9rem; color: var(--text-secondary); letter-spacing: 2px; text-transform: uppercase;">
+                    Seed Round: CHF 300'000–600'000 | Svizzera & Ticino 2026
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: IL PROBLEMA -->
+        <section class="slide" id="slide-2">
+            <div class="glass-card">
+                <span class="tag">Il Problema</span>
+                <h2>La Crisi dell'Apprendimento Inclusivo</h2>
+                
+                <div class="ui-box">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <i data-lucide="alert-triangle" style="color: var(--accent-amber); width: 32px; height: 32px;"></i>
+                        <h3 style="margin: 0;">Un sistema sotto pressione</h3>
+                    </div>
+                    <p>In Italia, gli studenti con DSA certificato sono il <strong>6,0% del totale</strong>, con un trend di crescita del 6% annuo. Il processo per creare mappe concettuali per i Piani Didattici Personalizzati (PDP) richiede oggi <strong>2-3 ore di lavoro manuale</strong> per mappa da parte dei docenti specializzati.</p>
+                </div>
+
+                <div class="split-layout" style="gap: 20px; align-items: start; margin-top: 20px;">
+                    <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="color: var(--accent-indigo); font-size: 1rem;"><i data-lucide="x-circle" style="display:inline; width:16px; margin-right:5px;"></i> Tool Generalisti</h3>
+                        <p style="font-size: 0.9rem;">Software come MindMeister o XMind mancano di intelligenza semantica profonda e non sono progettati con criteri di accessibilità per neurodivergenze.</p>
+                    </div>
+                    <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="color: var(--accent-indigo); font-size: 1rem;"><i data-lucide="x-circle" style="display:inline; width:16px; margin-right:5px;"></i> Software Compensativi</h3>
+                        <p style="font-size: 0.9rem;">I tool specializzati per DSA tradizionali offrono mappe statiche, create interamente a mano, prive di AI generativa in grado di estrarre conoscenza da file complessi.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: UX - LA LANDING -->
+        <section class="slide" id="slide-3">
+            <div class="glass-card">
+                <span class="tag">La Soluzione: UX fluida</span>
+                <h2>Da zero a Mappa in 3 click</h2>
+                
+                <div class="split-layout image-right">
+                    <div>
+                        <p>Abbiamo progettato un'interfaccia <strong>Zero-Friction</strong>. Non serve imparare a usare il software: basta sapere cosa si vuole studiare.</p>
+                        
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span class="badge badge-indigo">1</span>
+                            <p style="margin:0;"><strong>Carica le fonti:</strong> Multi-sorgente (PDF, URL, YouTube, Testo, Audio).</p>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span class="badge badge-emerald">2</span>
+                            <p style="margin:0;"><strong>Scegli il formato:</strong> Mappa Mentale gerarchica o Knowledge Graph reticolare.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span class="badge badge-amber">3</span>
+                            <p style="margin:0;"><strong>Genera:</strong> Elaborazione automatica delle macro-aree in meno di 2 minuti.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="screenshot-wrapper">
+                        <!-- INSERIMENTO SCREENSHOT LANDING -->
+                        <img src="Screenshot 2026-06-15 alle 13.57.52.png" alt="MappAI Landing Page - 3 Click UX">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: IL CUORE DI MAPPAI - MAP VIEW -->
+        <section class="slide" id="slide-4">
+            <div class="glass-card">
+                <span class="tag">Core Technology</span>
+                <h2>L'Intelligenza diventa Visiva</h2>
+                
+                <div class="split-layout image-left">
+                    <div class="screenshot-wrapper">
+                        <!-- INSERIMENTO SCREENSHOT MAPPA -->
+                        <img src="Screenshot 2026-06-15 alle 13.58.29.png" alt="MappAI Map View - Knowledge Graph">
+                    </div>
+
+                    <div>
+                        <p>Il motore di rendering basato su <strong>D3.js</strong> trasforma i testi in grafi semantici interattivi. L'IA non si sostituisce allo studente, ma <strong>riflette la struttura cognitiva</strong> della materia.</p>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="display: flex; align-items: center; gap: 10px;"><i data-lucide="git-merge" style="color: var(--accent-emerald);"></i> <strong>Mappe Mentali:</strong> Ottime per strutturare un indice.</li>
+                            <li style="display: flex; align-items: center; gap: 10px;"><i data-lucide="network" style="color: var(--accent-amber);"></i> <strong>Knowledge Graph:</strong> Ottimi per studiare le relazioni storiche/scientifiche.</li>
+                            <li style="display: flex; align-items: center; gap: 10px;"><i data-lucide="layout-dashboard" style="color: var(--accent-indigo);"></i> <strong>Layout Dinamici:</strong> Riorganizza lo spazio visivo in tempo reale.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: ACCESSIBILITÀ - MODALE FOCUS -->
+        <section class="slide" id="slide-5">
+            <div class="glass-card">
+                <span class="tag">Accessibilità (A11y)</span>
+                <h2>Strumenti Compensativi Integrati</h2>
+                
+                <div class="split-layout image-right">
+                    <div>
+                        <p>Ogni nodo della mappa è esplorabile in profondità tramite le schede Focus, progettate per eliminare il sovraccarico cognitivo.</p>
+                        
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-emerald);"><i data-lucide="book-open" style="width:18px; display:inline;"></i> Design Accessibility-First</h3>
+                            <ul style="margin-left: 20px; font-size: 0.95rem; margin-bottom: 0;">
+                                <li>Font <strong>OpenDyslexic</strong> attivabile globalmente.</li>
+                                <li><strong>Sillabazione</strong> e spaziatura testo dinamica.</li>
+                                <li>Motore <strong>Text-to-Speech (TTS)</strong> integrato per leggere a voce alta i contenuti riassunti.</li>
+                                <li>Citazioni dirette dalle fonti originali per evitare allucinazioni dell'IA.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="screenshot-wrapper">
+                        <!-- INSERIMENTO SCREENSHOT MODALE FOCUS -->
+                        <img src="Screenshot 2026-06-15 alle 13.59.18.png" alt="MappAI Focus Modal - Accessibility">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: EXPORT & TIMELINE -->
+        <section class="slide" id="slide-6">
+            <div class="glass-card">
+                <span class="tag">Oltre lo schermo</span>
+                <h2>Generazione Documentale Automatica</h2>
+                
+                <div class="split-layout image-left">
+                    <div class="pdf-wrapper">
+                        <!-- INSERIMENTO PDF TIMELINE COME EMBED -->
+                        <embed src="Timeline — Guerra Fredda.pdf" type="application/pdf" title="Timeline Guerra Fredda Export PDF">
+                    </div>
+
+                    <div>
+                        <p>Il lavoro digitale prende forma nel mondo reale. Gli insegnanti possono stampare materiali pronti per l'aula e per i fascicoli degli studenti con un solo click.</p>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;"><i data-lucide="gantt-chart" style="color: var(--accent-violet);"></i> <strong>Timeline Cronologiche:</strong> Estrazione automatica delle date e layout PDF pronto stampa.</li>
+                            <li style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;"><i data-lucide="files" style="color: var(--accent-indigo);"></i> <strong>Stampa Dossier:</strong> Esportazione di interi rami concettuali con citazioni.</li>
+                            <li style="display: flex; align-items: center; gap: 10px;"><i data-lucide="archive" style="color: var(--accent-amber);"></i> <strong>Vault Markdown:</strong> Piena compatibilità offline con software come Obsidian (Data Lock-in azzerato).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: IL MERCATO -->
+        <section class="slide" id="slide-7">
+            <div class="glass-card">
+                <span class="tag">Business & Mercato</span>
+                <h2>Un'Opportunità in Espansione Regolamentata</h2>
+                
+                <p style="text-align: center; max-width: 800px; margin: 0 auto 30px auto;">Il posizionamento strategico <strong>"Education AI + Privacy-first (GDPR/nLPD)"</strong> garantisce accesso alle scuole europee, bloccate nell'uso di tool cloud USA.</p>
+
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-number">~€91M</div>
+                        <div class="stat-label">TAM (Total Addressable Market)</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; color: var(--text-secondary);">4 mercati core: IT, CH, FR, DE</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-emerald); box-shadow: 0 4px 15px rgba(16,185,129,0.1);">
+                        <div class="stat-number" style="color: var(--accent-emerald);">~€1.6M</div>
+                        <div class="stat-label">SAM (a 3 anni)</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; color: var(--text-secondary);">Tramite canali digitali diretti e fondi PNRR (IT)</p>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">€158K</div>
+                        <div class="stat-label">SOM (Obiettivo Anno 1)</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; color: var(--text-secondary);">Target: 5.000 utenti attivi B2C e 30 Istituti B2B</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 40px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h3 style="font-size: 1rem; color: var(--accent-indigo);">Strategia Go-To-Market (PLG)</h3>
+                    <p style="margin: 0; font-size: 0.95rem;">Modello Freemium per studenti (3 mappe/mese) con conversione a <strong>Pro Individual (€4,99/mese)</strong>. Licenze <strong>School (fino a €500/anno)</strong> distribuite tramite MEPA in Italia e App Store (MacOS/Windows) per le scuole Svizzere e Tedesche.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: TEAM & ROADMAP -->
+        <section class="slide" id="slide-8">
+            <div class="glass-card">
+                <span class="tag">Chi Siamo</span>
+                <h2>Founder-Product Fit Inimitabile</h2>
+                
+                <div class="split-layout image-left" style="grid-template-columns: 1fr 2fr;">
+                    <div style="text-align: center;">
+                        <!-- IMMAGINE PROFILO -->
+                        <img src="immagine_profilo.jpg" alt="Giacomo Meschini - Founder" class="founder-img">
+                        <h3>Giacomo Meschini</h3>
+                        <p style="color: var(--accent-indigo); font-weight: bold; font-size: 0.9rem; margin-bottom: 0;">Founder & Full-Stack Developer</p>
+                        <p style="font-size: 0.8rem;">Base operativa: Ticino, CH</p>
+                    </div>
+
+                    <div>
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-emerald);"><i data-lucide="code-2" style="width:16px; display:inline;"></i> Il Vantaggio Competitivo</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 0;">Sviluppatore (Electron, D3.js, AI Integration) ed <strong>Educatore Specializzato</strong> con esperienza diretta nel sistema scolastico. Unisce codice e pedagogia (Normative DSA/BES, Accessibilità, Privacy Dati) in un unico profilo.</p>
+                        </div>
+
+                        <div style="border-left: 2px solid var(--accent-indigo); padding-left: 20px; margin-top: 20px;">
+                            <h3 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">ROADMAP TECNICA</h3>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <div style="font-weight: bold; min-width: 100px;">Luglio 2026</div>
+                                <div style="font-size: 0.9rem;">v1.0 Launch & Security Audit, 50 beta user.</div>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <div style="font-weight: bold; min-width: 100px; color: var(--accent-amber);">Ottobre 2026</div>
+                                <div style="font-size: 0.9rem;">v1.1 Refactoring CSS & Lenti disciplinari.</div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="font-weight: bold; min-width: 100px; color: var(--accent-emerald);">Primavera 2027</div>
+                                <div style="font-size: 0.9rem;">Obiettivo 5.000 utenti attivi & Sviluppo App iPadOS.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: THE ASK -->
+        <section class="slide" id="slide-9">
+            <div class="glass-card" style="align-items: center; justify-content: center; text-align: center;">
+                <i data-lucide="rocket" style="width: 64px; height: 64px; color: var(--accent-indigo); margin-bottom: 20px;"></i>
+                <h2>L'Investimento</h2>
+                <h1 style="color: var(--accent-emerald); font-size: 4rem; margin-bottom: 10px;">CHF 300'000 – 600'000</h1>
+                <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 40px auto;">Per posizionare MappAI come il <strong>riferimento europeo</strong> per l'AI educativa DSA-first.</p>
+
+                <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: bold;">👨‍💻 27% Sviluppo & Audit</div>
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: bold;">🤝 27% Hiring Team</div>
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: bold;">📣 20% Marketing (PLG)</div>
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: bold;">💼 13% Sales B2B</div>
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; font-weight: bold;">⚙️ 13% Operations</div>
+                </div>
+
+                <div style="margin-top: 50px;">
+                    <a href="mailto:giacomo@insegnai.ch" style="display: inline-flex; align-items: center; gap: 10px; background: var(--accent-indigo); color: white; padding: 15px 30px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(99,102,241,0.3);">
+                        <i data-lucide="mail"></i> Contattami: giacomo@insegnai.ch
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Inizializza le icone
+        lucide.createIcons();
+
+        // Sincronizza i pallini di navigazione con lo scroll
+        const container = document.querySelector('.deck-container');
+        const dots = document.querySelectorAll('.nav-dot');
+        const slides = document.querySelectorAll('.slide');
+
+        container.addEventListener('scroll', () => {
+            let index = Math.round(container.scrollTop / window.innerHeight);
+            dots.forEach((dot, i) => {
+                if(i === index) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>
+```
