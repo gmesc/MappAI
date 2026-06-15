@@ -116,15 +116,17 @@
     // ── Motore graphology (opzionale) ───────────────────────
     //
     // Se il bundle vendored `mappai-graphology.min.js` è caricato
-    // (window.MappAIGraphology), betweenness e ponti/articolazioni usano le
-    // implementazioni testate di graphology. Se NON è disponibile (es. import
-    // JSON standalone, ambiente di test, bundle non caricato) si ricade
-    // automaticamente sulle implementazioni custom — stesso risultato, parità
-    // verificata in scripts/prototype-graphology-betweenness.js (diff ≤ 1e-15).
-    // Questo rende lo swap completamente reversibile: basta non caricare lo
-    // script e l'analizzatore continua a funzionare col codice custom.
+    // (window.MappAIGraphology) E il flag `mappai_graphology_analysis_enabled` è 1,
+    // betweenness e ponti/articolazioni usano le implementazioni testate di graphology.
+    // Se NON è disponibile o il flag è disattivo, si ricade automaticamente sulle
+    // implementazioni custom — stesso risultato, parità verificata in
+    // scripts/prototype-graphology-betweenness.js (diff ≤ 1e-15).
+    // Questo rende lo swap completamente reversibile e sperimentale.
     function _getGraphology() {
         try {
+            if (typeof localStorage === 'undefined' || localStorage.getItem('mappai_graphology_analysis_enabled') !== '1') {
+                return null; // flag disattivo: usa fallback custom
+            }
             const G = (typeof MappAIGraphology !== 'undefined')
                 ? MappAIGraphology : window.MappAIGraphology;
             return (G && G.Graph) ? G : null;
