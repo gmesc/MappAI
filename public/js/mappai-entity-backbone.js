@@ -177,8 +177,10 @@
 
     window.isEntityBackboneEnabled = function () {
         try {
+            const state = _getAppState();
             return localStorage.getItem('mappai_entity_backbone_enabled') === '1'
-                && (_getAppState())?.extractionMode === 'mindmap';
+                && (state?.aiProvider === 'google' || state?.aiProvider === 'infomaniak')
+                && state?.extractionMode === 'mindmap';
         } catch (e) { return false; }
     };
 

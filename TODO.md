@@ -1,41 +1,34 @@
 # TODO.md — MappAI Prossima Sessione
-> Priorità in ordine decrescente. Aggiornato: 10 giugno 2026 (notte — fix Phase 1 maxItems + ATTENZIONE branch divergente).
+> Priorità in ordine decrescente. Aggiornato: 10 giugno 2026 (branch divergente risolto;
+> valutazione Apertus/Mistral archiviata in `docs/model-evaluation/` — focus generazione
+> ora su **Google Gemini**).
 
 ---
 
-## 🔴 PRIMA DI TUTTO — branch divergente da risolvere
+## ✅ RISOLTO — branch divergente (era "PRIMA DI TUTTO")
 
-`feat/structural-suggestions` locale è **86 commit avanti** rispetto a
-`origin/feat/structural-suggestions`, ma origin ha **2 commit (4/6/26) che
-locale non ha**:
+`feat/structural-suggestions` locale era 86 commit avanti rispetto a
+`origin/feat/structural-suggestions`, con 2 commit divergenti su origin
+(`815d4cd` gate Infomaniak-only, `af8b40d` cap maxOutputTokens L0/L1).
+Risolto via merge (`b8bd787`): mantenuto `payloadL1` con `schemaL1`
+(`maxItems:7`) + `getMaxOutputTokens(3000)`, preso il nuovo cap
+`maxOutputTokens(512)` su `payloadL0`, rimosso il vincolo
+`aiProvider === 'infomaniak'` da `isL1ValidationEnabled`/`isPhase4Enabled`/
+`isPhase5Enabled` (validati funzionanti su Google). Pushato su origin.
+Branch di backup `feat/structural-suggestions-night-0610` ancora su origin,
+non più necessario ma non eliminato.
 
-- `815d4cd` "Gate MM phases 1.5/4/5 to Infomaniak provider only" — aggiunge
-  `&& appState?.aiProvider === 'infomaniak'` a `isL1ValidationEnabled`,
-  `isPhase4Enabled`, `isPhase5Enabled`. **CONTRADDICE la validazione di
-  stanotte** (Phase 1.5/4/5 funzionano bene su Google — run "OTTIME MAPPE",
-  Sistema Albero ecc.). Se questo merge entra pulito, disattiva silenziosamente
-  la pipeline di qualità su Google.
-- `af8b40d` "Add maxOutputTokens cap to Google L0/L1 payloads" — tocca la
-  STESSA riga `payloadL1` che stanotte abbiamo riscritto con `schemaL1` +
-  `maxItems:7` + `maxLength`. Conflitto testuale certo (1000 vs 3000).
-  La parte su `payloadL0` (riga ~2559/3009, `maxOutputTokens: getMaxOutputTokens(512)`)
-  invece è OK e non l'abbiamo toccata — può essere presa.
+---
 
-**Lavoro di stanotte salvato su branch di backup**: `feat/structural-suggestions-night-0610`
-(pushato su origin, non mergiato). Working tree locale invariato (ancora 86
-commit avanti, non pushato su `feat/structural-suggestions`).
+## 🧊 LAVORO IN PAUSA — Apertus 70B / Mistral Small 119B / Infomaniak
 
-**Piano consigliato per domani**:
-1. `git fetch origin`
-2. Decidere: rebase locale su `origin/feat/structural-suggestions` (2 commit)
-   risolvendo i 2 conflitti sopra — per `815d4cd` RIMUOVERE il vincolo
-   `aiProvider === 'infomaniak'` (o renderlo esplicitamente "anche su google",
-   visto che è validato); per `af8b40d` tenere la versione locale di `payloadL1`
-   (schemaL1 con maxItems) ma eventualmente prendere il fix `payloadL0` (riga
-   ~2559/3009, util per gemini-2.5-flash-lite).
-3. Dopo il rebase, force-push (con `--force-with-lease`) su `feat/structural-suggestions`.
-4. Eliminare il branch di backup `feat/structural-suggestions-night-0610` una
-   volta confermato che tutto è confluito.
+D'ora in poi la generazione si concentra su **Google Gemini**. Tutta la
+conoscenza su benchmark, fix e limiti di Apertus 70B e Mistral Small 119B
+(incluse le sezioni COMPLETATO storiche di questo file) è stata consolidata
+in [`docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`](docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md)
+per non perdere il lavoro fatto in vista di una ripresa futura. Gli item
+specifici di Apertus/Mistral/Infomaniak nelle sezioni sotto restano in
+backlog ma sono annotati come "IN PAUSA" — non sono prioritari.
 
 ---
 
@@ -44,14 +37,16 @@ commit avanti, non pushato su `feat/structural-suggestions`).
 **Stato**: ✅ Token budget MM multi-pass RISOLTO (sessione 9/6/26 sera).
 **Milestone**: run finale 77 nodi, 6 L1, density 1.221, 25.5% crosslinks, **truncated: 0/22** ✅
 
-**Branch attivo**: `feat/structural-suggestions`
+**Branch attivo**: `feat/structural-suggestions` (allineato con origin, merge `b8bd787`)
 **Commit ultimati**: 
 - `8c5b7c2` — rimuovi chunks da schemaBranch
 - `ee9109f` — Phase 4 budget 2000→6500 (preserva thinking)
 - `f5bb799` — Phase 1.6 budget 1500→2500
+- `b8bd787` — merge origin: cap maxOutputTokens(512) su payloadL0, gate Phase 1.5/4/5 riaperti su Google
 
 **Prossimo obiettivo**: Item 1 — **Mappe tree-like con coerenza semantica intra-ramo**
 (vedi §PRIORITÀ ALTA punto 1). Goal: profondità e qualità nei rami, non cross-link artificiali.
+**Provider**: Google Gemini — lavoro Apertus/Mistral/Infomaniak in pausa (vedi nota sopra).
 
 ### ✅ Completato sessione 8-9 giugno 2026 — KG Community + Dossier + MM token budgets
 Vedi sezione COMPLETATO in fondo per il dettaglio.
@@ -123,18 +118,14 @@ doppio in una macro-area meno pertinente viene fuso verso quella più pertinente
 - Pro: zero cross-link inventati, zero ID-mismatch; i link che restano sono tutti semanticamente motivati
 - Implementazione: aggiungere flag `mappai_mm_phase4_mergeonly_enabled` o parametro al prompt
 
-#### B. Migliorare profondità rami Apertus
-- Problema attuale: "Economia e Commercio" ha generato 0 L2, "Accoglienza Profughi" 1 L2
-- Causa ipotizzata: i rami perdono nodi per JSON invalido (commenti inline)
-  — già mitigato parzialmente con desc 50-80 parole (meno divagazioni)
-- Da investigare: aggiungere nel prompt JSONL una regola esplicita contro la prosa inline
-  ("NON aggiungere commenti o note tra le righe JSON — ogni riga deve iniziare con { e finire con }")
-  NB: questa regola esiste già (`⚠️ FORMATO DI OUTPUT`) ma potrebbe essere rinforzata
+#### B. ~~Migliorare profondità rami Apertus~~ — IN PAUSA (provider Infomaniak)
+Apertus-specifico, archiviato in `docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`.
+Non prioritario col focus su Google Gemini.
 
 #### C. Misurare coerenza semantica intra-ramo
 - Metriche da aggiungere a `MappAIMetrics`: "desc quality score" — % nodi con desc ≥ 40 parole
 - Alternativa semplice: `appState.db.nodes.filter(n=>n.desc&&n.desc.split(' ').length>=40).length`
-- Confrontare Apertus run 7/6 vs run precedenti
+- Confrontare run Google recenti vs precedenti
 
 **Metriche di successo**:
 - `undeveloped_branch = 0` (tutti i rami L1 hanno ≥ 2 L2)
@@ -144,13 +135,9 @@ doppio in una macro-area meno pertinente viene fuso verso quella più pertinente
 
 ---
 
-### 2. Test Kimi-K2.6 con pipeline completo
-**Stato**: fallito per bug responseSchema (fixato 4/6/26). Da riprendere.
-**Aspettative**: JSONL pulito, ambits L1 ortogonali, merges Phase 4 effettivi.
-```js
-MappAIMetrics.save('kimi_full_setup')
-MappAIMetrics.report()
-```
+### 2. ~~Test Kimi-K2.6 con pipeline completo~~ — IN PAUSA (provider Infomaniak)
+**Stato**: fallito per bug responseSchema (fixato 4/6/26), mai ripreso.
+Non prioritario col focus su Google Gemini — vedi nota in cima al file.
 
 ### 3. UI Piano 1.2 — pannello suggerimenti strutturali
 **Dipendenza**: `mappai-structure-analyzer.js` (✅ stabile)
@@ -653,20 +640,22 @@ finalmente utile Kimi-K2.6.
   — rigenerare con fix applicato
 - Aggiornare note MODEL_KB con i dati reali dopo il test
 
-### 6. Testare Kimi-K2.6 (256K context) su Infomaniak
+### 6. ~~Testare Kimi-K2.6 (256K context) su Infomaniak~~ — IN PAUSA (Infomaniak)
 - Generare MM e KG con Kimi-K2.6
 - Verificare che `json_schema` funzioni (o se serve workaround come Qwen)
 - Potenziale alternativa a GEMMA per corpus molto lunghi
 
-### 7. Template Liceo per Mistral Small (`MIND_MAP_BRANCH_LICEO_IT`)
+### 7. ~~Template Liceo per Mistral Small (`MIND_MAP_BRANCH_LICEO_IT`)~~ — IN PAUSA (Mistral)
 - Profondità L5, cap 40 nodi, regole bipolarità storica, causa-effetto
 - Logica selezione: `userProfile.grade` contiene "Liceo"
+- Vedi `docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md` per i limiti
+  strutturali di Mistral che rendono questo template rischioso finché non risolti.
 
 ### 8. Nuovo template profilo studente — KG
 - `KNOWLEDGE_GRAPH_SINGLE_STUDENT_IT` manca delle ottimizzazioni
   del template standard → dopo mirror (punto 2)
 
-### 9. Avviso UI per Apertus in modalità KG
+### 9. ~~Avviso UI per Apertus in modalità KG~~ — IN PAUSA (Apertus)
 - Warning quando utente seleziona Apertus con KG attivo
 - Punto di inserimento: `window.setMode` o fetch con provider=infomaniak + apertus + kg
 
@@ -674,14 +663,15 @@ finalmente utile Kimi-K2.6.
 
 ## 🟡 PRIORITÀ BASSA / BACKLOG
 
-### 10. Investigare anomalia token KG GEMMA con lenti attive (37K vs 65K)
+### 10. ~~Investigare anomalia token KG GEMMA con lenti attive (37K vs 65K)~~ — IN PAUSA (Infomaniak/Gemma)
 **Sintomo**: KG GEMMA LENTI 4aMEDIA → 37K token prompt, solo 13 nodi.
 Senza lenti → 65K token, 35 nodi. Causa ipotizzata: con `focusTopic` non vuoto
 qualcosa in `extractKnowledgeGraphSinglePass` tronca il testo sorgente.
+Annotato in `docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`.
 
-### 11. Chunking map-reduce Fase 1 MM (solo Infomaniak, context 65K)
+### 11. ~~Chunking map-reduce Fase 1 MM (solo Infomaniak, context 65K)~~ — IN PAUSA (Infomaniak)
 Helper `window.chunkText(text, dimChunk, overlap)` — solo per Infomaniak.
-Google (1M+ context) non ne ha bisogno.
+Google (1M+ context) non ne ha bisogno, quindi non prioritario ora.
 
 ### 12. Dedup cross-ramo MM: test su mappe reali
 `dedupeNodesAsCrossLinks` — la regex è conservativa ma non estensivamente testata.

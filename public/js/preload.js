@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     generateGemini: (data) => ipcRenderer.invoke('generate-gemini', data),
     generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', data),
     generateEmbeddingsInfomaniak: (data) => ipcRenderer.invoke('generate-embeddings-infomaniak', data),
+    generateEmbeddingsGoogle: (data) => ipcRenderer.invoke('generate-embeddings-google', data),
     listModels: (data) => ipcRenderer.invoke('list-models', data),
     listInfomaniakModels: (data) => ipcRenderer.invoke('list-infomaniak-models', data),
     saveMapJSON: (mapData) => ipcRenderer.invoke('save-map-json', mapData),

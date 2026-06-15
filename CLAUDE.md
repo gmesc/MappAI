@@ -1,7 +1,8 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 10 giugno 2026 (fix Phase 1 DEFINITIVO: maxItems:7 su schemaL1 — causa reale del troncamento -12tok)
+> Ultimo aggiornamento: 10 giugno 2026 (fix Phase 1 DEFINITIVO: maxItems:7 su schemaL1 — causa reale del troncamento -12tok;
+> valutazione Apertus/Mistral archiviata in `docs/model-evaluation/` — focus generazione ora su **Google Gemini**)
 
 ---
 
@@ -301,58 +302,29 @@ Sostituisce il vecchio `showPrompt` nel flusso di creazione manuale link (`linki
 
 ---
 
-## 7. MODELLI INFOMANIAK — VALUTAZIONE (aggiornato 5 giugno 2026)
+## 7. MODELLI INFOMANIAK — VALUTAZIONE (ARCHIVIATO 10 giugno 2026)
 
-### Raccomandazione per profilo
+> ⚠️ **Lavoro in pausa.** Da questa sessione lo sviluppo si concentra su
+> **Google Gemini**. Tutta la valutazione dettagliata di Apertus 70B e
+> Mistral Small 119B (benchmark run-by-run, i 5 fix Apertus, la regola
+> "Apertus NON regge few-shot JSON in-context", limiti strutturali Mistral)
+> è stata archiviata in
+> [`docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`](../docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md)
+> per non perdere le conoscenze in vista di una ripresa futura del lavoro
+> su questi modelli.
+
+### Raccomandazione per profilo (stato al momento dell'archiviazione)
 | Modello | Profilo ottimale | MM | KG | Note |
 |---------|-----------------|----|----|------|
-| **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti. KG scarso con lenti (anomalia token). |
-| **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ | ⚠️ | Profondità L5, 200K context. **JSON spesso malformato** (~30% loss JSONL). Variabilità alta tra run. |
-| **Kimi-K2.6** | Corpus lunghi, alta qualità | 🔬 in test | 🔬 | 256K context. Bug responseSchema risolto (4/6/26). Test completo da fare. |
-| **Apertus 70B** | MM semplici (4a Media, BES/DSA) | ✅ | ❌ | **PROMOSSO 5/6/26**: JSONL pulitissimo, pipeline completo OK dopo fix. ~20-25 nodi, L3-L4, densità ~1.4, topology networked. Costo bassissimo (~0.008 CHF/run). NO function calling → nessun KG. Limite: rami poco profondi e concetti "ovvi". |
+| **Gemma-4 31B** | 4a Media, BES/DSA, scienze | ✅ | ⚠️ | Baseline stabile. Label puliti. KG scarso con lenti (anomalia token, vedi sotto). |
+| **Mistral Small 119B** | Liceo, storia, doc lunghi | ⚠️ | ⚠️ | Inadatto a benchmark ripetibili — JSON spesso malformato. Dettagli nell'archivio. |
+| **Kimi-K2.6** | Corpus lunghi, alta qualità | 🔬 in test | 🔬 | 256K context. Test completo da fare se si riprende il lavoro Infomaniak. |
+| **Apertus 70B** | MM semplici (4a Media, BES/DSA) | ✅ | ❌ | PROMOSSO 5/6/26, poi sospeso — 5 fix, benchmark e limiti nell'archivio. |
 
-### Apertus 70B — test pipeline completo (5 giugno 2026) ✅
-Modello svizzero (ETH/EPFL), GDPR-friendly. Dopo 6 run su "Svizzera e 2a GM" con
-tutti i flag ON (jsonl/branchBoundaries/phase4/phase5), Apertus è passato da
-**inutilizzabile** (22 nodi, 0 L2, densità 0.09 per crash) a **stabile e funzionale**
-(20-25 nodi, densità ~1.4, topology networked, crossLinks applicati, sourceCov ~75-80%).
-
-**Caratteristica chiave:** Apertus produce **JSONL sintatticamente pulito** (zero nodi
-malformati, a differenza di Mistral). Le sue uniche "righe scartate" sono prosa verbosa
-(`**Nota:**`, `Questo output rispetta...`) e placeholder per le foglie (`target:null`,
-`target:"L5"`) — non JSON rotto. È il modello Infomaniak **più disciplinato sul formato**.
-
-**5 fix applicati per renderlo utilizzabile** (tutti in `app.js`, branch `feat/structural-suggestions`):
-1. **Crash `tick()` `g undefined`** — guard `if (!g) return;` in `renderGraph` (L.5676)
-   e `tick` (L.6326). Phase4 chiamava `executeMerge→renderGraph` prima di
-   `initD3Visualization`. Era questo a distruggere la mappa (non Apertus).
-2. **Anti-duplicati L2 cross-ramo** — `buildSiblingL1Catalog(branchId, completedL2s)`
-   ora passa i label L2 dei rami già generati con regola "NON ricreare". Tracking via
-   `completedBranchL2s` aggiornato dopo ogni ramo.
-3. **Ghost link foglie** — `parseJSONLResponse` scarta i link con `target` = `"L5"`/`"L4"`
-   (regex `/^L\d+$/`), `target` con `*` o "non specificato". Apertus li usa come
-   placeholder. Prompt JSONL aggiornato con regola anti-foglie. Riduceva i link persi
-   da 94 a ~1 sul ramo peggiore.
-4. **`parsed.merges is not iterable`** — guard `(parsed.merges || [])` /
-   `(parsed.crosslinks || [])` in Phase4. Apertus a volte risponde senza header
-   `===MERGES===` → fallback parser senza quelle chiavi.
-5. **Crosslink verso nodi fusi** — `report._dropToKeep` (Map drop→keep dei merge
-   realmente applicati) + `resolveId` che segue la chain. Prima i crosslink Phase4
-   venivano tutti skippati perché puntavano a ID fusi. Bonus: fix self-loop in Fase 3
-   (`realMatch` escludeva il nodo L1 del ramo stesso → ramo non più svuotato).
-
-### Problemi Mistral Small — stato attuale (4 giugno 2026)
-- ✅ 4 regole anti-label aggiunte a `MIND_MAP_BRANCH_IT` (regole 11-14)
-- ✅ `maxOutputTokens` 3000→8192 per ridurre troncamenti Fase 3
-- ⚠️ **Problema strutturale irrisolto**: produce JSON con chiavi-spazio (`"id "`),
-  double-escape (`{\"id\":\"X\"}`), oggetti spezzati su più righe. Il parser JSONL
-  ora recupera parte di questi errori ma su rami profondi perde ~30% dei nodi.
-- ⚠️ **Alta variabilità**: stesso documento, stessa config → crossRatio tra 8% e 21%
-  a seconda del run. Non adatto per benchmark ripetibili.
-
-### Anomalia da investigare: KG GEMMA + lenti → 37K token (atteso 65K)
+### Anomalia ancora aperta: KG GEMMA + lenti → 37K token (atteso 65K)
 Solo 13 nodi generati. Causa: `extractKnowledgeGraphSinglePass` con `focusTopic`
-non vuoto potrebbe troncare il testo sorgente. Vedere TODO punto 10 backlog.
+non vuoto potrebbe troncare il testo sorgente. Riguarda Infomaniak/Gemma — bassa
+priorità mentre il focus è su Google. Vedere TODO punto 10 backlog se si riprende.
 
 ---
 
@@ -532,18 +504,9 @@ come `A`. App verificata funzionante (`npm start` → carica, fetch modelli Info
   giustifica, è condizione di, è conseguenza di, legittima, alimenta) + avviso "usa solo ID reali"
 
 ### ⚠️ Lezione appresa — Apertus NON regge few-shot JSON in-context (7 giugno 2026)
-Tentativo: iniettare 2 nodi Gemini WWII come exemplar nel prompt JSONL per calibrare lo stile
-label/content. Risultato: **backfire completo** su tutti i fronti.
-
-**Regola da ricordare per sempre**: qualsiasi oggetto JSON nel prompt JSONL viene trattato da
-Apertus come contenuto da generare, non come modello di formato — indipendentemente dal testo
-esplicativo che lo precede.
-- Exemplar `{"id":"ES_L3","label":"Ridotto Nazionale",...}` → generato come nodo reale nel ramo sbagliato ("Accoglienza Profughi")
-- Placeholder Phase 4 `{"source":"ID_COMMERCIO_ORO",...}` → usati come target reali → 0 cross-link applicati su 4 recuperati
-- Prosa esplicativa adiacente al JSONL → Apertus impara che può commentare inline → 90N/38L persi nel ramo "Economia e Commercio"
-
-**Alternativa valida**: descrivere le qualità richieste in linguaggio naturale (già fatto con desc 50-80 parole).
-Mai usare esempi strutturati JSON dentro un prompt JSONL per Apertus.
+Archiviata in [`docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`](../docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md)
+(§"REGOLA CRITICA"). Riguarda solo Apertus/Infomaniak — non applicabile mentre il
+focus è su Google Gemini, ma da rileggere prima di riprendere quel lavoro.
 
 ### Completato nella sessione 5 giugno 2026 (cherry-pick merge/relink su dev)
 - ✅ Portato su branch `dev` (cherry-pick manuale da `feat/structural-suggestions`):
@@ -610,14 +573,18 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
    - **Implicazione pratica**: valutare se disabilitare la sezione CROSSLINKS in Phase 4,
      lasciando solo MERGES. Le relazioni inter-ramo emergono naturalmente dai merge.
 
-2. **Test Kimi-K2.6 con pipeline completo** — TODO §2
-3. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO §3
+2. **UI Piano 1.2 — pannello suggerimenti strutturali** — TODO §3
+
+> ⚠️ **Focus provider: Google Gemini.** Lavoro su Apertus 70B / Mistral Small 119B
+> sospeso e archiviato in `docs/model-evaluation/apertus-mistral-infomaniak-evaluation.md`.
+> "Test Kimi-K2.6 con pipeline completo" e "Chunking map-reduce per Infomaniak"
+> rimangono in backlog (TODO §2 e §11) ma non sono prioritari finché il focus
+> resta su Google.
 
 ### Da fare dopo
-5. Chunking map-reduce per Infomaniak (TODO backlog §11)
-6. Refactoring CSS (703 `!important`)
-7. Pulizia root progetto (20 script Python, file .bak)
-8. Decomposizione `app.js` in moduli separati
+5. Refactoring CSS (703 `!important`)
+6. Pulizia root progetto (20 script Python, file .bak)
+7. Decomposizione `app.js` in moduli separati
 
 ### Flag feature disponibili (tutti gated da localStorage)
 | Flag localStorage key | Funzione | Default |
