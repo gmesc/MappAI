@@ -52,6 +52,90 @@
         return best;
     }
 
+    // Dissolve di un wrapper L1 solitario sintetico.
+    // Caso (bug Fase 1): il modello ha prodotto UNA sola macro-categoria
+    // (es. "Bipolarismo Geopolitico") sotto cui la Fase 3 ha annidato le
+    // categorie VERE un livello troppo in basso, mentre altre sono trapelate
+    // direttamente a ROOT → gerarchia incoerente.
+    // Segnale deterministico: esiste UN solo nodo con id /^L1_\d+$/ (unica L1
+    // di Fase 1) e ha ≥2 figli gerarchici diretti.
+    // Azione: promuove i figli diretti a L1 (ROOT→figlio), rimuove il wrapper,
+    // redirige i suoi cross-link verso ROOT e SOMMA la sua desc in ROOT.desc
+    // (no overwrite). Livelli e group vengono poi ricalcolati dagli step 5/5b/6.
+    // Gated: default ON. Disattiva con localStorage mappai_dissolve_wrapper_l1='off'.
+    function _dissolveSolitaryWrapper(nodes, links, log) {
+        if (localStorage.getItem('mappai_dissolve_wrapper_l1') === 'off') return false;
+
+        const isPhase1L1 = id => /^L1_\d+$/.test(id);
+        const phase1L1s = nodes.filter(n => isPhase1L1(n.id));
+        if (phase1L1s.length !== 1) return false;        // 0 o ≥2 → mappa normale, no-op
+
+        const wrapper = phase1L1s[0];
+        const wid = wrapper.id;
+
+        // Figli gerarchici diretti (no cross-link, no ROOT)
+        const directChildren = links.filter(l =>
+            l.isCross !== true && l.source === wid && l.target !== 'ROOT' && l.target !== wid
+        );
+        if (directChildren.length < 2) return false;     // non è un umbrella, lascia stare
+
+        const root = nodes.find(n => n.id === 'ROOT');
+        if (!root) return false;
+
+        // 1) SOMMA la desc del wrapper dentro ROOT (no overwrite, idempotente)
+        const wDesc = (wrapper.desc || '').trim();
+        if (wDesc) {
+            const rDesc = (root.desc || '').trim();
+            if (!rDesc.includes(wDesc)) {
+                root.desc = rDesc ? (rDesc + '\n\n' + wDesc) : wDesc;
+            }
+        }
+
+        // 2) Riscrive i link che toccano il wrapper
+        const rewritten = [];
+        const seenHier = new Set();   // dedup ROOT→target gerarchici promossi
+        for (const l of links) {
+            const s = l.source, t = l.target;
+            // hierarchical wrapper→child: promuovi (source→ROOT)
+            if (l.isCross !== true && s === wid && t !== 'ROOT' && t !== wid) {
+                const key = 'ROOT|' + t;
+                if (seenHier.has(key)) continue;
+                seenHier.add(key);
+                rewritten.push({ ...l, source: 'ROOT' });
+                continue;
+            }
+            // hierarchical ROOT→wrapper o wrapper→ROOT (garbage): scarta
+            if (l.isCross !== true && ((s === 'ROOT' && t === wid) || (s === wid && t === 'ROOT'))) {
+                continue;
+            }
+            // cross-link verso il wrapper: redirigi a ROOT (la charter è fusa in ROOT)
+            if (l.isCross === true && t === wid) {
+                if (s === 'ROOT' || s === wid) continue;  // evita self-loop
+                rewritten.push({ ...l, target: 'ROOT' });
+                continue;
+            }
+            // cross-link dal wrapper: redirigi a ROOT
+            if (l.isCross === true && s === wid) {
+                if (t === 'ROOT' || t === wid) continue;
+                rewritten.push({ ...l, source: 'ROOT' });
+                continue;
+            }
+            // residui che toccano ancora il wrapper: scarta; il resto invariato
+            if (s === wid || t === wid) continue;
+            rewritten.push(l);
+        }
+        links.length = 0;
+        for (const l of rewritten) links.push(l);
+
+        // 3) Rimuovi il nodo wrapper
+        const wIdx = nodes.findIndex(n => n.id === wid);
+        if (wIdx !== -1) nodes.splice(wIdx, 1);
+
+        log.dissolvedWrapper = wid + ' ("' + (wrapper.label || '') + '") → ' +
+            directChildren.length + ' figli promossi a L1, desc fusa in ROOT';
+        return true;
+    }
+
     window.sanitizeMindMapTree = function () {
         const state = _getAppState();
         if (!state || !state.db) return { changes: 0 };
@@ -65,12 +149,19 @@
         const links = state.db.links;
         const log = { removedLinks: [], fixedL1: [], recalcedLevels: 0, fixedGroups: 0 };
         let changes = 0;
+        let dissolved = false;
 
         // ── Step 1: Normalizza source/target (D3 può averli convertiti in oggetti) ──
         links.forEach(l => {
             if (l.source && typeof l.source === 'object') l.source = l.source.id;
             if (l.target && typeof l.target === 'object') l.target = l.target.id;
         });
+
+        // ── Step 1b: Dissolvi un eventuale wrapper L1 solitario sintetico ──
+        // (deve girare PRIMA della separazione hierarchical/cross di Step 2,
+        // così i link riscritti vengono raccolti correttamente).
+        dissolved = _dissolveSolitaryWrapper(nodes, links, log);
+        if (dissolved) changes++;
 
         // ── Step 2: Separa link gerarchici da cross-link ──
         // Cross = isCross:true oppure rel che indica cross/trasversale
@@ -138,6 +229,20 @@
             }
         }
 
+        // ── Step 5b: Dopo un dissolve, rinumera i group degli L1 ──
+        // I figli promossi mantenevano il group del wrapper (tutti uguali →
+        // collisione colore). Assegna un intero distinto a ciascun L1 nell'ordine
+        // dell'array nodi. Step 6 poi propaga ai sottoalberi.
+        if (dissolved) {
+            let g = 0;
+            for (const node of nodes) {
+                if (node.level === 1) {
+                    g++;
+                    if (node.group !== g) { node.group = g; changes++; }
+                }
+            }
+        }
+
         // ── Step 6: Propaga il group (colore) dall'antenato L1 reale ──
         // Necessario dopo che Phase5 ha spostato nodi tra rami: il group riflette
         // ancora il ramo originale. Ricerca risalendo la catena parentOf.
@@ -172,6 +277,7 @@
         // ── Log ──
         if (changes > 0) {
             console.log('%c[TreeSanitizer] ' + changes + ' fix applicati', 'color:#22c55e;font-weight:bold');
+            if (log.dissolvedWrapper)    console.log('  Wrapper L1 dissolto:', log.dissolvedWrapper);
             if (log.fixedL1.length)      console.log('  L1→L1 rimossi:', log.fixedL1);
             if (log.removedLinks.length) console.log('  Multi-genitore risolti:', log.removedLinks);
             if (log.recalcedLevels)      console.log('  Livelli ricalcolati:', log.recalcedLevels, 'nodi');
@@ -191,6 +297,16 @@
     window.enableTreeSanitizer = () => {
         localStorage.removeItem('mappai_tree_sanitizer_disabled');
         console.log('[TreeSanitizer] abilitato');
+    };
+
+    // Dissolve wrapper L1 solitario — default ON. Disattiva con flag 'off'.
+    window.disableWrapperDissolve = () => {
+        localStorage.setItem('mappai_dissolve_wrapper_l1', 'off');
+        console.log('[TreeSanitizer] dissolve wrapper L1 DISATTIVATO');
+    };
+    window.enableWrapperDissolve = () => {
+        localStorage.removeItem('mappai_dissolve_wrapper_l1');
+        console.log('[TreeSanitizer] dissolve wrapper L1 ATTIVO (default)');
     };
 
 })();
