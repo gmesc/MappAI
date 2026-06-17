@@ -2762,7 +2762,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3266,7 +3266,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
