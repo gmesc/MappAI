@@ -2735,8 +2735,6 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
-                minItems: 5,  // FLOOR: evita run a 3-4 macro-aree (mappa piatta, -50% nodi).
-                              // Phase 1 non-deterministica → senza minimo un run accorpa rami ricchi.
                 maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
                               // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
@@ -2762,7 +2760,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3239,8 +3237,6 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
-                minItems: 5,  // FLOOR: evita run a 3-4 macro-aree (mappa piatta, -50% nodi).
-                              // Phase 1 non-deterministica → senza minimo un run accorpa rami ricchi.
                 maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
                               // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
@@ -3266,7 +3262,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
