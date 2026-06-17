@@ -776,8 +776,8 @@
                             <!-- AREA DISCIPLINARE + LENSES -->
                             <div class="mt-3">
                                 <div id="discipline-picker"></div>
-                                <!-- Lenses avanzate (collassabili) -->
-                                <div class="mt-2">
+                                <!-- Lenses avanzate (collassabili) — NASCOSTO -->
+                                <div class="mt-2 hidden">
                                     <button type="button"
                                         onclick="document.getElementById('lenses-panel').classList.toggle('hidden')"
                                         class="text-[11px] text-slate-400 hover:text-indigo-500 transition-colors">
@@ -886,6 +886,23 @@
                         </div>
 
                     </div>
+
+                    <!-- SEZIONE: Selezione Pipeline A/B -->
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col gap-0.5 max-w-[70%]">
+                                <span class="landing_label_primary mb-0">Pipeline Generazione</span>
+                                <span class="landing_label_secondary" id="pipeline-desc">Scegli l'algoritmo di generazione mappe</span>
+                            </div>
+                            <div class="flex bg-indigo-200 p-1 rounded-full w-36 h-16 shrink-0">
+                                <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"
+                                    class="flex-1 text-[14px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">A</button>
+                                <button type="button" id="pipeline-b-btn" onclick="window.setPipeline('B')"
+                                    class="flex-1 text-[14px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">B</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Pulsante Generate -->
                     <button type="submit" id="generate-btn" class="btn_salva_action w-full !h-32">
                         <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none"
@@ -1027,6 +1044,30 @@
 
             <!-- ═══ TAB: STRUTTURA ═══ -->
             <div id="sidebar-panel-structure" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll">
+
+                <!-- Pannello Suggerimenti strutturali (sperimentale, gated da localStorage) -->
+                <div id="structural-suggestions-block" class="hidden p-4 border-b border-slate-100 bg-slate-50/50">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
+                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> Suggerimenti strutturali
+                        </h3>
+                        <span id="structural-suggestions-status" class="text-[10px] text-slate-400"></span>
+                    </div>
+                    <div class="flex gap-2 mb-2 hidden">
+                        <button onclick="window.renderStructuralSuggestions({withEmbeddings:false})"
+                            class="flex-1 text-xs font-bold bg-indigo-600 text-white py-2 rounded-lg shadow-sm hover:bg-indigo-700 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Analizza struttura
+                        </button>
+                        <button onclick="window.renderStructuralSuggestions({withEmbeddings:true})"
+                            title="Include 1 chiamata di embedding per rilevare entità duplicate tra rami"
+                            class="flex-1 text-xs font-bold bg-violet-100 text-violet-700 py-2 rounded-lg shadow-sm hover:bg-violet-200 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="git-merge" class="w-3.5 h-3.5"></i> + Analisi semantica
+                        </button>
+                    </div>
+                    <div id="structural-suggestions-list" class="space-y-2">
+                        <p class="text-xs text-slate-400 italic px-1">Clicca "Analizza struttura" per i suggerimenti.</p>
+                    </div>
+                </div>
 
                 <div id="tree-view-container" class="p-4 space-y-1"></div>
 
@@ -1288,6 +1329,11 @@
                     <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown">
                         <i data-lucide="folder-open"></i> Importa dal Vault
                     </button>
+                    <label for="menu-import-json" title="Importa una mappa JSON">
+                        <i data-lucide="upload"></i> Importa JSON
+                    </label>
+                    <input type="file" id="menu-import-json" accept=".json" class="hidden"
+                        onchange="window.importGraph(event)">
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
                         title="Sincronizza modifiche nel Vault">
@@ -1307,6 +1353,13 @@
                     </button>
                     <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
                         <i data-lucide="gantt-chart"></i> Crea Timeline
+                    </button>
+                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo">
+                        <i data-lucide="sparkles"></i> Sintesi di ramo (AI)
+                    </button>
+                    <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
+                        title="Nulla da annullare" style="opacity:0.4;">
+                        <i data-lucide="rotate-ccw"></i> Annulla<span class="undo-count"></span>
                     </button>
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto">
@@ -1460,12 +1513,12 @@
 
                 <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
 
-                <!-- SVG -->
-                <button onclick="window.exportSVG()"
+                <!-- PDF -->
+                <button onclick="window.exportPDF()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta mappa in formato vettoriale SVG">
-                    <i data-lucide="file-code" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">SVG</span>
+                    title="Esporta la mappa visibile in formato PDF">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                    <span class="text-[9px] font-bold mt-1">PDF</span>
                 </button>
                 <!-- FISSA -->
                 <button onclick="window.openLayoutModal()"
@@ -1596,6 +1649,48 @@
                         <span data-i18n="btn_save">Salva</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Creazione Link con Famiglia -->
+    <div id="link-family-modal"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[720px] max-h-[90vh] overflow-y-auto p-6 transform scale-95 transition-transform duration-200 relative"
+            id="link-family-box">
+            <button type="button" onclick="document.getElementById('link-family-cancel').click()"
+                class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="flex items-center gap-3 mb-3">
+                <i data-lucide="link-2" class="w-6 h-6 text-slate-500"></i>
+                <h3 class="text-lg font-bold text-slate-800">Collega nodi</h3>
+            </div>
+            <p id="link-family-question" class="text-sm text-slate-600 mb-4 font-medium leading-snug"></p>
+            <div id="link-family-grid" class="flex flex-col gap-2 mb-3"></div>
+            <!-- Step 2: chip keyword per la famiglia selezionata -->
+            <div id="link-family-tags" class="hidden flex-col gap-2 mb-3">
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scegli o scrivi la tua etichetta:</label>
+                <div id="link-family-chips" class="flex flex-wrap gap-2"></div>
+            </div>
+            <!-- Toggle bidirezionale -->
+            <div class="flex items-center gap-2 mb-4">
+                <button id="link-bidir-toggle" type="button"
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-slate-300 text-slate-500 text-xs font-semibold transition-all hover:border-indigo-400 hover:text-indigo-600">
+                    <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                    <span>Bidirezionale</span>
+                </button>
+                <span class="text-xs text-slate-400">per relazioni simmetriche (si oppone a…)</span>
+            </div>
+            <div class="mb-5">
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Etichetta relazione</label>
+                <input id="link-family-input" type="text"
+                    class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"
+                    placeholder="es. causa, include, precede…">
+            </div>
+            <div class="flex gap-3 justify-end h-12">
+                <button id="link-family-cancel" type="button" class="btn_annulla_action">Annulla</button>
+                <button id="link-family-ok" type="button" class="btn_salva_action">Salva</button>
             </div>
         </div>
     </div>
@@ -2194,11 +2289,16 @@
                 Vuoi salvare la disposizione corrente prima di uscire, o preferisci chiudere senza salvare?
             </p>
 
-            <div class="flex gap-4 justify-center">
+            <div class="flex gap-4 justify-center flex-wrap">
                 <!-- Bottone Rosso: Annulla (Chiudi senza salvare) -->
                 <button onclick="window.closeLayoutModalDirectWithoutSaving()"
                     class="btn_annulla_action !h-12 !px-8 flex items-center justify-center gap-2">
-                    <i data-lucide="x" class="w-5 h-5"></i> Annulla
+                    <i data-lucide="x" class="w-5 h-5"></i> Chiudi senza salvare
+                </button>
+                <!-- Bottone Undo: ripristina ultima operazione -->
+                <button onclick="window.undoLastAction(); window.closeExitConfirmModal();" type="button"
+                    class="!h-12 !px-6 flex items-center justify-center gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition text-sm">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i> Annulla ultima azione
                 </button>
                 <!-- Bottone Verde: Salva (Salva ed esci) -->
                 <button onclick="window.saveLayoutAndClose()"
@@ -2974,7 +3074,7 @@
                         <i data-lucide="cpu"
                             class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                         <select id="model-select"
-                            onchange="if(typeof updateModelCapabilities==='function') updateModelCapabilities(); if(window.appState && window.appState.aiProvider === 'infomaniak') { localStorage.setItem('infomaniak_selected_model', this.value); } else { localStorage.setItem('gemini_selected_model', this.value); }"
+                            onchange="window.onModelSelectChange && window.onModelSelectChange(this.value)"
                             class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 appearance-none cursor-pointer focus_ring_standard">
                             <option value="">Caricamento modelli in corso...</option>
                         </select>
@@ -3250,8 +3350,18 @@
     <script src="js/mappai-timeline.js"></script>
     <script src="js/mappai-glossary.js"></script>
     <script src="js/mappai-quiz-print.js"></script>
+    <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
+    <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
+    <script src="js/mappai-entity-backbone.js"></script>
+    <script src="js/mappai-suggestions-panel.js"></script>
+    <script src="js/mappai-branch-synthesis.js"></script>
+    <script src="js/mappai-node-merge.js"></script>
+    <script src="js/mappai-undo.js"></script>
+    <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-node-styling.js"></script>
+    <script src="js/mappai-l1-checkpoint.js"></script>
+    <script src="js/dev-console-metrics.js"></script>
     <script>
         window.toggleSidebar = function () {
             const mapView = document.getElementById('map-view');

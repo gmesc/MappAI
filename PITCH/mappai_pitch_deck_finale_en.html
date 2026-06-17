@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MappAI — Pitch Deck</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg-color: #f0f4ff;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent-indigo: #6366f1;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-violet: #8b5cf6;
+            --accent-red: #ef4444;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Space Mono', monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            background-image: radial-gradient(#dbe4ff 1px, transparent 1px);
+            background-size: 24px 24px;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        .slide-nav {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #c7d2fe;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-dot:hover {
+            background-color: var(--accent-indigo);
+            transform: scale(1.2);
+        }
+
+        .nav-dot.active {
+            background-color: var(--accent-indigo);
+            transform: scale(1.5);
+            box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2);
+        }
+
+        .deck-container {
+            height: 100vh;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+        }
+        .deck-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .slide {
+            height: 100vh;
+            width: 100vw;
+            scroll-snap-align: start;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 40px -10px rgba(99, 102, 241, 0.15);
+            width: 100%;
+            max-width: 1100px;
+            max-height: 92vh;
+            overflow-y: auto;
+            padding: 44px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            position: relative;
+        }
+
+        .glass-card::-webkit-scrollbar { width: 6px; }
+        .glass-card::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        h1 { font-size: 3rem; font-weight: 800; color: var(--text-primary); letter-spacing: -1.5px; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.65rem; font-weight: 700; color: var(--accent-indigo); margin-bottom: 1.25rem; line-height: 1.3; }
+        h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px;}
+        p, li { font-size: 1.02rem; line-height: 1.55; color: var(--text-secondary); margin-bottom: 0.85rem; }
+        strong { color: var(--text-primary); font-weight: 700; }
+
+        .badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; border-radius: 50%;
+            color: white; font-weight: bold; font-size: 14px;
+            margin-right: 12px; flex-shrink: 0;
+        }
+        .badge-indigo { background-color: var(--accent-indigo); }
+        .badge-emerald { background-color: var(--accent-emerald); }
+        .badge-amber { background-color: var(--accent-amber); }
+        .badge-violet { background-color: var(--accent-violet); }
+        .badge-red { background-color: var(--accent-red); }
+
+        .tag {
+            font-size: 12px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 2px; padding: 4px 10px; border-radius: 8px;
+            background: #e0e7ff; color: var(--accent-indigo);
+            display: inline-block; margin-bottom: 1rem;
+        }
+
+        .split-layout {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+            align-items: center; height: 100%;
+        }
+        .split-layout.image-right { grid-template-columns: 1fr 1.2fr; }
+        .split-layout.image-left { grid-template-columns: 1.2fr 1fr; }
+
+        .screenshot-wrapper, .diagram-wrapper {
+            display: flex; align-items: center; justify-content: center;
+        }
+        .diagram-wrapper.column { flex-direction: column; align-items: stretch; gap: 10px; }
+        .screenshot-wrapper img, .diagram-wrapper img {
+            width: 100%; height: auto; display: block; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(99,102,241,0.12);
+        }
+
+        .ui-box {
+            background: #f8fafc; border: 1px solid var(--border-color);
+            padding: 16px 18px; border-radius: 16px; margin-bottom: 14px;
+        }
+        .ui-box p:last-child, .ui-box h3:last-child { margin-bottom: 0; }
+        .ui-box h3 { margin-bottom: 6px; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; margin-bottom: 16px; }
+        .stat-box {
+            background: white; border: 1px solid var(--border-color); padding: 18px 14px;
+            border-radius: 12px; text-align: center; transition: all 0.3s ease;
+        }
+        .stat-box:hover { border-color: var(--accent-indigo); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1); }
+        .stat-number { font-size: 1.85rem; font-weight: 800; color: var(--accent-indigo); margin-bottom: 4px; line-height: 1.1; }
+        .stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-weight: bold; }
+
+        .founder-img {
+            width: 170px; height: 170px; border-radius: 50%; object-fit: cover;
+            border: 4px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            margin: 0 auto 20px auto; display: block;
+        }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 14px; margin-bottom: 14px; }
+        .comparison-table th { background: var(--accent-indigo); color: white; padding: 8px 12px; text-align: left; font-size: 0.8rem; }
+        .comparison-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; line-height: 1.4; }
+        .comparison-table tr:hover { background: #f8fafc; }
+
+        .feature-list { list-style: none; padding: 0; }
+        .feature-list li { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+        .cta-button {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: var(--accent-indigo); color: white; padding: 15px 30px;
+            border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.3); transition: all 0.3s ease;
+        }
+        .cta-button:hover { background: #5558e3; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+
+        .metric-box {
+            background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+            border: 1px solid var(--accent-indigo); padding: 12px 14px; border-radius: 12px; margin-bottom: 12px;
+        }
+        .metric-box p:last-child { margin-bottom: 0; }
+
+        .timeline-row { display: flex; gap: 14px; margin-bottom: 10px; align-items: flex-start; }
+        .timeline-date { font-weight: 800; min-width: 110px; color: var(--accent-indigo); font-size: 0.85rem; flex-shrink: 0; }
+        .timeline-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+
+        svg { width: 100%; height: 100%; }
+
+        /* HOOK SLIDE SPECIFIC */
+        .hero-title {
+            font-size: 5.5rem; font-weight: 800; letter-spacing: -3px; line-height: 1;
+            color: var(--text-primary); margin-bottom: 0.25rem;
+        }
+        .hook-stat {
+            font-size: 4.5rem; font-weight: 800; letter-spacing: -2px; line-height: 1;
+            background: linear-gradient(135deg, var(--accent-indigo) 0%, var(--accent-violet) 100%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .hook-arrow { font-size: 3rem; color: var(--accent-emerald); font-weight: 800; }
+        .pill {
+            display: inline-block; font-size: 0.85rem; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; padding: 6px 16px; border-radius: 999px;
+            background: #ecfdf5; color: var(--accent-emerald); border: 1px solid #a7f3d0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="slide-nav">
+        <div class="nav-dot active" onclick="document.getElementById('slide-1').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-2').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-4').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-5').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-6').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-7').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-8').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-9').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-10').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-11').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-12').scrollIntoView()"></div>
+        <div class="nav-dot" onclick="document.getElementById('slide-12').scrollIntoView()"></div>
+    </div>
+
+    <div class="deck-container">
+
+        <!-- SLIDE 1: HOOK -->
+        <section class="slide" id="slide-1">
+            <div class="glass-card" style="align-items: center; justify-content: center; text-align: center;">
+                <img src="MappAI_icon.png" alt="MappAI" style="width: 88px; height: 88px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 8px 24px rgba(99,102,241,0.25);">
+
+                <div class="hero-title">MappAI</div>
+                <h2 style="color: var(--text-secondary); font-size: 1.3rem; font-weight: 400; margin-bottom: 40px;">Transforming Visual Knowledge for Neurodiversity</h2>
+
+                <div style="display:flex; align-items:center; justify-content:center; gap: 30px; flex-wrap: wrap; margin-bottom: 30px;">
+                    <div>
+                        <div class="hook-stat">2–3 hours</div>
+                        <div class="stat-label" style="margin-top:8px;">Time for a special-needs teacher<br>to create ONE concept map</div>
+                    </div>
+                    <div class="hook-arrow">→</div>
+                    <div>
+                        <div class="hook-stat" style="background: linear-gradient(135deg, var(--accent-emerald) 0%, var(--accent-indigo) 100%); -webkit-background-clip:text; background-clip:text;">45 sec</div>
+                        <div class="stat-label" style="margin-top:8px;">MappAI: from a 20-page PDF<br>to a complete semantic map</div>
+                    </div>
+                </div>
+
+                <div style="padding: 18px 30px; background: #eef2ff; border: 1px dashed var(--accent-indigo); border-radius: 16px; display: inline-block; margin-bottom: 30px;">
+                    <h3 style="color: var(--accent-indigo); margin-bottom: 0; font-size: 1.4rem; text-transform: none; letter-spacing: 0;">"Designed for the few, useful to everyone."</h3>
+                </div>
+
+                <p style="max-width: 700px; font-size: 1rem;">A cross-platform desktop app that converts PDFs, URLs, YouTube videos and documents into <strong>AI-generated mind maps and knowledge graphs</strong> — designed first for students with learning differences, special needs and neurodivergent profiles, useful to anyone who studies.</p>
+
+                <div class="pill" style="margin-top: 10px;">Seed Round &nbsp;·&nbsp; CHF 300'000 – 600'000 &nbsp;·&nbsp; Switzerland &amp; Italy 2026</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: THE PROBLEM -->
+        <section class="slide" id="slide-2">
+            <div class="glass-card">
+                <span class="tag">01 · The Problem</span>
+                <h2>The (invisible) crisis in inclusive learning</h2>
+
+                <div class="ui-box">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <i data-lucide="alert-triangle" style="color: var(--accent-amber); width: 32px; height: 32px;"></i>
+                        <h3 style="margin: 0;">A growing student population, without adequate tools</h3>
+                    </div>
+                    <table class="comparison-table" style="margin-top: 4px; margin-bottom: 10px;">
+                        <tr><th>Country</th><th>Students with DSA/BES/SEN</th><th>Trend</th></tr>
+                        <tr><td>🇨🇭 Switzerland (HQ)</td><td>~50–80K estimated (4.8%)</td><td>enhanced support growing</td></tr>
+                        <tr><td>🇮🇹 Italy</td><td>~1.2M SEN (354K DSA, 6.0%)</td><td>+6%/year</td></tr>
+                        <tr><td>🇫🇷 France</td><td>~520K + 308K personalized plans</td><td>+10–11%/year</td></tr>
+                        <tr><td>🇩🇪 Germany</td><td>~600K SEN (7.5%)</td><td>was 5.3% in 2000</td></tr>
+                        <tr><td>🇬🇧 United Kingdom</td><td>~1.77M SEND (20.5%)</td><td>DfE Jan 2025</td></tr>
+                    </table>
+                    <p style="font-size: 0.95rem; margin-top: 0; margin-bottom:0;">Special-needs teachers spend <strong>2–3 hours creating a single concept map</strong> by hand — a cornerstone tool of Personalized Education Plans (Italian Law 170/2010 and equivalents).</p>
+                </div>
+
+                <h3 style="margin-top: 10px; margin-bottom: 10px; color: var(--text-secondary); font-size: 1rem;">The market gap</h3>
+                <div class="split-layout" style="gap: 20px; align-items: start; margin-top: 0;">
+                    <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="color: var(--accent-indigo); font-size: 1rem;"><i data-lucide="x-circle" style="display:inline; width:16px; margin-right:5px;"></i> Generalist tools</h3>
+                        <p style="font-size: 0.9rem; margin-bottom:0;">MindMeister, XMind, Coggle: generic brainstorming. No deep semantics, no accessibility-first design.</p>
+                    </div>
+                    <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="color: var(--accent-indigo); font-size: 1rem;"><i data-lucide="x-circle" style="display:inline; width:16px; margin-right:5px;"></i> Compensatory software</h3>
+                        <p style="font-size: 0.9rem; margin-bottom:0;">Algor Education, SuperMappe: static/semi-interactive maps, no generative AI from arbitrary sources.</p>
+                    </div>
+                </div>
+                <p style="text-align:center; margin-top: 16px; margin-bottom: 0; font-size: 0.95rem;"><strong>MappAI fills the empty space between the two clusters</strong> — and is the only one to do so offline-first and GDPR/nLPD-compliant.</p>
+            </div>
+        </section>
+
+        
+        <!-- SLIDE 3: SCIENTIFIC EVIDENCE -->
+        <section class="slide" id="slide-3">
+            <div class="glass-card">
+                <span class="tag">01 · The Problem — Scientific Foundation</span>
+                <h2>40 years of research confirm: maps transform learning</h2>
+
+                <div style="text-align: center; margin-bottom: 14px;">
+                    <div class="hook-stat" style="font-size: 3.2rem; display:inline-block;">g = 0.58</div>
+                    <p style="font-size: 0.82rem; margin-top: 4px; margin-bottom: 0; color: var(--text-secondary);">142 independent studies · 11,814 students · Schroeder et al., 2018 — 42 years of scientific research</p>
+                </div>
+
+                <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 0; margin-bottom: 14px;">
+                    <div class="stat-box" style="border-color: var(--accent-violet);">
+                        <div class="stat-number" style="color: var(--accent-violet); font-size: 1.6rem;">d = 1.38</div>
+                        <div class="stat-label">at-risk students</div>
+                        <p style="font-size: 0.72rem; margin-top: 8px; margin-bottom: 0;">Kim et al., Seoul 2024 — vs d=0.52 for typical students</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-indigo);">
+                        <div class="stat-number" style="font-size: 1.6rem;">ES = 0.60</div>
+                        <div class="stat-label">Hattie Visible Learning</div>
+                        <p style="font-size: 0.72rem; margin-top: 8px; margin-bottom: 0;">"High impact" threshold = 0.40 · 800+ meta-analyses</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-emerald);">
+                        <div class="stat-number" style="color: var(--accent-emerald); font-size: 1.6rem;">−28.1%</div>
+                        <div class="stat-label">Achievement gap</div>
+                        <p style="font-size: 0.72rem; margin-top: 8px; margin-bottom: 0;">Knowledge Graph reduces score dispersion · EFM-KG 2025, d=0.80</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-amber);">
+                        <div class="stat-number" style="color: var(--accent-amber); font-size: 1.6rem;">€4.02</div>
+                        <div class="stat-label">SROI per €1 invested</div>
+                        <p style="font-size: 0.72rem; margin-top: 8px; margin-bottom: 0;">Social return on neurodivergent inclusion · SEARCH® 2024</p>
+                    </div>
+                </div>
+
+                <div class="metric-box" style="margin-bottom: 12px;">
+                    <p style="margin: 0; font-size: 0.88rem;"><strong>Fang et al. BMC Psychology 2024 (p &lt; 0.001):</strong> AI-enhanced digital mind mapping improves creativity and learning <strong>more in neurodivergent profiles than in typical students</strong>. AI prompts amplify the benefit further. Tested across 163 students at 4 international universities.</p>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; background: #eef2ff; border: 1px solid var(--accent-indigo);">
+                    <i data-lucide="flask-conical" style="color: var(--accent-indigo); width: 28px; height: 28px; flex-shrink: 0;"></i>
+                    <p style="margin: 0; font-size: 0.88rem;"><strong>MappAI is not a bet:</strong> it is the technological implementation of 40 years of peer-reviewed literature. The problem is real, the approach is validated, the market is waiting for the right tool.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: THE SOLUTION - OVERVIEW -->
+        <section class="slide" id="slide-4">
+            <div class="glass-card">
+                <span class="tag">02 · The Solution</span>
+                <h2>From any source to a semantic map, in 3 steps</h2>
+
+                <div class="split-layout image-right">
+                    <div>
+                        <p><strong>Zero-friction</strong> interface: just know what you want to study. The multi-phase AI engine (Gemini + Infomaniak, GDPR/nLPD) turns content into a navigable structure of thought.</p>
+
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span class="badge badge-indigo">1</span>
+                            <p style="margin:0;"><strong>Upload:</strong> PDF, URL, YouTube, DOCX, text, audio.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <span class="badge badge-emerald">2</span>
+                            <p style="margin:0;"><strong>Choose:</strong> Mind Map or Knowledge Graph.</p>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <span class="badge badge-violet">3</span>
+                            <p style="margin:0;"><strong>Generate:</strong> in under 2 minutes, a semantic map ready for studying.</p>
+                        </div>
+                    </div>
+
+                    <div class="diagram-wrapper">
+                        <svg viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="step1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.2" />
+                                    <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0.05" />
+                                </linearGradient>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                    <polygon points="0 0, 10 3, 0 6" fill="#6366f1" />
+                                </marker>
+                            </defs>
+
+                            <rect x="20" y="30" width="110" height="90" rx="8" fill="url(#step1)" stroke="#6366f1" stroke-width="2"/>
+                            <text x="75" y="55" font-size="14" font-weight="bold" text-anchor="middle" fill="#6366f1">Upload</text>
+                            <text x="75" y="85" font-size="12" text-anchor="middle" fill="#64748b">PDF, URL, Video</text>
+                            <text x="75" y="103" font-size="12" text-anchor="middle" fill="#64748b">YouTube, Audio</text>
+
+                            <path d="M 130 75 L 145 75" stroke="#6366f1" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+                            <rect x="145" y="30" width="110" height="90" rx="8" fill="url(#step1)" stroke="#10b981" stroke-width="2"/>
+                            <text x="200" y="55" font-size="14" font-weight="bold" text-anchor="middle" fill="#10b981">Mode</text>
+                            <text x="200" y="85" font-size="12" text-anchor="middle" fill="#64748b">Mind Map or</text>
+                            <text x="200" y="103" font-size="12" text-anchor="middle" fill="#64748b">Knowledge Graph</text>
+
+                            <path d="M 255 75 L 270 75" stroke="#10b981" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+                            <rect x="270" y="30" width="110" height="90" rx="8" fill="url(#step1)" stroke="#8b5cf6" stroke-width="2"/>
+                            <text x="325" y="60" font-size="13" font-weight="bold" text-anchor="middle" fill="#8b5cf6">AI Generation</text>
+                            <text x="325" y="90" font-size="12" text-anchor="middle" fill="#64748b">45 sec – 2 min</text>
+
+                            <path d="M 200 120 L 200 150" stroke="#6366f1" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+                            <rect x="50" y="160" width="300" height="100" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="2" stroke-dasharray="5,5"/>
+                            <text x="200" y="200" font-size="14" font-weight="bold" text-anchor="middle" fill="#6366f1">Interactive Semantic Map</text>
+                            <text x="200" y="225" font-size="10" text-anchor="middle" fill="#64748b">77 nodes | 0 truncations | 55+ relation types</text>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: PRODUCT - VISUAL INTELLIGENCE -->
+        <section class="slide" id="slide-5">
+            <div class="glass-card">
+                <span class="tag">02 · The Solution</span>
+                <h2>Intelligence becomes visual</h2>
+
+                <div class="split-layout image-left">
+                    <div class="diagram-wrapper column">
+                        <img src="assets/mindmap_page-1.png" alt="Real example: Knowledge Graph generated by MappAI (Cold War)">
+                        <p style="font-size: 0.75rem; text-align: center; margin: 0; color: var(--text-secondary);">Real MappAI output — interactive Knowledge Graph generated automatically</p>
+                    </div>
+
+                    <div>
+                        <p>D3.js engine: text → <strong>interactive semantic graphs</strong>. AI reflects the cognitive structure of the subject — it doesn't replace it.</p>
+
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-violet);"><i data-lucide="git-merge" style="width:16px; display:inline;"></i> Mind Map: hierarchical</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">L0 → L5, multi-phase, atomic branches. Ideal for indexes and visual hierarchies (DSA/ADHD).</p>
+                        </div>
+
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-indigo);"><i data-lucide="network" style="width:16px; display:inline;"></i> Knowledge Graph: networked</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">Entities + 55+ relation types (causes, precedes, opposes, regulates...). Ideal for history, science, critical thinking.</p>
+                        </div>
+
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-emerald);"><i data-lucide="accessibility" style="width:16px; display:inline;"></i> Built-in accessibility</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">Focus cards, OpenDyslexic font, syllable breaks, text-to-speech, verbatim citations from sources (zero hallucinations), auto-generated quizzes and flashcards.</p>
+                        </div>
+
+                        <p style="font-size: 0.9rem; margin-top: 15px; margin-bottom:0;"><strong>Validated results:</strong> Mind Map 77 nodes / 0 truncations · KG 38 nodes / 47% cross-links · 45 sec from a 20-page PDF.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: BEYOND THE SCREEN -->
+        <section class="slide" id="slide-6">
+            <div class="glass-card">
+                <span class="tag">02 · The Solution</span>
+                <h2>Beyond the screen: documents, vault, privacy</h2>
+
+                <div class="split-layout image-left">
+                    <div>
+                        <p>Digital work becomes real, printable material that <strong>belongs to the student</strong> — not to the provider.</p>
+
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-violet);"><i data-lucide="gantt-chart" style="width:16px; display:inline;"></i> Chronological timelines</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">Automatic extraction of dates and events, print-ready A4 layout (e.g. History: the Cold War).</p>
+                        </div>
+
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-indigo);"><i data-lucide="files" style="width:16px; display:inline;"></i> Printable dossiers</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">Export entire concept branches with intact citations: one click = PDF material for school and for personalized education plans.</p>
+                        </div>
+
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-emerald);"><i data-lucide="archive" style="width:16px; display:inline;"></i> Markdown / Obsidian vault</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">Offline-first, Obsidian-compatible. <strong>Zero data lock-in</strong>: export, edit, import.</p>
+                        </div>
+
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-red);"><i data-lucide="shield-check" style="width:16px; display:inline;"></i> Privacy by design</h3>
+                            <p style="font-size: 0.9rem; margin: 0;">EU/CH providers (Infomaniak, Geneva), GDPR/nLPD-compliant — essential for educational data and European schools.</p>
+                        </div>
+                    </div>
+
+                    <div class="diagram-wrapper column">
+                        <img src="assets/timeline_page-1.png" alt="Real example: chronological timeline generated by MappAI (Cold War)">
+                        <p style="font-size: 0.75rem; text-align: center; margin: 0; color: var(--text-secondary);">Real MappAI output — print-ready A4 PDF, generated automatically</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: COMPETITIVE LANDSCAPE + MOAT -->
+        <section class="slide" id="slide-7">
+            <div class="glass-card">
+                <span class="tag">03 · Why now, why us</span>
+                <h2>No one else does what we do</h2>
+
+                <table class="comparison-table">
+                    <tr>
+                        <th>Feature</th>
+                        <th>MappAI</th>
+                        <th>NotebookLM</th>
+                        <th>Algor Education</th>
+                        <th>XMind / MindMeister</th>
+                    </tr>
+                    <tr><td>AI generation from PDF/URL/YouTube</td><td>✅ Full</td><td>⚠️ Partial</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>Semantic Knowledge Graph (55+ rel.)</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>Adaptive Socratic Tutor</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>Auto-generated quizzes &amp; flashcards</td><td>✅</td><td>❌</td><td>⚠️ Basic</td><td>❌</td></tr>
+                    <tr><td>Offline Obsidian-compatible vault</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+                    <tr><td>EU GDPR provider (Infomaniak)</td><td>✅</td><td>❌</td><td>⚠️</td><td>N/A</td></tr>
+                    <tr><td>Accessibility-first design DSA/ADHD</td><td>✅</td><td>❌</td><td>✅</td><td>❌</td></tr>
+                    <tr><td>Cross-platform desktop</td><td>✅ Win/Mac/Linux</td><td>Web only</td><td>Web only</td><td>✅</td></tr>
+                </table>
+
+                <h3 style="margin-top: 24px; margin-bottom: 12px; color: var(--text-secondary); font-size: 1rem;">6 layers of competitive defense</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-indigo); margin-bottom: 6px;"><i data-lucide="zap" style="width:14px; display:inline;"></i> Multi-phase AI</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">5 parallel phases = 0 truncations on long documents.</p>
+                    </div>
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-emerald); margin-bottom: 6px;"><i data-lucide="network" style="width:14px; display:inline;"></i> Knowledge Graph</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">55+ semantic relation types — NotebookLM doesn't have it.</p>
+                    </div>
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-amber); margin-bottom: 6px;"><i data-lucide="users" style="width:14px; display:inline;"></i> Socratic Tutor</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">Adaptive pedagogy built in, not bolted on later.</p>
+                    </div>
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-violet); margin-bottom: 6px;"><i data-lucide="lock" style="width:14px; display:inline;"></i> Privacy EU-first</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">Infomaniak (CH) + offline-first: access to schools that block US-based tools.</p>
+                    </div>
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-red); margin-bottom: 6px;"><i data-lucide="accessibility" style="width:14px; display:inline;"></i> A11y-first</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">OpenDyslexic, TTS, syllable breaks. Generalist AI tools don't have it.</p>
+                    </div>
+                    <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: 12px;">
+                        <h3 style="font-size: 0.85rem; color: var(--accent-indigo); margin-bottom: 6px;"><i data-lucide="archive" style="width:14px; display:inline;"></i> Obsidian Vault</h3>
+                        <p style="font-size: 0.8rem; margin: 0;">Zero lock-in: data stays with the student.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: MARKET OPPORTUNITY -->
+        <section class="slide" id="slide-8">
+            <div class="glass-card">
+                <span class="tag">04 · The numbers that matter to investors</span>
+                <h2>A regulated, growing, underserved market</h2>
+
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-number">~€91M</div>
+                        <div class="stat-label">TAM, 4 core markets</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; margin-bottom:0; color: var(--text-secondary);">IT, CH, FR, DE — &gt;€220M incl. UK</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-emerald);">
+                        <div class="stat-number" style="color: var(--accent-emerald);">~€1.6M</div>
+                        <div class="stat-label">SAM, 3-year</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; margin-bottom:0; color: var(--text-secondary);">Direct channels + PNRR (Italy)</p>
+                    </div>
+                    <div class="stat-box" style="border-color: var(--accent-amber);">
+                        <div class="stat-number" style="color: var(--accent-amber);">€158K → €270K</div>
+                        <div class="stat-label">SOM Year 1 → Year 2</div>
+                        <p style="font-size: 0.8rem; margin-top: 10px; margin-bottom:0; color: var(--text-secondary);">5K → 15K B2C + B2B users</p>
+                    </div>
+                </div>
+
+                <table class="comparison-table" style="margin-top: 24px;">
+                    <tr>
+                        <th>Country</th>
+                        <th>Students with DSA/SEN</th>
+                        <th>Trend</th>
+                        <th>Regulatory lever</th>
+                    </tr>
+                    <tr><td>🇮🇹 Italy</td><td>~1.2M SEN (354K DSA, 6.0%)</td><td>+6%/year</td><td>Law 170/2010, PNRR, 2025 SEN guidelines</td></tr>
+                    <tr><td>🇨🇭 Switzerland (HQ)</td><td>~50–80K estimated</td><td>4.8% with enhanced support</td><td>nLPD, cantonal programs</td></tr>
+                    <tr><td>🇫🇷 France</td><td>~520K + 308K personalized plans</td><td>+10–11%/year</td><td>National digital SEN plan</td></tr>
+                    <tr><td>🇩🇪 Germany</td><td>~600K special educational needs (7.5%)</td><td>was 5.3% in 2000</td><td>Public investment via the Länder</td></tr>
+                </table>
+
+                <p style="margin-top: 20px; margin-bottom: 0; text-align: center; font-size: 0.95rem;"><strong>"Education AI + privacy-first (GDPR/nLPD)"</strong> opens the doors of European schools, currently closed to US-based cloud tools. EU AI-in-education market: from USD 1.59B (2025) to USD 19.97B (2034), 32.5% CAGR.</p>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: BUSINESS MODEL & ROADMAP -->
+        <section class="slide" id="slide-9">
+            <div class="glass-card">
+                <span class="tag">04 · The numbers that matter to investors</span>
+                <h2>Business model and roadmap</h2>
+
+                <div class="split-layout image-right" style="align-items: start;">
+                    <div>
+                        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Pricing (PLG · freemium)</h3>
+                        <table class="comparison-table">
+                            <tr><th>Tier</th><th>Target</th><th>Price</th></tr>
+                            <tr><td>Free</td><td>Discovery</td><td>3 maps/month</td></tr>
+                            <tr><td>Pro Individual</td><td>Students with DSA</td><td>€4.99/month</td></tr>
+                            <tr><td>Pro Family</td><td>1 student + parents</td><td>€7.99/month</td></tr>
+                            <tr><td>Educator</td><td>Special-needs teachers</td><td>€9.99/month</td></tr>
+                            <tr><td>School License</td><td>Schools (30 users)</td><td>€150–500/year</td></tr>
+                            <tr><td>District/Canton</td><td>Education authorities, cantons</td><td>On quote</td></tr>
+                        </table>
+                        <p style="font-size: 0.85rem; margin-top: 12px; margin-bottom:0;">Near-zero infrastructure costs (offline-first desktop) → freemium is sustainable from day one.</p>
+                    </div>
+
+                    <div>
+                        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Roadmap &amp; milestones</h3>
+                        <div class="timeline-row"><div class="timeline-date">Jul 2026</div><div class="timeline-desc"><strong>v1.0:</strong> Security audit, core feature set, 50 beta users with special needs</div></div>
+                        <div class="timeline-row"><div class="timeline-date">Sep 2026</div><div class="timeline-desc"><strong>Open Beta:</strong> 500 users, first 10 school licenses</div></div>
+                        <div class="timeline-row"><div class="timeline-date">Oct 2026</div><div class="timeline-desc"><strong>v1.1:</strong> refactoring, dynamic token budget, all 13 subject lenses complete</div></div>
+                        <div class="timeline-row"><div class="timeline-date">Q4 2026</div><div class="timeline-desc"><strong>Seed Close:</strong> CHF 300–600K (Boldbrain + TiVentures + angel investors)</div></div>
+                        <div class="timeline-row"><div class="timeline-date">Jun 2027</div><div class="timeline-desc"><strong>5,000 active users:</strong> MRR ~CHF 12,500, 30 B2B institutions</div></div>
+                        <div class="timeline-row"><div class="timeline-date">2027</div><div class="timeline-desc"><strong>v2.0 + Mobile:</strong> iPadOS app (Capacitor), optional cloud collaboration</div></div>
+                        <div class="timeline-row"><div class="timeline-date">2028</div><div class="timeline-desc"><strong>Series A:</strong> 50,000 users, DE/FR expansion, CHF 1.5–3M</div></div>
+
+                        <h3 style="font-size: 0.9rem; margin-top: 18px; margin-bottom: 8px;">Go-to-market channels</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 0;">SEO/content for special-needs teachers · partnerships with learning-disability associations · PNRR via MEPA (Italy) · referrals from speech therapists/tutors · Boldbrain &amp; Innosuisse (CH)</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: PRODUCT METRICS & USE OF FUNDS -->
+        <section class="slide" id="slide-10">
+            <div class="glass-card">
+                <span class="tag">04 · The numbers that matter to investors</span>
+                <h2>Product traction and use of funds</h2>
+
+                <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Validated product metrics</h3>
+                <div class="stat-grid" style="margin-bottom: 10px;">
+                    <div class="stat-box">
+                        <div class="stat-number">77 / 0</div>
+                        <div class="stat-label">Mind map nodes / truncations</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">38 / 47%</div>
+                        <div class="stat-label">KG nodes / cross-links</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">45 sec</div>
+                        <div class="stat-label">Generation from a 20-page PDF</div>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Use of seed funds: CHF 300,000</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">27%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">Development &amp; security audit</p>
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">20%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">Marketing &amp; acquisition</p>
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">13%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">B2B business development (MEPA)</p>
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">27%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">Hiring (first team member)</p>
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">10%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">Operations &amp; infrastructure</p>
+                    </div>
+                    <div style="background: #e0e7ff; border: 1px solid var(--accent-indigo); padding: 14px; border-radius: 10px; text-align:center;">
+                        <p style="margin: 0; font-weight: 800; color: var(--accent-indigo); font-size: 1.2rem;">3%</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">Contingency</p>
+                    </div>
+                </div>
+                <p style="font-size: 0.85rem; margin-bottom: 0; text-align:center;">With CHF 600K: double the hiring (2 team members) + marketing budget, accelerated mobile version.</p>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: ABOUT ME -->
+        <section class="slide" id="slide-11">
+            <div class="glass-card">
+                <span class="tag">05 · About me</span>
+                <h2>An inimitable founder-product fit</h2>
+
+                <div class="split-layout" style="grid-template-columns: 280px 1fr;">
+                    <div style="text-align: center;">
+                        <img src="immagine_profilo.jpg" alt="Giacomo Meschini" class="founder-img">
+                        <h3 style="margin-top: 10px;">Giacomo Meschini</h3>
+                        <p style="color: var(--accent-indigo); font-weight: bold; font-size: 0.9rem; margin-bottom: 4px;">Founder &amp; Full-Stack Developer</p>
+                        <p style="font-size: 0.85rem;">Ticino, Switzerland</p>
+                    </div>
+
+                    <div>
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-emerald);"><i data-lucide="code-2" style="width:16px; display:inline;"></i> Developer</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 0;">Electron, D3.js, Python/JS, Cloud (GCP, Infomaniak). I built MappAI from scratch, from the multi-phase AI architecture to the visualization engine.</p>
+                        </div>
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-amber);"><i data-lucide="graduation-cap" style="width:16px; display:inline;"></i> Special education teacher</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 0;">Visual education, fine arts, humanities — direct, daily experience teaching students with special needs and learning disorders.</p>
+                        </div>
+                        <div class="ui-box" style="padding: 15px; margin-bottom: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-violet);"><i data-lucide="shield-check" style="width:16px; display:inline;"></i> Accessibility &amp; privacy expert</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 0;">Assistive technologies for neurodivergent users + GDPR/nLPD expertise — privacy-first is already in the product's DNA.</p>
+                        </div>
+                        <div class="ui-box" style="padding: 15px;">
+                            <h3 style="font-size: 1rem; color: var(--accent-indigo);"><i data-lucide="map-pin" style="width:16px; display:inline;"></i> Based in Ticino</h3>
+                            <p style="font-size: 0.95rem; margin-bottom: 0;">Ideally positioned to access both the Swiss startup ecosystem (Boldbrain, TiVentures, Innosuisse) and the Italian one.</p>
+                        </div>
+                        <p style="font-size: 0.9rem; margin-top: 10px; margin-bottom: 0; text-align:center;"><strong>A purely technical team wouldn't build the Socratic tutor; an educational team without tech skills wouldn't build the knowledge graph.</strong> I am both.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11: THE ASK -->
+        <section class="slide" id="slide-12">
+            <div class="glass-card" style="align-items: center; justify-content: center; text-align: center;">
+                <i data-lucide="rocket" style="width: 64px; height: 64px; color: var(--accent-indigo); margin-bottom: 20px;"></i>
+                <h2>The investment</h2>
+                <h1 style="color: var(--accent-emerald); font-size: 4rem; margin-bottom: 10px;">CHF 300'000 – 600'000</h1>
+                <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 30px auto;">To position MappAI as the <strong>European reference</strong> for DSA-first educational AI — ahead of the 2026/2027 school year.</p>
+
+                <div class="pill" style="margin-bottom: 30px;">Why now: regulatory push (2025 SEN guidelines, PNRR) + AI maturity/privacy + record Swiss VC activity (CHF 3.3bn, +44%)</div>
+
+                <div style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap;">
+                    <a href="mailto:giacomo@insegnai.ch" class="cta-button">
+                        <i data-lucide="mail" style="width:20px;"></i> Contact me: giacomo@insegnai.ch
+                    </a>
+                    <div style="text-align: center;">
+                        <img src="assets/qr_contact.png" alt="QR code to email me" style="width: 110px; height: 110px; border-radius: 12px; display: block; box-shadow: 0 8px 24px rgba(99,102,241,0.15);">
+                        <p style="font-size: 0.7rem; margin: 6px 0 0 0; color: var(--text-secondary);">Scan to get in touch</p>
+                    </div>
+                </div>
+
+                <p style="margin-top: 40px; margin-bottom: 0; font-size: 0.9rem; color: var(--text-secondary);">June 2026 · MappAI — Transforming knowledge for every mind</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const container = document.querySelector('.deck-container');
+        const dots = document.querySelectorAll('.nav-dot');
+
+        container.addEventListener('scroll', () => {
+            let index = Math.round(container.scrollTop / window.innerHeight);
+            dots.forEach((dot, i) => {
+                if (i === index) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                container.scrollBy(0, window.innerHeight);
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                container.scrollBy(0, -window.innerHeight);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -43,7 +43,8 @@
         CONSOLIDATE_LEAVES: 'consolidate_leaves',  // L4-L5 dettagli sparsi
         LOW_CONNECTIVITY: 'low_connectivity',      // meta: mappa troppo ad albero
         KEYSTONE: 'keystone',                      // ponte / punto di articolazione
-        MEANING_HUB: 'meaning_hub'                 // alta betweenness centrality
+        MEANING_HUB: 'meaning_hub',                // alta betweenness centrality
+        DUPLICATE_ENTITY: 'duplicate_entity'       // entità frammentata su più rami (Entity Backbone)
     };
 
     // ── Helpers ─────────────────────────────────────────────
@@ -110,6 +111,41 @@
         if (!nodes.length) return 'mindmap';
         const pathLike = nodes.filter(n => /L\d+_/.test(String(n.id || ''))).length;
         return (pathLike / nodes.length) >= 0.5 ? 'mindmap' : 'kg';
+    }
+
+    // ── Motore graphology (opzionale) ───────────────────────
+    //
+    // Se il bundle vendored `mappai-graphology.min.js` è caricato
+    // (window.MappAIGraphology) E il flag `mappai_graphology_analysis_enabled` è 1,
+    // betweenness e ponti/articolazioni usano le implementazioni testate di graphology.
+    // Se NON è disponibile o il flag è disattivo, si ricade automaticamente sulle
+    // implementazioni custom — stesso risultato, parità verificata in
+    // scripts/prototype-graphology-betweenness.js (diff ≤ 1e-15).
+    // Questo rende lo swap completamente reversibile e sperimentale.
+    function _getGraphology() {
+        try {
+            if (typeof localStorage === 'undefined' || localStorage.getItem('mappai_graphology_analysis_enabled') !== '1') {
+                return null; // flag disattivo: usa fallback custom
+            }
+            const G = (typeof MappAIGraphology !== 'undefined')
+                ? MappAIGraphology : window.MappAIGraphology;
+            return (G && G.Graph) ? G : null;
+        } catch (e) { return null; }
+    }
+
+    // Grafo graphology non-orientato con la STESSA semantica di buildAdjacency:
+    // archi non-direzionati, self-loop scartati, paralleli collassati.
+    function _buildGraphologyGraph(G, nodes, links) {
+        const graph = new G.Graph({ type: 'undirected' });
+        nodes.forEach(n => { if (!graph.hasNode(n.id)) graph.addNode(n.id); });
+        links.forEach(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            if (s !== t && graph.hasNode(s) && graph.hasNode(t)) {
+                graph.mergeUndirectedEdge(s, t); // idempotente → collassa paralleli, come il Set di buildAdjacency
+            }
+        });
+        return graph;
     }
 
     // ── 1. God nodes: top-N per degree centrality ───────────
@@ -329,7 +365,8 @@
     //
     // Implementazione: DFS con discovery-time e low-link (Tarjan), iterativa
     // per evitare stack overflow su grafi grandi.
-    function findBridgesAndArticulations(nodes, links) {
+    // (Fallback: usato quando graphology non è caricato — vedi dispatcher sotto.)
+    function _findBridgesAndArticulationsFallback(nodes, links) {
         const adj = buildAdjacency(nodes, links);
         const ids = nodes.map(n => n.id);
         const disc = new Map();   // discovery time
@@ -395,6 +432,90 @@
         return { bridges, articulationPoints: [...articulation] };
     }
 
+    // Versione graphology: ponti/articolazioni via conteggio componenti connesse.
+    // Un PONTE è un arco la cui rimozione aumenta il numero di componenti.
+    // Un'ARTICOLAZIONE è un nodo la cui rimozione spezza la sua componente.
+    // Brute-force O(E·(V+E)) / O(V·(V+E)): banale sui nostri grafi (decine di nodi),
+    // e più semplice di Tarjan. Parità verificata nel prototipo.
+    function _componentOf(graph, startId) {
+        const visited = new Set([startId]);
+        const queue = [startId];
+        while (queue.length) {
+            const u = queue.shift();
+            graph.forEachNeighbor(u, v => {
+                if (!visited.has(v)) { visited.add(v); queue.push(v); }
+            });
+        }
+        return [...visited];
+    }
+
+    function _countComponentsAmong(graph, nodeIds) {
+        const idSet = new Set(nodeIds);
+        const visited = new Set();
+        let count = 0;
+        nodeIds.forEach(start => {
+            if (visited.has(start)) return;
+            count++;
+            const queue = [start];
+            visited.add(start);
+            while (queue.length) {
+                const u = queue.shift();
+                graph.forEachNeighbor(u, v => {
+                    if (idSet.has(v) && !visited.has(v)) { visited.add(v); queue.push(v); }
+                });
+            }
+        });
+        return count;
+    }
+
+    function _findBridgesAndArticulationsGraphology(G, nodes, links) {
+        const graph = _buildGraphologyGraph(G, nodes, links);
+        const baseline = G.countConnectedComponents(graph);
+
+        // Ponti: rimuovi ogni arco, controlla se le componenti aumentano, ripristina.
+        // IMPORTANTE: snapshot della lista archi PRIMA del loop. Mutare il grafo
+        // (dropEdge/mergeUndirectedEdge) dentro graph.forEachEdge fa rivisitare gli
+        // archi ri-aggiunti → loop infinito su grafi densi (i KG si bloccavano qui).
+        const bridges = [];
+        const edgeList = graph.edges();
+        edgeList.forEach(edge => {
+            const source = graph.source(edge);
+            const target = graph.target(edge);
+            graph.dropEdge(edge);
+            if (G.countConnectedComponents(graph) > baseline) bridges.push([source, target]);
+            graph.mergeUndirectedEdge(source, target);
+        });
+
+        // Articolazioni: per ogni nodo di grado ≥2, rimuovilo (induci il sotto-grafo
+        // sui restanti) e verifica se la sua componente si è spezzata.
+        const articulationPoints = [];
+        graph.forEachNode(node => {
+            if (graph.degree(node) < 2) return; // foglia → mai articolazione
+            const comp = _componentOf(graph, node);
+            const remaining = comp.filter(id => id !== node);
+            if (remaining.length < 2) return;
+
+            const sub = new G.Graph({ type: 'undirected' });
+            graph.forEachNode(id => { if (id !== node) sub.addNode(id); });
+            graph.forEachEdge((edge, attr, s, t) => {
+                if (s !== node && t !== node) sub.mergeUndirectedEdge(s, t);
+            });
+            if (_countComponentsAmong(sub, remaining) > 1) articulationPoints.push(node);
+        });
+
+        return { bridges, articulationPoints };
+    }
+
+    // Dispatcher: graphology se caricato, altrimenti Tarjan custom (stesso output).
+    function findBridgesAndArticulations(nodes, links) {
+        const G = _getGraphology();
+        if (G) {
+            try { return _findBridgesAndArticulationsGraphology(G, nodes, links); }
+            catch (e) { console.warn('[structure-analyzer] graphology bridges fallita, uso fallback:', e); }
+        }
+        return _findBridgesAndArticulationsFallback(nodes, links);
+    }
+
     // Suggerimenti pedagogici derivati da ponti/articolazioni
     function detectStructuralKeystones(nodes, links) {
         const nMap = nodeMap(nodes);
@@ -445,7 +566,8 @@
     // Misura quanti percorsi minimi passano ATTRAVERSO un nodo.
     // Diversa dal degree: trova i concetti-snodo (alta betweenness, anche con
     // grado basso) — i "ponti di significato" che il degree non vede.
-    function computeBetweenness(nodes, links) {
+    // (Fallback: usato quando graphology non è caricato — vedi dispatcher sotto.)
+    function _computeBetweennessFallback(nodes, links) {
         const adj = buildAdjacency(nodes, links);
         const ids = nodes.map(n => n.id);
         const CB = new Map();
@@ -488,6 +610,26 @@
         const result = ids.map(id => ({ id, score: CB.get(id) / 2 }));
         result.sort((a, b) => b.score - a.score);
         return result;
+    }
+
+    // Versione graphology: Brandes testato. `normalized:false` su grafo
+    // non-orientato applica scale 0.5 → identico al fallback (CB/2).
+    function _computeBetweennessGraphology(G, nodes, links) {
+        const graph = _buildGraphologyGraph(G, nodes, links);
+        const scores = G.betweennessCentrality(graph, { normalized: false });
+        const result = nodes.map(n => ({ id: n.id, score: scores[n.id] || 0 }));
+        result.sort((a, b) => b.score - a.score);
+        return result;
+    }
+
+    // Dispatcher: graphology se caricato, altrimenti Brandes custom (stesso output).
+    function computeBetweenness(nodes, links) {
+        const G = _getGraphology();
+        if (G) {
+            try { return _computeBetweennessGraphology(G, nodes, links); }
+            catch (e) { console.warn('[structure-analyzer] graphology betweenness fallita, uso fallback:', e); }
+        }
+        return _computeBetweennessFallback(nodes, links);
     }
 
     function detectMeaningHubs(nodes, links) {
@@ -561,7 +703,8 @@
                 groups: groupByMacroArea(nodes).size,
                 density: Number(ratio.toFixed(2)),
                 mode,
-                topology: isTreeLike ? 'tree-like' : 'networked'
+                topology: isTreeLike ? 'tree-like' : 'networked',
+                engine: _getGraphology() ? 'graphology' : 'custom'
             }
         };
     }

@@ -77,6 +77,13 @@ function initDefaultVaultFolder() {
     }
 }
 
+// In dev mode (npm start), separa userData in una sottocartella "dev/"
+// per non contaminare il localStorage dell'app installata sullo stesso Mac.
+// In produzione (.app installata) usa il path standard.
+if (!app.isPackaged) {
+    app.setPath('userData', path.join(app.getPath('userData'), 'dev'));
+}
+
 app.whenReady().then(() => {
     initDefaultVaultFolder();
     createWindow();
@@ -224,6 +231,68 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
     }
 });
 
+// IPC handler per embeddings Infomaniak (default: bge-multilingual-gemma2).
+// Endpoint: /openai/v1/embeddings (OpenAI-compatible, no streaming).
+ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, productId, model, texts }) => {
+    const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/embeddings`;
+    const payload = {
+        model: model || 'bge-multilingual-gemma2',
+        input: Array.isArray(texts) ? texts : [String(texts || '')]
+    };
+    try {
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        });
+        const data = response.data || {};
+        const embeddings = (data.data || []).map(item => item.embedding);
+        return {
+            embeddings,
+            model: data.model || payload.model,
+            usage: data.usage || null
+        };
+    } catch (error) {
+        const msg = error.response?.data?.error?.message || error.message;
+        const code = error.response?.status || 'N/A';
+        throw new Error(`Infomaniak Embeddings Error (${code}): ${msg}`);
+    }
+});
+
+// IPC handler per embeddings Google (default: gemini-embedding-001).
+// Endpoint: batchEmbedContents (fino a 100 richieste per chiamata).
+ipcMain.handle('generate-embeddings-google', async (event, { apiKey, model, texts }) => {
+    const modelName = model || 'gemini-embedding-001';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:batchEmbedContents?key=${apiKey}`;
+    const payload = {
+        requests: (Array.isArray(texts) ? texts : [String(texts || '')]).map(t => ({
+            model: `models/${modelName}`,
+            content: { parts: [{ text: String(t || '') }] },
+            taskType: 'SEMANTIC_SIMILARITY',
+            outputDimensionality: 768
+        }))
+    };
+    try {
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+        });
+        const data = response.data || {};
+        const embeddings = (data.embeddings || []).map(item => item.values);
+        return {
+            embeddings,
+            model: modelName,
+            usage: null
+        };
+    } catch (error) {
+        const msg = error.response?.data?.error?.message || error.message;
+        const code = error.response?.status || 'N/A';
+        throw new Error(`Google Embeddings Error (${code}): ${msg}`);
+    }
+});
+
 // IPC handler for listing available Infomaniak models
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
     return new Promise((resolve, reject) => {
@@ -354,6 +423,43 @@ ipcMain.handle('save-map-json', async (event, mapData) => {
     }
 });
 
+// IPC Handler: salva un artefatto intermedio di pipeline (es. checkpoint L1).
+// NON tocca il Vault dell'utente: scrive in una cartella "bus" sotto userData,
+// organizzata per run. Usato da mappai-l1-checkpoint.js per materializzare lo
+// stato tra una fase e l'altra (debug / resume / revisione umana).
+ipcMain.handle('save-pipeline-artifact', async (event, { runId, fileName, content }) => {
+    try {
+        const safeRun = String(runId || 'run').replace(/[^a-z0-9_\-]/gi, '_');
+        const safeName = String(fileName || 'artifact.json').replace(/[^a-z0-9_\-.]/gi, '_');
+        const baseDir = path.join(app.getPath('userData'), 'MappAI-Pipeline');
+        const runDir = path.join(baseDir, safeRun);
+        if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
+        const filePath = path.join(runDir, safeName);
+        fs.writeFileSync(filePath, typeof content === 'string' ? content : JSON.stringify(content, null, 2), 'utf-8');
+        return { success: true, path: filePath, folder: runDir, baseFolder: baseDir };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// IPC Handler: apre nel file manager la cartella bus di pipeline (root o di un run).
+ipcMain.handle('open-pipeline-folder', async (event, { runId } = {}) => {
+    try {
+        const baseDir = path.join(app.getPath('userData'), 'MappAI-Pipeline');
+        let target = baseDir;
+        if (runId) {
+            const safeRun = String(runId).replace(/[^a-z0-9_\-]/gi, '_');
+            const runDir = path.join(baseDir, safeRun);
+            if (fs.existsSync(runDir)) target = runDir;
+        }
+        if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+        await shell.openPath(target);
+        return { success: true, path: target };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // IPC Handler to save PDF binary files directly to the Vault
 ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultPath }) => {
     try {
@@ -476,7 +582,24 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         // Collect all links for the summary file
         const globalLinks = [];
 
-        // 4. Save each node as a Markdown file
+        // 4a. Elimina i file .md orfani (nodi rimossi via merge/relink non sono più in mapData.nodes)
+        const validNodeFileNames = new Set(
+            (mapData.nodes || []).map(node => {
+                const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                return `${safeLabel}_${node.id}.md`;
+            })
+        );
+        try {
+            fs.readdirSync(nodesDir).forEach(file => {
+                if (file.endsWith('.md') && !validNodeFileNames.has(file)) {
+                    fs.unlinkSync(path.join(nodesDir, file));
+                }
+            });
+        } catch(e) {
+            console.warn('[Vault] Pulizia file orfani fallita:', e.message);
+        }
+
+        // 4b. Save each node as a Markdown file
         (mapData.nodes || []).forEach(node => {
             const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const fileName = `${safeLabel}_${node.id}.md`;
@@ -813,6 +936,26 @@ ipcMain.handle('get-all-vaults', async () => {
         return vaults.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
     } catch (err) {
         console.error("Errore get-all-vaults:", err);
+        return [];
+    }
+});
+
+// Restituisce l'elenco di cartelle vault che EFFETTIVAMENTE ESISTONO
+// (per ripulire progetti stale da localStorage)
+ipcMain.handle('get-valid-vault-folders', async (event) => {
+    try {
+        const docPath = app.getPath('documents');
+        const vaultBaseDir = path.join(docPath, 'MappAI - Vault');
+
+        if (!fs.existsSync(vaultBaseDir)) return [];
+
+        const folders = fs.readdirSync(vaultBaseDir).filter(f => {
+            return fs.statSync(path.join(vaultBaseDir, f)).isDirectory();
+        });
+
+        return folders; // Ritorna nomi delle cartelle che esistono
+    } catch (err) {
+        console.warn('[MappAI] Errore get-valid-vault-folders:', err);
         return [];
     }
 });

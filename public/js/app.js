@@ -34,7 +34,8 @@ let appState = {
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
     infomaniakAllModels: true,
-    multiPassMode: true
+    multiPassMode: true,
+    generationPipeline: localStorage.getItem('mappai_generation_pipeline') || 'A'
 };
 
 // ==========================================
@@ -155,6 +156,35 @@ window.toggleInfomaniakProMode = function () {
     }
 };
 
+// Inizializzazione: ripristina il provider e il modello salvato
+window.initializeAIProvider = function () {
+    const provider = appState.aiProvider;
+    const storageKey = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const savedModel = localStorage.getItem(storageKey);
+    const modelSelect = document.getElementById('model-select');
+
+    // Aggiorna UI del provider
+    window.switchAIProvider(provider);
+
+    // Se c'è un modello salvato e il dropdown è già compilato, selezionalo
+    if (savedModel && modelSelect && modelSelect.options.length > 0) {
+        const option = Array.from(modelSelect.options).find(o => o.value === savedModel);
+        if (option) {
+            modelSelect.value = savedModel;
+            console.log(`[Init] Modello ripristinato: ${savedModel} (${provider})`);
+        }
+    }
+};
+
+// Chiama l'inizializzazione non appena il DOM è pronto
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (typeof window.initializeAIProvider === 'function') {
+            window.initializeAIProvider();
+        }
+    }, 100);
+});
+
 window.applyStudentModeUI = function () {
     const btnUrl = document.getElementById('btn-src-url');
     const btnYoutube = document.getElementById('btn-src-youtube');
@@ -250,6 +280,53 @@ window.setMultiPassMode = function (enabled, silent) {
     if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
 };
 
+// ==========================================
+// PIPELINE A/B SELECTION
+// ==========================================
+window.setPipeline = function (pipelineMode) {
+    const validModes = ['A', 'B'];
+    if (!validModes.includes(pipelineMode)) {
+        console.error('Invalid pipeline mode. Use A or B.');
+        return;
+    }
+
+    appState.generationPipeline = pipelineMode;
+    localStorage.setItem('mappai_generation_pipeline', pipelineMode);
+
+    const btnA = document.getElementById('pipeline-a-btn');
+    const btnB = document.getElementById('pipeline-b-btn');
+    const pipelineDesc = document.getElementById('pipeline-desc');
+
+    if (btnA && btnB) {
+        if (pipelineMode === 'A') {
+            btnA.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnA.classList.remove('text-slate-500', 'hover:text-slate-700');
+            btnB.classList.remove('bg-white', 'shadow-sm', 'text-slate-700');
+            btnB.classList.add('text-slate-500', 'hover:text-slate-700');
+        } else {
+            btnB.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnB.classList.remove('text-slate-500', 'hover:text-slate-700');
+            btnA.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            btnA.classList.add('text-slate-500', 'hover:text-slate-700');
+        }
+    }
+
+    const descriptions = {
+        'A': 'Pipeline atomic-suggestions (con semantic dedup)',
+        'B': 'Pipeline structural-suggestions (semplificata)'
+    };
+
+    if (pipelineDesc) {
+        pipelineDesc.textContent = descriptions[pipelineMode] || 'Scegli l\'algoritmo di generazione mappe';
+    }
+
+    window.showToast(`Pipeline ${pipelineMode} attivata`, "info");
+};
+
+window.getPipeline = function () {
+    return appState.generationPipeline || localStorage.getItem('mappai_generation_pipeline') || 'A';
+};
+
 /**
  * Vocabolario tipizzato per il campo "rel" nei Knowledge Graph.
  * Usato come enum nello schema JSON (Google: enforcement nativo).
@@ -276,13 +353,38 @@ const KG_REL_ENUM = [
 //   label    : nome leggibile nel menu
 //   icon     : icona Lucide
 const EDGE_FAMILIES = {
-    trasformazione: { color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Trasformazione', icon: 'zap' },
-    dipendenza: { color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza', icon: 'link-2' },
-    sequenza: { color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza', icon: 'arrow-right' },
-    appartenenza: { color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Appartenenza', icon: 'folder-tree' },
-    regolazione: { color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Regolazione', icon: 'sliders-horizontal' },
-    opposizione: { color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Opposizione', icon: 'shield-x' },
-    altro: { color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro', icon: 'circle-help' }
+    trasformazione: {
+        color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Causa / Effetto', icon: 'zap',
+        keywords: ['causa', 'genera', 'produce', 'porta a', 'trasforma', 'provoca', 'determina']
+    },
+    dipendenza: {
+        color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza / Prerequisito', icon: 'link-2',
+        keywords: ['richiede', 'dipende da', 'utilizza', 'permette', 'è necessario per', 'è condizione di']
+    },
+    sequenza: {
+        color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza / Processo', icon: 'arrow-right',
+        keywords: ['precede', 'segue', 'deriva da', 'porta a', 'avvia', 'è seguito da']
+    },
+    appartenenza: {
+        color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Gerarchia / Parte di', icon: 'folder-tree',
+        keywords: ['fa parte di', 'comprende', 'include', 'contiene', 'è esempio di', 'appartiene a']
+    },
+    regolazione: {
+        color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Controllo / Regola', icon: 'sliders-horizontal',
+        keywords: ['regola', 'governa', 'controlla', 'limita', 'guida', 'sostiene', 'avviene in']
+    },
+    opposizione: {
+        color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Contrasto / Opposto', icon: 'shield-x',
+        keywords: ['si oppone a', 'contrasta', 'esclude', 'differisce da', 'nega', 'ostacola']
+    },
+    analogia: {
+        color: 'hsl(158,60%,40%)', colorBtn: 'hsl(158,60%,30%)', label: 'Analogia / Similitudine', icon: 'git-compare',
+        keywords: ['è simile a', 'come', 'corrisponde a', 'assomiglia a', 'paragonabile a', 'richiama']
+    },
+    altro: {
+        color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro / Libero', icon: 'circle-help',
+        keywords: ['collega', 'riferisce a', 'associato a', 'vedi anche', 'è correlato a']
+    }
 };
 
 // Mappa verbo → famiglia (normalizzato lowercase)
@@ -298,7 +400,9 @@ const REL_FAMILY_MAP = {
     'rappresenta': 'appartenenza', 'coinvolge': 'appartenenza',
     'è regolato da': 'regolazione', 'regola': 'regolazione', 'governa': 'regolazione',
     'guida': 'regolazione', 'sostiene': 'regolazione', 'avviene in': 'regolazione',
-    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione'
+    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione',
+    'è simile a': 'analogia', 'come': 'analogia', 'corrisponde a': 'analogia',
+    'assomiglia a': 'analogia', 'paragonabile a': 'analogia', 'richiama': 'analogia'
 };
 
 // Restituisce la famiglia per un rel (normalizzato, fallback 'altro')
@@ -338,9 +442,31 @@ window.updateInfomaniakProductId = function (value) {
     localStorage.setItem('infomaniak_product_id', val);
     appState.infomaniakProductId = val;
 }
+// Gestore per il cambio di modello nel dropdown — salva in localStorage
+window.onModelSelectChange = function (selectedModel) {
+    const storageKey = appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    localStorage.setItem(storageKey, selectedModel);
+    console.log(`[Modello] Salvato: ${selectedModel} (${appState.aiProvider})`);
+
+    // Aggiorna le capability del modello
+    if (typeof updateModelCapabilities === 'function') {
+        updateModelCapabilities();
+    }
+};
+
 window.switchAIProvider = function (provider) {
     appState.aiProvider = provider;
     localStorage.setItem('ai_provider', provider);
+
+    // Ripristina il modello salvato per questo provider dal localStorage
+    const modelSelect = document.getElementById('model-select');
+    const storageKey = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const savedModel = localStorage.getItem(storageKey);
+    if (modelSelect && savedModel) {
+        // Se il modello salvato è già nel dropdown, selezionalo
+        const option = Array.from(modelSelect.options).find(o => o.value === savedModel);
+        if (option) modelSelect.value = savedModel;
+    }
 
     const btnGoogle = document.getElementById('provider-google');
     const btnInfomaniak = document.getElementById('provider-infomaniak');
@@ -551,6 +677,129 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
         }
     };
 }
+
+const FAMILY_DEFAULT_REL = {
+    trasformazione: 'causa',
+    dipendenza: 'richiede',
+    sequenza: 'precede',
+    appartenenza: 'fa parte di',
+    regolazione: 'regola',
+    opposizione: 'si oppone a',
+    analogia: 'è simile a',
+    altro: ''
+};
+
+window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
+    const modal = document.getElementById('link-family-modal');
+    const box = document.getElementById('link-family-box');
+    const question = document.getElementById('link-family-question');
+    const grid = document.getElementById('link-family-grid');
+    const input = document.getElementById('link-family-input');
+    const tagsDiv = document.getElementById('link-family-tags');
+    const chipsDiv = document.getElementById('link-family-chips');
+    const bidirToggle = document.getElementById('link-bidir-toggle');
+    const btnCancel = document.getElementById('link-family-cancel');
+    const btnOk = document.getElementById('link-family-ok');
+
+    question.innerHTML = `Che relazione c'è tra <strong>${srcLabel}</strong> e <strong>${tgtLabel}</strong>?`;
+    input.value = '';
+    grid.innerHTML = '';
+    chipsDiv.innerHTML = '';
+    tagsDiv.classList.add('hidden');
+    tagsDiv.classList.remove('flex');
+
+    // Reset e gestione toggle bidirezionale
+    let isBidir = false;
+    let selectedFamKey = null;
+    const updateBidirStyle = () => {
+        if (isBidir) {
+            bidirToggle.classList.add('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+            bidirToggle.classList.remove('border-slate-300', 'text-slate-500');
+        } else {
+            bidirToggle.classList.remove('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+            bidirToggle.classList.add('border-slate-300', 'text-slate-500');
+        }
+    };
+    updateBidirStyle();
+    bidirToggle.onclick = () => { isBidir = !isBidir; updateBidirStyle(); };
+
+    Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flex flex-row items-center gap-3 px-4 py-2.5 w-full rounded-xl border-2 border-transparent text-white transition-all cursor-pointer hover:brightness-110 hover:shadow-md';
+        btn.style.backgroundColor = fam.color;
+        const kw = (fam.keywords || []).slice(0, 3).join(' · ');
+        btn.innerHTML = `
+            <i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i>
+            <div class="flex flex-col items-start min-w-0">
+                <span class="text-sm font-semibold leading-tight">${fam.label}</span>
+                ${kw ? `<span class="text-[11px] font-normal opacity-75 leading-tight">${kw}</span>` : ''}
+            </div>`;
+        btn.onclick = () => {
+            // Step 1 → Step 2: evidenzia famiglia, attenua le altre
+            selectedFamKey = key;
+            grid.querySelectorAll('button').forEach(b => {
+                b.style.outline = '';
+                b.style.opacity = '0.45';
+            });
+            btn.style.outline = '3px solid #1e293b';
+            btn.style.opacity = '1';
+
+            // Pre-compila input con il verbo default
+            const def = FAMILY_DEFAULT_REL[key] || '';
+            input.value = def;
+
+            // Costruisce i chip delle keyword
+            chipsDiv.innerHTML = '';
+            (fam.keywords || []).forEach(kw => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition-all cursor-pointer hover:brightness-90';
+                chip.style.cssText = `border-color:${fam.color}; color:${fam.colorBtn}; background:${fam.color}22;`;
+                chip.textContent = kw;
+                chip.onclick = () => {
+                    input.value = kw;
+                    chipsDiv.querySelectorAll('button').forEach(c => { c.style.background = fam.color + '22'; });
+                    chip.style.background = fam.color + '55';
+                    input.focus();
+                };
+                chipsDiv.appendChild(chip);
+            });
+
+            tagsDiv.classList.remove('hidden');
+            tagsDiv.classList.add('flex');
+            input.focus();
+        };
+        grid.appendChild(btn);
+    });
+    window.safeCreateIcons();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+        input.focus();
+    }, 10);
+
+    const cleanup = () => {
+        modal.classList.add('opacity-0');
+        box.classList.add('scale-95');
+        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+    };
+
+    const confirm = () => {
+        const rel = input.value.trim()
+            || (selectedFamKey ? FAMILY_DEFAULT_REL[selectedFamKey] : '')
+            || 'collegato_a';
+        cleanup();
+        onConfirm(rel, isBidir);
+    };
+
+    btnCancel.onclick = cleanup;
+    btnOk.onclick = confirm;
+    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } };
+};
 
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
@@ -1212,12 +1461,21 @@ const MODEL_KB = {
     'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
-    // ── Infomaniak (Limit to Google/Gemma) ──
+    // ── Infomaniak ──
+    // Mistral Small — prefix matches mistral-small-4-119b-2603, mistralai/mistral-small-*, ecc.
+    'mistralai/mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
+    'mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
+    'ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
+    'mistralai/ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
+    'qwen': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 200K ctx · reasoning inadatto per MM/KG' },
+    'kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
+    'moonshotai/kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
     'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
     'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa google/gemma-4 (versione specifica)' },
     'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
     'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa gemma-4 (versione specifica)' },
     'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
+    'swiss-ai/apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
@@ -1339,13 +1597,9 @@ function renderModelSelect(models, selectEl, currentValue) {
     if (currentValue && [...selectEl.options].some(o => o.value === currentValue)) {
         selectEl.value = currentValue;
     } else if (selectEl.options.length > 0) {
-        // If current value is invalid, pick the first available
+        // Saved model not found in list (e.g. model removed from API): pick first available
+        // but DON'T overwrite localStorage — the saved model might reappear next fetch
         selectEl.value = selectEl.options[0].value;
-        if (window.appState && window.appState.aiProvider === 'infomaniak') {
-            localStorage.setItem('infomaniak_selected_model', selectEl.value);
-        } else {
-            localStorage.setItem('gemini_selected_model', selectEl.value);
-        }
     }
     if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
 }
@@ -1615,11 +1869,24 @@ window.getSystemKey = function () {
 // Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
 // output più lunghi — scala il budget per evitare troncamenti.
 window.getMaxOutputTokens = function (baseTokens) {
+    // Guard: baseTokens undefined/NaN → NaN si serializza come null nel payload
+    // → null = nessun limite → thinking illimitato su gemini-2.5. Default: 4096.
+    if (!baseTokens || typeof baseTokens !== 'number' || isNaN(baseTokens)) baseTokens = 4096;
     const modelEl = document.getElementById('model-select');
-    const model = (modelEl ? modelEl.value : '').toLowerCase();
+    // Fallback a localStorage: il DOM può essere null durante le fasi async
+    // del multi-pass (loop rami, Phase4, Phase5) → il modello non viene rilevato
+    // → moltiplicatori ignorati → budget troppo piccolo → troncamenti.
+    // Stesso pattern già usato in fetchModelAPI.
+    const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const model = ((modelEl ? modelEl.value : '') || localStorage.getItem(storageKey) || '').toLowerCase();
     if (appState.aiProvider === 'infomaniak') {
         if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
             return Math.max(baseTokens, 16384);
+        }
+        // Mistral Small è verboso nelle espansioni di ramo (L3-L5 lunghi) →
+        // porta il budget a 8192 per evitare troncamenti e JSON parziali.
+        if (model.includes('mistral') || model.includes('mixtral')) {
+            return Math.max(baseTokens, 8192);
         }
         return baseTokens;
     }
@@ -1631,6 +1898,64 @@ window.getMaxOutputTokens = function (baseTokens) {
     return baseTokens;
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// Tracker troncamenti (Strategia 0 — rilevamento finishReason)
+// ──────────────────────────────────────────────────────────────────────────
+// Ogni chiamata fetchModelAPI registra qui:
+//   { ts, model, provider, finishReason, truncated, maxOutputTokens,
+//     promptTokens, candidateTokens, requestedMax }
+// Il flag `truncated:true` viene impostato quando finishReason indica
+// limite raggiunto (MAX_TOKENS / length). Viene RESETTATO all'inizio di
+// ogni generazione (vedi resetVaultState / inizio di extract*).
+window.MappAITruncationTracker = {
+    events: [],            // tutti gli eventi della sessione (cumulativo)
+    currentRun: [],        // solo la generazione corrente
+    reset: function() {
+        if (this.currentRun.length) {
+            // archivia il run precedente prima di azzerare
+            this.events.push(...this.currentRun);
+        }
+        this.currentRun = [];
+    },
+    record: function(evt) {
+        evt.ts = Date.now();
+        this.currentRun.push(evt);
+        if (evt.truncated) {
+            console.warn(
+                `%c⚠️ Troncamento rilevato`,
+                'color:orange;font-weight:bold',
+                `model=${evt.model} finishReason=${evt.finishReason} ` +
+                `out=${evt.candidateTokens}/${evt.requestedMax}tok`
+            );
+        }
+    },
+    summary: function(runOnly = true) {
+        const src = runOnly ? this.currentRun : [...this.events, ...this.currentRun];
+        const total = src.length;
+        const truncated = src.filter(e => e.truncated).length;
+        return {
+            calls: total,
+            truncated,
+            truncationRate: total ? Number((truncated / total).toFixed(3)) : 0,
+            byModel: src.reduce((acc, e) => {
+                if (!acc[e.model]) acc[e.model] = { calls: 0, truncated: 0 };
+                acc[e.model].calls++;
+                if (e.truncated) acc[e.model].truncated++;
+                return acc;
+            }, {})
+        };
+    }
+};
+
+// Estrae finishReason dalla response (sia Gemini nativo sia bridge Infomaniak)
+function _detectTruncation(response) {
+    const candidate = response?.candidates?.[0];
+    const finishReason = candidate?.finishReason || null;
+    // Gemini: "MAX_TOKENS" — Infomaniak/OpenAI: "length"
+    const truncated = finishReason === 'MAX_TOKENS' || finishReason === 'length';
+    return { finishReason, truncated };
+}
+
 window.fetchModelAPI = async function (payload, apiKey) {
     const modelEl = document.getElementById('model-select');
     let model = modelEl ? modelEl.value : null;
@@ -1639,8 +1964,36 @@ window.fetchModelAPI = async function (payload, apiKey) {
         model = localStorage.getItem(storageKey);
     }
     if (!model) {
-        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-nemo');
+        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
     }
+
+    // ── Gemini 2.5+: disabilita il thinking per fasi con budget ridotto ─────────
+    // Il thinking mode genera token interni PRIMA della risposta: consumano il
+    // budget silenziosamente anche per Phase 4/5 che usano output testuale (no
+    // responseMimeType). Rilevato: Phase 4 con 3842 token di thinking / 4000 budget
+    // → output 158 token (troncato). Stessa patologia su Phase 5 e Phase 1.5.
+    //
+    // SOGLIA 12288 (era 8192):
+    // - Fasi MindMap (budget 3000-8192): thinking disabilitato ✓
+    // - KG Community (budget ~16000 con ×2 su base 8000): thinking preservato ✓
+    //   (run 9/6: 38 nodi, 29 relTypes, 47.7% cross-links — qualità dipende dal thinking)
+    //
+    // CONDIZIONE responseMimeType RIMOSSA: Phase 4/5/1.5 usano output testuale
+    // (===MERGES===, ===RECLASSIFY===, array JSON raw) → non hanno responseMimeType
+    // ma subiscono comunque il problema thinking. La condizione li escludeva.
+    const _gcfg = payload?.generationConfig || {};
+    if (appState.aiProvider === 'google' &&
+        (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
+        (_gcfg.maxOutputTokens || 0) > 0 &&
+        (_gcfg.maxOutputTokens || 0) <= 12288) {
+        payload = {
+            ...payload,
+            generationConfig: { ..._gcfg, thinkingConfig: { thinkingBudget: 0 } }
+        };
+    }
+
+    // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
+    const requestedMax = payload?.generationConfig?.maxOutputTokens || null;
 
     if (window.electronAPI) {
         try {
@@ -1670,6 +2023,24 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 appState.generationUsage.candidateTokens += (response.usageMetadata.candidatesTokenCount || 0);
                 appState.generationUsage.totalTokens += (response.usageMetadata.totalTokenCount || 0);
                 window.updateCostDisplay();
+            }
+
+            // Strategia 0 — rilevamento troncamento finishReason
+            const { finishReason, truncated } = _detectTruncation(response);
+            window.MappAITruncationTracker.record({
+                model,
+                provider: appState.aiProvider,
+                finishReason,
+                truncated,
+                requestedMax,
+                promptTokens: response?.usageMetadata?.promptTokenCount || 0,
+                candidateTokens: response?.usageMetadata?.candidatesTokenCount || 0
+            });
+            // Annota il flag sulla response così salvageTruncatedJSON
+            // può loggare con contesto se il parse fallisce.
+            if (response && typeof response === 'object') {
+                response._mappaiTruncated = truncated;
+                response._mappaiFinishReason = finishReason;
             }
 
             return response;
@@ -2031,6 +2402,11 @@ window.handleFileUpload = async function (input, type) {
 }
 
 window.startGeneration = async function () {
+    // ========== PIPELINE A/B SELECTION ==========
+    const activePipeline = window.getPipeline();
+    appState.generationPipeline = activePipeline;
+    console.log(`[Generation Start] Pipeline: ${activePipeline} | Provider: ${appState.aiProvider} | Mode: ${appState.extractionMode}`);
+
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const inputId = isInfomaniak ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
     const storageKey = isInfomaniak ? 'infomaniak_api_key' : 'gemini_api_key';
@@ -2085,7 +2461,9 @@ window.startGeneration = async function () {
     var fileParts = [];
     var hasSources = false;
 
-    appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0, usedModel: document.getElementById('model-select').value };
+    appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0, usedModel: document.getElementById('model-select').value, usedProvider: appState.aiProvider };
+    // Strategia 0 — azzera il tracker troncamenti per la nuova generazione
+    if (window.MappAITruncationTracker) window.MappAITruncationTracker.reset();
 
     for (var i = 0; i < appState.sources.length; i++) {
         var src = appState.sources[i];
@@ -2257,7 +2635,17 @@ window.startGeneration = async function () {
             await extractMindMapIterative(textParts, fileParts, apiKey);
         }
     } else {
-        if (appState.multiPassMode) {
+        // Routing KG:
+        // - Google: Community mode è il DEFAULT (best quality, single-pass, bilanciato).
+        //   Per tornare al legacy: MappAIMetrics.disableCommunityKG() → scrive 'false'.
+        // - Infomaniak: legacy (multi/single-pass) è il DEFAULT.
+        //   Per attivare community: MappAIMetrics.enableCommunityKG() → scrive 'true'.
+        const communityFlag = localStorage.getItem('mappai_kg_community_mode');
+        const useCommunity = communityFlag === 'true' ||
+            (appState.aiProvider === 'google' && communityFlag !== 'false');
+        if (useCommunity) {
+            await extractKnowledgeGraphCommunity(textParts, fileParts, apiKey);
+        } else if (appState.multiPassMode) {
             await extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey);
         } else {
             await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
@@ -2318,7 +2706,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain" }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
             };
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
@@ -2347,20 +2735,33 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
+                              // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
                     type: "OBJECT",
                     properties: {
-                        label: { type: "STRING" },
-                        rel: { type: "STRING" }
+                        label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
+                        rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
+                        ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
+                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
+                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
                     },
                     required: ["label", "rel"]
                 }
             };
 
-            const payloadL1 = {
-                contents: [{ parts: [{ text: promptL1 }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
-            };
+            // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
+            // (il bridge li converte in un reminder testuale che spesso manda in confusione
+            // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
+            const payloadL1 = appState.aiProvider === 'infomaniak'
+                ? {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                  }
+                : {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                  };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
@@ -2383,6 +2784,44 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
 
+        // Fase 1.5 — validazione semantica delle macro-categorie (gated dal flag).
+        // Se trova sinonimi o meta-categorie, propone una lista raffinata.
+        // Se la validazione fallisce, mantiene la lista originale (no-op safe).
+        if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
+
+        // Fase 1.6 — split macro-categorie composte (gated dal flag mappai_l1_split_enabled).
+        // Pre-rami: spezza "Neutralità e Difesa" → "Neutralità" + "Difesa".
+        if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.6] split non bloccante:', e.message);
+            }
+        }
+
+        // Checkpoint L1 — materializza le macro-aree (cartella bus) e, se il flag
+        // mappai_l1_checkpoint_enabled è attivo, mette in pausa per la revisione umana
+        // prima di espandere i rami. Flag spento → no-op (proceed:true, dati invariati).
+        if (window.l1Checkpoint) {
+            const _cp = await window.l1Checkpoint(l1Data, { mode: 'mindmap' });
+            if (!_cp.proceed) {
+                window.showLoadingOverlay(false);
+                if (window.showToast) window.showToast('Generazione annullata al checkpoint L1', 'info');
+                return;
+            }
+            l1Data = _cp.l1Data;
+            window._mappaiRunId = _cp.runId;
+            window.showLoadingOverlay(true, 'Mappa HD: espansione dei rami...');
+        }
+
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
@@ -2390,18 +2829,27 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
+                // content: usa il label come fallback leggibile.
+                // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
                 content: item.label,
-                desc: `Categoria principale: ${item.label}`,
+                desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
                 chunks: [],
-                studyStatus: 'none'
+                studyStatus: 'none',
+                // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
+                // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
+                // duplicati cross-ramo e classificazioni errate.
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : '',
+                // Confini narrativi: cosa NON va in questo ramo (genera con PASS A, iniettato nel siblingCatalog).
+                confini: (typeof item.confini === 'string' && item.confini.trim()) ? item.confini.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
         const schemaBranch = {
             type: "OBJECT",
             properties: {
@@ -2414,10 +2862,10 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             label: { type: "STRING" },
                             content: { type: "STRING" },
                             desc: { type: "STRING" },
-                            level: { type: "INTEGER" },
-                            chunks: { type: "ARRAY", items: { type: "STRING" } }
+                            level: { type: "INTEGER" }
+                            // chunks rimosso (stesso motivo del multi-pass)
                         },
-                        required: ["id", "label", "content", "desc", "level", "chunks"]
+                        required: ["id", "label", "content", "desc", "level"]
                     }
                 },
                 links: {
@@ -2527,6 +2975,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 });
 
                 if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                    // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+                    window.stripChunksIfFrozen(branchData.nodes);
                     // Pre-calculate parent mapping from links to aggregate chunks
                     const parentMap = {};
                     if (branchData.links) {
@@ -2572,7 +3022,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                             lastNodeInBranch[l1Branch][n.level] = targetId;
                         }
 
-                        // Citations logic
+                        // Citations logic — priorità: chunks (se presenti) → desc → content
                         if (n.chunks && n.chunks.length > 0) {
                             let l1ParentName = "Documento";
                             let currentP = n.id;
@@ -2586,6 +3036,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                                 currentP = pId;
                             }
                             appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                        } else {
+                            // Fallback: chunks rimosso dallo schema → usa desc per sourcesDict
+                            // (necessario quando enrichThinDescs è disabilitato)
+                            const srcText = (n.desc || n.content || '').trim();
+                            if (srcText && !appState.db.sourcesDict[targetId]) {
+                                appState.db.sourcesDict[targetId] = [{ title: n.label || 'Nodo', source: 'Fonte analizzata', text: srcText }];
+                            }
                         }
                     });
                 }
@@ -2711,6 +3168,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             window.showToast("Errore durante la generazione dell'albero.", "error");
         }
 
+        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
+        }
+
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
@@ -2744,7 +3208,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain" }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
             };
             const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
@@ -2773,20 +3237,33 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
+                              // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
                     type: "OBJECT",
                     properties: {
-                        label: { type: "STRING" },
-                        rel: { type: "STRING" }
+                        label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
+                        rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
+                        ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
+                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
+                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
                     },
                     required: ["label", "rel"]
                 }
             };
 
-            const payloadL1 = {
-                contents: [{ parts: [{ text: promptL1 }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schemaL1 }
-            };
+            // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
+            // (il bridge li converte in un reminder testuale che spesso manda in confusione
+            // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
+            const payloadL1 = appState.aiProvider === 'infomaniak'
+                ? {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                  }
+                : {
+                    contents: [{ parts: [{ text: promptL1 }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                  };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
@@ -2808,24 +3285,71 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
         if (l1Data.length === 0) l1Data = [{ label: "Concetti Principali", rel: "include" }];
 
+        // Fase 1.5 — validazione semantica delle macro-categorie (gated dal flag).
+        // Se trova sinonimi o meta-categorie, propone una lista raffinata.
+        // Se la validazione fallisce, mantiene la lista originale (no-op safe).
+        if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.5] errore non bloccante:', e.message);
+            }
+        }
+
+        // Fase 1.6 — split macro-categorie composte (gated dal flag mappai_l1_split_enabled).
+        // Pre-rami: spezza "Neutralità e Difesa" → "Neutralità" + "Difesa".
+        if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
+            } catch (e) {
+                console.warn('[Phase 1.6] split non bloccante:', e.message);
+            }
+        }
+
+        // Checkpoint L1 — materializza le macro-aree (cartella bus) e, se il flag
+        // mappai_l1_checkpoint_enabled è attivo, mette in pausa per la revisione umana
+        // prima di espandere i rami. Flag spento → no-op (proceed:true, dati invariati).
+        if (window.l1Checkpoint) {
+            const _cp = await window.l1Checkpoint(l1Data, { mode: 'mindmap' });
+            if (!_cp.proceed) {
+                window.showLoadingOverlay(false);
+                if (window.showToast) window.showToast('Generazione annullata al checkpoint L1', 'info');
+                return;
+            }
+            l1Data = _cp.l1Data;
+            window._mappaiRunId = _cp.runId;
+            window.showLoadingOverlay(true, 'Mappa HD: espansione dei rami...');
+        }
+
         let l1NodesData = [];
         l1Data.forEach((item, idx) => {
             let l1Id = `L1_${idx}`;
             let nodeObj = {
                 id: l1Id,
                 label: item.label,
+                // content: usa il label come fallback leggibile.
+                // Verrà aggiornato da enrichL1Descs con la prima frase del desc ricco.
                 content: item.label,
-                desc: `Categoria principale: ${item.label}`,
+                desc: (typeof item.desc === 'string' && item.desc.trim()) ? item.desc.trim() : `Categoria principale: ${item.label}`,
                 level: 1,
                 group: idx + 1,
                 chunks: [],
-                studyStatus: 'none'
+                studyStatus: 'none',
+                // Ambito semantico: parole-chiave che descrivono cosa questa L1 deve
+                // contenere. Usato in Branch Boundaries, Phase 4 e Phase 5 per evitare
+                // duplicati cross-ramo e classificazioni errate.
+                ambito: (typeof item.ambito === 'string' && item.ambito.trim()) ? item.ambito.trim() : '',
+                // Confini narrativi: cosa NON va in questo ramo (genera con PASS A, iniettato nel siblingCatalog).
+                confini: (typeof item.confini === 'string' && item.confini.trim()) ? item.confini.trim() : ''
             };
             l1NodesData.push(nodeObj);
             appState.db.nodes.push(nodeObj);
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
         // Fase 3: Generazione dei rami Branch-by-Branch (Multi-Pass HD)
         const schemaBranch = {
             type: "OBJECT",
@@ -2839,10 +3363,13 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                             label: { type: "STRING" },
                             content: { type: "STRING" },
                             desc: { type: "STRING" },
-                            level: { type: "INTEGER" },
-                            chunks: { type: "ARRAY", items: { type: "STRING" } }
+                            level: { type: "INTEGER" }
+                            // chunks rimosso: era required → l'AI riproduceva testo verbatim
+                            // dalla fonte (con \n\n\n\n dal PDF) → inflation 8180/8192 tok
+                            // su rami lunghi. sourcesDict ora popolato da desc (fallback inline
+                            // + enrichThinDescs). sourceCov invariato.
                         },
-                        required: ["id", "label", "content", "desc", "level", "chunks"]
+                        required: ["id", "label", "content", "desc", "level"]
                     }
                 },
                 links: {
@@ -2882,9 +3409,47 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
         const normalizeId = (id) => typeof id === 'string' ? id.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '') : id;
 
+        // Strategia A — catalogo dei rami fratelli, da iniettare in ogni prompt Fase 3.
+        // Quando si espande il ramo X, mostra i label degli ALTRI L1 + il rel di ognuno.
+        // Il modello sa quali aree NON sono di sua competenza → evita di creare L2 che
+        // appartengono ad altri rami (problema undeveloped_branch).
+        // Gated dal feature flag mappai_branch_boundaries_enabled (default ON se non MM-specific issue).
+        const buildSiblingL1Catalog = (currentBranchId, completedL2s = {}) => {
+            if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return '';
+            const siblings = l1NodesData.filter(n => n.id !== currentBranchId);
+            if (siblings.length === 0) return '';
+            const lines = siblings.map(s => {
+                const ambitoPart = s.ambito ? ` — ambito: ${s.ambito}` : '';
+                // desc esclusa dal catalog: 40-60 parole × N fratelli saturano Apertus.
+                // confini (breve) è sufficiente come segnale di confine.
+                const confiniPart = s.confini ? `\n    confini: ${s.confini}` : '';
+                const l2Labels = completedL2s[s.id];
+                const statusPart = l2Labels && l2Labels.length > 0
+                    ? ` (GIÀ SVILUPPATO) — concetti già mappati: ${l2Labels.join(', ')}`
+                    : ` (ramo futuro — non anticiparlo)`;
+                return `- "${s.label}"${ambitoPart}${confiniPart}${statusPart}`;
+            }).join('\n');
+            return `\n\n⚠️ ALTRI RAMI DELLA MAPPA (NON di tua competenza):
+${lines}
+
+REGOLA TASSATIVA SUI CONFINI DI RAMO:
+Stai sviluppando SOLO il ramo "${currentBranchId}". Se un concetto rientra nell'AMBITO di un altro ramo qui sopra, NON crearlo come tuo sotto-nodo.
+
+REGOLA ANTI-DUPLICATI (critica per la qualità della mappa):
+I concetti elencati come "già mappati" nei rami GIÀ SVILUPPATI esistono già nella mappa. NON ricrearli con lo stesso label o un sinonimo diretto — se sono rilevanti per il tuo ramo, verranno collegati da crosslink nella fase successiva.
+
+Esempi di errori GRAVI da evitare:
+- Se stai sviluppando "Neutralità Statale" e ti vengono in mente "Oro Nazista" o "Commercio Germania", quelli rientrano in un ramo dedicato al commercio/oro: NON crearli qui.
+- Se stai sviluppando "Difesa Militare" e ti vengono in mente "Razionamento" o "Piano Wahlen", quelli appartengono al ramo economico: NON crearli qui.
+- Se un concetto contiene una PAROLA-CHIAVE che compare nell'AMBITO di un altro ramo (es. "oro" → ramo "Rapporto Oro Nazista"), quasi sempre appartiene a quel ramo.
+
+Quando un concetto è davvero al confine tra due rami, scegli quello che lo descrive più SPECIFICAMENTE per dominio (non per associazione superficiale).`;
+        };
+
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
         const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
+        const completedBranchL2s = {}; // { branchId: ['label1', 'label2', ...] } — aggiornato dopo ogni ramo
 
         // Inizializza tracciamento dei rami
         l1NodesData.forEach(n => {
@@ -2895,7 +3460,25 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const branch = l1NodesData[idx];
             window.showLoadingOverlay(true, `Mappa HD - Fase 3/3: Generazione Ramo "${branch.label}" (Ramo ${idx + 1}/${totalBranches})...`);
 
-            const promptBranch = `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
+            // ── Strategia 1A — JSONL per Infomaniak (gated da feature flag) ──
+            // Quando attivo: prompt JSONL sezionato + parser tollerante al troncamento.
+            // Altrimenti: prompt JSON monolitico originale + salvageTruncatedJSON.
+            const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled();
+
+            // Strategia A — calcola il catalogo dei rami fratelli per questo branch
+            const siblingCatalog = buildSiblingL1Catalog(branch.id, completedBranchL2s);
+
+            const promptBranch = useJSONL
+                ? window.buildBranchPromptJSONL(branch, {
+                    rootNodeLabel: appState.rootNodeLabel,
+                    maxMapLevel,
+                    userProfileStr,
+                    focusInjection,
+                    textParts,
+                    fileParts,
+                    siblingCatalog
+                })
+                : `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
 Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
@@ -2921,15 +3504,25 @@ Formato richiesto:
 }
 
 ${userProfileStr}
-${focusInjection}
+${focusInjection}${siblingCatalog}
+
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 
-            const payloadBranch = {
-                contents: [{ parts: [...fileParts, { text: promptBranch }] }],
-                systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
-                generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(3000) }
-            };
+            // In modalità JSONL rimuoviamo responseMimeType/responseSchema:
+            // Infomaniak non li supporta nativamente e in plain text il modello
+            // segue meglio le istruzioni di formato del prompt.
+            const payloadBranch = useJSONL
+                ? {
+                    contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                    systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi in JSONL sezionato come richiesto, una riga per oggetto.") }] },
+                    generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                  }
+                : {
+                    contents: [{ parts: [...fileParts, { text: promptBranch }] }],
+                    systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
+                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                  };
 
             try {
                 const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
@@ -2937,9 +3530,30 @@ ${textParts.join('\n\n')}`;
                 if (cand && cand.content && cand.content.parts) {
                     let rawText = cand.content.parts[0].text;
                     let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-                    let branchData = salvageTruncatedJSON(cleanText);
+
+                    let branchData;
+                    if (useJSONL) {
+                        // Path JSONL: parser tollerante che recupera anche output troncati
+                        const parsed = window.parseJSONLResponse(cleanText);
+                        branchData = { nodes: parsed.nodes, links: parsed.links };
+                        console.log(
+                            `%c[JSONL] Ramo "${branch.label}":`,
+                            'color:#10b981;font-weight:bold',
+                            `${parsed.nodes.length} nodi, ${parsed.links.length} link recuperati`,
+                            parsed.meta.partial ? `(⚠️ persi: ${parsed.meta.lost.nodes}N/${parsed.meta.lost.links}L)` : '✓ integro'
+                        );
+                        // Mostra esempi delle righe scartate per capire COSA è andato storto
+                        if (parsed.meta.lostSamples && parsed.meta.lostSamples.length) {
+                            console.warn('[JSONL] Esempi righe scartate:', parsed.meta.lostSamples);
+                        }
+                    } else {
+                        // Path JSON legacy + salvage
+                        branchData = salvageTruncatedJSON(cleanText);
+                    }
 
                     if (branchData.nodes && Array.isArray(branchData.nodes)) {
+                        // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+                        window.stripChunksIfFrozen(branchData.nodes);
                         // Pre-calcola parent mapping
                         const parentMap = {};
                         if (branchData.links) {
@@ -2949,7 +3563,11 @@ ${textParts.join('\n\n')}`;
                         branchData.nodes.forEach(n => {
                             n.id = normalizeId(n.id);
                             let existingNode = appState.db.nodes.find(x => normalizeId(x.id) === n.id);
-                            let realMatch = !existingNode ? appState.db.nodes.find(ex => normalizeLabel(ex.label) === normalizeLabel(n.label)) : null;
+                            // Non dedupare con il nodo L1 del ramo stesso: causerebbe un self-loop
+                            // (source=L1_X → target=L1_X) che viene scartato, svuotando il ramo.
+                            let realMatch = !existingNode ? appState.db.nodes.find(ex =>
+                                normalizeLabel(ex.label) === normalizeLabel(n.label) && ex.id !== branch.id
+                            ) : null;
 
                             let targetId = n.id;
                             if (existingNode) {
@@ -2985,10 +3603,16 @@ ${textParts.join('\n\n')}`;
                             if (!lastNodeInBranch[l1Branch]) lastNodeInBranch[l1Branch] = { 1: l1Branch };
                             lastNodeInBranch[l1Branch][n.level] = targetId;
 
-                            // Citazioni
+                            // Citazioni — priorità: chunks → desc → content
                             if (n.chunks && n.chunks.length > 0) {
                                 let l1ParentName = branch.label;
                                 appState.db.sourcesDict[targetId] = n.chunks.map(c => ({ title: "Testo di origine", source: l1ParentName, text: c }));
+                            } else {
+                                // Fallback desc (chunks rimosso dallo schema)
+                                const srcText = (n.desc || n.content || '').trim();
+                                if (srcText && !appState.db.sourcesDict[targetId]) {
+                                    appState.db.sourcesDict[targetId] = [{ title: n.label || 'Nodo', source: branch.label || 'Fonte analizzata', text: srcText }];
+                                }
                             }
                         });
                     }
@@ -3037,6 +3661,11 @@ ${textParts.join('\n\n')}`;
                         });
                     }
                 }
+
+                // Registra i label L2 di questo ramo per i rami successivi (anti-duplicati)
+                completedBranchL2s[branch.id] = appState.db.nodes
+                    .filter(n => n.level === 2 && appState.db.links.some(l => l.source === branch.id && l.target === n.id))
+                    .map(n => window.cleanLabel ? window.cleanLabel(n.label) : n.label);
             } catch (branchErr) {
                 console.error(`Errore nel ramo ${branch.label}:`, branchErr);
                 // Fallback auto-healing per questo ramo
@@ -3164,6 +3793,43 @@ ${textParts.join('\n\n')}`;
         // Deduplica i doppioni cross-ramo (es. "Corse agli armamenti" L1 vs
         // "Corsa agli armamenti" L5) trasformandoli in cross-link verso il nodo canonico.
         window.dedupeNodesAsCrossLinks();
+
+        // Fase 4 — consolidamento + cross-link semantici (Strategia B).
+        // Gated dal feature flag mappai_mm_phase4_enabled. Va eseguita DOPO il dedup
+        // deterministico (per non duplicare lavoro su sinonimi banali) e PRIMA del
+        // filtro link orfani (così cross-link nuovi vengono inclusi nella pulizia finale).
+        if (window.isPhase4Enabled && window.isPhase4Enabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Consolidamento finale (Fase 4)...');
+                await window.executePhase4Consolidation();
+            } catch (e) {
+                console.warn('[Phase4] Errore non bloccante:', e.message);
+            }
+        }
+
+        // Fase 5 — riclassificazione semantica (Pass 5).
+        // Riguarda i nodi L2/L3 e sposta quelli mal classificati sotto la L1 corretta.
+        // Va eseguita DOPO Phase 4 (così agisce su un grafo già consolidato).
+        if (window.isPhase5Enabled && window.isPhase5Enabled()) {
+            try {
+                window.showLoadingOverlay(true, 'Mappa HD - Riclassificazione (Fase 5)...');
+                await window.executePhase5Reclassification();
+            } catch (e) {
+                console.warn('[Phase5] Errore non bloccante:', e.message);
+            }
+        }
+
+        // Tree-sanitizer: impone single-parent, rimuove L1→L1, ricalcola livelli
+        // e group. Deterministico, zero AI. Solo su mindmap.
+        if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+
+        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
+        }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -3471,7 +4137,19 @@ function salvageTruncatedJSON(text) {
 
     // Tentativo 3: salvataggio da troncamento.
     // Funziona sia per radici oggetto {} sia per radici array [].
-    console.warn("[MappAI JSON] Parse fallito, tento il salvataggio del JSON troncato...");
+    // Diagnostica: l'ultimo evento del tracker ci dice se questo testo
+    // proviene da una risposta troncata (MAX_TOKENS / length).
+    const _lastTrunc = window.MappAITruncationTracker?.currentRun?.slice(-1)[0];
+    if (_lastTrunc?.truncated) {
+        console.warn(
+            "[MappAI JSON] Parse fallito → causa CONFERMATA: troncamento " +
+            `(finishReason=${_lastTrunc.finishReason}, ` +
+            `out=${_lastTrunc.candidateTokens}/${_lastTrunc.requestedMax}tok, ` +
+            `model=${_lastTrunc.model}). Salvataggio in corso..."`
+        );
+    } else {
+        console.warn("[MappAI JSON] Parse fallito (NON da troncamento). Tento il salvataggio...");
+    }
     let tempText = withQuotedKeys;
 
     while (tempText.length > 0) {
@@ -3532,6 +4210,1426 @@ function salvageTruncatedJSON(text) {
     throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// FREEZE CHUNK VERBATIM (preparazione STEP 2 — chunks extra-pass)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Interruttore reversibile (localStorage 'mappai_freeze_chunks'). Quando attivo,
+// i chunk verbatim NON vengono salvati: né su node.chunks (→ niente sezione
+// "## Fonti" nel vault), né in appState.db.sourcesDict (→ niente fonte nel modale).
+//
+// Implementazione: stripChunksIfFrozen() azzera n.chunks sugli oggetti nodo AI
+// GREZZI prima che vengano consumati. A valle, sia `chunks: n.chunks || []` sia
+// la popolazione di sourcesDict (entrambe leggono n.chunks) diventano no-op.
+//
+// NON tocca i prompt (i modelli continuano a generare chunk, ma vengono scartati)
+// né il caricamento dei vault esistenti (i chunk già salvati restano leggibili).
+// Comandi: MappAIMetrics.enableChunkFreeze() / .disableChunkFreeze() / .chunkFreezeStatus()
+window.areChunksFrozen = function () {
+    try { return localStorage.getItem('mappai_freeze_chunks') === '1'; }
+    catch (e) { return false; }
+};
+
+window.stripChunksIfFrozen = function (nodeArr) {
+    if (!Array.isArray(nodeArr) || !window.areChunksFrozen()) return nodeArr;
+    let stripped = 0;
+    nodeArr.forEach(n => {
+        if (n && typeof n === 'object' && Array.isArray(n.chunks) && n.chunks.length) {
+            n.chunks = [];
+            stripped++;
+        }
+    });
+    if (stripped) console.log(`[Freeze chunks] ${stripped} nodi: chunk verbatim scartati (non salvati)`);
+    return nodeArr;
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// JSONL parser (Strategia 1A — formato sezionato resistente al troncamento)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Formato atteso (output del modello):
+//
+//   ===NODES===
+//   {"id":"X","label":"A","level":2,"desc":"..."}
+//   {"id":"Y","label":"B","level":2,"desc":"..."}
+//   ===LINKS===
+//   {"source":"X","target":"Y","rel":"include"}
+//   {"source":"Y","target":"Z","rel":"causa"}
+//
+// Resilienza:
+//   - Riga JSON malformata → scartata, le altre sopravvivono
+//   - Troncamento a metà oggetto → si perde SOLO l'ultima riga di una sezione
+//   - Section header alterato (es. "## NODES ##") → fallback su euristica
+//   - Markdown ```...``` → rimosso automaticamente
+//
+// Restituisce: { nodes, links, meta: { recovered, lost, partial, sections } }
+window.parseJSONLResponse = function (text) {
+    const meta = { recovered: { nodes: 0, links: 0 }, lost: { nodes: 0, links: 0 }, partial: false, sections: [] };
+    if (typeof text !== 'string' || !text.trim()) {
+        return { nodes: [], links: [], meta };
+    }
+
+    // Pulizia preliminare: rimuovi fence markdown
+    let cleaned = text
+        .replace(/```jsonl?\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+    // Trova i marker di sezione (tollerante a varianti: ===NODES=== / ## NODES ## / [NODES])
+    // Riconosce: NODES, LINKS, EDGES, RELATIONS, MERGES, CROSSLINKS (alias CROSS_LINKS, CROSS-LINKS).
+    const sectionRegex = /(?:^|\n)\s*(?:===+|##+|\[)\s*(NODES?|LINKS?|EDGES?|RELATIONS?|MERGES?|CROSS[-_ ]?LINKS?)\s*(?:===+|##+|\])\s*(?:\n|$)/gi;
+    const markers = [];
+    let m;
+    const classifyKind = (label) => {
+        const u = label.toUpperCase().replace(/[-_ ]/g, '');
+        if (u === 'NODE' || u === 'NODES') return 'nodes';
+        if (u === 'MERGE' || u === 'MERGES') return 'merges';
+        if (u === 'CROSSLINK' || u === 'CROSSLINKS') return 'crosslinks';
+        return 'links'; // LINKS, EDGES, RELATIONS
+    };
+    while ((m = sectionRegex.exec(cleaned)) !== null) {
+        markers.push({ kind: classifyKind(m[1]), start: m.index, headerEnd: m.index + m[0].length });
+    }
+
+    // Normalizza le chiavi di un oggetto: rimuove spazi iniziali/finali.
+    // Mistral Small produce sistematicamente "id ", "label ", "content " con
+    // uno spazio finale → senza questo, obj.id sarebbe undefined.
+    // Idempotente: se le chiavi sono già pulite, restituisce l'oggetto invariato
+    // (no allocazione extra) per non penalizzare i provider corretti.
+    const normalizeKeys = (obj) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+        let needsRebuild = false;
+        for (const k of Object.keys(obj)) {
+            if (k !== k.trim()) { needsRebuild = true; break; }
+        }
+        if (!needsRebuild) return obj;
+        const out = {};
+        for (const k of Object.keys(obj)) out[k.trim()] = obj[k];
+        return out;
+    };
+
+    const parseLine = (line) => {
+        const s = line.trim();
+        if (!s || s.startsWith('//') || s.startsWith('#')) return null;
+        // Rimuovi commenti in coda: "} // nota", "} # nota", "} <!-- nota -->"
+        const noComment = s.replace(/\}\s*\/\/.*$/, '}').replace(/\}\s*#.*$/, '}').replace(/\}\s*<!--.*?-->\s*$/, '}').replace(/\}\s*<!--.*$/, '}').trim();
+        // Normalizza chiavi con spazi ("desc ": → "desc":) prodotte da Mistral
+        const spaceFixed = noComment.replace(/"([^"]+)"\s*:/g, (_, k) => '"' + k.trim() + '":');
+        const trimmed = spaceFixed.replace(/,\s*$/, '');
+
+        // Tentativo 1: parse diretto
+        try {
+            return normalizeKeys(JSON.parse(trimmed));
+        } catch (e1) { /* fall through */ }
+
+        // Tentativo 2: double-escape recovery (pattern frequente Mistral Small).
+        // Il modello produce {\"id\":\"X\"} invece di {"id":"X"}. Rimuoviamo i
+        // backslash davanti alle virgolette e riproviamo.
+        if (trimmed.includes('\\"')) {
+            try {
+                const unescaped = trimmed.replace(/\\"/g, '"');
+                return normalizeKeys(JSON.parse(unescaped));
+            } catch (e2) { /* fall through */ }
+        }
+
+        // Tentativo 3: parser ha visto `\n` letterale dentro stringhe (errore tipico
+        // quando il modello mette newline reale invece di \\n). Sostituisce \n con
+        // spazio e riprova. Pattern visto su Mistral: "desc":"...\nseguito..."
+        if (trimmed.includes('\n')) {
+            try {
+                const inlined = trimmed.replace(/\n/g, ' ');
+                return normalizeKeys(JSON.parse(inlined));
+            } catch (e3) { /* fall through */ }
+        }
+
+        return undefined; // undefined = riga rotta (vs null = riga vuota)
+    };
+
+    // Estendi meta.recovered/lost per tutte le sezioni note
+    ['merges', 'crosslinks'].forEach(k => {
+        if (meta.recovered[k] === undefined) meta.recovered[k] = 0;
+        if (meta.lost[k] === undefined) meta.lost[k] = 0;
+    });
+    meta.lostSamples = meta.lostSamples || []; // primi 3 esempi di righe scartate
+
+    // Validazione per tipo: rifiuta oggetti che mancano dei campi minimi.
+    // Un nodo senza id o label è inutilizzabile (il consumer chiama normalizeLabel
+    // e normalizeId che esplodono su undefined). Un link senza source/target è
+    // irrilevante. I merges e crosslinks hanno requisiti propri.
+    const isValid = (obj, kind) => {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+        switch (kind) {
+            case 'nodes':      return typeof obj.id === 'string' && obj.id.trim()
+                                   && typeof obj.label === 'string' && obj.label.trim();
+            case 'links': {
+                if (typeof obj.source !== 'string' || !obj.source.trim()) return false;
+                if (typeof obj.target !== 'string' || !obj.target.trim()) return false;
+                // Filtra i "ghost link" di Apertus: usa "L5", "L4", "L3" ecc. come
+                // placeholder generici per le foglie invece di ID reali. Pattern: target
+                // è esattamente "L5" (o L4/L3/L2) oppure contiene "*" o "non specificato".
+                const t = obj.target.trim();
+                if (/^L\d+$/.test(t)) return false;
+                if (t.includes('*') || t.toLowerCase().includes('non specificato')) return false;
+                return true;
+            }
+            case 'merges':     return typeof obj.keep === 'string' && typeof obj.drop === 'string';
+            case 'crosslinks': return typeof obj.source === 'string' && typeof obj.target === 'string';
+            default:           return true;
+        }
+    };
+
+    const parseSection = (raw, kind) => {
+        const lines = raw.split('\n');
+        const out = [];
+        let lost = 0;
+        for (const line of lines) {
+            const r = parseLine(line);
+            if (r === null) continue;            // riga vuota/commento → ignora
+            const trimmed = line.trim();
+            if (r === undefined) {
+                // riga JSON malformato → sample per debug
+                lost++;
+                if (meta.lostSamples.length < 3 && trimmed) {
+                    meta.lostSamples.push({ kind, reason: 'json invalido', sample: trimmed.slice(0, 120) });
+                }
+                continue;
+            }
+            if (!isValid(r, kind)) {
+                // Apertus a volte "narra" le foglie invece di ometterle: emette un oggetto
+                // link con target assente/null e un commento esplicativo
+                // (es. {"source":"L1_2_L3_A1","target":null} // Foglia: no figli).
+                // Non è un link perso: è un modo (maldestro) di dire "qui non c'è link".
+                // Lo scartiamo senza contarlo come "lost" per non inquinare le metriche
+                // di recupero con falsi positivi (il grafo non ne risente: era già filtrato).
+                if (kind === 'links' && typeof r.source === 'string' && r.source.trim()
+                    && (r.target === null || r.target === undefined)) {
+                    continue;
+                }
+                lost++;
+                if (meta.lostSamples.length < 3) {
+                    meta.lostSamples.push({ kind, reason: 'campi obbligatori mancanti', sample: trimmed.slice(0, 120) });
+                }
+                continue;
+            }
+            out.push(r);
+        }
+        meta.recovered[kind] = (meta.recovered[kind] || 0) + out.length;
+        meta.lost[kind] = (meta.lost[kind] || 0) + lost;
+        meta.sections.push({ kind, recovered: out.length, lost });
+        return out;
+    };
+
+    if (markers.length === 0) {
+        // Fallback: nessun marker trovato → prova a interpretare TUTTO come nodi
+        // (es. il modello ha solo prodotto nodi senza header). Distingue nodes da
+        // links guardando le chiavi: se ha "source"+"target" → link.
+        const allParsed = cleaned.split('\n').map(parseLine).filter(o => o && typeof o === 'object');
+        const nodes = [], links = [];
+        for (const obj of allParsed) {
+            if (obj.source && obj.target) links.push(obj);
+            else if (obj.id) nodes.push(obj);
+        }
+        meta.recovered.nodes = nodes.length;
+        meta.recovered.links = links.length;
+        meta.partial = true; // no header → output non standard
+        return { nodes, links, meta };
+    }
+
+    // Itera le sezioni in ordine, ognuna delimitata dall'inizio della successiva
+    const sortedMarkers = [...markers].sort((a, b) => a.start - b.start);
+    const nodes = [], links = [], merges = [], crosslinks = [];
+    const bucket = { nodes, links, merges, crosslinks };
+    for (let i = 0; i < sortedMarkers.length; i++) {
+        const mk = sortedMarkers[i];
+        const end = (i + 1 < sortedMarkers.length) ? sortedMarkers[i + 1].start : cleaned.length;
+        const body = cleaned.slice(mk.headerEnd, end);
+        const items = parseSection(body, mk.kind);
+        bucket[mk.kind].push(...items);
+    }
+
+    // Se ci sono righe perse, marca come parziale (il chiamante può loggarlo)
+    if (Object.values(meta.lost).some(v => v > 0)) meta.partial = true;
+
+    return { nodes, links, merges, crosslinks, meta };
+};
+
+// Costruisce il prompt di espansione ramo nel formato JSONL sezionato.
+// Mantiene tutte le regole del prompt JSON originale (id, label, content,
+// desc, level, chunks) ma cambia il formato di output per resistere al
+// troncamento. Usato in extractMindMapMultiPass quando isJSONLEnabled().
+window.buildBranchPromptJSONL = function (branch, opts) {
+    const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts, siblingCatalog } = opts;
+    const sc = siblingCatalog || '';
+
+    // ── C: Carta del ramo (gated dal flag branch boundaries; graceful se i campi mancano) ──
+    const _ambitoPart = branch.ambito ? `\n- Ambito (concetti che DEVONO stare qui): ${branch.ambito}` : '';
+    const _descPart = (branch.desc && !/^Categoria principale:/.test(branch.desc)) ? `\n- Descrizione: ${branch.desc}` : '';
+    const _confiniPart = branch.confini ? `\n- Confini (NON sconfinare negli altri rami): ${branch.confini}` : '';
+    const charter = (window.isBranchBoundariesEnabled && window.isBranchBoundariesEnabled() && (_ambitoPart || _descPart || _confiniPart))
+        ? `\n📋 CARTA DEL RAMO "${branch.label}" — resta rigorosamente dentro questi confini:${_descPart}${_ambitoPart}${_confiniPart}\nApplica questi confini nelle tue scelte SENZA commentarli nell'output — niente note, spiegazioni o premesse: genera solo nodi e link.\n`
+        : '';
+
+    // ── D: Linking words significative (gated dal flag mappai_rich_rel_enabled) ──
+    const relGuide = (window.isRichRelEnabled && window.isRichRelEnabled())
+        ? `
+🔗 LINKING WORDS — OGNI ARCO È UNA PROPOSIZIONE (stile concept-map)
+Il campo "rel" NON deve quasi mai essere "include". Scegli il verbo/locuzione che rende la frase "GENITORE → rel → FIGLIO" una proposizione VERA e leggibile, supportata dalla fonte. Pesca dal vocabolario per famiglia:
+- Causa/effetto: causa, provoca, genera, determina, porta a, alimenta
+- Dipendenza/prerequisito: richiede, dipende da, è condizione di, permette
+- Sequenza/processo: precede, segue, deriva da, evolve in
+- Regolazione/controllo: regola, governa, guida, limita, sostiene
+- Opposizione/contrasto: si oppone a, contrasta, ostacola, smaschera, condanna
+- Contenimento (SOLO se non esiste relazione più precisa): comprende, è formato da, è esempio di, fa parte di
+Evita "include"/"correlato a" salvo pura appartenenza gerarchica.
+`
+        : '';
+
+    return `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
+Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
+${charter}
+ISTRUZIONI PER IL RAMO:
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
+2. Ciascun sotto-nodo generato deve definire:
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
+   - "label": titolo sintetico e focalizzato (max 3 parole).
+   - "content": sintesi didattica brevissima (max 10 parole).
+   - "desc": paragrafo descrittivo approfondito e chiaro (da 50 a 80 parole). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
+   - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
+   - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
+3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare connessioni trasversali verso nodi di altri rami — quelle verranno aggiunte in una fase successiva.
+${relGuide}
+⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
+NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
+
+===NODES===
+{"id":"${branch.id}_L2_A","label":"Esempio","content":"breve (max 10 parole)","desc":"paragrafo descrittivo specifico e denso di 50-80 parole con dati concreti","level":2,"chunks":["citazione verbatim dalla fonte"]}
+{"id":"${branch.id}_L2_B","label":"Altro","content":"breve","desc":"...","level":2,"chunks":["..."]}
+===LINKS===
+{"source":"${branch.id}","target":"${branch.id}_L2_A","rel":"${(window.isRichRelEnabled && window.isRichRelEnabled()) ? 'comprende' : 'include'}"}
+{"source":"${branch.id}_L2_A","target":"${branch.id}_L3_A1","rel":"${(window.isRichRelEnabled && window.isRichRelEnabled()) ? 'è condizione di' : 'include'}"}
+
+REGOLE TASSATIVE SUL FORMATO:
+- UN oggetto JSON PER RIGA, niente array racchiudenti, niente virgole tra le righe
+- Header sezione esattamente "===NODES===" e "===LINKS===" (tre uguali, maiuscolo)
+- Nessun commento, nessun markdown, nessun testo prima o dopo le sezioni
+- Se vai a capo dentro una stringa devi escaparlo come \\n
+- Le CHIAVI JSON devono essere ESATTAMENTE: id, label, content, desc, level, chunks (senza spazi, senza spazi finali — NON "id ", NON "label ")
+- Ogni virgoletta " dentro un valore stringa DEVE essere escapata come \\" (es: "desc":"Il \\"piano Wahlen\\" del 1940...")
+- NIENTE prosa libera: se non sai cosa scrivere per un campo, scrivi "" (stringa vuota), NON una frase descrittiva fuori dal JSON
+- Ogni riga deve INIZIARE con "{" e FINIRE con "}" — niente eccezioni
+- ⛔ FOGLIE: i nodi foglia (livello ${maxMapLevel}) NON hanno figli — NON scrivere nessun link con "source" uguale all'ID di una foglia. NON usare "L5", "L${maxMapLevel}" o qualsiasi placeholder come "target" — usa solo ID reali definiti nella sezione NODES
+- ⛔ NESSUN link con "target": null, "target": "L5", o "target" che contiene "*" — questi verranno scartati
+
+${userProfileStr}
+${focusInjection}${sc}
+
+FONTI DA ANALIZZARE:
+${textParts.join('\n\n')}`;
+};
+
+// Feature flag — abilita JSONL solo per Infomaniak e solo se opt-in via localStorage.
+// Attivazione: localStorage.setItem('mappai_jsonl_enabled', '1')
+// Disattivazione: localStorage.removeItem('mappai_jsonl_enabled')
+window.isJSONLEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_jsonl_enabled') === '1'
+            && appState?.aiProvider === 'infomaniak';
+    } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 4 — Consolidamento + Cross-link (Strategia B)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo che tutti i rami sono stati generati e il dedup deterministico è già
+// passato, una chiamata AI riceve il grafo completo (id+label+desc[0:60])
+// e produce due tipi di operazioni:
+//   - MERGES: coppie (keep, drop) di nodi semanticamente equivalenti
+//   - CROSSLINKS: relazioni tematiche tra rami diversi (causa, prerequisito, etc)
+//
+// Il risultato passa per `executeMerge` esistente (già robusto) per i merge
+// e per push diretto su appState.db.links per i cross-link, con validazione
+// (ID esistenti, no self-loop, no duplicati).
+//
+// Gated dal feature flag mappai_mm_phase4_enabled.
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 1.5 — Validazione semantica delle macro-categorie L1
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo che la Fase 1 ha prodotto la lista degli L1, una chiamata AI rapida
+// verifica i tre antipattern più comuni e propone fusioni/sostituzioni:
+//
+//   - SINONIMI: due L1 che esprimono lo stesso concetto
+//   - META-CATEGORIE: L1 che parlano del "come" invece che del "cosa"
+//   - SOTTO-CAMPI dello stesso campo: 3 L1 tutte militari, ecc.
+//
+// L'output del Pass 1.5 sostituisce l1Data prima della costruzione di
+// l1NodesData. Se la validazione fallisce o produce output invalido,
+// degrada silenziosamente all'output originale (nessun crash).
+//
+// Gated dal feature flag mappai_l1_validation_enabled.
+
+window.isL1ValidationEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_l1_validation_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Fase 1.6 — split macro-categorie composte ("Neutralità e Difesa" → due aree atomiche).
+// Pre-rami, quindi sicuro: nessun figlio da ridistribuire.
+// Gated dal feature flag mappai_l1_split_enabled.
+window.isL1SplitEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_l1_split_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// STRATEGIA A — Confini di ramo (catalogo L1 fratelli nei prompt Fase 3)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Inietta nel prompt di espansione ogni ramo la lista dei rami fratelli.
+// Il modello sa quali concetti NON sono di sua competenza → riduce i
+// duplicati cross-ramo (undeveloped_branch) e migliora la classificazione
+// L2/L3 nelle macro-aree corrette.
+//
+// Gated dal feature flag mappai_branch_boundaries_enabled.
+
+window.isBranchBoundariesEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_branch_boundaries_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Linking words significative su ogni arco (stile concept-map): inietta il vocabolario
+// dei verbi nel prompt di ramo. Vale per entrambi i provider, solo in mindmap.
+// Gated dal feature flag mappai_rich_rel_enabled.
+window.isRichRelEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_rich_rel_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// EMBEDDING-DRIVEN SEMANTIC DEDUP (deterministico, no LLM)
+// ──────────────────────────────────────────────────────────────────────────
+// Google (gemini-embedding-001) o Infomaniak (bge-multilingual-gemma2),
+// a seconda del provider attivo. Cosine similarity > threshold → merge
+// automatico via window.executeMerge.
+window.isSemanticDedupEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_semantic_dedup_enabled') === '1'
+            && (appState?.aiProvider === 'google' || appState?.aiProvider === 'infomaniak')
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+window.fetchEmbeddings = async function (texts, model) {
+    if (!Array.isArray(texts) || texts.length === 0) return [];
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) throw new Error('API key mancante');
+
+    if (appState.aiProvider === 'google') {
+        if (!window.electronAPI?.generateEmbeddingsGoogle) {
+            throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
+        }
+        const result = await window.electronAPI.generateEmbeddingsGoogle({
+            apiKey,
+            model: model || 'gemini-embedding-001',
+            texts
+        });
+        return result?.embeddings || [];
+    }
+
+    if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
+        throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
+    }
+    const productId = appState.infomaniakProductId
+        || document.getElementById('infomaniak-product-id')?.value
+        || localStorage.getItem('infomaniak_product_id');
+    if (!productId) throw new Error('Infomaniak product ID mancante');
+    const result = await window.electronAPI.generateEmbeddingsInfomaniak({
+        apiKey, productId,
+        model: model || 'bge_multilingual_gemma2',
+        texts
+    });
+    return result?.embeddings || [];
+};
+
+window.cosineSimilarity = function (a, b) {
+    if (!a || !b || a.length !== b.length) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        na  += a[i] * a[i];
+        nb  += b[i] * b[i];
+    }
+    const denom = Math.sqrt(na) * Math.sqrt(nb);
+    return denom > 0 ? dot / denom : 0;
+};
+
+window.executeSemanticDedup = async function (options = {}) {
+    const { threshold = 0.85, maxMerges = 15 } = options;
+    const report = { embeddingsRequested: 0, candidatesFound: 0, applied: 0, skipped: 0, errors: [] };
+
+    const nodes = (appState.db.nodes || []).filter(n => n.level >= 2);
+    if (nodes.length < 4) {
+        console.log('[SemanticDedup] Mappa troppo piccola — skip');
+        return report;
+    }
+
+    const texts = nodes.map(n => {
+        const desc = (n.desc || n.content || '').replace(/\s+/g, ' ').slice(0, 100);
+        return `${n.label}. ${desc}`.trim();
+    });
+    report.embeddingsRequested = texts.length;
+
+    let embs;
+    try {
+        embs = await window.fetchEmbeddings(texts);
+    } catch (e) {
+        console.warn('[SemanticDedup] Fetch embeddings fallito:', e.message);
+        report.errors.push(e.message);
+        return report;
+    }
+    if (embs.length !== nodes.length) {
+        console.warn(`[SemanticDedup] Mismatch: ${embs.length} embeddings vs ${nodes.length} nodi`);
+        return report;
+    }
+
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    const parentOf = new Map();
+    appState.db.links.forEach(l => {
+        const { src, tgt } = getId(l);
+        if (!parentOf.has(tgt)) parentOf.set(tgt, src);
+    });
+    const nodeMapById = new Map(appState.db.nodes.map(n => [n.id, n]));
+    const l1Of = (nodeId) => {
+        let cur = nodeId, hops = 0;
+        while (cur && hops < 10) {
+            const n = nodeMapById.get(cur);
+            if (!n) return null;
+            if (n.level === 1) return n.id;
+            cur = parentOf.get(cur);
+            hops++;
+        }
+        return null;
+    };
+
+    const candidates = [];
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const sim = window.cosineSimilarity(embs[i], embs[j]);
+            if (sim < threshold) continue;
+            const l1i = l1Of(nodes[i].id), l1j = l1Of(nodes[j].id);
+            if (l1i && l1j && l1i === l1j) continue;
+            candidates.push({ a: nodes[i], b: nodes[j], sim, l1a: l1i, l1b: l1j });
+        }
+    }
+    candidates.sort((x, y) => y.sim - x.sim);
+    report.candidatesFound = candidates.length;
+
+    const consumed = new Set();
+    for (const c of candidates.slice(0, maxMerges)) {
+        if (consumed.has(c.a.id) || consumed.has(c.b.id)) { report.skipped++; continue; }
+        let keep = c.a, drop = c.b;
+        if (c.b.level < c.a.level) { keep = c.b; drop = c.a; }
+        else if (c.b.level === c.a.level && c.b.label.length > c.a.label.length) { keep = c.b; drop = c.a; }
+        try {
+            window.executeMerge(drop, keep);
+            consumed.add(drop.id);
+            report.applied++;
+            console.log(`%c[SemanticDedup] merge: "${drop.label}" → "${keep.label}" (sim=${c.sim.toFixed(3)})`, 'color:#10b981');
+        } catch (e) {
+            report.errors.push(e.message);
+            report.skipped++;
+        }
+    }
+    console.log('%c[SemanticDedup] Completato', 'color:#10b981;font-weight:bold', report);
+    return report;
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// FASE 5 — Riclassificazione semantica
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Dopo Phase 4, riguarda i nodi L2/L3 e propone spostamenti se sono finiti
+// sotto una L1 sbagliata. Differenza con Phase 4:
+//   - Phase 4 FONDE nodi (rimuove A, tiene B) e aggiunge cross-link
+//   - Phase 5 SPOSTA il parent di un nodo (cambia l'L1 di appartenenza)
+//
+// Esempio reale dai run: "Minaccia invasione" appare sotto Neutralità Statale
+// e Difesa Territoriale → Phase 5 sposta uno dei due sotto l'L1 corretta.
+//
+// Gated dal feature flag mappai_mm_phase5_enabled.
+
+window.isPhase5Enabled = function () {
+    try {
+        return localStorage.getItem('mappai_mm_phase5_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Costruisce il prompt Fase 5. Per ogni nodo non-L0/L1 mostra il PATH
+// gerarchico (es. "Svizzera > Difesa Territoriale > L2 > L3") + l'elenco
+// degli L1 esistenti con il loro "ambito" (i loro figli diretti).
+window.buildPhase5Prompt = function (nodes, links, l1NodesData) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    // parent diretto di ogni nodo (primo source nei link che lo puntano)
+    const parentOf = new Map();
+    for (const l of links) {
+        const { src, tgt } = getId(l);
+        if (!parentOf.has(tgt)) parentOf.set(tgt, src);
+    }
+    // L1 di appartenenza (risale finché non trova un L1)
+    const l1Of = (nodeId) => {
+        let cur = nodeId, hops = 0;
+        while (cur && hops < 10) {
+            const n = nodeMap.get(cur);
+            if (!n) return null;
+            if (n.level === 1) return n.id;
+            cur = parentOf.get(cur);
+            hops++;
+        }
+        return null;
+    };
+
+    // Costruisci catalogo L1 con AMBITO semantico (se disponibile) + figli diretti
+    const l1Catalog = l1NodesData.map(l1 => {
+        const directChildren = links
+            .filter(l => getId(l).src === l1.id)
+            .map(l => nodeMap.get(getId(l).tgt))
+            .filter(n => n && n.level === 2)
+            .map(n => `"${n.label}"`)
+            .slice(0, 8);
+        const ambitoPart = l1.ambito ? `\n    ambito: ${l1.ambito}` : '';
+        return `- ${l1.id} "${l1.label}"${ambitoPart}\n    contiene: ${directChildren.join(', ') || '(nessun figlio L2)'}`;
+    }).join('\n');
+
+    // Lista compatta dei nodi candidati alla riclassificazione (L2 e L3)
+    const candidates = nodes
+        .filter(n => n.level === 2 || n.level === 3)
+        .map(n => {
+            const myL1 = l1Of(n.id);
+            const l1Label = nodeMap.get(myL1)?.label || '?';
+            return `- ${n.id} (L${n.level}) "${n.label}" — attualmente sotto L1 "${l1Label}" (${myL1})`;
+        })
+        .join('\n');
+
+    return `Sei un VALIDATORE DI CLASSIFICAZIONE per Mappe Mentali su "${appState.rootNodeLabel}".
+Ti viene mostrata la struttura della mappa: gli L1 esistenti (con il loro ambito) e i nodi L2/L3 con la loro attuale appartenenza.
+Il tuo compito è IDENTIFICARE i nodi L2/L3 che sono finiti sotto la L1 SBAGLIATA e proporre uno spostamento.
+
+⚠️ REGOLA PRIMARIA — DEFAULT: NESSUNA RICLASSIFICAZIONE
+Nella maggioranza dei casi i nodi sono già nel posto giusto. Proponi uno spostamento SOLO se sei SICURO al 90%+ che il nodo appartenga più chiaramente a un'altra L1. In dubbio NON toccare.
+
+L1 ESISTENTI (e i loro ambiti tematici, dedotti dai figli L2):
+${l1Catalog}
+
+NODI CANDIDATI ALLA VALUTAZIONE (L2 e L3):
+${candidates}
+
+CRITERI DI RICLASSIFICAZIONE:
+- Un nodo va spostato SOLO se la sua appartenenza tematica all'L1 di destinazione è NETTAMENTE più appropriata di quella attuale.
+- "Minaccia invasione" appartiene a "Difesa Territoriale" più che a "Neutralità Statale" (la minaccia è il presupposto della difesa, non della neutralità).
+- "Razionamento" appartiene a "Economia di Guerra" più che a "Difesa Militare".
+- NON spostare un nodo se l'L1 attuale è "altrettanto valida" come destinazione.
+- NON spostare L1 (sono la base).
+- Massimo 8 riclassificazioni per chiamata.
+
+FORMATO OUTPUT — TASSATIVO:
+JSONL sezionato, ogni operazione su una riga. Niente markdown, niente commenti.
+
+===RECLASSIFY===
+{"node_id":"ID_DEL_NODO","from":"L1_ATTUALE","to":"L1_DESTINAZIONE","reason":"motivazione breve"}
+{"node_id":"X","from":"L1_2","to":"L1_4","reason":"appartiene tematicamente a..."}
+
+Se non trovi nodi mal classificati, restituisci una sola riga:
+===RECLASSIFY===
+(e basta — nessuna operazione)`;
+};
+
+// Esegue Phase 5. Per ogni riclassificazione valida:
+//   1. Rimuove il link parent_attuale → node
+//   2. Aggiunge il link nuovo_L1 → node
+//   3. Aggiorna il group del nodo (e propaga al sottoalbero se serve)
+window.executePhase5Reclassification = async function () {
+    const report = { applied: 0, skipped: 0, errors: [], parser: null };
+
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) {
+        console.warn('[Phase5] API key non disponibile — skip');
+        return report;
+    }
+
+    const nodes = appState.db.nodes || [];
+    const links = appState.db.links || [];
+    const l1NodesData = nodes.filter(n => n.level === 1);
+    if (l1NodesData.length < 2 || nodes.length < 8) {
+        console.log('[Phase5] Mappa troppo piccola per riclassificazione — skip');
+        return report;
+    }
+
+    const prompt = window.buildPhase5Prompt(nodes, links, l1NodesData);
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: 'Sei un validatore di classificazione. Rispondi SOLO in JSONL sezionato come richiesto, default = nessuna riclassificazione.' }] },
+        generationConfig: { temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(1500) }
+    };
+
+    let response;
+    try {
+        response = await window.fetchModelAPI(payload, apiKey);
+    } catch (e) {
+        console.warn('[Phase5] Chiamata AI fallita:', e.message);
+        report.errors.push(e.message);
+        return report;
+    }
+
+    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Riutilizzo parseJSONLResponse esteso (riconosce sezioni custom):
+    // estraggo manualmente la sezione RECLASSIFY perché non rientra in NODES/LINKS/MERGES/CROSSLINKS.
+    const reclassifyOps = [];
+    const cleaned = text.replace(/```jsonl?\s*/gi, '').replace(/```\s*/g, '').trim();
+    const sectionMatch = /===\s*RECLASSIFY\s*===\s*\n([\s\S]*?)(?:\n===|\s*$)/i.exec(cleaned);
+    if (sectionMatch) {
+        for (const line of sectionMatch[1].split('\n')) {
+            const s = line.trim();
+            if (!s || s.startsWith('//')) continue;
+            try {
+                const obj = JSON.parse(s.replace(/,\s*$/, ''));
+                if (obj && typeof obj.node_id === 'string' && typeof obj.to === 'string') {
+                    reclassifyOps.push(obj);
+                }
+            } catch (e) { /* riga rotta, skip */ }
+        }
+    }
+    report.parser = { found: reclassifyOps.length };
+
+    if (reclassifyOps.length === 0) {
+        console.log('%c[Phase5] Nessuna riclassificazione proposta — mappa già coerente', 'color:#10b981');
+        return report;
+    }
+
+    // Indice nodi e helper
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const nodeByIdNorm = new Map(nodes.map(n => [String(n.id).toUpperCase(), n.id]));
+    const getId = l => ({
+        src: typeof l.source === 'object' ? l.source.id : l.source,
+        tgt: typeof l.target === 'object' ? l.target.id : l.target
+    });
+    const resolveId = (raw) => nodeByIdNorm.get(String(raw || '').toUpperCase());
+
+    // Helper: conta i figli L2 di un L1 (sottoalbero diretto)
+    const countL2Children = (l1Id) => appState.db.links.filter(l => {
+        const { src, tgt } = getId(l);
+        if (src !== l1Id) return false;
+        const tgtNode = nodeById.get(tgt);
+        return tgtNode && tgtNode.level === 2;
+    }).length;
+
+    // Applica al massimo 8 riclassificazioni
+    for (const op of reclassifyOps.slice(0, 8)) {
+        try {
+            const nodeId = resolveId(op.node_id);
+            const toL1Id = resolveId(op.to);
+            const node = nodeId ? nodeById.get(nodeId) : null;
+            const toL1 = toL1Id ? nodeById.get(toL1Id) : null;
+            if (!node || !toL1) {
+                report.skipped++;
+                report.errors.push(`ID non trovato: node=${op.node_id} to=${op.to}`);
+                continue;
+            }
+            if (toL1.level !== 1) {
+                report.skipped++;
+                report.errors.push(`Destinazione non è un L1: ${toL1Id}`);
+                continue;
+            }
+            if (node.level <= 1) {
+                report.skipped++;
+                report.errors.push(`Non sposto L0/L1: ${nodeId}`);
+                continue;
+            }
+
+            // Safeguard: non svuotare il ramo di origine.
+            // Se il nodo è L2 e il ramo sorgente ne ha ≤2, rifiuta lo spostamento
+            // per evitare di lasciare rami completamente vuoti (come "Difesa Territoriale: 0 L2").
+            if (node.level === 2 && op.from) {
+                const fromL1Id = resolveId(op.from);
+                if (fromL1Id) {
+                    const childrenLeft = countL2Children(fromL1Id);
+                    if (childrenLeft <= 2) {
+                        report.skipped++;
+                        report.errors.push(`Non svuoto L1 "${op.from}" (solo ${childrenLeft} L2 rimasti)`);
+                        continue;
+                    }
+                }
+            }
+
+            // Rimuovi link parent attuale → node (solo i link gerarchici, non i cross-link)
+            const beforeCount = appState.db.links.length;
+            appState.db.links = appState.db.links.filter(l => {
+                const { src, tgt } = getId(l);
+                if (tgt !== nodeId) return true;
+                // mantieni cross-link (isCross) e link da nodi non-L1 (gerarchia profonda)
+                if (l.isCross) return true;
+                const srcNode = nodeById.get(src);
+                if (!srcNode) return true;
+                if (srcNode.level !== 1) return true;
+                // questo è il link L1_attuale → node, da rimuovere
+                return false;
+            });
+            const removed = beforeCount - appState.db.links.length;
+
+            // Aggiungi nuovo link L1_destinazione → node
+            appState.db.links.push({
+                source: toL1.id,
+                target: node.id,
+                rel: 'include',
+                _phase5: true
+            });
+
+            // Aggiorna group del nodo (gli verrà ricalcolato il colore dal cluster)
+            node.group = toL1.group;
+
+            report.applied++;
+        } catch (e) {
+            report.errors.push(e.message);
+            report.skipped++;
+        }
+    }
+
+    console.log(
+        '%c[Phase5] Riclassificazione completata',
+        'color:#10b981;font-weight:bold',
+        report
+    );
+    if (report.applied > 0) {
+        console.log('   Operazioni applicate:', reclassifyOps.slice(0, report.applied)
+            .map(o => `${o.node_id}: ${o.from} → ${o.to} (${o.reason})`));
+    }
+    return report;
+};
+
+// Arricchisce i nodi L1 con desc narrativa e confini espliciti tramite una
+// micro-chiamata AI separata. Attivo solo se BranchBoundaries è ON e almeno
+// un nodo ha ancora il desc placeholder (cioè il modello non l'ha generato da solo).
+window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
+    if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return;
+    const needsEnrich = l1NodesData.some(
+        n => !n.confini || n.desc.startsWith('Categoria principale:')
+    );
+    if (!needsEnrich || !apiKey) return;
+
+    window.showLoadingOverlay(true, 'Mappa HD - Arricchimento descrizioni rami L1...');
+
+    const l1List = l1NodesData.map(n => {
+        const ambitoPart = n.ambito ? ` (ambito: ${n.ambito})` : '';
+        return `- "${n.label}"${ambitoPart}`;
+    }).join('\n');
+
+    const isIT = document.documentElement.lang !== 'en';
+    const prompt = isIT
+        ? `Hai una mappa mentale sul tema "${rootNodeLabel}" con queste macro-categorie di livello 1:\n\n${l1List}\n\nPer CIASCUNA categoria genera:\n- "desc": 40-60 parole narrative che spiegano COSA copre questa categoria, PERCHÉ esiste come categoria separata e QUALI concetti chiave contiene.\n- "confini": 1-2 frasi che indicano ESPLICITAMENTE cosa NON appartiene a questa categoria, con riferimento alle ALTRE categorie della lista.\n\nRestituisci SOLO un Array JSON: [{"label": "...", "desc": "...", "confini": "..."}]\nNessun commento o testo aggiuntivo.`
+        : `You have a mind map on the topic "${rootNodeLabel}" with these level 1 macro-categories:\n\n${l1List}\n\nFor EACH category generate:\n- "desc": 40-60 word narrative explaining WHAT this category covers, WHY it exists as a separate category, and WHICH key concepts it contains.\n- "confini": 1-2 sentences explicitly stating what does NOT belong in this category, referencing the OTHER categories in the list.\n\nReturn ONLY a JSON Array: [{"label": "...", "desc": "...", "confini": "..."}]\nNo comments or additional text.`;
+
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
+        }
+    };
+
+    try {
+        const data = await window.fetchModelAPI(payload, apiKey);
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const enriched = window.salvageTruncatedJSON(cleanText);
+        if (!Array.isArray(enriched)) return;
+
+        // Normalizzazione robusta: rimuove articoli iniziali, punteggiatura e
+        // contenuto tra parentesi. Evita che un L1 resti col placeholder solo
+        // perché il modello ha risposto con un label leggermente diverso
+        // (es. "Commercio con l'Asse" vs "Commercio con l'Asse (Germania e Italia)").
+        const normLbl = (s) => (s || '')
+            .toLowerCase()
+            .replace(/\([^)]*\)/g, ' ')                 // togli "(...)"
+            .replace(/^(il|lo|la|i|gli|le|un|uno|una|l['']|dell['']|della|delle|dei|degli)\s+/i, '')
+            .replace(/[^a-z0-9àèéìòù ]/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const enrichedItems = enriched.filter(item => typeof item.label === 'string');
+        const byExact = new Map(enrichedItems.map(item => [normLbl(item.label), item]));
+
+        // Match fuzzy: esatto su label normalizzato, poi inclusione bidirezionale
+        // (uno è prefisso/sottostringa dell'altro), che cattura le varianti con suffissi.
+        const findItem = (node) => {
+            const key = normLbl(node.label);
+            if (byExact.has(key)) return byExact.get(key);
+            return enrichedItems.find(item => {
+                const ik = normLbl(item.label);
+                return ik && key && (ik.includes(key) || key.includes(ik));
+            }) || null;
+        };
+
+        let applied = 0, placeholdersLeft = 0;
+        for (const node of l1NodesData) {
+            const item = findItem(node);
+            if (item) {
+                if (typeof item.desc === 'string' && item.desc.trim()) node.desc = item.desc.trim();
+                if (typeof item.confini === 'string' && item.confini.trim()) node.confini = item.confini.trim();
+                node.aiDesc = node.desc;
+                // I modali di studio ora leggono `desc || content` (desc = campo ricco),
+                // quindi non serve più copiare desc su content: il modale mostra desc.
+                applied++;
+            }
+            if (!node.desc || node.desc.startsWith('Categoria principale:')) placeholdersLeft++;
+        }
+        console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti` +
+            (placeholdersLeft ? ` — ⚠️ ${placeholdersLeft} L1 ancora con desc placeholder` : ''));
+    } catch (e) {
+        console.warn('[enrichL1Descs] errore non bloccante:', e.message);
+    }
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// 3b — ARRICCHIMENTO DESC SOTTILI, ANCORATO ALLA FONTE (post-gen)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// I modali dei nodi sono lo strumento di studio principale per gli studenti
+// BES/DSA → le desc devono essere ricche. Questo post-pass individua i nodi
+// con desc sotto soglia (a QUALSIASI livello) e le riscrive in 50-80 parole
+// FEDELI al documento sorgente (zero allucinazioni). Batched per contenere i
+// token. Gated da `mappai_enrich_descs_enabled` (default OFF). Non bloccante.
+window.isEnrichDescsEnabled = function () {
+    try {
+        return localStorage.getItem('mappai_enrich_descs_enabled') === '1'
+            && (appState.extractionMode === 'mindmap' || !appState.extractionMode);
+    } catch (e) { return false; }
+};
+
+// Conta le parole di una desc. Placeholder e vuoti contano 0 → sempre arricchiti.
+window._descWordCount = function (s) {
+    if (!s || typeof s !== 'string') return 0;
+    if (s.startsWith('Categoria principale:')) return 0;
+    return s.trim().split(/\s+/).filter(Boolean).length;
+};
+
+window.enrichThinDescs = async function (textParts, apiKey) {
+    if (!window.isEnrichDescsEnabled || !window.isEnrichDescsEnabled()) return;
+    if (!apiKey) return;
+
+    const THRESHOLD = 35;       // parole minime perché una desc sia "ricca"
+    const BATCH = 6;            // nodi per chiamata
+    const SOURCE_CAP = 28000;   // caratteri di fonte per chiamata (~7k token)
+
+    const nodes = appState.db.nodes || [];
+    const links = appState.db.links || [];
+    const idToNode = new Map(nodes.map(n => [n.id, n]));
+    const linkId = (v) => (typeof v === 'object' && v) ? v.id : v;
+    const parentNodeOf = (id) => {
+        const link = links.find(l => linkId(l.target) === id && !l.isCross);
+        return link ? (idToNode.get(linkId(link.source)) || null) : null;
+    };
+
+    const thin = nodes.filter(n => (n.level ?? 0) >= 1 && window._descWordCount(n.desc) < THRESHOLD);
+    if (!thin.length) { console.log('[enrichThinDescs] nessuna desc sottile — skip'); return; }
+
+    const source = (Array.isArray(textParts) ? textParts.join('\n\n') : String(textParts || '')).slice(0, SOURCE_CAP);
+    if (!source.trim()) { console.warn('[enrichThinDescs] nessun testo fonte — skip'); return; }
+
+    const isIT = document.documentElement.lang !== 'en';
+    let applied = 0;
+    window.showLoadingOverlay(true, isIT ? `Arricchimento descrizioni (${thin.length} nodi)...` : `Enriching descriptions (${thin.length} nodes)...`);
+
+    for (let i = 0; i < thin.length; i += BATCH) {
+        const batch = thin.slice(i, i + BATCH);
+        const listStr = batch.map((n, idx) => {
+            const p = parentNodeOf(n.id);
+            const ctx = p ? ` (sotto la categoria "${window.cleanLabel(p.label)}")` : '';
+            return `${idx + 1}. "${window.cleanLabel(n.label)}"${ctx}`;
+        }).join('\n');
+
+        const prompt = isIT
+            ? `Sei un redattore didattico per studenti con DSA/BES. Basandoti ESCLUSIVAMENTE sul DOCUMENTO qui sotto, scrivi per ciascun concetto elencato una descrizione chiara di 50-80 parole, in frasi semplici, lineari e fedeli al documento. NON inventare fatti non presenti nel documento. Se il documento non contiene abbastanza informazioni su un concetto, scrivi una descrizione più breve ma corretta.\n\nDOCUMENTO:\n${source}\n\nCONCETTI DA DESCRIVERE:\n${listStr}\n\nRestituisci SOLO un array JSON: [{"n": 1, "desc": "..."}]. Il campo "n" è il numero del concetto. Nessun altro testo.`
+            : `You are an educational editor for students with learning disabilities (SLD/SEN). Based EXCLUSIVELY on the DOCUMENT below, write for each listed concept a clear 50-80 word description, in simple linear sentences faithful to the document. Do NOT invent facts not present in the document. If the document lacks enough information on a concept, write a shorter but accurate description.\n\nDOCUMENT:\n${source}\n\nCONCEPTS TO DESCRIBE:\n${listStr}\n\nReturn ONLY a JSON array: [{"n": 1, "desc": "..."}]. The "n" field is the concept number. No other text.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
+            }
+        };
+
+        try {
+            const data = await window.fetchModelAPI(payload, apiKey);
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            const arr = window.salvageTruncatedJSON(cleanText);
+            if (!Array.isArray(arr)) continue;
+            for (const item of arr) {
+                const idx = parseInt(item && item.n);
+                if (isNaN(idx) || idx < 1 || idx > batch.length) continue;
+                const node = batch[idx - 1];
+                if (item.desc && typeof item.desc === 'string'
+                    && window._descWordCount(item.desc) > window._descWordCount(node.desc)) {
+                    node.desc = item.desc.trim();
+                    node.aiDesc = node.desc;
+                    applied++;
+                }
+            }
+        } catch (e) {
+            console.warn(`[enrichThinDescs] batch ${Math.floor(i / BATCH) + 1} fallito:`, e.message);
+        }
+    }
+
+    window.showLoadingOverlay(false);
+    console.log(`%c[enrichThinDescs] ${applied}/${thin.length} desc arricchite (soglia ${THRESHOLD} parole, ancorate alla fonte)`,
+        'color:#10b981;font-weight:bold');
+};
+
+window.validateL1Categories = async function (l1Data, rootLabel) {
+    if (!Array.isArray(l1Data) || l1Data.length < 3) return l1Data;
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) return l1Data;
+
+    const listStr = l1Data
+        .map((c, i) => `${i + 1}. "${c.label}" (rel: ${c.rel || 'include'})`)
+        .join('\n');
+
+    const prompt = `Sei un VALIDATORE CONSERVATIVO di macro-categorie per Mappe Mentali su "${rootLabel}".
+
+CATEGORIE DA VALIDARE:
+${listStr}
+
+⚠️ REGOLA PRIMARIA — DEFAULT: NESSUNA MODIFICA ⚠️
+Nella stragrande maggioranza dei casi la lista è già buona e va restituita INVARIATA.
+Modifica SOLO se identifichi con CERTEZZA uno dei due antipattern qui sotto.
+In ogni dubbio, NON toccare.
+
+ANTIPATTERN 1 — Sinonimi tra L1 (raro, solo se EVIDENTI)
+Due o più L1 esprimono lo STESSO concetto con parole diverse. Devi essere SICURO al 100%.
+Esempio CHIARO: ["Difesa Militare", "Sicurezza Difensiva", "Misure Difensive"] → tieni solo "Difesa Militare".
+NON è sinonimia: ["Difesa Militare", "Economia Bellica"] (campi diversi anche se entrambi sul periodo bellico).
+Azione: rimuovi i duplicati, tieni il label più chiaro e specifico.
+
+ANTIPATTERN 2 — Meta-categorie fuori livello (più frequente, segnale chiaro)
+Una L1 parla del COME si studia il tema invece che di un ASPETTO del tema.
+Segnali tipici: contiene parole come "Indagine", "Memoria", "Revisione", "Storiografia", "Analisi", "Studio", "Ricerca".
+Azione: sostituisci con un aspetto concreto del tema (es. "Indagine Storica" → "Controversie Storiche", "Memoria Storica" → "Eredità Postbellica").
+
+❌ COSE CHE NON DEVI FARE (anche se ti sembra "migliorabile"):
+- NON allargare perimetri con "X e Y": "Difesa" → "Difesa e Sicurezza" è SBAGLIATO se non c'era una L1 "Sicurezza" da fondere.
+- NON rimuovere qualificatori disciplinari: "Neutralità Statale" → "Neutralità" è SBAGLIATO (perde specificità).
+- NON riformulare per "stile": "Commercio Oro" → "Commercio e Oro" è inutile cosmesi.
+- NON aggiungere/togliere categorie se non c'è un antipattern certo.
+- NON modificare il "rel" se non strettamente necessario.
+
+REGOLE STRUTTURALI:
+- Numero finale: tra 3 e 6 (preferibilmente lo stesso del numero di input).
+- Ogni "rel" è un verbo italiano breve, default "include".
+- NIENTE date, nomi tra parentesi, congiunzioni "e" inutili nei label.
+
+FORMATO OUTPUT — TASSATIVO:
+Restituisci SOLO un array JSON, identico per struttura all'input. Niente markdown, niente commenti, niente testo prima o dopo:
+[{"label":"Categoria 1","rel":"include"},{"label":"Categoria 2","rel":"comprende"}]
+
+Se la lista era già perfetta, restituiscila identica. Questa è la risposta CORRETTA nella maggioranza dei casi.`;
+
+    try {
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
+            generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1500) }
+        };
+        const response = await window.fetchModelAPI(payload, apiKey);
+        const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        let refined;
+        try {
+            refined = salvageTruncatedJSON(cleanText);
+        } catch (parseErr) {
+            console.warn('[Phase 1.5] Parse fallito, mantengo L1 originali:', parseErr.message);
+            return l1Data;
+        }
+
+        // Validazione output
+        if (!Array.isArray(refined)) {
+            console.warn('[Phase 1.5] Output non è un array, mantengo L1 originali');
+            return l1Data;
+        }
+        const valid = refined.filter(c =>
+            c && typeof c === 'object'
+            && typeof c.label === 'string' && c.label.trim()
+        );
+        if (valid.length < 3) {
+            console.warn(`[Phase 1.5] Solo ${valid.length} categorie valide (servono ≥3), mantengo L1 originali`);
+            return l1Data;
+        }
+        // Normalizza rel mancante
+        valid.forEach(c => { if (!c.rel || typeof c.rel !== 'string') c.rel = 'include'; });
+
+        const before = l1Data.map(x => x.label);
+        const after = valid.map(x => x.label);
+        const changed = before.length !== after.length
+            || before.some((b, i) => b !== after[i]);
+
+        // ── Guard anti-overcorrection ──
+        // Se il Pass 1.5 ha modificato più del 50% dei label, è probabile che abbia
+        // applicato il pattern "X → X e Y" o riformulazioni cosmetiche invece di
+        // veri fix di sinonimi/meta-categorie. In quel caso rigettiamo l'output
+        // e teniamo l'originale (fail-safe contro Mistral over-creative).
+        const beforeSet = new Set(before.map(s => s.toLowerCase().trim()));
+        const unchanged = after.filter(a => beforeSet.has(a.toLowerCase().trim())).length;
+        const modifiedRatio = 1 - (unchanged / Math.max(before.length, after.length));
+        if (modifiedRatio > 0.5) {
+            console.warn(
+                `%c[Phase 1.5] Rigettato output: troppo aggressivo (${Math.round(modifiedRatio * 100)}% label modificati)`,
+                'color:orange;font-weight:bold'
+            );
+            console.log('   Proposto (scartato):', after);
+            console.log('   Mantengo originale: ', before);
+            return l1Data;
+        }
+
+        if (changed) {
+            console.log(
+                `%c[Phase 1.5] L1 raffinati: ${l1Data.length} → ${valid.length}`,
+                'color:#10b981;font-weight:bold'
+            );
+            console.log('   Prima:', before);
+            console.log('   Dopo: ', after);
+        } else {
+            console.log(`%c[Phase 1.5] L1 già coerenti, nessuna modifica`, 'color:#6366f1');
+        }
+        return valid;
+    } catch (e) {
+        console.warn('[Phase 1.5] Errore non bloccante:', e.message);
+        return l1Data;
+    }
+};
+
+// Rileva un label che unisce due concetti distinti tramite congiunzione o separatore.
+// Conservativo: solo "e"/"ed"/"e/o"/"and" come parola separata, oppure "/" o "&".
+window._isCompoundLabel = function (label) {
+    if (!label || typeof label !== 'string') return false;
+    const s = label.trim();
+    if (/[\/&]/.test(s)) return true;
+    if (/(^|\s)(ed|e\/o|e|and)(\s)/i.test(s)) return true;
+    return false;
+};
+
+// Fase 1.6 — split deterministico+AI delle macro-categorie composte.
+// Per ogni L1 composta fa una piccola chiamata AI (array JSON semplice, Apertus-safe)
+// che ritorna 2 aree atomiche (con label/rel/ambito/desc/confini) oppure 1 sola se la
+// nozione è inscindibile. Degrada in modo sicuro: se l'output non è valido, tiene l'L1
+// originale. Rispetta il tetto massimo di macro-aree (MAX_L1 = 7).
+window.splitCompoundL1s = async function (l1Data, rootLabel) {
+    if (!Array.isArray(l1Data) || l1Data.length === 0) return l1Data;
+    const MAX_L1 = 7;
+    const compounds = l1Data.filter(c => c && window._isCompoundLabel(c.label));
+    if (compounds.length === 0) {
+        console.log('%c[Phase 1.6] Nessuna macro-area composta da spezzare', 'color:#6366f1');
+        return l1Data;
+    }
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) return l1Data;
+
+    let result = [...l1Data];
+    for (const comp of compounds) {
+        if (result.length >= MAX_L1) {
+            console.warn(`[Phase 1.6] Tetto ${MAX_L1} raggiunto, salto split di "${comp.label}"`);
+            break;
+        }
+        const otherLabels = result.filter(c => c !== comp).map(c => c.label);
+        const prompt = `La macro-categoria "${comp.label}" di una mappa mentale su "${rootLabel}" sembra unire due concetti distinti tramite una congiunzione.
+Se i due concetti sono SEPARABILI, spezzala in DUE macro-categorie atomiche e mono-concetto (una per concetto).
+Se invece è una nozione realmente INSCINDIBILE (un'unica entità che perde senso se divisa), restituiscila INVARIATA come singolo elemento.
+
+Altre macro-aree già presenti (NON duplicarle): ${otherLabels.join(', ') || '(nessuna)'}
+
+Per ogni macro-categoria risultante fornisci:
+- "label": titolo BREVE e mono-concetto (max 3-4 parole, niente congiunzioni)
+- "rel": verbo o locuzione breve che la lega al tema "${rootLabel}" (1-3 parole)
+- "ambito": 3-5 parole-chiave separate da virgola
+- "desc": 40-60 parole su cosa copre e perché è una categoria a sé
+- "confini": 1-2 frasi su cosa NON va in questo ramo
+
+Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Niente markdown, niente commenti:
+[{"label":"...","rel":"...","ambito":"...","desc":"...","confini":"..."}]`;
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
+                // Phase 1.6 split: base 3000 → 6000 per gemini-2.5-flash.
+                // Output atteso: 1-2 oggetti JSON L1 — non tronca mai.
+                generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+            };
+            const response = await window.fetchModelAPI(payload, apiKey);
+            const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+            let parts;
+            try { parts = salvageTruncatedJSON(cleanText); } catch (e) { parts = null; }
+            if (!Array.isArray(parts)) {
+                console.warn(`[Phase 1.6] Output non valido per "${comp.label}", lo tengo intero`);
+                continue;
+            }
+            const valid = parts.filter(c => c && typeof c === 'object' && typeof c.label === 'string' && c.label.trim());
+            if (valid.length < 2) {
+                console.log(`%c[Phase 1.6] "${comp.label}" giudicata inscindibile, invariata`, 'color:#6366f1');
+                continue;
+            }
+            const replacement = valid.slice(0, 2);
+            replacement.forEach(c => { if (!c.rel || typeof c.rel !== 'string') c.rel = comp.rel || 'include'; });
+            const idx = result.indexOf(comp);
+            if (idx === -1) continue;
+            if (result.length - 1 + replacement.length > MAX_L1) {
+                console.warn(`[Phase 1.6] Split di "${comp.label}" sforerebbe il tetto ${MAX_L1}, salto`);
+                continue;
+            }
+            result.splice(idx, 1, ...replacement);
+            console.log(`%c[Phase 1.6] "${comp.label}" → ${replacement.map(r => `"${r.label}"`).join(' + ')}`, 'color:#10b981;font-weight:bold');
+        } catch (e) {
+            console.warn(`[Phase 1.6] split "${comp.label}" non bloccante:`, e.message);
+        }
+    }
+    return result;
+};
+
+window.isPhase4Enabled = function () {
+    try {
+        return localStorage.getItem('mappai_mm_phase4_enabled') === '1'
+            && appState?.extractionMode === 'mindmap';
+    } catch (e) { return false; }
+};
+
+// Costruisce il prompt Fase 4. Input compatto (solo id+label+desc breve)
+// per minimizzare i token: il modello deve ragionare sulla struttura, non
+// rileggere tutto il contenuto.
+window.buildPhase4Prompt = function (nodes) {
+    // Catalogo L1 con ambiti semantici (se disponibili dalla Fase 1)
+    const l1List = nodes.filter(n => n.level === 1);
+    const l1Catalog = l1List.length
+        ? '\nMACRO-AREE L1 DELLA MAPPA (con i loro ambiti tematici):\n' +
+          l1List.map(l1 => {
+              const ambitoPart = l1.ambito ? ` — ambito: ${l1.ambito}` : '';
+              return `- ${l1.id} "${l1.label}"${ambitoPart}`;
+          }).join('\n') + '\n'
+        : '';
+
+    const compact = nodes
+        .filter(n => n.level !== 0) // escludi root
+        .map(n => {
+            const desc = (n.desc || n.content || '').replace(/\s+/g, ' ').slice(0, 60);
+            return `- ${n.id} (L${n.level ?? '?'}) "${n.label}" — ${desc}`;
+        })
+        .join('\n');
+
+    return `SEI UN CONSOLIDATORE DI GRAFI CONCETTUALI per Mappe Mentali.
+Ricevi l'elenco di tutti i nodi della mappa (generati in fasi precedenti ramo per ramo).
+Devi produrre DUE risultati che migliorano la coerenza della mappa:
+
+1. MERGES — CERCA ATTIVAMENTE DUPLICATI SEMANTICI CROSS-RAMO (priorità alta)
+   I rami sono stati generati in isolamento: spesso lo stesso concetto compare in 2-3 rami
+   con label leggermente diversi. Devi trovarli e fonderli.
+
+   ESEMPI CONCRETI di duplicati da fondere SEMPRE:
+   • "Oro Nazista" + "Oro controverso nazista" + "Oro tedesco" + "Oro saccheggiato" → STESSO concetto
+   • "Politica Asilo" + "Politiche di Asilo" + "Politica dei Profughi" + "Restrizioni asilo" → fondere
+   • "Dichiarazione Neutralità" + "Dichiarazione 1939" + "Neutralità Svizzera" (a livello L2/L3) → fondere
+   • "Misure Difensive" + "Misure militari" + "Difesa militare" + "Difesa Frontiere" → fondere
+   • "Minaccia Invasione" + "Minaccia tedesca" + "Pericolo Nazi" → fondere
+   • "Commercio armi" + "Industria Armiera" + "Esportazioni belliche" → fondere
+
+   REGOLA D'ORO: se due label condividono ≥1 parola-chiave centrale (oro, neutralità, difesa,
+   profughi, commercio, asilo) E sono in rami diversi E descrivono lo stesso fenomeno,
+   FONDILI. Non essere timido: 5-10 merge per mappa sono normali, non eccessivi.
+
+   Per ogni merge indica:
+   - "keep": ID del nodo CANONICO (preferisci quello con livello più alto se possibile,
+     altrimenti l'etichetta più specifica e chiara)
+   - "drop": ID del nodo da rimuovere
+   - "reason": breve motivazione (es. "duplicato cross-ramo", "sinonimi")
+
+2. CROSSLINKS — Aggiungi collegamenti TRA RAMI DIVERSI per esplicitare relazioni di:
+   causa, prerequisito, conseguenza, contrasto, esempio-di. Solo tra nodi GIÀ esistenti
+   nell'elenco (usa SOLO gli ID che trovi qui sotto). Non duplicare link che possono
+   essere già impliciti nella gerarchia.
+
+FORMATO DI OUTPUT — TASSATIVO ⚠️
+Restituisci DUE sezioni JSONL, una riga JSON per oggetto, niente altro:
+
+===MERGES===
+{"keep":"ID_CANONICO","drop":"ID_DA_RIMUOVERE","reason":"duplicato cross-ramo"}
+{"keep":"ID_X","drop":"ID_Y","reason":"sinonimi"}
+===CROSSLINKS===
+{"source":"ID_A","target":"ID_B","rel":"causa"}
+{"source":"ID_C","target":"ID_D","rel":"prerequisito"}
+
+REGOLE:
+- Usa SOLO ID presenti nell'elenco sotto. Mai inventare nuovi ID.
+- Massimo 20 merge per mappa (5-10 è normale, di più rischia overfit).
+- Massimo 20 nuovi cross-link, scegli i più significativi pedagogicamente.
+- Nessun commento, nessun markdown, nessun testo prima/dopo le sezioni.
+- "rel" deve essere un verbo italiano SPECIFICO che esprima il TIPO reale di relazione:
+  causa, richiede, precede, genera, si oppone a, è esempio di, dipende da, regola,
+  finanzia, influenza, smaschera, condanna, contraddice, rafforza, giustifica,
+  è condizione di, è conseguenza di, legittima, alimenta.
+  REGOLA QUALITÀ: preferisci verbi precisi e critici (es. "smaschera", "condanna",
+  "è condizione di") invece di generici come "influenza" o "collega".
+  ⚠️ Usa SOLO ID presenti nell'elenco nodi qui sotto — non inventare ID.
+
+${l1Catalog}
+ELENCO NODI DELLA MAPPA (cerca le parole-chiave ricorrenti per identificare duplicati,
+e confronta i label con gli AMBITI degli L1 sopra per individuare nodi mal classificati):
+${compact}`;
+};
+
+// Esegue la Fase 4: chiama l'AI, parse, applica merge e cross-link.
+// Restituisce un report con cosa è stato applicato e cosa scartato.
+window.executePhase4Consolidation = async function () {
+    const report = { merges: { applied: 0, skipped: 0, errors: [] },
+                     crosslinks: { applied: 0, skipped: 0, errors: [] },
+                     parser: null };
+
+    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    if (!apiKey) {
+        console.warn('[Phase4] API key non disponibile — skip');
+        return report;
+    }
+
+    const nodes = appState.db.nodes || [];
+    if (nodes.length < 6) {
+        console.log('[Phase4] Mappa troppo piccola (<6 nodi) — skip');
+        return report;
+    }
+
+    const prompt = window.buildPhase4Prompt(nodes);
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: 'Sei un consolidatore semantico di grafi. Rispondi SOLO in JSONL come richiesto.' }] },
+        // Phase 4 ha BISOGNO del thinking per fare merge di qualità:
+        // con thinkingBudget:0 (budget ≤ 12288) genera merge aggressivi e non pensa
+        // (run 9/6: 58 merge su 57 nodi → mappa collassata a 25).
+        // Base 6500 → doubled = 13000 per gemini-2.5 → 13000 > soglia 12288
+        // → thinking preservato automaticamente (consume ~3842 tok, output ~9158).
+        generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6500) }
+    };
+
+    let response;
+    try {
+        response = await window.fetchModelAPI(payload, apiKey);
+    } catch (e) {
+        console.warn('[Phase4] Chiamata AI fallita:', e.message);
+        report.parser = { error: e.message };
+        return report;
+    }
+
+    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = window.parseJSONLResponse(text);
+    report.parser = parsed.meta;
+
+    const validIds = new Set(nodes.map(n => n.id));
+    const idByNorm = new Map();
+    nodes.forEach(n => idByNorm.set(String(n.id).toUpperCase(), n.id));
+
+    // ── Applica MERGES ──
+    // Per ogni merge: valida ID, recupera oggetti nodo, chiama executeMerge(drop, keep)
+    // (executeMerge(A, B) fonde A→B: A scompare, B sopravvive — quindi A=drop, B=keep)
+    const consumedDrops = new Set();
+    report._dropToKeep = new Map(); // drop_id → keep_id, per resolveId crosslinks
+    for (const m of (parsed.merges || [])) {
+        try {
+            const keepId = idByNorm.get(String(m.keep || '').toUpperCase());
+            const dropId = idByNorm.get(String(m.drop || '').toUpperCase());
+            if (!keepId || !dropId) {
+                report.merges.skipped++;
+                report.merges.errors.push(`ID inesistente: keep=${m.keep} drop=${m.drop}`);
+                continue;
+            }
+            if (keepId === dropId) { report.merges.skipped++; continue; }
+            if (consumedDrops.has(dropId)) { report.merges.skipped++; continue; }
+            const keepNode = appState.db.nodes.find(n => n.id === keepId);
+            const dropNode = appState.db.nodes.find(n => n.id === dropId);
+            if (!keepNode || !dropNode) { report.merges.skipped++; continue; }
+            // Non fondere se uno dei due è il root
+            if (keepNode.level === 0 || dropNode.level === 0) { report.merges.skipped++; continue; }
+            window.executeMerge(dropNode, keepNode);
+            consumedDrops.add(dropId);
+            report._dropToKeep.set(dropId, keepId);
+            report.merges.applied++;
+        } catch (e) {
+            report.merges.errors.push(e.message);
+            report.merges.skipped++;
+        }
+    }
+
+    // ── Applica CROSSLINKS ──
+    // Validazione: ID esistenti dopo i merge, no self-loop, no duplicato di link esistente.
+    const validIdsAfterMerge = new Set(appState.db.nodes.map(n => n.id));
+    const existingLinks = new Set(
+        appState.db.links.map(l => {
+            const s = typeof l.source === 'object' ? l.source.id : l.source;
+            const t = typeof l.target === 'object' ? l.target.id : l.target;
+            return `${s}→${t}`;
+        })
+    );
+    // dropToKeep traccia i merge REALMENTE applicati (non solo le proposte AI).
+    // Più robusto di parsed.merges perché segue la chain effettiva post-executeMerge.
+    const resolveId = (rawId) => {
+        const norm = String(rawId || '').toUpperCase();
+        let id = idByNorm.get(norm);
+        if (!id) return null;
+        // Segui la chain drop→keep finché il nodo esiste nel grafo post-merge
+        let steps = 0;
+        while (id && !validIdsAfterMerge.has(id) && steps < 10) {
+            id = report._dropToKeep && report._dropToKeep.get(id);
+            steps++;
+        }
+        return id && validIdsAfterMerge.has(id) ? id : null;
+    };
+
+    for (const cl of (parsed.crosslinks || [])) {
+        const src = resolveId(cl.source);
+        const tgt = resolveId(cl.target);
+        if (!src || !tgt || src === tgt) { report.crosslinks.skipped++; continue; }
+        const key = `${src}→${tgt}`, keyRev = `${tgt}→${src}`;
+        if (existingLinks.has(key) || existingLinks.has(keyRev)) { report.crosslinks.skipped++; continue; }
+        appState.db.links.push({
+            source: src,
+            target: tgt,
+            rel: cl.rel || 'correlato a',
+            isCross: true,
+            _phase4: true
+        });
+        existingLinks.add(key);
+        report.crosslinks.applied++;
+    }
+
+    const { _dropToKeep, ...reportLog } = report;
+    console.log(
+        '%c[Phase4] Consolidamento completato',
+        'color:#10b981;font-weight:bold',
+        JSON.stringify(reportLog)
+    );
+    return report;
+};
+
 // Estrae il testo dalla risposta AI in modo sicuro.
 // Gestisce: candidates mancanti, thinking mode (Gemini 2.5+ restituisce
 // parts[0] con thought:true prima del testo reale), safety blocks.
@@ -3552,6 +5650,29 @@ function extractResponseText(response) {
     return text;
 }
 
+
+// Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente:
+// il bridge li converte in un reminder testuale che annacqua le regole vere del
+// prompt (es. il blocco RELAZIONI) → grafi a stella, relazioni generiche (Causa C, §8).
+// Su Infomaniak ci affidiamo a salvageTruncatedJSON, come già per la MindMap.
+// Su Infomaniak, Fase 1 KG DEVE mantenere responseSchema perché:
+// - Senza schema, GEMMA genera JSON sporco (chiavi non quotate, commenti, escape doppio)
+// - salvageTruncatedJSON recupera solo righe valide, scarta il resto → nodi persi
+// - Fase 1 schema è semplice (id/label/level), non dilisce le istruzioni di contenuto
+// - Fatto empirico (8/6/26): senza schema Fase 1→5 nodi (crash), con schema Fase 1→30+ concetti
+//
+// Fasi 2 e 3 rimangono schema-OFF perché è dove il vocabolario relazionale vive
+// (Causa C risolta: generic relations 36%→0%, relTypes diversi).
+function _kgGenerationConfig(base, schema, phase = null) {
+    if (appState.aiProvider === 'infomaniak') {
+        // Fase 1: reintroduce schema per JSON compatto/validato
+        if (phase === 1) return { ...base, responseMimeType: "application/json", responseSchema: schema };
+        // Fasi 2+: schema OFF (Causa C già vinta lì)
+        return { ...base };
+    }
+    // Google: sempre con schema
+    return { ...base, responseMimeType: "application/json", responseSchema: schema };
+}
 
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
@@ -3591,12 +5712,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseSchema: schema,
-            maxOutputTokens: window.getMaxOutputTokens(8192)
-        }
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
     };
 
 
@@ -3689,6 +5805,16 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         });
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
+        // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Mode-agnostico: agisce su appState.db.nodes (level >= 1 → tutti i nodi KG).
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante (KG single-pass):', e.message);
+        }
+
+        // Freeze chunk verbatim (se attivo): azzera i chunk prima di costruire sourcesDict
+        window.stripChunksIfFrozen(appState.db.nodes);
         appState.db.sourcesDict = {};
         appState.db.nodes.forEach(n => {
             if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
@@ -3701,6 +5827,220 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     } catch (err) {
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Graph", err.message);
+    }
+}
+
+// ============================================================================
+// MODALITÀ COMMUNITY KG — ispirata a MiniMAP (insegnai.ch/minimap)
+// ----------------------------------------------------------------------------
+// Lezioni portate da MiniMAP (vedi analisi 8/6/26):
+//  1. SINGLE-PASS: una sola chiamata. Nodi e link nascono insieme → nessun
+//     drift di ID tra fasi, nessuna cucitura che perde nodi.
+//  2. MODELLO A COMUNITÀ (non albero): l'LLM fa lui la community detection
+//     (3-6 macro-temi). Ogni concetto appartiene a una comunità ma NON è
+//     "figlio" di un hub → niente god-node, comunità naturalmente bilanciate
+//     (risolve lo squilibrio "26 L2 su un ramo, 0 sugli altri").
+//  3. PROMPT MINIMALE: poche regole chiare → attenzione del modello non diluita.
+//  4. LINK LATERALI concetto↔concetto come struttura primaria (il valore di
+//     ragionamento), non la stella hub→concetto.
+//
+// Adattamento per MappAI: creiamo un nodo-hub sintetico per comunità (level 1,
+// con summary come desc di studio) per ancorare il rendering hub-and-spoke e
+// la modalità studio, MA preserviamo tutti i link laterali del modello come
+// cross-link (isCross=true). Così uniamo struttura a comunità + ragionamento.
+//
+// Provider: single-pass usa _kgGenerationConfig(..., 1) → schema ON anche su
+// Infomaniak (in single-pass un JSON malformato perde TUTTO: la pulizia del
+// JSON ha priorità sul rischio di qualche relazione generica dal bridge).
+// ============================================================================
+async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
+    window.resetVaultState();
+
+    const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
+    const minNodesVal = Math.max(10, maxNodesVal - 5);
+
+    let userProfileStr = '';
+    if (appState.userProfile) {
+        userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO: Età ${appState.userProfile.age} anni, scuola ${appState.userProfile.grade} (${appState.userProfile.system}). ADATTA IL LINGUAGGIO a questa età: frasi brevi, parole semplici, esempi concreti. Evita linguaggio accademico.`;
+    }
+    if (appState.studentMode) {
+        userProfileStr += `\n\n[MODALITÀ STUDENTE]: le 'label' dei nodi devono avere AL MASSIMO 3 parole chiave.`;
+    }
+    const focusStr = appState.focusTopic
+        ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' +
+          appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n'
+        : '';
+
+    // --- Prompt minimale, ispirato al system_prompt di MiniMAP ---
+    const systemPrompt = `Sei un esperto estrattore GraphRAG. Analizzi un testo e produci un Knowledge Graph esplorabile. Pubblico: studenti di scuola media, anche con DSA/BES.
+
+REGOLE:
+1. 'communities': dividi il contenuto in 3-6 macro-temi coerenti. Per ciascuno: id (intero), name (2-4 parole), summary (2-3 frasi che spiegano il tema a uno studente).
+2. 'nodes': estrai da ${minNodesVal} a ${maxNodesVal} concetti chiave. Per ciascuno:
+   - id: nome breve del concetto (max 3 parole), UNIVOCO
+   - community: l'id della comunità a cui appartiene
+   - icon: una sola emoji rappresentativa
+   - desc: spiegazione chiara di 3-4 frasi con dati concreti dal testo (nomi, date, numeri, esempi). Tarata sullo studente.
+3. 'links': relazioni LOGICHE tra concetti. Collega concetti di comunità DIVERSE quando il testo lo giustifica (è qui che nasce il ragionamento). Per ciascuno: source (id concetto), target (id concetto), label.
+   - La 'label' DEVE essere un verbo/relazione SIGNIFICATIVA: causa, provoca, permette, impedisce, precede, deriva da, si oppone a, fa parte di, regola, finanzia, protegge, sfrutta...
+   - VIETATO usare "correlato a", "collegato a", "associato a" o relazioni generiche.
+   - Distribuisci i concetti in modo BILANCIATO tra le comunità: nessuna comunità deve restare vuota.${userProfileStr}`;
+
+    const schema = {
+        type: "OBJECT",
+        properties: {
+            communities: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        id: { type: "INTEGER" }, name: { type: "STRING" }, summary: { type: "STRING" }
+                    }, required: ["id", "name", "summary"]
+                }
+            },
+            nodes: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        id: { type: "STRING" }, community: { type: "INTEGER" },
+                        icon: { type: "STRING" }, desc: { type: "STRING" }
+                    }, required: ["id", "community", "desc"]
+                }
+            },
+            links: {
+                type: "ARRAY", items: {
+                    type: "OBJECT", properties: {
+                        source: { type: "STRING" }, target: { type: "STRING" }, label: { type: "STRING" }
+                    }, required: ["source", "target", "label"]
+                }
+            }
+        },
+        required: ["communities", "nodes", "links"]
+    };
+
+    const userText = `Titolo del progetto: ${appState.rootNodeLabel || '(senza titolo)'}\n${focusStr}\nTesto da analizzare:\n\n${textParts.join('\n\n')}`;
+
+    const payload = {
+        contents: [{ parts: [...fileParts, { text: userText }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        // phase=1 → schema ON anche su Infomaniak: in single-pass la pulizia JSON è prioritaria.
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
+    };
+
+    try {
+        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Knowledge Graph a comunità (GraphRAG)...`, 'kg');
+        const data = await window.fetchModelAPI(payload, apiKey);
+        let rawText = extractResponseText(data);
+        let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
+        const parsed = salvageTruncatedJSON(cleanText);
+
+        const rawConcepts = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+        const rawComms = Array.isArray(parsed.communities) ? parsed.communities : [];
+        const rawLinks = Array.isArray(parsed.links) ? parsed.links : [];
+        if (rawConcepts.length === 0) throw new Error("Nessun concetto estratto dal testo.");
+
+        // --- Costruzione comunità (con fallback se l'LLM le omette) ---
+        const commById = {};
+        rawComms.forEach((c, i) => {
+            const cid = (c.id !== undefined && c.id !== null) ? parseInt(c.id) : (i + 1);
+            commById[cid] = { id: cid, name: (c.name || `Tema ${cid}`).trim(), summary: (c.summary || '').trim() };
+        });
+        // Comunità mancanti citate dai nodi → creale al volo
+        rawConcepts.forEach(n => {
+            const cid = parseInt(n.community);
+            if (!isNaN(cid) && !commById[cid]) commById[cid] = { id: cid, name: `Tema ${cid}`, summary: '' };
+        });
+        const commIds = Object.keys(commById).map(Number);
+        // Se nessuna comunità valida, mettine una sola di default
+        if (commIds.length === 0) { commById[1] = { id: 1, name: appState.rootNodeLabel || 'Concetti', summary: '' }; commIds.push(1); }
+
+        // group sequenziale 1..N per i colori; mappa commId → group
+        const commToGroup = {};
+        let g = 1;
+        commIds.forEach(cid => { commToGroup[cid] = g++; });
+
+        const finalNodes = [];
+        const finalLinks = [];
+
+        // 1. Nodo-hub sintetico per ogni comunità (level 1)
+        Object.values(commById).forEach(c => {
+            finalNodes.push({
+                id: `COMM_${c.id}`,
+                label: c.name,
+                desc: c.summary || c.name,
+                content: c.summary || c.name,
+                aiDesc: c.summary || '',
+                level: 1,
+                group: commToGroup[c.id],
+                icon: '🗂️',
+                isCommunityHub: true,
+                studyStatus: 'none',
+                chunks: []
+            });
+        });
+
+        // 2. Nodi-concetto (level 2) + link di appartenenza verso il loro hub
+        const conceptIds = new Set();
+        rawConcepts.forEach(n => {
+            const id = String(n.id || '').trim();
+            if (!id || conceptIds.has(id)) return;
+            conceptIds.add(id);
+            let cid = parseInt(n.community);
+            if (isNaN(cid) || !commById[cid]) cid = commIds[0];
+            const desc = (n.desc || n.description || '').trim();
+            finalNodes.push({
+                id,
+                label: id,
+                desc,
+                content: desc,
+                aiDesc: desc,
+                level: 2,
+                group: commToGroup[cid],
+                icon: (n.icon || '📌'),
+                studyStatus: 'none',
+                chunks: []
+            });
+            // link di appartenenza (gerarchico, leggero)
+            finalLinks.push({ source: `COMM_${cid}`, target: id, rel: 'fa parte di' });
+        });
+
+        // 3. Link laterali concetto↔concetto (il ragionamento — diventano cross-link)
+        const seen = new Set();
+        rawLinks.forEach(l => {
+            const s = String(typeof l.source === 'object' ? l.source.id : l.source || '').trim();
+            const t = String(typeof l.target === 'object' ? l.target.id : l.target || '').trim();
+            if (!conceptIds.has(s) || !conceptIds.has(t) || s === t) return;
+            const key = [s, t].sort().join('||');
+            if (seen.has(key)) return;
+            seen.add(key);
+            let rel = String(l.label || l.rel || '').trim();
+            // scarta relazioni generiche (regola MiniMAP)
+            if (!rel || /^(correlato a|collegato a|associato a|relazionato a|legato a)$/i.test(rel)) rel = 'è in relazione con';
+            finalLinks.push({ source: s, target: t, rel });
+        });
+
+        appState.db = { nodes: finalNodes, links: finalLinks, sourcesDict: {}, customColors: {} };
+        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
+
+        // Arricchimento desc sottili (gated) + freeze chunk (gated) — come gli altri path
+        try { await window.enrichThinDescs(textParts, apiKey); }
+        catch (e) { console.warn('[enrichThinDescs] errore non bloccante (KG community):', e.message); }
+        window.stripChunksIfFrozen(appState.db.nodes);
+
+        // Popola sourcesDict dalle desc (arricchite o originali).
+        // Community KG non genera chunk verbatim: le desc ancorate alla fonte
+        // sono il sostituto funzionale per vault Obsidian, modale "Fonti" e
+        // metrica sourceCov. Gli hub sintetici (COMM_*) non hanno fonte propria.
+        appState.db.nodes.forEach(n => {
+            if (n.isCommunityHub) return;
+            const text = (n.desc || n.content || '').trim();
+            if (text) appState.db.sourcesDict[n.id] = [{ title: n.label, source: 'Fonte analizzata', text }];
+        });
+
+        window.showLoadingOverlay(false);
+        window.switchToMapLayout();
+        setTimeout(() => { initD3Visualization(); }, 200);
+        setTimeout(() => { window.showGenerationReport(); }, 1500);
+    } catch (err) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Generazione Graph (Community)", err.message);
     }
 }
 
@@ -3775,7 +6115,7 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p1Schema, maxOutputTokens: window.getMaxOutputTokens(2000) }
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(2000) }, p1Schema, 1)
         };
 
         const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
@@ -3848,7 +6188,7 @@ ${textParts.join('\n\n')}`;
             // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
             // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
             // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json", responseSchema: p2Schema, maxOutputTokens: window.getMaxOutputTokens(4096) }
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(4096) }, p2Schema, 2)
         };
 
         const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
@@ -3907,7 +6247,7 @@ ${userProfileStr}
 
 ISTRUZIONI PER OGNI CONCETTO:
 1. Genera "content": una sintesi concettuale brevissima (massimo 10 parole).
-2. Genera "desc": una descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+2. Genera "desc": una descrizione scientifica o storica approfondita ma chiarissima (da 50 a 80 parole, con dati concreti dal testo: nomi, date, numeri, esempi specifici) tarata sul profilo dello studente indicato.
 3. Genera "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (frasi intere di almeno 10-15 parole) copiate fedelmente e integralmente dal testo originale delle fonti che giustificano e supportano il concetto trattato. NON inventare o riassumere le citazioni!
 
 Restituisci SOLO un oggetto JSON con chiave "enrichedNodes". Nessun commento, nessun blocco markdown.
@@ -3949,7 +6289,7 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: p3Schema, maxOutputTokens: window.getMaxOutputTokens(5000) }
+                generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(5000) }, p3Schema, 3)
             };
 
             try {
@@ -3993,6 +6333,9 @@ ${textParts.join('\n\n')}`;
                 studyStatus: 'none'
             };
         });
+
+        // Freeze chunk verbatim (se attivo): azzera i chunk prima del consumo
+        window.stripChunksIfFrozen(finalNodes);
 
         // Normalizzazione e forzatura livelli
         const normalizeLabel = (lbl) => lbl.toLowerCase().replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i, '').replace(/^(l|un|dell|nell|all|dall|sull)['''']\s*/i, '').replace(/[''''\.\s]/g, '').trim();
@@ -4085,6 +6428,14 @@ ${textParts.join('\n\n')}`;
             customColors: {}
         };
 
+        // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        // Va dopo l'assemblaggio finale: agisce sul set di nodi consolidato.
+        try {
+            await window.enrichThinDescs(textParts, apiKey);
+        } catch (e) {
+            console.warn('[enrichThinDescs] errore non bloccante (KG multi-pass):', e.message);
+        }
+
         appState.db.nodes.forEach(n => {
             if (n.chunks && n.chunks.length > 0) appState.db.sourcesDict[n.id] = n.chunks.map(c => ({ title: "Estratto Fonte", source: "Documento", text: c }));
         });
@@ -4158,7 +6509,7 @@ function getNodeRadius(d) {
         return 12 + degRatio * 18;                       // 12–30 px
     }
     // MM: base dal livello + bonus proporzionale al degree (max +50% del base)
-    const base = radiusScale[d.level !== undefined ? d.level : 1] || 15;
+    const base = radiusScale[d.level !== undefined ? Math.min(d.level, 5) : 1] || 15;
     return base + degRatio * (base * 0.5);
 }
 
@@ -4204,12 +6555,23 @@ function initD3Visualization() {
         .attr("id", "arrowhead").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
         .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
         .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
+    // Marker arrowhead invertito default (per link bidirezionali — marker-start)
+    defs.append("marker")
+        .attr("id", "arrowhead-rev").attr("viewBox", "0 -5 10 10").attr("refX", 10).attr("refY", 0)
+        .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse")
+        .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#94a3b8");
     // Un marker per ogni famiglia di relazione (usato dalla lente)
     if (typeof EDGE_FAMILIES === 'object') {
         Object.entries(EDGE_FAMILIES).forEach(([key, fam]) => {
             defs.append("marker")
                 .attr("id", `arrowhead-${key}`).attr("viewBox", "0 -5 10 10")
                 .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+                .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
+            // Versione invertita per marker-start (link bidirezionali colorati)
+            defs.append("marker")
+                .attr("id", `arrowhead-rev-${key}`).attr("viewBox", "0 -5 10 10")
+                .attr("refX", 10).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6)
+                .attr("orient", "auto-start-reverse")
                 .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", fam.color);
         });
     }
@@ -4224,6 +6586,7 @@ function initD3Visualization() {
             const k = event.transform.k;
             const strokeW = Math.max(1.2, (2.4 / k));
             g.selectAll(".node-text").style("stroke-width", strokeW + "px");
+            if (window.applyDeepNodeDim) window.applyDeepNodeDim(k);
         });
     svg.call(zoom);
 
@@ -4237,6 +6600,7 @@ function initD3Visualization() {
 }
 
 function renderGraph() {
+    if (!g) return; // SVG non ancora inizializzato (es. Phase4 che gira prima di initD3Visualization)
     if (window.renderStudySets) window.renderStudySets();
     const nodes = appState.db.nodes;
     const links = appState.db.links;
@@ -4491,7 +6855,7 @@ function renderGraph() {
         .on("touchend", handleTouchEnd)
         .on("touchmove", handleTouchMove);
 
-    linkEnter.append("line").attr("class", "link").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
+    linkEnter.append("path").attr("class", "link").attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
     linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
 
     const linkMerge = linkEnter.merge(linkSelection);
@@ -4499,6 +6863,9 @@ function renderGraph() {
         .text(d => d.rel)
         .style("font-size", (8 * globalFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
+    // Marker-start per link bidirezionali
+    linkMerge.select('.link')
+        .attr('marker-start', d => d.bidirectional ? 'url(#arrowhead-rev)' : null);
     linkSelection.exit().remove();
 
     // ── Stile KG per ruolo strutturale + bridge marking (1-hop) ─────────────
@@ -4564,6 +6931,7 @@ function renderGraph() {
             else if (d.level === 1) baseSize = 12;
             else if (d.level === 2) baseSize = 10;
             else if (d.level === 3) baseSize = 9;
+            else if (d.level >= 5) baseSize = 8 * Math.pow(0.93, d.level - 5);
             return (baseSize * globalFontScale) + "px";
         });
 
@@ -4679,6 +7047,17 @@ function renderGraph() {
         }
         return out;
     };
+
+    nodeMerge.select("text.node-text")
+        .style("font-size", d => {
+            let baseSize = 8;
+            if (d.level === 0) baseSize = 14;
+            else if (d.level === 1) baseSize = 12;
+            else if (d.level === 2) baseSize = 10;
+            else if (d.level === 3) baseSize = 9;
+            else if (d.level >= 5) baseSize = 8 * Math.pow(0.93, d.level - 5);
+            return (baseSize * globalFontScale) + "px";
+        });
 
     nodeMerge.select("text.node-text")
         .each(function (d) {
@@ -4807,6 +7186,24 @@ function renderGraph() {
 
     nodeSelection.exit().remove();
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
+
+    // Adatta il max dello slider di profondità alla profondità reale della mappa.
+    // Necessario quando operazioni come relink o merge creano nodi oltre L5.
+    const ls = document.getElementById('level-slider');
+    if (ls) {
+        const actualMax = nodes.reduce((m, n) => Math.max(m, n.level || 0), 5);
+        const sliderMax = parseInt(ls.max);
+        if (actualMax !== sliderMax) {
+            const wasAtMax = parseInt(ls.value) === sliderMax;
+            ls.max = actualMax;
+            if (wasAtMax) {
+                ls.value = actualMax;
+                const lv = document.getElementById('level-slider-val');
+                if (lv) lv.textContent = 'L' + actualMax;
+            }
+        }
+    }
+
     window.applyVisualFilters();
     // Riapplica la lente relazioni se attiva (dopo ogni render)
     if (window.activeLensFamily) window.applyLensFamily();
@@ -4832,22 +7229,64 @@ function renderGraph() {
         if (d.level === 2) return 800;
         return 1200;
     }).style("opacity", d => (d._opacity !== undefined) ? d._opacity : 1);
+
+    window.applyDeepNodeDim();
 }
 
+// Effetto dim sui nodi L5+: più profondi = più trasparenti quando si è in panoramica;
+// a zoom = 1 i nodi sono completamente opachi.
+window.applyDeepNodeDim = function (k) {
+    if (k === undefined) {
+        const svgNode = document.getElementById('map-svg');
+        k = svgNode ? d3.zoomTransform(svgNode).k : 1;
+    }
+    if (!g) return;
+    g.selectAll(".node-group").each(function (d) {
+        if (!d || d.level < 5) return;
+        const depth = d.level - 5;              // 0 per L5, 1 per L6, 2 per L7 …
+        const minOp = Math.max(0.12, 0.88 - depth * 0.18); // L5:0.88 L6:0.70 L7:0.52 L8:0.34
+        const opacity = minOp + (1 - minOp) * Math.min(1, k);
+        d3.select(this).style("opacity", opacity);
+    });
+};
+
 function tick() {
+    if (!g) return;
     g.selectAll(".link").each(function (d) {
         const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
         const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
         const ux = (tx - sx) / len, uy = (ty - sy) / len;
         const rs = getNodeRadius(d.source);
         const rt = getNodeRadius(d.target);
-        d3.select(this)
-            .attr("x1", sx + ux * rs).attr("y1", sy + uy * rs)
-            .attr("x2", tx - ux * rt).attr("y2", ty - uy * rt);
+        const x1 = sx + ux * rs, y1 = sy + uy * rs;
+        const x2 = tx - ux * rt, y2 = ty - uy * rt;
+        let pathD;
+        if (d.bidirectional) {
+            // Curva quadratica Bezier: offset perpendolare di 40px per distinguerla
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            const cx = mx - uy * 40, cy = my + ux * 40;
+            pathD = `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+        } else {
+            pathD = `M${x1},${y1} L${x2},${y2}`;
+        }
+        d3.select(this).attr("d", pathD);
     });
-    g.selectAll(".link-label")
-        .attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.67)
-        .attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.67);
+    g.selectAll(".link-label").each(function (d) {
+        const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
+        let lx, ly;
+        if (d.bidirectional) {
+            const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
+            const ux = (tx - sx) / len, uy = (ty - sy) / len;
+            const mx = (sx + tx) / 2, my = (sy + ty) / 2;
+            // Midpoint visivo della curva Bezier = 0.5*(punto di controllo) spostato
+            lx = mx - uy * 20;
+            ly = my + ux * 20;
+        } else {
+            lx = sx + (tx - sx) * 0.67;
+            ly = sy + (ty - sy) * 0.67;
+        }
+        d3.select(this).attr("x", lx).attr("y", ly);
+    });
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
@@ -5428,7 +7867,8 @@ window.applyLensFamily = function () {
         .style('stroke', null)
         .style('stroke-width', null)
         .style('stroke-opacity', null)
-        .attr('marker-end', 'url(#arrowhead)');
+        .attr('marker-end', 'url(#arrowhead)')
+        .attr('marker-start', d => d.bidirectional ? 'url(#arrowhead-rev)' : null);
     g.selectAll('.link-group').classed('lens-dimmed', false);
     g.selectAll('.node-group').classed('lens-dimmed', false);
     g.selectAll('circle.node-circle')
@@ -5471,12 +7911,15 @@ window.applyLensFamily = function () {
     g.selectAll('.link-group').each(function (d) {
         const isActive = activeLinkSet.has(d);
         d3.select(this).classed('lens-dimmed', !isActive);
-        // Line + freccia colorate per i link attivi
-        d3.select(this).select('line.link')
+        // Path + frecce colorate per i link attivi
+        d3.select(this).select('.link')
             .style('stroke', isActive ? fam.color : null)
             .style('stroke-width', isActive ? '2.5px' : null)
             .style('stroke-opacity', isActive ? '1' : null)
-            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)');
+            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)')
+            .attr('marker-start', d => d.bidirectional
+                ? (isActive ? `url(#arrowhead-rev-${key})` : 'url(#arrowhead-rev)')
+                : null);
         // Label: forza visibile + font ×1.5 + colore famiglia + outline NERO per contrasto
         // (replica il pattern di .node-text, ma stroke nero come richiesto)
         d3.select(this).select('text.link-label')
@@ -5692,6 +8135,8 @@ function calculatePath(start, end) {
 }
 
 function handleBackgroundClick() {
+    if (window.mergeState && window.mergeState.active) window.cancelMergeMode();
+    if (window.relinkState && window.relinkState.active) window.cancelRelinkMode();
     if (linkingState.active) { linkingState.active = false; document.getElementById('mode-hint').classList.add('hidden'); }
 
     // PATHFINDER: il click sullo sfondo NON resetta più la selezione (era troppo
@@ -5905,11 +8350,22 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
         if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
 
+        if (window.mergeState && window.mergeState.active) {
+            window.handleMergeTargetClick(d);
+            return;
+        }
+        if (window.relinkState && window.relinkState.active) {
+            window.handleRelinkTargetClick(d);
+            return;
+        }
+
         if (linkingState.active) {
             if (linkingState.sourceNode.id !== d.id) {
-                window.showPrompt(`Che relazione c'è tra "${cleanLabel(linkingState.sourceNode.label)}" e "${cleanLabel(d.label)}"?`, "collegato_a", (rel) => {
+                window.showLinkFamilyPrompt(cleanLabel(linkingState.sourceNode.label), cleanLabel(d.label), (rel, bidir) => {
                     if (rel) {
-                        appState.db.links.push({ source: linkingState.sourceNode.id, target: d.id, rel: rel });
+                        const link = { source: linkingState.sourceNode.id, target: d.id, rel: rel };
+                        if (bidir) link.bidirectional = true;
+                        appState.db.links.push(link);
                         window.updateDegreeStats(); renderGraph();
                     }
                 });
@@ -5981,7 +8437,7 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
                         </div>
                     ` : ''}
 
-                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">${cleanLabel(d.content || d.desc) || "Nessuna descrizione."}</div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed mb-6 whitespace-pre-wrap">${cleanLabel(d.desc || d.content) || "Nessuna descrizione."}</div>
                     
                     <!-- Links in Details -->
                     ${(d.urls && d.urls.length > 0) || d.url ? `
@@ -6121,7 +8577,7 @@ window.openSourceModal = function (nodeId) {
         sourceModalTitle.textContent = cleanLabel(d.label);
         sourceModalSubtitle.textContent = `Scheda Focus - Livello ${d.level}`;
 
-        let descStr = cleanLabel(d.content || d.desc) || "Nessuna descrizione.";
+        let descStr = cleanLabel(d.desc || d.content) || "Nessuna descrizione.";
         descStr = descStr.replace(/\n/g, '<br>');
         descStr = window.highlightQuery ? window.highlightQuery(descStr, appState.searchQuery) : descStr;
         let html = `<p class="text-slate-800 desc-text rich-desc mb-6 leading-relaxed">${descStr}</p>`;
@@ -6949,6 +9405,11 @@ window.handleIPadVaultFileSelected = async function (event) {
     event.target.value = "";
 };
 
+window.openJSONUploader = function () {
+    const fileInput = document.getElementById('landing-import');
+    if (fileInput) fileInput.click();
+};
+
 window.startEmptyMap = function () {
     // Reset DB to a single root node
     const rootId = "node_" + Math.random().toString(36).substr(2, 9);
@@ -7733,7 +10194,13 @@ window.generateDossierPDFFromOptions = async function () {
                 if (scope === 'single') {
                     targetNodes = [selectedNode];
                 } else {
-                    targetNodes = [...(appState.db.nodes || [])].sort((a, b) => (a.level || 0) - (b.level || 0));
+                    // Ordina per macro-area (group) poi per livello: tutti i nodi di
+                    // ogni colore/comunità restano in sequenza nel dossier stampato.
+                    targetNodes = [...(appState.db.nodes || [])].sort((a, b) => {
+                        const ga = a.group ?? 0, gb = b.group ?? 0;
+                        if (ga !== gb) return ga - gb;
+                        return (a.level || 0) - (b.level || 0);
+                    });
                 }
             }
         }
@@ -7801,12 +10268,13 @@ window.generateDossierPDFFromOptions = async function () {
         // ─── Helper: genera la card di un nodo (layout allineato al #source-modal) ─
         function buildNodeCard(node, showCitations, citationsHtml, notesCount, relationsHtml) {
             // ── Calcolo colore header e contrasto testo ──────────────────────────
-            // getMacroAreaColor garantisce colore della macroarea (L1) per ogni livello
             const headerColor = getMacroAreaColor(node);
             const hex = headerColor.replace('#', '');
             const r = parseInt(hex.substr(0, 2), 16) || 0, g = parseInt(hex.substr(2, 2), 16) || 0, b = parseInt(hex.substr(4, 2), 16) || 0;
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-            const textColor = luma > 160 ? '#1e293b' : '#ffffff'; // usato solo per badge Modo B
+            const textColor = luma > 160 ? '#1e293b' : '#ffffff';
+
+            const isL1 = (node.level || 0) <= 1;
 
             // ── Nome macro-area (L1) di appartenenza ────────────────────────────
             const macroareaName = (() => {
@@ -7814,42 +10282,63 @@ window.generateDossierPDFFromOptions = async function () {
                 return l1 ? cleanLabel(l1.label) : `Gruppo ${node.group !== undefined ? node.group : '–'}`;
             })();
 
-            // ── Breadcrumb: percorso parentela macroArea › nodo ──────────────────
-            const breadcrumb = (() => {
-                if (!node.level || node.level <= 1) return '';
-                const l1 = appState.db.nodes.find(nd => nd.level === 1 && nd.group === node.group);
-                return l1 ? `${cleanLabel(l1.label)} › ${cleanLabel(node.label)}` : '';
+            // ── Relazioni nel header: predecessori e successori ──────────────────
+            // Mostrate solo sui nodi L2+ per non ingolfare gli hub
+            const headerRelHints = (() => {
+                if (isL1) return '';
+                const nodeMap = {};
+                (appState.db.nodes || []).forEach(nd => { nodeMap[nd.id] = nd; });
+                const rawLinks = appState.db.links || [];
+                const nodeId = node.id;
+
+                const formatRef = (nd) => {
+                    if (!nd) return null;
+                    const isHub = (nd.level || 0) <= 1;
+                    return (isHub ? 'HUB+' : '') + cleanLabel(nd.label);
+                };
+
+                // Predecessori: nodi che puntano A questo nodo
+                const fromRefs = rawLinks
+                    .filter(l => (typeof l.target === 'object' ? l.target.id : l.target) === nodeId)
+                    .map(l => formatRef(nodeMap[typeof l.source === 'object' ? l.source.id : l.source]))
+                    .filter(Boolean);
+
+                // Successori: nodi a cui questo nodo punta
+                const toRefs = rawLinks
+                    .filter(l => (typeof l.source === 'object' ? l.source.id : l.source) === nodeId)
+                    .map(l => formatRef(nodeMap[typeof l.target === 'object' ? l.target.id : l.target]))
+                    .filter(Boolean);
+
+                let html = '';
+                if (fromRefs.length) html += `<span class="dossier-rel-hint">&#8592; ${fromRefs.join(' / ')}</span>`;
+                if (toRefs.length)   html += `<span class="dossier-rel-hint">&#8594; ${toRefs.join(' / ')}</span>`;
+                return html;
             })();
 
-            // ── Sezione FONTI: titolo con barra sinistra colorata (come il modale) ─
+            // ── Sezione FONTI: titolo con barra sinistra colorata ────────────────
             const citationsSection = showCitations ? `
-            <!-- Titolo fonti: barra verticale sinistra = 3pt, colore nodo -->
             <div class="dossier-sources-header" style="border-left:3pt solid ${headerColor};padding-left:8pt;margin:12pt 0 6pt 0;">
                 <span class="dossier-section-title sources-title" style="color:${headerColor};">&#9612; FONTI E NOTE APPROFONDITE (${notesCount})</span>
             </div>
-            <!-- Lista citazioni: box sfondo grigio chiaro con bordo sinistro -->
             <div class="citations-container">${citationsHtml}</div>
         ` : '';
 
+            // Header: L1 (macro-area) → dimensioni originali grandi per impatto visivo
+            //         L2+ → padding compatto, titolo riempie bene il rettangolo
+            const headerClass = isL1 ? 'dossier-card-header is-l1' : 'dossier-card-header';
+
             return `<div class="dossier-card">
 
-            <!-- ── HEADER PAGINA: rettangolo colorato full-width ─────────────── -->
-            <div class="dossier-card-header" style="background:${headerColor};color:white;">
+            <!-- ── HEADER: rettangolo colorato full-width ──────────────────────── -->
+            <div class="${headerClass}" style="background:${headerColor};color:white;">
                 <div class="dossier-card-header-main">
-                    <!-- Titolo nodo: bianco, bold, ~22pt -->
                     <h2 class="dossier-title">${cleanLabel(node.label)}</h2>
-                    <!-- Sottotitolo: "Livello X · MacroArea" bianco 10pt opacità ridotta -->
-                    <span class="dossier-level-tag">Livello ${node.level || 0} · ${macroareaName}</span>
-                    ${breadcrumb ? `<!-- Breadcrumb parentela: bianco italic 9pt -->
-                    <span class="dossier-breadcrumb">${breadcrumb}</span>` : ''}
+                    ${headerRelHints}
                 </div>
             </div>
 
-            <!-- ── SEZIONE SINTESI ──────────────────────────────────────────── -->
+            <!-- ── CORPO NODO ───────────────────────────────────────────────────── -->
             <div class="dossier-body">
-                <!-- Etichetta "SINTESI DEL CONCETTO": maiuscoletto, accent, 8pt, tracking largo -->
-                <span class="dossier-section-label">SINTESI DEL CONCETTO</span>
-                <!-- Testo sintesi: Space Mono, interlinea 1.6, colore #1e293b -->
                 <p class="dossier-desc">${cleanLabel(node.desc || node.content || 'Nessuna descrizione presente.')}</p>
 
                 <!-- ── SEZIONE FONTI E CITAZIONI ────────────────────────── -->
@@ -7883,9 +10372,9 @@ window.generateDossierPDFFromOptions = async function () {
             dossierSubtitle = cleanLabel(targetNodes[0]?.label || projectTitle);
         } else {
             // scope === 'all' oppure selectedNodeId === 'all'
-            const rootNodeObj = appState.db.nodes?.find(n => n.level === 0);
-            dossierTitle = 'Struttura della Mappa';
-            dossierSubtitle = cleanLabel(rootNodeObj?.label || projectTitle);
+            // Titolo prima pagina = nome del progetto assegnato in MappAI
+            dossierTitle = cleanLabel(appState.rootNodeLabel || appState.db?.rootNodeLabel || projectTitle);
+            dossierSubtitle = isMM ? 'Mappa Mentale' : 'Knowledge Graph';
         }
 
         let dossierCardsHtml = '';
@@ -8188,7 +10677,7 @@ window.generateDossierPDFFromOptions = async function () {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Dossier Fonti A4 - ${projectTitle}</title>
+            <title>Dossier ${projectTitle} ${isMM ? 'MM' : 'KG'}</title>
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
                 :root {
@@ -8333,14 +10822,19 @@ window.generateDossierPDFFromOptions = async function () {
 
                 /* ── HEADER CARD FULL-WIDTH (layout allineato al #source-modal) ─── */
                 .dossier-card-header {
-                    /* Rettangolo colorato full-width che rompe il padding della card */
+                    /* Header nodi L2+: compatto, titolo riempie il rettangolo */
                     display: flex;
                     align-items: flex-start;
                     justify-content: space-between;
-                    gap: 12px;
-                    padding: 18pt 20pt 14pt 20pt;
+                    gap: 8px;
+                    padding: 10pt 16pt 9pt 16pt;
                     margin: calc(-1 * var(--pdf-card-padding));
-                    margin-bottom: calc(var(--pdf-card-padding) * 0.7);
+                    margin-bottom: calc(var(--pdf-card-padding) * 0.5);
+                }
+
+                .dossier-card-header.is-l1 {
+                    /* Header macro-aree L1: dimensioni originali per impatto visivo */
+                    padding: 18pt 20pt 14pt 20pt;
                 }
 
                 .dossier-card-header-main {
@@ -8366,27 +10860,40 @@ window.generateDossierPDFFromOptions = async function () {
                 }
 
                 .dossier-title {
-                    /* Titolo nodo nell'header: bianco, bold, grande */
-                    font-size: 22pt;
+                    /* Titolo nell'header: bianco, bold, riempie il rettangolo */
+                    font-size: 17pt;
                     font-weight: 700;
                     margin: 0;
                     color: #ffffff;
                     line-height: 1.2;
                 }
 
+                .is-l1 .dossier-title {
+                    /* Macro-aree L1: titolo grande come nell'originale */
+                    font-size: 22pt;
+                }
+
                 .dossier-level-tag {
-                    /* "Livello X · MacroArea": bianco 10pt, opacità ridotta */
-                    font-size: 10pt;
+                    font-size: 8pt;
                     color: rgba(255,255,255,0.75);
                     display: block;
                 }
 
                 .dossier-breadcrumb {
-                    /* Percorso parentela: bianco italic 9pt */
-                    font-size: 9pt;
+                    font-size: 8pt;
                     color: rgba(255,255,255,0.65);
                     font-style: italic;
                     display: block;
+                }
+
+                .dossier-rel-hint {
+                    /* Predecessori / successori nel header: piccoli, bianchi, italic */
+                    display: block;
+                    font-size: 7.5pt;
+                    color: rgba(255,255,255,0.72);
+                    font-style: italic;
+                    margin-top: 2pt;
+                    line-height: 1.3;
                 }
 
                 /* Backward compat: vecchio tag per Modo B */
@@ -8822,6 +11329,8 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
                     <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
+                    <div class="ctx-item text-amber-600" onclick="window.ctxAction('merge')"><i data-lucide="git-merge"></i> Fondi con...</div>
+                    ${appState.extractionMode !== 'kg' ? `<div class="ctx-item text-sky-600" onclick="window.ctxAction('relink')"><i data-lucide="unlink"></i> Cambia Link</div>` : ''}
                     <hr class="my-1 border-slate-200">
                     ${spacedRepetitionHtml}
                     <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
@@ -8964,6 +11473,7 @@ window.ctxAction = function (action) {
     }
     else if (action === 'delete_node') {
         window.showConfirm("Elimina Nodo", "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?", () => {
+            if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina nodo: ' + data.label);
             appState.db.nodes = appState.db.nodes.filter(n => n.id !== data.id);
             appState.db.links = appState.db.links.filter(l => {
                 let sid = typeof l.source === 'object' ? l.source.id : l.source;
@@ -8974,12 +11484,20 @@ window.ctxAction = function (action) {
             window.updateDegreeStats(); renderGraph();
         });
     }
+    else if (action === 'merge') {
+        window.startMergeMode(data);
+    }
+    else if (action === 'relink') {
+        window.startRelinkMode(data);
+    }
     else if (action === 'rename_link') {
-        window.showPrompt("Nuova etichetta relazione:", data.rel, (newRel) => {
-            if (newRel) { data.rel = newRel; renderGraph(); }
+        window.showPrompt("Etichetta relazione (lascia vuoto per nascondere la label):", data.rel || '', (newRel) => {
+            data.rel = newRel; // stringa vuota = link senza label visibile
+            renderGraph();
         });
     }
     else if (action === 'delete_link') {
+        if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina link: ' + (data.rel || data.source + '→' + data.target));
         appState.db.links = appState.db.links.filter(l => l !== data);
         window.updateDegreeStats(); renderGraph();
     }
@@ -9010,7 +11528,7 @@ let editImages = [];
 window.openEditModal = function (nodeData) {
     editTarget = nodeData;
     document.getElementById('edit-n-label').value = cleanLabel(nodeData.label) || "";
-    document.getElementById('edit-n-content').value = cleanLabel(nodeData.content || nodeData.desc) || "";
+    document.getElementById('edit-n-content').value = cleanLabel(nodeData.desc || nodeData.content) || "";
 
     // Migration to arrays
     editLinks = nodeData.urls ? [...nodeData.urls] : (nodeData.url ? [nodeData.url] : []);
@@ -9282,7 +11800,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
 
     const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
         nodeLabel: node.label,
-        nodeContent: node.content || node.desc
+        nodeContent: node.desc || node.content
     });
 
     const schema = {
@@ -10598,12 +13116,26 @@ const StorageManager = {
         });
     },
 
+    validVaultFolders: [], // Cache dei nomi di cartelle vault che effettivamente esistono
+
+    // Verifica quali vault EFFETTIVAMENTE ESISTONO nel file system
+    // (senza toccare localStorage, il quale rimane integro)
+    syncValidVaults: async function () {
+        try {
+            if (!window.electronAPI || !window.electronAPI.getValidVaultFolders) return;
+            this.validVaultFolders = await window.electronAPI.getValidVaultFolders();
+        } catch (e) {
+            console.warn("[StorageManager] Errore syncValidVaults:", e);
+            this.validVaultFolders = [];
+        }
+    },
+
     renderRecentProjects: function () {
         const container = document.getElementById('recent-projects-container');
         if (!container) return;
 
         try {
-            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+            let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
 
             if (projects.length === 0) {
                 container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
@@ -10844,7 +13376,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Multi-pass ON di default (silent=true: niente toast all'avvio)
     window.setMultiPassMode(true, true);
 
-    StorageManager.renderRecentProjects();
+    // Initialize Pipeline A/B selector (silent=true to prevent toast on startup)
+    const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'A';
+    window.setPipeline(savedPipeline);
+    const desc = document.getElementById('pipeline-desc');
+    if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
+
+    // Sincronizza la lista di vault che effettivamente esistono, poi renderizza
+    StorageManager.syncValidVaults().then(() => {
+        StorageManager.renderRecentProjects();
+    }).catch(e => {
+        console.warn("[Init] Errore syncValidVaults:", e);
+        StorageManager.renderRecentProjects(); // Fallback: renderizza comunque
+    });
 
     // Load Gemini Key
     const savedGeminiKey = (window.secureKeys && window.secureKeys['gemini_api_key']) || localStorage.getItem('gemini_api_key');
@@ -10869,7 +13413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const modelsStorageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
     const selectionStorageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const defaultModel = isInfomaniak ? 'google/gemma-4-31B-it' : 'gemini-2.0-flash';
+    const defaultModel = isInfomaniak ? 'mistral-small-4-119B-2603' : 'gemini-2.0-flash';
 
     const savedModelsStr = localStorage.getItem(modelsStorageKey);
     const selectEl = document.getElementById('model-select');
@@ -10985,17 +13529,17 @@ window.startStudySession = async function () {
 
     if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
         const n = window.studyConfig.target;
-        studyText = `${n.label}: ${n.content || n.desc}`;
+        studyText = `${n.label}: ${n.desc || n.content}`;
         const isKG = appState.db.extractionMode === 'knowledge_graph';
         const nodePrefix = (isKG && n.level === 1) ? 'Hub' : 'Nodo';
         targetLabel = `${nodePrefix}: ${n.label}`;
     } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
         const root = window.studyConfig.target;
         const branchNodes = [root, ...window.getDescendants(root.id)];
-        studyText = branchNodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+        studyText = branchNodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
         targetLabel = `Ramo: ${root.label}`;
     } else {
-        studyText = appState.db.nodes.map(n => n.label + ": " + (n.content || n.desc)).join('\n');
+        studyText = appState.db.nodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
     }
 
     if (!studyText || studyText.trim() === '') {
