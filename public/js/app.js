@@ -8386,6 +8386,13 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
             return;
         }
 
+        // ── Multi-selezione: SHIFT = aggiungi/toggle, CTRL/CMD = rimuovi ──
+        if (event && d && window.MappAIMultiSelect &&
+            (event.shiftKey || event.ctrlKey || event.metaKey)) {
+            window.MappAIMultiSelect.toggleNode(d, event);
+            return;
+        }
+
         currentNode = d;
 
         if (!preventZoom) {
