@@ -8392,6 +8392,10 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
             window.MappAIMultiSelect.toggleNode(d, event);
             return;
         }
+        // Clic semplice su nodo: svuota multi-selezione se attiva
+        if (window.MappAIMultiSelect && window.MappAIMultiSelect.count() > 0) {
+            window.MappAIMultiSelect.clearSelection();
+        }
 
         currentNode = d;
 
