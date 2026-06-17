@@ -2735,6 +2735,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                minItems: 5,  // FLOOR: evita run a 3-4 macro-aree (mappa piatta, -50% nodi).
+                              // Phase 1 non-deterministica → senza minimo un run accorpa rami ricchi.
                 maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
                               // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
@@ -3237,6 +3239,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
 
             const schemaL1 = {
                 type: "ARRAY",
+                minItems: 5,  // FLOOR: evita run a 3-4 macro-aree (mappa piatta, -50% nodi).
+                              // Phase 1 non-deterministica → senza minimo un run accorpa rami ricchi.
                 maxItems: 7,  // CRITICO: senza questo il modello riempie l'array fino al budget
                               // (riprodotto a -12 tok dal limite con budget 6000/8192/12000)
                 items: {
