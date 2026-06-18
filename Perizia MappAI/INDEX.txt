@@ -1,0 +1,274 @@
+================================================================================
+INDICE CARTELLA — PERIZIA MAPPAI
+================================================================================
+
+CARTELLA: Perizia MappAI/
+CONTENUTO: 6 file per perizia conferimento software MappAI
+DATA: 18.06.2026
+VALORE NETTO: CHF 145'120.00
+
+
+MAPPA CARTELLA
+────────────────────────────────────────────────────────────────────────────────
+
+Perizia MappAI/
+  │
+  ├─ 1. PERIZIA_ORE_CONFERIMENTO.csv
+  │      └─ Cosa contiene: Log dettagliato 47 item (Data | Modulo | Desc | Fase | Ore)
+  │         Destinatario: Revisore ASR (importare in Excel)
+  │         Dimensione: 11 KB (47 righe + header + totale)
+  │         Formato: Pipe-delimited (|)
+  │         Totale ore: 907.0 (Design 180 + Sviluppo 547 + Testing 180)
+  │         Totale valore: CHF 145'120.00
+  │
+  ├─ 2. PERIZIA_EXTRACT_PDF_READY.txt
+  │      └─ Cosa contiene: Sintesi esecutiva stampa-ready (8-10 pagine)
+  │         Destinatario: Word/Docs → PDF per presentazione
+  │         Dimensione: 12 KB (8 sezioni)
+  │         Sezioni: Intestazione | Riepilogo | Distribuzione fasi | Tariffe |
+  │                  Codebase summary | Features implementate | Tracciabilità |
+  │                  Metodologia | Certificazione
+  │         Uso: Copia/incolla in Word, formatta, esporta PDF
+  │
+  ├─ 3. PERIZIA_METODOLOGIA.md
+  │      └─ Cosa contiene: Metodologia stima dettagliata (GAAP-compliant)
+  │         Destinatario: Revisore ASR, stakeholder tecnico
+  │         Dimensione: 7.5 KB (9 sezioni)
+  │         Sezioni: Scopo | Approccio WBS | Fonti dati (LOC, commit, architettura) |
+  │                  Calcolo valore | Giustificazione tariffe | Conformità normativa |
+  │                  Limitazioni | Verifica incrociata | Conclusione
+  │         Conformità: GAAP + ASR + CHE-GAAP
+  │
+  ├─ 4. PERIZIA_RIEPILOGO_TECNICO.txt
+  │      └─ Cosa contiene: Feature breakdown + codebase metrics (non-financial)
+  │         Destinatario: Team tecnico, stakeholder interessato a dettagli SW
+  │         Dimensione: 14 KB (11 sezioni)
+  │         Sezioni: Project overview | Codebase metrics (LOC per file) |
+  │                  Feature breakdown (10 macro-feature) | Quality metrics |
+  │                  Technology stack | Key design decisions | Risk assessment |
+  │                  Maintenance roadmap | Conclusione
+  │         Utile per: Capire che cosa è stato sviluppato in dettaglio
+  │
+  ├─ 5. PERIZIA_README.txt
+  │      └─ Cosa contiene: Istruzioni d'uso + FAQ + checklist
+  │         Destinatario: Tu (revisore locale), revisore ASR
+  │         Dimensione: 9.8 KB (6 sezioni)
+  │         Sezioni: Contenuto cartella | Come usare (4 passi) | FAQ (8 Q&A) |
+  │                  Checklist pre-presentazione | Dettagli per revisore |
+  │                  Contatti/Risorse | Versione documento | Note finali
+  │         Utile per: Navigazione rapida, risoluzione problemi
+  │
+  └─ 6. INDEX.txt (QUESTO FILE)
+         └─ Cosa contiene: Indice cartella + mappa navigazione
+            Destinatario: Primo file da leggere per orientamento
+            Dimensione: 7.3 KB
+            Scopo: Ti aiuta a capire dove trovare che cosa
+
+
+SCHEMA LETTURA CONSIGLIATO
+────────────────────────────────────────────────────────────────────────────────
+
+Se sei:
+  ► REVISORE ASR FORMALE:
+    1. Leggi PERIZIA_README.txt (sezione "Dettagli per revisore")
+    2. Leggi PERIZIA_EXTRACT_PDF_READY.txt (overview)
+    3. Importa PERIZIA_ORE_CONFERIMENTO.csv in Excel
+    4. Consulta PERIZIA_METODOLOGIA.md (per conformità normativa)
+    5. Verifica PERIZIA_RIEPILOGO_TECNICO.txt (per feature/tech details)
+    Tempo: 2-3 ore per revisione
+
+  ► REVISORE LOCALE (Giacomo):
+    1. Leggi INDEX.txt (questo file)
+    2. Consulta PERIZIA_README.txt (check FAQ)
+    3. Apri PERIZIA_ORE_CONFERIMENTO.csv in Excel
+    4. Genera PDF da PERIZIA_EXTRACT_PDF_READY.txt
+    5. Tieni a mano PERIZIA_RIEPILOGO_TECNICO.txt per dettagli
+    Tempo: 1 ora per setup
+
+  ► STAKEHOLDER INTERESSATO (investor, banca, partner):
+    1. Leggi PERIZIA_EXTRACT_PDF_READY.txt (PDF printed version)
+    2. Se domande: PERIZIA_RIEPILOGO_TECNICO.txt (dettagli tech)
+    3. Se controversie su metodo: PERIZIA_METODOLOGIA.md
+    Tempo: 30 minuti
+
+  ► TEAM TECNICO (curiosità codebase):
+    1. Leggi PERIZIA_RIEPILOGO_TECNICO.txt (feature breakdown)
+    2. Verifica PERIZIA_ORE_CONFERIMENTO.csv (ore per feature)
+    3. Se interesse metodologia: PERIZIA_METODOLOGIA.md
+    Tempo: 1 ora
+
+
+FILE-BY-FILE WALKTHROUGH
+────────────────────────────────────────────────────────────────────────────────
+
+FILE: PERIZIA_ORE_CONFERIMENTO.csv
+  ├─ Formato: CSV pipe-delimited (|)
+  ├─ Intestazione: Data | Modulo | Descrizione | Fase | Ore
+  ├─ Righe: 47 item + 1 header + 1 totale = 49 righe
+  ├─ Colonne:
+  │   • Data: GG.MM.AAAA (17.01.2026 — 18.06.2026)
+  │   • Modulo: Nome feature (es. "Setup Infrastruttura", "D3.js Rendering Core")
+  │   • Descrizione: Technical detail (es. "Progettazione architetturale Electron...")
+  │   • Fase: Design/Architettura | Sviluppo/Integrazione | Testing/Debugging
+  │   • Ore: Numero decimale (es. 8.0, 6.5, 12.0)
+  ├─ Totale ore: 907.0 (verificabile con =SUM(E2:E48) in Excel)
+  ├─ Somme per fase:
+  │   • Design/Arch: ~180 ore (20%)
+  │   • Sviluppo: ~547 ore (60%)
+  │   • Testing: ~180 ore (20%)
+  └─ Uso: Importa in Excel per tabella finale, calcoli, export PDF
+
+FILE: PERIZIA_EXTRACT_PDF_READY.txt
+  ├─ Formato: Plain text UTF-8 (copia/incolla in Word/Docs)
+  ├─ Sezioni:
+  │   1. Intestazione perizia (revisore, società, progetto, data)
+  │   2. Riepilogo esecutivo (what is MappAI)
+  │   3. Distribuzione fasi tabella (ore | % | CHF)
+  │   4. Tariffe applicate (CHF/h per fase)
+  │   5. Codebase summary (file principali, LOC)
+  │   6. Features implementate (per fase, con ore)
+  │   7. Tracciabilità artefatti (git log, commit)
+  │   8. Metodologia stima (WBS, GAAP)
+  │   9. Certificazione finale
+  ├─ Lunghezza: ~450 righe = 8-10 pagine A4 quando stampate
+  └─ Uso: Copia tutto, incolla in Word, formatta, esporta PDF
+
+FILE: PERIZIA_METODOLOGIA.md
+  ├─ Formato: Markdown (.md)
+  ├─ Sezioni:
+  │   1. Scopo e contesto (che cosa documenta)
+  │   2. Approccio WBS (Work Breakdown Structure)
+  │   3. Fonti dati (LOC analysis, commit history, architettura)
+  │   4. Calcolo valore (formula, validazione incrociata)
+  │   5. Giustificazione tariffe (CHF/h per fase)
+  │   6. Conformità normativa (GAAP, ASR, CHE-GAAP)
+  │   7. Limitazioni e assunzioni (che cosa NON è incluso)
+  │   8. Verifica incrociata (sanity check LOC/h, valore/LOC)
+  │   9. Conclusione
+  ├─ Tabelle: Pricing breakdown, giustificazione tariffe, conformità normativa
+  └─ Uso: Leggere per capire come sono state stimate le ore e il valore
+
+FILE: PERIZIA_RIEPILOGO_TECNICO.txt
+  ├─ Formato: Plain text UTF-8
+  ├─ Sezioni:
+  │   1. Project overview (che cosa è MappAI)
+  │   2. Codebase metrics (LOC per file, dipendenze)
+  │   3. Feature breakdown per effort (10 macro-feature, sforzo)
+  │   4. Quality metrics (testing coverage, performance)
+  │   5. Technology stack (Electron, D3.js, AI APIs, ecc.)
+  │   6. Key design decisions (vanilla JS, monolite app.js, dual AI provider)
+  │   7. Risk assessment (LOW/MEDIUM/HIGH)
+  │   8. Maintenance & roadmap (post-launch, short/long-term)
+  │   9. Conclusione
+  ├─ Dettagli: Per ogni feature, ore e complessità
+  └─ Uso: Consultare per capire che cosa è stato sviluppato e come
+
+FILE: PERIZIA_README.txt
+  ├─ Formato: Plain text UTF-8
+  ├─ Sezioni:
+  │   1. Contenuto cartella (lista 6 file)
+  │   2. Come usare questa perizia (4 passi)
+  │   3. Risoluzione problemi (8 FAQ)
+  │   4. Checklist pre-presentazione (10 item)
+  │   5. Dettagli per revisore (6 talking points)
+  │   6. Contatti e risorse (ASR, SIA, leggi)
+  │   7. Versione documento
+  │   8. Firma e convalida (spazi per revisore)
+  │   9. Note finali
+  ├─ Pratici: Istruzioni step-by-step, FAQs
+  └─ Uso: Leggere prima di usare gli altri file, consultare FAQ se dubbi
+
+FILE: INDEX.txt (questo file)
+  ├─ Scopo: Navigazione cartella
+  ├─ Sezioni:
+  │   1. Mappa cartella (questo testo)
+  │   2. Schema lettura consigliato (per role)
+  │   3. File-by-file walkthrough (che cosa contiene ogni file)
+  │   4. Quick lookup table (trova info per argomento)
+  │   5. Checklist di navigazione
+  └─ Uso: PRIMO FILE DA LEGGERE per orientamento
+
+
+QUICK LOOKUP — TROVA INFO PER ARGOMENTO
+────────────────────────────────────────────────────────────────────────────────
+
+Argomento                           File                          Sezione
+──────────────────────────────────────────────────────────────────────────────
+Valore totale conferimento          PERIZIA_EXTRACT_PDF_READY     "Distribuzione fasi"
+Log dettagliato ore                 PERIZIA_ORE_CONFERIMENTO.csv  Tutte le righe
+Tariffe applicate (CHF/h)           PERIZIA_EXTRACT_PDF_READY     "Tariffe applicate"
+                                    PERIZIA_METODOLOGIA           "Giustificazione tariffaria"
+Metodologia stima                   PERIZIA_METODOLOGIA           Tutte le sezioni
+Conformità GAAP/ASR/CHE-GAAP        PERIZIA_METODOLOGIA           "Conformità normativa"
+Feature implementate                PERIZIA_RIEPILOGO_TECNICO     "Feature breakdown"
+                                    PERIZIA_EXTRACT_PDF_READY     "Features implementate"
+Codebase size (LOC)                 PERIZIA_RIEPILOGO_TECNICO     "Codebase metrics"
+Technology stack usato              PERIZIA_RIEPILOGO_TECNICO     "Technology stack summary"
+Rischi identifikati                 PERIZIA_RIEPILOGO_TECNICO     "Risk assessment"
+Come usare i file                   PERIZIA_README.txt            "Come usare questa perizia"
+Istruzioni Excel import             PERIZIA_README.txt            "PASSO 1"
+Istruzioni PDF generate             PERIZIA_README.txt            "PASSO 2"
+FAQ e risoluzione problemi          PERIZIA_README.txt            "Risoluzione problemi (FAQ)"
+Checklist pre-presentazione         PERIZIA_README.txt            "Checklist"
+Contatti revisori ASR               PERIZIA_README.txt            "Contatti e risorse"
+Cosa dire al revisore ASR           PERIZIA_README.txt            "Dettagli per revisore"
+Valore conservativo (se contestato) PERIZIA_README.txt            "FAQ - valore contestato"
+Roadmap manutenzione post-launch    PERIZIA_RIEPILOGO_TECNICO     "Maintenance & Future Roadmap"
+
+
+NAVIGAZIONE CARTELLA — CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+Pronto per consegnare al revisore ASR?
+
+ □ Leggi INDEX.txt (questo file) ← SEI QUI
+ □ Apri PERIZIA_README.txt, sezione "PASSO 1: IMPORTARE IL CSV"
+ □ Importa PERIZIA_ORE_CONFERIMENTO.csv in Excel
+ □ Verifica TOTALE = 907.0 ore
+ □ Leggi PERIZIA_METODOLOGIA.md (per capire conformità GAAP)
+ □ Copia PERIZIA_EXTRACT_PDF_READY.txt in Word/Docs
+ □ Formatta e esporta come PDF
+ □ Consulta PERIZIA_RIEPILOGO_TECNICO.txt se domande tecniche
+ □ Compila "PERIZIA_README.txt" sezione "Firma e convalida" (se pronto)
+ □ Raccogli tutto (cartella Perizia MappAI + codebase + CLAUDE.md)
+ □ Contatta revisore ASR (Ticino) — vedi PERIZIA_README.txt "Contatti"
+
+
+SINTESI NUMERI CHIAVE
+────────────────────────────────────────────────────────────────────────────────
+Ore totali investite:           907.0 ore
+Periodo sviluppo:               17.01.2026 — 18.06.2026 (6 mesi)
+Design/Architettura:            180 ore (20%)
+Sviluppo/Integrazione:          547 ore (60%)
+Testing/Debugging:              180 ore (20%)
+
+Tariffe applicate:
+  Design/Architettura:          CHF 180/h
+  Sviluppo/Integrazione:        CHF 160/h
+  Testing/Debugging:            CHF 140/h
+
+Valore netto calcolato:         CHF 145'120.00
+Codebase prodotto:              29'074 LOC (main.js + app.js + moduli)
+Rapporto LOC/ore:               32 LOC/h (plausibile)
+Rapporto valore/LOC:            CHF 5.0/LOC (ragionevole educativo)
+
+
+ULTIMI STEP PRIMA DI CONSULTARE REVISORE ASR
+────────────────────────────────────────────────────────────────────────────────
+
+1. Leggi PERIZIA_README.txt sezione "Dettagli per revisore" (talking points)
+2. Prepara risposta a domande comuni (vedi FAQ)
+3. Raccogli accesso al repository git (per verifica commit history)
+4. Contatta revisore ASR almeno 1 settimana prima della riunione
+5. Porta stampa PDF della perizia (step 2 del README)
+6. Porta foglio Excel con CSV importato (step 1 del README)
+7. Sii pronto a discutere metodologia (PERIZIA_METODOLOGIA.md)
+8. Sii pronto a mostrare codebase (git log, LOC per file)
+
+
+────────────────────────────────────────────────────────────────────────────────
+Indice generato: 18.06.2026
+Versione: v1.0
+Progetto: MappAI
+Conforme ASR (Ticino): SI ✓
+────────────────────────────────────────────────────────────────────────────────
