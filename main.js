@@ -542,6 +542,37 @@ ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, va
     }
 });
 
+// IPC Handler: Studio Attivo — salva storico score (markdown per giorno) + JSONL meta-analisi
+ipcMain.handle('save-study-record', async (event, { vaultPath, dateStr, markdownLine, jsonRecord }) => {
+    try {
+        let dir;
+        if (vaultPath && fs.existsSync(vaultPath)) {
+            dir = path.join(vaultPath, 'Studio Attivo');
+        } else {
+            dir = path.join(app.getPath('documents'), 'MappAI - Vault', 'Studio Attivo');
+        }
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        // 1) Storico leggibile, raggruppato per giorno
+        const mdPath = path.join(dir, 'storico_score.md');
+        let md = fs.existsSync(mdPath)
+            ? fs.readFileSync(mdPath, 'utf-8')
+            : '# Studio Attivo — Storico Score\n\n> Registro automatico delle sessioni di studio attivo.\n> Dati destinati a meta-analisi e neuro-feedback sui vault degli studenti.\n';
+        const dayHeader = `\n## ${dateStr}\n`;
+        if (!md.includes(dayHeader)) md += dayHeader;
+        md += markdownLine.endsWith('\n') ? markdownLine : markdownLine + '\n';
+        fs.writeFileSync(mdPath, md, 'utf-8');
+
+        // 2) Dati strutturati append-only (una sessione per riga)
+        const jsonlPath = path.join(dir, 'sessioni.jsonl');
+        fs.appendFileSync(jsonlPath, JSON.stringify(jsonRecord) + '\n', 'utf-8');
+
+        return { success: true, path: mdPath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // ==========================================
 // DATA ABSTRACTION LAYER (DAL) - MARKDOWN VAULT
 // ==========================================

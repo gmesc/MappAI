@@ -57,8 +57,8 @@
              hint: 'Ogni nodo ha già il colore della sua area. Ricollega i nodi per ricostruire i rami corretti, poi premi Verifica.',
              kind: 'link' },
         3: { icon: 'eye-off', title: 'Richiamo: nomina i nodi',
-             hint: 'La struttura è visibile ma le etichette sono nascoste. Prova a indovinare ogni nodo, poi clicca per rivelarlo e segna se hai indovinato.',
-             kind: 'reveal' },
+             hint: 'I nodi sono vuoti. Trascina (o tocca e poi clicca il nodo) le etichette dalla lista al posto giusto. Quando vuoi premi Confronta per il feedback.',
+             kind: 'dragdrop' },
         4: { icon: 'feather', title: 'Riempi le descrizioni',
              hint: 'Clicca un nodo e scrivi con parole tue cosa significa. Poi confronta con la descrizione della fonte e valuta la tua spiegazione.',
              kind: 'reveal' },
@@ -81,6 +81,9 @@
         _wrong: null,       // Set di id evidenziati dopo verifica
         _displaced: null,   // [{id, originalParent}] per mode5
         _seqBranch: null,   // {ids:[...ordine originale]} per mode7
+        _entries: null,     // dettaglio testi/risposte (mode3/4) per meta-analisi
+        _placements: null,  // { nodeId: label } drag&drop (mode3)
+        _chipSel: null,     // label attualmente selezionata (mode3, click-to-assign)
         _renderWrapped: false
     };
 
@@ -235,15 +238,24 @@
             });
         }
 
-        // etichette nascoste (mode 3)
+        // mode 3: label nascoste, mostra la label piazzata (drag&drop) o un placeholder
         if (st.mode === 3) {
+            const pl = ActiveStudy._placements || {};
             svg.selectAll('text.node-text').each(function (d) {
-                if (d.level === 0) return;
-                if (ActiveStudy._revealed && ActiveStudy._revealed.has(d.id)) return;
+                if (d.level === 0) return; // root sempre visibile
                 const sel = d3.select(this);
                 sel.selectAll('tspan').remove();
-                sel.text('• • •');
+                if (pl[d.id]) { sel.text(pl[d.id]).attr('font-style', 'italic'); }
+                else { sel.text('• • •').attr('font-style', null); }
             });
+            // i nodi diventano bersagli di drop
+            svg.selectAll('circle.node-hitbox')
+                .on('dragover.activestudy', function (event) { event.preventDefault(); })
+                .on('drop.activestudy', function (event, d) {
+                    event.preventDefault();
+                    const label = event.dataTransfer ? event.dataTransfer.getData('text/plain') : null;
+                    if (label) placeLabel(d.id, label);
+                });
         }
 
         // verbi nascosti + click sugli archi (mode 6)
@@ -351,7 +363,16 @@
 
         if (mode === 6) { toast('In questa modalità si cliccano le frecce, non i nodi', 'info'); return true; }
 
-        if (mode === 3) { revealLabel(d); return true; }
+        if (mode === 3) {
+            if (d.level === 0) return true; // root non assegnabile
+            if (ActiveStudy._chipSel) { placeLabel(d.id, ActiveStudy._chipSel); ActiveStudy._chipSel = null; refreshChipPanel(); }
+            else if (ActiveStudy._placements && ActiveStudy._placements[d.id]) {
+                // clic su nodo già assegnato senza chip selezionata → rimuovi (ripensaci)
+                delete ActiveStudy._placements[d.id];
+                window.renderGraph(); refreshChipPanel();
+            } else { toast('Seleziona prima un\'etichetta dalla lista', 'info'); }
+            return true;
+        }
         if (mode === 4) { openDescWriter(d); return true; }
 
         // modalità di collegamento (1, 2, 5, 7)
@@ -397,28 +418,57 @@
         window.renderGraph();
     }
 
-    // -------------------------------------------------------------- mode 3 reveal
-    function revealLabel(d) {
-        ActiveStudy._revealed = ActiveStudy._revealed || new Set();
-        ActiveStudy._revealed.add(d.id);
-        window.renderGraph();
-        showSelfGrade(`Nodo rivelato: «${clean(d.label)}». Lo avevi indovinato?`);
+    // -------------------------------------------------------------- mode 3 drag&drop
+    // Pannello con tutte le etichette mescolate; chip trascinabile o cliccabile.
+    function buildChipPanel() {
+        const old = document.getElementById('as-chip-panel'); if (old) old.remove();
+        const root = findRoot();
+        const labels = (S().db.nodes || [])
+            .filter(n => n !== root)
+            .map(n => clean(n.label))
+            .filter(Boolean);
+        // mescola
+        for (let i = labels.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [labels[i], labels[j]] = [labels[j], labels[i]]; }
+
+        const panel = document.createElement('div');
+        panel.id = 'as-chip-panel';
+        panel.style.cssText = 'position:fixed;top:80px;left:20px;z-index:9998;width:240px;max-height:calc(100vh - 120px);overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.16);padding:14px;font-family:system-ui,sans-serif';
+        panel.innerHTML = `<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-bottom:4px">Etichette</div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-bottom:10px">Trascina o tocca, poi clicca un nodo</div>
+            <div id="as-chip-list"></div>`;
+        document.body.appendChild(panel);
+        ActiveStudy._chipLabels = labels;
+        refreshChipPanel();
     }
 
-    function showSelfGrade(question) {
-        ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
-        const old = document.getElementById('as-selfgrade');
-        if (old) old.remove();
-        const div = document.createElement('div');
-        div.id = 'as-selfgrade';
-        div.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);padding:14px 18px;display:flex;gap:12px;align-items:center;font-family:system-ui,sans-serif';
-        div.innerHTML =
-            `<span style="font-size:14px;color:#334155;max-width:340px">${question}</span>` +
-            `<button id="as-sg-ok" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✓ Sì</button>` +
-            `<button id="as-sg-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✗ No</button>`;
-        document.body.appendChild(div);
-        div.querySelector('#as-sg-ok').onclick = () => { ActiveStudy._selfTally.ok++; div.remove(); updatePanelScore(); };
-        div.querySelector('#as-sg-ko').onclick = () => { ActiveStudy._selfTally.ko++; div.remove(); updatePanelScore(); };
+    function refreshChipPanel() {
+        const list = document.getElementById('as-chip-list');
+        if (!list) return;
+        const placed = new Set(Object.values(ActiveStudy._placements || {}));
+        list.innerHTML = '';
+        (ActiveStudy._chipLabels || []).forEach(label => {
+            const used = placed.has(label);
+            const sel = (ActiveStudy._chipSel === label);
+            const chip = document.createElement('div');
+            chip.textContent = label;
+            chip.draggable = !used;
+            chip.style.cssText = `padding:7px 10px;margin-bottom:6px;border-radius:9px;font-size:12.5px;cursor:${used ? 'default' : 'grab'};border:1.5px solid ${sel ? '#4f46e5' : '#e2e8f0'};background:${used ? '#f1f5f9' : (sel ? '#eef2ff' : '#fff')};color:${used ? '#94a3b8' : '#334155'};${used ? 'text-decoration:line-through' : ''}`;
+            if (!used) {
+                chip.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', label); e.dataTransfer.effectAllowed = 'move'; });
+                chip.addEventListener('click', () => { ActiveStudy._chipSel = (ActiveStudy._chipSel === label) ? null : label; refreshChipPanel(); });
+            }
+            list.appendChild(chip);
+        });
+    }
+
+    function placeLabel(nodeId, label) {
+        ActiveStudy._placements = ActiveStudy._placements || {};
+        // una label sta su un solo nodo: rimuovi precedente assegnazione
+        Object.keys(ActiveStudy._placements).forEach(k => { if (ActiveStudy._placements[k] === label) delete ActiveStudy._placements[k]; });
+        ActiveStudy._placements[nodeId] = label;
+        ActiveStudy._wrong = null;
+        window.renderGraph();
+        refreshChipPanel();
     }
 
     // -------------------------------------------------------------- mode 4 desc
@@ -450,7 +500,7 @@
             fb.style.display = 'block';
 
             const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-            if (!apiKey) { renderManualSelfGrade(fb, d); return; }
+            if (!apiKey) { renderManualSelfGrade(fb, d, student, original); return; }
 
             fb.innerHTML = `<div style="color:#64748b;font-size:13px;display:flex;align-items:center;gap:8px">
                 <span class="as-spinner" style="width:14px;height:14px;border:2px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;display:inline-block;animation:as-spin .7s linear infinite"></span>
@@ -460,6 +510,8 @@
                 const ok = res.accuracy >= 60;
                 ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
                 if (ok) ActiveStudy._selfTally.ok++; else ActiveStudy._selfTally.ko++;
+                ActiveStudy._entries = ActiveStudy._entries || [];
+                ActiveStudy._entries.push({ label: clean(d.label), userText: student, accuracy: res.accuracy, isCorrect: ok, source: original, feedback: res.feedback, gradedBy: 'ai' });
                 updatePanelScore();
                 const barColor = ok ? '#22c55e' : '#f59e0b';
                 fb.innerHTML = `
@@ -474,14 +526,15 @@
             } catch (e) {
                 console.warn('[ActiveStudy] scoreDesc', e);
                 fb.innerHTML = `<div style="color:#64748b;font-size:13px;margin-bottom:8px">Valutazione AI non disponibile. Valuta tu:</div>`;
-                renderManualSelfGrade(fb, d);
+                renderManualSelfGrade(fb, d, student, original);
             }
         };
     }
 
     // Fallback manuale (no API key o errore): ✓/✗ dentro il modale, niente auto-chiusura
-    function renderManualSelfGrade(container, d) {
+    function renderManualSelfGrade(container, d, studentText, source) {
         ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
+        ActiveStudy._entries = ActiveStudy._entries || [];
         container.style.display = 'block';
         const wrap = document.createElement('div');
         wrap.innerHTML = `<div style="font-size:13.5px;color:#334155;margin-bottom:8px">La tua spiegazione copre i concetti chiave?</div>
@@ -490,8 +543,9 @@
                 <button id="as-md-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✗ No</button>
             </div>`;
         container.appendChild(wrap);
-        wrap.querySelector('#as-md-ok').onclick = () => { ActiveStudy._selfTally.ok++; updatePanelScore(); wrap.innerHTML = '<div style="color:#15803d;font-weight:600;font-size:13.5px">✓ Segnato come corretto</div>'; };
-        wrap.querySelector('#as-md-ko').onclick = () => { ActiveStudy._selfTally.ko++; updatePanelScore(); wrap.innerHTML = '<div style="color:#b45309;font-weight:600;font-size:13.5px">↻ Segnato da rivedere</div>'; };
+        const record = (ok) => ActiveStudy._entries.push({ label: clean(d.label), userText: studentText || '', accuracy: ok ? 100 : 0, isCorrect: ok, source: source || '', gradedBy: 'self' });
+        wrap.querySelector('#as-md-ok').onclick = () => { ActiveStudy._selfTally.ok++; record(true); updatePanelScore(); wrap.innerHTML = '<div style="color:#15803d;font-weight:600;font-size:13.5px">✓ Segnato come corretto</div>'; };
+        wrap.querySelector('#as-md-ko').onclick = () => { ActiveStudy._selfTally.ko++; record(false); updatePanelScore(); wrap.innerHTML = '<div style="color:#b45309;font-weight:600;font-size:13.5px">↻ Segnato da rivedere</div>'; };
     }
 
     // Chiede all'AI un punteggio di copertura concettuale (0-100) + feedback breve
@@ -549,6 +603,8 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                 ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
                 const correct = (chosen === origFam);
                 if (correct) ActiveStudy._selfTally.ok++; else ActiveStudy._selfTally.ko++;
+                ActiveStudy._entries = ActiveStudy._entries || [];
+                ActiveStudy._entries.push({ source: a, target: b, chosenFamily: chosen, correctFamily: origFam, correctRel: origRel, isCorrect: correct });
                 // rivela il verbo originale sull'arco
                 ActiveStudy._revealed = ActiveStudy._revealed || new Set();
                 ActiveStudy._revealed.add(linkKey(linkDatum));
@@ -563,11 +619,15 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
         });
     }
 
+    function pct(ok, tot) { return tot ? Math.round(100 * ok / tot) : 0; }
+
     // --------------------------------------------------------------- VERIFICA
     ActiveStudy.verifica = function () {
         const mode = ActiveStudy.session.mode;
         const snap = ActiveStudy.session.snapshot;
         ActiveStudy._wrong = new Set();
+        const nodesById = {}; (S().db.nodes || []).forEach(n => nodesById[n.id] = n);
+        let summary;
 
         if (mode === 1) {
             // mappa personale: nessuna soluzione unica → statistiche
@@ -575,63 +635,101 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
             const connected = nodes.filter(n => typeof n.level === 'number').length;
             const l1 = nodes.filter(n => n.level === 1).length;
             const maxLvl = nodes.reduce((m, n) => Math.max(m, n.level || 0), 0);
-            setPanelResult(`Mappa personale: <b>${connected}/${nodes.length}</b> nodi collegati · <b>${l1}</b> rami principali · profondità <b>${maxLvl}</b>. Non c'è una risposta giusta: confronta con la fonte quando vuoi.`);
-            return;
+            setPanelResult(`Mappa personale: <b>${connected}/${nodes.length}</b> nodi collegati · <b>${l1}</b> rami principali · profondità <b>${maxLvl}</b>.`);
+            summary = { score: connected, total: nodes.length, accuracy: pct(connected, nodes.length), scoreText: `${connected}/${nodes.length} nodi`, entries: [] };
         }
-
-        if (mode === 3 || mode === 4) {
-            const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
-            const tot = t.ok + t.ko;
-            const pct = tot ? Math.round(100 * t.ok / tot) : 0;
-            setPanelResult(`Auto-valutazione: <b>${t.ok}/${tot}</b> corretti (${pct}%).`);
-            return;
-        }
-
-        if (mode === 6) {
-            const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
-            const tot = t.ok + t.ko;
-            const pct = tot ? Math.round(100 * t.ok / tot) : 0;
-            setPanelResult(`Verbi: <b>${t.ok}/${tot}</b> famiglie corrette (${pct}%).`);
-            return;
-        }
-
-        // modalità gerarchiche (2, 5, 7): confronto con l'albero originale
-        const studentParent = buildStudentParentMap();
-        if (mode === 5) {
-            // verifica solo i nodi spostati
-            const disp = ActiveStudy._displaced || [];
+        else if (mode === 3) {
+            // confronto drag&drop: etichetta piazzata vs etichetta reale
+            const pl = ActiveStudy._placements || {};
+            const root = findRoot();
+            const targets = (S().db.nodes || []).filter(n => n !== root);
             let ok = 0;
-            disp.forEach(d => {
-                if (studentParent[d.id] === d.originalParent) ok++;
-                else ActiveStudy._wrong.add(d.id);
+            const entries = [];
+            targets.forEach(n => {
+                const placed = pl[n.id] || null;
+                const correctLabel = clean(n.label);
+                const correct = placed === correctLabel;
+                if (correct) ok++; else ActiveStudy._wrong.add(n.id);
+                entries.push({ nodeId: n.id, placed: placed, correct: correctLabel, isCorrect: correct });
             });
-            setPanelResult(`Intrusi ricollocati: <b>${ok}/${disp.length}</b> corretti.` + (ActiveStudy._wrong.size ? ' Quelli in rosso sono ancora nel ramo sbagliato.' : ' 🎉'));
+            const tot = targets.length;
+            setPanelResult(`Etichette: <b>${ok}/${tot}</b> al posto giusto (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso sono sbagliati.' : ' 🎉 Perfetto!'));
+            summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
             window.renderGraph();
-            return;
         }
-        if (mode === 7) {
-            const ids = (ActiveStudy._seqBranch || {}).ids || [];
-            let ok = 0;
-            for (let i = 1; i < ids.length; i++) {
-                if (studentParent[ids[i]] === ids[i - 1]) ok++;
-                else ActiveStudy._wrong.add(ids[i]);
+        else if (mode === 4) {
+            const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
+            const tot = t.ok + t.ko;
+            setPanelResult(`Descrizioni: <b>${t.ok}/${tot}</b> corrette (${pct(t.ok, tot)}%).`);
+            summary = { score: t.ok, total: tot, accuracy: pct(t.ok, tot), scoreText: `${t.ok}/${tot}`, entries: (ActiveStudy._entries || []) };
+        }
+        else if (mode === 6) {
+            const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
+            const tot = t.ok + t.ko;
+            setPanelResult(`Verbi: <b>${t.ok}/${tot}</b> famiglie corrette (${pct(t.ok, tot)}%).`);
+            summary = { score: t.ok, total: tot, accuracy: pct(t.ok, tot), scoreText: `${t.ok}/${tot}`, entries: (ActiveStudy._entries || []) };
+        }
+        else {
+            // modalità gerarchiche (2, 5, 7): confronto con l'albero originale
+            const studentParent = buildStudentParentMap();
+            if (mode === 5) {
+                const disp = ActiveStudy._displaced || [];
+                let ok = 0;
+                disp.forEach(d => { if (studentParent[d.id] === d.originalParent) ok++; else ActiveStudy._wrong.add(d.id); });
+                setPanelResult(`Intrusi ricollocati: <b>${ok}/${disp.length}</b> corretti.` + (ActiveStudy._wrong.size ? ' Quelli in rosso sono ancora nel ramo sbagliato.' : ' 🎉'));
+                summary = { score: ok, total: disp.length, accuracy: pct(ok, disp.length), scoreText: `${ok}/${disp.length}`, entries: [] };
+            } else if (mode === 7) {
+                const ids = (ActiveStudy._seqBranch || {}).ids || [];
+                let ok = 0;
+                for (let i = 1; i < ids.length; i++) { if (studentParent[ids[i]] === ids[i - 1]) ok++; else ActiveStudy._wrong.add(ids[i]); }
+                const tot = Math.max(ids.length - 1, 1);
+                setPanelResult(`Sequenza: <b>${ok}/${tot}</b> collegamenti nell'ordine giusto.`);
+                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: [] };
+            } else {
+                // mode 2
+                let ok = 0, tot = 0;
+                Object.keys(snap.parentOf).forEach(childId => {
+                    tot++;
+                    if (studentParent[childId] === snap.parentOf[childId]) ok++;
+                    else ActiveStudy._wrong.add(childId);
+                });
+                setPanelResult(`Gerarchia: <b>${ok}/${tot}</b> collegamenti corretti (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso hanno il genitore sbagliato.' : ' 🎉 Perfetto!'));
+                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: [] };
             }
-            const tot = Math.max(ids.length - 1, 1);
-            setPanelResult(`Sequenza: <b>${ok}/${tot}</b> collegamenti nell'ordine giusto.`);
             window.renderGraph();
-            return;
         }
-        // mode 2
-        let ok = 0, tot = 0;
-        Object.keys(snap.parentOf).forEach(childId => {
-            tot++;
-            if (studentParent[childId] === snap.parentOf[childId]) ok++;
-            else ActiveStudy._wrong.add(childId);
-        });
-        const pct = tot ? Math.round(100 * ok / tot) : 0;
-        setPanelResult(`Gerarchia: <b>${ok}/${tot}</b> collegamenti corretti (${pct}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso hanno il genitore sbagliato.' : ' 🎉 Perfetto!'));
-        window.renderGraph();
+
+        saveStudyScore(summary);
     };
+
+    // Salva lo score nel vault: Studio Attivo/storico_score.md + sessioni.jsonl
+    async function saveStudyScore(summary) {
+        try {
+            if (!window.electronAPI || !window.electronAPI.saveStudyRecord) return;
+            const st = S();
+            const now = new Date();
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+            const timeStr = now.toTimeString().slice(0, 5);
+            const mode = ActiveStudy.session.mode;
+            const modeTitle = (MODES[mode] || {}).title || ('Modalità ' + mode);
+            const project = st.rootNodeLabel || 'Mappa';
+            let md = `- **${timeStr}** · ${mode}. ${modeTitle} · "${project}" · **${summary.scoreText}**`;
+            if (summary.accuracy != null) md += ` (${summary.accuracy}%)`;
+            md += '\n';
+            const jsonRecord = {
+                timestamp: now.toISOString(), date: dateStr, time: timeStr,
+                mode: mode, modeTitle: modeTitle, project: project,
+                score: summary.score, total: summary.total, accuracy: summary.accuracy,
+                entries: summary.entries || []
+            };
+            const r = await window.electronAPI.saveStudyRecord({
+                vaultPath: st.activeVaultPath || null,
+                dateStr: dateStr, markdownLine: md, jsonRecord: jsonRecord
+            });
+            if (r && r.success) toast('Punteggio salvato in «Studio Attivo»', 'success');
+            else if (r && r.error) console.warn('[ActiveStudy] saveStudyRecord', r.error);
+        } catch (e) { console.warn('[ActiveStudy] saveStudyScore', e); }
+    }
 
     function buildStudentParentMap() {
         // BFS dal root sui link attuali → genitore di ogni nodo
@@ -675,6 +773,9 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
         ActiveStudy._wrong = null;
         ActiveStudy._displaced = null;
         ActiveStudy._seqBranch = null;
+        ActiveStudy._entries = [];
+        ActiveStudy._placements = {};
+        ActiveStudy._chipSel = null;
 
         wrapRender();
         applyTransform(mode);
@@ -682,6 +783,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
         if (window.updateDegreeStats) window.updateDegreeStats();
         window.renderGraph();
         showPanel(mode);
+        if (mode === 3) buildChipPanel();
     };
 
     ActiveStudy.rivelaSoluzione = function () {
@@ -706,9 +808,11 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
         // togli i click namespaced sugli archi
         const svg = d3.select('#map-svg');
         if (!svg.empty()) svg.selectAll('path.link').on('click.activestudy', null);
+        if (svg && !svg.empty()) svg.selectAll('circle.node-hitbox').on('dragover.activestudy', null).on('drop.activestudy', null);
         if (window.updateDegreeStats) window.updateDegreeStats();
         window.renderGraph();
         const p = document.getElementById('active-study-panel'); if (p) p.remove();
+        const cp = document.getElementById('as-chip-panel'); if (cp) cp.remove();
         const sg = document.getElementById('as-selfgrade'); if (sg) sg.remove();
     };
 
@@ -780,7 +884,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
             <div id="as-score" style="font-size:12.5px;color:#0f172a;min-height:16px;margin-bottom:6px"></div>
             <div id="as-result" style="font-size:12.5px;color:#0f172a;background:#f8fafc;border-radius:10px;padding:8px;display:none;margin-bottom:10px"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button id="as-verify" style="${showVerifica};background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">Verifica</button>
+                <button id="as-verify" style="${showVerifica};background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">${mode === 3 ? 'Confronta' : 'Verifica'}</button>
                 <button id="as-reveal" style="background:#f59e0b;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">Soluzione</button>
                 <button id="as-retry" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">Riprova</button>
             </div>`;
