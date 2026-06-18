@@ -11334,7 +11334,8 @@ window.showContextMenu = function (e, type, data) {
         ` : '';
 
         menu.innerHTML = `
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200">Stato di Studio</div>
+                    <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> Leggi ad alta voce</div>
+                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">Stato di Studio</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> Ripasso necessario</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
@@ -11403,6 +11404,34 @@ window.showContextMenu = function (e, type, data) {
 function hideContextMenu() { document.getElementById('context-menu').classList.add('hidden'); }
 document.addEventListener('click', hideContextMenu);
 
+// Text-to-Speech: legge titolo + descrizione/contenuto del nodo (toggle stop)
+window.speakNode = function (data) {
+    if (!data) return;
+    if (!('speechSynthesis' in window)) { showToast("Sintesi vocale non supportata su questo dispositivo", "error"); return; }
+    const synth = window.speechSynthesis;
+    // se sta già leggendo → ferma (toggle)
+    if (synth.speaking || synth.pending) { synth.cancel(); return; }
+
+    const title = (cleanLabel ? cleanLabel(data.label) : data.label) || '';
+    const body = (data.desc || data.content || '').toString();
+    // pulizia: markdown, LaTeX, simboli → testo leggibile
+    const text = (title + '. ' + body)
+        .replace(/\$\$?[^$]*\$\$?/g, ' ')      // formule LaTeX
+        .replace(/[#*_`>~|]/g, ' ')
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link markdown → testo
+        .replace(/[\\{}\[\]]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!text) { showToast("Nessun testo da leggere", "info"); return; }
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = (window.currentLanguage === 'en') ? 'en-US' : 'it-IT';
+    u.rate = 0.95;
+    u.pitch = 1.0;
+    synth.cancel();
+    synth.speak(u);
+};
+
 window.ctxAction = function (action) {
     const data = ctxTarget.data;
     hideContextMenu();
@@ -11413,6 +11442,10 @@ window.ctxAction = function (action) {
     }
     if (action === 'expand_ai') {
         window.openContextualAIExtensionModal(data);
+        return;
+    }
+    if (action === 'tts') {
+        window.speakNode(data);
         return;
     }
     if (action.startsWith('status_')) {
