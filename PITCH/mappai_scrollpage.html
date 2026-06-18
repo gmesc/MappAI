@@ -1214,6 +1214,145 @@
       font-weight: 700;
     }
 
+    /* ─── LEARNING MODALITIES ─── */
+    .learn-intro {
+      padding: 64px 40px 32px;
+      max-width: 1060px;
+      margin: 0 auto;
+      border-top: 1px solid var(--border);
+    }
+    .modalities-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 40px 52px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .modality-card {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: white;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .modality-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(99,102,241,0.12);
+    }
+    .modality-screenshot {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      object-position: top left;
+      height: 190px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modality-body { padding: 16px 20px 20px; }
+    .modality-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eef2ff;
+      color: var(--indigo);
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .modality-name {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 5px;
+      line-height: 1.2;
+    }
+    .modality-desc {
+      font-size: 0.8rem;
+      color: var(--text-light);
+      line-height: 1.5;
+    }
+    .active-modes-intro {
+      padding: 0 40px 20px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .active-modes-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+      padding: 0 40px 52px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .mode-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .mode-card:nth-child(1),.mode-card:nth-child(2),
+    .mode-card:nth-child(3),.mode-card:nth-child(4) { grid-column: span 3; }
+    .mode-card:nth-child(5),.mode-card:nth-child(6),
+    .mode-card:nth-child(7) { grid-column: span 4; }
+    .mode-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--indigo), var(--violet));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+    }
+    .mode-icon svg, .mode-icon i { width: 14px; height: 14px; color: white; }
+    .mode-num {
+      font-size: 0.55rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .mode-name {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .mode-desc {
+      font-size: 0.7rem;
+      color: var(--text-light);
+      line-height: 1.4;
+    }
+    .vault-strip {
+      margin: 0 40px 64px;
+      max-width: 980px;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: var(--bg);
+    }
+    .vault-icon {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--violet), var(--indigo));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+    }
+    .vault-label {
+      font-size: 0.65rem; font-weight: 800;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--violet); margin-bottom: 3px;
+    }
+    .vault-title { font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; }
+    .vault-desc { font-size: 0.78rem; color: var(--text-light); line-height: 1.5; }
+
     /* ─── 4K / LARGE DISPLAYS ─── */
     @media (min-width: 1920px) {
       .container {
@@ -1225,6 +1364,10 @@
       .science-callout-inner,
       .solution-header,
       .solution-steps,
+      .learn-intro,
+      .modalities-grid,
+      .active-modes-intro,
+      .active-modes-grid,
       .market-header,
       .market-numbers,
       .team-inner,
@@ -1298,6 +1441,10 @@
       .science-callout-inner,
       .solution-header,
       .solution-steps,
+      .learn-intro,
+      .modalities-grid,
+      .active-modes-intro,
+      .active-modes-grid,
       .market-header,
       .market-numbers,
       .team-inner,
@@ -1720,6 +1867,113 @@
         </div>
       </div>
     </div>
+
+    <!-- ── LEARNING MODALITIES ── -->
+    <div class="learn-intro reveal">
+      <div class="eyebrow">Study tools — built into every map</div>
+      <div class="headline" style="margin-top: 12px;">From map to mastery.</div>
+      <p class="subhead" style="margin-top: 12px;">Every map generates a complete learning toolkit automatically — from passive review to active knowledge reconstruction. No extra steps, no separate software.</p>
+    </div>
+
+    <!-- 4 output modalities -->
+    <div class="active-modes-intro reveal">
+      <div class="eyebrow" style="margin-bottom: 0;">Output modalities</div>
+    </div>
+    <div class="modalities-grid">
+      <div class="modality-card reveal">
+        <img src="assets/Screenshot 2026-06-17 alle 15.41.38.png" alt="Branch Summary" class="modality-screenshot">
+        <div class="modality-body">
+          <div class="modality-tag"><i data-lucide="file-text" style="width:10px;height:10px;"></i> Sintesi di Ramo</div>
+          <div class="modality-name">Branch Summary</div>
+          <div class="modality-desc">AI synthesizes any map branch into a structured, cited text document — printable and exportable as PDF.</div>
+        </div>
+      </div>
+      <div class="modality-card reveal delay-1">
+        <img src="assets/Screenshot 2026-06-17 alle 15.42.46.png" alt="Node Dossier" class="modality-screenshot">
+        <div class="modality-body">
+          <div class="modality-tag"><i data-lucide="list-tree" style="width:10px;height:10px;"></i> Dossier Nodo</div>
+          <div class="modality-name">Node Dossier</div>
+          <div class="modality-desc">Full hierarchical text outline of the node's knowledge tree — structured for study, printable in one click.</div>
+        </div>
+      </div>
+      <div class="modality-card reveal delay-2">
+        <img src="assets/Screenshot 2026-06-17 alle 16.07.42.png" alt="Flashcards" class="modality-screenshot">
+        <div class="modality-body">
+          <div class="modality-tag"><i data-lucide="layers" style="width:10px;height:10px;"></i> Flashcard</div>
+          <div class="modality-name">Flashcards</div>
+          <div class="modality-desc">Auto-generated from every map concept. Select any node or branch, shuffle, and review — all without leaving the map.</div>
+        </div>
+      </div>
+      <div class="modality-card reveal delay-3">
+        <img src="assets/Screenshot 2026-06-17 alle 16.09.36.png" alt="Study Session" class="modality-screenshot">
+        <div class="modality-body">
+          <div class="modality-tag"><i data-lucide="brain" style="width:10px;height:10px;"></i> Sessione di Studio</div>
+          <div class="modality-name">Study Session</div>
+          <div class="modality-desc">Configurable quiz: multiple choice, true/false, or free answer. Fluency Timer + Pomodoro. Score, error analysis, saved to Vault.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7 active construction modes -->
+    <div class="active-modes-intro reveal">
+      <div class="eyebrow">Active construction modes</div>
+      <p style="font-size: 0.82rem; color: var(--text-light); margin-top: 8px;">Seven independent modes that turn passive review into active knowledge reconstruction — grounded in retrieval practice and spaced repetition research.</p>
+    </div>
+    <div class="active-modes-grid">
+      <div class="mode-card reveal">
+        <div class="mode-icon"><i data-lucide="share-2" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 01</div>
+        <div class="mode-name">Build Your Map</div>
+        <div class="mode-desc">All nodes grey — BFS from root colors each connection as you reconstruct the graph from memory.</div>
+      </div>
+      <div class="mode-card reveal delay-1">
+        <div class="mode-icon"><i data-lucide="git-fork" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 02</div>
+        <div class="mode-name">Rebuild Hierarchies</div>
+        <div class="mode-desc">Color areas pre-assigned — reconnect branches, then verify against the original tree.</div>
+      </div>
+      <div class="mode-card reveal delay-2">
+        <div class="mode-icon"><i data-lucide="eye-off" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 03</div>
+        <div class="mode-name">Label Recall</div>
+        <div class="mode-desc">All labels hidden — click each node to reveal, then self-assess ✓/✗ in real time.</div>
+      </div>
+      <div class="mode-card reveal delay-3">
+        <div class="mode-icon"><i data-lucide="pencil" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 04</div>
+        <div class="mode-name">Fill Descriptions</div>
+        <div class="mode-desc">Write your own explanation, then compare with source text and self-evaluate the gap.</div>
+      </div>
+      <div class="mode-card reveal">
+        <div class="mode-icon"><i data-lucide="scan-search" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 05</div>
+        <div class="mode-name">Find the Intruder</div>
+        <div class="mode-desc">1–2 leaves displaced from their branch — identify and relocate them to the correct position.</div>
+      </div>
+      <div class="mode-card reveal delay-1">
+        <div class="mode-icon"><i data-lucide="link" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 06</div>
+        <div class="mode-name">Relation Verbs</div>
+        <div class="mode-desc">Edge verbs hidden — click each arc and choose from semantic relation families; compare with original.</div>
+      </div>
+      <div class="mode-card reveal delay-2">
+        <div class="mode-icon"><i data-lucide="list-ordered" style="width:14px;height:14px;color:white;"></i></div>
+        <div class="mode-num">Mode 07</div>
+        <div class="mode-name">Sort Sequence</div>
+        <div class="mode-desc">Branch hierarchy shuffled — reconnect nodes in the correct order and verify against the source.</div>
+      </div>
+    </div>
+
+    <!-- Vault -->
+    <div class="vault-strip reveal" style="margin-left: auto; margin-right: auto;">
+      <div class="vault-icon"><i data-lucide="hard-drive" style="width:18px;height:18px;color:white;"></i></div>
+      <div>
+        <div class="vault-label">Local-first storage</div>
+        <div class="vault-title">The Vault</div>
+        <div class="vault-desc">Every session is saved locally — node markdown files, map JSON, quiz results, attachments, and Socratic chat transcripts. No cloud required. No lock-in.</div>
+      </div>
+    </div>
+
   </section>
 
   <!-- ═══════════════════════════════════════ -->

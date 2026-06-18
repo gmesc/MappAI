@@ -432,20 +432,94 @@
                 <div style="font-weight:600;color:#334155;margin-bottom:4px">Descrizione della fonte:</div>
                 <div style="background:#f1f5f9;border-radius:10px;padding:10px;font-size:14px;color:#334155;line-height:1.5">${escapeHtml(original)}</div>
             </div>
+            <div id="as-desc-feedback" style="display:none;margin-top:12px"></div>
         `, [
             { label: 'Confronta', primary: true, id: 'as-desc-compare-btn' },
             { label: 'Chiudi', id: 'as-desc-close' }
         ]);
-        modal.querySelector('#as-desc-compare-btn').onclick = () => {
+        const closeBtn = modal.querySelector('#as-desc-close');
+        closeBtn.onclick = () => modal.remove();
+
+        modal.querySelector('#as-desc-compare-btn').onclick = async () => {
+            const student = (modal.querySelector('#as-desc-input').value || '').trim();
+            if (!student) { toast('Scrivi prima la tua spiegazione', 'warning'); return; }
             modal.querySelector('#as-desc-compare').style.display = 'block';
-            modal.querySelector('#as-desc-compare-btn').style.display = 'none';
-            // self-grade
-            setTimeout(() => {
-                modal.remove();
-                showSelfGrade(`Hai confrontato «${clean(d.label)}». La tua spiegazione era corretta?`);
-            }, 50);
+            const cmpBtn = modal.querySelector('#as-desc-compare-btn');
+            cmpBtn.style.display = 'none';
+            const fb = modal.querySelector('#as-desc-feedback');
+            fb.style.display = 'block';
+
+            const apiKey = window.getSystemKey ? window.getSystemKey() : null;
+            if (!apiKey) { renderManualSelfGrade(fb, d); return; }
+
+            fb.innerHTML = `<div style="color:#64748b;font-size:13px;display:flex;align-items:center;gap:8px">
+                <span class="as-spinner" style="width:14px;height:14px;border:2px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;display:inline-block;animation:as-spin .7s linear infinite"></span>
+                Valutazione AI in corso…</div>`;
+            try {
+                const res = await scoreDesc(student, original, clean(d.label));
+                const ok = res.accuracy >= 60;
+                ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
+                if (ok) ActiveStudy._selfTally.ok++; else ActiveStudy._selfTally.ko++;
+                updatePanelScore();
+                const barColor = ok ? '#22c55e' : '#f59e0b';
+                fb.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        <span style="font-weight:700;font-size:18px;color:${barColor}">${res.accuracy}%</span>
+                        <span style="font-weight:600;color:${ok ? '#15803d' : '#b45309'}">${ok ? '✓ Corretta' : '↻ Da rivedere'}</span>
+                    </div>
+                    <div style="background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden;margin-bottom:10px">
+                        <div style="height:100%;width:${res.accuracy}%;background:${barColor}"></div>
+                    </div>
+                    <div style="font-size:13.5px;color:#334155;line-height:1.5">${escapeHtml(res.feedback)}</div>`;
+            } catch (e) {
+                console.warn('[ActiveStudy] scoreDesc', e);
+                fb.innerHTML = `<div style="color:#64748b;font-size:13px;margin-bottom:8px">Valutazione AI non disponibile. Valuta tu:</div>`;
+                renderManualSelfGrade(fb, d);
+            }
         };
-        modal.querySelector('#as-desc-close').onclick = () => modal.remove();
+    }
+
+    // Fallback manuale (no API key o errore): ✓/✗ dentro il modale, niente auto-chiusura
+    function renderManualSelfGrade(container, d) {
+        ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
+        container.style.display = 'block';
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `<div style="font-size:13.5px;color:#334155;margin-bottom:8px">La tua spiegazione copre i concetti chiave?</div>
+            <div style="display:flex;gap:8px">
+                <button id="as-md-ok" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✓ Sì</button>
+                <button id="as-md-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✗ No</button>
+            </div>`;
+        container.appendChild(wrap);
+        wrap.querySelector('#as-md-ok').onclick = () => { ActiveStudy._selfTally.ok++; updatePanelScore(); wrap.innerHTML = '<div style="color:#15803d;font-weight:600;font-size:13.5px">✓ Segnato come corretto</div>'; };
+        wrap.querySelector('#as-md-ko').onclick = () => { ActiveStudy._selfTally.ko++; updatePanelScore(); wrap.innerHTML = '<div style="color:#b45309;font-weight:600;font-size:13.5px">↻ Segnato da rivedere</div>'; };
+    }
+
+    // Chiede all'AI un punteggio di copertura concettuale (0-100) + feedback breve
+    async function scoreDesc(student, reference, label) {
+        const apiKey = window.getSystemKey();
+        const sys = 'Sei un tutor didattico per studenti BES/DSA. Valuti quanto la spiegazione di uno studente copre i CONCETTI CHIAVE di una descrizione di riferimento. Conta il contenuto, non la forma o la lunghezza. Sii incoraggiante ma onesto.';
+        const prompt = `Concetto: "${label}"
+
+Descrizione di riferimento (fonte):
+${reference}
+
+Spiegazione dello studente:
+${student}
+
+Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave del riferimento. Rispondi SOLO con un oggetto JSON, senza testo prima o dopo:
+{"accuracy": <numero 0-100>, "feedback": "<1-2 frasi in italiano: cosa ha colto e cosa manca>"}`;
+        const payload = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: sys }] },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 512 }
+        };
+        const resp = await window.fetchModelAPI(payload, apiKey);
+        const txt = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const parsed = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(txt) : JSON.parse(txt);
+        let acc = Number(parsed && parsed.accuracy);
+        if (!isFinite(acc)) acc = 0;
+        acc = Math.max(0, Math.min(100, Math.round(acc)));
+        return { accuracy: acc, feedback: (parsed && parsed.feedback) || '' };
     }
 
     // -------------------------------------------------------------- mode 6 verbs
@@ -728,6 +802,14 @@
             const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
             el.textContent = `Punteggio: ${t.ok} ✓ / ${t.ko} ✗`;
         } else { el.textContent = ''; }
+    }
+
+    // keyframes spinner (una volta)
+    if (!document.getElementById('as-style')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'as-style';
+        styleEl.textContent = '@keyframes as-spin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(styleEl);
     }
 
     console.log('[ActiveStudy] modulo studio attivo caricato (7 modalità)');
