@@ -1354,6 +1354,9 @@
                     <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
                         <i data-lucide="gantt-chart"></i> Crea Timeline
                     </button>
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa">
+                        <i data-lucide="puzzle"></i> Studio attivo
+                    </button>
                     <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo">
                         <i data-lucide="sparkles"></i> Sintesi di ramo (AI)
                     </button>
@@ -3362,6 +3365,7 @@
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-node-styling.js"></script>
     <script src="js/mappai-l1-checkpoint.js"></script>
+    <script src="js/mappai-active-study.js"></script>
     <script src="js/dev-console-metrics.js"></script>
     <script>
         window.toggleSidebar = function () {

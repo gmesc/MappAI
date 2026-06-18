@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MappAI — Pitch interattivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0f4ff;
+  --surface:#ffffff;
+  --ink:#1e293b;
+  --ink-2:#475569;
+  --muted:#64748b;
+  --faint:#94a3b8;
+  --line:#e2e8f0;
+  --indigo:#6366f1;
+  --indigo-d:#4f46e5;
+  --emerald:#10b981;
+  --emerald-l:#34d399;
+  --blue:#3b82f6;
+  --yellow:#facc15;
+  --orange:#f97316;
+  --pink:#f43f5e;
+  --violet:#8b5cf6;
+  --teal:#2dd4bf;
+  --radius:24px;
+  --radius-sm:14px;
+  --shadow:0 10px 40px -12px rgba(30,41,59,.18);
+  --shadow-sm:0 4px 18px -8px rgba(30,41,59,.20);
+  --maxw:1100px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Space Mono',monospace;
+  background:var(--bg);
+  color:var(--ink);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+/* ---------- progress + nav ---------- */
+#progress{position:fixed;top:0;left:0;height:4px;width:0;z-index:100;
+  background:linear-gradient(90deg,var(--indigo),var(--emerald-l));transition:width .1s linear}
+#topbar{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;align-items:center;
+  justify-content:space-between;padding:16px 28px;
+  backdrop-filter:blur(10px);background:rgba(240,244,255,.72);border-bottom:1px solid transparent;
+  transition:border-color .3s, background .3s}
+#topbar.scrolled{border-color:var(--line);background:rgba(240,244,255,.9)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:-.5px}
+.brand .logo{width:34px;height:34px;display:block}
+.brand-cta{font-size:12px;font-weight:700;color:#fff;background:var(--indigo-d);
+  padding:9px 16px;border-radius:999px;text-decoration:none;transition:background .2s}
+.brand-cta:hover{background:var(--indigo)}
+/* dots */
+#dots{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:90;
+  display:flex;flex-direction:column;gap:14px}
+#dots a{width:11px;height:11px;border-radius:50%;background:#cbd5e1;display:block;
+  transition:all .25s;position:relative}
+#dots a.active{background:var(--indigo);transform:scale(1.35)}
+#dots a span{position:absolute;right:20px;top:50%;transform:translateY(-50%);
+  white-space:nowrap;font-size:10px;color:var(--muted);background:var(--surface);
+  padding:3px 8px;border-radius:6px;border:1px solid var(--line);opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#dots a:hover span{opacity:1}
+@media(max-width:820px){#dots{display:none}}
+/* ---------- layout ---------- */
+section{position:relative;padding:110px 28px;max-width:var(--maxw);margin:0 auto}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.18em;color:var(--indigo-d);margin-bottom:18px}
+.kicker .badge{width:26px;height:26px;border-radius:50%;background:var(--indigo);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px}
+h1{font-size:clamp(40px,7vw,76px);line-height:1.02;letter-spacing:-2px;font-weight:700}
+h2{font-size:clamp(28px,4.6vw,46px);line-height:1.1;letter-spacing:-1.2px;font-weight:700;margin-bottom:18px}
+.lead{font-size:clamp(16px,2vw,20px);color:var(--ink-2);max-width:60ch;margin-bottom:8px}
+.muted{color:var(--muted)}
+.small{font-size:13px;color:var(--muted)}
+.src{font-size:11.5px;color:var(--faint);margin-top:10px}
+/* reveal */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.19,1,.22,1),transform .7s cubic-bezier(.19,1,.22,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}
+.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}.reveal.d5{transition-delay:.4s}
+/* cards */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;box-shadow:var(--shadow-sm)}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+/* stat */
+.stat .num{font-size:clamp(34px,5vw,52px);font-weight:700;letter-spacing:-1.5px;line-height:1}
+.stat .lab{font-size:13px;font-weight:700;margin-top:10px}
+.stat .sub{font-size:11.5px;color:var(--muted);margin-top:4px}
+.bar{height:5px;border-radius:999px;background:var(--line);margin-top:16px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:999px;transition:width 1.1s cubic-bezier(.19,1,.22,1)}
+/* hero */
+#hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+  max-width:none;padding:120px 28px 80px;position:relative;overflow:hidden}
+#netcanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;opacity:.5}
+.hero-inner{max-width:var(--maxw);margin:0 auto;width:100%;position:relative;z-index:1}
+.hero-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--indigo-d);background:#e0e7ff;
+  padding:8px 14px;border-radius:999px;margin-bottom:26px}
+#hero p.sub{font-size:clamp(17px,2.4vw,24px);color:var(--ink-2);margin-top:22px;max-width:42ch}
+.hero-stats{display:flex;flex-wrap:wrap;gap:34px;margin-top:46px}
+.hero-stats div b{display:block;font-size:30px;letter-spacing:-1px}
+.hero-stats div span{font-size:12px;color:var(--muted)}
+.scrollcue{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:1;
+  font-size:11px;color:var(--muted);text-align:center;letter-spacing:.12em}
+.scrollcue .mouse{width:24px;height:38px;border:2px solid var(--faint);border-radius:14px;
+  margin:0 auto 8px;position:relative}
+.scrollcue .mouse::after{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
+  width:4px;height:7px;border-radius:2px;background:var(--faint);animation:wheel 1.4s infinite}
+@keyframes wheel{0%{opacity:0;top:7px}40%{opacity:1}100%{opacity:0;top:18px}}
+/* sticky scrolly */
+.scrolly{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:start;max-width:var(--maxw);margin:0 auto}
+.scrolly .sticky{position:sticky;top:18vh;height:64vh;display:flex;align-items:center;justify-content:center}
+.scrolly .steps{display:flex;flex-direction:column;gap:42vh;padding:18vh 0}
+.step{opacity:.32;transition:opacity .4s}
+.step.active{opacity:1}
+.step .n{font-size:13px;font-weight:700;color:var(--indigo-d);letter-spacing:.12em}
+.step h3{font-size:clamp(22px,3vw,30px);margin:8px 0 12px;letter-spacing:-.6px}
+.step p{color:var(--ink-2);font-size:15.5px}
+@media(max-width:820px){
+  .scrolly{grid-template-columns:1fr}
+  .scrolly .sticky{position:relative;top:0;height:auto;margin-bottom:30px}
+  .scrolly .steps{gap:40px;padding:0}
+  .step{opacity:1}
+}
+/* transform visual */
+.tv{width:100%;max-width:430px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:26px;box-shadow:var(--shadow)}
+.tv .row{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:14px;
+  border:1px dashed var(--line);margin-bottom:12px;transition:all .45s;opacity:.4}
+.tv .row.on{opacity:1;border-style:solid;border-color:var(--indigo);background:#eef2ff}
+.tv .row .ic{width:34px;height:34px;border-radius:9px;flex:0 0 34px;display:flex;
+  align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
+.tv .row b{font-size:14px}.tv .row span{font-size:11.5px;color:var(--muted);display:block}
+.tv .arrow{text-align:center;color:var(--faint);font-size:20px;margin:2px 0 12px}
+.graphmini{height:170px;border-radius:16px;background:#0f172a;position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center}
+.graphmini svg{width:100%;height:100%}
+.graphmini .cap{position:absolute;bottom:8px;left:12px;font-size:10px;color:#94a3b8}
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{font-size:11.5px;padding:5px 11px;border-radius:999px;background:#eef2ff;color:var(--indigo-d);font-weight:700}
+.chip.g{background:#dcfce7;color:#047857}
+/* table */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th,.tbl td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+.tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .yes{color:var(--emerald);font-weight:700}
+.tbl .no{color:var(--faint)}
+.tbl .mid{color:var(--orange)}
+.tbl .me td{background:#eef2ff;font-weight:700}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+/* funnel TAM */
+.funnel{display:flex;flex-direction:column;gap:14px;align-items:center}
+.funnel .lvl{border-radius:16px;padding:22px;text-align:center;color:#fff;width:100%;
+  box-shadow:var(--shadow-sm)}
+.funnel .lvl .t{font-size:12px;letter-spacing:.1em;opacity:.85;text-transform:uppercase}
+.funnel .lvl .v{font-size:clamp(26px,3.6vw,38px);font-weight:700;letter-spacing:-1px;margin-top:4px}
+.funnel .lvl .d{font-size:12px;opacity:.85;margin-top:4px}
+.funnel .tam{background:linear-gradient(135deg,#312e81,#4f46e5);max-width:560px}
+.funnel .sam{background:linear-gradient(135deg,#4f46e5,#6366f1);max-width:420px}
+.funnel .som{background:linear-gradient(135deg,#059669,#34d399);max-width:300px}
+/* sroi row */
+.sroi{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-top:8px}
+.sroi .col{flex:1;min-width:120px;text-align:center}
+.sroi .col .col-bar{background:linear-gradient(180deg,var(--emerald-l),var(--emerald));
+  border-radius:12px 12px 0 0;width:100%;height:0;transition:height 1.1s cubic-bezier(.19,1,.22,1);
+  display:flex;align-items:flex-start;justify-content:center;color:#fff;font-weight:700;
+  padding-top:10px;font-size:15px}
+.sroi .col .lab{font-size:11.5px;color:var(--muted);margin-top:8px}
+/* founder */
+.founder{display:grid;grid-template-columns:200px 1fr;gap:32px;align-items:center}
+.founder img{width:200px;height:200px;border-radius:24px;object-fit:cover;box-shadow:var(--shadow)}
+@media(max-width:820px){.founder{grid-template-columns:1fr;text-align:center}.founder img{margin:0 auto}}
+/* ask */
+#ask{text-align:center}
+.askbox{background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:var(--radius);
+  padding:56px 32px;box-shadow:var(--shadow);max-width:760px;margin:0 auto}
+.askbox .big{font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:-2px;
+  background:linear-gradient(90deg,#a5b4fc,#6ee7b7);-webkit-background-clip:text;background-clip:text;color:transparent}
+.askbox p{color:#cbd5e1;margin-top:16px;max-width:48ch;margin-left:auto;margin-right:auto}
+.askbox a{display:inline-block;margin-top:28px;background:#fff;color:#0f172a;font-weight:700;
+  padding:14px 26px;border-radius:999px;text-decoration:none;transition:transform .2s}
+.askbox a:hover{transform:translateY(-2px)}
+footer{text-align:center;padding:34px;color:var(--faint);font-size:12px}
+/* quote */
+.quote{border-left:4px solid var(--indigo);padding:6px 0 6px 22px;font-style:italic;
+  color:var(--ink-2);font-size:16px;max-width:62ch}
+.divider{height:1px;background:var(--line);max-width:var(--maxw);margin:0 auto}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<header id="topbar">
+  <div class="brand"><img src="MappAI_icon.png" class="logo" alt="MappAI"><span>MappAI</span></div>
+  <a class="brand-cta" href="#ask">Investi</a>
+</header>
+
+<nav id="dots">
+  <a href="#hero" data-d class="active"><span>Intro</span></a>
+  <a href="#problema" data-d><span>Il problema</span></a>
+  <a href="#evidenze" data-d><span>Evidenze</span></a>
+  <a href="#soluzione" data-d><span>La soluzione</span></a>
+  <a href="#vantaggi" data-d><span>Vantaggi</span></a>
+  <a href="#mercato" data-d><span>Mercato</span></a>
+  <a href="#sroi" data-d><span>ROI / SROI</span></a>
+  <a href="#founder" data-d><span>Founder</span></a>
+  <a href="#ask" data-d><span>Investi</span></a>
+</nav>
+
+<!-- ===================== HERO ===================== -->
+<section id="hero">
+  <canvas id="netcanvas"></canvas>
+  <div class="hero-inner">
+    <span class="hero-tag reveal in">AI educativa · DSA-first · Privacy EU/CH</span>
+    <h1 class="reveal in d1">Ogni mente<br>pensa per mappe.</h1>
+    <p class="sub reveal in d2">MappAI trasforma qualsiasi fonte — PDF, video, audio, testo — in mappe mentali e knowledge graph semantici. Costruito per studenti BES/DSA, validato da 40 anni di ricerca.</p>
+    <div class="hero-stats reveal in d3">
+      <div><b style="color:var(--indigo-d)">~20%</b><span>popolazione neurodivergente</span></div>
+      <div><b style="color:var(--emerald)">g=0,58</b><span>effect size delle mappe</span></div>
+      <div><b style="color:var(--orange)">€4,02</b><span>ritorno sociale per €1</span></div>
+    </div>
+  </div>
+  <div class="scrollcue"><div class="mouse"></div>SCORRI</div>
+</section>
+
+<!-- ===================== PROBLEMA (scrolly) ===================== -->
+<section id="problema">
+  <div class="kicker reveal"><span class="badge">1</span> Il problema</div>
+  <h2 class="reveal">Una crisi invisibile dell'apprendimento inclusivo.</h2>
+  <p class="lead reveal">La popolazione di studenti con bisogni educativi speciali cresce in tutta Europa. Gli strumenti per supportarli, no.</p>
+
+  <div class="scrolly" style="margin-top:50px">
+    <div class="sticky">
+      <div class="tv" id="problemViz">
+        <div class="stat" style="text-align:center">
+          <div class="num" id="pviz-num" style="color:var(--indigo-d)">~1,2M</div>
+          <div class="lab" id="pviz-lab">Studenti BES in Italia</div>
+          <div class="sub" id="pviz-sub">354K con DSA certificato (6,0%) · +6%/anno</div>
+        </div>
+        <div class="bar"><i id="pviz-bar" style="background:var(--indigo);width:60%"></i></div>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="step" data-num="~1,2M" data-lab="Studenti BES in Italia" data-sub="354K con DSA certificato (6,0%) · +6%/anno" data-bar="60%" data-col="var(--indigo)">
+        <div class="n">SCALA DEL BISOGNO</div>
+        <h3>Milioni di studenti, ovunque in Europa</h3>
+        <p>Italia ~1,2M BES (+6%/anno), Regno Unito 1,77M SEND (20,5%), Germania ~600K (era il 5,3% nel 2000), Francia ~520K in crescita del 10–11%/anno. Una popolazione strutturalmente in aumento.</p>
+      </div>
+      <div class="step" data-num="2–3 ore" data-lab="Per una sola mappa manuale" data-sub="Strumento cardine del PDP · Legge 170/2010" data-bar="85%" data-col="var(--orange)">
+        <div class="n">IL COSTO NASCOSTO</div>
+        <h3>2–3 ore per una singola mappa</h3>
+        <p>Gli insegnanti di sostegno e gli OPI costruiscono a mano ogni mappa concettuale — strumento compensativo obbligatorio nei Piani Didattici Personalizzati. Tempo che non scala con il numero di studenti.</p>
+      </div>
+      <div class="step" data-num="0" data-lab="Tool che riempiono il vuoto" data-sub="Tra generalisti e compensativi statici" data-bar="100%" data-col="var(--pink)">
+        <div class="n">IL VUOTO DI MERCATO</div>
+        <h3>Nessuno strumento adatto</h3>
+        <p>I tool generalisti (MindMeister, XMind) fanno brainstorming senza semantica né accessibilità. I software compensativi (Algor, SuperMappe) producono mappe statiche senza AI generativa. In mezzo: il vuoto che MappAI occupa.</p>
+      </div>
+    </div>
+  </div>
+  <p class="src reveal" style="text-align:center">Fonti: MIUR / Anagrafe studenti, DfE Jan 2025, KMK Germania, MEN Francia.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== EVIDENZE ===================== -->
+<section id="evidenze">
+  <div class="kicker reveal"><span class="badge">2</span> I benefici, provati dalla scienza</div>
+  <h2 class="reveal">40 anni di ricerca confermano: le mappe cambiano l'apprendimento.</h2>
+  <p class="lead reveal">MappAI non è una scommessa. È l'implementazione tecnologica di una letteratura peer-reviewed consolidata — e l'effetto è massimo proprio per chi è più in difficoltà.</p>
+
+  <div class="grid g3" style="margin-top:40px">
+    <div class="card stat reveal">
+      <div class="num" style="color:var(--indigo-d)"><span data-count="0.58" data-dec="2">0</span></div>
+      <div class="lab">Effect size medio (g)</div>
+      <div class="sub">142 studi · 11.814 studenti · Schroeder et al. 2018</div>
+      <div class="bar"><i data-fill="58%" style="background:var(--indigo)"></i></div>
+    </div>
+    <div class="card stat reveal d1">
+      <div class="num" style="color:var(--emerald)"><span data-count="1.38" data-dec="2">0</span></div>
+      <div class="lab">Effect size studenti a rischio</div>
+      <div class="sub">Kim et al., Seoul 2024 · vs d=0,52 studenti tipici</div>
+      <div class="bar"><i data-fill="100%" style="background:var(--emerald)"></i></div>
+    </div>
+    <div class="card stat reveal d2">
+      <div class="num" style="color:var(--orange)"><span data-count="0.60" data-dec="2">0</span></div>
+      <div class="lab">Soglia Hattie "alto impatto"</div>
+      <div class="sub">800+ meta-analisi · cerniera efficacia = 0,40</div>
+      <div class="bar"><i data-fill="60%" style="background:var(--orange)"></i></div>
+    </div>
+    <div class="card stat reveal">
+      <div class="num" style="color:var(--violet)"><span data-count="0.78" data-dec="2">0</span></div>
+      <div class="lab">Effetto globale organizzatori grafici</div>
+      <div class="sub">Kim et al. 2024 · 49 studi · 20 anni</div>
+      <div class="bar"><i data-fill="78%" style="background:var(--violet)"></i></div>
+    </div>
+    <div class="card stat reveal d1">
+      <div class="num" style="color:var(--pink)"><span data-count="-28.1" data-dec="1" data-suffix="%">0</span></div>
+      <div class="lab">Gap di rendimento ridotto</div>
+      <div class="sub">Knowledge Graph riduce la dispersione · EFM-KG 2025, d=0,80</div>
+      <div class="bar"><i data-fill="72%" style="background:var(--pink)"></i></div>
+    </div>
+    <div class="card stat reveal d2">
+      <div class="num" style="color:var(--teal)"><span data-count="163" data-suffix="">0</span></div>
+      <div class="lab">Studenti testati, 4 università</div>
+      <div class="sub">Fang et al., BMC Psychology 2024 (p&lt;0,001)</div>
+      <div class="bar"><i data-fill="65%" style="background:var(--teal)"></i></div>
+    </div>
+  </div>
+
+  <div class="card reveal" style="margin-top:24px;border-left:4px solid var(--indigo)">
+    <p class="quote" style="border:none;padding:0">"Le mappe create dagli studenti superano la scrittura di saggi nella formazione di connessioni tra contenuti — e il beneficio è maggiore nei profili neurodivergenti che negli studenti tipici."</p>
+    <p class="small" style="margin-top:10px">— Schroeder et al. 2018 · Fang et al., BMC Psychology 2024</p>
+  </div>
+  <p class="src reveal">Fonti: Nesbit &amp; Adesope 2006; Schroeder et al. 2018; Kim et al. (Seoul) 2024; Urton et al. 2014; Hattie, Visible Learning.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== SOLUZIONE (scrolly transform) ===================== -->
+<section id="soluzione">
+  <div class="kicker reveal"><span class="badge">3</span> Come lo affronto</div>
+  <h2 class="reveal">Da qualsiasi fonte a mappa semantica, in 3 step.</h2>
+  <p class="lead reveal">Interfaccia zero-friction: basta sapere cosa si vuole studiare. Il motore AI multi-fase (Gemini + Infomaniak, GDPR/nLPD) trasforma il contenuto in una struttura di pensiero navigabile.</p>
+
+  <div class="scrolly" style="margin-top:40px">
+    <div class="sticky">
+      <div class="tv">
+        <div class="row" data-stage="0"><div class="ic" style="background:var(--blue)">⇪</div><div><b>Carica la fonte</b><span>PDF · URL · YouTube · DOCX · audio · testo</span></div></div>
+        <div class="arrow">↓</div>
+        <div class="row" data-stage="1"><div class="ic" style="background:var(--violet)">◇</div><div><b>Scegli la modalità</b><span>Mappa Mentale o Knowledge Graph</span></div></div>
+        <div class="arrow">↓</div>
+        <div class="row" data-stage="2"><div class="ic" style="background:var(--emerald)">✦</div><div><b>Genera con l'AI</b><span>45 sec – 2 min · motore multi-fase</span></div></div>
+        <div class="arrow">↓</div>
+        <div class="graphmini" data-stage="3">
+          <svg viewBox="0 0 300 170" id="kgsvg"></svg>
+          <span class="cap">Output reale · 77 nodi · 0 troncamenti · 55+ relazioni</span>
+        </div>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="n">STEP 01 — CARICA</div>
+        <h3>Qualsiasi contenuto, una sola interfaccia</h3>
+        <p>PDF, pagine web, video YouTube, documenti Word, audio o testo incollato. Nessuna preparazione: il materiale di studio entra così com'è.</p>
+      </div>
+      <div class="step">
+        <div class="n">STEP 02 — SCEGLI</div>
+        <h3>Mappa Mentale o Knowledge Graph</h3>
+        <p><b>MindMap gerarchica</b> (L0→L5, rami atomici): ideale per indici e gerarchie, perfetta per DSA/ADHD. <b>Knowledge Graph reticolare</b> (55+ tipi di relazione: causa, precede, si oppone a…): ideale per storia, scienze, pensiero critico.</p>
+      </div>
+      <div class="step">
+        <div class="n">STEP 03 — GENERA</div>
+        <h3>Mappa interattiva in meno di 2 minuti</h3>
+        <p>Motore D3.js: i testi diventano grafi semantici navigabili. 45 secondi da un PDF di 20 pagine, zero troncamenti sui documenti lunghi grazie alle 5 fasi parallele.</p>
+      </div>
+      <div class="step">
+        <div class="n">OLTRE LA MAPPA</div>
+        <h3>Accessibilità nel DNA, dati dello studente</h3>
+        <p>Schede Focus, font OpenDyslexic, sillabazione, Text-to-Speech, citazioni verbatim (zero allucinazioni), quiz e flashcard auto-generati. Export Markdown/Obsidian offline-first: <b>zero data lock-in</b>, provider EU/CH (Infomaniak, Ginevra).</p>
+        <div class="chips">
+          <span class="chip g">GDPR / nLPD</span><span class="chip g">Offline-first</span>
+          <span class="chip">OpenDyslexic</span><span class="chip">Text-to-Speech</span>
+          <span class="chip">Quiz &amp; flashcard</span><span class="chip">Timeline A4 stampabili</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== VANTAGGI / COMPETIZIONE ===================== -->
+<section id="vantaggi">
+  <div class="kicker reveal"><span class="badge">4</span> Perché noi</div>
+  <h2 class="reveal">Nessuno fa quello che facciamo noi.</h2>
+  <p class="lead reveal">MappAI è l'unico tool che unisce AI generativa, knowledge graph semantico, accessibilità DSA-first e privacy europea — offline.</p>
+
+  <div class="tablewrap reveal" style="margin-top:34px">
+    <table class="tbl">
+      <thead><tr><th>Funzionalità</th><th>MappAI</th><th>NotebookLM</th><th>Algor Education</th><th>XMind / MindMeister</th></tr></thead>
+      <tbody>
+        <tr class="me"><td>Generazione AI da PDF/URL/YouTube</td><td class="yes">✓ Full</td><td class="mid">~ Parziale</td><td class="no">✕</td><td class="no">✕</td></tr>
+        <tr><td>Knowledge Graph semantico (55+ rel.)</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+        <tr><td>Tutor Socratico adattivo</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+        <tr><td>Quiz &amp; flashcard auto-generati</td><td class="yes">✓</td><td class="no">✕</td><td class="mid">~ Base</td><td class="no">✕</td></tr>
+        <tr><td>Vault offline Obsidian-compatible</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+        <tr><td>Provider GDPR EU (Infomaniak)</td><td class="yes">✓</td><td class="no">✕</td><td class="mid">~</td><td class="no">n/d</td></tr>
+        <tr><td>Design accessibility-first DSA/ADHD</td><td class="yes">✓</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td></tr>
+        <tr><td>Multi-piattaforma desktop</td><td class="yes">✓ Win/Mac/Linux</td><td class="no">Web only</td><td class="no">Web only</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card reveal"><b style="color:var(--indigo-d)">AI multi-fase</b><p class="small" style="margin-top:6px">5 fasi parallele = 0 troncamenti su documenti lunghi.</p></div>
+    <div class="card reveal d1"><b style="color:var(--violet)">Knowledge Graph</b><p class="small" style="margin-top:6px">55+ tipi di relazioni semantiche; NotebookLM non ce l'ha.</p></div>
+    <div class="card reveal d2"><b style="color:var(--emerald)">Privacy EU-first</b><p class="small" style="margin-top:6px">Infomaniak (CH) + offline: apre scuole chiuse ai tool USA.</p></div>
+    <div class="card reveal"><b style="color:var(--orange)">Tutor Socratico</b><p class="small" style="margin-top:6px">Pedagogia adattiva integrata, non aggiunta dopo.</p></div>
+    <div class="card reveal d1"><b style="color:var(--pink)">A11y-first</b><p class="small" style="margin-top:6px">OpenDyslexic, TTS, sillabazione — assenti nei tool generalisti.</p></div>
+    <div class="card reveal d2"><b style="color:var(--teal)">Vault Obsidian</b><p class="small" style="margin-top:6px">Zero lock-in: i dati restano dello studente.</p></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== MERCATO ===================== -->
+<section id="mercato">
+  <div class="kicker reveal"><span class="badge">5</span> Il mercato</div>
+  <h2 class="reveal">Regolamentato, in crescita, sotto-servito.</h2>
+  <p class="lead reveal">Un mercato spinto dalla normativa (Legge 170/2010, PNRR, linee guida BES 2025) e da una domanda che i tool cloud USA non possono soddisfare per ragioni di privacy.</p>
+
+  <div class="funnel reveal" style="margin-top:42px">
+    <div class="lvl tam"><div class="t">TAM · 4 mercati core</div><div class="v">~€91M</div><div class="d">IT, CH, FR, DE — oltre €220M includendo UK</div></div>
+    <div class="lvl sam"><div class="t">SAM a 3 anni</div><div class="v">~€1,6M</div><div class="d">Canali diretti + PNRR (Italia)</div></div>
+    <div class="lvl som"><div class="t">SOM Anno 1 → Anno 2</div><div class="v">€158K → €270K</div><div class="d">5K → 15K utenti B2C + B2B</div></div>
+  </div>
+
+  <div class="grid g3 reveal" style="margin-top:40px">
+    <div class="card stat"><div class="num" style="color:var(--indigo-d)">32,5%</div><div class="lab">CAGR AI-in-education EU</div><div class="sub">da USD 1,59B (2025) a 19,97B (2034)</div></div>
+    <div class="card stat"><div class="num" style="color:var(--emerald)">~20%</div><div class="lab">Popolazione neurodivergente</div><div class="sub">dislessia 13–15% · ADHD 5–7% · ASD 1–2%</div></div>
+    <div class="card stat"><div class="num" style="color:var(--orange)">+30%</div><div class="lab">Produttività team neurodiversi</div><div class="sub">Deloitte / HP Enterprise · via twofold AG 2024</div></div>
+  </div>
+
+  <div class="grid g4" style="margin-top:24px">
+    <div class="card reveal"><b>🇮🇹 Italia</b><p class="small" style="margin-top:6px">~1,2M BES (+6%/anno)<br><span class="muted">Legge 170, PNRR, MEPA</span></p></div>
+    <div class="card reveal d1"><b>🇨🇭 Svizzera · HQ</b><p class="small" style="margin-top:6px">50–80K · misure rafforzate<br><span class="muted">nLPD, programmi cantonali</span></p></div>
+    <div class="card reveal d2"><b>🇫🇷 Francia</b><p class="small" style="margin-top:6px">~520K +308K LPI (+10–11%/anno)<br><span class="muted">Piano nazionale digitale BES</span></p></div>
+    <div class="card reveal d3"><b>🇩🇪 Germania</b><p class="small" style="margin-top:6px">~600K Förderbedarf (7,5%)<br><span class="muted">Investimenti pubblici per Länder</span></p></div>
+  </div>
+  <p class="src reveal">Il vantaggio "Education AI + Privacy-first" apre le porte di scuole europee oggi chiuse ai tool cloud statunitensi.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== SROI / ROI ===================== -->
+<section id="sroi">
+  <div class="kicker reveal"><span class="badge">6</span> Il ritorno: economico e sociale</div>
+  <h2 class="reveal">Ogni euro investito nell'inclusione ne genera fino a 7.</h2>
+  <p class="lead reveal">La letteratura SROI europea su programmi per persone neurodivergenti restituisce ritorni sociali costantemente positivi. MappAI rende questo impatto scalabile.</p>
+
+  <div class="grid g2" style="margin-top:40px;align-items:center">
+    <div class="card reveal">
+      <p class="small muted" style="margin-bottom:18px">SROI — valore sociale per ogni unità investita</p>
+      <div class="sroi" id="sroiChart">
+        <div class="col"><div class="col-bar" data-h="63%" data-v="€4,02">€4,02</div><div class="lab">Portogallo<br>SEARCH® 2022</div></div>
+        <div class="col"><div class="col-bar" data-h="62%" data-v="£3,96">£3,96</div><div class="lab">Scozia<br>NLC 2013</div></div>
+        <div class="col"><div class="col-bar" data-h="67%" data-v="£4,26">£4,26</div><div class="lab">Get Set 4 Autism<br>2025</div></div>
+        <div class="col"><div class="col-bar" data-h="100%" data-v="£7,49">£7,49</div><div class="lab">Flourish<br>Scozia 2025</div></div>
+      </div>
+    </div>
+    <div class="reveal d1">
+      <p class="quote">"For every EUR 1 invested in Project SEARCH®, EUR 4.02 was returned in social value."</p>
+      <p class="small" style="margin-top:8px;margin-bottom:24px">— Correia 2022, U. do Minho / Barbosa et al. 2025, <i>Social Enterprise Journal</i></p>
+      <div class="grid g2">
+        <div class="card stat"><div class="num" style="color:var(--emerald)">~CHF 12,6:1</div><div class="lab">SROI implicito Svizzera (10 anni)</div><div class="sub">Proxy su rendite AI evitate · UFAS 2024</div></div>
+        <div class="card stat"><div class="num" style="color:var(--indigo-d)">886 mln</div><div class="lab">CHF · misure integrazione AI 2023</div><div class="sub">~55.800 persone · 45% reinserito nel lavoro</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card reveal" style="margin-top:30px">
+    <h3 style="font-size:20px;margin-bottom:16px;letter-spacing:-.5px">Modello di business · freemium PLG sostenibile dal giorno uno</h3>
+    <div class="tablewrap" style="border:none">
+      <table class="tbl">
+        <thead><tr><th>Tier</th><th>Target</th><th>Prezzo</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>Discovery</td><td>3 mappe/mese</td></tr>
+          <tr><td>Pro Individual</td><td>Studenti DSA</td><td>€4,99/mese</td></tr>
+          <tr><td>Pro Famiglia</td><td>1 studente + genitori</td><td>€7,99/mese</td></tr>
+          <tr><td>Educator</td><td>Insegnanti BES/OPI</td><td>€9,99/mese</td></tr>
+          <tr><td>School License</td><td>Istituti (30 utenti)</td><td>€150–500/anno</td></tr>
+          <tr class="me"><td>District / Canton</td><td>USR, cantoni</td><td>Su preventivo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:14px">Costi infrastrutturali quasi nulli (desktop offline-first) → margini elevati e freemium sostenibile fin da subito.</p>
+  </div>
+  <p class="src reveal">Fonti: Correia 2022; Social Value Lab 2013 &amp; 2025; UFAS/BSV giugno 2024 (via RSI.ch).</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===================== FOUNDER ===================== -->
+<section id="founder">
+  <div class="kicker reveal"><span class="badge">7</span> Chi sono</div>
+  <h2 class="reveal">Founder-product fit inimitabile.</h2>
+  <div class="card founder reveal" style="margin-top:24px">
+    <img src="immagine_profilo.jpg" alt="Giacomo Meschini">
+    <div>
+      <h3 style="font-size:24px;letter-spacing:-.5px">Giacomo Meschini</h3>
+      <p class="small muted" style="margin-bottom:14px">Founder &amp; Full-Stack Developer · Ticino, Svizzera</p>
+      <p style="color:var(--ink-2);font-size:15px">Sviluppatore (Electron, D3.js, Python/JS, GCP/Infomaniak) <b>e</b> educatore specializzato con esperienza diretta in aula con studenti BES/DSA, oltre a competenze in tecnologie assistive e privacy GDPR/nLPD.</p>
+      <div class="chips" style="margin-top:14px">
+        <span class="chip">Tech: AI multi-fase + D3.js</span>
+        <span class="chip g">Educatore in aula</span>
+        <span class="chip">Accessibilità &amp; privacy</span>
+        <span class="chip">Ponte CH ⇄ IT</span>
+      </div>
+      <p class="small" style="margin-top:16px;color:var(--ink)"><b>Un team puramente tech non costruisce il tutor Socratico; un team educativo senza tecnica non costruisce il knowledge graph. Io sono entrambi.</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ASK ===================== -->
+<section id="ask">
+  <div class="askbox reveal">
+    <p class="small" style="color:#94a3b8;letter-spacing:.16em;text-transform:uppercase">L'investimento</p>
+    <div class="big">CHF 300K – 600K</div>
+    <p>Per posizionare MappAI come il riferimento europeo dell'AI educativa DSA-first, prima dell'anno scolastico 2026/2027.</p>
+    <p class="small" style="color:#a5b4fc;margin-top:18px">Perché ora: spinta regolatoria (BES 2025, PNRR) + maturità AI/privacy + VC svizzero record (CHF 3,3 mld, +44%).</p>
+    <a href="mailto:giacomo@insegnai.ch">Scrivimi → giacomo@insegnai.ch</a>
+  </div>
+</section>
+
+<footer>Giugno 2026 · MappAI — Trasformare la conoscenza per ogni mente.</footer>
+
+<script>
+/* ---------- progress bar + topbar + dots ---------- */
+const progress=document.getElementById('progress');
+const topbar=document.getElementById('topbar');
+const dots=[...document.querySelectorAll('#dots a')];
+const secs=dots.map(a=>document.querySelector(a.getAttribute('href')));
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  progress.style.width=(scrollY/h*100)+'%';
+  topbar.classList.toggle('scrolled',scrollY>40);
+  let idx=0;
+  secs.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<=innerHeight*0.4)idx=i;});
+  dots.forEach((d,i)=>d.classList.toggle('active',i===idx));
+}
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* ---------- reveal on scroll ---------- */
+const revO=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');revO.unobserve(e.target);}});
+},{threshold:.18});
+document.querySelectorAll('.reveal:not(.in)').forEach(el=>revO.observe(el));
+
+/* ---------- count up + bar fill ---------- */
+function animateCount(el){
+  const target=parseFloat(el.dataset.count);
+  const dec=parseInt(el.dataset.dec||'0');
+  const suf=el.dataset.suffix||'';
+  const dur=1200,t0=performance.now();
+  function tick(t){
+    let p=Math.min((t-t0)/dur,1);
+    p=1-Math.pow(1-p,3);
+    let val=(target*p).toFixed(dec);
+    el.textContent=(dec? val.replace('.',',') : Math.round(target*p))+suf;
+    if(p<1)requestAnimationFrame(tick);
+    else el.textContent=(dec? target.toFixed(dec).replace('.',',') : target)+suf;
+  }
+  requestAnimationFrame(tick);
+}
+const countO=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    const c=e.target.querySelector('[data-count]');if(c)animateCount(c);
+    e.target.querySelectorAll('[data-fill]').forEach(b=>b.style.width=b.dataset.fill);
+    countO.unobserve(e.target);
+  }});
+},{threshold:.4});
+document.querySelectorAll('.stat').forEach(s=>countO.observe(s));
+
+/* ---------- SROI bars ---------- */
+const sroiO=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    e.target.querySelectorAll('.col-bar').forEach((b,i)=>{
+      setTimeout(()=>b.style.height=b.dataset.h,i*140);
+    });
+    sroiO.unobserve(e.target);
+  }});
+},{threshold:.4});
+const sc=document.getElementById('sroiChart');if(sc)sroiO.observe(sc);
+
+/* ---------- problem sticky scrolly ---------- */
+const pSteps=document.querySelectorAll('#problema .step');
+const pv={num:document.getElementById('pviz-num'),lab:document.getElementById('pviz-lab'),
+  sub:document.getElementById('pviz-sub'),bar:document.getElementById('pviz-bar')};
+const pO=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    pSteps.forEach(s=>s.classList.remove('active'));
+    e.target.classList.add('active');
+    const d=e.target.dataset;
+    pv.num.textContent=d.num;pv.num.style.color=d.col;
+    pv.lab.textContent=d.lab;pv.sub.textContent=d.sub;
+    pv.bar.style.width=d.bar;pv.bar.style.background=d.col;
+  }});
+},{rootMargin:'-45% 0px -45% 0px'});
+pSteps.forEach(s=>pO.observe(s));
+
+/* ---------- solution sticky scrolly ---------- */
+const sSteps=document.querySelectorAll('#soluzione .step');
+const rows=document.querySelectorAll('#soluzione .tv [data-stage]');
+const sO=new IntersectionObserver((es)=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    const i=[...sSteps].indexOf(e.target);
+    rows.forEach((r,ri)=>r.classList.toggle('on',ri<=i));
+  }});
+},{rootMargin:'-45% 0px -45% 0px'});
+sSteps.forEach(s=>sO.observe(s));
+
+/* ---------- mini knowledge graph svg ---------- */
+(function(){
+  const svg=document.getElementById('kgsvg');if(!svg)return;
+  const cx=150,cy=85;
+  const cols=['#3b82f6','#facc15','#f97316','#f43f5e','#8b5cf6','#2dd4bf','#34d399'];
+  const nodes=[{x:cx,y:cy,r:9,c:'#fff'}];
+  const N=7;
+  for(let i=0;i<N;i++){
+    const a=(i/N)*Math.PI*2;
+    nodes.push({x:cx+Math.cos(a)*62,y:cy+Math.sin(a)*46,r:6,c:cols[i]});
+  }
+  let s='';
+  for(let i=1;i<nodes.length;i++){
+    s+=`<line x1="${cx}" y1="${cy}" x2="${nodes[i].x}" y2="${nodes[i].y}" stroke="#334155" stroke-width="1.2"/>`;
+  }
+  // a few cross links
+  s+=`<line x1="${nodes[1].x}" y1="${nodes[1].y}" x2="${nodes[3].x}" y2="${nodes[3].y}" stroke="#334155" stroke-width="1" opacity=".6"/>`;
+  s+=`<line x1="${nodes[4].x}" y1="${nodes[4].y}" x2="${nodes[6].x}" y2="${nodes[6].y}" stroke="#334155" stroke-width="1" opacity=".6"/>`;
+  nodes.forEach((n,i)=>{
+    s+=`<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${n.c}">
+      <animate attributeName="r" values="${n.r};${n.r+1.5};${n.r}" dur="${2+i*0.2}s" repeatCount="indefinite"/></circle>`;
+  });
+  svg.innerHTML=s;
+})();
+
+/* ---------- hero network canvas ---------- */
+(function(){
+  const cv=document.getElementById('netcanvas');if(!cv)return;
+  const ctx=cv.getContext('2d');let w,h,pts;
+  const palette=['#6366f1','#3b82f6','#8b5cf6','#34d399','#f97316'];
+  function resize(){w=cv.width=cv.offsetWidth;h=cv.height=cv.offsetHeight;
+    const n=Math.min(60,Math.round(w*h/16000));
+    pts=Array.from({length:n},()=>({x:Math.random()*w,y:Math.random()*h,
+      vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,
+      c:palette[Math.floor(Math.random()*palette.length)]}));}
+  resize();addEventListener('resize',resize);
+  function loop(){
+    ctx.clearRect(0,0,w,h);
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;
+      for(let j=i+1;j<pts.length;j++){
+        const q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);
+        if(d<120){ctx.globalAlpha=(1-d/120)*.35;ctx.strokeStyle='#94a3b8';
+          ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();}
+      }
+    }
+    ctx.globalAlpha=.9;
+    pts.forEach(p=>{ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,7);ctx.fill();});
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

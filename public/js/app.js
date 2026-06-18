@@ -8350,6 +8350,11 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
         if (event && event.stopPropagation) event.stopPropagation();
         hideContextMenu();
 
+        // Studio attivo: se una sessione è in corso consuma il click qui
+        if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) {
+            if (window.ActiveStudy.handleNodeClick(d)) return;
+        }
+
         if (window.mergeState && window.mergeState.active) {
             window.handleMergeTargetClick(d);
             return;

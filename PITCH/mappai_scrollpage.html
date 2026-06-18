@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MappAI — The Case for Investing in Neurodivergent Learning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+    rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --indigo: #6366f1;
+      --indigo-dark: #4338ca;
+      --indigo-900: #1e1b4b;
+      --emerald: #10b981;
+      --emerald-dark: #047857;
+      --amber: #f59e0b;
+      --violet: #8b5cf6;
+      --violet-dark: #5b21b6;
+      --red: #ef4444;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #f0f4ff;
+      --card: #ffffff;
+      --mono: 'Space Mono', monospace;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-family: var(--mono);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ─── PROGRESS NAV ─── */
+    .progress-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .nav-brand img {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .nav-sections {
+      display: flex;
+      gap: 4px;
+    }
+
+    .nav-dot-item {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .nav-dot-item.active {
+      background: var(--indigo);
+      transform: scale(1.5);
+    }
+
+    .progress-bar {
+      position: fixed;
+      top: 52px;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--indigo), var(--violet));
+      transition: width 0.1s;
+      z-index: 99;
+      width: 0%;
+    }
+
+    /* ─── REVEAL ANIMATIONS ─── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(48px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.from-left {
+      transform: translateX(-48px);
+    }
+
+    .reveal.from-right {
+      transform: translateX(48px);
+    }
+
+    .reveal.delay-1 {
+      transition-delay: 0.1s;
+    }
+
+    .reveal.delay-2 {
+      transition-delay: 0.2s;
+    }
+
+    .reveal.delay-3 {
+      transition-delay: 0.3s;
+    }
+
+    .reveal.delay-4 {
+      transition-delay: 0.4s;
+    }
+
+    .reveal.delay-5 {
+      transition-delay: 0.5s;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translate(0);
+    }
+
+    /* ─── SECTION STRUCTURE ─── */
+    section {
+      position: relative;
+    }
+
+    .section-label {
+      position: sticky;
+      top: 68px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--indigo);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 0 999px 999px 0;
+      margin-bottom: 0;
+      box-shadow: 0 2px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 48px;
+    }
+
+    /* ─── TYPOGRAPHY ─── */
+    .eyebrow {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .mega {
+      font-size: clamp(4rem, 9vw, 8rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -4px;
+    }
+
+    .mega.gradient {
+      background: linear-gradient(135deg, var(--indigo) 0%, var(--violet) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .mega.emerald {
+      background: linear-gradient(135deg, var(--emerald) 0%, var(--indigo) 60%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    /* CLAIMS: 200% of original — all main section statements */
+    .headline {
+      font-size: clamp(2rem, 4.5vw, 8rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -2px;
+    }
+
+    .subhead {
+      font-size: clamp(1rem, 1.8vw, 1.4rem);
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    p {
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    strong {
+      color: var(--text);
+    }
+
+    /* ─── HERO ─── */
+    #hero {
+      background: var(--indigo-900);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 40px 60px;
+      background-image: radial-gradient(rgba(99, 102, 241, 0.3) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    #hero .mega {
+      color: white;
+    }
+
+    #hero .subhead {
+      color: rgba(255, 255, 255, 0.6);
+      max-width: 540px;
+      margin: 16px auto 0;
+    }
+
+    .hero-counter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      margin: 40px 0 32px;
+      flex-wrap: wrap;
+    }
+
+    .hero-counter-item {
+      text-align: center;
+    }
+
+    .hero-counter-num {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: white;
+      line-height: 1;
+    }
+
+    .hero-counter-num.old {
+      opacity: 0.8;
+      color: rgb(255, 138, 71);
+      font-size: clamp(2.5rem, 4vw, 3rem);
+    }
+
+    .hero-counter-num.new {
+      color: var(--emerald);
+    }
+
+    .hero-counter-label {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 6px;
+    }
+
+    .hero-arrow {
+      font-size: 2rem;
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .badge-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.8);
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      backdrop-filter: blur(8px);
+      margin-top: 8px;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--emerald);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: bounce 2s ease infinite;
+    }
+
+    @keyframes bounce {
+
+      0%,
+      100% {
+        transform: translateX(-50%) translateY(0);
+      }
+
+      50% {
+        transform: translateX(-50%) translateY(-8px);
+      }
+    }
+
+    /* ─── PROBLEM SECTION ─── */
+    #problem {
+      background: var(--card);
+      padding-bottom: 0;
+    }
+
+    .problem-intro {
+      padding: 40px 40px 60px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .stat-band {
+      padding: 64px 40px;
+      text-align: center;
+      background: linear-gradient(135deg, var(--indigo-900) 0%, #312e81 100%);
+      margin-top: 0;
+    }
+
+    .stat-band .mega {
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    .stat-band .subhead {
+      color: rgba(255, 255, 255, 0.65);
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .country-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+      border-top: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+      margin: 40px 0;
+    }
+
+    .country-card {
+      padding: 20px 16px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .country-flag {
+      font-size: 2rem;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .country-name {
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    .country-num {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text);
+      margin: 4px 0;
+    }
+
+    .country-trend {
+      font-size: 0.9rem;
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .cost-band {
+      background: #fff1f2;
+      border-top: 4px solid var(--red);
+      padding: 48px 40px;
+    }
+
+    .cost-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+      max-width: 1600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .cost-item-num {
+      font-size: clamp(1.5rem, 5vw, 3rem);
+      font-weight: 800;
+      max-width: 1600px;
+      color: var(--red);
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .cost-item-label {
+      font-size: 1rem;
+      color: var(--text);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .cost-item-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ─── SCIENCE SECTION ─── */
+    #science {
+      background: var(--bg);
+    }
+
+    .science-header {
+      padding: 40px 40px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .science-stat-moment {
+      padding: 64px 40px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+
+    .science-stat-moment:nth-child(odd) {
+      background: white;
+    }
+
+    .science-stat-moment:nth-child(even) {
+      background: #f5f3ff;
+    }
+
+    .stat-moment-num {
+      font-size: clamp(5rem, 14vw, 12rem);
+      font-weight: 800;
+      letter-spacing: -6px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-moment-plain {
+      font-size: clamp(1.4rem, 3vw, 2.4rem);
+      font-weight: 700;
+      color: var(--text);
+      max-width: 760px;
+      line-height: 1.25;
+      margin: 20px auto 12px;
+    }
+
+    .stat-moment-source {
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .science-callout {
+      background: var(--indigo-900);
+      padding: 64px 0;
+    }
+
+    .science-callout-inner {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .science-callout .headline {
+      color: white;
+      margin-bottom: 16px;
+    }
+
+    .solution-header {
+      padding: 40px 40px 32px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .science-callout p {
+      color: rgba(255, 255, 255, 0.6);
+      margin: 16px 0 0;
+      font-size: clamp(1rem, 1.8vw, 1.4rem);
+      line-height: 1.6;
+    }
+
+    /* ─── SOLUTION SECTION ─── */
+    #solution {
+      background: white;
+      padding: 80px 0 0;
+    }
+
+    .solution-steps {
+      padding: 0 40px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .step-row {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 24px;
+      align-items: start;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .step-row:last-child {
+      border-bottom: none;
+    }
+
+    .step-num {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .step-num.s1 {
+      background: var(--indigo);
+    }
+
+    .step-num.s2 {
+      background: var(--emerald);
+    }
+
+    .step-num.s3 {
+      background: var(--violet);
+    }
+
+    .step-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .performance-strip {
+      background: var(--indigo-900);
+      padding: 36px 40px;
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+    }
+
+    .perf-item {
+      text-align: center;
+    }
+
+    .perf-num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .perf-label {
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+
+    .screenshot-band {
+      background: #eef2ff;
+      padding: 40px 40px;
+    }
+
+    .screenshot-band img {
+      width: 100%;
+      max-width: 900px;
+      display: block;
+      margin: 0 auto;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(99, 102, 241, 0.2);
+    }
+
+    /* ─── MARKET SECTION ─── */
+    #market {
+      background: var(--bg);
+      padding: 80px 0;
+    }
+
+    .market-header {
+      padding: 40px 40px 48px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .market-numbers {
+      padding: 0 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .market-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .market-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .market-card:hover {
+      border-color: var(--indigo);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
+    }
+
+    .market-card-num {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--indigo);
+      letter-spacing: -1px;
+      margin-bottom: 4px;
+    }
+
+    .market-card-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .market-card-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    .why-now {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .why-now-icon {
+      color: var(--emerald);
+      flex-shrink: 0;
+    }
+
+    .why-now p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .bm-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 24px;
+    }
+
+    .bm-table th {
+      background: var(--indigo);
+      color: white;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+
+    .bm-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .bm-table tr:hover {
+      background: #f8faff;
+    }
+
+    /* ─── SROI / ND DRIVER SECTION ─── */
+    #sroi {
+      background: linear-gradient(135deg, var(--violet-dark) 0%, var(--indigo-900) 100%);
+      padding: 80px 0;
+    }
+
+    #sroi .section-label {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .sroi-header {
+      padding: 40px 40px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .sroi-header .headline {
+      color: white;
+    }
+
+    .sroi-header p {
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+
+    .sroi-table-wrap {
+      padding: 0 40px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .sroi-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sroi-table th {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      padding: 10px 14px;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    .sroi-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .sroi-table .ratio {
+      font-weight: 800;
+      color: var(--emerald);
+      font-size: 1rem;
+    }
+
+    .sroi-table tr:last-child {
+      background: rgba(99, 102, 241, 0.2);
+    }
+
+    .sroi-table tr:last-child td {
+      color: white;
+      font-weight: 700;
+    }
+
+    .nd-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 0 40px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .nd-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .nd-card-num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .nd-card-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .nd-card-sub {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.45);
+      line-height: 1.4;
+    }
+
+    .quote-strip {
+      padding: 32px 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .quote-strip blockquote {
+      font-size: clamp(0.9rem, 2vw, 1.1rem);
+      color: rgba(255, 255, 255, 0.85);
+      line-height: 1.6;
+      font-style: italic;
+      max-width: 720px;
+    }
+
+    .quote-strip cite {
+      display: block;
+      margin-top: 12px;
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.4);
+      font-style: normal;
+      letter-spacing: 1px;
+    }
+
+    /* ─── TEAM SECTION ─── */
+    #team {
+      background: white;
+      padding: 80px 0;
+    }
+
+    .team-inner {
+      padding: 0 40px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    .team-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    .founder-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .founder-photo {
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid white;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      display: block;
+      margin-bottom: 20px;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+
+    .founder-name {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .founder-role {
+      font-size: 0.8rem;
+      color: var(--indigo);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .founder-tags {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .founder-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      width: fit-content;
+    }
+
+    .nd-callout {
+      background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%);
+      border: 2px solid var(--violet);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-top: 24px;
+    }
+
+    .nd-callout .headline {
+      font-size: 1.1rem;
+      color: var(--violet);
+      margin-bottom: 10px;
+    }
+
+    .nd-callout p {
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    .roadmap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 8px;
+    }
+
+    .roadmap-row {
+      display: flex;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: flex-start;
+    }
+
+    .roadmap-row:last-child {
+      border: none;
+    }
+
+    .roadmap-date {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--indigo);
+      min-width: 80px;
+      padding-top: 2px;
+    }
+
+    .roadmap-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--indigo);
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+
+    .roadmap-text {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .roadmap-text strong {
+      color: var(--text);
+    }
+
+    /* ─── ASK / CTA SECTION ─── */
+    #ask {
+      background: var(--indigo-900);
+      padding: 100px 40px;
+      text-align: center;
+      background-image: radial-gradient(rgba(99, 102, 241, 0.2) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    #ask .eyebrow {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    #ask .mega {
+      color: white;
+      margin: 16px 0 8px;
+    }
+
+    #ask .mega.green {
+      color: var(--emerald);
+    }
+
+    #ask p {
+      color: rgba(255, 255, 255, 0.6);
+      max-width: 560px;
+      margin: 0 auto 40px;
+      font-size: 0.95rem;
+    }
+
+    .use-of-funds {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .fund-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 12px 20px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 160px;
+    }
+
+    .fund-pct {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: white;
+      display: block;
+    }
+
+    .fund-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 700;
+      margin-top: 2px;
+      display: block;
+    }
+
+    .milestone-strip {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      padding: 16px 24px;
+      max-width: 640px;
+      margin: 0 auto 40px;
+    }
+
+    .milestone-strip p {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .cta-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--emerald);
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+      transition: all 0.3s;
+    }
+
+    .cta-button:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(16, 185, 129, 0.4);
+    }
+
+    .qr-wrap {
+      text-align: center;
+    }
+
+    .qr-wrap img {
+      width: 100px;
+      height: 100px;
+      border-radius: 10px;
+      display: block;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .qr-wrap p {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 0.65rem;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .footer-tag {
+      margin-top: 60px;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.25);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ─── DIVIDERS ─── */
+    .section-divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── COMPETITION STRIP ─── */
+    .comp-strip {
+      background: var(--bg);
+      padding: 48px 0;
+    }
+
+    .comp-inner {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .comp-table th {
+      background: var(--text);
+      color: white;
+      padding: 10px 14px;
+      font-size: 0.72rem;
+      text-align: left;
+    }
+
+    .comp-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .comp-table .yes {
+      color: var(--emerald);
+      font-weight: 800;
+    }
+
+    .comp-table .no {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .comp-table .partial {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .comp-table tr.mappai-row {
+      background: #eef2ff;
+      font-weight: 700;
+    }
+
+    /* ─── 4K / LARGE DISPLAYS ─── */
+    @media (min-width: 1920px) {
+      .container {
+        max-width: 1600px;
+      }
+
+      .problem-intro,
+      .science-header,
+      .science-callout-inner,
+      .solution-header,
+      .solution-steps,
+      .market-header,
+      .market-numbers,
+      .team-inner,
+      .sroi-header,
+      .sroi-table-wrap,
+      .nd-stats-grid,
+      .quote-strip,
+      .comp-inner {
+        max-width: 1600px;
+      }
+
+      .country-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .cost-grid {
+        gap: 60px;
+      }
+
+      .nd-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 28px;
+      }
+
+      .market-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 28px;
+      }
+
+      .science-stat-moment {
+        min-height: 420px;
+      }
+
+      .performance-strip {
+        gap: 80px;
+        padding: 56px 60px;
+      }
+
+      .perf-num {
+        font-size: 2.8rem;
+      }
+
+      .nd-card-num {
+        font-size: 2.8rem;
+      }
+
+      .market-card-num {
+        font-size: 2.4rem;
+      }
+
+      .cost-item-num {
+        font-size: clamp(2.8rem, 4vw, 4rem);
+      }
+
+      .step-title {
+        font-size: 1.4rem;
+      }
+
+      .step-desc {
+        font-size: 1.05rem;
+      }
+    }
+
+    @media (min-width: 2560px) {
+      .container {
+        max-width: 2000px;
+      }
+
+      .problem-intro,
+      .science-header,
+      .science-callout-inner,
+      .solution-header,
+      .solution-steps,
+      .market-header,
+      .market-numbers,
+      .team-inner,
+      .sroi-header,
+      .sroi-table-wrap,
+      .nd-stats-grid,
+      .quote-strip,
+      .comp-inner {
+        max-width: 2000px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .country-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .market-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .nd-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .team-split {
+        grid-template-columns: 1fr;
+      }
+
+      .cost-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .container,
+      .problem-intro,
+      .science-header,
+      .solution-steps,
+      .market-header,
+      .market-numbers,
+      .team-inner {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ─── PROGRESS BAR ─── -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- ─── NAV ─── -->
+  <nav class="progress-nav">
+    <div class="nav-brand">
+      <img src="MappAI_icon.png" alt="MappAI" onerror="this.style.display='none'">
+      <span>MappAI</span>
+    </div>
+    <div class="nav-sections" id="navSections">
+      <div class="nav-dot-item active" data-target="hero" title="Intro"></div>
+      <div class="nav-dot-item" data-target="problem" title="Problem"></div>
+      <div class="nav-dot-item" data-target="science" title="Science"></div>
+      <div class="nav-dot-item" data-target="solution" title="Solution"></div>
+      <div class="nav-dot-item" data-target="market" title="Market"></div>
+      <div class="nav-dot-item" data-target="sroi" title="SROI & ND"></div>
+      <div class="nav-dot-item" data-target="team" title="Team"></div>
+      <div class="nav-dot-item" data-target="ask" title="The Ask"></div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- HERO                                    -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="hero">
+    <div>
+      <div class="eyebrow reveal" style="color: rgba(255,255,255,0.4);">MappAI · Summer Founders Apéro · Lugano 2026
+      </div>
+      <div class="mega gradient reveal delay-1" style="margin-top: 16px;">Transforming<br>how every<br>mind learns.
+      </div>
+
+      <div class="hero-counter">
+        <div class="hero-counter-item reveal delay-2">
+          <div class="hero-counter-num old">2–3 hrs</div>
+          <div class="hero-counter-label">to build one concept map by hand</div>
+        </div>
+        <div class="hero-arrow reveal delay-3">→</div>
+        <div class="hero-counter-item reveal delay-3">
+          <div class="hero-counter-num new" id="heroTimer">45 sec</div>
+          <div class="hero-counter-label">MappAI · from any source</div>
+        </div>
+      </div>
+
+      <div class="subhead reveal delay-4">AI-generated semantic maps for students with learning differences.<br>Built on
+        40 years of science. Designed for the 20% — useful to everyone.</div>
+      <div style="margin-top: 24px;" class="reveal delay-5">
+        <div class="badge-hero">
+          <i data-lucide="shield-check" style="width:14px; height:14px;"></i>
+          Pre-Seed · CHF 150K–250K · Ticino, Switzerland
+        </div>
+      </div>
+    </div>
+    <div class="scroll-hint">
+      <span>scroll</span>
+      <i data-lucide="chevron-down" style="width:16px;"></i>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- PROBLEM                                 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="problem">
+    <div class="section-label">01 · The Problem</div>
+    <div class="problem-intro container">
+      <div class="eyebrow reveal">The invisible learning crisis</div>
+      <div class="mega reveal delay-1" style="font-size: clamp(2rem, 6w, 8rem)">1 in 5 students.</div>
+      <p class="subhead reveal delay-2" style="max-width: 1060px; margin-top: 16px;">
+        Across Europe, roughly <strong>20% of students</strong> have some form of special educational need — dyslexia,
+        ADHD, ASD, dyscalculia, processing disorders. They're in every classroom, in every country. And <strong>the
+          tools they need most simply don't exist yet.</strong>
+      </p>
+
+      <div class="country-grid reveal delay-3">
+        <div class="country-card">
+          <span class="country-flag">🇨🇭</span>
+          <div class="country-name">Switzerland</div>
+          <div class="country-num">~50–80K</div>
+          <div class="country-trend">↑ tripled since 2008</div>
+        </div>
+        <div class="country-card">
+          <span class="country-flag">🇮🇹</span>
+          <div class="country-name">Italy</div>
+          <div class="country-num">~1.2M BES</div>
+          <div class="country-trend">↑ +6% per year</div>
+        </div>
+        <div class="country-card">
+          <span class="country-flag">🇫🇷</span>
+          <div class="country-name">France</div>
+          <div class="country-num">~828K</div>
+          <div class="country-trend">↑ +10% per year</div>
+        </div>
+        <div class="country-card">
+          <span class="country-flag">🇩🇪</span>
+          <div class="country-name">Germany</div>
+          <div class="country-num">~600K</div>
+          <div class="country-trend">↑ 5.3% → 7.5%</div>
+        </div>
+        <div class="country-card">
+          <span class="country-flag">🇬🇧</span>
+          <div class="country-name">UK</div>
+          <div class="country-num">~1.77M</div>
+          <div class="country-trend">↑ 20.5% · DfE 2025</div>
+        </div>
+      </div>
+
+      <div
+        style="background: #fff7ed; border: 1px solid var(--amber); border-radius: 14px; padding: 20px 24px; margin-top: 0;"
+        class="reveal">
+        <p style="font-size: 0.9rem; color: var(--text); margin: 0;">
+          <i data-lucide="clock" style="display:inline; width:15px; margin-right:6px; color: var(--amber);"></i>
+          <strong>The cornerstone of every Personalized Learning Plan is a concept map.</strong> Teachers build these by
+          hand. It takes 2–3 hours. Per map. Per student. Every time the curriculum changes. There is no tool that does
+          this automatically — until now.
+        </p>
+      </div>
+    </div>
+
+    <!-- Cost of inaction -->
+    <div class="cost-band">
+      <div style="max-width: 1060px; margin: 0 auto;">
+        <!-- BIG TITLE -->
+        <div class="reveal" style="text-align: center; margin-bottom: 48px;">
+          <div
+            style="font-size: clamp(2rem, 5vw, 4rem); font-weight: 800; color: var(--red); letter-spacing: -2px; line-height: 1; margin-bottom: 8px;">
+            The cost of doing nothing</div>
+          <div
+            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 3px; color: #f87171; font-weight: 700;">
+            A failure that starts in the classroom and compounds for decades</div>
+        </div>
+        <div class="cost-grid">
+          <div class="reveal delay-1">
+            <div class="cost-item-num">2×higher</div>
+            <div class="cost-item-label">Unemployment rate</div>
+            <div class="cost-item-sub">ND adults face 9.1–11.6% unemployment vs 5.9% for non-disabled peers.
+              <em>Eurostat 2024</em>
+            </div>
+          </div>
+          <div class="reveal delay-2">
+            <div class="cost-item-num">CHF 886M</div>
+            <div class="cost-item-label">per year — Switzerland alone</div>
+            <div class="cost-item-sub">Spent on disability reintegration programs. Only 45% of participants find
+              competitive employment. <em>UFAS 2024</em></div>
+          </div>
+          <div class="reveal delay-3">
+            <div class="cost-item-num">64%</div>
+            <div class="cost-item-label">started companies to survive</div>
+            <div class="cost-item-sub">64% of ND founders in the UK launched their startup because they couldn't find
+              employment. <em>The Entrepreneurs Network 2024</em></div>
+          </div>
+        </div>
+
+        <!-- TEXT-BASED LEARNING FOCUS -->
+        <div style="margin-top: 48px; border-top: 2px solid #fecaca; padding-top: 36px;" class="reveal">
+          <div
+            style="font-size: clamp(1.4rem, 3vw, 2.4rem); font-weight: 800; color: var(--red); letter-spacing: -1px; line-height: 1.15; margin-bottom: 16px; text-align: center;">
+            School is still almost entirely text-based.
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 24px;">
+            <div style="background: white; border-radius: 12px; padding: 18px 20px; border-left: 4px solid var(--red);">
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 6px;">📝 How schools
+                teach</div>
+              <p style="font-size: 0.82rem; margin: 0; color: var(--muted);">Linear reading. Text underlining. Copying
+                notes. Sequential memorization. These methods have not changed structurally in 150 years.</p>
+            </div>
+            <div
+              style="background: white; border-radius: 12px; padding: 18px 20px; border-left: 4px solid var(--amber);">
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 6px;">🧠 How ND
+                brains work</div>
+              <p style="font-size: 0.82rem; margin: 0; color: var(--muted);">Visual. Non-linear. Pattern-driven.
+                Associative. Parallel processing. ND brains are not broken linear processors — they are powerful
+                non-linear ones forced into the wrong format.</p>
+            </div>
+            <div
+              style="background: white; border-radius: 12px; padding: 18px 20px; border-left: 4px solid var(--indigo);">
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--text); margin-bottom: 6px;">🗺️ What
+                actually works</div>
+              <p style="font-size: 0.82rem; margin: 0; color: var(--muted);">Semantic maps. Visual knowledge structures.
+                Concept graphs. 40 years of science says this. Yet producing one map still takes a teacher 2–3 hours by
+                hand.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SCIENCE                                 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="science">
+    <div class="section-label">02 · The Science</div>
+    <div class="science-header">
+      <div class="eyebrow reveal">40 years of peer-reviewed research</div>
+      <div class="headline reveal delay-1">We didn't invent<br>a new
+        pedagogy.<br>We built for one<br>that's already proven.</div>
+    </div>
+
+    <!-- Stat moment 1 -->
+    <div class="science-stat-moment reveal">
+      <div class="stat-moment-num" style="color: var(--indigo);">g = 0.58</div>
+      <div class="stat-moment-plain">Students using concept maps <strong>score better than 72% of peers</strong> who
+        don't — starting from the same baseline.</div>
+      <div class="stat-moment-source">142 studies · 11,814 students · Schroeder et al., 2018 (largest meta-analysis of
+        map-based learning)</div>
+    </div>
+
+    <!-- Stat moment 2 -->
+    <div class="science-stat-moment reveal">
+      <div class="stat-moment-num" style="color: var(--violet);">Top 8%</div>
+      <div class="stat-moment-plain">For <strong>at-risk and neurodivergent students</strong>, the effect is 3×
+        stronger: map users outperform 92% of their non-using peers.</div>
+      <div class="stat-moment-source">d = 1.38 · Kim et al., Seoul National University 2024 · vs d = 0.52 for typical
+        students</div>
+    </div>
+
+    <!-- Stat moment 3 -->
+    <div class="science-stat-moment reveal">
+      <div class="stat-moment-num" style="color: var(--emerald);">−28.1%</div>
+      <div class="stat-moment-plain">The <strong>achievement gap between strongest and weakest students narrows by
+          more
+          than a quarter</strong> when knowledge graphs are used.</div>
+      <div class="stat-moment-source">EFM-KG 2025 · Cohen's d = 0.80 · statistically significant reduction in score
+        dispersion</div>
+    </div>
+
+    <!-- Stat moment 4 -->
+    <div class="science-stat-moment reveal">
+      <div class="stat-moment-num" style="color: var(--amber);">p &lt; 0.001</div>
+      <div class="stat-moment-plain">AI-enhanced mind maps improve learning and creativity <strong>more in
+          neurodivergent students than in typical ones.</strong> The tool that benefits most from AI is the one they
+        need most.</div>
+      <div class="stat-moment-source">Fang et al. BMC Psychology 2024 · n = 163 · 4 universities · statistically
+        certain
+      </div>
+    </div>
+
+    <!-- Hattie callout -->
+    <div class="science-stat-moment reveal" style="background: #f0fdf4;">
+      <div class="stat-moment-num" style="color: var(--emerald);">ES = 0.60</div>
+      <div class="stat-moment-plain">Ranked in the <strong>top tier of educational interventions</strong> in Hattie's
+        Visible Learning — the largest synthesis of learning research ever conducted (800+ meta-analyses, 300M
+        students).</div>
+      <div class="stat-moment-source">Threshold for "high impact" = 0.40. Maps score 0.60. Only a handful of methods
+        rank higher.</div>
+    </div>
+
+    <div class="science-callout">
+      <div class="science-callout-inner">
+        <div class="headline reveal delay-1">Education has the data.<br>It just hasn't acted on it yet.</div>
+        <p class="reveal delay-2">
+          We are not inventing a new pedagogy. We are measuring exactly how much learning potential the text-based model
+          leaves on the table — and building the first tool that closes the gap, at scale, for every student who needs
+          it most.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SOLUTION                                -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="solution">
+    <div class="section-label">03 · The Solution</div>
+    <div class="solution-header">
+      <div class="eyebrow reveal">MappAI</div>
+      <div class="headline reveal delay-1" style="margin-top: 12px;">Any source → semantic map in 3
+        steps. Under 2 minutes. No manual work.</div>
+      <p class="subhead reveal delay-2" style="margin-top: 12px;">Desktop app (Win / Mac / Linux).
+        Multi-phase AI engine (Gemini + Infomaniak). Offline-first. GDPR/nLPD-compliant. No cloud lock-in.</p>
+    </div>
+
+    <div class="solution-steps">
+      <div class="step-row reveal">
+        <div>
+          <div class="step-num s1">1</div>
+        </div>
+        <div>
+          <div class="step-title">Upload anything.</div>
+          <div class="step-desc">PDF · URL · YouTube video · DOCX · plain text · audio file. Any source, any length, any
+            language. MappAI handles it without truncation.</div>
+        </div>
+      </div>
+      <div class="step-row reveal delay-1">
+        <div>
+          <div class="step-num s2">2</div>
+        </div>
+        <div>
+          <div class="step-title">Choose your map type.</div>
+          <div class="step-desc">Mind Map (hierarchical, 5 levels) for structured study. Knowledge Graph (55+ semantic
+            relation types) for deep understanding and cross-connections. Both include Socratic AI tutor and
+            auto-generated quizzes.</div>
+        </div>
+      </div>
+      <div class="step-row reveal delay-2">
+        <div>
+          <div class="step-num s3">3</div>
+        </div>
+        <div>
+          <div class="step-title">Done. Export, share, study.</div>
+          <div class="step-desc">Interactive semantic map ready in under 2 minutes. Export to PDF, Obsidian vault, or
+            print-ready dossier. OpenDyslexic font, TTS, syllable breaks, Focus cards — all built in.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="performance-strip">
+      <div class="perf-item reveal">
+        <div class="perf-num">77</div>
+        <div class="perf-label">mind map nodes</div>
+      </div>
+      <div class="perf-item reveal delay-1">
+        <div class="perf-num" style="color: var(--emerald);">0</div>
+        <div class="perf-label">truncations</div>
+      </div>
+      <div class="perf-item reveal delay-2">
+        <div class="perf-num">55+</div>
+        <div class="perf-label">semantic relation types</div>
+      </div>
+      <div class="perf-item reveal delay-3">
+        <div class="perf-num" style="color: var(--emerald);">45 sec</div>
+        <div class="perf-label">from a 20-page PDF</div>
+      </div>
+      <div class="perf-item reveal delay-4">
+        <div class="perf-num">47%</div>
+        <div class="perf-label">cross-linked KG nodes</div>
+      </div>
+    </div>
+
+    <!-- GALLERY: all real outputs -->
+    <div class="screenshot-band">
+      <div style="max-width: 1200px; margin: 0 auto;">
+        <div class="eyebrow reveal" style="text-align: center; margin-bottom: 28px;">Real outputs — generated by MappAI
+        </div>
+
+        <!-- Knowledge Graph (full-width hero) -->
+        <div class="reveal" style="margin-bottom: 24px;">
+          <img src="assets/mindmap_page-1.png" alt="MappAI output: Knowledge Graph"
+            style="width:100%; border-radius: 16px; box-shadow: 0 20px 60px rgba(99,102,241,0.2); display:block;">
+          <p style="text-align: center; margin-top: 10px; font-size: 0.72rem; color: var(--muted);">Knowledge Graph ·
+            Auto-generated from a Cold War history text · 38 nodes · 47% cross-linked</p>
+        </div>
+
+        <!-- Timeline outputs: 2 columns -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="reveal delay-1">
+            <img src="assets/timeline_page-1.png" alt="MappAI timeline output 1"
+              style="width:100%; border-radius: 14px; box-shadow: 0 12px 36px rgba(99,102,241,0.15); display:block;">
+            <p style="text-align: center; margin-top: 8px; font-size: 0.68rem; color: var(--muted);">Timeline view —
+              chronological knowledge structure</p>
+          </div>
+          <div class="reveal delay-2">
+            <img src="assets/timeline_page-2.png" alt="MappAI timeline output 2"
+              style="width:100%; border-radius: 14px; box-shadow: 0 12px 36px rgba(99,102,241,0.15); display:block;">
+            <p style="text-align: center; margin-top: 8px; font-size: 0.68rem; color: var(--muted);">Timeline detail —
+              semantic node expansion</p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="reveal delay-3">
+            <img src="assets/timeline_page-3.png" alt="MappAI timeline output 3"
+              style="width:100%; border-radius: 14px; box-shadow: 0 12px 36px rgba(99,102,241,0.15); display:block;">
+            <p style="text-align: center; margin-top: 8px; font-size: 0.68rem; color: var(--muted);">Cross-link
+              visualization — relation types highlighted</p>
+          </div>
+          <div class="reveal delay-4">
+            <img src="assets/timeline_page-4.png" alt="MappAI timeline output 4"
+              style="width:100%; border-radius: 14px; box-shadow: 0 12px 36px rgba(99,102,241,0.15); display:block;">
+            <p style="text-align: center; margin-top: 8px; font-size: 0.68rem; color: var(--muted);">Mind map —
+              hierarchical L0→L5 structure</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- MARKET                                  -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="market">
+    <div class="section-label">04 · Market Opportunity</div>
+    <div class="market-header">
+      <div class="eyebrow reveal">Regulated · growing · underserved</div>
+      <div class="headline reveal delay-1" style="margin-top: 12px;">A €220M+ addressable market expanding at 32.5% per
+        year — and nobody built the right tool yet.</div>
+    </div>
+    <div class="market-numbers">
+      <div class="market-grid">
+        <div class="market-card reveal">
+          <div class="market-card-num">€220M+</div>
+          <div class="market-card-label">Total Addressable Market</div>
+          <div class="market-card-sub">5 core markets: IT · CH · FR · DE · UK. Conservative estimate based on SEN
+            student populations and SaaS price benchmarks.</div>
+        </div>
+        <div class="market-card reveal delay-1" style="border-color: var(--emerald);">
+          <div class="market-card-num" style="color: var(--emerald);">32.5%</div>
+          <div class="market-card-label">CAGR · EU AI-in-Education</div>
+          <div class="market-card-sub">USD 1.6B (2025) → USD 20B (2034). Fastest-growing segment in EdTech globally.
+          </div>
+        </div>
+        <div class="market-card reveal delay-2" style="border-color: var(--amber);">
+          <div class="market-card-num" style="color: var(--amber);">€1.6M</div>
+          <div class="market-card-label">SAM · 3-year</div>
+          <div class="market-card-sub">Direct digital channels + Italy PNRR public procurement (MEPA). Achievable with
+            current MVP.</div>
+        </div>
+        <div class="market-card reveal delay-3" style="border-color: var(--violet);">
+          <div class="market-card-num" style="color: var(--violet);">CHF 3.3B</div>
+          <div class="market-card-label">Swiss VC deployed in 2024</div>
+          <div class="market-card-sub">+44% YoY. Switzerland is the right home market for this round. Boldbrain,
+            TiVentures, Innosuisse all active.</div>
+        </div>
+      </div>
+
+      <div class="why-now reveal">
+        <i data-lucide="trending-up" class="why-now-icon" style="width:28px; height:28px;"></i>
+        <p><strong>Why now:</strong> EU AI Act + PNRR + GDPR closing the door on US cloud tools in schools + AI
+          capability threshold crossed in 2024 + Swiss VC at record highs + competitor gap still open. All four
+          tailwinds aligned simultaneously.</p>
+      </div>
+
+      <table class="bm-table reveal" style="margin-top: 24px;">
+        <tr>
+          <th>Tier</th>
+          <th>Target user</th>
+          <th>Price</th>
+          <th>Channel</th>
+        </tr>
+        <tr>
+          <td>Free</td>
+          <td>Discovery / trial</td>
+          <td>3 maps/month</td>
+          <td>SEO, referrals</td>
+        </tr>
+        <tr>
+          <td>Pro Individual</td>
+          <td>SEN students</td>
+          <td>€4.99/mo</td>
+          <td>Direct, speech therapists</td>
+        </tr>
+        <tr>
+          <td>Pro Family</td>
+          <td>Student + parents</td>
+          <td>€7.99/mo</td>
+          <td>Word of mouth</td>
+        </tr>
+        <tr>
+          <td>Educator</td>
+          <td>SEN teachers</td>
+          <td>€9.99/mo</td>
+          <td>AID/AIRIPA, teacher networks</td>
+        </tr>
+        <tr>
+          <td>School License</td>
+          <td>30 users / school</td>
+          <td>€150–500/yr</td>
+          <td>MEPA (PNRR Italy), B2B</td>
+        </tr>
+        <tr>
+          <td>District / Canton</td>
+          <td>Education authorities</td>
+          <td>On quote</td>
+          <td>Institutional partnerships</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Competitive moat -->
+    <div class="comp-strip" style="margin-top: 40px;">
+      <div class="comp-inner">
+        <div class="eyebrow reveal" style="margin-bottom: 16px;">Competitive positioning</div>
+        <table class="comp-table reveal">
+          <tr>
+            <th>Feature</th>
+            <th>MappAI</th>
+            <th>NotebookLM</th>
+            <th>Algor Edu.</th>
+            <th>XMind</th>
+          </tr>
+          <tr class="mappai-row">
+            <td><strong>AI from PDF/URL/YouTube/audio</strong></td>
+            <td class="yes">✅ Full</td>
+            <td class="partial">⚠️ Partial</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+          </tr>
+          <tr>
+            <td>Semantic Knowledge Graph (55+ types)</td>
+            <td class="yes">✅</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+          </tr>
+          <tr>
+            <td>Accessibility-first (SEN/DSA)</td>
+            <td class="yes">✅</td>
+            <td class="no">❌</td>
+            <td class="partial">⚠️</td>
+            <td class="no">❌</td>
+          </tr>
+          <tr>
+            <td>Offline + GDPR EU provider (CH)</td>
+            <td class="yes">✅</td>
+            <td class="no">❌</td>
+            <td class="partial">⚠️</td>
+            <td class="no">N/A</td>
+          </tr>
+          <tr>
+            <td>Socratic AI tutor + quizzes</td>
+            <td class="yes">✅</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+          </tr>
+          <tr>
+            <td>Zero truncation on long documents</td>
+            <td class="yes">✅</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+            <td class="no">❌</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- SROI & ND DRIVER                        -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="sroi">
+    <div class="section-label" style="background: rgba(255,255,255,0.15); color: white;">05 · Neurodiversity = ROI</div>
+    <div class="sroi-header">
+      <div class="eyebrow reveal" style="color: rgba(255,255,255,0.4);">The economic case</div>
+      <div class="headline reveal delay-1">Inclusion isn't charity.<br>It's one of the highest-ROI investments a society
+        can make.</div>
+      <p class="reveal delay-2">Every €1 invested in supporting neurodivergent learners returns between €4 and €12 in
+        measured social value. This is not activism — it's math.</p>
+    </div>
+
+    <div class="sroi-table-wrap">
+      <table class="sroi-table reveal">
+        <tr>
+          <th>Programme</th>
+          <th>Country</th>
+          <th>Investment</th>
+          <th>Social value generated</th>
+          <th>SROI ratio</th>
+        </tr>
+        <tr>
+          <td>Project SEARCH®</td>
+          <td>🇵🇹 Portugal</td>
+          <td>€244K</td>
+          <td>€981K</td>
+          <td class="ratio">€4.02 : €1</td>
+        </tr>
+        <tr>
+          <td>Project SEARCH®</td>
+          <td>🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland</td>
+          <td>£70K</td>
+          <td>£277K</td>
+          <td class="ratio">£3.96 : £1</td>
+        </tr>
+        <tr>
+          <td>Flourish (Scottish Autism)</td>
+          <td>🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland</td>
+          <td>£50K</td>
+          <td>£388K</td>
+          <td class="ratio">£7.49 : £1</td>
+        </tr>
+        <tr>
+          <td>Conservative Estimate (UFAS 2024)</td>
+          <td>🇨🇭 Switzerland</td>
+          <td>~CHF 15.9K/person</td>
+          <td>CHF 200K+ over 10 years</td>
+          <td class="ratio">~CHF 12.6 : 1</td>
+        </tr>
+      </table>
+      <p style="color: rgba(255,255,255,0.4); font-size: 0.7rem; margin-top: 8px;">Sources: Correia (2022) Universidade
+        do Minho · Social Value Lab (2013, 2025) · UFAS/BSV (2024)</p>
+    </div>
+
+    <!-- ND as driver stats -->
+    <div class="nd-stats-grid">
+      <div class="nd-card reveal">
+        <div class="nd-card-num">26%</div>
+        <div class="nd-card-label">UK startup founders are ND</div>
+        <div class="nd-card-sub">vs 15% of general population — over-represented by 73% in entrepreneurship. UK Start Up
+          Awards 2024</div>
+      </div>
+      <div class="nd-card reveal delay-1">
+        <div class="nd-card-num">+30%</div>
+        <div class="nd-card-label">productivity in ND-inclusive teams</div>
+        <div class="nd-card-sub">Deloitte & HP Enterprise. JPMorgan Autism at Work: some participants up to 140% more
+          productive. McKinsey 2024</div>
+      </div>
+      <div class="nd-card reveal delay-2">
+        <div class="nd-card-num">20%</div>
+        <div class="nd-card-label">of self-made millionaires are dyslexic</div>
+        <div class="nd-card-sub">Advanced delegation strategies → faster company growth. Cass Business School /
+          University of Surrey 2025</div>
+      </div>
+      <div class="nd-card reveal delay-3">
+        <div class="nd-card-num">~20%</div>
+        <div class="nd-card-label">of the world population is ND</div>
+        <div class="nd-card-sub">Dyslexia 13–15% · ADHD 5–7% · ASD 1–2%. This is not a niche market. McKinsey/Stanford
+          2024</div>
+      </div>
+    </div>
+
+    <div class="quote-strip">
+      <blockquote class="reveal">
+        "We often behave as if neurodiversity automatically means a deficit. The biological evidence shows something
+        completely different. These conditions span a continuum and there is strong evidence that in entrepreneurial
+        contexts they bring valuable strengths. Simply put, we need to stop treating them as problems to be fixed."
+      </blockquote>
+      <cite class="reveal delay-1">University of Surrey (2025) · Neurodiversity in Entrepreneurship · Systematic review
+        of 139 papers</cite>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- TEAM                                    -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="team">
+    <div class="section-label">06 · The Team</div>
+    <div class="team-inner" style="padding-top: 40px;">
+
+      <!-- Founders headline -->
+      <div style="margin-bottom: 40px;" class="reveal">
+        <div class="headline">Built by the people<br>who understand the problem.</div>
+      </div>
+
+      <div class="team-split">
+        <!-- GIACOMO -->
+        <div class="founder-col reveal from-left">
+          <img src="immagine_profilo.jpg" alt="Giacomo Meschini" class="founder-photo"
+            onerror="this.style.background='#e0e7ff'; this.style.border='none';">
+          <div class="founder-name">Giacomo Meschini</div>
+          <div class="founder-role">Founder · Full-Stack Developer</div>
+          <div class="founder-tags">
+            <div class="founder-tag"><i data-lucide="graduation-cap" style="width:14px; color: var(--amber);"></i>
+              Bachelor in Printmaking (Brera, MILAN)<br>Master in Education (SUPSI-DFA, LOCARNO)</div>
+            <div class="founder-tag"><i data-lucide="book-open" style="width:14px; color: var(--emerald);"></i>Secondary
+              School Teacher</div>
+            <div class="founder-tag"><i data-lucide="map-pin" style="width:14px; color: var(--indigo);"></i> Minusio,
+              Ticino, SWITZERLAND</div>
+          </div>
+
+          <div
+            style="margin-top: 24px; background: var(--bg); border: 2px dashed var(--indigo); border-radius: 16px; padding: 24px 28px; width: 100%; text-align: center;">
+            <div
+              style="font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: var(--indigo); font-weight: 700; margin-bottom: 10px;">
+              ⚡ Unfair Advantage</div>
+            <p style="font-size: 0.85rem; color: var(--text-light); font-style: italic;">[Giacomo will fill this in by
+              hand]</p>
+          </div>
+        </div>
+
+        <!-- REMO -->
+        <div class="founder-col reveal from-right">
+          <img src="PITCH HTML/assets/profilo_REMO_opt.png" alt="Remo Storni" class="founder-photo"
+            onerror="this.style.background='#f0fdf4'; this.style.border='none';">
+          <div class="founder-name">Remo Storni</div>
+          <div class="founder-role">Co-Founder · Software Developer</div>
+          <div class="founder-tags">
+            <div class="founder-tag"><i data-lucide="graduation-cap" style="width:14px; color: var(--amber);"></i>
+              Bachelor &amp; Master in Mathematics (ETH, ZURICH)<br>PhD in Applied Mathematics &amp; Complex Systems
+              (University of Tokyo, TOKYO)</div>
+            <div class="founder-tag"><i data-lucide="cpu" style="width:14px; color: var(--emerald);"></i> Software &
+              ML Engineer</div>
+            <div class="founder-tag"><i data-lucide="map-pin" style="width:14px; color: var(--indigo);"></i> Los Gatos,
+              California, USA</div>
+          </div>
+
+          <div
+            style="margin-top: 24px; background: var(--bg); border: 2px dashed var(--emerald); border-radius: 16px; padding: 24px 28px; width: 100%; text-align: center;">
+            <div
+              style="font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: var(--emerald); font-weight: 700; margin-bottom: 10px;">
+              ⚡ Unfair Advantage</div>
+            <p style="font-size: 0.85rem; color: var(--text-light); font-style: italic;">[Remo will fill this in by
+              hand]</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roadmap below both founders -->
+      <div class="reveal" style="margin-top: 56px; border-top: 1px solid var(--border); padding-top: 40px;">
+        <div class="eyebrow" style="margin-bottom: 20px;">Roadmap</div>
+        <div class="roadmap">
+          <div class="roadmap-row">
+            <div class="roadmap-date">Jun 2026</div>
+            <div class="roadmap-dot"></div>
+            <div class="roadmap-text"><strong>Pre-seed close</strong> — CHF 150–250K · USI Apéro + angels</div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">Jul 2026</div>
+            <div class="roadmap-dot"></div>
+            <div class="roadmap-text"><strong>v1.0</strong> — security audit complete · 50 SEN beta users onboarded
+            </div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">Sep 2026</div>
+            <div class="roadmap-dot"></div>
+            <div class="roadmap-text"><strong>Open beta</strong> — 500 users · first 5 school contracts · Innosuisse
+              application filed</div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">Q4 2026</div>
+            <div class="roadmap-dot" style="background: var(--emerald);"></div>
+            <div class="roadmap-text"><strong>Seed round</strong> — CHF 300–500K on traction · Boldbrain + TiVentures
+            </div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">Jun 2027</div>
+            <div class="roadmap-dot"></div>
+            <div class="roadmap-text"><strong>5,000 active users</strong> · MRR ~CHF 12,500 · 30 B2B schools</div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">2027</div>
+            <div class="roadmap-dot"></div>
+            <div class="roadmap-text"><strong>v2.0 + Mobile</strong> — iPadOS · optional cloud collaboration</div>
+          </div>
+          <div class="roadmap-row">
+            <div class="roadmap-date">2028</div>
+            <div class="roadmap-dot" style="background: var(--violet);"></div>
+            <div class="roadmap-text"><strong>Series A</strong> — 50K users · DE/FR expansion · CHF 1.5–3M</div>
+          </div>
+        </div>
+
+        <div
+          style="background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-top: 20px;">
+          <p style="font-size: 0.82rem; color: var(--text); margin: 0;">
+            <strong>GTM channels:</strong> SEO for SEN educators · AID/AIRIPA partnerships · PNRR MEPA (Italy) · speech
+            therapist referrals · Boldbrain + Innosuisse (Switzerland) · direct school outreach
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ASK                                     -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="ask">
+    <div class="eyebrow reveal">Pre-seed round · 2026</div>
+    <div class="mega reveal delay-1">The ask.</div>
+    <div class="mega green reveal delay-2">CHF 150–250K</div>
+    <p class="reveal delay-3">To reach the first real milestones: <strong>500 validated users, 5 school contracts, v1.0
+        security-audited</strong> — and prove the model before the 2026/2027 school year. Then raise seed on traction,
+      not promises.</p>
+
+    <div class="use-of-funds reveal delay-3">
+      <div class="fund-pill">
+        <span class="fund-pct">40%</span>
+        <span class="fund-label">Dev & security audit</span>
+      </div>
+      <div class="fund-pill">
+        <span class="fund-pct">30%</span>
+        <span class="fund-label">Beta user acquisition</span>
+      </div>
+      <div class="fund-pill">
+        <span class="fund-pct">30%</span>
+        <span class="fund-label">GTM + first partnerships</span>
+      </div>
+    </div>
+
+    <div class="milestone-strip reveal">
+      <p>📍 <strong>Pre-seed milestones:</strong> 500 validated users · 5 school contracts · v1.0 security-audited ·
+        Innosuisse application filed · seed-ready by Q1 2027</p>
+    </div>
+
+    <div class="cta-group reveal delay-1">
+      <a href="mailto:giacomo@insegnai.ch" class="cta-button">
+        <i data-lucide="mail" style="width:18px;"></i>
+        giacomo@insegnai.ch
+      </a>
+      <div class="qr-wrap">
+        <img src="assets/qr_contact.png" alt="QR code">
+        <p>Scan to write me</p>
+      </div>
+    </div>
+
+    <div class="footer-tag reveal">MappAI · Ticino, Switzerland · 2026 · Transforming knowledge for every mind</div>
+  </section>
+
+  <script>
+    lucide.createIcons();
+
+    // ─── Progress bar ───
+    const progressBar = document.getElementById('progressBar');
+    window.addEventListener('scroll', () => {
+      const scrolled = window.scrollY;
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      progressBar.style.width = (scrolled / total * 100) + '%';
+    });
+
+    // ─── Nav dots ───
+    const sections = ['hero', 'problem', 'science', 'solution', 'market', 'sroi', 'team', 'ask'];
+    const navDots = document.querySelectorAll('.nav-dot-item');
+    navDots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        document.getElementById(dot.dataset.target)?.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+
+    const sectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+          const idx = sections.indexOf(entry.target.id);
+          navDots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        }
+      });
+    }, { threshold: 0.3 });
+    sections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) sectionObserver.observe(el);
+    });
+
+    // ─── Reveal on scroll ───
+    const reveals = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    reveals.forEach(el => revealObserver.observe(el));
+  </script>
+</body>
+
+</html>
