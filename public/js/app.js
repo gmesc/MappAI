@@ -352,71 +352,14 @@ const KG_REL_ENUM = [
 //   colorBtn : variante più scura per colorare il bottone TESTO
 //   label    : nome leggibile nel menu
 //   icon     : icona Lucide
-const EDGE_FAMILIES = {
-    trasformazione: {
-        color: 'hsl(28,85%,52%)', colorBtn: 'hsl(28,85%,42%)', label: 'Causa / Effetto', icon: 'zap',
-        keywords: ['causa', 'genera', 'produce', 'porta a', 'trasforma', 'provoca', 'determina']
-    },
-    dipendenza: {
-        color: 'hsl(265,70%,58%)', colorBtn: 'hsl(265,70%,46%)', label: 'Dipendenza / Prerequisito', icon: 'link-2',
-        keywords: ['richiede', 'dipende da', 'utilizza', 'permette', 'è necessario per', 'è condizione di']
-    },
-    sequenza: {
-        color: 'hsl(200,80%,48%)', colorBtn: 'hsl(200,80%,38%)', label: 'Sequenza / Processo', icon: 'arrow-right',
-        keywords: ['precede', 'segue', 'deriva da', 'porta a', 'avvia', 'è seguito da']
-    },
-    appartenenza: {
-        color: 'hsl(220,65%,55%)', colorBtn: 'hsl(220,65%,44%)', label: 'Gerarchia / Parte di', icon: 'folder-tree',
-        keywords: ['fa parte di', 'comprende', 'include', 'contiene', 'è esempio di', 'appartiene a']
-    },
-    regolazione: {
-        color: 'hsl(315,55%,52%)', colorBtn: 'hsl(315,55%,42%)', label: 'Controllo / Regola', icon: 'sliders-horizontal',
-        keywords: ['regola', 'governa', 'controlla', 'limita', 'guida', 'sostiene', 'avviene in']
-    },
-    opposizione: {
-        color: 'hsl(15,75%,55%)', colorBtn: 'hsl(15,75%,44%)', label: 'Contrasto / Opposto', icon: 'shield-x',
-        keywords: ['si oppone a', 'contrasta', 'esclude', 'differisce da', 'nega', 'ostacola']
-    },
-    analogia: {
-        color: 'hsl(158,60%,40%)', colorBtn: 'hsl(158,60%,30%)', label: 'Analogia / Similitudine', icon: 'git-compare',
-        keywords: ['è simile a', 'come', 'corrisponde a', 'assomiglia a', 'paragonabile a', 'richiama']
-    },
-    altro: {
-        color: 'hsl(220,10%,55%)', colorBtn: 'hsl(220,10%,40%)', label: 'Altro / Libero', icon: 'circle-help',
-        keywords: ['collega', 'riferisce a', 'associato a', 'vedi anche', 'è correlato a']
-    }
-};
+// EDGE_FAMILIES estratto in mappai-relations.js (caricato PRIMA di app.js).
+// Vedi docs/rules/07-relations-taxonomy.md
+const EDGE_FAMILIES = window.MappAIRelations.EDGE_FAMILIES;
 
-// Mappa verbo → famiglia (normalizzato lowercase)
-const REL_FAMILY_MAP = {
-    'causa': 'trasformazione', 'provoca': 'trasformazione', 'produce': 'trasformazione',
-    'genera': 'trasformazione', 'determina': 'trasformazione', 'trasforma in': 'trasformazione',
-    'porta a': 'trasformazione', 'alimenta': 'trasformazione', 'catalizza': 'trasformazione',
-    'richiede': 'dipendenza', 'dipende da': 'dipendenza', 'è condizione di': 'dipendenza',
-    'utilizza': 'dipendenza', 'permette': 'dipendenza',
-    'precede': 'sequenza', 'segue': 'sequenza', 'deriva da': 'sequenza',
-    'fa parte di': 'appartenenza', 'comprende': 'appartenenza', 'contiene': 'appartenenza',
-    'appartiene a': 'appartenenza', 'è esempio di': 'appartenenza',
-    'rappresenta': 'appartenenza', 'coinvolge': 'appartenenza',
-    'è regolato da': 'regolazione', 'regola': 'regolazione', 'governa': 'regolazione',
-    'guida': 'regolazione', 'sostiene': 'regolazione', 'avviene in': 'regolazione',
-    'si oppone a': 'opposizione', 'contrasta': 'opposizione', 'ostacola': 'opposizione',
-    'è simile a': 'analogia', 'come': 'analogia', 'corrisponde a': 'analogia',
-    'assomiglia a': 'analogia', 'paragonabile a': 'analogia', 'richiama': 'analogia'
-};
-
-// Restituisce la famiglia per un rel (normalizzato, fallback 'altro')
-window.getEdgeFamilyKey = function (rel) {
-    if (!rel) return 'altro';
-    const norm = String(rel).trim().toLowerCase();
-    if (REL_FAMILY_MAP[norm]) return REL_FAMILY_MAP[norm];
-    // fallback: match sulla prima parola
-    const firstWord = norm.split(' ')[0];
-    for (const [verb, fam] of Object.entries(REL_FAMILY_MAP)) {
-        if (verb.startsWith(firstWord) || firstWord.startsWith(verb.split(' ')[0])) return fam;
-    }
-    return 'altro';
-};
+// REL_FAMILY_MAP + getEdgeFamilyKey estratti in mappai-relations.js (caricato PRIMA di app.js).
+// Vedi docs/rules/07-relations-taxonomy.md
+const REL_FAMILY_MAP = window.MappAIRelations.REL_FAMILY_MAP;
+window.getEdgeFamilyKey = window.MappAIRelations.getEdgeFamilyKey;
 
 // Restituisce le famiglie presenti nella mappa corrente (dinamico)
 window.getActiveFamiliesInMap = function () {
@@ -1768,65 +1711,12 @@ function updateModelCapabilities() {
 }
 
 // Funzioni sicure per il processing delle stringhe multilinea
-function cleanLabel(str) {
-    if (!str) return "";
-    let s = String(str).split('\\n').join('\n').trim();
-
-    // Normalizza apostrofi e virgolette tipografiche → ASCII.
-    // Evita problemi di encoding PDF (jsPDF non codifica correttamente U+2018/U+2019)
-    // e garantisce coerenza del testo (es. ''89' non diventa 'SQ' nel PDF).
-    s = s.replace(/[‘’‛ʼ]/g, "'")  // ' ' ‛ ʼ → '
-        .replace(/[“”‟]/g, '"');        // " " ‟ → "
-
-    // Rimuove decorazioni markdown che alcuni modelli (es. Mistral) iniettano
-    // nelle label: grassetto/corsivo, marcatori di lista/heading, virgolette enfatiche.
-    // 1. Grassetto/corsivo markdown che avvolge tutta la label: **x**, *x*, __x__, _x_
-    s = s.replace(/^(\*\*|__)(.+?)\1$/, '$2').replace(/^(\*|_)(.+?)\1$/, '$2');
-    // 2. Marcatori di lista/heading/citazione a inizio label: + * - # >
-    s = s.replace(/^[\s>#*+\-]+/, '');
-    // 3. Marcatori markdown residui a fine label: ** * _
-    s = s.replace(/(\*\*|__|\*|_)+$/, '');
-    // 4. Grassetto markdown INLINE in mezzo alla label: (**Data**: x) -> (Data: x)
-    s = s.replace(/(\*\*|__)(.+?)\1/g, '$2');
-    // 5. Virgolette (dritte o tipografiche) che avvolgono l'intera label
-    s = s.replace(/^["'«»“”„](.+?)["'«»“”„]$/, '$1');
-    // 6. Marcatore "..." o "…" residuo a fine label (troncamento del modello)
-    s = s.replace(/[\s.…]*(\.{3}|…)\s*$/, '');
-    // 7. Liste enumerate tra parentesi nei label L1 (artefatto AI con lenses attive):
-    //    "Figure Chiave (Stalin, Churchill, Tito, ...)" → "Figure Chiave"
-    //    Attivato solo se la parentesi contiene almeno una virgola (è una lista, non un'espressione).
-    s = s.replace(/\s*\([^)]*,[^)]*\)\s*/g, '').trim();
-
-    return s.trim();
-}
-
-function getLabelLines(str) {
-    if (!str) return [];
-    return String(str).split('\n');
-}
-
-/**
- * Se una label inizia con una data (4 cifre o abbreviazione 'NN o NN),
- * restituisce { date, name }. Altrimenti null.
- * Esempi: "1989 Caduta Muro" → {date:"1989", name:"Caduta Muro"}
- *         "'89-'90 Transizione" → {date:"'89-'90", name:"Transizione"}
- */
-function extractDateFromLabel(label) {
-    if (!label) return null;
-    // Forma lunga: 1989 o 1980-1989 o 1980–1989
-    const m4 = label.match(/^(\d{4}(?:\s*[-–]\s*\d{4})?)\s+(.+)/);
-    if (m4) return { date: m4[1].trim(), name: m4[2].trim() };
-    // Forma breve italiana: '89 o '80-'89
-    const m2 = label.match(/^('[0-9]{2}(?:\s*[-–]\s*'?[0-9]{2})?)\s+(.+)/);
-    if (m2) return { date: m2[1].trim(), name: m2[2].trim() };
-    return null;
-}
-
-function stripHTML(html) {
-    let tmp = document.createElement("DIV");
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || "";
-}
+// Utility di testo estratte in mappai-text-utils.js (caricato PRIMA di app.js).
+// Le funzioni qui delegano al modulo (comportamento invariato). Vedi docs/rules/06-modules-and-extraction.md
+function cleanLabel(str) { return window.MappAITextUtils.cleanLabel(str); }
+function getLabelLines(str) { return window.MappAITextUtils.getLabelLines(str); }
+function extractDateFromLabel(label) { return window.MappAITextUtils.extractDateFromLabel(label); }
+function stripHTML(html) { return window.MappAITextUtils.stripHTML(html); }
 
 /* ==========================================
    APP.JS - Logica, Stato e Chiamate Gemini Iterative
@@ -4054,161 +3944,11 @@ window.dedupeNodesAsCrossLinks = function () {
  * Questo è il punto chiave per i modelli open source verbosi (es. Qwen3.5-122B),
  * che spesso scrivono "Ecco il JSON:" prima e una spiegazione dopo l'oggetto.
  */
-function _extractBalancedJSON(text) {
-    if (!text) return null;
-    // Cerca il primo carattere di apertura ( { oppure [ )
-    const startMatch = text.search(/[{\[]/);
-    if (startMatch === -1) return null;
-
-    const openChar = text[startMatch];
-    const closeChar = openChar === '{' ? '}' : ']';
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-
-    for (let i = startMatch; i < text.length; i++) {
-        const ch = text[i];
-        if (inString) {
-            if (escaped) { escaped = false; }
-            else if (ch === '\\') { escaped = true; }
-            else if (ch === '"') { inString = false; }
-            continue;
-        }
-        if (ch === '"') { inString = true; continue; }
-        // Conta solo le aperture/chiusure dello stesso tipo della radice,
-        // così non ci confondiamo con array dentro oggetti o viceversa.
-        if (ch === openChar) { depth++; }
-        if (ch === closeChar) {
-            depth--;
-            if (depth === 0) {
-                // Trovato il blocco bilanciato completo
-                return text.slice(startMatch, i + 1);
-            }
-        }
-    }
-    // Nessuna chiusura bilanciata trovata (probabile troncamento):
-    // restituiamo dal primo carattere di apertura fino alla fine,
-    // lasciando al salvataggio per troncamento il compito di chiudere.
-    return text.slice(startMatch);
-}
-
-function salvageTruncatedJSON(text) {
-    const original = text || '';
-    let cleaned = original;
-
-    // Rimuovi blocchi markdown ```json ... ``` (e fence generiche)
-    cleaned = cleaned.replace(/```json\s*/gi, '');
-    cleaned = cleaned.replace(/```\s*/g, '');
-
-    // Estrai il primo blocco JSON bilanciato, scartando preamboli/postamboli
-    // testuali (cruciale per Qwen/Apertus che aggiungono testo attorno).
-    const extracted = _extractBalancedJSON(cleaned);
-    if (extracted) {
-        cleaned = extracted;
-    }
-
-    // NB: NON tocchiamo più le chiavi non quotate con una regex globale:
-    // quel passaggio corrompeva i valori-stringa contenenti ":" (es. "Nota: ..."),
-    // generando JSON invalidi anche da output validi. La quotatura delle chiavi
-    // è gestita in modo sicuro solo nel ramo di fallback qui sotto.
-
-    // Rimuovi virgole trailing prima di } o ] (sicuro: agisce solo fuori dalle stringhe
-    // nella stragrande maggioranza dei casi reali)
-    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-
-    const tryParse = (s) => {
-        try { return { ok: true, value: JSON.parse(s) }; }
-        catch (e) { return { ok: false, error: e }; }
-    };
-
-    // Tentativo 1: parse diretto del blocco pulito
-    let attempt = tryParse(cleaned);
-    if (attempt.ok) return attempt.value;
-
-    // Tentativo 2: quota chiavi non quotate SOLO se il parse fallisce
-    // (alcuni modelli usano {label: "x"}). Applicato a una copia per non
-    // rischiare di rompere il caso già funzionante.
-    let withQuotedKeys = cleaned.replace(
-        /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
-        '$1"$2":'
-    );
-    attempt = tryParse(withQuotedKeys);
-    if (attempt.ok) return attempt.value;
-
-    // Tentativo 3: salvataggio da troncamento.
-    // Funziona sia per radici oggetto {} sia per radici array [].
-    // Diagnostica: l'ultimo evento del tracker ci dice se questo testo
-    // proviene da una risposta troncata (MAX_TOKENS / length).
-    const _lastTrunc = window.MappAITruncationTracker?.currentRun?.slice(-1)[0];
-    if (_lastTrunc?.truncated) {
-        console.warn(
-            "[MappAI JSON] Parse fallito → causa CONFERMATA: troncamento " +
-            `(finishReason=${_lastTrunc.finishReason}, ` +
-            `out=${_lastTrunc.candidateTokens}/${_lastTrunc.requestedMax}tok, ` +
-            `model=${_lastTrunc.model}). Salvataggio in corso..."`
-        );
-    } else {
-        console.warn("[MappAI JSON] Parse fallito (NON da troncamento). Tento il salvataggio...");
-    }
-    let tempText = withQuotedKeys;
-
-    while (tempText.length > 0) {
-        // Cerca l'ultima chiusura utile (oggetto o array). Se non c'è alcuna
-        // chiusura (troncamento brutale a metà stringa), proviamo comunque a
-        // bilanciare l'intero testo invece di arrenderci.
-        const lastClose = Math.max(tempText.lastIndexOf('}'), tempText.lastIndexOf(']'));
-        const sliceEnd = lastClose === -1 ? tempText.length : lastClose + 1;
-
-        let salvaged = tempText.substring(0, sliceEnd);
-        // Rimuovi un'eventuale chiave/proprietà incompleta in coda (es. ,"label" oppure ,"label":)
-        salvaged = salvaged.replace(/,\s*"[^"]*"\s*:?\s*$/, '');
-        salvaged = salvaged.replace(/,(\s*[}\]])/g, '$1');
-
-        // Bilancia le chiusure mancanti usando uno STACK (così l'ordine di
-        // chiusura è corretto sia per { ... [ sia per [ ... {), ignorando
-        // graffe/parentesi che compaiono dentro le stringhe.
-        let inStr = false, esc = false;
-        const stack = [];
-        for (let i = 0; i < salvaged.length; i++) {
-            const c = salvaged[i];
-            if (inStr) {
-                if (esc) esc = false;
-                else if (c === '\\') esc = true;
-                else if (c === '"') inStr = false;
-                continue;
-            }
-            if (c === '"') inStr = true;
-            else if (c === '{' || c === '[') stack.push(c);
-            else if (c === '}' || c === ']') stack.pop();
-        }
-        // Se siamo finiti dentro una stringa aperta, chiudila
-        if (inStr) salvaged += '"';
-        // Chiudi nell'ordine inverso di apertura
-        while (stack.length > 0) {
-            salvaged += stack.pop() === '{' ? '}' : ']';
-        }
-
-        const salvageAttempt = tryParse(salvaged);
-        if (salvageAttempt.ok) return salvageAttempt.value;
-
-        // Se non c'era alcuna chiusura, evitiamo il loop infinito
-        if (lastClose === -1) break;
-        // Riprova tagliando l'ultima chiusura problematica
-        tempText = tempText.substring(0, lastClose);
-    }
-
-    // Diagnostica permanente: aiuta l'utente a capire cosa ha prodotto il modello
-    // (utile soprattutto con i modelli open source di Infomaniak).
-    const head = original.slice(0, 800);
-    const tail = original.length > 300 ? original.slice(-300) : '';
-    console.error(
-        "[MappAI JSON] Salvataggio JSON fallito completamente.\n" +
-        "Lunghezza testo: " + original.length + " caratteri.\n" +
-        "--- PRIMI 800 CARATTERI ---\n" + head +
-        (tail ? "\n--- ULTIMI 300 CARATTERI ---\n" + tail : "")
-    );
-    throw attempt.error || new Error("Impossibile parsare la risposta JSON del modello.");
-}
+// _extractBalancedJSON + salvageTruncatedJSON estratti in mappai-json-salvage.js
+// (caricato PRIMA di app.js). Le funzioni qui delegano al modulo (comportamento invariato).
+// REGOLA: mai JSON.parse diretto sull'output AI → vedi docs/rules/03-json-from-ai.md
+function _extractBalancedJSON(text) { return window.MappAIJsonSalvage.extractBalancedJSON(text); }
+function salvageTruncatedJSON(text) { return window.MappAIJsonSalvage.salvage(text); }
 
 // ──────────────────────────────────────────────────────────────────────────
 // FREEZE CHUNK VERBATIM (preparazione STEP 2 — chunks extra-pass)
@@ -4661,17 +4401,8 @@ window.fetchEmbeddings = async function (texts, model) {
     return result?.embeddings || [];
 };
 
-window.cosineSimilarity = function (a, b) {
-    if (!a || !b || a.length !== b.length) return 0;
-    let dot = 0, na = 0, nb = 0;
-    for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        na  += a[i] * a[i];
-        nb  += b[i] * b[i];
-    }
-    const denom = Math.sqrt(na) * Math.sqrt(nb);
-    return denom > 0 ? dot / denom : 0;
-};
+// cosineSimilarity estratto in mappai-math.js (caricato PRIMA di app.js).
+window.cosineSimilarity = window.MappAIMath.cosineSimilarity;
 
 window.executeSemanticDedup = async function (options = {}) {
     const { threshold = 0.85, maxMerges = 15 } = options;

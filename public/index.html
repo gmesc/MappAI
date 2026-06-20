@@ -3345,6 +3345,13 @@
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
     <script src="js/storageAdapter.js"></script>
 
+    <!-- Moduli PURI Tier 1 (caricati PRIMA di app.js: app.js delega/binda a questi) -->
+    <!-- Vedi docs/rules/06-modules-and-extraction.md -->
+    <script src="js/mappai-text-utils.js"></script>
+    <script src="js/mappai-json-salvage.js"></script>
+    <script src="js/mappai-math.js"></script>
+    <script src="js/mappai-relations.js"></script>
+
     <script src="js/app.js"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
