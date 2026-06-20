@@ -1,0 +1,33 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+    generateGemini: (data) => ipcRenderer.invoke('generate-gemini', data),
+    generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', data),
+    generateEmbeddingsInfomaniak: (data) => ipcRenderer.invoke('generate-embeddings-infomaniak', data),
+    generateEmbeddingsGoogle: (data) => ipcRenderer.invoke('generate-embeddings-google', data),
+    listModels: (data) => ipcRenderer.invoke('list-models', data),
+    listInfomaniakModels: (data) => ipcRenderer.invoke('list-infomaniak-models', data),
+    saveMapJSON: (mapData) => ipcRenderer.invoke('save-map-json', mapData),
+    savePipelineArtifact: (data) => ipcRenderer.invoke('save-pipeline-artifact', data),
+    openPipelineFolder: (data) => ipcRenderer.invoke('open-pipeline-folder', data),
+    openSaveFolder: () => ipcRenderer.invoke('open-save-folder'),
+    uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
+    getPathForFile: (file) => webUtils.getPathForFile(file),
+    parseDocx: (filePath) => ipcRenderer.invoke('parse-docx', filePath),
+    pickFile: () => ipcRenderer.invoke('pick-file'),
+    getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+    saveChatTranscript: (data) => ipcRenderer.invoke('save-chat-transcript', data),
+    saveQuizTextResponse: (data) => ipcRenderer.invoke('save-quiz-text-response', data),
+    saveStudyRecord: (data) => ipcRenderer.invoke('save-study-record', data),
+    savePDFToVault: (data) => ipcRenderer.invoke('save-pdf-to-vault', data),
+    saveVault: (data) => ipcRenderer.invoke('save-vault', data),
+    loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
+    pickFolder: () => ipcRenderer.invoke('pick-folder'),
+    fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
+    getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
+    getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
+    loadPrompts: () => ipcRenderer.invoke('load-prompts'),
+    savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    capturePage: () => ipcRenderer.invoke('capture-page')
+});
