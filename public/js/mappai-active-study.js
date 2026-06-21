@@ -705,6 +705,17 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
     // Salva lo score nel vault: Studio Attivo/storico_score.md + sessioni.jsonl
     async function saveStudyScore(summary) {
         try {
+            // Aggiorna lo store di padronanza per pinpoint (Active Recall → mastery).
+            // Indipendente dal vault: avviene anche senza electronAPI.
+            try {
+                if (window.MappAIMastery && window.MappAIMastery.ingestSession) {
+                    window.MappAIMastery.ingestSession({
+                        mode: ActiveStudy.session.mode,
+                        timestamp: new Date().toISOString(),
+                        entries: summary.entries || []
+                    });
+                }
+            } catch (e) { console.warn('[ActiveStudy] mastery ingest', e); }
             if (!window.electronAPI || !window.electronAPI.saveStudyRecord) return;
             const st = S();
             const now = new Date();
