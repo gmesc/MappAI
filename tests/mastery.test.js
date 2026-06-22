@@ -63,3 +63,26 @@ test('masteryLevel: nuovo / in-corso / acquisito', () => {
   assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.9 }), 'acquisito');
   assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.7 }, { accThr: 0.6 }), 'acquisito');
 });
+
+test('masteryLevel: fase FLUENTE (accurato + rate >= aim)', () => {
+  // FLUENCY_AIM = 8
+  assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.9, rate: 12 }), 'fluente');
+  assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.9, rate: 4 }), 'acquisito');  // accurato ma lento
+  assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.5, rate: 20 }), 'in-corso');  // veloce ma impreciso
+  assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.9 }), 'acquisito');           // niente rate
+  assert.equal(M.masteryLevel({ attempts: 3, accuracy: 0.9, rate: 6 }, { fluencyAim: 5 }), 'fluente');
+});
+
+test('aggregateNode: media dei rate disponibili (null se nessuno)', () => {
+  const store = {};
+  M.applyResult(store, { nodeId: 'N1', activity: 'cloze', score: 1, rate: 10, ts: 1 });
+  M.applyResult(store, { nodeId: 'N1', activity: 'richiamo', score: 1, ts: 1 }); // niente rate
+  assert.equal(M.aggregateNode(store, 'N1').rate, 10);
+  const store2 = {};
+  M.applyResult(store2, { nodeId: 'N2', activity: 'richiamo', score: 1, ts: 1 });
+  assert.equal(M.aggregateNode(store2, 'N2').rate, null);
+});
+
+test('FLUENCY_AIM esportato', () => {
+  assert.equal(typeof M.FLUENCY_AIM, 'number');
+});

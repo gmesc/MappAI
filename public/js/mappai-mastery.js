@@ -17,6 +17,7 @@
 
   // ───────────────────────────── CORE PURO ─────────────────────────────
   const ALPHA = 0.35; // reattività EWMA (stesso valore del tutor Grillo di Cervellone)
+  const FLUENCY_AIM = 8; // corrette/min di default: soglia della fase FLUENZA (configurabile)
 
   const clamp01 = (x) => Math.max(0, Math.min(1, Number(x) || 0));
 
@@ -65,28 +66,36 @@
   }
 
   // Aggrega tutte le attività di un nodo → padronanza del concetto.
+  // rate = media dei rate disponibili (null se nessuna attività cronometrata).
   function aggregateNode(store, nodeId) {
     const rows = Object.keys(store).map(k => store[k]).filter(r => String(r.nodeId) === String(nodeId));
     if (!rows.length) return null;
     const accSum = rows.reduce((s, r) => s + r.accuracy, 0);
+    const rated = rows.filter(r => r.rate != null);
     return {
       nodeId,
       accuracy: accSum / rows.length,
+      rate: rated.length ? rated.reduce((s, r) => s + r.rate, 0) / rated.length : null,
       attempts: rows.reduce((s, r) => s + r.attempts, 0),
       byActivity: rows
     };
   }
 
-  // Fase di padronanza a 2 livelli (slice 1: solo accuratezza; la fluenza arriverà col rate).
-  // 'nuovo' = mai provato · 'in-corso' = accuracy < soglia · 'acquisito' = accuracy >= soglia
-  // ('fluente' richiederà rate >= aim, fase successiva).
+  // Padronanza a 2 FASI (Precision Teaching):
+  //   'nuovo'     = mai provato
+  //   'in-corso'  = acquisizione incompleta (accuracy < soglia)
+  //   'acquisito' = accurato ma non (ancora) fluente
+  //   'fluente'   = accurato E rate >= fluency aim
   function masteryLevel(row, opts) {
     const accThr = (opts && opts.accThr != null) ? opts.accThr : 0.8;
+    const aim = (opts && opts.fluencyAim != null) ? opts.fluencyAim : FLUENCY_AIM;
     if (!row || !row.attempts) return 'nuovo';
-    return row.accuracy >= accThr ? 'acquisito' : 'in-corso';
+    if (row.accuracy < accThr) return 'in-corso';
+    if (row.rate != null && row.rate >= aim) return 'fluente';
+    return 'acquisito';
   }
 
-  const CORE = { ALPHA, clamp01, ewma, ewmaRaw, pinpointKey, applyResult, aggregateNode, masteryLevel };
+  const CORE = { ALPHA, FLUENCY_AIM, clamp01, ewma, ewmaRaw, pinpointKey, applyResult, aggregateNode, masteryLevel };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
 

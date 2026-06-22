@@ -114,6 +114,7 @@
     document.getElementById('cz-modal')?.remove();
     const item = CZ._items[CZ._i];
     const total = CZ._items.length;
+    CZ._nodeStart = Date.now(); // cronometro per la fluenza (corrette/min)
 
     let body = '';
     let bi = 0;
@@ -160,11 +161,14 @@
     });
     const total = inputs.length;
     const score = total ? ok / total : 0;
+    // fluenza: corrette/min su questo nodo (minimo 2s per non gonfiare il rate)
+    const elapsedMin = Math.max((Date.now() - (CZ._nodeStart || Date.now())) / 60000, 2 / 60);
+    const rate = ok / elapsedMin;
 
-    // registra la padronanza (attività 'cloze')
+    // registra la padronanza (attività 'cloze') con accuratezza + fluenza
     try {
       if (window.MappAIMastery && window.MappAIMastery.record) {
-        window.MappAIMastery.record(item.nodeId, item.label, 'cloze', { score });
+        window.MappAIMastery.record(item.nodeId, item.label, 'cloze', { score, rate });
       }
     } catch (e) { console.warn('[Cloze] record', e); }
 

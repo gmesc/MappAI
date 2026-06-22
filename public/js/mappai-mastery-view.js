@@ -21,7 +21,8 @@
   const COLORS = {
     'nuovo':     { fill: '#e5e7eb', stroke: '#9ca3af' }, // slate-200 / slate-400
     'in-corso':  { fill: '#fcd34d', stroke: '#d97706' }, // amber-300 / amber-600
-    'acquisito': { fill: '#86efac', stroke: '#16a34a' }  // green-300 / green-600
+    'acquisito': { fill: '#86efac', stroke: '#16a34a' }, // green-300 / green-600
+    'fluente':   { fill: '#93c5fd', stroke: '#2563eb' }  // blue-300 / blue-600 (accurato + rapido)
   };
 
   const MV = window.MappAIMasteryView = { active: false, _wrapped: false };
@@ -31,6 +32,10 @@
     if (!MM || typeof MM.node !== 'function') return 'nuovo';
     const agg = MM.node(id);
     if (!agg || !agg.attempts) return 'nuovo';
+    // usa la classificazione a 2 fasi dello store (accuratezza → fluenza via rate)
+    if (typeof MM.masteryLevel === 'function') {
+      return MM.masteryLevel({ attempts: agg.attempts, accuracy: agg.accuracy, rate: agg.rate });
+    }
     return agg.accuracy >= ACC_THR ? 'acquisito' : 'in-corso';
   }
 
@@ -80,7 +85,8 @@
     box.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;font-family:system-ui,sans-serif;font-size:12px;color:#334155';
     const row = (c, t) => `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span style="width:13px;height:13px;border-radius:50%;background:${c.fill};border:2px solid ${c.stroke};display:inline-block"></span>${t}</div>`;
     box.innerHTML = '<div style="font-weight:700;color:#0f172a;margin-bottom:5px">Padronanza</div>' +
-      row(COLORS['acquisito'], 'Acquisito') + row(COLORS['in-corso'], 'In corso') + row(COLORS['nuovo'], 'Da studiare');
+      row(COLORS['fluente'], 'Fluente') + row(COLORS['acquisito'], 'Acquisito') +
+      row(COLORS['in-corso'], 'In corso') + row(COLORS['nuovo'], 'Da studiare');
     document.body.appendChild(box);
   }
 
