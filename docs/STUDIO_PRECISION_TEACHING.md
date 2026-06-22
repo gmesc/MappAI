@@ -39,13 +39,14 @@ padronanza come **EWMA** dell'accuratezza (`ewma`, clamp 0..1) + **rate** (corre
 | `mappai-mastery-view.js` | 🎯 Mastery | Toggle 🎯: tinge i nodi per livello (grigio/ambra/verde/blu) + legenda. Wrappa `renderGraph`, ripristina allo spegnimento. | (logica via mastery) |
 | `mappai-celeration.js` | ⏱ Precision Teaching | 📈 grafico SVG: accuratezza + fluenza giorno-per-giorno (`buildSeries` aggrega la history). Lineare; SCC vero = futuro. | `celeration.test.js` |
 | `mappai-study-path.js` | 🔗 Precursor + 🎯 rimedio | 🧭 "Cosa studiare ora": Pronti (prereq=genitore padroneggiato, gating SOFT), Da rivedere (deboli/stantii >7gg), Padroneggiati. | `study-path.test.js` |
+| `mappai-palace.js` | 🔁 Active Recall | 🏛️ Palazzo della Memoria (Metodo dei Loci): rami L1 = stanze, concetti = oggetti; viaggio encode→recall per stanza. Riusa la geografia del vecchio bug L1. | `palace.test.js` |
 
-**Test totali: 69/69 verdi** (`npm test` → `node --test`). Tutti i core puri testati in Node.
+**Test totali: 74/74 verdi** (`npm test` → `node --test`). Tutti i core puri testati in Node.
 
 ---
 
 ## UI (bottoni fluttuanti, lato destro)
-`📝` Cloze (bottom:20) · `🎯` Padronanza-grafo (84) · `📈` Progressi (148) · `🧭` Cosa studiare ora (212).
+`📝` Cloze (bottom:20) · `🎯` Padronanza-grafo (84) · `📈` Progressi (148) · `🧭` Cosa studiare ora (212) · `🏛️` Palazzo della Memoria (276).
 + "Studio attivo" nel menu esistente (7 modi).
 
 ---
@@ -67,16 +68,15 @@ Se un aggancio fallisce (nome globale diverso nel runtime), correggere nel modul
 
 ## Dipendenze tra moduli / ordine di caricamento (index.html)
 `app.js` → … → `mappai-mastery.js` → `mappai-active-study.js` → `mappai-mastery-view.js`
-→ `mappai-cloze.js` → `mappai-celeration.js` → `mappai-study-path.js` → `dev-console-metrics.js`.
+→ `mappai-cloze.js` → `mappai-celeration.js` → `mappai-study-path.js` → `mappai-palace.js` → `dev-console-metrics.js`.
 (Le viste/attività usano `window.MappAIMastery`, quindi mastery va prima.)
 
 ---
 
 ## Prossimi passi possibili
 1. **Test runtime** (sopra) — prioritario.
-2. **Palazzo della Memoria** (loci) — l'attività Active Recall mappata ma non costruita:
-   journey spaziale per rami (la geografia del grafo come "palazzo"). Vedi analisi
-   "Italian cities reframe": trasforma il vecchio bug L1-geografico in feature opt-in.
+2. ✅ **Palazzo della Memoria** (loci) — FATTO (`mappai-palace.js`, commit `093f3a8`):
+   viaggio per rami=stanze, encode→recall. Trasforma il vecchio bug L1-geografico in feature.
 3. **Gating HARD** opzionale per Precursor (ora solo soft).
 4. **Standard Celeration Chart vero** (scala ×2 semilog) come vista "pro" docente/OPI.
 5. **Integrare i 4 bottoni** fluttuanti nella UI di studio esistente (ora sono uno stack).
