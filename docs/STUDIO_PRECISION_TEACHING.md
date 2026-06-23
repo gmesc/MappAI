@@ -51,18 +51,20 @@ padronanza come **EWMA** dell'accuratezza (`ewma`, clamp 0..1) + **rate** (corre
 
 ---
 
-## ⚠️ DA VERIFICARE A RUNTIME (Electron) — non ancora fatto
-Gli 8 commit sono validati a livello logico/test, **non in app**. Dipendono da globali di
-`app.js`: `renderGraph`, `cleanLabel`, `simulateNodeClick`/`zoomToNode`, `#map-svg`,
-`circle.node-circle`, `d3`, `appState.db.nodes`.
+## ✅ WIRING VERIFICATO A RUNTIME (Electron)
+Gli agganci ai globali di `app.js` sono **confermati in app** col pannello dev `🩺`
+(`mappai-dev-selftest.js`) su una mappa reale da **135 nodi**: tutti i critici verdi, zero
+mancanti. Prova del nove dei selettori: `circle.node-circle = 135` (= n. nodi),
+`text.node-text = 135`, `path.link = 141`, `svg#map-svg = 1`. Confermato anche nel sorgente:
+`app.js:6273` crea `id="map-svg"`, `app.js:6651` crea `circle.node-circle`.
 
-**Checklist** (`npm start` → apri una mappa):
+**Resta il test FUNZIONALE** (logica end-to-end, distinto dal wiring) — `npm start` → apri una mappa:
 1. `🧭` → sezioni Pronti/Da rivedere/Padroneggiati; clic su un concetto → focus nodo.
 2. `📝` Cloze → oscura concetti collegati, verifica, accetta refusi/accenti.
 3. Fai qualche esercizio → `🎯` deve tingere i nodi (grigio→ambra→verde→blu).
 4. `📈` → punti accuratezza (verde) e fluenza (blu); messaggio guida se 0/1 giorni.
 
-Se un aggancio fallisce (nome globale diverso nel runtime), correggere nel modulo relativo.
+Diagnostica rapida: bottone `🩺` (basso-sx) → **Ricontrolla** → **Copia report**.
 
 ---
 
