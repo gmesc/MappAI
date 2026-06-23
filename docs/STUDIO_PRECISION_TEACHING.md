@@ -86,7 +86,11 @@ Diagnostica rapida: bottone `🩺` (basso-sx) → **Ricontrolla** → **Copia re
 ---
 
 ## Fix collegato (stessa sessione)
-`fix/l1-archiviazione-geografia` (commit `6119970`): la Fase 1 L1 collassava su una gerarchia
-geografica prototipica (Robotica → monumenti di Siena!) per mode-collapse + prompt non ancorato
-alla fonte. Fix in `L1_MACRO_CATEGORIES_IT/_EN`: REGOLA DI ANCORAGGIO ALLA FONTE (anti-geografia,
-`rel` tematico). Diagnosi completa nei commit. Su `feat/mastery-store` è incluso.
+La Fase 1 L1 collassava su una gerarchia geografica prototipica (Robotica → monumenti di Siena!)
+per mode-collapse + prompt non ancorato alla fonte. Due commit in `L1_MACRO_CATEGORIES_IT/_EN`:
+- `6119970` — primo fix: ancoraggio alla fonte + divieto decomposizione geografica.
+- `4fd64aa` — **reframe (causa reale)**: il divieto per TIPO ("è geografico?") era un sintomo —
+  sopprimeva L1 geografici legittimi su temi geografici e mancava gli L1 fuori-tema non-geografici.
+  Sostituito da **REGOLA DI PERTINENZA**: ogni L1 deve essere un *aspetto/dimensione del tema*
+  (`TEST DI PERTINENZA` esplicito, indipendente dal tipo); il caso geografico è ora **condizionale**
+  (luoghi ammessi se il tema è geografico). Esempi contrastivi nel prompt.
