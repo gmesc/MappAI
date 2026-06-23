@@ -887,12 +887,28 @@
 
                     </div>
 
+                    <!-- SEZIONE: Logica MM (MappAI / BERT) -->
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col gap-0.5 max-w-[70%]">
+                                <span class="landing_label_primary mb-0">Logica MindMap</span>
+                                <span class="landing_label_secondary" id="mmlogic-desc">MappAI (consigliato) — BERT sperimentale (regola pertinenza)</span>
+                            </div>
+                            <div class="flex bg-emerald-200 p-1 rounded-full w-36 h-16 shrink-0">
+                                <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
+                                    class="flex-1 text-[13px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600">MappAI</button>
+                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('bert')"
+                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">BERT</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- SEZIONE: Selezione Pipeline A/B -->
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0">Pipeline Generazione</span>
-                                <span class="landing_label_secondary" id="pipeline-desc">Scegli l'algoritmo di generazione mappe</span>
+                                <span class="landing_label_primary mb-0">Logica KG (A/B)</span>
+                                <span class="landing_label_secondary" id="pipeline-desc">A · BERT Community — B · MappAI classico</span>
                             </div>
                             <div class="flex bg-indigo-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"

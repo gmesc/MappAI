@@ -68,7 +68,16 @@ window.fillPromptTemplate = function(promptKey, variables) {
     }
     
     if (!text) {
-        text = window.systemPromptsConfig[promptKey + langSuffix] || window.systemPromptsConfig[promptKey] || "";
+        // Toggle "logica MM": se l'utente sceglie la logica sperimentale BERT, usa la
+        // variante _BERT del prompt L1 (con la REGOLA DI PERTINENZA). Default = MappAI.
+        let resolvedKey = promptKey;
+        try {
+            if (promptKey === 'L1_MACRO_CATEGORIES' && localStorage.getItem('mappai_mm_logic') === 'bert') {
+                resolvedKey = 'L1_MACRO_CATEGORIES_BERT';
+            }
+        } catch (e) { /* localStorage non disponibile */ }
+        text = window.systemPromptsConfig[resolvedKey + langSuffix] || window.systemPromptsConfig[resolvedKey] ||
+               window.systemPromptsConfig[promptKey + langSuffix] || window.systemPromptsConfig[promptKey] || "";
     }
     
     for (const [key, value] of Object.entries(variables || {})) {

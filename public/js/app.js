@@ -35,7 +35,7 @@ let appState = {
     studentMode: false,
     infomaniakAllModels: true,
     multiPassMode: true,
-    generationPipeline: localStorage.getItem('mappai_generation_pipeline') || 'A'
+    generationPipeline: localStorage.getItem('mappai_generation_pipeline') || 'B'
 };
 
 // ==========================================
@@ -292,6 +292,8 @@ window.setPipeline = function (pipelineMode) {
 
     appState.generationPipeline = pipelineMode;
     localStorage.setItem('mappai_generation_pipeline', pipelineMode);
+    // Toggle A/B = scelta della LOGICA KG: A = BERT Community · B = MappAI classico (default).
+    localStorage.setItem('mappai_kg_community_mode', pipelineMode === 'A' ? 'true' : 'false');
 
     const btnA = document.getElementById('pipeline-a-btn');
     const btnB = document.getElementById('pipeline-b-btn');
@@ -312,19 +314,36 @@ window.setPipeline = function (pipelineMode) {
     }
 
     const descriptions = {
-        'A': 'Pipeline atomic-suggestions (con semantic dedup)',
-        'B': 'Pipeline structural-suggestions (semplificata)'
+        'A': 'KG: BERT Community (hub + comunità GraphRAG)',
+        'B': 'KG: MappAI classico (single/multi-pass)'
     };
 
     if (pipelineDesc) {
-        pipelineDesc.textContent = descriptions[pipelineMode] || 'Scegli l\'algoritmo di generazione mappe';
+        pipelineDesc.textContent = descriptions[pipelineMode] || 'Scegli la logica di generazione KG';
     }
 
-    window.showToast(`Pipeline ${pipelineMode} attivata`, "info");
+    window.showToast(`Logica KG ${pipelineMode === 'A' ? 'A · BERT Community' : 'B · MappAI classico'}`, "info");
 };
 
+// Toggle "logica MM": 'mappai' (default, prompt L1 pulito) | 'bert' (prompt L1 con REGOLA DI PERTINENZA).
+window.setMMLogic = function (logic) {
+    const mode = logic === 'bert' ? 'bert' : 'mappai';
+    localStorage.setItem('mappai_mm_logic', mode);
+    const btnM = document.getElementById('mmlogic-mappai-btn');
+    const btnB = document.getElementById('mmlogic-bert-btn');
+    if (btnM && btnB) {
+        const on = ['bg-white', 'shadow-sm', 'text-indigo-600'];
+        const off = ['text-slate-500', 'hover:text-slate-700'];
+        const sel = mode === 'mappai' ? btnM : btnB, oth = mode === 'mappai' ? btnB : btnM;
+        sel.classList.add(...on); sel.classList.remove(...off);
+        oth.classList.remove(...on); oth.classList.add(...off);
+    }
+    if (typeof window.showToast === 'function') window.showToast(`Logica MM: ${mode === 'mappai' ? 'MappAI (consigliato)' : 'BERT sperimentale'}`, 'info');
+};
+window.getMMLogic = function () { return localStorage.getItem('mappai_mm_logic') || 'mappai'; };
+
 window.getPipeline = function () {
-    return appState.generationPipeline || localStorage.getItem('mappai_generation_pipeline') || 'A';
+    return appState.generationPipeline || localStorage.getItem('mappai_generation_pipeline') || 'B';
 };
 
 /**
@@ -2530,9 +2549,10 @@ window.startGeneration = async function () {
         //   Per tornare al legacy: MappAIMetrics.disableCommunityKG() → scrive 'false'.
         // - Infomaniak: legacy (multi/single-pass) è il DEFAULT.
         //   Per attivare community: MappAIMetrics.enableCommunityKG() → scrive 'true'.
+        // Toggle A/B logica KG (landing): A = BERT Community · B = MappAI classico (DEFAULT).
+        // Community solo se scelto esplicitamente (flag 'true'); default = classico (single/multi-pass).
         const communityFlag = localStorage.getItem('mappai_kg_community_mode');
-        const useCommunity = communityFlag === 'true' ||
-            (appState.aiProvider === 'google' && communityFlag !== 'false');
+        const useCommunity = communityFlag === 'true';
         if (useCommunity) {
             await extractKnowledgeGraphCommunity(textParts, fileParts, apiKey);
         } else if (appState.multiPassMode) {
@@ -13156,9 +13176,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Multi-pass ON di default (silent=true: niente toast all'avvio)
     window.setMultiPassMode(true, true);
 
-    // Initialize Pipeline A/B selector (silent=true to prevent toast on startup)
-    const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'A';
+    // Initialize Pipeline A/B selector. Default = B (MappAI classico KG).
+    const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'B';
     window.setPipeline(savedPipeline);
+    // Initialize MM logic toggle (default MappAI)
+    if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic());
     const desc = document.getElementById('pipeline-desc');
     if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
 
