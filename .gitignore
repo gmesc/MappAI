@@ -58,3 +58,4 @@ prompts_config_backup_*.json
 # File di sessione Claude (briefing, non appartengono al repo)
 CONTEXT.md
 brain/
+.gemini_status.json
