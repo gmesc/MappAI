@@ -25,6 +25,17 @@ function createWindow() {
 
     mainWindow.loadFile('public/index.html');
 
+    // Trace opzionale: con MAPPAI_TRACE=1 inoltra la console del RENDERER allo stdout,
+    // così `npm start 2>&1 | tee run.log` cattura l'intera pipeline da terminale.
+    // Off di default (zero impatto). Reversibile.
+    if (process.env.MAPPAI_TRACE) {
+        const _lvl = ['LOG', 'WARN', 'ERR', 'INFO'];
+        mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+            const src = (sourceId || '').split('/').pop();
+            console.log(`[renderer:${_lvl[level] || level}] ${message}${src ? '  (' + src + ':' + line + ')' : ''}`);
+        });
+    }
+
     // Permette window.open() dal renderer (usato per Stampa Dossier)
     // Senza questo, in Electron 30+ con contextIsolation:true i popup
     // vengono bloccati → window.open() ritorna null → il dossier non si apre

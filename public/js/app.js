@@ -2653,8 +2653,12 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                         label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
                         rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
                         ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
-                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
-                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
+                        // desc RIMOSSA dallo schema Fase 1: era l'unico campo long-form
+                        // ("narrativa 40-60 parole") e andava in RUNAWAY (il modello scriveva
+                        // ~8000 tok di desc su un singolo L1 → MAX_TOKENS, 1 solo L1 salvato).
+                        // maxItems/maxLength sono soft su Gemini → non fermano il runaway.
+                        // desc+confini ricchi vengono rigenerati dopo da enrichL1Descs (call dedicata).
+                        confini: { type: "STRING", maxLength: 180  }   // 1 frase
                     },
                     required: ["label", "rel"]
                 }
@@ -2666,11 +2670,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -3155,8 +3159,12 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                         label:   { type: "STRING", maxLength: 60   },  // max 3-4 parole
                         rel:     { type: "STRING", maxLength: 30   },  // 1-3 parole
                         ambito:  { type: "STRING", maxLength: 120  },  // 3-5 keyword
-                        desc:    { type: "STRING", maxLength: 500  },  // ~60-70 parole
-                        confini: { type: "STRING", maxLength: 300  }   // 1-2 frasi
+                        // desc RIMOSSA dallo schema Fase 1: era l'unico campo long-form
+                        // ("narrativa 40-60 parole") e andava in RUNAWAY (il modello scriveva
+                        // ~8000 tok di desc su un singolo L1 → MAX_TOKENS, 1 solo L1 salvato).
+                        // maxItems/maxLength sono soft su Gemini → non fermano il runaway.
+                        // desc+confini ricchi vengono rigenerati dopo da enrichL1Descs (call dedicata).
+                        confini: { type: "STRING", maxLength: 180  }   // 1 frase
                     },
                     required: ["label", "rel"]
                 }
@@ -3168,11 +3176,11 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             const payloadL1 = appState.aiProvider === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
             const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
@@ -13180,6 +13188,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'B';
     window.setPipeline(savedPipeline);
     // Initialize MM logic toggle (default MappAI)
+    // Migrazione una-tantum: la logica MM "BERT" era sperimentale e degradava le macro-aree L1
+    // (deriva geografica / espansione di contesto). Chi aveva il flag legacy 'bert' viene
+    // riportato al default MappAI UNA volta sola; dopo la migrazione BERT resta comunque
+    // selezionabile come opt-in (la scelta esplicita successiva persiste).
+    if (localStorage.getItem('mappai_mm_logic_migrated') !== '1') {
+        if (localStorage.getItem('mappai_mm_logic') === 'bert') {
+            localStorage.setItem('mappai_mm_logic', 'mappai');
+        }
+        localStorage.setItem('mappai_mm_logic_migrated', '1');
+    }
     if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic());
     const desc = document.getElementById('pipeline-desc');
     if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
