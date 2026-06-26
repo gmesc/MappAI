@@ -6362,6 +6362,17 @@ function renderGraph() {
     if (!g) return; // SVG non ancora inizializzato (es. Phase4 che gira prima di initD3Visualization)
     if (window.renderStudySets) window.renderStudySets();
     const nodes = appState.db.nodes;
+    // Guard: scarta i link orfani (endpoint senza nodo corrispondente). Un solo link
+    // rotto fa lanciare d3-force ("node not found: <id>") e svuota TUTTO il canvas.
+    // Mutiamo in-place così la corruzione non viene salvata nel vault.
+    if (Array.isArray(appState.db.links)) {
+        const _nodeIds = new Set(nodes.map(n => n.id));
+        const _eid = x => (x && typeof x === 'object') ? x.id : x;
+        const _before = appState.db.links.length;
+        appState.db.links = appState.db.links.filter(l => _nodeIds.has(_eid(l.source)) && _nodeIds.has(_eid(l.target)));
+        const _dropped = _before - appState.db.links.length;
+        if (_dropped > 0) console.warn(`[MappAI] Scartati ${_dropped} link orfani (endpoint mancante) prima del render D3.`);
+    }
     const links = appState.db.links;
 
     // 1. Identify existing group IDs to avoid collisions

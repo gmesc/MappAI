@@ -122,9 +122,14 @@ window.executeContextualAIExtension = async function () {
             }
         });
 
+        const _existingIds = new Set(appState.db.nodes.map(n => n.id));
         newData.links.forEach(l => {
             l.source = idMap[l.source] || l.source;
             l.target = idMap[l.target] || l.target;
+
+            // Scarta link verso nodi inesistenti (allucinazione AI: endpoint mai creato).
+            // Senza questo, d3-force lancia "node not found" e svuota il canvas.
+            if (!_existingIds.has(l.source) || !_existingIds.has(l.target)) return;
 
             // Evita link duplicati
             const linkExists = appState.db.links.some(old => {
