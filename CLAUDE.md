@@ -48,13 +48,19 @@ MappAI/
 │   ├── css/
 │   │   └── style.css    ← CSS principale (2.724 righe)
 │   ├── js/
-│   │   ├── app.js       ← CORE (~8.600 righe, era 16.066): bootstrap, appState,
-│   │   │                   provider AI, fetchModelAPI, sources, startGeneration
-│   │   │                   (router), phase helpers (Phase4/5, enrich, validate),
-│   │   │                   D3 render, UI sidebar, StorageManager, lingua
+│   │   ├── app.js       ← CORE (~2.630 righe, era 16.066 — −83,6%): bootstrap,
+│   │   │                   appState, provider AI, fetchModelAPI + token/cost,
+│   │   │                   sources upload, startGeneration (router), system
+│   │   │                   instructions, getDescendantIds/getInheritedDatabase, init
 │   │   │  ── Moduli estratti dal monolite (luglio 2026, branch
 │   │   │     refactor/app-js-decomposition — caricati DOPO app.js,
-│   │   │     scope lessicale globale condiviso, slice byte-identical):
+│   │   │     scope lessicale globale condiviso, slice byte-identical;
+│   │   │     debug-run Electron dopo ogni batch):
+│   │   ├── mappai-ui-modals.js      ← toast/alert/prompt custom, MODEL_KB, select modelli, tree view
+│   │   ├── mappai-d3-render.js      ← motore render D3 (initD3Visualization, renderGraph+patch, tick, drag)
+│   │   ├── mappai-ui-canvas.js      ← showLoadingOverlay, handleNodeClick, source modal, layout, import/export
+│   │   ├── mappai-storage-lang.js   ← StorageManager (autosave), progetti salvati, changeLanguage
+│   │   ├── mappai-generation-support.js ← crosslink markers, dedup, JSONL, flags, Phase4/5, enrich, validate/split L1
 │   │   ├── mappai-pomodoro.js       ← timer Pomodoro + updateStudyStats
 │   │   ├── mappai-user-profile.js   ← profili utente (modale, salva, reset)
 │   │   ├── mappai-search-finder.js  ← map finder + super finder
