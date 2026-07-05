@@ -35,6 +35,7 @@ window.handleMergeTargetClick = function (targetNode) {
 };
 
 window.executeMerge = function (A, B) {
+    if (window.MappAIJigsaw && (!window.MappAIJigsaw.guardWrite(A, 'fondi') || !window.MappAIJigsaw.guardWrite(B, 'fondi'))) return;
     if (typeof window.pushUndoSnapshot === 'function')
         window.pushUndoSnapshot('Fondi: ' + window.cleanLabel(A.label) + ' → ' + window.cleanLabel(B.label));
     const nodes = appState.db.nodes;
@@ -149,6 +150,7 @@ window.handleRelinkTargetClick = function (targetNode) {
 };
 
 window.executeRelink = function (A, newParent, rel) {
+    if (window.MappAIJigsaw && (!window.MappAIJigsaw.guardWrite(A, 'sposta') || !window.MappAIJigsaw.guardWrite(newParent, 'sposta'))) return;
     if (typeof window.pushUndoSnapshot === 'function')
         window.pushUndoSnapshot('Cambia link: ' + window.cleanLabel(A.label) + ' → ' + window.cleanLabel(newParent.label));
     const getId = l => ({

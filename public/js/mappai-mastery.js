@@ -137,8 +137,30 @@
   let _key = null, _store = null;
   function _ensure() {
     const k = _vaultKey();
-    if (k !== _key) { _key = k; _store = _load(k); }
+    if (k !== _key) {
+      _key = k;
+      _store = _load(k);
+      _migrateLegacyKey(k);
+    }
     return _store;
+  }
+  // Migrazione chiave label→path: lo studio fatto PRIMA del primo salvataggio vault
+  // finisce sotto 'mappai_mastery::<rootNodeLabel>'; quando activeVaultPath diventa
+  // disponibile, quei dati vanno fusi nella chiave-path (che è quella esportata in
+  // Studio Attivo/mastery.json da preload.saveVault) e la chiave legacy rimossa.
+  function _migrateLegacyKey(pathKey) {
+    try {
+      const st = _getAppState();
+      if (!st || !st.activeVaultPath || pathKey !== 'mappai_mastery::' + st.activeVaultPath) return;
+      if (!st.rootNodeLabel) return;
+      const legacyKey = 'mappai_mastery::' + String(st.rootNodeLabel);
+      if (legacyKey === pathKey || !localStorage.getItem(legacyKey)) return;
+      const legacy = _load(legacyKey);
+      Object.keys(legacy).forEach(kk => { if (!_store[kk]) _store[kk] = legacy[kk]; });
+      _persist(pathKey, _store);
+      localStorage.removeItem(legacyKey);
+      console.log('[MappAIMastery] migrata padronanza legacy →', pathKey);
+    } catch (e) { /* localStorage assente */ }
   }
 
   window.MappAIMastery = Object.assign({}, CORE, {
@@ -171,7 +193,8 @@
         if (typeof e.accuracy === 'number') score = e.accuracy > 1 ? e.accuracy / 100 : e.accuracy;
         else if (typeof e.isCorrect === 'boolean') score = e.isCorrect ? 1 : 0;
         else return;
-        this.record(nodeId, label || '', activity, { score, ts });
+        const rate = (typeof e.rate === 'number' && isFinite(e.rate)) ? e.rate : undefined;
+        this.record(nodeId, label || '', activity, { score, ts, rate });
         n++;
       });
       return n;

@@ -1,0 +1,224 @@
+
+@font-face {
+	font-family: 'DejaVu Sans Mono';
+	src:
+		url('DejaVuSansMono.woff2') format('woff2'),
+		url('DejaVuSansMono.woff') format('woff'),
+		url('DejaVuSansMono.ttf') format('truetype');
+}
+
+body {
+	padding: 0;
+	margin: 0;
+	color: whitesmoke;
+	background-color: #111;
+	font-family: 'DejaVu Sans Mono', monospace;
+	font-size: 12px;
+}
+
+:-webkit-full-screen {
+	width: 100%;
+	position: fixed;
+	top: 0;
+	background: none;
+}
+:fullscreen {
+	width: 100%;
+	height: 100%;
+	position: fixed;
+	top: 0;
+	/* keeps correct aspect ratio and full image visible */
+	-o-object-fit: contain; /* Opera 12.1 */
+	object-fit: contain;
+}
+
+.footer {
+	font-size: 10px;
+	text-align: center;
+	color: #333;
+	margin-top: 30px;
+}
+
+canvas {
+	position: absolute;
+	z-index: -1;
+}
+
+#game { display: none; }
+
+#messages {
+	position: fixed;
+	bottom: 0;
+	max-width: 70%;
+	padding: 8px 12px;
+	text-shadow: black 0 0 2px;
+	background-color: rgba(0, 0, 0, 0.5);
+	border-radius: 3px;
+	pointer-events: none;
+}
+
+.msg0 { color: #fff; }
+.msg1 { color: #999; }
+.msg2 { color: #777; }
+.msg3 { color: #555; }
+.msg4 { color: #333; }
+
+.right { float: right; }
+.left { float: left; }
+
+.btn {
+	display: inline-block;
+	height: 48px;
+	line-height: 48px;
+	margin: 6px 4px 3px 0px;
+	text-align: center;
+	vertical-align: middle;
+	background-color: #222;
+	border-radius: 3px;
+	cursor: pointer;
+	border: 1px solid black;
+	-webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+.btn-selected {
+	border: 1px solid white;
+}
+
+.btn-no-touch:hover {
+	border: 1px solid white;
+	text-shadow: cyan 0 0 10px;
+}
+
+.btn:active {
+	-webkit-transform: scale(0.85);
+	-moz-transform: scale(0.85);
+	-ms-transform: scale(0.85);
+	-o-transform: scale(0.85);
+	transform: scale(0.85);
+}
+
+.btn-disabled {
+	pointer-events: none;
+	color: #444 !important;
+}
+
+.btn-square {
+	width: 48px;
+	font-size: 48px;
+}
+
+.btn-text {
+	padding-left: 20px;
+	padding-right: 20px;
+	font-size: 24px;
+}
+
+#nav {
+	position: fixed;
+	top: 0;
+	right: 0;
+}
+
+#look-button {
+	-webkit-transform: rotate(180deg);
+	-moz-transform: rotate(180deg);
+	-ms-transform: rotate(180deg);
+	-o-transform: rotate(180deg);
+	transform: rotate(180deg);
+}
+
+#hud {
+	position: fixed;
+	top: 0;
+	left: 0;
+	padding: 6px;
+	font-size: 12px;
+	text-shadow: black 0 0 2px;
+	background-color: rgba(0, 0, 0, 0.5);
+	border-radius: 3px;
+}
+
+#hud > div {
+	white-space: pre;
+}
+
+#quickslots {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+}
+
+.modal {
+	display: none;
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background-color: rgba(0,0,0, 0.8);
+	z-index: 1000;
+	/*opacity: 0;
+	-webkit-transition: opacity 200ms ease-in;
+	-moz-transition: opacity 200ms ease-in;
+	transition: opacity 200ms ease-in;
+	pointer-events: none;*/
+}
+
+.menu {
+	margin: 3% auto;
+	width: 90%;
+	max-width: 600px;
+}
+
+h1 {
+	font-size: 2em;
+	padding: 16px 0 16px 0;
+	margin: 0px;
+}
+
+table {
+	display: inline-block;
+	margin-bottom: 6px;
+	margin-right: 10px;
+}
+
+th {
+	text-align: left;
+}
+
+td {
+	min-width: 100px;
+}
+
+/* Inventory */
+
+#inventory-items {
+	max-height: 40%;
+}
+
+#inventory-details {
+	margin: 10px 0;
+}
+
+#death-screen {
+	background-color: rgba(64, 0, 0, 0.7);
+	text-align: center;
+}
+
+#death-screen > div {
+	top: 35%;
+}
+
+#win-screen {
+	background-color: rgba(0, 64, 0, 0.7);
+	text-align: center;
+}
+
+#win-screen > div {
+	top: 35%;
+}

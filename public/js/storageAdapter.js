@@ -375,19 +375,31 @@
                             console.log("[MappAI Adapter] Nessun links.json trovato.");
                         }
 
-                        // 3. Carica i nodi da Nodi/*.md
+                        // 3. Carica i nodi da Nodi/**/*.md (walk ricorsivo: supporta sottocartelle per ramo)
                         try {
-                            const nodesRead = await Filesystem.readdir({
-                                path: `${vaultRoot}/Nodi`,
-                                directory: Directory.Documents
-                            });
-                            for (const file of nodesRead.files) {
-                                const fileName = typeof file === 'string' ? file : file.name;
-                                if (!fileName.endsWith('.md')) continue;
-
+                            const _collectMd = async (dirPath) => {
+                                let acc = [];
+                                let listing;
+                                try {
+                                    listing = await Filesystem.readdir({ path: dirPath, directory: Directory.Documents });
+                                } catch (e) { return acc; }
+                                for (const entry of (listing.files || [])) {
+                                    const eName = typeof entry === 'string' ? entry : entry.name;
+                                    const eType = typeof entry === 'string' ? null : entry.type;
+                                    const full = `${dirPath}/${eName}`;
+                                    if (eType === 'directory') {
+                                        acc = acc.concat(await _collectMd(full));
+                                    } else if (eName.endsWith('.md')) {
+                                        acc.push(full);
+                                    }
+                                }
+                                return acc;
+                            };
+                            const mdPaths = await _collectMd(`${vaultRoot}/Nodi`);
+                            for (const mdPath of mdPaths) {
                                 try {
                                     const nodeFile = await Filesystem.readFile({
-                                        path: `${vaultRoot}/Nodi/${fileName}`,
+                                        path: mdPath,
                                         directory: Directory.Documents,
                                         encoding: 'utf8'
                                     });
@@ -445,7 +457,7 @@
                                         mapData.nodes.push(node);
                                     }
                                 } catch (nodeErr) {
-                                    console.error(`[MappAI Adapter] Errore lettura nodo ${fileName}:`, nodeErr);
+                                    console.error(`[MappAI Adapter] Errore lettura nodo ${mdPath}:`, nodeErr);
                                 }
                             }
                         } catch (err) {
