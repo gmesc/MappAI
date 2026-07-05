@@ -250,6 +250,10 @@
         // 6. Truncations summary
         const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0, truncationRate: 0 };
 
+        // 7. Groundedness desc (fedeltà alla fonte) — euristica deterministica.
+        // null se modulo assente o corpus sorgente troppo piccolo.
+        const fid = window.MappAIDescFidelity?.analyzeCurrentMap() || null;
+
         const md = [
             `# MappAI Generation Report — ${new Date().toLocaleString()}`,
             '',
@@ -263,6 +267,9 @@
             `avgDegree: ${snapshot.avgDegree}    maxDegree: ${snapshot.maxDegree}    stddev: ${snapshot.stddevDegree}`,
             `groups: ${snapshot.groups}    maxLevel: ${snapshot.maxLevel}    sourceCov: ${(snapshot.sourceCovRatio * 100).toFixed(1)}%`,
             `apiCalls: ${trunc.calls}    truncated: ${trunc.truncated} (${(trunc.truncationRate * 100).toFixed(1)}%)`,
+            ...(fid ? [
+                `groundedness: ${fid.avg}    sotto soglia ${fid.threshold}: ${fid.below}/${fid.count}    worst: ${fid.worst.slice(0, 3).map(w => `"${w.label}" ${w.score}`).join(' · ')}`
+            ] : ['groundedness: n/d (modulo assente o fonte troppo piccola)']),
             '```',
             '',
             `## L1 finali (${l1s.length})`,
