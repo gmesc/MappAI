@@ -702,7 +702,8 @@
             Density: density.toFixed(3),
             Topology: density < 1.1 ? 'tree-like' : 'networked',
             Groups: new Set(nodes.map(n => n.group).filter(Boolean)).size,
-            MaxLevel: Math.max(0, ...nodes.map(n => n.level ?? 0))
+            MaxLevel: Math.max(0, ...nodes.map(n => n.level ?? 0)),
+            LvlDist: (function(ns){const h={};ns.forEach(n=>{const l=n.level??0;h[l]=(h[l]||0)+1;});return Object.keys(h).sort((a,b)=>a-b).map(l=>l+':'+h[l]).join(' ');})(nodes)
         }));
         push('');
 
@@ -955,6 +956,7 @@
             'MaxDegree':  Math.max(0, ...degrees),
             'Groups':     new Set(nodes.map(n => n.group).filter(Boolean)).size,
             'MaxLevel':   Math.max(0, ...nodes.map(n => n.level ?? 0)),
+            'LvlDist':    (function(ns){const h={};ns.forEach(n=>{const l=n.level??0;h[l]=(h[l]||0)+1;});return Object.keys(h).sort((a,b)=>a-b).map(l=>l+':'+h[l]).join(' ');})(nodes),
             'SourceCov%': _pct(withSrc, nodes.length),
             'Trunc':      trunc.truncated > 0 ? `⚠️ ${trunc.truncated}/${trunc.calls}` : `✓ 0/${trunc.calls}`
         };

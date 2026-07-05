@@ -1668,3 +1668,173 @@ window.executePhase4Consolidation = async function () {
     );
     return report;
 };
+
+// ============================================================================
+// FASE 3.7 — DEEPENING SELETTIVO (P2 iterative-deepening + P3 depth-aware retry)
+// ============================================================================
+// Problema: lo slider "Profondità" entrava nella pipeline solo come frase nel
+// prompt di Fase 3 → il modello, spinto anche dalla regola ⚓ di fedeltà
+// ("meglio un ramo corto che nodi inventati"), collassa in larghezza (L2-L3).
+// Soluzione: dopo il tree-sanitizer si misura la profondità TOPOLOGICA reale
+// di ogni ramo L1 (BFS dalla radice, soli link gerarchici). Se un ramo è sotto
+// lo slider, si "scava" nelle sue foglie dense usando SOLO il materiale locale
+// del nodo (desc + fonti) come contesto: profondità dove la fonte la sostiene,
+// zero conflitto con la regola di fedeltà. Default ON, disattivabile con
+// localStorage.setItem('mappai_deepening_enabled','false').
+
+window.isDeepeningEnabled = function () {
+    try { return localStorage.getItem('mappai_deepening_enabled') !== 'false'; }
+    catch (e) { return true; }
+};
+
+// Profondità topologica per ramo L1 + istogramma livelli (deterministico, zero AI).
+// Ritorna { depthByBranch: {l1Id: depthMax}, labelByBranch, histogram: {level: count} }.
+window.computeBranchDepths = function () {
+    const nodes = appState.db.nodes || [];
+    const links = appState.db.links || [];
+    const eid = v => (v && typeof v === 'object') ? v.id : v;
+    const childrenOf = {};
+    links.forEach(l => {
+        if (l.isCross || l.isBridge) return;
+        const s = eid(l.source), t = eid(l.target);
+        (childrenOf[s] = childrenOf[s] || []).push(t);
+    });
+    const depthByBranch = {}, labelByBranch = {}, histogram = {};
+    nodes.forEach(n => { histogram[n.level] = (histogram[n.level] || 0) + 1; });
+    nodes.filter(n => n.level === 1).forEach(l1 => {
+        let depth = 1;
+        const seen = new Set([l1.id]);
+        let frontier = [l1.id], lvl = 1;
+        while (frontier.length) {
+            const next = [];
+            frontier.forEach(id => (childrenOf[id] || []).forEach(c => {
+                if (!seen.has(c)) { seen.add(c); next.push(c); }
+            }));
+            if (next.length) { lvl++; depth = lvl; }
+            frontier = next;
+        }
+        depthByBranch[l1.id] = depth;
+        labelByBranch[l1.id] = l1.label;
+    });
+    return { depthByBranch, labelByBranch, histogram };
+};
+
+window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
+    if (!window.isDeepeningEnabled()) return;
+    if (!apiKey || appState.extractionMode === 'kg') return;
+    const target = parseInt(maxMapLevel);
+    if (isNaN(target) || target < 3) return;
+
+    const MIN_MATERIAL_WORDS = 45;  // materiale minimo perché una foglia sia "scavabile"
+    const MAX_CANDIDATES = 4;       // foglie per ramo per chiamata (controllo costi)
+
+    const eid = v => (v && typeof v === 'object') ? v.id : v;
+    const wordCount = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
+    const nodeMaterial = (n) => {
+        const chunks = (appState.db.sourcesDict[n.id] || [])
+            .map(c => c.text || c).filter(Boolean).join('\n');
+        return ((n.desc || n.content || '') + '\n' + chunks).trim();
+    };
+
+    const { depthByBranch, labelByBranch } = window.computeBranchDepths();
+    const shallow = Object.keys(depthByBranch).filter(id => depthByBranch[id] < target);
+    if (!shallow.length) { console.info('[Deepening] tutti i rami raggiungono già L' + target); return; }
+
+    const links = appState.db.links || [];
+    const hasChildren = new Set(links.filter(l => !l.isCross && !l.isBridge).map(l => eid(l.source)));
+    // Appartenenza al ramo: BFS discendente da ogni L1 sotto-profondo
+    const childrenOf = {};
+    links.forEach(l => {
+        if (l.isCross || l.isBridge) return;
+        (childrenOf[eid(l.source)] = childrenOf[eid(l.source)] || []).push(eid(l.target));
+    });
+    const idToNode = new Map(appState.db.nodes.map(n => [n.id, n]));
+    const existingLabels = new Set(appState.db.nodes.map(n => (n.label || '').toLowerCase().trim()));
+
+    let totalAdded = 0;
+    for (const l1Id of shallow) {
+        // raccogli discendenti del ramo
+        const branchIds = new Set([l1Id]);
+        let frontier = [l1Id];
+        while (frontier.length) {
+            const next = [];
+            frontier.forEach(id => (childrenOf[id] || []).forEach(c => { if (!branchIds.has(c)) { branchIds.add(c); next.push(c); } }));
+            frontier = next;
+        }
+        // foglie dense fra L2 e target-1, ordinate per ricchezza di materiale
+        const candidates = [...branchIds]
+            .map(id => idToNode.get(id))
+            .filter(n => n && n.level >= 2 && n.level < target && !hasChildren.has(n.id))
+            .map(n => ({ n, material: nodeMaterial(n) }))
+            .filter(x => wordCount(x.material) >= MIN_MATERIAL_WORDS)
+            .sort((a, b) => b.material.length - a.material.length)
+            .slice(0, MAX_CANDIDATES);
+        if (!candidates.length) {
+            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}<${target} ma nessuna foglia con materiale sufficiente — onestà verso la fonte, skip`);
+            continue;
+        }
+
+        window.showLoadingOverlay(true, `Mappa HD - Fase 3.7: approfondimento ramo "${labelByBranch[l1Id]}"...`);
+        const blocks = candidates.map((c, i) =>
+            `### NODO ${i + 1} — id: ${c.n.id} — "${c.n.label}" (level ${c.n.level})\nMATERIALE DISPONIBILE:\n${c.material.slice(0, 2200)}`
+        ).join('\n\n');
+
+        const prompt = `Stai APPROFONDENDO alcune foglie di una mappa mentale su "${appState.rootNodeLabel}".
+Per OGNI nodo elencato sotto, estrai 1-3 sotto-concetti PIÙ SPECIFICI del concetto padre, usando ESCLUSIVAMENTE il materiale fornito per quel nodo. Puoi annidare un ulteriore livello (figli di figli) solo se il materiale contiene davvero quel dettaglio.
+
+⚓ REGOLA DI FEDELTÀ — PRIORITARIA:
+- Ogni label e ogni desc devono trovare riscontro letterale nel MATERIALE del nodo. NIENTE conoscenza esterna, niente inferenze.
+- Se il materiale di un nodo non contiene sotto-dettagli distinti, restituisci per quel nodo un array vuoto. Meglio vuoto che inventato.
+- desc: 30-60 parole, tono espositivo da manuale, solo fatti presenti nel materiale.
+- label: max 4 parole, concetto esplicito del materiale (un dato, un attore, una causa, una data, un luogo, un meccanismo).
+
+${blocks}
+
+Rispondi SOLO con JSON puro:
+{"expansions":[{"parent":"<id del nodo>","children":[{"label":"...","desc":"...","children":[{"label":"...","desc":"..."}]}]}]}`;
+
+        try {
+            const response = await window.fetchModelAPI({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un estrattore di sotto-concetti fedele alla fonte. Rispondi solo JSON conforme.') }] },
+                generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: 'application/json' }
+            }, apiKey);
+            const raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+            const expansions = (data && data.expansions) || [];
+
+            let branchAdded = 0, seq = 0;
+            const addChildren = (parentNode, kids, depthLeft) => {
+                if (!Array.isArray(kids) || depthLeft <= 0) return;
+                kids.slice(0, 3).forEach(kid => {
+                    const label = String(kid.label || '').trim();
+                    if (!label || existingLabels.has(label.toLowerCase())) return;
+                    const newId = `${parentNode.id}_D${++seq}`.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+                    const newNode = {
+                        id: newId, label, level: parentNode.level + 1,
+                        group: parentNode.group, desc: String(kid.desc || '').trim(),
+                        content: '', studyStatus: 'none'
+                    };
+                    appState.db.nodes.push(newNode);
+                    appState.db.links.push({ source: parentNode.id, target: newId, rel: 'approfondisce' });
+                    appState.db.sourcesDict[newId] = [{ title: parentNode.label, source: 'Approfondimento', text: newNode.desc }];
+                    existingLabels.add(label.toLowerCase());
+                    branchAdded++;
+                    addChildren(newNode, kid.children, depthLeft - 1);
+                });
+            };
+            expansions.forEach(exp => {
+                const parentNode = idToNode.get(exp.parent) ||
+                    candidates.map(c => c.n).find(n => n.id.toUpperCase() === String(exp.parent || '').toUpperCase());
+                if (!parentNode) return;
+                addChildren(parentNode, exp.children, target - parentNode.level);
+            });
+            totalAdded += branchAdded;
+            const after = window.computeBranchDepths().depthByBranch[l1Id];
+            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}→${after}, +${branchAdded} nodi`);
+        } catch (e) {
+            console.warn(`[Deepening] ramo "${labelByBranch[l1Id]}" fallito (non bloccante):`, e.message);
+        }
+    }
+    if (totalAdded > 0) console.info(`[Deepening] Fase 3.7 completata: +${totalAdded} nodi di approfondimento`);
+};

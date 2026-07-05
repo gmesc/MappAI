@@ -1155,6 +1155,19 @@ ${textParts.join('\n\n')}`;
         // e group. Deterministico, zero AI. Solo su mindmap.
         if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
 
+        // Fase 3.7 — deepening selettivo (P2+P3): misura la profondità topologica
+        // reale di ogni ramo (post-sanitizer); se sotto lo slider, scava le foglie
+        // dense usando SOLO il loro materiale locale (fedeltà ⚓ preservata).
+        // Ri-sanitizza dopo: i nuovi nodi entrano nel ricalcolo BFS di livelli/group.
+        try {
+            if (window.executeDeepeningPass) {
+                await window.executeDeepeningPass(textParts, apiKey, maxMapLevel);
+                if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+            }
+        } catch (e) {
+            console.warn('[Deepening] errore non bloccante:', e.message);
+        }
+
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).
         try {
