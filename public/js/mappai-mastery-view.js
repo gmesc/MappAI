@@ -39,16 +39,56 @@
     return agg.accuracy >= ACC_THR ? 'acquisito' : 'in-corso';
   }
 
+  // accuracy delle sintesi scritte nel Memory Dungeon (scritte da mappai-games.js). Nodi ≥60% → anello dorato.
+  // FIX: il gioco salva su chiave PER-MAPPA (mappai_dungeon_synthesis__<mapSig>) → leggere via API
+  // MappAIGames.synthScores() (chiave giusta per la mappa corrente); la chiave nuda resta come fallback legacy.
+  const SYNTH_KEY = 'mappai_dungeon_synthesis';
+  function synthScores() {
+    try { if (window.MappAIGames && typeof window.MappAIGames.synthScores === 'function') return window.MappAIGames.synthScores() || {}; } catch (e) {}
+    try { return JSON.parse(localStorage.getItem(SYNTH_KEY) || '{}'); } catch (e) { return {}; }
+  }
+
+  // legge extractionMode senza dipendere da window.appState (appState è `let`)
+  function _mode() {
+    try { return (typeof appState !== 'undefined' ? appState : window.appState)?.extractionMode; }
+    catch (e) { return window.appState?.extractionMode; }
+  }
+
   function applyTint() {
     if (typeof d3 === 'undefined') return;
     // non litigare con lo studio attivo (che ricolora per esercizio)
     if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) return;
     const svg = d3.select('#map-svg');
     if (svg.empty()) return;
+    const isKG = _mode() === 'kg';
     svg.selectAll('circle.node-circle').each(function (d) {
       if (!d || d.level === 0) return; // root invariato
       const c = COLORS[levelOfNode(d.id)];
-      d3.select(this).attr('fill', c.fill).attr('stroke', c.stroke);
+      const sel = d3.select(this).attr('fill', c.fill).attr('stroke', c.stroke);
+      // KG: il node-circle ha stroke-width 0 (l'outline è l'anello parentela). In heatmap
+      // diamo spessore così l'unico bordo visibile è quello della padronanza.
+      if (isKG && d.level > 1) sel.attr('stroke-width', 2.5);
+    });
+    // KG: nascondi gli anelli colorati di parentela con gli hub → restano solo i colori heatmap
+    if (isKG) svg.selectAll('g.node-segments').style('display', 'none');
+    applySynthRings(svg);
+  }
+
+  // Feedback visivo dinamico: anello dorato tratteggiato sui nodi per cui lo studente ha scritto una sintesi con accuracy ≥60%.
+  function applySynthRings(svg) {
+    svg.selectAll('circle.mv-synth-ring').remove();   // idempotente: ridisegna da zero a ogni render
+    const sc = synthScores();
+    svg.selectAll('circle.node-circle').each(function (d) {
+      if (!d) return;
+      const acc = sc[String(d.id)];
+      if (!(acc >= 60)) return;
+      const sel = d3.select(this), r = (+sel.attr('r') || 12) + 4;
+      d3.select(this.parentNode).append('circle')   // stesso spazio coordinate del cerchio nodo
+        .attr('class', 'mv-synth-ring')
+        .attr('cx', sel.attr('cx') || 0).attr('cy', sel.attr('cy') || 0).attr('r', r)
+        .attr('fill', 'none').attr('stroke', '#f5c542').attr('stroke-width', 2.5)
+        .attr('stroke-dasharray', '3 3').attr('pointer-events', 'none')
+        .append('title').text('Sintesi scritta · ' + acc + '%');
     });
   }
 
@@ -72,6 +112,11 @@
   MV.disable = function () {
     MV.active = false;
     const l = document.getElementById('mv-legend'); if (l) l.remove();
+    if (typeof d3 !== 'undefined') {
+      const svg = d3.select('#map-svg');
+      svg.selectAll('circle.mv-synth-ring').remove();           // togli gli anelli sintesi
+      svg.selectAll('g.node-segments').style('display', null);  // ripristina anelli parentela KG nascosti in heatmap
+    }
     if (typeof window.renderGraph === 'function') window.renderGraph(); // ripristina i colori
     updateBtn();
   };
@@ -86,7 +131,8 @@
     const row = (c, t) => `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span style="width:13px;height:13px;border-radius:50%;background:${c.fill};border:2px solid ${c.stroke};display:inline-block"></span>${t}</div>`;
     box.innerHTML = '<div style="font-weight:700;color:#0f172a;margin-bottom:5px">Padronanza</div>' +
       row(COLORS['fluente'], 'Fluente') + row(COLORS['acquisito'], 'Acquisito') +
-      row(COLORS['in-corso'], 'In corso') + row(COLORS['nuovo'], 'Da studiare');
+      row(COLORS['in-corso'], 'In corso') + row(COLORS['nuovo'], 'Da studiare') +
+      '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 0;padding-top:5px;border-top:1px solid #e2e8f0"><span style="width:13px;height:13px;border-radius:50%;background:transparent;border:2px dashed #f5c542;display:inline-block"></span>Sintesi scritta ≥60%</div>';
     document.body.appendChild(box);
   }
 

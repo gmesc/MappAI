@@ -1,0 +1,68 @@
+{
+  "_doc": "Atlante tile chiave per costruzione stanze (Memory Dungeon). Coord = [col,row] a 16px. Vedi atlas/*_grid.png per il righello completo. confidence: high=letto a zoom, verify=da confermare visivamente.",
+  "tile": 16,
+  "biomes": {
+    "overworld_dungeon": {
+      "sheet": "legendoflua/tilesets/overworld.png",
+      "grid": [40, 37],
+      "floor": { "coord": [12, 18], "confidence": "verify", "note": "dungeon-stone bruno; alt [11,18]" },
+      "floor_decals": {
+        "coords": [[11, 22], [12, 22], [11, 23], [12, 23]],
+        "confidence": "high",
+        "note": "cluster sassi/rubble scuri; spargere ~5-8% celle pavimento"
+      },
+      "wall": {
+        "top": { "coord": [33, 17], "confidence": "high", "note": "cap superiore (si cammina dietro)" },
+        "front": { "coord": [33, 18], "confidence": "high", "note": "faccia frontale (finto 3D)" },
+        "top_left": { "coord": [31, 17], "confidence": "verify" },
+        "top_right": { "coord": [38, 17], "confidence": "verify" },
+        "pillar": { "coords": [[26, 17], [26, 18], [26, 19]], "confidence": "verify" }
+      },
+      "exit_patch": { "coord": [15, 25], "confidence": "high", "note": "buca di terra scura sotto il portale/scale" }
+    },
+    "cave": {
+      "sheet": "legendoflua/tilesets/cave.png",
+      "grid": [16, 10],
+      "floor": { "coord": [2, 2], "confidence": "high", "note": "gia usato in THEME_TILES" },
+      "floor_decals": { "coords": [[7, 3], [8, 3], [9, 4], [10, 4]], "confidence": "verify", "note": "rocce/massi" },
+      "wall": {
+        "top": { "coord": [7, 0], "confidence": "verify", "note": "blocco mattone cave c6-10 r0-1" },
+        "front": { "coord": [7, 1], "confidence": "verify" }
+      },
+      "water": { "coord": [1, 7], "confidence": "high", "note": "gia usato in codice" }
+    },
+    "inner": {
+      "sheet": "legendoflua/tilesets/inner.png",
+      "grid": [40, 25],
+      "floor": { "coord": [1, 3], "confidence": "high", "note": "gia usato (interni)" },
+      "wall": { "front": { "coord": [0, 1], "confidence": "high", "note": "gia usato" } }
+    }
+  },
+  "terrains": {
+    "_doc": "Set autotile verificati a zoom (2026-07-03, refstudy). edge4 = bitmask U=1,R=2,D=4,L=8 (vicino stesso terreno). Vedi skill pixel-art-tilemaps per la teoria.",
+    "siepe": {
+      "sheet": "overworld",
+      "scheme": "edge4-block3x3",
+      "confidence": "high",
+      "block3x3": { "topleft": [1, 13], "top": [2, 13], "topright": [3, 13], "left": [1, 14], "center": [2, 14], "right": [3, 14], "bottomleft": [1, 15], "bottom": [2, 15], "bottomright": [3, 15] },
+      "caps": { "v_top": [0, 14], "v_bottom": [0, 15], "h_left": [0, 16], "h_right": [1, 16] },
+      "note": "siepe giardino; valori bitmask senza tile dedicato -> fallback center"
+    },
+    "muro_dungeon": {
+      "sheet": "overworld",
+      "scheme": "zelda-wall (front se floor a sud, altrimenti top)",
+      "confidence": "high",
+      "top": [33, 17],
+      "front": [33, 18],
+      "note": "2 tile bastano per il muro a 2 fasce su qualunque blob; angoli estetici opzionali [31,17]/[38,17] (verify)"
+    },
+    "pond": {
+      "sheet": "overworld",
+      "scheme": "edge4-shore-OVERLAY (acqua=solid; rive trasparenti da posare SOPRA l'acqua di base)",
+      "confidence": "high",
+      "shore3x3": { "topleft": [15, 6], "top": [16, 6], "topright": [17, 6], "left": [15, 7], "center_transparent": [16, 7], "right": [17, 7], "bottomleft": [15, 8], "bottom": [16, 8], "bottomright": [17, 8] },
+      "water_base": { "coord": [16, 1], "confidence": "high", "note": "onde blu gia usate dal gioco; alternativa texture [18,6]" },
+      "note": "IL CENTRO E' TRASPARENTE: pattern 'transparent overlay' (SLYNYRD) — riva su layer over + acqua base su ground. Verificato a zoom pond_right (2026-07-03)"
+    }
+  }
+}

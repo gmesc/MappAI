@@ -20,7 +20,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveQuizTextResponse: (data) => ipcRenderer.invoke('save-quiz-text-response', data),
     saveStudyRecord: (data) => ipcRenderer.invoke('save-study-record', data),
     savePDFToVault: (data) => ipcRenderer.invoke('save-pdf-to-vault', data),
-    saveVault: (data) => ipcRenderer.invoke('save-vault', data),
+    saveVault: (data) => {
+        // Propaga il flag sottocartelle-per-ramo (gated). NON sovrascrive un valore esplicito
+        // (l'export JIGSAW forza branchFolders:true a prescindere dal flag utente).
+        try {
+            if (data && data.mapData && data.mapData.branchFolders === undefined) {
+                data.mapData.branchFolders = (typeof localStorage !== 'undefined') &&
+                    ['1', 'true'].includes(localStorage.getItem('mappai_vault_branch_folders'));
+            }
+            // Padronanza del vault (localStorage) → verrà scritta in Studio Attivo/mastery.json.
+            // Chiave = 'mappai_mastery::' + activeVaultPath; sul risalvataggio dello studente coincide con folderPath.
+            // PRIMO salvataggio: activeVaultPath non esisteva ancora → lo studio fatto prima
+            // vive sotto la chiave-label ('mappai_mastery::' + rootNodeLabel). Fallback su quella.
+            if (data && data.mapData && data.folderPath && data.mapData.masteryStore === undefined) {
+                let raw = (typeof localStorage !== 'undefined') && localStorage.getItem('mappai_mastery::' + data.folderPath);
+                if (!raw && (typeof localStorage !== 'undefined') && data.mapData.rootNodeLabel) {
+                    raw = localStorage.getItem('mappai_mastery::' + String(data.mapData.rootNodeLabel));
+                }
+                if (raw) { try { data.mapData.masteryStore = JSON.parse(raw); } catch (_) {} }
+            }
+            // Anonimato: in modalità JIGSAW il profilo (nome/età) NON viene mai persistito nel vault.
+            if (data && data.mapData &&
+                (typeof localStorage !== 'undefined') && ['1', 'true'].includes(localStorage.getItem('mappai_jigsaw_mode'))) {
+                data.mapData.userProfile = null;
+            }
+        } catch (_) {}
+        return ipcRenderer.invoke('save-vault', data);
+    },
+    writeBranchLocks: (data) => ipcRenderer.invoke('write-branch-locks', data),
+    listVaultSubfolders: (parentPath) => ipcRenderer.invoke('list-vault-subfolders', parentPath),
+    readStudySessions: (vaultPath) => ipcRenderer.invoke('read-study-sessions', vaultPath),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
     pickFolder: () => ipcRenderer.invoke('pick-folder'),
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
@@ -29,5 +58,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
-    capturePage: () => ipcRenderer.invoke('capture-page')
+    capturePage: () => ipcRenderer.invoke('capture-page'),
+    // --- NPC LLM locale (node-llama-cpp) ---
+    generateLocalNPC: (data) => ipcRenderer.invoke('generate-local-npc', data),
+    generateLocalNPCAction: (data) => ipcRenderer.invoke('generate-local-npc-action', data),
+    npcModelStatus: () => ipcRenderer.invoke('npc-model-status'),
+    npcReset: (data) => ipcRenderer.invoke('npc-reset', data),
+    // streaming token NPC: onNpcToken(cb) → cb({ npcId, requestId, token }); ritorna unsubscribe
+    onNpcToken: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on('npc-token', listener);
+        return () => ipcRenderer.removeListener('npc-token', listener);
+    },
+    // --- Gestione modello GGUF ---
+    npcModelsDir: () => ipcRenderer.invoke('npc-models-dir'),
+    npcListLocalModels: () => ipcRenderer.invoke('npc-list-local-models'),
+    npcDownloadModel: (data) => ipcRenderer.invoke('npc-download-model', data),
+    npcDeleteModel: (data) => ipcRenderer.invoke('npc-delete-model', data),
+    onNpcDownloadProgress: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on('npc-download-progress', listener);
+        return () => ipcRenderer.removeListener('npc-download-progress', listener);
+    }
 });

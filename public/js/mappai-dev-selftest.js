@@ -38,7 +38,12 @@
       ['MappAICeleration', 'namespace', true, '📈', () => hasGlobal('MappAICeleration')],
       ['MappAIStudyPath', 'namespace', true, '🧭', () => hasGlobal('MappAIStudyPath')],
       ['MappAIPalace', 'namespace', true, '🏛️', () => hasGlobal('MappAIPalace')],
-      ['ActiveStudy', 'namespace', true, '7 modi', () => hasGlobal('ActiveStudy')]
+      ['MappAIStudyBus', 'namespace', true, 'bus risultati→mastery+sessioni', () => hasGlobal('MappAIStudyBus')],
+      ['ActiveStudy', 'namespace', true, '7 modi', () => hasGlobal('ActiveStudy')],
+      ['setTutorState', 'funzione', true, 'reset chat a ogni cambio mappa', () => isFn('setTutorState')],
+      ['MappAIMapLoader', 'namespace', true, 'mappe curate giardino (hub)', () => hasGlobal('MappAIMapLoader')],
+      ['MappAINpcBehavior', 'namespace', true, 'behaviors NPC giardino', () => hasGlobal('MappAINpcBehavior')],
+      ['MappAIDescFidelity', 'namespace', true, 'groundedness desc (anti-romanzo)', () => hasGlobal('MappAIDescFidelity')]
     ];
   }
 

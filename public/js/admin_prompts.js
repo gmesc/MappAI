@@ -17,21 +17,29 @@ window.systemPromptsDescriptions = {
     "SOCRATIC_TUTOR_IT": "admin_prompt_desc_socratic_it",
     "SOCRATIC_TUTOR_EN": "admin_prompt_desc_socratic_en",
     "SOCRATIC_TUTOR": "admin_prompt_desc_socratic_it",
+    "TUTOR_MODE_EXPLAIN": "admin_prompt_desc_mode_explain",
+    "TUTOR_MODE_ASK": "admin_prompt_desc_mode_ask",
+    "TUTOR_MODE_SOCRATIC": "admin_prompt_desc_mode_socratic",
+    "TUTOR_MODE_DEVIL": "admin_prompt_desc_mode_devil",
+    "TUTOR_MODE_CONNECT": "admin_prompt_desc_mode_connect",
+    "TUTOR_MODE_RECALL": "admin_prompt_desc_mode_recall",
     "SOTA_SECOND_BRAIN": "admin_prompt_desc_sota",
     "DYNAMIC_QUIZ": "admin_prompt_desc_dynamic_quiz",
     "FLASHCARD_GENERATOR": "admin_prompt_desc_flashcards",
     "MIND_MAP_FULL_TREE_IT": "admin_prompt_desc_mm_full",
     "MIND_MAP_FULL_TREE_EN": "admin_prompt_desc_mm_full",
     "KNOWLEDGE_GRAPH_FULL_TREE_IT": "admin_prompt_desc_kg_full",
-    "KNOWLEDGE_GRAPH_FULL_TREE_EN": "admin_prompt_desc_kg_full"
+    "KNOWLEDGE_GRAPH_FULL_TREE_EN": "admin_prompt_desc_kg_full",
+    "NPC_NARRATOR": "admin_prompt_desc_npc_narrator"
 };
 
 window.systemPromptsCategories = {
     "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "MIND_MAP_BRANCH"],
     "KGRAPHS": ["KNOWLEDGE_GRAPH_FULL_TREE", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
-    "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR"],
+    "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR", "TUTOR_MODE_EXPLAIN", "TUTOR_MODE_ASK", "TUTOR_MODE_SOCRATIC", "TUTOR_MODE_DEVIL", "TUTOR_MODE_CONNECT", "TUTOR_MODE_RECALL"],
     "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"],
-    "DISCIPLINES": ["DISCIPLINE_STORIA", "DISCIPLINE_SCIENZE", "DISCIPLINE_LETTERATURA", "DISCIPLINE_MATEMATICA", "DISCIPLINE_GEOGRAFIA", "DISCIPLINE_FILOSOFIA"]
+    "DISCIPLINES": ["DISCIPLINE_STORIA", "DISCIPLINE_SCIENZE", "DISCIPLINE_LETTERATURA", "DISCIPLINE_MATEMATICA", "DISCIPLINE_GEOGRAFIA", "DISCIPLINE_FILOSOFIA"],
+    "NPC": ["NPC_NARRATOR"]
 };
 
 // Helper per ottenere la traduzione corrente
@@ -50,7 +58,8 @@ window.systemTabExplanations = {
     "MINDMAPS": "admin_explanation_mindmaps",
     "KGRAPHS": "admin_explanation_kgraphs",
     "TUTOR": "admin_explanation_tutor",
-    "STUDY": "admin_explanation_study"
+    "STUDY": "admin_explanation_study",
+    "NPC": "admin_explanation_npc"
 };
 
 window.currentAdminPromptKey = null;
@@ -204,8 +213,8 @@ window.renderAdminPromptsList = async function() {
         const descText = descKey ? window.getAdminTranslation(descKey) : "Prompt di sistema";
 
         btn.innerHTML = `
-            <div class="font-bold text-slate-800 text-[11px]">${key}</div>
-            <div class="text-[10px] text-slate-500 line-clamp-1">${descText}</div>
+            <div class="font-bold text-slate-800 text-xs">${key}</div>
+            <div class="text-[11px] text-slate-600 line-clamp-2">${descText}</div>
         `;
         
         btn.onclick = () => window.selectAdminPrompt(key);
@@ -215,10 +224,27 @@ window.renderAdminPromptsList = async function() {
     if (!foundAny) {
         listEl.innerHTML = '<div class="text-center p-10 text-slate-400 text-xs italic">Nessun prompt trovato in questa categoria.</div>';
     }
+
+    // Tab NPC: bottone pinned "Gestione modello & opzioni" in cima alla lista
+    if (window.currentAdminTab === 'NPC') {
+        listEl.insertAdjacentHTML('afterbegin',
+            '<button onclick="window.MappAINpcAdmin && window.MappAINpcAdmin.openManagement()" ' +
+            'class="w-full text-left p-3 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold mb-2 hover:bg-indigo-100 flex items-center gap-2">' +
+            '<span style="font-family:var(--emoji-font)">🤖</span> Gestione modello &amp; opzioni</button>');
+    }
+
+    // Empty-state editor: mostra il robot finché nessun prompt è selezionato
+    const emptyState = document.getElementById('admin-empty-state');
+    if (emptyState) emptyState.style.display = window.currentAdminPromptKey ? 'none' : 'flex';
+
+    // Pannello gestione NPC (overlay nell'editor) in base al tab attivo
+    if (window.MappAINpcAdmin) window.MappAINpcAdmin.syncWithTab(window.currentAdminTab, window.currentAdminPromptKey);
 };
 
 window.switchAdminTab = function(tab) {
     window.currentAdminTab = tab;
+    // Entrando nel tab NPC, deseleziona il prompt → mostra subito il pannello gestione
+    if (tab === 'NPC') window.currentAdminPromptKey = null;
     window.renderAdminPromptsList();
 };
 

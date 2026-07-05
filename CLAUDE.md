@@ -48,7 +48,35 @@ MappAI/
 │   ├── css/
 │   │   └── style.css    ← CSS principale (2.724 righe)
 │   ├── js/
-│   │   ├── app.js       ← MONOLITE principale (~14.000+ righe)
+│   │   ├── app.js       ← CORE (~2.630 righe, era 16.066 — −83,6%): bootstrap,
+│   │   │                   appState, provider AI, fetchModelAPI + token/cost,
+│   │   │                   sources upload, startGeneration (router), system
+│   │   │                   instructions, getDescendantIds/getInheritedDatabase, init
+│   │   │  ── Moduli estratti dal monolite (luglio 2026, branch
+│   │   │     refactor/app-js-decomposition — caricati DOPO app.js,
+│   │   │     scope lessicale globale condiviso, slice byte-identical;
+│   │   │     debug-run Electron dopo ogni batch):
+│   │   ├── mappai-ui-modals.js      ← toast/alert/prompt custom, MODEL_KB, select modelli, tree view
+│   │   ├── mappai-d3-render.js      ← motore render D3 (initD3Visualization, renderGraph+patch, tick, drag)
+│   │   ├── mappai-ui-canvas.js      ← showLoadingOverlay, handleNodeClick, source modal, layout, import/export
+│   │   ├── mappai-storage-lang.js   ← StorageManager (autosave), progetti salvati, changeLanguage
+│   │   ├── mappai-generation-support.js ← crosslink markers, dedup, JSONL, flags, Phase4/5, enrich, validate/split L1
+│   │   ├── mappai-pomodoro.js       ← timer Pomodoro + updateStudyStats
+│   │   ├── mappai-user-profile.js   ← profili utente (modale, salva, reset)
+│   │   ├── mappai-search-finder.js  ← map finder + super finder
+│   │   ├── mappai-vault-manager.js  ← lista vault, directLoadVault
+│   │   ├── mappai-contextual-ai.js  ← Espandi con AI (testo/PDF → nodi)
+│   │   ├── mappai-kg-extraction.js  ← motore KG (single-pass/Community/multi-pass)
+│   │   ├── mappai-mm-extraction.js  ← motore MM (iterativa/multi-pass)
+│   │   ├── mappai-vault-io.js       ← saveMapVault/loadMapVault/import/demo
+│   │   ├── mappai-merge-validate.js ← merge grafi + aiCrossLink + validate link
+│   │   ├── mappai-print-dossier.js  ← stampa note MD, etichette, dossier PDF
+│   │   ├── mappai-context-menu.js   ← lightbox, menu contestuale, touch
+│   │   ├── mappai-edit-modal.js     ← modale edit nodo (editTarget condiviso)
+│   │   ├── mappai-flashcards-sr.js  ← spaced repetition, flashcard/quiz nodo
+│   │   ├── mappai-ai-tutor.js       ← tutor AI stateful (tutorState condiviso)
+│   │   ├── mappai-study-session.js  ← config studio, player, punteggi, report
+│   │   ├── mappai-a11y.js           ← sillabazione, interlinea, zoom testo
 │   │   ├── storageAdapter.js  ← Storage Electron/Capacitor
 │   │   ├── admin_prompts.js   ← Gestione prompt templates
 │   │   ├── infomaniak_bridge.js ← Bridge API Infomaniak

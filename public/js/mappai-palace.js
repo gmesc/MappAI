@@ -87,6 +87,7 @@
     const rooms = buildRooms(S().db.nodes || [], S().db.links || []);
     if (!rooms.length) { toast('Servono rami con almeno 2 concetti per il Palazzo.'); return; }
     PAL._rooms = rooms; PAL._i = 0;
+    if (window.MappAIStudyBus) window.MappAIStudyBus.begin('palazzo', 'Palazzo della Memoria');
     encode();
   };
 
@@ -119,12 +120,16 @@
         <button id="pal-exit" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
         <button id="pal-go" style="background:#7c3aed;color:#fff;border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600">Ho memorizzato →</button>
       </div>`);
-    modal.querySelector('#pal-exit').onclick = () => modal.remove();
+    modal.querySelector('#pal-exit').onclick = () => {
+      modal.remove();
+      if (window.MappAIStudyBus) window.MappAIStudyBus.end(); // salva la sessione parziale (se ha risultati)
+    };
     modal.querySelector('#pal-go').onclick = () => recall();
   }
 
   function recall() {
     const room = PAL._rooms[PAL._i];
+    PAL._recallStart = Date.now(); // cronometro per la fluenza (ricordati/min)
     const modal = shellOpen(`${header(room)}
       <p style="color:#64748b;font-size:13px;margin:0 0 8px">Scrivi i concetti che ricordi di questa stanza, <b>uno per riga</b> (${room.items.length} in totale).</p>
       <textarea id="pal-ta" rows="6" style="width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font:inherit;resize:vertical"></textarea>
@@ -133,7 +138,10 @@
         <button id="pal-exit" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
         <button id="pal-check" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600">Verifica</button>
       </div>`);
-    modal.querySelector('#pal-exit').onclick = () => modal.remove();
+    modal.querySelector('#pal-exit').onclick = () => {
+      modal.remove();
+      if (window.MappAIStudyBus) window.MappAIStudyBus.end(); // salva la sessione parziale (se ha risultati)
+    };
     modal.querySelector('#pal-ta').focus();
     modal.querySelector('#pal-check').onclick = () => checkRoom(modal, room);
   }
@@ -142,11 +150,16 @@
     const typed = modal.querySelector('#pal-ta').value;
     const res = matchRecall(room.items.map(it => it.label), typed);
 
-    // registra la padronanza per ogni concetto della stanza
+    // registra la padronanza per ogni concetto della stanza (+ fluenza della stanza);
+    // via StudyBus finisce anche in sessioni.jsonl per la meta-analisi docente
+    const elapsedMin = Math.max((Date.now() - (PAL._recallStart || Date.now())) / 60000, 2 / 60);
+    const rate = res.matched / elapsedMin;
     room.items.forEach((it, idx) => {
       const found = res.result[idx] && res.result[idx].found;
-      try { if (window.MappAIMastery && window.MappAIMastery.record) window.MappAIMastery.record(it.id, it.label, 'palazzo', { score: found ? 1 : 0 }); }
-      catch (e) {}
+      try {
+        if (window.MappAIStudyBus) window.MappAIStudyBus.record(it.id, it.label, 'palazzo', { score: found ? 1 : 0, rate });
+        else if (window.MappAIMastery && window.MappAIMastery.record) window.MappAIMastery.record(it.id, it.label, 'palazzo', { score: found ? 1 : 0 });
+      } catch (e) {}
     });
 
     const lis = res.result.map(r => `<li style="color:${r.found ? '#15803d' : '#b91c1c'}">${r.found ? '✓' : '✗'} ${esc(r.label)}</li>`).join('');
@@ -159,7 +172,11 @@
     const btn = modal.querySelector('#pal-check');
     btn.textContent = last ? 'Fine viaggio' : 'Prossima stanza →';
     btn.style.background = '#7c3aed';
-    btn.onclick = () => { modal.remove(); if (last) toast('Viaggio completato! Padronanza aggiornata.'); else { PAL._i++; encode(); } };
+    btn.onclick = () => {
+      modal.remove();
+      if (last) { if (window.MappAIStudyBus) window.MappAIStudyBus.end(); toast('Viaggio completato! Padronanza aggiornata.'); }
+      else { PAL._i++; encode(); }
+    };
   }
 
   function injectBtn() {

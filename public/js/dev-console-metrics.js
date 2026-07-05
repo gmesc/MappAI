@@ -250,6 +250,10 @@
         // 6. Truncations summary
         const trunc = window.MappAITruncationTracker?.summary(true) || { calls: 0, truncated: 0, truncationRate: 0 };
 
+        // 7. Groundedness desc (fedeltà alla fonte) — euristica deterministica.
+        // null se modulo assente o corpus sorgente troppo piccolo.
+        const fid = window.MappAIDescFidelity?.analyzeCurrentMap() || null;
+
         const md = [
             `# MappAI Generation Report — ${new Date().toLocaleString()}`,
             '',
@@ -263,6 +267,9 @@
             `avgDegree: ${snapshot.avgDegree}    maxDegree: ${snapshot.maxDegree}    stddev: ${snapshot.stddevDegree}`,
             `groups: ${snapshot.groups}    maxLevel: ${snapshot.maxLevel}    sourceCov: ${(snapshot.sourceCovRatio * 100).toFixed(1)}%`,
             `apiCalls: ${trunc.calls}    truncated: ${trunc.truncated} (${(trunc.truncationRate * 100).toFixed(1)}%)`,
+            ...(fid ? [
+                `groundedness: ${fid.avg}    sotto soglia ${fid.threshold}: ${fid.below}/${fid.count}    worst: ${fid.worst.slice(0, 3).map(w => `"${w.label}" ${w.score}`).join(' · ')}`
+            ] : ['groundedness: n/d (modulo assente o fonte troppo piccola)']),
             '```',
             '',
             `## L1 finali (${l1s.length})`,
@@ -702,7 +709,8 @@
             Density: density.toFixed(3),
             Topology: density < 1.1 ? 'tree-like' : 'networked',
             Groups: new Set(nodes.map(n => n.group).filter(Boolean)).size,
-            MaxLevel: Math.max(0, ...nodes.map(n => n.level ?? 0))
+            MaxLevel: Math.max(0, ...nodes.map(n => n.level ?? 0)),
+            LvlDist: (function(ns){const h={};ns.forEach(n=>{const l=n.level??0;h[l]=(h[l]||0)+1;});return Object.keys(h).sort((a,b)=>a-b).map(l=>l+':'+h[l]).join(' ');})(nodes)
         }));
         push('');
 
@@ -955,6 +963,7 @@
             'MaxDegree':  Math.max(0, ...degrees),
             'Groups':     new Set(nodes.map(n => n.group).filter(Boolean)).size,
             'MaxLevel':   Math.max(0, ...nodes.map(n => n.level ?? 0)),
+            'LvlDist':    (function(ns){const h={};ns.forEach(n=>{const l=n.level??0;h[l]=(h[l]||0)+1;});return Object.keys(h).sort((a,b)=>a-b).map(l=>l+':'+h[l]).join(' ');})(nodes),
             'SourceCov%': _pct(withSrc, nodes.length),
             'Trunc':      trunc.truncated > 0 ? `⚠️ ${trunc.truncated}/${trunc.calls}` : `✓ 0/${trunc.calls}`
         };

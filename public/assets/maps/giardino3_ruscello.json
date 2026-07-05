@@ -1,0 +1,4556 @@
+{
+ "version": 2,
+ "tile": 16,
+ "cols": 30,
+ "rows": 20,
+ "layers": [
+  {
+   "name": "ground",
+   "data": [
+    [
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 4
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 4
+     },
+     {
+      "ts": "overworld",
+      "c": 18,
+      "r": 4
+     },
+     {
+      "ts": "overworld",
+      "c": 19,
+      "r": 4
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 5
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 5
+     },
+     {
+      "ts": "overworld",
+      "c": 18,
+      "r": 5
+     },
+     {
+      "ts": "overworld",
+      "c": 19,
+      "r": 5
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 1
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 18
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 9
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 7,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 5,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     },
+     {
+      "ts": "overworld",
+      "c": 6,
+      "r": 10
+     }
+    ]
+   ]
+  },
+  {
+   "name": "over",
+   "data": [
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 16
+     },
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 16
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 13
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 6
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 7
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 7
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 7
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 7
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 7
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 7
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 8
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 15,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 6
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 16,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 17,
+      "r": 8
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 23
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 12
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 16
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 23
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 15
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 16
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 12,
+      "r": 23
+     },
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 11
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     },
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 11
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 12
+     },
+     null,
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 12
+     },
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 14
+     }
+    ],
+    [
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 15
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 1,
+      "r": 16
+     },
+     null,
+     null,
+     {
+      "ts": "overworld",
+      "c": 0,
+      "r": 16
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 2,
+      "r": 13
+     },
+     {
+      "ts": "overworld",
+      "c": 3,
+      "r": 15
+     }
+    ]
+   ]
+  }
+ ],
+ "objects": [
+  {
+   "name": "gatekeeper",
+   "x": 14,
+   "y": 2
+  },
+  {
+   "name": "sapiente-viola",
+   "x": 5,
+   "y": 2
+  },
+  {
+   "name": "lantern",
+   "x": 4,
+   "y": 2
+  },
+  {
+   "name": "mage",
+   "x": 22,
+   "y": 2
+  },
+  {
+   "name": "lantern",
+   "x": 23,
+   "y": 2
+  },
+  {
+   "name": "sapiente-rosso",
+   "x": 17,
+   "y": 12
+  },
+  {
+   "name": "merchant",
+   "x": 12,
+   "y": 17
+  },
+  {
+   "name": "tree-oak",
+   "x": 9,
+   "y": 10
+  },
+  {
+   "name": "tree-tall",
+   "x": 26,
+   "y": 10
+  },
+  {
+   "name": "tree",
+   "x": 20,
+   "y": 11
+  },
+  {
+   "name": "tree-tall",
+   "x": 7,
+   "y": 16
+  },
+  {
+   "name": "tree-oak",
+   "x": 24,
+   "y": 14
+  },
+  {
+   "name": "tree-oak-autumn",
+   "x": 3,
+   "y": 17
+  },
+  {
+   "name": "tree-pine",
+   "x": 25,
+   "y": 3
+  },
+  {
+   "name": "tree-pine",
+   "x": 27,
+   "y": 3
+  },
+  {
+   "name": "key",
+   "x": 26,
+   "y": 2
+  },
+  {
+   "name": "bush",
+   "x": 25,
+   "y": 16
+  },
+  {
+   "name": "bush",
+   "x": 26,
+   "y": 17
+  },
+  {
+   "name": "chestClosed",
+   "x": 27,
+   "y": 17
+  },
+  {
+   "name": "book",
+   "x": 24,
+   "y": 5
+  },
+  {
+   "name": "animal-duck",
+   "x": 8,
+   "y": 5
+  },
+  {
+   "name": "animal-frog",
+   "x": 12,
+   "y": 7
+  },
+  {
+   "name": "animal-butterfly",
+   "x": 20,
+   "y": 10
+  },
+  {
+   "name": "animal-cat",
+   "x": 5,
+   "y": 17
+  }
+ ]
+}

@@ -1,499 +1,2981 @@
 /* ============================================================================
- * mappai-games.js — Dungeon Explorer (gioco di studio, v1)
+ * mappai-games.js — MEMORY DUNGEON (gioco di studio)
+ * Design completo: docs/game-design/MEMORY_DUNGEON_DESIGN.md
  * ----------------------------------------------------------------------------
- * Trasforma il grafo dello studente (MM o KG) in un dungeon roguelike isometrico
- * 3D. La topologia resta nascosta dalla nebbia finché non si esplora; il grafo
- * "vero" emerge solo a fine piano (reveal dei link). Avatar a solidi platonici:
- *   - FORMA  = literacy (n. concetti padroneggiati)
- *   - COLORE = fluency  (bande Precision Teaching, giallo->verde->blu)
+ * Loop: piani=livelli nodi → stanze con device → SBLOCCO (WM/calcolo) →
+ *   estrai memory unit → CATTURA (diario) → DOOR KEEPER → BOSS → heatmap → reveal.
  *
- * Dati REALI:
- *   - nodi/link:  appState.db.nodes / .links  (via _getAppState)
- *   - colori:     colorScale (app.js:~6239, NON su window -> mirror sotto)
- *                 + appState.db.customColors (override utente)  -> _groupColor()
- *   - mastery:    window.MappAIMastery (.node / .masteryLevel / .record / .FLUENCY_AIM)
+ * STATO IMPLEMENTAZIONE (build incrementale, "fresco su rot.js"):
+ *   [SLICE 1 ✓] Sblocco device: sequenza simboli + calcolo, difficoltà adattiva, WM.
+ *   [SLICE 2 ✓] Esplorazione rot.js (piani=livelli, fog, device) + duello F/J + diario.
+ *   [SLICE 3 ✓] Door keeper (gate quiz).
+ *   [SLICE 4 ✓] CATTURA ATTIVA (sintesi/TTS, gap #1) + BOSS Guardiano + heatmap + reveal (gap #3).
+ *       TODO residuo: spaced retrieval nel gate (gap), telemetria unificata, mapping KG.
  *
- * Dipendenze: THREE (vendor/three.min.js). Caricato lazy: serve solo a openDungeon().
- * Pienamente reversibile: nessun edit ad app.js. Gated da flag opzionale
- * 'mappai_games_enabled' (l'apertura da console funziona comunque).
- *
- * Uso:  MappAIGames.openDungeon()        apri il gioco sul grafo corrente
- *       MappAIGames.enable()/disable()   set/unset flag localStorage
+ * Reversibile: gated da flag 'mappai_games_enabled' (console funziona comunque).
+ * Prova lo sblocco:  MappAIGames.testUnlock()
  * ==========================================================================*/
 (function () {
   'use strict';
   if (typeof window === 'undefined') return;
 
-  // Mirror della colorScale di app.js (è const dentro l'IIFE, non esposta su window).
-  var COLOR_SCALE = {
-    0: '#0f172a', 1: '#ef4444', 2: '#f59e0b', 3: '#10b981',
-    4: '#0ea5e9', 5: '#6366f1', 6: '#d946ef', 7: '#8b5cf6'
-  };
+  var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ─────────────────────────── helpers stato/grafo ───────────────────────────
-  function _getAppState() {
-    try { return (typeof appState !== 'undefined') ? appState : window.appState; }
-    catch (e) { return window.appState; }
-  }
+  // ─────────────────────────── helper condivisi ──────────────────────────────
+  function _getAppState() { try { return (typeof appState !== 'undefined') ? appState : window.appState; } catch (e) { return window.appState; } }
   function _clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
-  function _toast(m, t) { if (window.showToast) window.showToast(m, t); else console.log('[games]', m); }
-  function _sid(l) { return typeof l.source === 'object' ? l.source.id : l.source; }
-  function _tid(l) { return typeof l.target === 'object' ? l.target.id : l.target; }
   function _desc(n) { return _clean((n && (n.desc || n.content)) || ''); }
-
-  function _hex(s) {
-    if (typeof s === 'number') return s;
-    s = String(s || '#6366f1').replace('#', '');
-    if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
-    var v = parseInt(s, 16);
-    return isNaN(v) ? 0x6366f1 : v;
-  }
-  function _groupColor(group) {
-    var st = _getAppState();
-    var cc = st && st.db && st.db.customColors;
-    if (cc && cc[group] != null) return _hex(cc[group]);
-    if (COLOR_SCALE[group] != null) return _hex(COLOR_SCALE[group]);
-    return 0x6366f1;
-  }
-  function _lighten(c, k) {
-    var r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
-    if (k >= 0) { r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k; }
-    else { r *= (1 + k); g *= (1 + k); b *= (1 + k); }
-    return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
-  }
-
-  // ─────────────────────────── bridge Precision Teaching ─────────────────────
+  // taglio "morbido": mai a metà parola/frase — chiude all'ultima frase o parola intera prima di max
+  function _softCut(s, max) { s = String(s || '').trim(); if (s.length <= max) return s; var c = s.slice(0, max), d = c.lastIndexOf('. '); if (d > max * 0.5) return c.slice(0, d + 1); var sp = c.lastIndexOf(' '); return (sp > 0 ? c.slice(0, sp) : c) + '…'; }
+  function _toast(m, t) { if (window.showToast) window.showToast(m, t); else console.log('[memory-dungeon]', m); }
   function _M() { return window.MappAIMastery || null; }
   function _mnode(id) { try { return _M() ? _M().node(id) : null; } catch (e) { return null; } }
   function _level(id) { var m = _M(); return (m && m.masteryLevel) ? m.masteryLevel(_mnode(id)) : 'nuovo'; }
   function _mastered(id) { var l = _level(id); return l === 'acquisito' || l === 'fluente'; }
-  function _studied(id) { var n = _mnode(id); return !!(n && n.attempts); }
-  function _aim() { var m = _M(); return (m && m.FLUENCY_AIM) || 8; }
-  function _fluency(id) {
-    var n = _mnode(id); if (!n || !n.attempts) return 0;
-    var AIM = _aim();
-    var a = Math.min(n.accuracy / 0.8, 1) * 0.4, r = 0;
-    if (n.accuracy >= 0.8 && n.rate != null)
-      r = Math.min(n.rate / AIM, 1) * 0.4 + Math.max(0, (n.rate - AIM) / AIM) * 0.2;
-    return Math.min(a + r, 1);
+
+  // sprite sheet loader (asset 8-bit in public/assets/rogue8x8). char/item: cella 8 + gap 1; tileset: 16×16.
+  var _SHEETS = {};
+  function _sheet(n) { if (!_SHEETS[n]) { var i = new Image(); i.src = 'assets/' + n; _SHEETS[n] = i; } return _SHEETS[n]; }
+  function _ready(img) { return img && img.complete && img.naturalWidth > 0; }
+  function _cd(ctx, sheet, sk, cell, dx, dy, TS) { var U = sk.cell + sk.gap; ctx.drawImage(sheet, cell[0] * U, cell[1] * U, sk.cell, sk.cell, dx, dy, TS, TS); }
+  var THEMES = [
+    { n: 'pietra', t: '#9aa0ad' }, { n: 'muschio', t: '#79a85f' }, { n: 'sotterraneo', t: '#a07f55' },
+    { n: 'ghiaccio', t: '#a8d8ec' }, { n: 'acqua', t: '#5f9ad6' }, { n: 'magma', t: '#d76a35' }
+  ];
+  // tile [col,row] nel tileset Fantastic Dungeons (16×16) — da data.js originale
+  var THEME_TILES = {
+    pietra: { floor: [3, 1], wall: [2, 5] }, muschio: { floor: [7, 0], wall: [0, 5] },
+    sotterraneo: { floor: [0, 6], wall: [1, 4] }, ghiaccio: { floor: [6, 7], wall: [3, 6] },
+    acqua: { floor: [6, 8], wall: [7, 2] }, magma: { floor: [1, 6], wall: [4, 12] }
+  };
+  var PLAYER_ANIM = [[23, 0], [24, 0], [25, 0], [24, 0]];      // player_male (data.js 7drl-2016)
+  var PLAYER_ANIM_F = [[26, 0], [27, 0], [28, 0], [27, 0]];    // player_female
+  // nemici (coord base [col,row] da data.js; anim 4-frame [c-1,c,c+1,c])
+  var ENEMIES = [
+    { n: 'Scheletro', c: 30, r: 0 }, { n: 'Pipistrello', c: 24, r: 1 }, { n: 'Fantasma', c: 27, r: 1 },
+    { n: 'Ragno', c: 30, r: 1 }, { n: 'Goblin', c: 27, r: 2 }, { n: 'Ratto', c: 30, r: 2 },
+    { n: 'Golem', c: 24, r: 3 }, { n: 'Mummia', c: 27, r: 3 }, { n: 'Teschio', c: 30, r: 3 }
+  ];
+  function _mobAnim(e) { return [[e.c - 1, e.r], [e.c, e.r], [e.c + 1, e.r], [e.c, e.r]]; }
+  var SKELETON_TILE = [30, 0];   // corpo → scheletro
+  var ITEM_TILES = { coin: [8, 9], gem: [11, 9], potion_green: [8, 13], potion_blue: [8, 13] }; // coord REALI da data.js: coin[8,9] gem[11,9] potion[8,13] (unico sprite pozione)
+
+  // ───────── SKIN "Legend of Lua" (reskin grafico, asset MIT in public/assets/legendoflua) ─────────
+  // Reversibile: localStorage 'mappai_dungeon_skin' = 'lol' (default) | 'fantastic' (vecchio tileset).
+  // Tileset LoL = 16×16, gap 0; sprite-file singoli di dimensioni varie (vedi LOL.spr).
+  function _skin() { try { return localStorage.getItem('mappai_dungeon_skin') || 'lol'; } catch (e) { return 'lol'; } }
+  var LOL = {
+    // bioma → tileset + coord [col,row] di pavimento/muro/acqua (verificate a video 2026-06-29)
+    biomes: {
+      giardino: { sheet: 'legendoflua/tilesets/overworld.png', floor: [0, 0], wall: [11, 5], water: [0, 1] },
+      foresta:  { sheet: 'legendoflua/tilesets/overworld.png', floor: [0, 0], wall: [11, 5], water: [0, 1] },
+      interni:  { sheet: 'legendoflua/tilesets/inner.png',     floor: [1, 3], wall: [0, 1],  water: null },
+      caverna:  { sheet: 'legendoflua/tilesets/cave.png',      floor: [2, 2], wall: [1, 0],  water: [1, 7] },
+      // S4: borgo — erba + muro mattone tan (coord verificate in tools/assets-manager/atlas) + fiori come decal sparso
+      villaggio: { sheet: 'legendoflua/tilesets/overworld.png', floor: [0, 10], wall: [33, 18], water: [0, 1], decals: [[2, 11], [3, 11]], decalPct: 6 }
+    },
+    player: { sheet: 'legendoflua/sprites/player/playerSheet', fw: 19, fh: 21 },   // +outfit+'.png'; griglia 5×10: riga0 down, riga1 up, riga7 idle
+    spr: {  // sprite-file singoli: {s:path, fw,fh frame, n:numero frame in orizzontale}
+      chestClosed: { s: 'legendoflua/sprites/environment/chestClosed.png', fw: 15, fh: 19, n: 1 },
+      chestOpen:   { s: 'legendoflua/sprites/environment/chestOpen.png',   fw: 15, fh: 19, n: 1 },
+      vaso:        { s: 'legendoflua/sprites/items/container.png',         fw: 12, fh: 11, n: 1 },
+      door:        { s: 'legendoflua/sprites/environment/lockedDoor.png',  fw: 16, fh: 24, n: 1 },
+      coin:        { s: 'legendoflua/sprites/items/coin.png',              fw: 8,  fh: 8,  n: 1 },
+      gem:         { s: 'legendoflua/sprites/items/key.png',               fw: 8,  fh: 13, n: 1 },
+      potion:      { s: 'legendoflua/sprites/items/heart.png',             fw: 11, fh: 10, n: 1 },
+      book:        { s: 'legendoflua/sprites/items/book.png',              fw: 16, fh: 16, n: 2 },   // memory-item libro: frame0 chiuso, frame1 aperto (catturato)
+      scroll:      { s: 'legendoflua/sprites/items/scroll.png',            fw: 16, fh: 16, n: 2 },   // memory-item scroll: frame0 arrotolato, frame1 aperto
+      bat:         { s: 'legendoflua/sprites/enemies/bat.png',             fw: 16, fh: 16, n: 2 },
+      skeleton:    { s: 'legendoflua/sprites/enemies/skeleton/knife.png',  fw: 20, fh: 24, n: 2 },
+      mage:        { s: 'legendoflua/sprites/enemies/skeleton/mage.png',   fw: 20, fh: 24, n: 3 },
+      guardian:    { s: 'legendoflua/sprites/enemies/boss_guardian.png',   fw: 32, fh: 32, n: 4 },   // BOSS "Guardiano della Memoria" (custom, palette LoL)
+      corpse:      { s: 'legendoflua/sprites/enemies/batDead.png',         fw: 16, fh: 16, n: 1 },
+      npc:         { s: 'legendoflua/sprites/npc/merchant.png',            fw: 16, fh: 23, n: 1 },
+      custode:     { s: 'legendoflua/sprites/npc/sapiente-viola.png',      fw: 16, fh: 23, n: 1 },   // HUB S2: Custode del Sapere
+      tree:        { s: 'legendoflua/sprites/environment/tree.png',        fw: 63, fh: 62, n: 1 },
+      lantern:     { s: 'legendoflua/sprites/items/lantern.png',           fw: 16, fh: 16, n: 1 }    // S4: totem FE nelle radure
+    }
+  };
+  // tile decorativi del giardino (coord nel tileset overworld): erba fiorita come accento
+  var LOL_GARDEN = { flower: [0, 5] };
+  // ───────── MAPPA CURATA del giardino (map-editor → runtime, hub "Giardino dei Sapienti") ─────────
+  // JSON in public/assets/maps/ (schema v2 dell'editor, parse in mappai-map-loader.js).
+  // Flag 'mappai_garden_map' (default ON). OFF, parse fallito o skin≠lol → giardino procedurale.
+  var GARDEN_MAPS = ['giardino1_chiostro', 'giardino2_radura', 'giardino3_ruscello', 'giardino4_quattro', 'giardino5_lago'];
+  // sprite oggetti dell'editor: nome → def formato LOL.spr (dimensioni verificate sui PNG 4/7/26)
+  var CMAP_SPR = {
+    'tree-oak':         { s: 'legendoflua/sprites/environment/tree-oak.png', fw: 64, fh: 64, n: 1 },
+    'tree-oak-autumn':  { s: 'legendoflua/sprites/environment/tree-oak-autumn.png', fw: 64, fh: 64, n: 1 },
+    'tree-tall':        { s: 'legendoflua/sprites/environment/tree-tall.png', fw: 64, fh: 64, n: 1 },
+    'tree-tall-autumn': { s: 'legendoflua/sprites/environment/tree-tall-autumn.png', fw: 64, fh: 64, n: 1 },
+    'tree-pine':        { s: 'legendoflua/sprites/environment/tree-pine.png', fw: 64, fh: 64, n: 1 },
+    'tree-old':         { s: 'legendoflua/sprites/environment/tree-old.png', fw: 63, fh: 62, n: 1 },
+    tree:               { s: 'legendoflua/sprites/environment/tree.png', fw: 63, fh: 62, n: 1 },
+    tree2:              { s: 'legendoflua/sprites/environment/tree2.png', fw: 63, fh: 62, n: 1 },
+    bush:               { s: 'legendoflua/sprites/environment/bush.png', fw: 64, fh: 64, n: 1 },
+    breakableRock:      { s: 'legendoflua/sprites/environment/breakableRock.png', fw: 32, fh: 26, n: 1 },
+    breakableWall:      { s: 'legendoflua/sprites/environment/breakableWall.png', fw: 16, fh: 32, n: 1 },
+    key:                { s: 'legendoflua/sprites/items/key.png', fw: 8, fh: 13, n: 1 },
+    'animal-cat':       { s: 'legendoflua/sprites/environment/animal-cat.png', fw: 14, fh: 11, n: 1 },
+    'animal-chicken':   { s: 'legendoflua/sprites/environment/animal-chicken.png', fw: 13, fh: 12, n: 1 },
+    'animal-duck':      { s: 'legendoflua/sprites/environment/animal-duck.png', fw: 13, fh: 10, n: 1 },
+    'animal-frog':      { s: 'legendoflua/sprites/environment/animal-frog.png', fw: 13, fh: 10, n: 1 },
+    'animal-butterfly': { s: 'legendoflua/sprites/environment/animal-butterfly.png', fw: 13, fh: 11, n: 1 }
+  };
+  // gli oggetti già noti a LOL.spr riusano quelle def
+  CMAP_SPR.chestClosed = LOL.spr.chestClosed; CMAP_SPR.chestOpen = LOL.spr.chestOpen;
+  CMAP_SPR.lockedDoor = LOL.spr.door; CMAP_SPR.container = LOL.spr.vaso;
+  CMAP_SPR.book = LOL.spr.book; CMAP_SPR.scroll = LOL.spr.scroll;
+  CMAP_SPR.lantern = LOL.spr.lantern; CMAP_SPR.coin = LOL.spr.coin; CMAP_SPR.heart = LOL.spr.potion;
+  // slot NPC-contenuto della mappa curata → 4 Sapienti distinti (il viola resta il Custode)
+  var CMAP_NPC_SPR = [
+    { s: 'legendoflua/sprites/npc/sapiente-rosso.png', fw: 16, fh: 23, n: 1 },
+    { s: 'legendoflua/sprites/npc/sapiente-blu.png', fw: 16, fh: 23, n: 1 },
+    { s: 'legendoflua/sprites/npc/sapiente-ocra.png', fw: 16, fh: 23, n: 1 },
+    { s: 'legendoflua/sprites/npc/merchant.png', fw: 16, fh: 23, n: 1 }
+  ];
+  function _gardenMapOn() { try { return localStorage.getItem('mappai_garden_map') !== '0' && !!window.MappAIMapLoader; } catch (e) { return !!window.MappAIMapLoader; } }
+  // stesso progetto → stesso giardino (identità del luogo); cache promise per nome
+  function _gardenMapName() {
+    var st = _getAppState(), seed = (st && st.rootNodeLabel) || '';
+    var L = window.MappAIMapLoader;
+    return GARDEN_MAPS[L ? L.pickMapIndex(seed, GARDEN_MAPS.length) : 0];
   }
-  // v1: studio simulato (✓/✗). In futuro: lanciare le attività reali di mappai-active-study.
-  function _record(id, label, ok) {
-    var m = _M(); if (!m) return;
-    m.record(id, label, 'dungeon', { score: ok ? 1 : 0, rate: ok ? (9 + Math.random() * 5) : (Math.random() * 3) });
+  var _gmapP = {};
+  function _gardenMapFetch() {
+    if (!_gardenMapOn()) return Promise.resolve(null);
+    var name = _gardenMapName();
+    if (!_gmapP[name]) {
+      _gmapP[name] = fetch('assets/maps/' + name + '.json')
+        .then(function (r) { return r.json(); })
+        .then(function (j) { return window.MappAIMapLoader.parseMap(j); })
+        .catch(function (e) { console.warn('[giardino] mappa curata non caricata, uso procedurale:', e); return null; });
+    }
+    return _gmapP[name];
+  }
+  // bioma per piano. v2 (S4, flag 'mappai_biomes_v2' default ON): kind+profondità →
+  // giardino → foresta → villaggio → interni → caverna; radura=foresta, scuola=villaggio.
+  // A '0' → mapping storico (foresta/interni/caverna a frazione).
+  function _biomesV2On() { try { return localStorage.getItem('mappai_biomes_v2') !== '0'; } catch (e) { return true; } }
+  function _lolBiome(i) {
+    if (!DUN) return LOL.biomes.foresta;
+    var f = DUN.floors[i] || DUN.floors[DUN.fi] || {};
+    if (f.kind === 'giardino') return LOL.biomes.giardino;
+    var nf = DUN.floors.length || 1, frac = nf <= 1 ? 0 : i / (nf - 1);
+    if (!_biomesV2On()) return frac < 0.34 ? LOL.biomes.foresta : (frac < 0.7 ? LOL.biomes.interni : LOL.biomes.caverna);
+    if (f.kind === 'scuola') return LOL.biomes.villaggio;
+    if (f.kind === 'radura') return LOL.biomes.foresta;
+    if (frac < 0.25) return LOL.biomes.foresta;
+    if (frac < 0.5) return LOL.biomes.villaggio;
+    if (frac < 0.75) return LOL.biomes.interni;
+    return LOL.biomes.caverna;
+  }
+  function _lolTile(ctx, sheet, c, TS, dx, dy) { ctx.drawImage(sheet, c[0] * 16, c[1] * 16, 16, 16, dx, dy, TS, TS); }
+  function _cmapSheet(ts) { return _sheet('legendoflua/tilesets/' + (ts || 'overworld') + '.png'); }   // tileset per nome (mappe curate)
+  // sprite-file: frame orizzontale, scala 1 tile=16 logici, centrato in x e con i "piedi" sul tile
+  function _lolSpr(ctx, def, frame, TS, dx, dy, opt) {
+    var img = _sheet(def.s); if (!_ready(img)) return false;
+    var fr = (frame || 0) % (def.n || 1), sxp = fr * def.fw, sc = TS / 16;
+    var dw = def.fw * sc, dh = def.fh * sc, ox = dx + (TS - dw) / 2, oy = dy + (TS - dh);
+    if (!(opt && opt.noShadow)) _lolShadow(ctx, dx, dy, TS, Math.min(0.42, dw / TS * 0.28));
+    if (opt && opt.flip) { ctx.save(); ctx.translate(ox + dw, oy); ctx.scale(-1, 1); ctx.drawImage(img, sxp, 0, def.fw, def.fh, 0, 0, dw, dh); ctx.restore(); }
+    else ctx.drawImage(img, sxp, 0, def.fw, def.fh, ox, oy, dw, dh);
+    return true;
+  }
+  // player: griglia multi-riga (down/up/idle), flip orizzontale per il movimento a sinistra
+  function _lolPlayer(ctx, TS, dx, dy, moving, facing) {
+    var img = _sheet(LOL.player.sheet + (DUN.lolOutfit || 1) + '.png'); if (!_ready(img)) return false;
+    _lolShadow(ctx, dx, dy, TS, 0.28);
+    var fw = LOL.player.fw, fh = LOL.player.fh, up = facing && facing[1] < 0;
+    var row = moving ? (up ? 1 : 0) : 7, ncol = moving ? 2 : 4;
+    var col = Math.floor(performance.now() / (moving ? 150 : 350)) % ncol;
+    var sc = TS / 16, dw = fw * sc, dh = fh * sc, ox = dx + (TS - dw) / 2, oy = dy + (TS - dh);
+    if (facing && facing[0] < 0) { ctx.save(); ctx.translate(ox + dw, oy); ctx.scale(-1, 1); ctx.drawImage(img, col * fw, row * fh, fw, fh, 0, 0, dw, dh); ctx.restore(); }
+    else ctx.drawImage(img, col * fw, row * fh, fw, fh, ox, oy, dw, dh);
+    return true;
+  }
+  function _lolMobSpr(mo) { var n = mo.name || ''; return (n === 'Pipistrello' || n === 'Ratto' || n === 'Ragno') ? LOL.spr.bat : LOL.spr.skeleton; }
+  // ───────── POLISH uso-asset (reversibile: localStorage 'mappai_dungeon_polish' = '1' default | '0' off) ─────────
+  function _polish() { try { return localStorage.getItem('mappai_dungeon_polish') !== '0'; } catch (e) { return true; } }
+  // ombra-blob ai piedi dello sprite (toglie il "fluttuare"). wfrac = larghezza rispetto a TS.
+  function _lolShadow(ctx, dx, dy, TS, wfrac) {
+    if (!_polish()) return;
+    ctx.save(); ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; ctx.globalAlpha = 0.28; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(dx + TS / 2, dy + TS - TS * 0.10, TS * (wfrac || 0.30), TS * 0.13, 0, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  }
+  // vignette buia centrata sul player + luci su keeper/boss; solo biomi scuri (caverna/interni) o gate/boss
+  function _lolDark(ctx, W, H, TS, camX, camY) {
+    if (!_polish()) return;
+    var bio = _lolBiome(DUN.fi);
+    var dark = bio === LOL.biomes.caverna || bio === LOL.biomes.interni || DUN.gateRoom || (DUN.boss && !DUN.boss.defeated);
+    if (!dark) return;
+    var px = Math.round(DUN.px * TS - camX) + TS / 2, py = Math.round(DUN.py * TS - camY) + TS / 2;
+    var g = ctx.createRadialGradient(px, py, TS * 1.3, px, py, TS * 4.6);
+    g.addColorStop(0, 'rgba(6,4,12,0)'); g.addColorStop(0.6, 'rgba(6,4,12,0.34)'); g.addColorStop(1, 'rgba(4,2,10,0.88)');
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    function light(wx, wy, col) { var lx = Math.round(wx * TS - camX) + TS / 2, ly = Math.round(wy * TS - camY) + TS / 2, lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, TS * 2.2); lg.addColorStop(0, col); lg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H); }
+    if (DUN.gateRoom) light(DUN.gateRoom.bx, DUN.gateRoom.by, 'rgba(191,105,121,0.40)');
+    if (DUN.boss && !DUN.boss.defeated) light(DUN.boss.x, DUN.boss.y, 'rgba(210,75,143,0.42)');
+    ctx.restore();
+  }
+  // bolla interazione (pixel-art) sopra un'entità: '?' = keeper, '…' = npc
+  function _lolBubble(ctx, dx, dy, TS, ch) {
+    if (!_polish()) return;
+    var w = Math.round(TS * 0.5), h = Math.round(TS * 0.4), x = Math.round(dx + TS / 2 - w / 2), y = Math.round(dy - h - 3);
+    ctx.save(); ctx.shadowBlur = 0; ctx.fillStyle = '#000'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#000'; ctx.fillRect(x + Math.round(w / 2) - 2, y + h, 4, 4);
+    ctx.fillStyle = '#222'; ctx.font = 'bold ' + Math.round(h * 0.78) + 'px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ch, x + w / 2, y + h / 2 + 1); ctx.restore();
+  }
+  // variante testo del bubble (emote-bubble NPC: termine-chiave, priming passivo SDS §6)
+  function _lolBubbleText(ctx, dx, dy, TS, txt) {
+    if (!_polish() || !txt) return;
+    var fs = Math.max(9, Math.round(TS * 0.28));
+    ctx.save(); ctx.shadowBlur = 0; ctx.font = 'bold ' + fs + 'px monospace';
+    var w = Math.round(ctx.measureText(txt).width) + 8, h = fs + 6;
+    var x = Math.round(dx + TS / 2 - w / 2), y = Math.round(dy - h - 3);
+    ctx.fillStyle = '#000'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = '#fffbe6'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#000'; ctx.fillRect(x + Math.round(w / 2) - 2, y + h, 4, 4);
+    ctx.fillStyle = '#4a3a10'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(txt, x + w / 2, y + h / 2 + 1); ctx.restore();
+  }
+  // banner boss in basso quando il Guardiano è visibile
+  function _lolBossBar(ctx, W, H) {
+    if (!_polish() || !DUN.boss || DUN.boss.defeated) return;
+    if (!DUN.visible[DUN.boss.x + ',' + DUN.boss.y]) return;
+    var bw = W * 0.6, bx = (W - bw) / 2, by = H - 30;
+    ctx.save(); ctx.shadowBlur = 0; ctx.textAlign = 'center'; ctx.fillStyle = '#d7d2c7'; ctx.font = '12px monospace';
+    ctx.fillText('⚔ GUARDIANO DELLA MEMORIA', W / 2, by - 4);
+    ctx.fillStyle = '#2a1218'; ctx.fillRect(bx - 2, by, bw + 4, 10);
+    ctx.fillStyle = '#d24b54'; ctx.fillRect(bx, by + 2, bw, 6);
+    ctx.restore();
+  }
+  // STAGED (non attivo finché bio.decals non è definito + verificato per-biome): decal sparso deterministico
+  function _lolDecal(ctx, sheet, bio, x, y, TS, sx, sy) {
+    if (!_polish() || !bio.decals || !bio.decals.length) return;
+    var hsh = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    if ((hsh % 100) >= (bio.decalPct || 7)) return;
+    _lolTile(ctx, sheet, bio.decals[hsh % bio.decals.length], TS, sx, sy);
+  }
+  // libro e pergamena NON esistono nel tileset Fantastic Dungeons → disegnati a canvas (vettoriale)
+  // per avere 3 oggetti-memoria distinti: forziere (tile chest), libro, pergamena.
+  function _drawBook(ctx, dx, dy, TS, ext) {
+    var p = TS * 0.16, x = dx + p, y = dy + p, w = TS - 2 * p, h = TS - 2 * p;
+    ctx.save(); ctx.globalAlpha = ext ? 0.4 : 1;
+    ctx.fillStyle = '#7c3a26'; ctx.fillRect(x, y, w, h);                                       // copertina
+    ctx.fillStyle = '#f2e9d0'; ctx.fillRect(x + w * 0.18, y + h * 0.1, w * 0.74, h * 0.8);     // pagine
+    ctx.strokeStyle = '#c9a86a'; ctx.lineWidth = Math.max(1, TS * 0.03);
+    for (var i = 1; i <= 3; i++) { var ly = y + h * 0.1 + h * 0.8 * i / 4; ctx.beginPath(); ctx.moveTo(x + w * 0.24, ly); ctx.lineTo(x + w * 0.86, ly); ctx.stroke(); }
+    ctx.fillStyle = '#5e2b1c'; ctx.fillRect(x + w * 0.46, y, w * 0.08, h);                     // dorso
+    ctx.restore();
+  }
+  function _drawScroll(ctx, dx, dy, TS, ext) {
+    var p = TS * 0.18, x = dx + p, y = dy + p, w = TS - 2 * p, h = TS - 2 * p;
+    ctx.save(); ctx.globalAlpha = ext ? 0.4 : 1;
+    ctx.fillStyle = '#e7d6a6'; ctx.fillRect(x, y + h * 0.2, w, h * 0.6);                        // pergamena
+    ctx.fillStyle = '#c8a566'; ctx.fillRect(x, y + h * 0.06, w, h * 0.16); ctx.fillRect(x, y + h * 0.78, w, h * 0.16); // rotoli
+    ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = Math.max(1, TS * 0.025);
+    for (var j = 0; j < 3; j++) { var sy = y + h * 0.34 + j * h * 0.13; ctx.beginPath(); ctx.moveTo(x + w * 0.2, sy); ctx.lineTo(x + w * 0.8, sy); ctx.stroke(); }
+    ctx.restore();
   }
 
-  // ─────────────────────────── costruzione piani dal grafo ───────────────────
-  function _spiral(n) {
-    var res = [[0, 0]], x = 0, z = 0, dx = 1, dz = 0, steps = 1, turn = 0;
-    while (res.length < n) {
-      for (var s = 0; s < steps && res.length < n; s++) { x += dx; z += dz; res.push([x, z]); }
-      var ndx = -dz, ndz = dx; dx = ndx; dz = ndz; turn++; if (turn % 2 === 0) steps++;
-    }
-    return res;
+  // suoni (set 7drl-2016, libreria Kenney/LittleRobot — vedi credits.md)
+  var SND_KEY = 'mappai_dungeon_sound', _AUDIO = {};
+  function _soundOn() { return localStorage.getItem(SND_KEY) !== '0'; }   // default ON
+  function _snd(name) { try { if (!_soundOn()) return; var a = _AUDIO[name]; if (!a) { a = new Audio('assets/fantasticdungeons/assets/sounds/' + name + '.ogg'); _AUDIO[name] = a; } a.currentTime = 0; a.play().catch(function () {}); } catch (e) {} }
+
+  // ── combat: set di simboli/tasti + logica risposta (personalizzabili dal pannello) ──
+  var COMBAT_SETS = {
+    fj: { a: { sym: 'F', key: 'f' }, b: { sym: 'J', key: 'j' } },
+    arrows: { a: { sym: '←', key: 'arrowleft' }, b: { sym: '→', key: 'arrowright' } }
+  };
+  function _combatCfg() {
+    var keys = 'fj', mode = 'opposto';
+    try { keys = localStorage.getItem('mappai_dungeon_combat_keys') || 'fj'; mode = localStorage.getItem('mappai_dungeon_combat_mode') || 'opposto'; } catch (e) {}
+    if (!COMBAT_SETS[keys]) keys = 'fj';
+    return { keys: keys, mode: (mode === 'diritto' ? 'diritto' : 'opposto'), set: COMBAT_SETS[keys] };
   }
-  function _layout(memberIds, adj, start) {
-    var seen = {}, order = [start]; seen[start] = true;
-    for (var i = 0; i < order.length; i++) {
-      var cur = order[i]; (adj[cur] || []).forEach(function (nb) { if (!seen[nb]) { seen[nb] = true; order.push(nb); } });
-    }
-    memberIds.forEach(function (id) { if (!seen[id]) { seen[id] = true; order.push(id); } });
-    var sp = _spiral(order.length), pos = {};
-    order.forEach(function (id, idx) { pos[id] = { gx: sp[idx][0], gz: sp[idx][1] }; });
-    return pos;
+  // fumetto nemico — pixel-art puro (rettangoli netti, niente curve → niente mixel). Dim. +100% (68×60 → 136×120).
+  function _balloon(ctx, cx, baseY, letter) {
+    var w = 136, h = 120, b = 6, x = Math.round(cx - w / 2), y = Math.round(baseY - h), cxr = Math.round(cx);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000'; ctx.fillRect(x - b, y - b, w + 2 * b, h + 2 * b);   // outline nero a blocco
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, h);                            // fondo bianco
+    // coda a gradini (pixel)
+    ctx.fillStyle = '#000'; ctx.fillRect(cxr - 14, y + h, 28, 14); ctx.fillRect(cxr - 9, y + h + 14, 18, 10); ctx.fillRect(cxr - 4, y + h + 24, 8, 8);
+    ctx.fillStyle = '#fff'; ctx.fillRect(cxr - 8, y + h, 16, 12); ctx.fillRect(cxr - 4, y + h + 12, 8, 9);
+    ctx.fillStyle = '#111'; ctx.font = 'bold 84px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(letter, cxr, y + h / 2);
   }
-  function _buildFloors() {
-    var st = _getAppState();
-    var nodes = (st && st.db && st.db.nodes) || [];
-    var links = (st && st.db && st.db.links) || [];
-    if (!nodes.length) return null;
-    var mode = (st && st.extractionMode) || 'mindmap';
-    function isMacro(n) {
-      if (String(n.id).indexOf('COMM_') === 0) return true;
-      if (mode === 'mindmap') return n.level === 1;
-      return false;
+
+  // ─────────────────────────── persistenza skill + WM ────────────────────────
+  var SKILL_KEY = 'mappai_dungeon_skill';   // { seq, calc }  livelli adattivi 1..7
+  var WM_KEY = 'mappai_dungeon_wm';          // 0..100 misuratore memoria di lavoro
+  function _skill() {
+    try { return Object.assign({ seq: 1, calc: 1 }, JSON.parse(localStorage.getItem(SKILL_KEY) || '{}')); }
+    catch (e) { return { seq: 1, calc: 1 }; }
+  }
+  function _saveSkill(s) { try { localStorage.setItem(SKILL_KEY, JSON.stringify(s)); } catch (e) {} }
+  function _wm() { var v = parseFloat(localStorage.getItem(WM_KEY)); return isNaN(v) ? 0 : v; }
+  function _saveWm(v) { try { localStorage.setItem(WM_KEY, String(Math.round(v))); } catch (e) {} }
+  function _bumpLevel(kind, up) {
+    var s = _skill();
+    s[kind] = Math.max(1, Math.min(7, (s[kind] || 1) + (up ? 1 : -1)));
+    _saveSkill(s); return s[kind];
+  }
+  // Quick win C/D — onboarding + modalità studio (combat opzionale)
+  function _onboarded() { return localStorage.getItem('mappai_dungeon_onboarded') === '1'; }
+  function _setOnboarded() { try { localStorage.setItem('mappai_dungeon_onboarded', '1'); } catch (e) {} }
+  function _studyMode() { return localStorage.getItem('mappai_dungeon_study_mode') === '1'; }
+
+  // ─────────────────────────── tabelle difficoltà ────────────────────────────
+  var SEQ = { 1:[3,1500], 2:[3,1300], 3:[4,1300], 4:[4,1100], 5:[5,1000], 6:[5,900], 7:[6,800] }; // [span, esposizione ms]
+  var CALC = {
+    1:{ max:5,  terms:2, ops:'+',  timer:30 }, 2:{ max:9,  terms:2, ops:'+',  timer:28 }, 3:{ max:9,  terms:2, ops:'+-', timer:26 },
+    4:{ max:20, terms:2, ops:'+-', timer:24 }, 5:{ max:20, terms:3, ops:'+-', timer:22 }, 6:{ max:50, terms:2, ops:'+-', timer:22 }
+  };
+  function _calcCfg(lv) { return CALC[Math.min(lv, 6)] || CALC[1]; }
+
+  // ─────────────────────────── simboli (forme colorate) ──────────────────────
+  // Distinguibili PER FORMA (non solo colore) → safe dislessia/color-blind.
+  var SHAPES = ['circle', 'triangle', 'square', 'diamond', 'star', 'hexagon'];
+  var COLORS = ['#2f6fdb', '#e8821c', '#3fae5a', '#d24b8f']; // blu, arancio, verde, rosa
+  function _shapeSVG(shape, color, size) {
+    var s = size || 54, c = s / 2, r = s * 0.40, p;
+    function poly(n, rot) {
+      var pts = [];
+      for (var i = 0; i < n; i++) { var a = rot + i * 2 * Math.PI / n; pts.push((c + r * Math.cos(a)).toFixed(1) + ',' + (c + r * Math.sin(a)).toFixed(1)); }
+      return pts.join(' ');
     }
-    var groups = {};
-    nodes.forEach(function (n) {
-      if (n.level === 0) return; // root escluso (sarà il boss finale concettuale)
-      var g = (n.group != null) ? n.group : 1;
-      if (!groups[g]) groups[g] = { group: g, macro: null, rooms: [] };
-      if (isMacro(n)) groups[g].macro = n; else groups[g].rooms.push(n);
-    });
-    var floors = [];
-    Object.keys(groups).forEach(function (gk) {
-      var G = groups[gk];
-      var members = G.rooms.slice();
-      if (G.macro) members.unshift(G.macro);
-      if (!members.length) return;
-      var ids = {}; members.forEach(function (m) { ids[m.id] = true; });
-      var adj = {};
-      links.forEach(function (l) {
-        var s = _sid(l), t = _tid(l);
-        if (ids[s] && ids[t]) { (adj[s] = adj[s] || []).push(t); (adj[t] = adj[t] || []).push(s); }
+    if (shape === 'circle') p = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="' + color + '"/>';
+    else if (shape === 'square') p = '<rect x="' + (c - r) + '" y="' + (c - r) + '" width="' + (2 * r) + '" height="' + (2 * r) + '" rx="3" fill="' + color + '"/>';
+    else if (shape === 'triangle') p = '<polygon points="' + poly(3, -Math.PI / 2) + '" fill="' + color + '"/>';
+    else if (shape === 'diamond') p = '<polygon points="' + poly(4, -Math.PI / 2) + '" fill="' + color + '"/>';
+    else if (shape === 'hexagon') p = '<polygon points="' + poly(6, -Math.PI / 2) + '" fill="' + color + '"/>';
+    else { // star
+      var pts = [];
+      for (var i = 0; i < 10; i++) { var rr = (i % 2 === 0) ? r : r * 0.45; var a = -Math.PI / 2 + i * Math.PI / 5; pts.push((c + rr * Math.cos(a)).toFixed(1) + ',' + (c + rr * Math.sin(a)).toFixed(1)); }
+      p = '<polygon points="' + pts.join(' ') + '" fill="' + color + '"/>';
+    }
+    return '<svg viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '" aria-hidden="true">' + p + '</svg>';
+  }
+  function _tokenId(t) { return t.shape + '|' + t.color; }
+  function _randToken() { return { shape: SHAPES[Math.floor(Math.random() * SHAPES.length)], color: COLORS[Math.floor(Math.random() * COLORS.length)] }; }
+
+  // ─────────────────────────── overlay generico ──────────────────────────────
+  function _overlay() {
+    var root = document.createElement('div');
+    root.className = 'mdg-ov';
+    root.style.cssText = 'position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(7,10,20,.82);font-family:system-ui,sans-serif';
+    var card = document.createElement('div');
+    card.style.cssText = 'width:min(440px,92vw);background:#0d1426;border:0.5px solid rgba(120,160,220,.45);border-radius:14px;padding:22px;color:#eaf2ff;box-shadow:0 12px 40px rgba(0,0,0,.5)';
+    root.appendChild(card);
+    document.body.appendChild(root);
+    if (DUN) DUN.busy = true;   // blocca movimento mostri/duelli mentre un modal è aperto (fix: niente colpi durante i puzzle)
+    return { root: root, card: card, close: function () { root.remove(); if (DUN) DUN.busy = false; } };
+  }
+  function _esc(fn) { function h(e) { if (e.key === 'Escape') { window.removeEventListener('keydown', h); fn(); } } window.addEventListener('keydown', h); return function () { window.removeEventListener('keydown', h); }; }
+
+  // ─────────────────────────── SFIDA: sequenza simboli ───────────────────────
+  function _runSequence(lv, done) {
+    var cfg = SEQ[Math.min(lv, 7)] || SEQ[1], span = cfg[0];
+    var wm = _wm();
+    // velocità adattiva allo score WM: parte LENTA, accelera poco alla volta
+    var expo = Math.max(600, cfg[1] - Math.round(wm * 3));
+    // il COLORE entra solo con lo score: 1 colore all'inizio, poi 2, 3, 4
+    var colorCount = Math.max(1, Math.min(COLORS.length, 1 + Math.floor(wm / 30)));
+    var palette = COLORS.slice(0, colorCount);
+    // pool di token DISTINTI (forma×colore attivo): la soluzione mostra solo questi
+    var pool = [];
+    SHAPES.forEach(function (sh) { palette.forEach(function (co) { pool.push({ shape: sh, color: co }); }); });
+    pool.sort(function () { return Math.random() - 0.5; });
+    var seq = []; for (var i = 0; i < span; i++) seq.push(pool[i % pool.length]);
+    var t0 = Date.now();
+    var ov = _overlay();
+    var unEsc = _esc(function () { ov.close(); done({ success: false, aborted: true }); });
+    function finish(res) { unEsc(); ov.close(); res.durationMs = Date.now() - t0; done(res); }
+
+    ov.card.innerHTML =
+      '<div style="font-size:13px;color:#8fa4c4;margin-bottom:4px">Accesso memoria · sequenza · livello ' + lv + '</div>' +
+      '<h3 style="margin:0 0 14px;font-size:17px;font-weight:500">Memorizza l\'ordine dei simboli</h3>' +
+      '<div id="mdg-disp" style="height:90px;display:flex;align-items:center;justify-content:center"></div>' +
+      '<div id="mdg-sub" style="font-size:12px;color:#8fa4c4;text-align:center;min-height:18px"></div>' +
+      '<div id="mdg-board" style="display:none;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px"></div>' +
+      '<div id="mdg-fb" style="text-align:center;font-size:14px;min-height:22px;margin-top:10px"></div>';
+    var disp = ov.card.querySelector('#mdg-disp'), sub = ov.card.querySelector('#mdg-sub'),
+        board = ov.card.querySelector('#mdg-board'), fb = ov.card.querySelector('#mdg-fb');
+
+    // fase mostra
+    var idx = 0;
+    function showNext() {
+      if (idx >= seq.length) { disp.innerHTML = ''; sub.textContent = ''; return inputPhase(); }
+      sub.textContent = (idx + 1) + ' / ' + seq.length;
+      disp.innerHTML = _shapeSVG(seq[idx].shape, seq[idx].color, 72);
+      idx++;
+      setTimeout(function () { disp.innerHTML = ''; setTimeout(showNext, RM ? 120 : 200); }, expo);
+    }
+    // fase input
+    function inputPhase() {
+      sub.textContent = 'Ricomponi la sequenza';
+      board.style.display = 'flex';
+      // opzioni = ESATTAMENTE i token della sequenza (nessun intruso esterno)
+      var tokens = seq.slice();
+      tokens.sort(function () { return Math.random() - 0.5; });
+      var pos = 0;
+      tokens.forEach(function (t, n) {
+        var b = document.createElement('button');
+        b.style.cssText = 'background:#16203a;border:0.5px solid rgba(120,160,220,.35);border-radius:10px;padding:6px;cursor:pointer;line-height:0';
+        b.innerHTML = _shapeSVG(t.shape, t.color, 46);
+        b.setAttribute('aria-label', t.color + ' ' + t.shape);
+        b.onclick = function () { pick(t, b); };
+        b.dataset.k = (n + 1);
+        board.appendChild(b);
       });
-      var memberIds = members.map(function (m) { return m.id; });
-      var start = G.macro ? G.macro.id
-        : memberIds.slice().sort(function (a, b) { return (adj[b] ? adj[b].length : 0) - (adj[a] ? adj[a].length : 0); })[0];
-      // garantisci connettività: stanze orfane agganciate allo start
-      members.forEach(function (m) {
-        if (!adj[m.id] || !adj[m.id].length) {
-          (adj[start] = adj[start] || []).push(m.id); (adj[m.id] = adj[m.id] || []).push(start);
+      function pick(t, b) {
+        if (_tokenId(t) === _tokenId(seq[pos])) {
+          b.style.borderColor = '#3fae5a'; pos++;
+          fb.textContent = pos + ' / ' + seq.length;
+          if (pos >= seq.length) { fb.innerHTML = '<span style="color:#3fae5a">✓ Accesso sbloccato</span>'; lock(); setTimeout(function () { finish({ success: true }); }, 650); }
+        } else {
+          b.style.borderColor = '#c0432c'; fb.innerHTML = '<span style="color:#e88">✗ Sequenza errata</span>'; lock();
+          setTimeout(function () { finish({ success: false }); }, 800);
+        }
+      }
+      function lock() { Array.prototype.forEach.call(board.querySelectorAll('button'), function (x) { x.disabled = true; x.style.cursor = 'default'; }); }
+      // tastiera 1-9
+      function key(e) { var n = parseInt(e.key, 10); if (n >= 1 && n <= tokens.length) { var btn = board.querySelector('[data-k="' + n + '"]'); if (btn && !btn.disabled) btn.click(); } }
+      window.addEventListener('keydown', key);
+      var oldFinish = finish; finish = function (r) { window.removeEventListener('keydown', key); oldFinish(r); };
+    }
+    setTimeout(showNext, 500);
+  }
+
+  // ─────────────────────────── SFIDA: calcolo mentale ────────────────────────
+  function _runCalc(lv, done) {
+    lv = Math.min(lv, 6);          // cap: mai oltre la complessità testata nella demo
+    var cfg = _calcCfg(lv);
+    var terms = cfg.terms, expr = '', acc = 0;
+    var allowMinus = cfg.ops && cfg.ops.indexOf('-') >= 0;   // livelli iniziali = sola addizione
+    for (var i = 0; i < terms; i++) {
+      var n = 1 + Math.floor(Math.random() * cfg.max);
+      if (i === 0) { acc = n; expr = String(n); }
+      else { var minus = allowMinus && Math.random() < 0.5; if (minus && acc - n < 0) minus = false; acc = minus ? acc - n : acc + n; expr += (minus ? ' − ' : ' + ') + n; }
+    }
+    var answer = acc, t0 = Date.now();
+    var ov = _overlay();
+    var unEsc = _esc(function () { stop(); ov.close(); done({ success: false, aborted: true }); });
+    var timer = null, raf = 0;
+    function stop() { if (timer) clearTimeout(timer); if (raf) cancelAnimationFrame(raf); unEsc(); }
+    function finish(res) { stop(); ov.close(); res.durationMs = Date.now() - t0; done(res); }
+
+    ov.card.innerHTML =
+      '<div style="font-size:13px;color:#8fa4c4;margin-bottom:4px">Accesso memoria · calcolo · livello ' + lv + '</div>' +
+      '<h3 style="margin:0 0 14px;font-size:17px;font-weight:500">Risolvi entro il tempo</h3>' +
+      '<div style="font-size:34px;text-align:center;letter-spacing:1px;margin:8px 0 14px">' + expr + ' = ?</div>' +
+      '<input id="mdg-ans" type="number" inputmode="numeric" autocomplete="off" style="width:100%;font-size:20px;text-align:center;padding:10px;border-radius:10px;border:0.5px solid rgba(120,160,220,.4);background:#16203a;color:#eaf2ff;box-sizing:border-box">' +
+      '<div style="height:6px;background:#16203a;border-radius:4px;margin-top:14px;overflow:hidden"><div id="mdg-bar" style="height:100%;width:100%;background:#3aa0c9"></div></div>' +
+      '<div id="mdg-fb" style="text-align:center;font-size:14px;min-height:22px;margin-top:10px"></div>';
+    var inp = ov.card.querySelector('#mdg-ans'), bar = ov.card.querySelector('#mdg-bar'), fb = ov.card.querySelector('#mdg-fb');
+    setTimeout(function () { inp.focus(); }, 50);
+
+    var total = cfg.timer * 1000, start = Date.now();
+    function tick() {
+      var left = total - (Date.now() - start), frac = Math.max(0, left / total);
+      bar.style.width = (frac * 100) + '%';
+      bar.style.background = frac > 0.4 ? '#3aa0c9' : (frac > 0.15 ? '#e8821c' : '#c0432c');
+      if (left <= 0) { fb.innerHTML = '<span style="color:#e8a">⏱ Tempo scaduto</span>'; inp.disabled = true; setTimeout(function () { finish({ success: false, timeout: true }); }, 800); return; }
+      raf = requestAnimationFrame(tick);
+    }
+    if (!RM) tick(); else { /* reduced motion: solo timeout, no barra animata */ timer = setTimeout(function () { fb.innerHTML = '<span style="color:#e8a">⏱ Tempo scaduto</span>'; inp.disabled = true; setTimeout(function () { finish({ success: false, timeout: true }); }, 800); }, total); }
+
+    function submit() {
+      var v = parseInt(inp.value, 10);
+      if (isNaN(v)) { inp.focus(); return; }
+      if (v === answer) { fb.innerHTML = '<span style="color:#3fae5a">✓ Accesso sbloccato</span>'; inp.disabled = true; setTimeout(function () { finish({ success: true }); }, 600); }
+      else { fb.innerHTML = '<span style="color:#e88">✗ ' + v + ' non corretto</span>'; inp.disabled = true; setTimeout(function () { finish({ success: false }); }, 800); }
+    }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+  }
+
+  // ─────────────────────────── SFIDA: stop/go (inibizione, droidi) ───────────
+  // Tasti F/J. Blu→F, Arancio→J (GO), Rosso→NON premere (NO-GO). Sblocco se score≥60%.
+  function _runStopGo(opts, done) {
+    opts = opts || {};
+    var N = opts.trials || 12, stimMs = opts.stimMs || 1100, isiMs = 550;
+    var GO_F = '#2f6fdb', GO_J = '#e8821c', STOP = '#c0432c';
+    var trials = [];
+    for (var i = 0; i < N; i++) {
+      if (Math.random() < 0.30) trials.push('stop');           // ~30% no-go (prepotenza GO)
+      else trials.push(Math.random() < 0.5 ? 'F' : 'J');
+    }
+    var idx = 0, correct = 0, responded = false, raf = 0, timer = null, t0 = Date.now();
+    var ov = _overlay();
+    var unEsc = _esc(function () { cleanup(); ov.close(); done({ success: false, aborted: true }); });
+    function cleanup() { if (raf) cancelAnimationFrame(raf); if (timer) clearTimeout(timer); window.removeEventListener('keydown', onKey); unEsc(); }
+    function finish() { cleanup(); ov.close(); var score = correct / N; _updateWMraw(score); done({ success: score >= 0.6, score: score, modality: 'stopgo', durationMs: Date.now() - t0 }); }
+
+    ov.card.innerHTML =
+      '<div style="font-size:13px;color:#8fa4c4;margin-bottom:4px">Cattura droide · inibizione (stop/go)</div>' +
+      '<h3 style="margin:0 0 6px;font-size:17px;font-weight:500">Reagisci in fretta… ma trattieniti sul rosso</h3>' +
+      '<div style="font-size:12px;color:#8fa4c4;margin-bottom:12px">Blu → <b>F</b> &nbsp;·&nbsp; Arancio → <b>J</b> &nbsp;·&nbsp; <span style="color:#e88">Rosso → non premere</span></div>' +
+      '<div id="sg-stim" style="height:120px;display:flex;align-items:center;justify-content:center"></div>' +
+      '<div id="sg-prog" style="font-size:12px;color:#8fa4c4;text-align:center;min-height:18px"></div>';
+    var stim = ov.card.querySelector('#sg-stim'), prog = ov.card.querySelector('#sg-prog');
+
+    function onKey(e) {
+      var k = e.key.toLowerCase(); if (k !== 'f' && k !== 'j') return;
+      if (responded || !stim.firstChild) return;
+      responded = true;
+      var tr = trials[idx];
+      if (tr === 'stop') flash('#c0432c');                        // premuto sul NO-GO = errore d'inibizione
+      else if ((tr === 'F' && k === 'f') || (tr === 'J' && k === 'j')) { correct++; flash('#3fae5a'); }
+      else flash('#c0432c');                                       // tasto sbagliato
+    }
+    function flash(c) { stim.style.outline = '3px solid ' + c; setTimeout(function () { stim.style.outline = 'none'; }, 200); }
+    function showTrial() {
+      if (idx >= N) return finish();
+      responded = false;
+      var tr = trials[idx];
+      var col = tr === 'stop' ? STOP : (tr === 'F' ? GO_F : GO_J);
+      var shape = tr === 'stop' ? 'circle' : (tr === 'F' ? 'triangle' : 'square');
+      stim.innerHTML = _shapeSVG(shape, col, 96);
+      prog.textContent = (idx + 1) + ' / ' + N;
+      var start = Date.now();
+      (function tick() { if (Date.now() - start >= stimMs) return endTrial(); raf = requestAnimationFrame(tick); })();
+    }
+    function endTrial() {
+      if (!responded && trials[idx] === 'stop') correct++;         // trattenuto correttamente
+      idx++; stim.innerHTML = '';
+      timer = setTimeout(showTrial, isiMs);
+    }
+    window.addEventListener('keydown', onKey);
+    setTimeout(showTrial, 700);
+  }
+
+  // ─────────────────────────── orchestratore sblocco ─────────────────────────
+  // 1° tentativo modalità casuale; fail → 2° tentativo cambia modalità;
+  // doppio fail → cooldown + difficoltà−1 di quella modalità. Aggiorna WM + skill.
+  function startUnlock(opts, cb) {
+    opts = opts || {}; cb = cb || function () {};
+    if (opts.deviceType === 'droid') { _runStopGo(opts, cb); return; }  // droidi = stop/go (ripetibile ≥60%)
+    var first = (typeof opts.modality === 'string') ? opts.modality : (Math.random() < 0.5 ? 'seq' : 'calc');
+    var meta = { attempts: 0, switched: false, modalities: [], doubleFail: false };
+
+    function attempt(modality) {
+      meta.attempts++; meta.modalities.push(modality);
+      var lv = _skill()[modality];
+      var run = modality === 'seq' ? _runSequence : _runCalc;
+      run(lv, function (res) {
+        if (res.aborted) { cb({ success: false, aborted: true, meta: meta }); return; }
+        _updateWM(res.success, res.durationMs, lv);
+        _logEv('unlock', { ok: res.success, mod: modality, lv: lv });   // telemetria EF (WM) — non è contenuto
+        if (res.success) {
+          _bumpStreak(modality, true);
+          cb({ success: true, modality: modality, level: lv, meta: meta, durationMs: res.durationMs });
+        } else {
+          _bumpStreak(modality, false); // azzera streak + −1 livello
+          if (meta.attempts === 1) {
+            meta.switched = true;
+            var other = modality === 'seq' ? 'calc' : 'seq';
+            setTimeout(function () { attempt(other); }, 400);
+          } else {
+            meta.doubleFail = true;
+            cb({ success: false, modality: modality, level: lv, meta: meta, cooldown: true });
+          }
         }
       });
-      floors.push({
-        group: G.group,
-        name: _clean((G.macro && G.macro.label) || ('Area ' + gk)),
-        color: _groupColor(G.group),
-        macroId: G.macro ? G.macro.id : null,
-        members: members, memberIds: memberIds, adj: adj, start: start,
-        pos: _layout(memberIds, adj, start),
-        shape: (floors.length % 2 === 0) ? 'box' : 'cyl'
-      });
-    });
-    if (!floors.length) return null;
-    floors.sort(function (a, b) { return a.group - b.group; });
-    var total = floors.reduce(function (s, f) { return s + f.members.length; }, 0);
-    return { floors: floors, total: total };
+    }
+    attempt(first);
   }
 
-  // ─────────────────────────── stili + bande avatar ──────────────────────────
-  var BANDS = [
-    { c: 0xf5e6a8, n: 'acquisizione' }, { c: 0xc9d96a, n: 'emergente' },
-    { c: 0x8fcf6a, n: 'in crescita' }, { c: 0x4fbf8f, n: 'vicino all’aim' },
-    { c: 0x3aa0c9, n: 'fluente' }, { c: 0x2f6fdb, n: 'mastery' }
-  ];
-  function _bandOf(f) { var t = [0, .16, .33, .5, .67, .84], i = 0; for (var k = 0; k < t.length; k++) if (f >= t[k]) i = k; return i; }
-  var FORMS = ['scintilla', 'linea', 'superficie', 'tetraedro', 'esaedro', 'ottaedro', 'dodecaedro', 'icosaedro', 'sfera'];
-  var STYLES = {
-    low:  { clear: 0xeef1f5, amb: 0x99a4b8, ambI: 0.9, dir: 0.7, floorK: 0.55, emis: 0.0, glow: false, fog: false },
-    flat: { clear: 0x070a14, amb: 0x2a3346, ambI: 0.7, dir: 0.25, floorK: -0.45, emis: 0.7, glow: false, fog: true },
-    glow: { clear: 0x070a14, amb: 0x2a3346, ambI: 0.6, dir: 0.2, floorK: -0.5, emis: 0.9, glow: true, fog: true }
-  };
+  // streak adattivo: +1 livello dopo 2 successi consecutivi, −1 dopo un fallimento
+  var _streak = { seq: 0, calc: 0 };
+  function _bumpStreak(kind, ok) {
+    // salita LENTA: serve una serie di 3 successi consecutivi per +1 livello
+    if (ok) { _streak[kind]++; if (_streak[kind] >= 3) { _streak[kind] = 0; _bumpLevel(kind, true); } }
+    else { _streak[kind] = 0; _bumpLevel(kind, false); }
+  }
+  // WM meter: EWMA di una performance 0..1 = successo pesato per velocità e livello
+  function _updateWM(ok, durationMs, lv) {
+    var speed = ok ? Math.max(0, Math.min(1, 1 - (durationMs / 1000) / (8 + lv * 2))) : 0;
+    var perf = ok ? (0.6 + 0.25 * speed + 0.15 * (lv / 7)) : 0.0;
+    perf = Math.max(0, Math.min(1, perf));
+    var cur = _wm(); var next = cur + 0.3 * (perf * 100 - cur); // EWMA alpha 0.3
+    _saveWm(next); return next;
+  }
+  function _updateWMraw(perf) { perf = Math.max(0, Math.min(1, perf)); var cur = _wm(); var next = cur + 0.3 * (perf * 100 - cur); _saveWm(next); return next; }
 
-  // ─────────────────────────── motore di gioco ───────────────────────────────
-  var _live = null; // istanza singola
+  // ─────────────────────────── harness di test (game feel) ───────────────────
+  function testUnlock() {
+    // il test riparte SEMPRE dal livello facile (azzera skill/WM/streak della sessione)
+    _saveSkill({ seq: 1, calc: 1 }); _saveWm(0); _streak = { seq: 0, calc: 0 };
+    function round() {
+      startUnlock({}, function (r) {
+        if (r.aborted) return;
+        var s = _skill(), wm = Math.round(_wm());
+        var ov = _overlay();
+        var un = _esc(ov.close);
+        var line = r.success
+          ? '<span style="color:#3fae5a">✓ Sbloccato</span> (' + r.modality + ', lv ' + r.level + (r.meta.switched ? ', dopo cambio modalità' : '') + ')'
+          : (r.cooldown ? '<span style="color:#e88">✗ Doppio fallimento → cooldown + difficoltà −1</span>'
+                        : '<span style="color:#e88">✗ Fallito</span>');
+        ov.card.innerHTML =
+          '<h3 style="margin:0 0 10px;font-size:17px;font-weight:500">Esito sblocco</h3>' +
+          '<div style="font-size:14px;margin-bottom:12px">' + line + '</div>' +
+          '<div style="font-size:13px;color:#8fa4c4;margin-bottom:16px">Skill: sequenza lv ' + s.seq + ' · calcolo lv ' + s.calc + ' &nbsp;|&nbsp; Memoria di lavoro: <b style="color:#eaf2ff">' + wm + '/100</b></div>' +
+          '<div style="display:flex;gap:8px"><button id="mdg-again" style="flex:1;padding:10px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer">Ancora ↻</button>' +
+          '<button id="mdg-stop" style="flex:1;padding:10px;border-radius:10px;border:0.5px solid rgba(120,160,220,.35);background:transparent;color:#8fa4c4;cursor:pointer">Basta</button></div>';
+        ov.card.querySelector('#mdg-again').onclick = function () { un(); ov.close(); round(); };
+        ov.card.querySelector('#mdg-stop').onclick = function () { un(); ov.close(); };
+      });
+    }
+    round();
+  }
 
-  function openDungeon() {
-    if (_live) { _toast('Dungeon già aperto', 'info'); return; }
-    if (typeof THREE === 'undefined') { _toast('Three.js non caricato (js/vendor/three.min.js)', 'error'); return; }
-    var data = _buildFloors();
-    if (!data) { _toast('Genera prima una mappa (nessun nodo trovato)', 'warning'); return; }
+  function testStopGo() {
+    function round() {
+      _runStopGo({}, function (r) {
+        if (r.aborted) return;
+        var ov = _overlay(); var un = _esc(ov.close); var pct = Math.round(r.score * 100);
+        var line = r.success
+          ? '<span style="color:#3fae5a">✓ Droide catturato</span> — score ' + pct + '% (≥ 60%)'
+          : '<span style="color:#e88">✗ Score ' + pct + '%</span> — serve 60%. Riprova (nessun malus).';
+        ov.card.innerHTML =
+          '<h3 style="margin:0 0 10px;font-size:17px;font-weight:500">Stop/Go — esito</h3>' +
+          '<div style="font-size:14px;margin-bottom:16px">' + line + '</div>' +
+          '<div style="display:flex;gap:8px"><button id="sg-a" style="flex:1;padding:10px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer">' + (r.success ? 'Ancora ↻' : 'Ripeti ↻') + '</button>' +
+          '<button id="sg-s" style="flex:1;padding:10px;border-radius:10px;border:0.5px solid rgba(120,160,220,.35);background:transparent;color:#8fa4c4;cursor:pointer">Basta</button></div>';
+        ov.card.querySelector('#sg-a').onclick = function () { un(); ov.close(); round(); };
+        ov.card.querySelector('#sg-s').onclick = function () { un(); ov.close(); };
+      });
+    }
+    round();
+  }
 
-    var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var SP = 2.4;
-    var style = (localStorage.getItem('mappai_games_style') || 'low');
-    if (!STYLES[style]) style = 'low';
+  // ════════════════════════ DUNGEON (slice 2a) ═══════════════════════════════
+  // Stanze per livello, esplorazione POINT&CLICK (mouse), nebbia (rot.js FOV).
+  // Oggetti-memoria (TUTTI col puzzle): forziere→calcolo · libro→sequenza · pergamena→calcolo.
+  // Le memory unit vengono SOLO dagli oggetti; i nemici fanno solo duello F/J (niente memory-mostri).
+  // 3 contenuti MappAI (mappano select→organize→integrate, c4): libro=descrizione · scroll=citazione · vaso=relazione
+  var SRC = { libro: { modality: 'seq', kind: 'desc' }, scroll: { modality: 'calc', kind: 'cite' }, vaso: { kind: 'rel' } };   // vaso: puzzle normale (seq/calc casuale come libri/scroll), NON droide
+  var DUN = null;
 
-    // ── overlay DOM ──
-    var ov = document.createElement('div');
-    ov.id = 'mappai-dungeon';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#070a14;font-family:system-ui,sans-serif';
-    ov.innerHTML =
-      '<div id="dgC" style="position:absolute;inset:0"></div>' +
-      '<div style="position:absolute;top:12px;left:12px;display:flex;gap:8px;align-items:center">' +
-        '<button data-s="low"  class="dgBtn">Low-poly</button>' +
-        '<button data-s="flat" class="dgBtn">Neon flat</button>' +
-        '<button data-s="glow" class="dgBtn">Neon glow</button>' +
-      '</div>' +
-      '<button id="dgX" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:8px;border:0.5px solid rgba(150,180,220,.4);background:rgba(10,15,26,.85);color:#eaf2ff;cursor:pointer;font-size:18px">✕</button>' +
-      '<div id="dgFloor"  class="dgHud" style="top:58px;left:14px"></div>' +
-      '<div id="dgAvatar" class="dgHud" style="top:58px;right:14px;text-align:right"></div>' +
-      '<div id="dgProg"   class="dgHud" style="bottom:14px;left:14px"></div>' +
-      '<div id="dgHint"   class="dgHud" style="bottom:14px;right:14px;opacity:.7">clicca una stanza adiacente · studia per evolvere</div>' +
-      '<div id="dgPanel" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:320px;background:rgba(10,15,26,.95);border:0.5px solid rgba(120,160,220,.4);border-radius:12px;padding:18px;color:#eaf2ff;display:none">' +
-        '<h3 id="dgPName" style="font-size:17px;font-weight:500;margin:0 0 6px;color:#fff"></h3>' +
-        '<p id="dgPDesc" style="font-size:13px;line-height:1.55;margin:0 0 12px;color:#c3d2ea"></p>' +
-        '<div id="dgPMeta" style="font-size:11px;color:#8fa4c4;margin:0 0 12px"></div>' +
+  function _levelsFromState() {
+    var st = _getAppState(); var nodes = (st && st.db && st.db.nodes) || [];
+    if (!nodes.length) return null;
+    var byL = {};
+    nodes.forEach(function (n) { var l = (n.level != null) ? n.level : 1; (byL[l] = byL[l] || []).push(n); });
+    return Object.keys(byL).map(Number).sort(function (a, b) { return a - b; }).map(function (l) { return { level: l, nodes: byL[l] }; });
+  }
+  // composizione piani da livelli: misto intervallato da radura/combat (usata all'avvio e nella discesa per-ramo)
+  function _composeFloors(base, study) {
+    var floors = [];
+    base.forEach(function (lf, bi) { floors.push({ kind: 'misto', level: lf.level, nodes: lf.nodes }); if (!study && bi < base.length - 1) floors.push({ kind: (bi === 0 && _raduraOn()) ? 'radura' : 'combat', level: lf.level, nodes: [] }); });   // S4: il primo intermezzo è una radura FE all'aperto (scaffolding), i profondi restano combat
+    return floors;
+  }
+
+  function _ensureRot(cb) {
+    if (typeof ROT !== 'undefined' && ROT && ROT.Map) return cb(true);
+    if (window.ROT && window.ROT.Map) return cb(true);
+    var s = document.createElement('script');
+    s.src = 'js/vendor/rot.min.js?ts=' + Date.now();   // cache-bust: bypassa cache Electron
+    s.onload = function () { cb((typeof ROT !== 'undefined' && ROT && ROT.Map) || (window.ROT && window.ROT.Map)); };
+    s.onerror = function () { cb(false); };
+    document.head.appendChild(s);
+  }
+  function _startDungeon() {
+    _ensureRot(function (ok) {
+      if (!ok) { _toast('Impossibile caricare rot.js (js/vendor/rot.min.js) — controlla il path', 'error'); return; }
+      _startDungeonReal();
+    });
+  }
+  // UI/CSS Space Bears (scoped a #mdg-dun: non altera lo stile dell'app)
+  function _injectSBStyle() {
+    if (document.getElementById('mdg-sb-style')) return;
+    var s = document.createElement('style'); s.id = 'mdg-sb-style';
+    s.textContent =
+      "@font-face{font-family:'DejaVu Sans Mono';src:url('assets/spacebears/css/DejaVuSansMono.woff2') format('woff2'),url('assets/spacebears/css/DejaVuSansMono.woff') format('woff');}" +
+      "#mdg-dun{font-family:'DejaVu Sans Mono',monospace;color:whitesmoke;background:#111}" +
+      "#mdg-dun #game{position:absolute;inset:0}" +
+      "#mdg-dun #game canvas{position:absolute;inset:0;image-rendering:pixelated}" +
+      "#mdg-dun #hud{position:fixed;top:0;left:0;padding:6px 10px;font-size:14px;text-shadow:black 0 0 2px;background:rgba(0,0,0,.5);border-radius:3px}" +
+      "#mdg-dun #hud>div{white-space:pre;line-height:1.5}" +
+      "#mdg-dun #messages{position:fixed;bottom:0;left:0;max-width:70%;padding:8px 12px;text-shadow:black 0 0 2px;background:rgba(0,0,0,.5);border-radius:3px;pointer-events:none}" +
+      "#mdg-dun #messages span{display:block}" +
+      "#mdg-dun .msg0{color:#fff}#mdg-dun .msg1{color:#aaa}#mdg-dun .msg2{color:#888}#mdg-dun .msg3{color:#666}#mdg-dun .msg4{color:#444}" +
+      "#mdg-dun .btn{display:inline-block;height:36px;line-height:36px;padding:0 12px;background:#222;border-radius:3px;cursor:pointer;border:1px solid #000;color:whitesmoke}#mdg-dun .btn:hover{border-color:#fff;text-shadow:cyan 0 0 8px}";
+    document.head.appendChild(s);
+  }
+  function _shade(hex, f) { var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255; function c(v) { return Math.max(0, Math.min(255, Math.round(v))); } return '#' + ((1 << 24) + (c(r * f) << 16) + (c(g * f) << 8) + c(b * f)).toString(16).slice(1); }
+  function _msg(t) { if (!DUN) return; DUN.messages.push(t); if (DUN.messages.length > 50) DUN.messages.shift(); DUN.msgDirty = true; }
+  function _resetDisplaySB() {
+    var gameEl = DUN.root.querySelector('#game');
+    if (!DUN.cv) { DUN.cv = document.createElement('canvas'); gameEl.appendChild(DUN.cv); DUN.ctx = DUN.cv.getContext('2d'); DUN.cv.addEventListener('click', _onDunClick, true); }
+    DUN.cv.width = window.innerWidth; DUN.cv.height = window.innerHeight;
+    DUN.ctx.imageSmoothingEnabled = false;
+  }
+  function _startDungeonReal() {
+    var base = _levelsFromState();
+    if (!base) { _toast('Genera prima una mappa', 'warning'); return; }
+    if (DUN) return;
+    // sessione di studio unificata: catture + gate/boss/review confluiscono in sessioni.jsonl
+    try { if (window.MappAIStudyBus) window.MappAIStudyBus.begin('dungeon', 'Memory Dungeon'); } catch (e) {}
+    // intervalla piani MISTI (memory+loot+enemies) con piani COMBAT (poche stanze, solo nemici → allena inibizione)
+    // modalità studio (Quick win D): niente piani combat, niente nemici → focus su cattura/sblocco
+    var study = _studyMode();
+    var floors = _composeFloors(base, study);
+    // onboarding (Quick win C): primo avvio = piano "scuola" calmo (no nemici), demo cattura + regole
+    if (!_onboarded() && base[0] && base[0].nodes.length) floors.unshift({ kind: 'scuola', level: 0, nodes: base[0].nodes.slice(0, 2) });
+    // GIARDINO = piano 0 (gated, default ON). Disabilita: localStorage 'mappai_garden_floor'='0'
+    try { if (localStorage.getItem('mappai_garden_floor') !== '0') { var gnod = _gardenNodes(); if (gnod.length) floors.unshift({ kind: 'giardino', level: 0, nodes: gnod }); } } catch (e) {}
+    _injectSBStyle();
+    var root = document.createElement('div');
+    root.id = 'mdg-dun';
+    root.style.cssText = 'position:fixed;inset:0;z-index:99997;overflow:hidden;background:#111';
+    root.innerHTML =
+      '<div id="game"></div><div id="hud"></div><div id="messages"></div>' +
+      '<button id="mdg-dx" type="button" class="btn" style="position:fixed;top:6px;right:6px;z-index:5">✕</button>' +
+      '<div style="position:fixed;bottom:6px;right:10px;font-size:11px;color:#555;pointer-events:none">clic = muovi · B = diario · Esc = esci</div>';
+    document.body.appendChild(root);
+    DUN = { root: root, floors: floors, fi: -1, hp: 5, maxhp: 5, path: null, raf: 0, hpTimer: Date.now(), diary: _loadDiary(), messages: [], msgDirty: false, skin: null, mobs: [], corpses: {}, duel: null, flash: null, playerAnim: PLAYER_ANIM, busy: false, mana: 0, maxMana: 10, items: {}, coins: 0, gems: 0, facing: [0, -1], kills: 0, spellFx: null, gatePassed: {} };
+    DUN.tileset = _sheet('fantasticdungeons/assets/tileset.png'); DUN.TS = 32;   // tile 16px ×2
+    _pruneDiary();   // marca ghost le voci di nodi rimossi dalla mappa (esclusi dai quiz, leggibili nel diario)
+    _hydrateQuizFromCache();   // quiz già generati → _dunQuiz pronti senza nuove chiamate AI (A7)
+    // tier AI iniziale per l'indicatore HUD (☁/💻/📴): si aggiorna poi a ogni chiamata reale
+    try { DUN.aiMode = (window.getSystemKey && window.getSystemKey()) ? 'cloud' : (_localLlmOk() ? 'local' : 'off'); } catch (e) { DUN.aiMode = _localLlmOk() ? 'local' : 'off'; }
+    _logEv('sess_start', { floors: floors.length, study: study, ai: DUN.aiMode });
+    function onKey(e) { var k = e.key.toLowerCase(); if (k === 'escape') return _closeDungeon(); if (DUN.duel) { var set = DUN.duel.cfg && DUN.duel.cfg.set; if (set && (k === set.a.key || k === set.b.key)) { e.preventDefault(); _duelInput(k); } return; } if (DUN.busy) return; if (k === 'b') _openDiary(); else if (k === 'z') _castSpell(); }
+    function onResize() { _resetDisplaySB(); }
+    window.addEventListener('keydown', onKey); window.addEventListener('resize', onResize);
+    DUN._onKey = onKey; DUN._resize = onResize;
+    root.querySelector('#mdg-dx').onclick = _closeDungeon;
+    _resetDisplaySB();
+    _selectCharacter(function () {
+      function begin() {
+        if (window.loadPromptsConfig && (!window.systemPromptsConfig || !Object.keys(window.systemPromptsConfig).length)) { try { window.loadPromptsConfig(); } catch (e) {} }   // NPC: prompt pronti per il giardino
+        // mappa curata del giardino: attesa max 1.5s, poi si parte comunque (procedurale)
+        var went = false;
+        function go() {
+          if (went || !DUN) return; went = true;
+          _loadFloor(0);
+          _msg('Esplora il dungeon. Clicca per muoverti.');
+          (function loop() { DUN.raf = requestAnimationFrame(loop); _dunTick(); _dunRender(); })();
+          setTimeout(function () { if (DUN && !DUN.busy) { try { _welcomeReview(); } catch (e) {} } }, 600);   // spacing multi-giorno (F2.3)
+        }
+        var gt = setTimeout(go, 1500);
+        _gardenMapFetch().then(function (m) { if (DUN) DUN._gmap = m; clearTimeout(gt); go(); }, function () { clearTimeout(gt); go(); });
+      }
+      if (!_onboarded()) _showRules(begin); else begin();
+    });
+  }
+  function _closeDungeon() {
+    if (!DUN) return;
+    _logEv('sess_end', { fi: DUN.fi, diary: (DUN.diary || []).length, caps: DUN._sessCaps || 0, q: DUN._sessQ || 0, qok: DUN._sessQok || 0 });
+    // digest informativo (mai valutativo): cosa hai costruito oggi (c6 — ricompensa informativa)
+    if (DUN._sessCaps || DUN._sessQ) {
+      var parts = [];
+      if (DUN._sessCaps) parts.push(DUN._sessCaps + (DUN._sessCaps === 1 ? ' memoria catturata' : ' memorie catturate'));
+      if (DUN._sessQ) parts.push(DUN._sessQ + ' risposte (' + Math.round(100 * (DUN._sessQok || 0) / DUN._sessQ) + '% ok)');
+      try { _toast('Oggi: ' + parts.join(' · ') + ' — a presto!', 'success'); } catch (e) {}
+    }
+    cancelAnimationFrame(DUN.raf);
+    window.removeEventListener('keydown', DUN._onKey); window.removeEventListener('resize', DUN._resize);
+    DUN.root.remove(); DUN = null;
+    try { if (window.MappAIStudyBus) window.MappAIStudyBus.end(); } catch (e) {}   // scrive la sessione dungeon
+  }
+
+  function _loadFloor(i) {
+    if (DUN.floors[i].kind === 'giardino') { try { return _loadGarden(i); } catch (e) { console.error('[giardino]', e); DUN.floors[i].kind = 'misto'; } }  // fallback: se il giardino fallisce, piano normale
+    if (DUN.floors[i].kind === 'radura') { try { return _loadRadura(i); } catch (e) { console.error('[radura]', e); DUN.floors[i].kind = 'combat'; } }      // S4 fallback: radura fallita → combat classico
+    DUN.gardenFloor = false; DUN.gardenNpcs = null; DUN.gardenWater = null; DUN.gateRoom = null;
+    DUN.gardenTrees = null; DUN.gardenFlowers = null; DUN.raduraTotems = null;
+    DUN.customMap = null; DUN.customDraw = null;
+    var f = DUN.floors[i]; DUN.fi = i;
+    _logEv('floor', { fi: i, kind: f.kind });
+    var n = f.nodes.length, combat = f.kind === 'combat';
+    var w = combat ? 28 : Math.max(34, Math.min(72, 12 + n * 3));
+    var h = combat ? 20 : Math.max(24, Math.min(48, 10 + n * 2));
+    var dig = new ROT.Map.Digger(w, h), map = {};
+    dig.create(function (x, y, v) { map[x + ',' + y] = v; });
+    DUN.map = map; DUN.w = w; DUN.h = h;
+    var open = []; for (var k in map) { if (map[k] === 0) open.push(k); }
+    open.sort(function () { return Math.random() - 0.5; });
+    var st = open.pop().split(',').map(Number); DUN.px = st[0]; DUN.py = st[1];
+    DUN.mobs = []; DUN.corpses = {}; DUN.duel = null; DUN.sources = {};
+    var types = ['libro', 'scroll', 'vaso'];   // libro=descrizione · scroll=citazione · vaso=relazione (3 contenuti MappAI)
+    f.nodes.filter(_hasContent).forEach(function (nd, idx) {   // A12: i nodi senza desc/citazioni non spawano (interrogherebbero sul nulla)
+      if (!open.length) return;
+      var key = open.pop(), t = types[idx % 3];
+      DUN.sources[key] = { node: nd, type: t, extracted: !!_mastered(nd.id) };
+    });
+    DUN.sx = DUN.sy = -1;
+    if (i < DUN.floors.length - 1 && open.length) { var s = open.pop().split(',').map(Number); DUN.sx = s[0]; DUN.sy = s[1]; }
+    // BOSS (gap #3): l'ultimo piano non ha scale → il Guardiano della Memoria è il terminale.
+    DUN.boss = null;
+    if (i === DUN.floors.length - 1 && open.length) {
+      var bk = null;
+      for (var bi = open.length - 1; bi >= 0; bi--) { var bp = open[bi].split(',').map(Number); if (Math.abs(bp[0] - DUN.px) + Math.abs(bp[1] - DUN.py) >= 6) { bk = open.splice(bi, 1)[0]; break; } }
+      if (!bk) bk = open.pop();
+      if (bk) { var bb = bk.split(',').map(Number); DUN.boss = { x: bb[0], y: bb[1], defeated: false }; }
+    }
+    DUN.items = {};   // loot (pozioni/monete) ora droppa dai nemici sconfitti (_mobDie); i vasi sono diventati sorgenti-relazione
+    DUN.explored = {}; DUN.visible = {}; DUN.path = null;
+    DUN.theme = THEMES[i % THEMES.length];
+    DUN.themeTiles = THEME_TILES[DUN.theme.n] || { floor: [3, 1], wall: [2, 5] };
+    DUN.torches = [];
+    var walls = Object.keys(DUN.map).filter(function (kk) { return DUN.map[kk] === 1; });
+    walls.sort(function () { return Math.random() - 0.5; });
+    var want = Math.max(3, Math.floor((n || 4) / 2)), placed = 0;
+    for (var ti = 0; ti < walls.length && placed < want; ti++) {
+      var pp = walls[ti].split(',').map(Number);
+      if (DUN.map[pp[0] + ',' + (pp[1] + 1)] === 0) { DUN.torches.push({ x: pp[0], y: pp[1], ph: Math.random() * 6 }); placed++; }
+    }
+    _spawnMobs(f);
+    _computeFOV();
+    if (DUN.boss && !DUN.boss.defeated) _msg('Piano finale: trova il Guardiano della Memoria ⚔ per rivelare la mappa.');
+    else if (f.kind === 'scuola') _msg('Scuola: nessun pericolo qui. Cattura una memory unit, poi scendi dalle scale 🔽.');
+    // HUB S5: consiglio "in su" — piano già in gran parte padroneggiato → celebrazione sobria + glow scale
+    DUN.stairReady = false;
+    if (_softGateOn() && f.nodes && f.nodes.length && DUN.sx >= 0) {
+      var mastN = f.nodes.filter(function (nd) { return _mastered(nd.id); }).length;
+      if (mastN / f.nodes.length >= _gateThr()) {
+        DUN.stairReady = true;
+        DUN.softCelebrated = DUN.softCelebrated || {};
+        if (!DUN.softCelebrated[i]) { DUN.softCelebrated[i] = 1; _logEv('soft_gate_ready', { fi: i }); _msg('✨ Padroneggi già gran parte di questo piano: le scale brillano, puoi scendere quando vuoi.'); }
+      }
+    }
+  }
+  function _computeFOV() {
+    if (DUN.gardenFloor || DUN.gateRoom) { DUN.visible = {}; for (var gk in DUN.map) { DUN.visible[gk] = true; DUN.explored[gk] = true; } return; }  // prato / stanza gate: niente nebbia
+    DUN.visible = {};
+    var fov = new ROT.FOV.PreciseShadowcasting(function (x, y) { return DUN.map[x + ',' + y] === 0; });
+    fov.compute(DUN.px, DUN.py, 7, function (x, y, r, vis) { if (vis) { DUN.visible[x + ',' + y] = true; DUN.explored[x + ',' + y] = true; } });
+    DUN.explored[DUN.px + ',' + DUN.py] = true;
+  }
+
+  // ───── GIARDINO (piano 0): livello all'aperto di onboarding, stesso engine ─────
+  // Mappa aperta (erba/acqua/alberi), NPC narranti = nodi-chiave, castello = scale → dungeon.
+  function _gardenNodes() {
+    // MindMap: i Sapienti sono gli AMBASCIATORI delle macro-aree — i 4 rami L1 più ricchi
+    // (il Sapiente introduce il suo dungeon nella discesa per-ramo, Fase 2 hub).
+    var st = _getAppState(), nodes = (st && st.db && st.db.nodes) || [];
+    var l1 = nodes.filter(function (n) { return n.level === 1; });
+    if (l1.length) {
+      var byG = {}; nodes.forEach(function (n) { if (n.level > 0 && n.group != null) byG[n.group] = (byG[n.group] || 0) + 1; });
+      return l1.slice().sort(function (a, b) { return (byG[b.group] || 0) - (byG[a.group] || 0); }).slice(0, 4);
+    }
+    var base = _levelsFromState() || [];
+    var lv = base.filter(function (b) { return b.level > 0; });
+    var pool = (lv[0] && lv[0].nodes) || (base[0] && base[0].nodes) || [];
+    return pool.slice(0, 4);
+  }
+  // Custode del Sapere vicino allo spawn — condiviso tra giardino procedurale e mappa curata (HUB S2)
+  function _placeCustode(map) {
+    if (!_custodeOn()) return;
+    var ck = null, cbest = 1e9;
+    for (var k2 in map) {
+      if (map[k2] !== 0 || DUN.gardenNpcs[k2]) continue;
+      var p2 = k2.split(',').map(Number);
+      if (p2[0] === DUN.sx && p2[1] === DUN.sy) continue;
+      var d2 = Math.abs(p2[0] - DUN.px) + Math.abs(p2[1] - DUN.py);
+      if (d2 >= 2 && d2 < cbest) { cbest = d2; ck = k2; }
+    }
+    if (ck) {
+      var cp = ck.split(',').map(Number);
+      DUN.gardenNpcs[ck] = { id: 'gnpc_custode', custode: true, x: cp[0], y: cp[1], node: null, label: 'Custode del Sapere', desc: _custodeOverview(), seeded: false, anim: PLAYER_ANIM_F, history: [] };
+      delete DUN.gardenFlowers[ck];
+    }
+  }
+  // ── giardino da MAPPA CURATA (map-editor): tile disegnati a mano, Sapienti sugli slot, gatekeeper = discesa
+  function _loadGardenFromMap(i, f, m) {
+    var map = {}; for (var mk in m.map) map[mk] = m.map[mk];   // copia: la cache non va mutata
+    DUN.map = map; DUN.w = m.cols; DUN.h = m.rows;
+    DUN.gardenFloor = true; DUN.gardenWater = m.water; DUN.gardenNpcs = {}; DUN.gateRoom = null;
+    DUN.gardenTrees = {}; DUN.gardenFlowers = {};   // decor gestito da customDraw
+    DUN.customMap = m;
+    DUN.mobs = []; DUN.corpses = {}; DUN.duel = null; DUN.sources = {}; DUN.items = {}; DUN.boss = null; DUN.torches = [];
+    DUN.theme = { n: 'giardino', t: '#79a85f' };
+    DUN.themeTiles = { floor: [7, 0], wall: [0, 5] };
+    DUN.px = m.spawn[0]; DUN.py = m.spawn[1];
+    // discesa = posizione del gatekeeper disegnato in mappa (fallback: prima cella libera in alto)
+    DUN.sx = DUN.sy = -1;
+    if (m.gatekeeper) { DUN.sx = m.gatekeeper.x; DUN.sy = m.gatekeeper.y; }
+    else { outer: for (var y = 0; y < m.rows; y++) for (var x = 0; x < m.cols; x++) if (map[x + ',' + y] === 0) { DUN.sx = x; DUN.sy = y; break outer; } }
+    // Sapienti sugli slot NPC della mappa (già rilocati dal loader se su celle non valide)
+    (f.nodes || []).forEach(function (nd, idx) {
+      var slot = m.npcs[idx]; if (!slot) return;
+      var nk = slot.x + ',' + slot.y;
+      DUN.gardenNpcs[nk] = { id: 'gnpc_' + nd.id, x: slot.x, y: slot.y, node: nd, label: _clean(nd.label), desc: _desc(nd), seeded: false, anim: PLAYER_ANIM_F, sprDef: CMAP_NPC_SPR[idx % CMAP_NPC_SPR.length] };
+    });
+    _placeCustode(map);
+    _refreshNpcWilt();   // Fase 3: stato Tamagotchi dei Sapienti
+    _dailyQuest();       // Fase 4: quest del giorno (solo invito)
+    _initNpcBehaviors(); // Slice 2: behaviors (flag mappai_npc_garden_enabled)
+    // lista di disegno y-sorted: decor solido + ambient + ancore non solide (book/scroll/key)
+    var L = window.MappAIMapLoader, drawList = m.decor.concat(m.ambient);
+    m.anchors.forEach(function (a) { if (!L || !L.SOLID_OBJ[a.name]) drawList.push(a); });
+    drawList.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+    DUN.customDraw = drawList;
+    DUN.explored = {}; DUN.visible = {}; DUN.path = null;
+    _computeFOV();
+    DUN.raduraTotems = null;
+    var st = _getAppState();
+    _msg('🌿 Giardino di ' + ((st && st.rootNodeLabel) || 'studio') + ': clicca i 🧙 per ascoltarli, poi raggiungi il guardiano 🔮 per scendere nel dungeon.');
+    _hubMarkSeen();
+  }
+  function _loadGarden(i) {
+    var f = DUN.floors[i]; DUN.fi = i;
+    var CM = (DUN._gmap && _skin() === 'lol') ? DUN._gmap : null;   // mappa curata: solo skin LoL
+    if (CM) return _loadGardenFromMap(i, f, CM);
+    DUN.customMap = null; DUN.customDraw = null;
+    var w = 30, h = 20, map = {};
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) map[x + ',' + y] = (x === 0 || y === 0 || x === w - 1 || y === h - 1) ? 1 : 0;
+    DUN.map = map; DUN.w = w; DUN.h = h;
+    DUN.gardenFloor = true; DUN.gardenWater = {}; DUN.gardenNpcs = {}; DUN.gateRoom = null;
+    DUN.gardenTrees = {}; DUN.gardenFlowers = {};   // decor LoL: alberi (bloccanti), fiori (accento erba fiorita)
+    DUN.mobs = []; DUN.corpses = {}; DUN.duel = null; DUN.sources = {}; DUN.items = {}; DUN.boss = null; DUN.torches = [];
+    DUN.theme = { n: 'giardino', t: '#79a85f' };
+    DUN.themeTiles = { floor: [7, 0], wall: [0, 5] };   // muschio: erba + siepe
+    // pozza d'acqua
+    var cx = 6 + Math.floor(Math.random() * (w - 14)), cy = 5 + Math.floor(Math.random() * (h - 10));
+    for (var wy = cy; wy < cy + 3; wy++) for (var wx = cx; wx < cx + 4; wx++) { var wk = wx + ',' + wy; if (map[wk] != null && map[wk] === 0) { map[wk] = 1; DUN.gardenWater[wk] = true; } }
+    // alberi (bloccanti, sprite grande tree.png) + fiori (non bloccanti, accento erba fiorita)
+    for (var t = 0; t < 7; t++) { var tk = (1 + Math.floor(Math.random() * (w - 2))) + ',' + (1 + Math.floor(Math.random() * (h - 2))); if (map[tk] === 0) { map[tk] = 1; DUN.gardenTrees[tk] = true; } }
+    for (var fl = 0; fl < 12; fl++) { var fk = (1 + Math.floor(Math.random() * (w - 2))) + ',' + (1 + Math.floor(Math.random() * (h - 2))); if (map[fk] === 0) DUN.gardenFlowers[fk] = true; }
+    DUN.px = Math.floor(w / 2); DUN.py = Math.floor(h / 2); map[DUN.px + ',' + DUN.py] = 0;
+    var open = []; for (var k in map) { if (map[k] === 0) { var p = k.split(',').map(Number); if (Math.abs(p[0] - DUN.px) + Math.abs(p[1] - DUN.py) > 3) open.push(k); } }
+    open.sort(function () { return Math.random() - 0.5; });
+    DUN.sx = DUN.sy = -1;
+    if (open.length) { var c = open.pop().split(',').map(Number); DUN.sx = c[0]; DUN.sy = c[1]; }   // castello = punto di discesa
+    (f.nodes || []).forEach(function (nd) {
+      if (!open.length) return;
+      var nk = open.pop(), np = nk.split(',').map(Number);
+      DUN.gardenNpcs[nk] = { id: 'gnpc_' + nd.id, x: np[0], y: np[1], node: nd, label: _clean(nd.label), desc: _desc(nd), seeded: false, anim: PLAYER_ANIM_F };
+      delete DUN.gardenFlowers[nk];   // niente fiore sotto il Sapiente (il piedistallo arriva con la Slice 3 Sapienti)
+    });
+    // HUB S2: Custode del Sapere — guida fissa vicino allo spawn (flag 'mappai_hub_custode')
+    _placeCustode(map);
+    _refreshNpcWilt();   // Fase 3: stato Tamagotchi dei Sapienti
+    _dailyQuest();       // Fase 4: quest del giorno (solo invito)
+    _initNpcBehaviors(); // Slice 2: behaviors (flag mappai_npc_garden_enabled)
+    DUN.explored = {}; DUN.visible = {}; DUN.path = null;
+    _computeFOV();
+    var st = _getAppState();
+    DUN.raduraTotems = null;
+    _msg('🌿 Giardino di ' + ((st && st.rootNodeLabel) || 'studio') + ': clicca i 🧙 per ascoltarli, poi entra nel castello 🏰 (scale) per il dungeon.');
+    _hubMarkSeen();   // HUB S1: prima visita al giardino registrata per questo vault
+  }
+  // ───── RADURA (S4): intermezzo FE all'aperto — scaffolding funzioni esecutive, zero nemici ─────
+  // Riusa lo scheletro del giardino (FOV aperto, alberi/fiori) + 2 totem 🏮 facoltativi e time-boxed:
+  // sequenza/calcolo (WM) e stop/go (inibizione). Anti-seduzione: max 2 attività, nessuna ricompensa.
+  function _raduraOn() { try { return localStorage.getItem('mappai_radura') !== '0'; } catch (e) { return true; } }
+  function _loadRadura(i) {
+    DUN.fi = i;
+    var w = 24, h = 15, map = {};
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) map[x + ',' + y] = (x === 0 || y === 0 || x === w - 1 || y === h - 1) ? 1 : 0;
+    DUN.map = map; DUN.w = w; DUN.h = h;
+    DUN.gardenFloor = true; DUN.gardenWater = {}; DUN.gardenNpcs = {}; DUN.gateRoom = null;
+    DUN.gardenTrees = {}; DUN.gardenFlowers = {}; DUN.raduraTotems = {};
+    DUN.customMap = null; DUN.customDraw = null;
+    DUN.mobs = []; DUN.corpses = {}; DUN.duel = null; DUN.sources = {}; DUN.items = {}; DUN.boss = null; DUN.torches = [];
+    DUN.theme = { n: 'radura', t: '#79a85f' };
+    DUN.themeTiles = { floor: [7, 0], wall: [0, 5] };   // fallback skin fantastic: erba + siepe
+    for (var t = 0; t < 5; t++) { var tk = (1 + Math.floor(Math.random() * (w - 2))) + ',' + (1 + Math.floor(Math.random() * (h - 2))); if (map[tk] === 0) { map[tk] = 1; DUN.gardenTrees[tk] = true; } }
+    for (var fl = 0; fl < 8; fl++) { var fk = (1 + Math.floor(Math.random() * (w - 2))) + ',' + (1 + Math.floor(Math.random() * (h - 2))); if (map[fk] === 0) DUN.gardenFlowers[fk] = true; }
+    DUN.px = Math.floor(w / 2); DUN.py = Math.floor(h / 2); map[DUN.px + ',' + DUN.py] = 0;
+    var open = []; for (var k in map) { if (map[k] === 0) { var p = k.split(',').map(Number); if (Math.abs(p[0] - DUN.px) + Math.abs(p[1] - DUN.py) > 3) open.push(k); } }
+    open.sort(function () { return Math.random() - 0.5; });
+    DUN.sx = DUN.sy = -1;
+    if (open.length) { var c = open.pop().split(',').map(Number); DUN.sx = c[0]; DUN.sy = c[1]; }
+    ['unlock', 'stopgo'].forEach(function (kind) {
+      if (!open.length) return;
+      var tk2 = open.pop(), tp = tk2.split(',').map(Number);
+      DUN.raduraTotems[tk2] = { kind: kind, x: tp[0], y: tp[1], done: false };
+      delete DUN.gardenFlowers[tk2];
+    });
+    DUN.explored = {}; DUN.visible = {}; DUN.path = null;
+    _computeFOV();
+    _logEv('radura', { fi: i });
+    _msg('🌾 Una radura tranquilla: allenati ai totem 🏮 se vuoi (facoltativo), poi scendi 🔽.');
+  }
+  function _raduraTotem(tt) {
+    var after = function (res) { tt.done = true; _logEv('radura_totem', { kind: tt.kind, ok: !!(res && res.success) }); _msg(res && res.success ? '🏮 Totem completato.' : '🏮 Totem tentato — lo ritroverai più avanti nel cammino.'); };
+    if (tt.kind === 'stopgo') _runStopGo({ trials: 10 }, after);
+    else startUnlock({}, after);
+  }
+  function _npcGenerate(gn, theme, userText) {
+    return new Promise(function (resolve) {
+      var sys = window.fillPromptTemplate ? window.fillPromptTemplate('NPC_NARRATOR', { nodeLabel: gn.label, nodeDesc: gn.desc, theme: theme, tone: 'misterioso e gentile' }) : '';
+      var modelPath = null; try { modelPath = localStorage.getItem('mappai_npc_model_path'); } catch (e) {}
+      gn.history = gn.history || [];
+      // chiude il turno: salva user+model nella storia (per il cloud e per coerenza) e risolve
+      function finish(txt) { gn.history.push({ role: 'user', text: userText }); gn.history.push({ role: 'model', text: txt }); if (gn.history.length > 16) gn.history = gn.history.slice(-16); resolve(txt); }
+      function cloud() {
+        if (sys && window.fetchModelAPI && window.getSystemKey && window.getSystemKey()) {
+          var contents = gn.history.map(function (h) { return { role: h.role, parts: [{ text: h.text }] }; });   // storia → multi-turn
+          contents.push({ role: 'user', parts: [{ text: userText }] });
+          var payload = { contents: contents, systemInstruction: { parts: [{ text: sys }] }, generationConfig: { temperature: 0.6, maxOutputTokens: 320 } };
+          window.fetchModelAPI(payload, window.getSystemKey()).then(function (r) { var tx = r && r.candidates && r.candidates[0] && r.candidates[0].content.parts[0].text; finish(tx ? tx.trim() : (gn.desc || gn.label)); }).catch(function () { finish(gn.desc || gn.label); });
+        } else finish(gn.desc || ('Sono ' + gn.label + '.'));
+      }
+      // LOCALE: la sessione node-llama-cpp (npcId) mantiene già la storia lato motore → invio solo il nuovo messaggio
+      if (modelPath && window.electronAPI && window.electronAPI.generateLocalNPC && sys) {
+        window.electronAPI.generateLocalNPC({ npcId: gn.id, systemPrompt: sys, userText: userText, modelPath: modelPath, temperature: 0.6, maxTokens: 320, stream: false }).then(function (r) { if (r && r.success && r.text) finish(r.text.trim()); else cloud(); }).catch(cloud);
+      } else cloud();
+    });
+  }
+  // ─────────────── HUB Fase 3: Sapienti-Tamagotchi — il decay rende visibile lo spaced retrieval ───────────────
+  // Il Sapiente "appassisce" (🥀, sprite sbiadito) quando ≥2 memorie della SUA macro-area sono deboli
+  // o stantie (_needReview ≥ 1). Mai punitivo (SDT): ripassare con lui è un'OFFERTA nel dialogo; i
+  // record 'dungeon_review' rinfrescano la mastery e il Sapiente rifiorisce subito.
+  function _npcBranchDiary(gn) {
+    if (!gn || !gn.node || gn.node.group == null || !DUN || !DUN.diary) return [];
+    var seen = {};
+    return DUN.diary.filter(function (d) {
+      if (d.ghost || seen[d.id]) return false;
+      var nd = _nodeById(d.id);
+      if (!nd || nd.group !== gn.node.group) return false;
+      seen[d.id] = 1; return true;
+    });
+  }
+  function _refreshNpcWilt() {
+    if (!DUN || !DUN.gardenNpcs) return;
+    for (var k in DUN.gardenNpcs) {
+      var gn = DUN.gardenNpcs[k];
+      if (gn.custode) continue;
+      var stale = _npcBranchDiary(gn).filter(function (d) { return _needReview(d.id) >= 1; });
+      stale.sort(function (a, b) { return _needReview(b.id) - _needReview(a.id); });
+      gn.wiltEntries = stale;
+      gn.wilt = stale.length >= 2;   // una sola memoria debole non fa appassire (niente ansia)
+    }
+  }
+  // Fase 4: quest del giorno — il Sapiente più appassito chiede visita. Una sola proposta al giorno
+  // per mappa ('mappai_hub_quest__<sig>'); completarla = fare il suo ripasso. Solo invito, mai obbligo.
+  function _questKey() { return 'mappai_hub_quest__' + _mapSig(); }
+  function _dailyQuest() {
+    try {
+      var today = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem(_questKey()) === today) return;
+      var best = null, bn = 0;
+      for (var k in DUN.gardenNpcs) { var gn = DUN.gardenNpcs[k]; if (!gn.custode && gn.wilt && gn.wiltEntries.length > bn) { bn = gn.wiltEntries.length; best = gn; } }
+      if (!best) return;
+      DUN.quest = { npcId: best.id, label: best.label, n: bn };
+      _logEv('hub_quest', { n: bn });
+      _msg('🌱 Quest del giorno: 🥀 ' + best.label + ' ha ' + bn + ' memorie da rinfrescare — vai a trovarlo.');
+    } catch (e) {}
+  }
+  // ── NPC Slice 2 (SDS §6): behaviors nel giardino — logica pura in mappai-npc-behavior.js ──
+  // Flag 'mappai_npc_garden_enabled' (SDS §9): default OFF finché la GUI hub non è validata a video.
+  // Seed = progetto+mappa → coreografia deterministica (stesso prato per tutta la classe).
+  function _npcGardenOn() { try { return localStorage.getItem('mappai_npc_garden_enabled') === '1'; } catch (e) { return false; } }
+  function _initNpcBehaviors() {
+    if (!DUN || !DUN.gardenNpcs || !_npcGardenOn() || !window.MappAINpcBehavior) { if (DUN) DUN._npcRng = null; return; }
+    var B = window.MappAINpcBehavior, st = _getAppState();
+    DUN._npcRng = B.mulberry32(B.strSeed(((st && st.rootNodeLabel) || '') + '::' + _gardenMapName()));
+    for (var k in DUN.gardenNpcs) {
+      var gn = DUN.gardenNpcs[k];
+      gn.beh = B.mkBehavior((gn.custode || gn.wilt) ? 'static' : 'wander', gn.x, gn.y, 2);
+    }
+  }
+  function _npcCellFree(x, y) {
+    var k = x + ',' + y;
+    if (DUN.map[k] !== 0 || DUN.gardenNpcs[k]) return false;
+    if (x === DUN.px && y === DUN.py) return false;
+    if (x === DUN.sx && y === DUN.sy) return false;   // mai sopra la discesa/guardiano
+    return true;
+  }
+  function _npcTick() {
+    if (!DUN || !DUN.gardenFloor || !DUN.gardenNpcs || !DUN._npcRng) return;
+    var B = window.MappAINpcBehavior; if (!B) return;
+    var now = performance.now();
+    for (var k in DUN.gardenNpcs) {
+      var gn = DUN.gardenNpcs[k]; if (!gn.beh) continue;
+      gn.beh.type = (gn.custode || gn.wilt) ? 'static' : 'wander';   // appassito = senza energie, fermo (riparte dopo il ripasso)
+      var pd = Math.abs(gn.x - DUN.px) + Math.abs(gn.y - DUN.py);
+      var moved = B.stepNpc(gn.beh, { now: now, rng: DUN._npcRng, walkable: _npcCellFree, playerDist: pd, triggerRadius: 2 });
+      if (moved) {
+        delete DUN.gardenNpcs[k];
+        gn.x = gn.beh.x; gn.y = gn.beh.y;
+        DUN.gardenNpcs[gn.x + ',' + gn.y] = gn;   // re-key: click e _arrive continuano a trovarlo
+      }
+      // emote-bubble occasionale col termine-chiave del nodo (priming passivo)
+      if (gn.node && !gn.custode && now >= (gn.beh.nextEmoteT || 0)) {
+        gn.beh.nextEmoteT = now + 8000 + DUN._npcRng() * 8000;
+        gn.beh.emoteTerm = B.pickEmoteTerm(gn.label, gn.desc, DUN._npcRng);
+        gn.beh.emoteUntil = gn.beh.emoteTerm ? now + 2200 : 0;
+      }
+    }
+  }
+  // ── NPC Slice 3 (SDS §7): economia coins → storie CROSS-LINK ──
+  // Priming gratis alla prima visita; al ritorno il Sapiente può narrare (2 monete) un ARCO
+  // del grafo che collega la SUA macro-area a un'altra = elaborative encoding a pagamento.
+  // Anti-allucinazione: le desc dei DUE nodi vanno nel seed (l'LLM veste, non inventa).
+  // La storia entra nel diario come voce kind 'rel' → gate/boss la interrogano.
+  var NPC_XLINK_COST = 2;
+  function _xlinkKey() { return 'mappai_npc_xlinks__' + _mapSig(); }
+  function _xlinkBought() { try { var o = JSON.parse(localStorage.getItem(_xlinkKey()) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } }
+  function _xlinkMark(key) { var o = _xlinkBought(); o[key] = 1; _lsSet(_xlinkKey(), JSON.stringify(o)); }
+  function _npcCrossLink(gn) {
+    if (!gn || !gn.node || gn.node.group == null) return null;
+    var st = _getAppState(); if (!st || !st.db) return null;
+    var links = st.db.links || [], bought = _xlinkBought(), cand = [];
+    links.forEach(function (l) {
+      if (!l || !l.rel) return;
+      var s = _nodeById(_lid(l.source)), t = _nodeById(_lid(l.target));
+      if (!s || !t || s.group == null || t.group == null || s.group === t.group) return;   // solo archi INTER-area
+      var a = (s.group === gn.node.group) ? s : ((t.group === gn.node.group) ? t : null);
+      if (!a) return;
+      var b = (a === s) ? t : s, key = a.id + '__' + b.id;
+      if (bought[key]) return;
+      cand.push({ a: a, b: b, rel: _clean(l.rel), key: key });
+    });
+    return cand.length ? cand[Math.floor(Math.random() * cand.length)] : null;
+  }
+  // ── NPC Slice 1 (SDS §5): persistenza chat nel Vault, cartella "Dialoghi NPC" ──
+  // Riusa l'IPC save-chat-transcript (append-only, header solo a file nuovo). Senza vault
+  // attivo → skip silenzioso (niente file orfani nella cartella globale). Niente PII:
+  // si salvano solo label del nodo e testo dei turni (coerente con l'anonimato JIGSAW).
+  function _npcVaultSaveOn() { try { return localStorage.getItem('mappai_npc_vault_save') !== '0'; } catch (e) { return true; } }
+  function _saveNpcTurn(gn, playerText, npcText) {
+    if (!_npcVaultSaveOn()) return;
+    try {
+      var st = _getAppState();
+      if (!st || !st.activeVaultPath) return;   // mappa mai salvata nel vault → skip
+      if (!window.electronAPI || typeof window.electronAPI.saveChatTranscript !== 'function') return;
+      var d = new Date(), tm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      var lines = [];
+      if (playerText) lines.push('[' + tm + '] 🧑 Player: ' + playerText);
+      if (npcText) lines.push('[' + tm + '] 🧙 ' + gn.label + ': ' + npcText);
+      if (!lines.length) return;
+      var p = window.electronAPI.saveChatTranscript({
+        projectName: st.rootNodeLabel || 'MappAI',
+        targetName: gn.label,
+        subFolder: 'Dialoghi NPC',
+        vaultPath: st.activeVaultPath,
+        textContent: lines.join('\n')
+      });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function _openGardenNpc(gn) {
+    DUN.busy = true;
+    var ov = _overlay(); ov.card.style.width = 'min(620px,95vw)'; ov.card.style.color = '#1e293b'; ov.card.style.background = '#fff';
+    // HUB S2: il Custode ha bottoni-azione deterministici (percorso di studio / prova d'ingresso)
+    var acts = '';
+    if (!gn.custode && gn.wilt && gn.wiltEntries && gn.wiltEntries.length) {
+      acts = '<div style="margin-top:10px"><button id="gn-ripassa" class="btn" type="button" style="width:100%">🥀→🌿 Ripassa con me — ' + gn.wiltEntries.length + ' memorie da rinfrescare</button></div>';
+    }
+    // Slice 3: storia cross-link al ritorno (solo se il Sapiente è già stato ascoltato una volta)
+    var xl = (!gn.custode && gn.seeded) ? _npcCrossLink(gn) : null;
+    if (xl) {
+      var afford = DUN.coins >= NPC_XLINK_COST;
+      acts += '<div style="margin-top:8px"><button id="gn-xlink" class="btn" type="button" style="width:100%' + (afford ? '' : ';opacity:.55;cursor:not-allowed') + '" title="' + (afford ? 'Un arco del grafo, narrato' : 'Ti servono ' + NPC_XLINK_COST + ' monete: le trovi nel dungeon') + '">🪙 Raccontami un legame segreto (' + NPC_XLINK_COST + ' monete — hai $' + DUN.coins + ')</button></div>';
+    }
+    if (gn.custode) {
+      var hasSP = !!(window.MappAIStudyPath && window.MappAIStudyPath.open);
+      var hasProva = _hubAssessOn() && (typeof _provaViandante === 'function');
+      if (hasSP || hasProva) acts = '<div style="display:flex;gap:8px;margin-top:10px">' +
+        (hasSP ? '<button id="gn-sp" class="btn" style="flex:1">🧭 Percorso di studio</button>' : '') +
+        (hasProva ? '<button id="gn-prova" class="btn" style="flex:1">🥾 Prova del Viandante</button>' : '') +
+        '</div>';
+    }
+    ov.card.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><b>' + (gn.custode ? '🦉' : '🧙') + ' ' + gn.label + '</b><button id="gn-x" class="btn">chiudi</button></div>' +
+      '<div id="gn-body" style="max-height:42vh;overflow:auto;font-size:14px;line-height:1.6"></div>' +
+      acts +
+      '<div style="display:flex;gap:8px;margin-top:10px"><input id="gn-in" placeholder="Chiedi qualcosa…" style="flex:1;padding:8px;border:1px solid #cbd5e1;border-radius:8px;color:#1e293b"><button id="gn-send" class="btn">Invia</button></div>';
+    function close() { ov.close(); DUN.busy = false; }
+    var un = _esc(close);
+    ov.card.querySelector('#gn-x').onclick = function () { un(); close(); };
+    var body = ov.card.querySelector('#gn-body');
+    var theme = (_getAppState() && _getAppState().rootNodeLabel) || 'un mondo di studio';
+    function ask(userText, seed) {
+      var think = document.createElement('div'); think.style.color = '#94a3b8'; think.style.fontStyle = 'italic'; think.textContent = '…'; body.appendChild(think); body.scrollTop = body.scrollHeight;
+      _npcGenerate(gn, theme, seed || userText).then(function (txt) {
+        think.remove();
+        if (userText && !seed) { var um = document.createElement('div'); um.style.cssText = 'color:#4f46e5;font-weight:bold;margin-top:6px'; um.textContent = '🧒 ' + userText; body.appendChild(um); }
+        var pp = document.createElement('div'); pp.style.margin = '4px 0 8px'; pp.textContent = txt; body.appendChild(pp); body.scrollTop = body.scrollHeight; gn.seeded = true;
+        _saveNpcTurn(gn, (userText && !seed) ? userText : null, txt);   // Slice 1: turno → Vault/Dialoghi NPC
+      });
+    }
+    if (gn.custode) {
+      // apertura deterministica (zero LLM): panoramica mappa + cammino; la chat libera resta AI
+      gn.desc = _custodeOverview();   // refresh (la mastery può essere cambiata dall'ultimo load)
+      var pp0 = document.createElement('div'); pp0.style.margin = '4px 0 8px'; pp0.textContent = gn.desc; body.appendChild(pp0); gn.seeded = true;
+    } else {
+      ask(null, gn.seeded ? 'Saluta di nuovo il giocatore in una sola frase e chiedigli cosa vuole sapere.' : 'Salutami presentandoti in 3 frasi: 1) chi sei, legato al tema; 2) un fatto concreto preso dal CONTENUTO con un nome o termine chiave; 3) una domanda aperta che mi incuriosisce. Non dare la risposta alla domanda.');
+    }
+    if (gn.custode) {
+      var spb = ov.card.querySelector('#gn-sp');
+      if (spb) spb.onclick = function () { _logEv('hub_custode_studypath'); un(); close(); _closeDungeon(); try { window.MappAIStudyPath.open(); } catch (e) {} };
+      var pvb = ov.card.querySelector('#gn-prova');
+      if (pvb) pvb.onclick = function () { _logEv('hub_custode_prova'); un(); close(); _provaViandante(); };
+    }
+    // Slice 3: acquisto storia cross-link — scala le monete, narra l'arco, salva nel diario (kind rel)
+    var xb = ov.card.querySelector('#gn-xlink');
+    if (xb && xl) xb.onclick = function () {
+      if (DUN.coins < NPC_XLINK_COST) { _msg('🪙 Ti servono ' + NPC_XLINK_COST + ' monete — le lasciano i nemici del dungeon.'); return; }
+      DUN.coins -= NPC_XLINK_COST;
+      _xlinkMark(xl.key);
+      xb.disabled = true; xb.style.opacity = '.55';
+      var seed = 'Racconta in esattamente 3 frasi come «' + _clean(xl.a.label) + '» è legato a «' + _clean(xl.b.label) + '» tramite «' + xl.rel + '». ' +
+        'Usa SOLO questi due CONTENUTI, non inventare nulla.\nCONTENUTO A (' + _clean(xl.a.label) + '): ' + _softCut(_desc(xl.a) || '', 400) +
+        '\nCONTENUTO B (' + _clean(xl.b.label) + '): ' + _softCut(_desc(xl.b) || '', 400);
+      ask(null, seed);
+      _addDiary(xl.a, 'rel', { rel: { targetId: xl.b.id, targetLabel: _clean(xl.b.label), rel: xl.rel } });
+      _logEv('npc_crosslink', { a: xl.a.id, b: xl.b.id });
+      _msg('🪙 ' + gn.label + ' ti ha svelato un legame: «' + _clean(xl.a.label) + ' → ' + xl.rel + ' → ' + _clean(xl.b.label) + '» (nel diario, sezione 🏺).');
+    };
+    // Fase 3: ripasso Tamagotchi — quiz sui nodi deboli/stantii della macro-area del Sapiente
+    var rb = ov.card.querySelector('#gn-ripassa');
+    if (rb) rb.onclick = function () {
+      un(); close();
+      var subs = gn.wiltEntries.slice(0, 3).map(_poolEntry);
+      var pool = DUN.diary.filter(function (d) { return !d.ghost; }).map(_poolEntry);
+      _logEv('npc_review', { group: gn.node && gn.node.group, n: subs.length });
+      _runQuiz(pool, subs.length, 'Ripasso con ' + gn.label, false, function (c, t) {
+        _refreshNpcWilt();
+        _msg(c === t ? '🌿 ' + gn.label + ' rifiorisce: memorie fresche!' : '🌱 Ripasso fatto (' + c + '/' + t + ') — torna a trovarlo presto.');
+        if (DUN.quest && DUN.quest.npcId === gn.id) {   // Fase 4: quest del giorno completata
+          DUN.quest = null; _lsSet(_questKey(), new Date().toISOString().slice(0, 10));
+          _logEv('hub_quest_done', { ok: c, tot: t }); _msg('✦ Quest del giorno completata!');
+        }
+      }, subs, 'dungeon_review');
+    };
+    ov.card.querySelector('#gn-send').onclick = function () { var inp = ov.card.querySelector('#gn-in'); var m = inp.value.trim(); if (!m) return; inp.value = ''; ask(m); };
+    ov.card.querySelector('#gn-in').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ov.card.querySelector('#gn-send').click(); } });
+  }
+
+  function _onDunClick(e) {
+    if (!DUN || DUN.path || DUN.duel || !DUN.cv) return;
+    var TS = DUN.TS, rect = DUN.cv.getBoundingClientRect();
+    var camX = DUN.px * TS - DUN.cv.width / 2 + TS / 2, camY = DUN.py * TS - DUN.cv.height / 2 + TS / 2;
+    var wx = Math.floor((e.clientX - rect.left + camX) / TS), wy = Math.floor((e.clientY - rect.top + camY) / TS);
+    if (DUN.gardenNpcs && DUN.gardenNpcs[wx + ',' + wy]) { _openGardenNpc(DUN.gardenNpcs[wx + ',' + wy]); return; }   // clic diretto su NPC → chat (no pathing)
+    if (DUN.gateRoom && !DUN.gateRoom.passed && wx === DUN.gateRoom.bx && wy === DUN.gateRoom.by) { _gateRoomChallenge(); return; }   // clic sul beholder → quiz
+    if (DUN.map[wx + ',' + wy] !== 0 || !DUN.explored[wx + ',' + wy]) return;
+    var path = [];
+    var astar = new ROT.Path.AStar(wx, wy, function (x, y) { return DUN.map[x + ',' + y] === 0; }, { topology: 4 });
+    astar.compute(DUN.px, DUN.py, function (x, y) { path.push([x, y]); });
+    if (path.length < 2) { _arrive(wx, wy); return; }
+    path.shift();
+    DUN.path = { steps: path, last: Date.now() };
+  }
+  function _dunTick() {
+    if (!DUN) return;
+    if (DUN.busy) return;                                  // modal aperto → gioco in pausa (fix: niente colpi durante i puzzle)
+    if (DUN.hp < DUN.maxhp && Date.now() - DUN.hpTimer >= 10000) { DUN.hp++; DUN.hpTimer = Date.now(); }
+    if (DUN.duel) { if (Date.now() > DUN.duel.deadline) _duelTimeout(); return; }
+    if (DUN.path && Date.now() - DUN.path.last >= 110) {
+      var px0 = DUN.px, py0 = DUN.py, s = DUN.path.steps.shift();
+      DUN.px = s[0]; DUN.py = s[1]; DUN.path.last = Date.now();
+      DUN.facing = [DUN.px - px0, DUN.py - py0];           // direzione per la spell
+      _computeFOV(); _checkPickup();
+      var srcHere = DUN.sources[DUN.px + ',' + DUN.py];   // camminare SOPRA una memory unit avvia il puzzle (prima serviva il click esatto sul tile)
+      if (srcHere && !srcHere.extracted) { DUN.path = null; _interactSource(srcHere); return; }
+      var adj = _mobAt(DUN.px + 1, DUN.py) || _mobAt(DUN.px - 1, DUN.py) || _mobAt(DUN.px, DUN.py + 1) || _mobAt(DUN.px, DUN.py - 1);
+      if (adj) { DUN.path = null; _startDuel(adj); return; }
+      if (!DUN.path.steps.length) { var fx = DUN.px, fy = DUN.py; DUN.path = null; _arrive(fx, fy); }
+    }
+    if (DUN.gardenFloor) _npcTick();   // Slice 2: i Sapienti vivono (pausa automatica: DUN.busy esce prima)
+    _mobTick();
+  }
+  function _checkPickup() {
+    var key = DUN.px + ',' + DUN.py, it = DUN.items && DUN.items[key];
+    if (!it) return;
+    delete DUN.items[key]; _snd('pickup');
+    if (it.type === 'coin') { DUN.coins++; _msg('Moneta raccolta (' + DUN.coins + ').'); }
+    else if (it.type === 'gem') { DUN.gems++; _msg('Gemma raccolta (' + DUN.gems + ').'); }
+    else if (it.type === 'potion_blue') { DUN.mana = Math.min(DUN.maxMana, DUN.mana + 1); _msg('Pozione blu: +1 mana.'); }
+    else if (it.type === 'potion_green') { DUN.mana = DUN.maxMana; _msg('Pozione verde: mana al massimo!'); }
+  }
+  // diario persistito tra sessioni (Quick win A) — le note erano già in mappai_dungeon_notes, ora anche le voci
+  // chiave per-MAPPA: ogni mappa ha diario/note/sintesi propri (fix: il dungeon non eredita i contenuti della mappa precedente)
+  function _mapSig() { var st = _getAppState(); var nodes = (st && st.db && st.db.nodes) || []; var base = ((st && st.rootNodeLabel) || '') + '#' + nodes.length; var h = 0; for (var i = 0; i < base.length; i++) h = (Math.imul(31, h) + base.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+  function _diaryKey() { return 'mappai_dungeon_diary__' + _mapSig(); }
+  function _loadDiary() { try { var a = JSON.parse(localStorage.getItem(_diaryKey()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function _saveDiary() { _lsSet(_diaryKey(), JSON.stringify(DUN.diary || [])); }
+  // ── core puro (mappai-dungeon-core.js) — null se il file non è caricato (fallback inline nei chiamanti)
+  function _core() { return window.MappAIDungeonCore || null; }
+  // localStorage con esito (A4-A6): al PRIMO fallimento della sessione un solo avviso.
+  // Flag in variabile di modulo, NON in localStorage (se lo storage è rotto non potremmo persisterlo).
+  var _lsWarned = false;
+  function _lsSet(key, val) {
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) {
+      if (!_lsWarned) { _lsWarned = true; try { _toast('⚠ Salvataggio locale non riuscito — i progressi di gioco potrebbero non essere conservati', 'warning'); } catch (e2) {} }
+      return false;
+    }
+  }
+  // ── EVENT-LOG unificato (telemetria ECD c20/c21 — gap H). Chiave GLOBALE, campo `map`:
+  // la meta-analisi docente è cross-mappa e il cap si gestisce in un punto solo. Additivo,
+  // NON sostituisce le chiavi esistenti (skill/wm/duel/diary/notes/synthesis).
+  var EV_KEY = 'mappai_dungeon_events';
+  function _events() { try { var a = JSON.parse(localStorage.getItem(EV_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function _logEv(ev, data) {
+    var e = { ts: Date.now(), ev: ev, map: _mapSig() };
+    if (data) for (var k in data) if (data[k] !== undefined) e[k] = data[k];
+    var arr = _events(); arr.push(e);
+    var C = _core();
+    arr = C ? C.capEvents(arr, 2000) : (arr.length > 2000 ? arr.slice(arr.length - 1500) : arr);   // fallback inline
+    _lsSet(EV_KEY, JSON.stringify(arr));
+  }
+  // Nodi FANTASMA (A8): voci del diario il cui nodo non esiste più nella mappa. NON si cancellano
+  // (è lavoro dello studente — BES): si marcano ghost e si escludono dai quiz. Restano leggibili nel diario.
+  function _pruneDiary() {
+    var changed = false;
+    (DUN.diary || []).forEach(function (d) {
+      var missing = !_nodeById(d.id);
+      if (missing && !d.ghost) { d.ghost = true; changed = true; }
+      else if (!missing && d.ghost) { delete d.ghost; changed = true; }   // il nodo è tornato (undo) → riabilita
+    });
+    if (changed) _saveDiary();
+  }
+  // voce diario con kind (desc/cite/rel) + eid univoco (un nodo può avere più memorie). fi = piano (spaced retrieval).
+  function _addDiary(node, kind, extra) {
+    kind = kind || 'desc'; extra = extra || {};
+    var eid = (kind === 'rel' && extra.rel) ? (node.id + '__' + extra.rel.targetId) : (kind === 'cite' ? (node.id + '__cite') : String(node.id));
+    for (var i = 0; i < DUN.diary.length; i++) if ((DUN.diary[i].eid || DUN.diary[i].id) === eid) return;
+    var label = (kind === 'rel' && extra.rel) ? (_clean(node.label) + ' → ' + extra.rel.rel + ' → ' + extra.rel.targetLabel) : _clean(node.label);
+    DUN.diary.push({ eid: eid, id: node.id, label: label, desc: (extra.text != null ? extra.text : _desc(node)), fi: DUN.fi, kind: kind });
+    _saveDiary();
+  }
+  function _arrive(x, y) {
+    if (DUN.gardenNpcs) { var gn = DUN.gardenNpcs[x + ',' + y]; if (gn) { _openGardenNpc(gn); return; } }
+    if (DUN.gateRoom) { if (DUN.gateRoom.passed && x === DUN.sx && y === DUN.sy) _exitGateRoom(); return; }
+    if (DUN.boss && !DUN.boss.defeated && x === DUN.boss.x && y === DUN.boss.y) { _startBoss(); return; }
+    if (DUN.raduraTotems) { var tt = DUN.raduraTotems[x + ',' + y]; if (tt && !tt.done) { _raduraTotem(tt); return; } }   // S4: totem FE
+    if (x === DUN.sx && y === DUN.sy) { _descend(); return; }
+    var src = DUN.sources[x + ',' + y];
+    if (src && !src.extracted) _interactSource(src);
+    else if (src && src.extracted) _msg('📓 «' + _clean(src.node.label) + '» — memory già catturata.');   // niente silenzio: spiega perché il tile è lì ma non fa nulla
+  }
+  function _interactSource(src) {
+    var t = SRC[src.type] || { modality: 'seq', kind: 'desc' };
+    startUnlock(t, function (res) {
+      if (res && res.success) {
+        src.extracted = true;
+        var cap = _memoryContent(src.node, t.kind);   // {kind, rel?} con fallback a desc
+        _msg('Memory unit: ' + _clean(src.node.label));
+        _captureMemory(src.node, cap.kind, cap.rel);   // cattura attiva → addDiary + record dentro la cattura
+      } else if (res && res.cooldown) { _msg('Accesso fallito — riprova più tardi.'); }
+    });
+  }
+  // ───── CATTURA ATTIVA (gap #1 — encoding generativo) ─────
+  // Non più "1 click → diario". Lo studente PRODUCE una sintesi con parole sue
+  // (o ascolta la fonte e la trascrive a memoria) PRIMA che la memory unit entri
+  // nel diario. La sintesi diventa la nota markdown del diario (riuso _saveNote).
+  function _wordCount(s) { s = String(s || '').trim(); return s ? s.split(/\s+/).length : 0; }
+  function _captureMin(node) { return Math.max(6, Math.min(20, Math.round(_wordCount(_desc(node)) * 0.25))); } // soglia adattiva, mai oltre 20 parole
+  function _captureMemory(node, kind, rel, onDone) {
+    if (typeof kind === 'function') { onDone = kind; kind = 'desc'; rel = null; }  // retrocompat firma vecchia
+    kind = kind || 'desc'; onDone = onDone || function () {};
+    var st = _getAppState(); var cites = (st && st.db && st.db.sourcesDict && st.db.sourcesDict[node.id]) || [];
+    var refText, headLabel, hint, noteKey;
+    if (kind === 'cite' && cites.length) { refText = _clean(cites[0].text || ''); headLabel = _clean(node.label) + ' · 📜 citazione'; hint = 'Trascrivi o riformula la citazione con parole tue.'; noteKey = node.id + '__cite'; }
+    else if (kind === 'rel' && rel) { refText = _clean(node.label) + '  →  ' + rel.rel + '  →  ' + rel.targetLabel; headLabel = '🏺 Relazione · ' + _clean(node.label); hint = 'Spiega con parole tue PERCHÉ vale questa relazione.'; noteKey = node.id + '__' + rel.targetId; }
+    else { kind = 'desc'; refText = _desc(node) || ''; headLabel = _clean(node.label); hint = ''; noteKey = String(node.id); }
+    if (!_clean(refText)) { _msg('«' + _clean(node.label) + '» non ha contenuto da studiare — memory saltata.'); onDone(); return; }   // guard A12
+    var desc = refText, minW = Math.max(6, Math.min(20, Math.round(_wordCount(refText) * 0.25)));
+    var cur = _notes()[noteKey] || '';       // riprende eventuale sintesi precedente (re-cattura = rifinitura)
+    var mode = 'write', saved = false;        // 'write' = fonte visibile · 'listen' = ascolta&trascrivi (fonte nascosta)
+    var ttsRate = 1, ttsRates = [0.75, 0.9, 1, 1.25];   // velocità TTS ciclabile
+    var ov = _overlay(); ov.card.style.width = 'min(680px,95vw)';
+    function stopTTS() { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {} }
+    var un = _esc(function () { skip(); });   // Esc = salta (la memory unit resta comunque nel diario)
+    function done(score, txt) {
+      if (saved) return; saved = true; stopTTS(); un();
+      if (txt && _wordCount(txt) >= 1) _saveNote(noteKey, txt.trim());
+      _addDiary(node, kind, { text: refText, rel: rel });
+      _ensureQuiz(node.id);   // lazy: prepara le MC AI in background, pronte al gate
+      try {
+        if (window.MappAIStudyBus) window.MappAIStudyBus.record(node.id, node.label, 'dungeon', { score: score });
+        else if (window.MappAIMastery) window.MappAIMastery.record(node.id, node.label, 'dungeon', { score: score });
+      } catch (e) {}
+      _logEv('cap', { nodeId: node.id, kind: kind, acc: Math.round(score * 100) / 100 });
+      if (DUN) DUN._sessCaps = (DUN._sessCaps || 0) + 1;   // per il digest di fine sessione
+      ov.close(); onDone();
+    }
+    function skip() { if (saved) return; done(0.6, cur); _msg('Cattura saltata — memory unit nel diario.'); }
+    // valuta la sintesi scritta (affinità SEMANTICA vs fonte), mostra l'accuracy, persiste il punteggio per la heatmap
+    function evaluate() {
+      if (_wordCount(cur) < minW) { _msg('Scrivi almeno ' + minW + ' parole (o premi salta).'); return; }
+      var btn = ov.card.querySelector('#cm-save'); if (btn) { btn.textContent = '🧠 Valuto…'; btn.style.opacity = '.6'; btn.style.cursor = 'default'; }
+      Promise.resolve(_scoreOpen(cur, { ref: refText, answer: _clean(node.label) })).then(function (res) {
+        _setSynthScore(node.id, res.acc);
+        if (window.MappAIMasteryView && window.MappAIMasteryView.active && typeof window.renderGraph === 'function') { try { window.renderGraph(); } catch (e) {} } // refresh heatmap live
+        showFeedback(res);
+      });
+    }
+    function showFeedback(res) {
+      stopTTS();
+      var good = res.acc >= 60;
+      ov.card.innerHTML =
+        '<div style="font-size:12px;color:#8fa4c4">Cattura attiva · valutazione sintesi</div>' +
+        '<h3 style="margin:4px 0 10px;font-size:18px;font-weight:500">' + _esch(headLabel) + '</h3>' +
+        '<div style="font-size:16px;font-weight:600;margin:6px 0 10px;color:' + (good ? '#3fae5a' : '#e0a23f') + '">' + (good ? '✓' : '↻') + ' Accuratezza contenuti: ' + res.acc + '%</div>' +
+        (res.feedback ? '<p style="font-size:14px;line-height:1.6;color:#c3d2ea;margin:0 0 14px">' + _esch(res.feedback) + '</p>' : '') +
+        (good ? '<p style="font-size:12.5px;color:#7fae8f;margin:0 0 14px">Sopra il 60%: questo nodo verrà evidenziato sulla heatmap di studio 🎯 (anello dorato).</p>'
+              : '<p style="font-size:12.5px;color:#9fb3d4;margin:0 0 14px">Sotto il 60%: puoi rivedere la sintesi o salvarla comunque.</p>') +
         '<div style="display:flex;gap:8px">' +
-          '<button id="dgBad"  class="dgQ" style="border-color:#c0432c">✗ Non la so</button>' +
-          '<button id="dgGood" class="dgQ" style="border-color:#3aa0c9">✓ La so</button>' +
+          '<button id="cm-keep" type="button" style="flex:1;' + GBS + '">💾 Salva nel diario</button>' +
+          '<button id="cm-edit" type="button" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">↩ modifica</button>' +
+        '</div>';
+      ov.card.querySelector('#cm-keep').onclick = function () { done(res.acc / 100, cur); };
+      ov.card.querySelector('#cm-edit').onclick = function () { render(); };
+    }
+    function speak() { try { var u = new SpeechSynthesisUtterance(_clean(desc || node.label)); u.lang = 'it-IT'; u.rate = ttsRate; stopTTS(); window.speechSynthesis.speak(u); } catch (e) { _msg('Sintesi vocale non disponibile.'); } }
+    function srcPanel() {
+      if (mode === 'listen') return '<div style="font-size:13px;color:#c3d2ea;line-height:1.5">Ascolta la fonte e scrivi <b>con parole tue</b> ciò che ricordi. La fonte resta nascosta.</div>' +
+        '<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">' +
+        '<button id="cm-play" type="button" style="flex:1;min-width:120px;' + GBS + '">🔊 Ascolta</button>' +
+        '<button id="cm-restart" type="button" title="Riascolta da capo" style="' + GBS + '">⏮ riascolta</button>' +
+        '<button id="cm-rate" type="button" title="Velocità di lettura (ciclo 0.75→0.9→1→1.25)" style="' + GBS + '">× ' + ttsRate + '</button>' +
+        '</div>';
+      var h = hint ? '<div style="font-size:12px;color:#9fb3d4;margin-bottom:6px"><i>' + _esch(hint) + '</i></div>' : '';
+      return h + '<p style="font-size:13px;line-height:1.6;color:#c3d2ea;margin:0;white-space:pre-wrap">' + _esch(desc || '(nessun contenuto)') + '</p>';
+    }
+    function counterHTML() {
+      var n = _wordCount(cur), okLen = n >= minW, copy = _norm(cur) && _norm(cur) === _norm(desc);
+      return '<span style="color:' + (okLen ? '#3fae5a' : '#8fa4c4') + '">' + n + ' / ' + minW + ' parole</span>' + (copy ? ' <span style="color:#e8a">· prova a dirlo con parole tue</span>' : '');
+    }
+    function render() {
+      var okLen = _wordCount(cur) >= minW;
+      ov.card.innerHTML =
+        '<div style="font-size:12px;color:#8fa4c4">Cattura attiva · scrivi la tua sintesi</div>' +
+        '<h3 style="margin:4px 0 10px;font-size:18px;font-weight:500">' + _esch(headLabel) + '</h3>' +
+        '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+          '<button id="cm-mw" type="button" style="flex:1;' + GBS + ';' + (mode === 'write' ? 'border-color:#fff;background:#24406a' : '') + '">✍ Sintesi</button>' +
+          '<button id="cm-ml" type="button" style="flex:1;' + GBS + ';' + (mode === 'listen' ? 'border-color:#fff;background:#24406a' : '') + '">🔊 Ascolta e trascrivi</button>' +
         '</div>' +
-        '<button id="dgClose" style="margin-top:10px;width:100%;background:transparent;border:none;color:#8fa4c4;font-size:12px;cursor:pointer">chiudi</button>' +
-      '</div>' +
-      '<div id="dgBanner" style="position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:rgba(10,15,26,.95);border:0.5px solid rgba(120,160,220,.5);border-radius:10px;padding:10px 16px;color:#eaf2ff;font-size:13px;display:none;align-items:center;gap:12px"><span id="dgBTxt"></span><button id="dgBBtn" style="padding:6px 12px;border-radius:8px;border:0.5px solid #3aa0c9;background:rgba(30,42,66,.8);color:#eaf2ff;cursor:pointer"></button></div>';
-    var stl = document.createElement('style');
-    stl.textContent =
-      '#mappai-dungeon .dgBtn{padding:7px 12px;border-radius:8px;border:0.5px solid rgba(150,180,220,.4);background:rgba(10,15,26,.85);color:#eaf2ff;cursor:pointer;font-size:13px}' +
-      '#mappai-dungeon .dgBtn.on{border-color:#3aa0c9;background:rgba(58,160,201,.25)}' +
-      '#mappai-dungeon .dgHud{position:absolute;font-size:12px;color:#eaf2ff;text-shadow:0 1px 3px rgba(0,0,0,.85);pointer-events:none}' +
-      '#mappai-dungeon .dgQ{flex:1;padding:9px;border-radius:8px;border:0.5px solid rgba(120,160,220,.4);background:rgba(30,42,66,.8);color:#eaf2ff;font-size:13px;cursor:pointer}';
-    ov.appendChild(stl);
-    document.body.appendChild(ov);
-
-    var mount = ov.querySelector('#dgC');
-    var W = window.innerWidth, H = window.innerHeight;
-
-    // ── Three setup ──
-    var scene = new THREE.Scene();
-    var d = 9, asp = W / H;
-    var cam = new THREE.OrthographicCamera(-d * asp, d * asp, d, -d, 0.1, 500);
-    cam.position.set(16, 16, 16); cam.lookAt(0, 0.5, 0);
-    var rnd = new THREE.WebGLRenderer({ antialias: true });
-    rnd.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    rnd.setSize(W, H); mount.appendChild(rnd.domElement);
-    var amb = new THREE.AmbientLight(0xffffff, 0.8); scene.add(amb);
-    var dir = new THREE.DirectionalLight(0xffffff, 0.7); dir.position.set(8, 16, 6); scene.add(dir);
-    var floorMesh = new THREE.Mesh(new THREE.BoxGeometry(SP * 9, 0.3, SP * 9),
-      new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.95 }));
-    floorMesh.position.y = -0.16; scene.add(floorMesh);
-    var world = new THREE.Group(); scene.add(world);
-
-    var glowTex = (function () {
-      var c = document.createElement('canvas'); c.width = c.height = 128;
-      var g = c.getContext('2d'); var gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
-    })();
-    function makeLabel(text) {
-      var c = document.createElement('canvas'), s = 2; c.width = 280 * s; c.height = 64 * s;
-      var g = c.getContext('2d'); g.scale(s, s);
-      g.fillStyle = 'rgba(8,12,22,0.82)'; g.strokeStyle = 'rgba(150,180,220,0.5)'; g.lineWidth = 1.5;
-      var rw = 272, rh = 44, rx = 4, ry = 10, r = 12;
-      g.beginPath(); g.moveTo(rx + r, ry); g.arcTo(rx + rw, ry, rx + rw, ry + rh, r); g.arcTo(rx + rw, ry + rh, rx, ry + rh, r); g.arcTo(rx, ry + rh, rx, ry, r); g.arcTo(rx, ry, rx + rw, ry, r); g.closePath(); g.fill(); g.stroke();
-      g.fillStyle = '#eaf2ff'; g.font = '500 24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      var t = String(text || ''); if (t.length > 22) t = t.slice(0, 21) + '…';
-      g.fillText(t, 140, ry + rh / 2);
-      var tex = new THREE.CanvasTexture(c); tex.anisotropy = 4; return tex;
+        '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+          '<div style="flex:1 1 230px;min-width:200px;max-height:38vh;overflow:auto">' + srcPanel() + '</div>' +
+          '<div style="flex:1 1 230px;min-width:200px">' +
+            '<textarea id="cm-txt" placeholder="Riassumi con parole tue…" style="width:100%;height:150px;box-sizing:border-box;background:#16203a;color:#eaf2ff;border:1px solid #2a3a55;border-radius:8px;padding:8px;font-family:inherit;font-size:13px;line-height:1.5;resize:none">' + _esch(cur) + '</textarea>' +
+            '<div id="cm-cnt" style="font-size:12px;margin-top:6px">' + counterHTML() + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px">' +
+          '<button id="cm-save" type="button" style="flex:1;' + GBS + (okLen ? '' : ';opacity:.45;cursor:default') + '">💾 Salva nel diario</button>' +
+          '<button id="cm-skip" type="button" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">salta</button>' +
+        '</div>';
+      var ta = ov.card.querySelector('#cm-txt');
+      ta.oninput = function () {
+        cur = ta.value; var ok = _wordCount(cur) >= minW;
+        ov.card.querySelector('#cm-cnt').innerHTML = counterHTML();
+        var sv = ov.card.querySelector('#cm-save'); sv.style.opacity = ok ? '' : '.45'; sv.style.cursor = ok ? 'pointer' : 'default';
+      };
+      ov.card.querySelector('#cm-mw').onclick = function () { mode = 'write'; render(); };
+      ov.card.querySelector('#cm-ml').onclick = function () { mode = 'listen'; render(); speak(); };
+      var play = ov.card.querySelector('#cm-play'); if (play) play.onclick = speak;
+      var rst = ov.card.querySelector('#cm-restart'); if (rst) rst.onclick = function () { stopTTS(); speak(); };
+      var rateBtn = ov.card.querySelector('#cm-rate'); if (rateBtn) rateBtn.onclick = function () { ttsRate = ttsRates[(ttsRates.indexOf(ttsRate) + 1) % ttsRates.length]; rateBtn.textContent = '× ' + ttsRate; stopTTS(); speak(); };
+      ov.card.querySelector('#cm-save').onclick = function () { evaluate(); };
+      ov.card.querySelector('#cm-skip').onclick = skip;
+      setTimeout(function () { try { ta.focus(); ta.setSelectionRange(cur.length, cur.length); } catch (e) {} }, 30);
     }
-
-    // ── stato run ──
-    var curFloor = -1, fdata = null, roomObjs = {}, edgeLines = [], player = null;
-
-    // avatar
-    var avatar = new THREE.Group(); scene.add(avatar);
-    var aMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf5e6a8, emissiveIntensity: 0.4, roughness: 0.35, metalness: 0.2, transparent: true, opacity: 0.9 });
-    var aWire = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 });
-    var aMesh = null, aWireO = null, aStage = -1;
-    var aGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-    aGlow.scale.set(3.2, 3.2, 1); avatar.add(aGlow);
-    var ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide }));
-    ring.rotation.x = -Math.PI / 2.4; avatar.add(ring); var ringT = 0;
-
-    function geoFor(s) {
-      if (s === 0) return new THREE.IcosahedronGeometry(0.16, 0);
-      if (s === 1) return new THREE.BoxGeometry(0.07, 1.6, 0.07);
-      if (s === 2) return new THREE.CylinderGeometry(0.8, 0.8, 0.04, 3);
-      if (s === 3) return new THREE.TetrahedronGeometry(0.82);
-      if (s === 4) return new THREE.BoxGeometry(1.0, 1.0, 1.0);
-      if (s === 5) return new THREE.OctahedronGeometry(0.86);
-      if (s === 6) return new THREE.DodecahedronGeometry(0.72);
-      if (s === 7) return new THREE.IcosahedronGeometry(0.78);
-      return new THREE.SphereGeometry(0.78, 36, 24);
-    }
-    function gCounts() {
-      var m = 0, sd = 0, fsum = 0, fn = 0;
-      data.floors.forEach(function (f) {
-        f.memberIds.forEach(function (id) {
-          if (_studied(id)) { sd++; fsum += _fluency(id); fn++; }
-          if (_mastered(id)) m++;
-        });
-      });
-      return { m: m, sd: sd, f: fn ? fsum / fn : 0, total: data.total };
-    }
-    function stageOf(c) {
-      if (c.m >= c.total) return 8;
-      if (c.m === 0) return c.sd > 0 ? 1 : 0;
-      var frac = c.m / c.total;
-      return Math.max(2, Math.min(7, 2 + Math.round(frac * 5)));
-    }
-    function buildAvatar(s) {
-      if (aMesh) { avatar.remove(aMesh); aMesh.geometry.dispose(); }
-      if (aWireO) { avatar.remove(aWireO); aWireO.geometry.dispose(); }
-      var g = geoFor(s); aMesh = new THREE.Mesh(g, aMat); avatar.add(aMesh);
-      aWireO = new THREE.LineSegments(new THREE.WireframeGeometry(g), aWire); avatar.add(aWireO);
-    }
-    function updateAvatar() {
-      var c = gCounts(), s = stageOf(c);
-      if (s !== aStage) { aStage = s; buildAvatar(s); ringT = 1; }
-      var bi = _bandOf(c.f), col = BANDS[bi].c;
-      aMat.emissive.setHex(col); aMat.color.setHex(_lighten(col, 0.35)); aMat.emissiveIntensity = 0.3 + c.f * 0.9;
-      aWire.color.setHex(_lighten(col, 0.5)); aWire.opacity = 0.3 + c.f * 0.6;
-      ring.material.color.setHex(_lighten(col, 0.4));
-      aGlow.material.color.setHex(col); aGlow.material.opacity = STYLES[style].glow ? (0.3 + c.f * 0.5) : 0;
-      return { c: c, stage: s, band: BANDS[bi].n };
-    }
-
-    function clearFloor() {
-      while (world.children.length) {
-        var o = world.children[0];
-        if (o.geometry) o.geometry.dispose();
-        world.remove(o);
-      }
-      roomObjs = {}; edgeLines = [];
-    }
-    function loadFloor(idx) {
-      clearFloor();
-      curFloor = idx; fdata = data.floors[idx];
-      var cx = 0, cz = 0, P = fdata.pos;
-      fdata.memberIds.forEach(function (id) { cx += P[id].gx; cz += P[id].gz; });
-      cx /= fdata.memberIds.length; cz /= fdata.memberIds.length;
-      fdata.members.forEach(function (node) {
-        var p = P[node.id], x = (p.gx - cx) * SP, z = (p.gz - cz) * SP;
-        var isMacro = (node.id === fdata.macroId);
-        var geo = fdata.shape === 'cyl'
-          ? new THREE.CylinderGeometry(isMacro ? 0.85 : 0.7, isMacro ? 0.85 : 0.7, 1.1, 18)
-          : new THREE.BoxGeometry(isMacro ? 1.5 : 1.3, 1.1, isMacro ? 1.5 : 1.3);
-        var m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x808a99, roughness: 0.6, metalness: 0.1, emissive: 0x000000, emissiveIntensity: 0, transparent: true, opacity: 1 }));
-        m.position.set(x, 0.55, z); m.userData.id = node.id; m.userData.macro = isMacro; world.add(m);
-        var eg = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.5 }));
-        eg.position.copy(m.position); world.add(eg);
-        var lbl = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(node.label), depthTest: false, transparent: true }));
-        lbl.scale.set(2.5, 0.57, 1); lbl.position.set(x, 1.55, z); world.add(lbl);
-        var gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: fdata.color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-        gl.scale.set(2.8, 2.8, 1); gl.position.set(x, 0.55, z); world.add(gl);
-        roomObjs[node.id] = { node: node, mesh: m, edge: eg, label: lbl, glow: gl, x: x, z: z, revealed: false, macro: isMacro };
-      });
-      player = fdata.start; reveal(player); (fdata.adj[player] || []).forEach(reveal);
-      var ps = roomObjs[player]; avatar.position.set(ps.x, 1.7, ps.z);
-      applyStyle(); refreshRooms(); updateHUD();
-    }
-    function reveal(id) { if (roomObjs[id]) roomObjs[id].revealed = true; }
-
-    function refreshRooms() {
-      var s = STYLES[style];
-      Object.keys(roomObjs).forEach(function (id) {
-        var o = roomObjs[id], vis = o.revealed;
-        o.mesh.visible = vis; o.edge.visible = vis; o.label.visible = vis; o.glow.visible = vis && s.glow;
-        if (!vis) return;
-        var col, em = 0, gop = 0;
-        if (_mastered(id)) { col = fdata.color; em = s.emis; gop = 0.7; }
-        else if (_studied(id)) { col = _lighten(fdata.color, style === 'low' ? 0.4 : -0.25); em = s.emis * 0.4; gop = 0.3; }
-        else { col = style === 'low' ? 0x9aa3b2 : 0x33405a; em = 0; gop = 0; }
-        o.mesh.material.color.setHex(col);
-        o.mesh.material.emissive.setHex(_mastered(id) ? col : 0x000000);
-        o.mesh.material.emissiveIntensity = em;
-        var eCol = (id === player) ? 0xffffff : (o.macro && !_mastered(id) ? 0xffd23f : (style === 'low' ? 0x2a2f3a : _lighten(col, 0.4)));
-        o.edge.material.color.setHex(eCol);
-        o.edge.material.opacity = (id === player || o.macro) ? 1 : 0.5;
-        o.glow.material.opacity = s.glow ? gop : 0;
-      });
-    }
-    function revealLinks() {
-      if (edgeLines.length) return;
-      var seen = {};
-      fdata.memberIds.forEach(function (a) {
-        (fdata.adj[a] || []).forEach(function (b) {
-          var k = a < b ? a + '|' + b : b + '|' + a; if (seen[k]) return; seen[k] = true;
-          var ra = roomObjs[a], rb = roomObjs[b]; if (!ra || !rb) return;
-          var geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ra.x, 0.2, ra.z), new THREE.Vector3(rb.x, 0.2, rb.z)]);
-          var ln = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: _lighten(fdata.color, 0.3), transparent: true, opacity: 0.85 }));
-          world.add(ln); edgeLines.push(ln);
-        });
-      });
-    }
-
-    function updateHUD() {
-      var a = updateAvatar();
-      var hx = '#' + (fdata.color >>> 0).toString(16).padStart(6, '0');
-      ov.querySelector('#dgFloor').innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px;background:' + hx + '"></span>Piano ' + (curFloor + 1) + '/' + data.floors.length + ' · ' + fdata.name;
-      ov.querySelector('#dgAvatar').innerHTML = 'avatar: <b>' + FORMS[a.stage] + '</b><br>fluency: ' + a.band;
-      var fm = 0; fdata.memberIds.forEach(function (id) { if (_mastered(id)) fm++; });
-      ov.querySelector('#dgProg').innerHTML = 'padroneggiate: ' + fm + '/' + fdata.memberIds.length + ' (piano) · ' + a.c.m + '/' + a.c.total + ' (totale)';
-      if (fm === fdata.memberIds.length) { revealLinks(); showBanner(); }
-    }
-    function showBanner() {
-      var b = ov.querySelector('#dgBanner'), tx = ov.querySelector('#dgBTxt'), bt = ov.querySelector('#dgBBtn');
-      b.style.display = 'flex';
-      if (curFloor < data.floors.length - 1) {
-        tx.textContent = 'Piano completato! Link rivelati.'; bt.textContent = 'Scendi ↓';
-        bt.onclick = function () { b.style.display = 'none'; loadFloor(curFloor + 1); };
-      } else {
-        tx.textContent = 'Tutti i piani padroneggiati — sei una sfera. Grafo rivelato.'; bt.textContent = '✓';
-        bt.onclick = function () { b.style.display = 'none'; };
-      }
-    }
-
-    // ── pannello studio ──
-    var panel = ov.querySelector('#dgPanel'), openId = null;
-    function openPanel(id) {
-      openId = id; var n = roomObjs[id].node;
-      ov.querySelector('#dgPName').textContent = _clean(n.label) + (roomObjs[id].macro ? ' ★' : '');
-      ov.querySelector('#dgPDesc').textContent = _desc(n) || '(nessuna descrizione)';
-      updateMeta(); panel.style.display = 'block';
-    }
-    function updateMeta() {
-      var n = _mnode(openId), lv = _level(openId);
-      ov.querySelector('#dgPMeta').textContent = 'livello: ' + lv + (n && n.attempts
-        ? (' · acc ' + Math.round(n.accuracy * 100) + '% · rate ' + (n.rate != null ? n.rate.toFixed(1) : '—') + '/min · tentativi ' + n.attempts)
-        : ' · non studiata');
-    }
-    ov.querySelector('#dgGood').onclick = function () { if (openId) { _record(openId, roomObjs[openId].node.label, true); updateMeta(); refreshRooms(); updateHUD(); } };
-    ov.querySelector('#dgBad').onclick = function () { if (openId) { _record(openId, roomObjs[openId].node.label, false); updateMeta(); refreshRooms(); updateHUD(); } };
-    ov.querySelector('#dgClose').onclick = function () { panel.style.display = 'none'; openId = null; };
-
-    // ── input ──
-    var ray = new THREE.Raycaster(), pt = new THREE.Vector2();
-    function onClick(e) {
-      var rect = rnd.domElement.getBoundingClientRect();
-      pt.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pt.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      ray.setFromCamera(pt, cam);
-      var meshes = Object.keys(roomObjs).filter(function (id) { return roomObjs[id].revealed; }).map(function (id) { return roomObjs[id].mesh; });
-      var hit = ray.intersectObjects(meshes);
-      if (!hit.length) return;
-      var id = hit[0].object.userData.id;
-      if (id === player) { openPanel(id); return; }
-      if ((fdata.adj[player] || []).indexOf(id) >= 0) {
-        player = id; reveal(id); (fdata.adj[id] || []).forEach(reveal);
-        refreshRooms(); updateHUD(); openPanel(id);
-      }
-    }
-    rnd.domElement.addEventListener('click', onClick);
-
-    // ── stile ──
-    function applyStyle() {
-      var s = STYLES[style]; rnd.setClearColor(s.clear, 1);
-      scene.fog = s.fog ? new THREE.Fog(s.clear, 22, 50) : null;
-      amb.color.setHex(s.amb); amb.intensity = s.ambI; dir.intensity = s.dir;
-      floorMesh.material.color.setHex(fdata ? _lighten(fdata.color, s.floorK) : 0xdddddd);
-      Array.prototype.forEach.call(ov.querySelectorAll('.dgBtn'), function (b) { b.classList.toggle('on', b.dataset.s === style); });
-      refreshRooms(); updateAvatar();
-    }
-    Array.prototype.forEach.call(ov.querySelectorAll('.dgBtn'), function (b) {
-      b.onclick = function () { style = b.dataset.s; localStorage.setItem('mappai_games_style', style); applyStyle(); };
-    });
-
-    // ── chiusura ──
-    var raf = 0;
-    function close() {
-      cancelAnimationFrame(raf);
-      rnd.domElement.removeEventListener('click', onClick);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('keydown', onKey);
-      try { rnd.dispose(); } catch (e) {}
-      ov.remove(); _live = null;
-    }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    ov.querySelector('#dgX').onclick = close;
-    window.addEventListener('keydown', onKey);
-    function onResize() {
-      var w = window.innerWidth, h = window.innerHeight;
-      rnd.setSize(w, h); cam.left = -d * (w / h); cam.right = d * (w / h); cam.updateProjectionMatrix();
-    }
-    window.addEventListener('resize', onResize);
-
-    // ── start ──
-    loadFloor(0);
-    var t = 0;
-    (function loop() {
-      raf = requestAnimationFrame(loop); t += 0.016;
-      if (!RM) { avatar.rotation.y += 0.012; avatar.position.y = 1.7 + Math.sin(t * 1.3) * 0.06; }
-      if (ringT > 0) { ringT -= 0.02; var k = 1 - ringT; ring.scale.setScalar(0.4 + k * 2); ring.material.opacity = Math.max(0, ringT * 0.7); }
-      var p = roomObjs[player]; if (p) { avatar.position.x += (p.x - avatar.position.x) * 0.15; avatar.position.z += (p.z - avatar.position.z) * 0.15; }
-      rnd.render(scene, cam);
-    })();
-
-    _live = { close: close };
-    if (window.safeCreateIcons) window.safeCreateIcons();
+    render();
   }
+  // ── RIPASSO DI BENVENUTO (F2.3 — spacing multi-giorno, contesto "studente solo, più sessioni").
+  // Se l'ultimo studio risale a >20h fa, propone (MAI impone — autonomia SDT, c10 adaptable) un mini
+  // ripasso dei 3 nodi più bisognosi (_needReview). I record 'dungeon_review' alimentano la mastery
+  // → il prossimo _gateSelection/_needReview lavora su dati freschi: il cerchio dello spacing si chiude.
+  function _welcomeReview() {
+    if (!_onboarded() || !window.MappAIMastery) return;
+    var live = (DUN.diary || []).filter(function (d) { return !d.ghost; });
+    if (live.length < 3) return;
+    var last = 0;
+    live.forEach(function (d) {
+      try { var agg = window.MappAIMastery.node(d.id); ((agg && agg.byActivity) || []).forEach(function (r) { last = Math.max(last, r.lastTs || 0); }); } catch (e) {}
+    });
+    if (!last || (Date.now() - last) < 20 * 3600000) return;   // ultimo studio recente → niente proposta
+    var seen = {}, uniq = live.filter(function (d) { if (seen[d.id]) return false; seen[d.id] = 1; return true; });
+    var subjects = uniq.slice().sort(function (a, b) { return _needReview(b.id) - _needReview(a.id); }).slice(0, 3);
+    var ov = _overlay(); var un = _esc(function () { ov.close(); });
+    ov.card.innerHTML =
+      '<div style="font-size:12px;color:#8fa4c4">Bentornato</div>' +
+      '<h3 style="margin:4px 0 8px;font-size:18px;font-weight:600">🌅 ' + subjects.length + ' memorie meritano un ripasso</h3>' +
+      '<p style="font-size:13px;color:#c3d2ea;line-height:1.55;margin:0 0 10px">È passato un po\' dall\'ultima volta: un breve ripasso rinforza la memoria.</p>' +
+      subjects.map(function (d) { return '<div style="font-size:13.5px;color:#e7d6a6;margin:3px 0 3px 6px">• ' + _esch(d.label) + '</div>'; }).join('') +
+      '<div style="display:flex;gap:8px;margin-top:14px">' +
+        '<button id="wr-go" type="button" style="flex:1;' + GBS + '">🎴 Ripassa ora</button>' +
+        '<button id="wr-x" type="button" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">più tardi</button>' +
+      '</div>';
+    ov.card.querySelector('#wr-go').onclick = function () {
+      un(); ov.close();
+      _runQuiz(live.map(_poolEntry), subjects.length, 'Ripasso di benvenuto', false,
+        function (c, t) { _msg('Ripasso: ' + c + '/' + t + ' — buona esplorazione!'); },
+        subjects.map(_poolEntry), 'dungeon_review');
+    };
+    ov.card.querySelector('#wr-x').onclick = function () { un(); ov.close(); };
+  }
+  // ─────────────── HUB Fase 2: discesa per-ramo — ogni macro-area L1 = un dungeon dedicato ───────────────
+  // Flag 'mappai_hub_branches' (default ON). Solo MindMap con ≥2 macro-aree; KG → discesa classica.
+  function _hubBranchesOn() { try { return localStorage.getItem('mappai_hub_branches') !== '0'; } catch (e) { return true; } }
+  function _branchCatalog() {
+    var st = _getAppState();
+    if (!st || st.extractionMode === 'kg') return null;
+    var nodes = (st.db && st.db.nodes) || [];
+    var l1 = nodes.filter(function (n) { return n.level === 1 && n.group != null; });
+    if (l1.length < 2) return null;
+    var byG = {}; nodes.forEach(function (n) { if (n.level > 0 && n.group != null) (byG[n.group] = byG[n.group] || []).push(n); });
+    return l1.map(function (n) {
+      var sub = byG[n.group] || [n];
+      var mast = sub.filter(function (nd) { return _mastered(nd.id); }).length;
+      return { group: n.group, label: _clean(n.label), count: sub.length, mastered: mast };
+    });
+  }
+  function _buildBranchFloors(group) {
+    var base = _levelsFromState() || [], filtered = [];
+    base.forEach(function (lf) {
+      if (lf.level < 1) return;   // la radice resta il quadro d'insieme del percorso completo
+      var sub = lf.nodes.filter(function (n) { return n.group === group; });
+      if (sub.length) filtered.push({ level: lf.level, nodes: sub });
+    });
+    return filtered.length ? _composeFloors(filtered, _studyMode()) : null;
+  }
+  function _applyBranch(choice) {   // choice = {group,label} | null (percorso completo)
+    var tail = null;
+    if (choice) { tail = _buildBranchFloors(choice.group); if (!tail) return false; }
+    else { var base = _levelsFromState(); if (!base) return false; tail = _composeFloors(base, _studyMode()); }
+    var head = DUN.floors.slice(0, DUN.fi + 1);
+    var nxt = DUN.floors[DUN.fi + 1];
+    if (nxt && nxt.kind === 'scuola') head.push(nxt);   // l'onboarding non si perde
+    DUN.floors = head.concat(tail);
+    DUN.gatePassed = {}; DUN.branch = choice || null;
+    _logEv('hub_branch', { group: choice ? choice.group : 'full', floors: DUN.floors.length });
+    return true;
+  }
+  function _openBranchChooser(cat) {
+    var ov = _overlay(); ov.card.style.width = 'min(520px,94vw)';
+    var h = '<h3 style="margin:0 0 6px;font-size:18px">🏰 Dove vuoi scendere?</h3>' +
+      '<div style="color:#9fb4d8;font-size:13px;margin-bottom:14px">Ogni macro-area è un dungeon dedicato: rami corti, ripasso mirato. Alla prossima visita al giardino potrai scegliere un\'altra strada.</div>';
+    cat.forEach(function (c, i) {
+      h += '<button type="button" class="btn mdg-branch" data-i="' + i + '" style="display:block;width:100%;text-align:left;margin-bottom:8px;height:auto;line-height:1.4;padding:10px 12px">⛰ <b>' + c.label + '</b><br><span style="color:#9fb4d8;font-size:12px">' + c.count + (c.count === 1 ? ' memoria' : ' memorie') + ' · ' + c.mastered + ' consolidate</span></button>';
+    });
+    h += '<button type="button" class="btn" id="mdg-branch-full" style="display:block;width:100%;text-align:left;height:auto;line-height:1.4;padding:10px 12px">🌍 <b>Percorso completo</b><br><span style="color:#9fb4d8;font-size:12px">tutti i rami, dal quadro d\'insieme in giù</span></button>' +
+      '<div style="text-align:right;margin-top:10px"><button type="button" class="btn" id="mdg-branch-x">Resto nel giardino</button></div>';
+    ov.card.innerHTML = h;
+    var unEsc = _esc(function () { ov.close(); });
+    function go(choice) { unEsc(); ov.close(); if (_applyBranch(choice)) _doDescend(); else _msg('Questo ramo non ha contenuti da esplorare.'); }
+    ov.card.querySelectorAll('.mdg-branch').forEach(function (b) { b.onclick = function () { go(cat[+b.getAttribute('data-i')]); }; });
+    ov.card.querySelector('#mdg-branch-full').onclick = function () { go(null); };
+    ov.card.querySelector('#mdg-branch-x').onclick = function () { unEsc(); ov.close(); };
+  }
+  // Fase 4: il guardiano del giardino saluta con UNA micro-domanda di richiamo (soft, MAI bloccante:
+  // giusta o sbagliata si scende comunque — è spaced retrieval travestito da rituale di passaggio).
+  function _hubGuardianOn() { try { return localStorage.getItem('mappai_hub_guardian') !== '0'; } catch (e) { return true; } }
+  function _descend() {
+    if (DUN.fi >= DUN.floors.length - 1) { _msg(DUN.boss && !DUN.boss.defeated ? 'Ultimo piano: raggiungi il Guardiano della Memoria ⚔.' : 'Hai già rivelato la mappa.'); return; }
+    var f = DUN.floors[DUN.fi];
+    if (f.kind === 'giardino') {   // dal giardino: micro-domanda del guardiano → scelta del ramo (hub)
+      var afterGk = function () {
+        var cat = _hubBranchesOn() ? _branchCatalog() : null;
+        if (cat) { _openBranchChooser(cat); return; }
+        _doDescend();
+      };
+      if (_hubGuardianOn() && DUN.customMap && DUN.customMap.gatekeeper && !DUN._gkAsked) {
+        var live = (DUN.diary || []).filter(function (d) { return !d.ghost; });
+        if (live.length) {
+          DUN._gkAsked = true;
+          var sel = _gateSelection(1);
+          _runQuiz(live.map(_poolEntry), 1, '🔮 Il Guardiano del Giardino', true, function (c, t) {
+            _logEv('hub_guardian', { ok: c === t });
+            _msg(c === t ? '🔮 «Ben studiato, viandante. La via è aperta.»' : '🔮 «Ci tornerai su — la via è aperta comunque.»');
+            afterGk();   // MAI bloccante
+          }, sel.subjects, 'dungeon_review');
+          return;
+        }
+      }
+      afterGk(); return;
+    }
+    if (DUN.gatePassed[DUN.fi]) { _doDescend(); return; }   // gate già passato → scendi
+    if (DUN.diary.length < 1) { _msg('🛡 Il Gate Keeper sbarra le scale: cattura almeno una memory unit (📕/📜/🏺) prima di scendere.'); return; }
+    var proceed = function () {
+      // STANZA FISICA del Gate Keeper (beholder). Fallback al gate modale se disattivata/errore.
+      try { if (localStorage.getItem('mappai_gate_room') !== '0') { _enterGateRoom(DUN.fi + 1); return; } } catch (e) { console.error('[gateroom]', e); }
+      _msg('🛡 Il Gate Keeper: rispondi per scendere.');
+      _openGate(function () { DUN.gatePassed[DUN.fi] = true; _doDescend(); }, function (results) { _gateFailGuide(results, _gateWarpBack); });
+    };
+    if (_softGateOn()) _softGateWarn(DUN.fi + 1, proceed); else proceed();   // HUB S5: avviso morbido, mai bloccante
+  }
+  // ─────────────── HUB S5: gating morbido study-path-aware (flag 'mappai_soft_gate') ───────────────
+  // MAI bloccante: se >50% dei nodi del piano successivo poggia su prerequisiti non consolidati,
+  // il door keeper antepone UNA riga informativa con "Procedi comunque" / "Ripassa prima".
+  function _softGateOn() { try { return localStorage.getItem('mappai_soft_gate') !== '0'; } catch (e) { return true; } }
+  function _softGateWarn(next, onProceed) {
+    try {
+      var f = DUN.floors[next]; var ids = ((f && f.nodes) || []).map(function (n) { return n.id; });
+      if (!ids.length) return onProceed();
+      var cls = _spClassify(); if (!cls || !cls.locked || !cls.locked.length) return onProceed();
+      // classify restituisce item-oggetto ({id, parent}) — normalizza
+      var lockedSet = {}; cls.locked.forEach(function (it) { var lid = (it && it.id != null) ? it.id : it; lockedSet[lid] = it; });
+      var lockedIds = ids.filter(function (id) { return lockedSet[id]; });
+      if (lockedIds.length * 2 <= ids.length) return onProceed();
+      // prerequisiti deboli da ripassare: il parent è già nell'item locked
+      var rev = {}; lockedIds.forEach(function (id) { var it = lockedSet[id]; var p = it && it.parent; if (p && !_mastered(p)) rev[p] = 1; });
+      var revNodes = Object.keys(rev).map(_nodeById).filter(Boolean);
+      _logEv('soft_gate_warn', { fi: DUN.fi, locked: lockedIds.length, of: ids.length });
+      var ov = _overlay(); var un = _esc(function () { ov.close(); });
+      ov.card.innerHTML =
+        '<h3 style="margin:0 0 8px;font-size:16px;font-weight:600">🛡 Il Gate Keeper ti osserva</h3>' +
+        '<p style="font-size:13px;color:#c3d2ea;line-height:1.5;margin:0 0 12px">Le idee del prossimo piano poggiano su basi che non hai ancora consolidato. Puoi comunque proseguire.</p>' +
+        '<div style="display:flex;gap:8px">' +
+        '<button id="sg-go" type="button" style="flex:1;' + GBS + '">Procedi comunque</button>' +
+        (revNodes.length ? '<button id="sg-rev" type="button" style="flex:1;' + GBS + ';border-color:#3fae5a;background:#15301f">Ripassa prima (' + Math.min(4, revNodes.length) + ')</button>' : '') +
+        '</div>';
+      ov.card.querySelector('#sg-go').onclick = function () { un(); ov.close(); _logEv('soft_gate_proceed'); onProceed(); };
+      var rb = ov.card.querySelector('#sg-rev');
+      if (rb) rb.onclick = function () {
+        un(); ov.close(); _logEv('soft_gate_review', { n: revNodes.length });
+        var pool = revNodes.map(function (nd) { return { id: nd.id, label: _clean(nd.label), desc: _desc(nd), g: _groupOf(nd.id), kind: 'desc' }; });
+        _runQuiz(pool, Math.min(4, pool.length), 'Ripasso dal Custode', false, function (c, t) { _msg('Ripasso: ' + c + '/' + t + '. Le scale ti aspettano.'); }, null, 'dungeon_review');
+      };
+    } catch (e) { console.error('[softgate]', e); onProceed(); }
+  }
+  function _gateWarpBack() {
+    var cur = DUN.fi;
+    _snd('door_locked'); DUN.flash = { c: '150,90,230', a: 0.75 };   // warp viola
+    _msg('🌀 Risposta sbagliata! Un vortice ti rimanda all\'inizio del livello.');
+    setTimeout(function () { if (DUN && DUN.fi === cur) _loadFloor(cur); }, 300);   // ricarica il livello corrente
+  }
+  function _doDescend() { var nx = DUN.fi + 1; _loadFloor(nx); _msg('Sceso al piano ' + (nx + 1) + ' (' + (DUN.theme ? DUN.theme.n : '') + ').'); }
+
+  // ───── STANZA FISICA DEL GATE KEEPER (beholder) ─────
+  // Scendendo dalle scale entri qui: il beholder blocca l'uscita. Cliccalo → quiz.
+  // Sbagli → warp all'inizio del livello · giusto → si sposta e appaiono le scale ↓.
+  function _enterGateRoom(toFloor) {
+    var from = DUN.fi, w = 13, h = 9, map = {};
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) map[x + ',' + y] = (x === 0 || y === 0 || x === w - 1 || y === h - 1) ? 1 : 0;
+    DUN.map = map; DUN.w = w; DUN.h = h;
+    DUN.gardenFloor = false; DUN.gardenNpcs = null; DUN.gardenWater = null;
+    DUN.mobs = []; DUN.corpses = {}; DUN.duel = null; DUN.sources = {}; DUN.items = {}; DUN.boss = null; DUN.torches = [];
+    DUN.theme = THEMES[0]; DUN.themeTiles = THEME_TILES.pietra;
+    var bx = (w >> 1), by = (h >> 1);
+    DUN.gateRoom = { from: from, toFloor: toFloor, bx: bx, by: by, ex: bx, ey: 1, passed: false, quizBusy: false };
+    map[bx + ',' + by] = 1;          // il beholder blocca il centro
+    DUN.px = bx; DUN.py = h - 2;     // player in basso
+    DUN.sx = DUN.sy = -1;            // uscita nascosta finché non superi il gate
+    DUN.explored = {}; DUN.visible = {}; DUN.path = null;
+    _computeFOV();
+    _snd('door_locked');
+    _msg('🔮 Stanza del Gate Keeper: clicca il beholder e rispondi per passare.');
+  }
+  function _gateRoomChallenge() {
+    var gr = DUN.gateRoom; if (!gr || gr.passed || gr.quizBusy) return;
+    gr.quizBusy = true;
+    _openGate(function () {   // superato
+      gr.passed = true; gr.quizBusy = false; DUN.gatePassed[gr.from] = true;
+      DUN.map[gr.bx + ',' + gr.by] = 0;   // libera il centro
+      gr.bx = 1; gr.by = 1; DUN.map[gr.bx + ',' + gr.by] = 1;   // il beholder si ritira in un angolo
+      DUN.sx = gr.ex; DUN.sy = gr.ey;     // rivela le scale ↓
+      _snd('powerup'); _msg('🔓 Il Gate Keeper si sposta. Le scale si rivelano: scendi! 🔽');
+    }, function (results) {    // fallito → guida al ripasso, poi warp
+      gr.quizBusy = false; _gateFailGuide(results, _gateRoomWarp);
+    });
+  }
+  function _gateRoomWarp() {
+    var from = DUN.gateRoom ? DUN.gateRoom.from : DUN.fi;
+    _snd('door_locked'); DUN.flash = { c: '150,90,230', a: 0.85 };
+    _msg('🌀 Risposta sbagliata! Il beholder ti scaglia indietro, all\'inizio del livello.');
+    DUN.gateRoom = null;
+    setTimeout(function () { if (DUN) _loadFloor(from); }, 350);
+  }
+  function _exitGateRoom() {
+    var to = DUN.gateRoom.toFloor; DUN.gateRoom = null;
+    _loadFloor(to); _msg('Sceso al piano ' + (to + 1) + '.');
+  }
+  // ───── Diario interattivo (tab macro-area · lettura · note markdown · ripasso · ricerca · export) ─────
+  function _macroOf(id) {
+    var st = _getAppState(), nodes = (st && st.db && st.db.nodes) || [], node = null;
+    for (var i = 0; i < nodes.length; i++) if (String(nodes[i].id) === String(id)) { node = nodes[i]; break; }
+    if (!node) return 'Generale';
+    for (var j = 0; j < nodes.length; j++) if (nodes[j].group === node.group && nodes[j].level === 1) return _clean(nodes[j].label);
+    return 'Area ' + (node.group != null ? node.group : '?');
+  }
+  function _esch(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function _mdInline(s) { return s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '<code style="background:#16203a;padding:0 4px;border-radius:3px">$1</code>'); }
+  function _md(t) {
+    var lines = _esch(t).split('\n'), out = [], inList = false;
+    lines.forEach(function (ln) {
+      if (/^### /.test(ln)) { if (inList) { out.push('</ul>'); inList = false; } out.push('<h4 style="margin:6px 0">' + ln.slice(4) + '</h4>'); }
+      else if (/^## /.test(ln)) { if (inList) { out.push('</ul>'); inList = false; } out.push('<h3 style="margin:8px 0">' + ln.slice(3) + '</h3>'); }
+      else if (/^# /.test(ln)) { if (inList) { out.push('</ul>'); inList = false; } out.push('<h2 style="margin:8px 0">' + ln.slice(2) + '</h2>'); }
+      else if (/^\s*- /.test(ln)) { if (!inList) { out.push('<ul style="margin:4px 0 4px 18px">'); inList = true; } out.push('<li>' + _mdInline(ln.replace(/^\s*- /, '')) + '</li>'); }
+      else { if (inList) { out.push('</ul>'); inList = false; } out.push(ln.trim() === '' ? '<div style="height:6px"></div>' : '<div>' + _mdInline(ln) + '</div>'); }
+    });
+    if (inList) out.push('</ul>'); return out.join('');
+  }
+  function _notesKey() { return 'mappai_dungeon_notes__' + _mapSig(); }
+  function _notes() { try { return JSON.parse(localStorage.getItem(_notesKey()) || '{}'); } catch (e) { return {}; } }
+  function _saveNote(id, txt) { var n = _notes(); n[id] = txt; _lsSet(_notesKey(), JSON.stringify(n)); }
+  // accuracy delle sintesi scritte alla cattura (per nodo). Letta da MappAIMasteryView per evidenziare i nodi ≥60% sulla heatmap.
+  function _synthKey() { return 'mappai_dungeon_synthesis__' + _mapSig(); }
+  function _synthScores() { try { return JSON.parse(localStorage.getItem(_synthKey()) || '{}'); } catch (e) { return {}; } }
+  function _setSynthScore(id, acc) { try { var m = _synthScores(); m[String(id)] = Math.max(0, Math.min(100, Math.round(acc))); _lsSet(_synthKey(), JSON.stringify(m)); } catch (e) {} }
+  function _exportDiary(entries) {
+    var KT = { desc: 'Descrizioni', cite: 'Citazioni', rel: 'Relazioni' };
+    var byK = {}; entries.forEach(function (e) { var k = e.kind || 'desc'; (byK[k] = byK[k] || []).push(e); });
+    var notes = _notes(), md = '# Diario — Memory Dungeon\n\n';
+    ['desc', 'cite', 'rel'].forEach(function (k) { if (!byK[k]) return; md += '## ' + KT[k] + '\n\n'; byK[k].forEach(function (e) { md += '### ' + e.label + '\n*' + (e.macro || '') + '*\n\n' + (e.desc || '') + '\n\n'; var nt = notes[e.eid || e.id]; if (nt) md += '> Nota: ' + nt.replace(/\n/g, '\n> ') + '\n\n'; }); });
+    try { var b = new Blob([md], { type: 'text/markdown' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'diario-memory-dungeon.md'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u); _msg('Diario esportato (.md).'); } catch (e) { _msg('Export non riuscito.'); }
+  }
+  var DKM = { desc: { t: '📖 Descrizioni', c: '#9fc4ff' }, cite: { t: '📜 Citazioni', c: '#e7d6a6' }, rel: { t: '🏺 Relazioni', c: '#b9e6c9' } };
+  var DORDER = ['desc', 'cite', 'rel'];
+  function _openDiary(presetIds) {
+    var ov = _overlay(); var un = _esc(ov.close);
+    if (!DUN.diary.length) { ov.card.innerHTML = '<h3 style="margin:0 0 10px">📖 Diario</h3><div style="color:#8fa4c4;font-size:13px">Diario vuoto — cattura memorie dai 📖 libri (descrizioni), 📜 scroll (citazioni) e 🏺 vasi (relazioni).</div><button id="dx0" style="margin-top:12px;width:100%;' + GBS + '">chiudi</button>'; ov.card.querySelector('#dx0').onclick = function () { un(); ov.close(); }; return; }
+    var entries = DUN.diary.map(function (d) { return { eid: d.eid || String(d.id), id: d.id, label: d.label, desc: d.desc, kind: d.kind || 'desc', macro: _macroOf(d.id), ghost: !!d.ghost }; });
+    // presetIds (dal gate fallito): filtro "da ripassare" — rimovibile con "mostra tutto"
+    var focus = (presetIds && presetIds.length) ? presetIds.map(String) : null;
+    var stt = { q: '', sel: null, focus: focus };
+    if (focus) { var ff = entries.filter(function (e) { return focus.indexOf(String(e.id)) >= 0; }); if (ff.length) stt.sel = ff[0].eid; }
+    ov.card.style.width = 'min(660px,95vw)';
+    function pool() { return entries.filter(function (e) { return (!stt.focus || stt.focus.indexOf(String(e.id)) >= 0) && (!stt.q || (e.label + ' ' + e.desc).toLowerCase().indexOf(stt.q.toLowerCase()) >= 0); }); }
+    function listHTML() {
+      var p = pool(), html = '';
+      DORDER.forEach(function (k) {
+        var items = p.filter(function (e) { return e.kind === k; });
+        if (!items.length) return;
+        html += '<div style="font-size:12px;font-weight:500;color:' + DKM[k].c + ';margin:10px 0 4px">' + DKM[k].t + ' · ' + items.length + '</div>';
+        html += items.map(function (e) { return '<button class="d-it" data-eid="' + _esch(e.eid) + '" style="display:block;width:100%;text-align:left;margin:4px 0;line-height:1.35;' + GBS + ';' + (stt.sel === e.eid ? 'border-color:#fff' : '') + '"><span style="font-size:13px">' + _esch(e.label) + '</span><br><span style="font-size:11px;color:#8fa4c4">' + _esch(e.macro) + '</span></button>'; }).join('');
+      });
+      return html || '<div style="color:#8fa4c4;font-size:13px">Nessuna voce.</div>';
+    }
+    function render() {
+      var sel = stt.sel ? entries.filter(function (e) { return e.eid === stt.sel; })[0] : null, detail;
+      if (sel) {
+        var km = DKM[sel.kind] || DKM.desc, note = _notes()[sel.eid] || '';
+        detail = '<div style="font-size:11px;color:' + km.c + ';font-weight:500;margin-bottom:2px">' + km.t + ' · ' + _esch(sel.macro) + (sel.ghost ? ' · <span style="color:#c9a0a0">(nodo rimosso dalla mappa)</span>' : '') + '</div>' +
+          '<h3 style="margin:0 0 6px;font-size:16px">' + _esch(sel.label) + '</h3>' +
+          '<p style="font-size:13px;color:#c3d2ea;line-height:1.6;margin:0 0 6px;white-space:pre-wrap">' + _esch(sel.desc || '') + '</p>' +
+          '<div style="margin-top:10px;font-size:12px;color:#8fa4c4">La tua nota (markdown):</div>' +
+          '<div style="display:flex;gap:8px;margin-top:4px"><textarea id="d-note" style="flex:1;height:110px;background:#16203a;color:#eaf2ff;border:1px solid #2a3a55;border-radius:6px;padding:6px;font-family:monospace;font-size:12px;resize:none">' + _esch(note) + '</textarea><div id="d-prev" style="flex:1;height:110px;overflow:auto;background:#0b1426;border:1px solid #2a3a55;border-radius:6px;padding:6px;font-size:12px">' + _md(note) + '</div></div>';
+      } else detail = '<div style="color:#8fa4c4;font-size:13px">Seleziona una voce per leggerla e annotarla.</div>';
+      var focusBanner = stt.focus ? '<div style="display:flex;justify-content:space-between;align-items:center;background:#1c2a1c;border:1px solid #3fae5a;border-radius:8px;padding:6px 10px;margin-top:8px;font-size:12.5px;color:#a8dcb4">📌 Da ripassare (' + pool().length + ')<button id="d-all" type="button" style="background:none;border:none;color:#8fa4c4;cursor:pointer;font-size:12px;text-decoration:underline">mostra tutto</button></div>' : '';
+      ov.card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:18px">📖 Diario</h3><input id="d-q" placeholder="cerca…" value="' + _esch(stt.q) + '" style="width:130px;padding:5px 8px;border-radius:6px;border:1px solid #2a3a55;background:#16203a;color:#eaf2ff"></div>' +
+        focusBanner +
+        '<div style="display:flex;gap:12px;margin-top:10px"><div style="width:210px;max-height:48vh;overflow:auto">' + listHTML() + '</div><div style="flex:1;max-height:48vh;overflow:auto">' + detail + '</div></div>' +
+        '<div style="display:flex;gap:8px;margin-top:12px"><button id="d-quiz" style="flex:1;' + GBS + '">🎴 Ripasso</button><button id="d-exp" style="flex:1;' + GBS + '">⬇ Esporta .md</button><button id="d-x" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">chiudi</button></div>';
+      Array.prototype.forEach.call(ov.card.querySelectorAll('.d-it'), function (b) { b.onclick = function () { stt.sel = b.dataset.eid; render(); }; });
+      var qi = ov.card.querySelector('#d-q'); qi.oninput = function () { stt.q = qi.value; render(); };
+      var dall = ov.card.querySelector('#d-all'); if (dall) dall.onclick = function () { stt.focus = null; render(); };
+      if (sel) { var ta = ov.card.querySelector('#d-note'); ta.oninput = function () { _saveNote(sel.eid, ta.value); ov.card.querySelector('#d-prev').innerHTML = _md(ta.value); }; }
+      ov.card.querySelector('#d-quiz').onclick = function () { var p = pool().filter(function (e) { return !e.ghost; }).map(function (e) { return { id: e.id, label: e.label, desc: e.desc }; }); if (!p.length) { _msg('Niente da ripassare.'); return; } un(); ov.close(); var subj = _shuffle(p.slice()).sort(function (a, b) { return _needReview(b.id) - _needReview(a.id); }); _runQuiz(p, Math.min(5, p.length), 'Ripasso diario', false, function (c, t) { _msg('Ripasso: ' + c + '/' + t + ' corrette.'); }, subj, 'dungeon_review'); };
+      ov.card.querySelector('#d-exp').onclick = function () { _exportDiary(entries); };
+      ov.card.querySelector('#d-x').onclick = function () { un(); ov.close(); };
+    }
+    render();
+  }
+
+  function _dunRender() {
+    if (!DUN || !DUN.ctx) return;
+    if (_skin() === 'lol') return _dunRenderLoL();
+    var ctx = DUN.ctx, TS = DUN.TS, W = DUN.cv.width, H = DUN.cv.height, sh = DUN.tileset, rdy = _ready(sh), now = performance.now();
+    var camX = DUN.px * TS - W / 2 + TS / 2, camY = DUN.py * TS - H / 2 + TS / 2;
+    ctx.fillStyle = '#0c0a08'; ctx.fillRect(0, 0, W, H);
+    function dt(c, dx, dy) { ctx.drawImage(sh, c[0] * 16, c[1] * 16, 16, 16, dx, dy, TS, TS); }
+    var tt = DUN.themeTiles || { floor: [3, 1], wall: [2, 5] };
+    var x0 = Math.floor(camX / TS) - 1, y0 = Math.floor(camY / TS) - 1, x1 = x0 + Math.ceil(W / TS) + 2, y1 = y0 + Math.ceil(H / TS) + 2;
+    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
+      var key = x + ',' + y, v = DUN.map[key];
+      if (v === undefined || !DUN.explored[key]) continue;
+      var sx = Math.round(x * TS - camX), sy = Math.round(y * TS - camY), vis = DUN.visible[key];
+      if (rdy) { if (DUN.gardenWater && DUN.gardenWater[key]) dt([6, 8], sx, sy); else dt(v === 1 ? tt.wall : tt.floor, sx, sy); }
+      else { ctx.fillStyle = v === 1 ? '#444' : '#222'; ctx.fillRect(sx, sy, TS, TS); }
+      if (!vis) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx, sy, TS, TS); }
+    }
+    if (rdy && DUN.sx >= 0 && DUN.explored[DUN.sx + ',' + DUN.sy]) dt([10, 1], Math.round(DUN.sx * TS - camX), Math.round(DUN.sy * TS - camY));
+    for (var ik in DUN.items) { if (!DUN.explored[ik] || !rdy) continue; var ip = ik.split(',').map(Number); var itc = ITEM_TILES[(DUN.items[ik] || {}).type] || [8, 9]; dt(itc, Math.round(ip[0] * TS - camX), Math.round(ip[1] * TS - camY - Math.sin(now / 300 + ip[0]) * 2)); }   // loot dai nemici: disegnato col tile del tipo (moneta/gemma/pozione)
+    for (var k in DUN.sources) {
+      if (!DUN.explored[k] || !rdy) continue;
+      var s = DUN.sources[k], p = k.split(',').map(Number), dx = Math.round(p[0] * TS - camX), dy = Math.round(p[1] * TS - camY);
+      if (s.type === 'libro') _drawBook(ctx, dx, dy, TS, s.extracted);
+      else if (s.type === 'scroll') _drawScroll(ctx, dx, dy, TS, s.extracted);
+      else if (s.type === 'vaso') { if (s.extracted) ctx.globalAlpha = 0.4; dt([12, 0], dx, dy); ctx.globalAlpha = 1; }   // vaso = relazione (tile pot); oscurato se già catturato
+      else dt(s.extracted ? [11, 2] : [11, 0], dx, dy);   // forziere legacy: chiuso → aperto
+    }
+    for (var ck in DUN.corpses) { if (!DUN.explored[ck] || !rdy) continue; var cp = ck.split(',').map(Number); dt(SKELETON_TILE, Math.round(cp[0] * TS - camX), Math.round(cp[1] * TS - camY)); }
+    if (DUN.mobs) for (var mj = 0; mj < DUN.mobs.length; mj++) {   // mostri SOLO se visibili (niente sprite scuri in nebbia)
+      var mo = DUN.mobs[mj]; if (!mo.alive) continue; var mk = mo.x + ',' + mo.y; if (!DUN.visible[mk] || !rdy) continue;
+      dt(mo.anim[Math.floor(now / 200) % 4], Math.round(mo.x * TS - camX), Math.round(mo.y * TS - camY));
+    }
+    if (DUN.boss && !DUN.boss.defeated && rdy && DUN.explored[DUN.boss.x + ',' + DUN.boss.y]) {   // Guardiano della Memoria (golem, glow magenta)
+      var bdx = Math.round(DUN.boss.x * TS - camX), bdy = Math.round(DUN.boss.y * TS - camY);
+      ctx.save(); ctx.shadowColor = '#d24b8f'; ctx.shadowBlur = 12; dt([23 + (Math.floor(now / 220) % 3), 3], bdx, bdy); ctx.restore();
+    }
+    if (DUN.gardenNpcs && rdy) for (var gnk in DUN.gardenNpcs) { var gp = DUN.gardenNpcs[gnk]; dt(gp.anim[Math.floor(now / 300) % 4] || gp.anim[0], Math.round(gp.x * TS - camX), Math.round(gp.y * TS - camY)); }
+    if (DUN.gateRoom) { var gks = _sheet('gatekeeper.png'); if (_ready(gks)) { var bf = Math.floor(now / 220) % 4; ctx.save(); ctx.shadowColor = '#b06ad6'; ctx.shadowBlur = 12; ctx.drawImage(gks, bf * 16, 0, 16, 16, Math.round(DUN.gateRoom.bx * TS - camX), Math.round(DUN.gateRoom.by * TS - camY), TS, TS); ctx.restore(); } }
+    if (rdy) dt(DUN.playerAnim[Math.floor(now / (DUN.path ? 120 : 260)) % 4], Math.round(DUN.px * TS - camX), Math.round(DUN.py * TS - camY));
+    _renderFx(ctx, TS, camX, camY, W, H);
+    _renderHud();
+  }
+  // overlay canvas indipendenti dalla skin (spell, balloon duello, flash)
+  function _renderFx(ctx, TS, camX, camY, W, H) {
+    if (DUN.spellFx && DUN.spellFx.t > 0) { ctx.fillStyle = 'rgba(120,200,255,' + (0.4 * DUN.spellFx.t) + ')'; DUN.spellFx.cells.forEach(function (c) { ctx.fillRect(Math.round(c[0] * TS - camX), Math.round(c[1] * TS - camY), TS, TS); }); DUN.spellFx.t -= 0.06; if (DUN.spellFx.t <= 0) DUN.spellFx = null; }
+    if (DUN.duel && DUN.duel.mob && DUN.duel.mob.alive) _balloon(ctx, Math.round(DUN.duel.mob.x * TS - camX) + TS / 2, Math.round(DUN.duel.mob.y * TS - camY) - 4, DUN.duel.symbol || DUN.duel.letter);
+    if (DUN.flash && DUN.flash.a > 0) { ctx.fillStyle = 'rgba(' + DUN.flash.c + ',' + DUN.flash.a + ')'; ctx.fillRect(0, 0, W, H); DUN.flash.a *= 0.85; if (DUN.flash.a < 0.04) DUN.flash = null; }
+  }
+  // HUD + log messaggi (DOM, indipendente dalla skin)
+  function _renderHud() {
+    var hearts = '♥'.repeat(DUN.hp) + '♡'.repeat(Math.max(0, DUN.maxhp - DUN.hp));
+    var mem = 0, tot = 0; for (var kk in DUN.sources) { tot++; if (DUN.sources[kk].extracted) mem++; }
+    var th = DUN.theme || { n: '' };
+    var _fk = DUN.gateRoom ? 'gate' : DUN.floors[DUN.fi].kind; var kind = DUN.gateRoom ? '🔮 gate keeper' : (_fk === 'combat' ? '⚔ combat' : (_fk === 'giardino' ? '🌿 giardino' : 'misto'));
+    var rtxt = (DUN.duelStats && DUN.duelStats.correct) ? '  RT ' + Math.round(DUN.duelStats.sumRt / DUN.duelStats.correct) + 'ms' : '';
+    var manaFull = '●'.repeat(DUN.mana), manaEmpty = '●'.repeat(Math.max(0, DUN.maxMana - DUN.mana));
+    var wmv = Math.round(_wm());   // misuratore memoria di lavoro (Quick win B)
+    DUN.root.querySelector('#hud').innerHTML =
+      '<div style="color:#e24b4a;font-size:18px">' + hearts + '</div>' +
+      '<div style="font-size:15px"><span style="color:#3aa0ff">' + manaFull + '</span><span style="color:#24406a">' + manaEmpty + '</span></div>' +
+      '<div>' + (th.n ? th.n + ' · ' : '') + kind + (DUN.branch ? ' · 🏰 ' + DUN.branch.label : '') + ' · Piano ' + (DUN.fi + 1) + '/' + DUN.floors.length + '  mem ' + mem + '/' + tot + '  $' + DUN.coins + '  ◆' + DUN.gems + '  🧠' + wmv + rtxt +
+      (DUN.aiMode ? '  <span title="' + (DUN.aiMode === 'cloud' ? 'Quiz e valutazioni: AI cloud' : (DUN.aiMode === 'local' ? 'Quiz e valutazioni: AI locale (offline)' : 'Quiz e valutazioni: modalità deterministica (nessuna AI)')) + '">' + (DUN.aiMode === 'cloud' ? '☁' : (DUN.aiMode === 'local' ? '💻' : '📴')) + '</span>' : '') + '</div>';
+    if (DUN.msgDirty) {
+      var cls = ['msg4', 'msg3', 'msg2', 'msg1', 'msg0'], first = Math.max(DUN.messages.length - 5, 0), start = 5 - (DUN.messages.length - first), buf = '';
+      for (var mi = first; mi < DUN.messages.length; mi++) buf += '<span class="' + cls[start++] + '">' + DUN.messages[mi] + '</span>';
+      DUN.root.querySelector('#messages').innerHTML = buf; DUN.msgDirty = false;
+    }
+  }
+
+  // ───────── RENDER skin "Legend of Lua" (parallelo a _dunRender, stesso stato di gioco) ─────────
+  function _dunRenderLoL() {
+    if (!DUN || !DUN.ctx) return;
+    var ctx = DUN.ctx, TS = DUN.TS, W = DUN.cv.width, H = DUN.cv.height, now = performance.now();
+    var camX = DUN.px * TS - W / 2 + TS / 2, camY = DUN.py * TS - H / 2 + TS / 2;
+    var bio = _lolBiome(DUN.fi), sheet = _sheet(bio.sheet), rdy = _ready(sheet);
+    var fallFloor = bio === LOL.biomes.caverna ? '#3a2a1c' : (bio === LOL.biomes.interni ? '#2a2018' : '#3f7a3a');
+    ctx.fillStyle = '#0c0a08'; ctx.fillRect(0, 0, W, H);
+    var CM = (DUN.gardenFloor && DUN.customMap) ? DUN.customMap : null;   // mappa curata dal map-editor
+    var x0 = Math.floor(camX / TS) - 1, y0 = Math.floor(camY / TS) - 1, x1 = x0 + Math.ceil(W / TS) + 2, y1 = y0 + Math.ceil(H / TS) + 2;
+    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
+      var key = x + ',' + y, v = DUN.map[key];
+      if (v === undefined || !DUN.explored[key]) continue;
+      var sx = Math.round(x * TS - camX), sy = Math.round(y * TS - camY), vis = DUN.visible[key];
+      if (CM) {   // tile disegnati a mano: ground pieno + overlay (siepi/rive/decal)
+        var cg = CM.ground[y] && CM.ground[y][x], cov = CM.over[y] && CM.over[y][x], cgs = cg && _cmapSheet(cg.ts);
+        if (cgs && _ready(cgs)) _lolTile(ctx, cgs, [cg.c, cg.r], TS, sx, sy);
+        else { ctx.fillStyle = fallFloor; ctx.fillRect(sx, sy, TS, TS); }
+        if (cov) { var cos = _cmapSheet(cov.ts); if (_ready(cos)) _lolTile(ctx, cos, [cov.c, cov.r], TS, sx, sy); }
+      } else if (rdy) {
+        if (DUN.gardenWater && DUN.gardenWater[key] && bio.water) _lolTile(ctx, sheet, bio.water, TS, sx, sy);
+        else if (v === 1) _lolTile(ctx, sheet, (DUN.gardenTrees && DUN.gardenTrees[key]) ? bio.floor : bio.wall, TS, sx, sy);   // sotto l'albero = erba (lo sprite copre); siepe = bordo
+        else { var _fl = (DUN.gardenFlowers && DUN.gardenFlowers[key]); _lolTile(ctx, sheet, _fl ? LOL_GARDEN.flower : bio.floor, TS, sx, sy); if (!_fl) _lolDecal(ctx, sheet, bio, x, y, TS, sx, sy); }
+      } else { ctx.fillStyle = v === 1 ? '#222' : fallFloor; ctx.fillRect(sx, sy, TS, TS); }
+      if (!vis) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx, sy, TS, TS); }
+    }
+    // GIARDINO decor: alberi grandi (bottom-allineati). Piedistallo dei Sapienti → Slice 3.
+    if (DUN.gardenFloor && DUN.gardenTrees) for (var gtk in DUN.gardenTrees) { if (!DUN.explored[gtk]) continue; var gtp = gtk.split(',').map(Number); _lolSpr(ctx, LOL.spr.tree, 0, TS, Math.round(gtp[0] * TS - camX), Math.round(gtp[1] * TS - camY)); }
+    // mappa curata: oggetti scenografici y-sorted (alberi, cespugli, lanterne, animali, ancore)
+    if (DUN.customDraw) for (var cdi = 0; cdi < DUN.customDraw.length; cdi++) {
+      var cd = DUN.customDraw[cdi], cdef = CMAP_SPR[cd.name]; if (!cdef) continue;
+      _lolSpr(ctx, cdef, 0, TS, Math.round(cd.x * TS - camX), Math.round(cd.y * TS - camY), cd.name.indexOf('animal') === 0 ? { noShadow: true } : null);
+    }
+    // discesa = porta (HUB S5: glow verde sobrio se il piano è già padroneggiato → "consigliato scendere")
+    if (DUN.sx >= 0 && DUN.explored[DUN.sx + ',' + DUN.sy]) {
+      if (DUN.stairReady) { ctx.save(); ctx.shadowColor = '#3fae5a'; ctx.shadowBlur = 10 + 3 * Math.sin(now / 400); }
+      if (CM && CM.gatekeeper) {   // mappa curata: la discesa è presidiata dal guardiano disegnato in mappa
+        var gks2 = _sheet('gatekeeper.png');
+        if (_ready(gks2)) {
+          var gf2 = Math.floor(now / 220) % 4, gdx = Math.round(DUN.sx * TS - camX), gdy = Math.round(DUN.sy * TS - camY);
+          _lolShadow(ctx, gdx, gdy, TS, 0.30);
+          ctx.drawImage(gks2, gf2 * 16, 0, 16, 16, gdx, gdy, TS, TS);
+          _lolBubble(ctx, gdx, gdy, TS, '?');
+        } else _lolSpr(ctx, LOL.spr.door, 0, TS, Math.round(DUN.sx * TS - camX), Math.round(DUN.sy * TS - camY));
+      } else _lolSpr(ctx, LOL.spr.door, 0, TS, Math.round(DUN.sx * TS - camX), Math.round(DUN.sy * TS - camY));
+      if (DUN.stairReady) ctx.restore();
+    }
+    // loot dai nemici
+    for (var ik in DUN.items) { if (!DUN.explored[ik]) continue; var ip = ik.split(',').map(Number); var ty = (DUN.items[ik] || {}).type; var dd = LOL.spr[ty === 'coin' ? 'coin' : (ty === 'gem' ? 'gem' : 'potion')]; _lolSpr(ctx, dd, 0, TS, Math.round(ip[0] * TS - camX), Math.round(ip[1] * TS - camY - Math.sin(now / 300 + ip[0]) * 2)); }
+    // sorgenti memory: libro/scroll vettoriali, vaso=container, forziere legacy=chest
+    for (var k in DUN.sources) {
+      if (!DUN.explored[k]) continue;
+      var s = DUN.sources[k], p = k.split(',').map(Number), dx = Math.round(p[0] * TS - camX), dy = Math.round(p[1] * TS - camY);
+      if (s.type === 'libro') _lolSpr(ctx, LOL.spr.book, s.extracted ? 1 : 0, TS, dx, dy);
+      else if (s.type === 'scroll') _lolSpr(ctx, LOL.spr.scroll, s.extracted ? 1 : 0, TS, dx, dy);
+      else if (s.type === 'vaso') { if (s.extracted) ctx.globalAlpha = 0.4; _lolSpr(ctx, LOL.spr.vaso, 0, TS, dx, dy); ctx.globalAlpha = 1; }
+      else _lolSpr(ctx, s.extracted ? LOL.spr.chestOpen : LOL.spr.chestClosed, 0, TS, dx, dy);
+    }
+    for (var ck in DUN.corpses) { if (!DUN.explored[ck]) continue; var cp = ck.split(',').map(Number); _lolSpr(ctx, LOL.spr.corpse, 0, TS, Math.round(cp[0] * TS - camX), Math.round(cp[1] * TS - camY)); }
+    if (DUN.mobs) for (var mj = 0; mj < DUN.mobs.length; mj++) {
+      var mo = DUN.mobs[mj]; if (!mo.alive) continue; var mk = mo.x + ',' + mo.y; if (!DUN.visible[mk]) continue;
+      var sdef = _lolMobSpr(mo); _lolSpr(ctx, sdef, Math.floor(now / 200) % (sdef.n || 1), TS, Math.round(mo.x * TS - camX), Math.round(mo.y * TS - camY), { flip: mo.x > DUN.px });
+    }
+    if (DUN.boss && !DUN.boss.defeated && DUN.explored[DUN.boss.x + ',' + DUN.boss.y]) {   // Guardiano della Memoria = mago glow magenta
+      var bdx = Math.round(DUN.boss.x * TS - camX), bdy = Math.round(DUN.boss.y * TS - camY);
+      ctx.save(); ctx.shadowColor = '#bf6979'; ctx.shadowBlur = 16; _lolSpr(ctx, LOL.spr.guardian, Math.floor(now / 260) % 4, TS, bdx, bdy); ctx.restore();
+    }
+    if (DUN.gardenNpcs) for (var gnk in DUN.gardenNpcs) {
+      var gp = DUN.gardenNpcs[gnk], ndx = Math.round(gp.x * TS - camX), ndy = Math.round(gp.y * TS - camY - Math.sin(now / 500 + gp.x) * 1.5);
+      if (gp.wilt) ctx.globalAlpha = 0.72;
+      _lolSpr(ctx, gp.custode ? LOL.spr.custode : (gp.sprDef || LOL.spr.npc), 0, TS, ndx, ndy, (gp.beh && gp.beh.faceLeft) ? { flip: true } : null);
+      ctx.globalAlpha = 1;
+      // bubble: custode '?' > appassito 🥀 > player vicino '!' > emote termine-chiave > '…'
+      if (gp.custode) _lolBubble(ctx, ndx, ndy, TS, '?');
+      else if (gp.wilt) _lolBubble(ctx, ndx, ndy, TS, '🥀');
+      else if (gp.beh && gp.beh.state === 'TURN') _lolBubble(ctx, ndx, ndy, TS, '!');
+      else if (gp.beh && now < gp.beh.emoteUntil) _lolBubbleText(ctx, ndx, ndy, TS, gp.beh.emoteTerm);
+      else _lolBubble(ctx, ndx, ndy, TS, '…');
+    }
+    if (DUN.raduraTotems) for (var rtk in DUN.raduraTotems) { var rt = DUN.raduraTotems[rtk], rdx = Math.round(rt.x * TS - camX), rdy = Math.round(rt.y * TS - camY); if (rt.done) ctx.globalAlpha = 0.45; _lolSpr(ctx, LOL.spr.lantern, 0, TS, rdx, rdy); ctx.globalAlpha = 1; if (!rt.done) _lolBubble(ctx, rdx, rdy, TS, '!'); }   // S4: totem FE (spenti se completati)
+    if (DUN.gateRoom) { var gks = _sheet('gatekeeper.png'); if (_ready(gks)) { var bf = Math.floor(now / 220) % 4, kdx = Math.round(DUN.gateRoom.bx * TS - camX), kdy = Math.round(DUN.gateRoom.by * TS - camY); _lolShadow(ctx, kdx, kdy, TS, 0.30); ctx.save(); ctx.shadowColor = '#bf6979'; ctx.shadowBlur = 12; ctx.drawImage(gks, bf * 16, 0, 16, 16, kdx, kdy, TS, TS); ctx.restore(); _lolBubble(ctx, kdx, kdy, TS, '?'); } }
+    _lolPlayer(ctx, TS, Math.round(DUN.px * TS - camX), Math.round(DUN.py * TS - camY), !!DUN.path, DUN.facing);
+    _lolDark(ctx, W, H, TS, camX, camY);
+    _lolBossBar(ctx, W, H);
+    _renderFx(ctx, TS, camX, camY, W, H);
+    _renderHud();
+  }
+
+  // ════════════════════════ NPC + COMBATTIMENTO (passata B) ══════════════════
+  function _mobAt(x, y) { for (var i = 0; i < DUN.mobs.length; i++) { var m = DUN.mobs[i]; if (m.alive && m.x === x && m.y === y) return m; } return null; }
+  function _spawnMobs(f) {
+    if (f.kind === 'scuola' || _studyMode()) return;   // onboarding / modalità studio: nessun nemico
+    var lvl = f.level, hp = lvl <= 1 ? 5 : (lvl === 2 ? 6 : 8);   // HP per livello (regola utente)
+    var tiles = []; for (var k in DUN.map) if (DUN.map[k] === 0) tiles.push(k);
+    // gen bilanciata: piani COMBAT più nemici (poche stanze, solo nemici); MISTI meno (ci sono già i memory-mostri)
+    var n = f.kind === 'combat'
+      ? Math.max(4, Math.min(14, 4 + lvl + Math.floor(tiles.length / 110)))
+      : Math.max(2, Math.min(9, 1 + lvl + Math.floor(tiles.length / 200)));
+    var occ = {}; occ[DUN.px + ',' + DUN.py] = true; if (DUN.sx >= 0) occ[DUN.sx + ',' + DUN.sy] = true;
+    if (DUN.boss) occ[DUN.boss.x + ',' + DUN.boss.y] = true;   // non spawnare mob sul Guardiano
+    for (var sk in DUN.sources) occ[sk] = true;
+    for (var ik2 in DUN.items) occ[ik2] = true;
+    for (var em = 0; em < DUN.mobs.length; em++) occ[DUN.mobs[em].x + ',' + DUN.mobs[em].y] = true;   // memory-mostri già piazzati
+    tiles.sort(function () { return Math.random() - 0.5; });
+    var placed = 0;
+    for (var i = 0; i < tiles.length && placed < n; i++) {
+      var key = tiles[i]; if (occ[key]) continue;
+      var p = key.split(',').map(Number);
+      if (Math.abs(p[0] - DUN.px) + Math.abs(p[1] - DUN.py) < 6) continue;
+      var e = ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+      DUN.mobs.push({ x: p[0], y: p[1], hp: hp, maxhp: hp, name: e.n, anim: _mobAnim(e), moveAt: Date.now() + Math.random() * 700, alive: true });
+      occ[key] = true; placed++;
+    }
+  }
+  function _mobTick() {
+    if (!DUN.mobs) return; var now = Date.now();
+    for (var i = 0; i < DUN.mobs.length; i++) {
+      var m = DUN.mobs[i]; if (!m.alive || now < m.moveAt) continue;
+      m.moveAt = now + 280 + Math.random() * 180;
+      var dist = Math.abs(m.x - DUN.px) + Math.abs(m.y - DUN.py);
+      if (dist === 1) { _startDuel(m); return; }
+      var nx = m.x, ny = m.y, dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      if (dist <= 8) {
+        var bd = dist, best = null;
+        for (var di = 0; di < 4; di++) { var x = m.x + dirs[di][0], y = m.y + dirs[di][1]; if (DUN.map[x + ',' + y] !== 0 || _mobAt(x, y) || (x === DUN.px && y === DUN.py)) continue; var nd = Math.abs(x - DUN.px) + Math.abs(y - DUN.py); if (nd < bd) { bd = nd; best = [x, y]; } }
+        if (best) { nx = best[0]; ny = best[1]; }
+      } else if (Math.random() < 0.4) {
+        var d = dirs[Math.floor(Math.random() * 4)], x2 = m.x + d[0], y2 = m.y + d[1];
+        if (DUN.map[x2 + ',' + y2] === 0 && !_mobAt(x2, y2) && !(x2 === DUN.px && y2 === DUN.py)) { nx = x2; ny = y2; }
+      }
+      m.x = nx; m.y = ny;
+      if (Math.abs(m.x - DUN.px) + Math.abs(m.y - DUN.py) === 1) { _startDuel(m); return; }
+    }
+  }
+  function _startDuel(m) {
+    if (DUN.duel) return;
+    var cfg = _combatCfg();
+    DUN.duel = { mob: m, cfg: cfg, which: 'a', symbol: cfg.set.a.sym, deadline: 0, t0: 0 };
+    DUN.path = null; _snd('door_locked');
+    var how = cfg.mode === 'diritto' ? 'lo STESSO simbolo del fumetto' : 'il simbolo OPPOSTO del fumetto';
+    _msg('Duello con ' + (m.memory ? _clean(m.memory.label) : m.name) + '! Premi ' + how + '.');
+    _nextDuelRound();
+  }
+  function _nextDuelRound() { if (!DUN.duel) return; var set = DUN.duel.cfg.set, which = Math.random() < 0.5 ? 'a' : 'b'; DUN.duel.which = which; DUN.duel.symbol = set[which].sym; DUN.duel.t0 = Date.now(); DUN.duel.deadline = DUN.duel.t0 + _reactWindow(); }
+  // finestra di reazione adattiva: parte permissiva, si stringe del 10% ogni 10 kill (e segue il RT medio del player)
+  function _reactWindow() {
+    var s = DUN.duelStats || {}, base = 1600;
+    if (s.correct && s.correct >= 5) base = Math.max(700, Math.min(2000, Math.round((s.sumRt / s.correct) * 1.6)));
+    return Math.max(500, Math.round(base * Math.pow(0.9, Math.floor((DUN.kills || 0) / 10))));
+  }
+  function _duelInput(k) {
+    if (!DUN.duel) return;
+    var cfg = DUN.duel.cfg, set = cfg.set, which = DUN.duel.which, m = DUN.duel.mob;
+    var wantWhich = (cfg.mode === 'diritto') ? which : (which === 'a' ? 'b' : 'a');   // diritto=stesso · opposto=l'altro
+    var want = set[wantWhich].key;
+    var rt = Date.now() - (DUN.duel.t0 || Date.now()), correct = (k === want);
+    _recordDuel(rt, correct);
+    if (correct) { m.hp -= 2; _snd('hit'); DUN.flash = { c: '120,220,255', a: 0.45 }; if (m.hp <= 0) return _mobDie(m); }
+    else { DUN.hp -= 1; _snd('miss'); DUN.flash = { c: '230,60,60', a: 0.5 }; if (DUN.hp <= 0) return _playerDie(); }
+    _nextDuelRound();
+  }
+  function _duelTimeout() { if (!DUN.duel) return; _recordDuel(1500, false); DUN.hp -= 1; _snd('miss'); DUN.flash = { c: '230,60,60', a: 0.5 }; if (DUN.hp <= 0) return _playerDie(); _nextDuelRound(); }
+  // metriche duello: tempi di reazione (evoluzione del player) — persistite
+  var DUEL_KEY = 'mappai_dungeon_duel';
+  function _recordDuel(rt, correct) {
+    var s; try { s = JSON.parse(localStorage.getItem(DUEL_KEY) || '{}'); } catch (e) { s = {}; }
+    s.n = (s.n || 0) + 1; s.last = rt;
+    if (correct) { s.correct = (s.correct || 0) + 1; s.sumRt = (s.sumRt || 0) + rt; s.best = s.best ? Math.min(s.best, rt) : rt; }
+    _lsSet(DUEL_KEY, JSON.stringify(s));
+    DUN.duelStats = s;
+    _logEv('duel', { rt: rt, ok: !!correct });   // telemetria EF (inibizione) — NON va su MappAIMastery: non è contenuto
+  }
+  function _mobDie(m) {
+    m.alive = false; DUN.duel = null; DUN.kills = (DUN.kills || 0) + 1; _snd('powerup');   // niente scheletro: il corpo diventa loot
+    if (m.memory) {
+      _msg('Memory unit liberata: ' + _clean(m.memory.label));
+      _captureMemory(m.memory, 'desc');   // cattura attiva → addDiary + record dentro la cattura
+    } else {
+      var r = Math.random();   // il corpo del nemico si trasforma SEMPRE in moneta o pozione
+      var drop = r < 0.10 ? 'potion_green' : (r < 0.40 ? 'potion_blue' : 'coin');
+      DUN.items[m.x + ',' + m.y] = { type: drop };
+      _msg('Hai sconfitto ' + m.name + ' → ' + (drop === 'coin' ? 'una moneta' : 'una pozione') + '.');
+    }
+  }
+  function _playerDie() { DUN.duel = null; DUN.corpses[DUN.px + ',' + DUN.py] = true; _snd('miss'); _msg('Sei caduto! Il diario è salvo. Riparti dal piano.'); DUN.hp = DUN.maxhp; _loadFloor(DUN.fi); }
+  function _selectCharacter(done) {
+    var ov = _overlay();
+    var bs = 'padding:14px 22px;border-radius:10px;border:1px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer;font-size:15px';
+    ov.card.innerHTML = '<h3 style="margin:0 0 16px;font-size:18px;font-weight:500;text-align:center">Scegli il personaggio</h3>' +
+      '<div style="display:flex;gap:16px;justify-content:center"><button id="ch-m" style="' + bs + '">♂ Maschio</button><button id="ch-f" style="' + bs + '">♀ Femmina</button></div>';
+    ov.card.querySelector('#ch-m').onclick = function () { DUN.playerAnim = PLAYER_ANIM; DUN.lolOutfit = 1; ov.close(); done(); };
+    ov.card.querySelector('#ch-f').onclick = function () { DUN.playerAnim = PLAYER_ANIM_F; DUN.lolOutfit = 2; ov.close(); done(); };
+  }
+  function _showRules(done) {
+    var ov = _overlay(); ov.card.style.width = 'min(560px,95vw)';
+    var go = function () { _setOnboarded(); ov.close(); done(); };
+    var un = _esc(go); var study = _studyMode();
+    ov.card.innerHTML =
+      '<h3 style="margin:0 0 4px;font-size:18px;font-weight:600">🏫 Benvenuto nel Memory Dungeon</h3>' +
+      '<div style="font-size:12px;color:#8fa4c4;margin-bottom:12px">Il primo piano è la "scuola": calmo, senza nemici. Prendi confidenza.</div>' +
+      '<ul style="font-size:13px;color:#c3d2ea;line-height:1.7;margin:0 0 14px;padding-left:18px">' +
+        '<li><b>Clic</b> = muoviti (point&amp;click).</li>' +
+        '<li><b>📦 forzieri, libri, pergamene</b>: sblocca con un minigioco (puzzle), poi <b>cattura</b> la memory unit scrivendo la tua sintesi.</li>' +
+        '<li><b>🏺 vasi</b>: raccogli pozioni, monete e diamanti.</li>' +
+        (study
+          ? '<li><b>Modalità studio attiva</b>: niente nemici. Solo oggetti da sbloccare e catturare.</li>'
+          : '<li><b>👾 nemici</b>: duello — premi la <b>lettera OPPOSTA</b> del fumetto (F/J). <b>Z</b> = incantesimo (3 mana).</li>') +
+        '<li><b>B</b> = diario (rileggi, annota in markdown, ripassa). <b>Esc</b> = esci.</li>' +
+        '<li><b>Door Keeper</b> alle scale: rispondi per scendere. Ultimo piano = <b>Guardiano</b> → rivela la mappa.</li>' +
+      '</ul>' +
+      '<button id="rl-go" type="button" style="width:100%;' + GBS + ';border-color:#3fae5a;background:#15301f;font-size:15px;padding:12px">Iniziamo →</button>';
+    ov.card.querySelector('#rl-go').onclick = function () { un(); go(); };
+  }
+
+  // ════════════════════════ SPELL push-away (tasto Z) ════════════════════════
+  function _spellCells() {
+    var f = (DUN.facing && (DUN.facing[0] || DUN.facing[1])) ? DUN.facing : [0, -1];
+    var fx = f[0], fy = f[1], lx = -fy, ly = fx, px = DUN.px, py = DUN.py, cells = [];
+    function add(x, y) { if (DUN.map[x + ',' + y] === 0) cells.push([x, y]); }
+    add(px + fx, py + fy); add(px + 2 * fx, py + 2 * fy);                 // avanti 2
+    add(px + lx, py + ly); add(px + 2 * lx, py + 2 * ly);                 // sinistra 2
+    add(px - lx, py - ly); add(px - 2 * lx, py - 2 * ly);                 // destra 2
+    add(px + fx + lx, py + fy + ly); add(px + fx - lx, py + fy - ly);    // diagonali avanti 1
+    add(px - fx + lx, py - fy + ly); add(px - fx - lx, py - fy - ly);    // diagonali dietro 1
+    add(px - fx, py - fy);                                               // dietro 1
+    return cells;
+  }
+  function _pushEnemy(m, dx, dy, tiles) {
+    var moved = 0;
+    for (var s = 0; s < tiles; s++) {
+      var nx = m.x + dx, ny = m.y + dy;
+      if (DUN.map[nx + ',' + ny] !== 0) break;            // muro → stop
+      if (nx === DUN.px && ny === DUN.py) break;
+      var other = _mobAt(nx, ny);
+      if (other) { _pushEnemy(other, dx, dy, tiles - s); if (_mobAt(nx, ny)) break; }   // catena
+      m.x = nx; m.y = ny; moved++;
+    }
+    return moved;
+  }
+  function _castSpell() {
+    if (!DUN || DUN.busy || DUN.duel) return;
+    if (DUN.mana < 3) { _msg('Mana insufficiente (servono 3).'); return; }
+    DUN.mana -= 3;
+    var cells = _spellCells();
+    DUN.spellFx = { cells: cells, t: 1 }; DUN.flash = { c: '120,200,255', a: 0.4 }; _snd('powerup');
+    var hit = [];
+    cells.forEach(function (c) { var m = _mobAt(c[0], c[1]); if (m && hit.indexOf(m) < 0) hit.push(m); });
+    if (!hit.length) { _msg('Spell lanciata: nessun nemico nell\'area.'); return; }
+    hit.sort(function (a, b) { return (Math.abs(b.x - DUN.px) + Math.abs(b.y - DUN.py)) - (Math.abs(a.x - DUN.px) + Math.abs(a.y - DUN.py)); });
+    hit.forEach(function (m) {
+      if (!m.alive) return;
+      var dx = m.x === DUN.px ? 0 : (m.x > DUN.px ? 1 : -1), dy = m.y === DUN.py ? 0 : (m.y > DUN.py ? 1 : -1);
+      if (!dx && !dy) dy = (DUN.facing[1] || -1);
+      var moved = _pushEnemy(m, dx, dy, 3);
+      if (moved === 0) { _msg(m.name + ' contro il muro: eliminato!'); _mobDie(m); }
+      else { m.hp -= 4; if (m.hp <= 0) _mobDie(m); }
+    });
+    _msg('Spell push-away! (−3 mana)');
+  }
+
+  // ════════════════════════ GATE KEEPER + quiz riusabile ═════════════════════
+  function _gateThr() { try { var g = JSON.parse(localStorage.getItem('mappai_dungeon_gate') || '{}'); return (g.accThr != null) ? g.accThr : 0.6; } catch (e) { return 0.6; } }
+  function _norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9àèéìòù ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function _fuzzy(a, b) {
+    a = _norm(a); b = _norm(b); if (!a || !b) return false; if (a === b) return true;
+    var ta = a.split(' '), tb = b.split(' '), hit = 0;
+    tb.forEach(function (t) { if (t.length > 2 && ta.indexOf(t) >= 0) hit++; });
+    return hit / Math.max(1, tb.filter(function (t) { return t.length > 2; }).length) >= 0.5;
+  }
+  function _otherThan(pool, node) { for (var i = 0; i < 24; i++) { var o = pool[Math.floor(Math.random() * pool.length)]; if (o.label !== node.label) return o; } return null; } // cap tentativi → niente loop infinito con label duplicate
+  function _reEsc(s) { return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  // Stem di domanda: testo COMPLETO (mai troncato) col nome del concetto MASCHERATO (cloze)
+  // → non regala la risposta. Maschera l'etichetta intera + le sue parole significative (>3).
+  function _stem(text, label) {
+    text = String(text || '').trim(); if (!text) return '';
+    var lab = _norm(label);
+    if (lab) {
+      try { text = text.replace(new RegExp(_reEsc(_clean(label)), 'gi'), '____'); } catch (e) {}
+      lab.split(' ').forEach(function (w) { if (w.length > 3) { try { text = text.replace(new RegExp('\\b' + _reEsc(w) + '[a-zàèéìòù]*', 'gi'), '____'); } catch (e) {} } });
+    }
+    return text.replace(/(?:____\s*){2,}/g, '____ ').trim(); // collassa blank ripetuti
+  }
+  // Formato-domanda ADATTIVO per mastery (ZPD + fading, c10 — flag mappai_dungeon_adaptive, default ON):
+  // nuovo → binaria (tf), in-corso → MC, acquisito/fluente → aperta. Cap tentativi <3 in dungeon-core
+  // (anti-inflazione EWMA). null = flag off o core assente → rotazione fissa i%3 (legacy).
+  function _zpdType(id) {
+    var C = _core(); if (!C || id == null) return null;
+    try { if (localStorage.getItem('mappai_dungeon_adaptive') === '0') return null; } catch (e) { return null; }
+    var MM = window.MappAIMastery, agg = null;
+    try { agg = (MM && typeof MM.node === 'function') ? MM.node(id) : null; } catch (e) {}
+    var lvl = 'nuovo', att = 0;
+    if (agg && agg.attempts) {
+      att = agg.attempts;
+      lvl = (typeof MM.masteryLevel === 'function') ? MM.masteryLevel({ attempts: agg.attempts, accuracy: agg.accuracy, rate: agg.rate }) : (agg.accuracy >= 0.8 ? 'acquisito' : 'in-corso');
+    }
+    return C.zpdFormat(lvl, att);   // 'tf' | 'mc' | 'open'
+  }
+  function _genQuestions(pool, count, subjects) {
+    var qs = [];
+    // sequenza soggetti SENZA reimmissione e DE-DUPATA per nodo → niente nodo ripetuto nello stesso quiz
+    // (causa di "stesse domande due volte di fila": più voci diario per lo stesso id, o pick casuale del boss).
+    var raw = (subjects && subjects.length) ? subjects.slice() : _shuffle((pool || []).slice());
+    var seen = {}, seq = [];
+    raw.forEach(function (p) { var k = String(p && p.id != null ? p.id : (p && p.label)); if (!seen[k]) { seen[k] = 1; seq.push(p); } });
+    var n = Math.min(count, seq.length);   // non ciclare: max 1 quesito per soggetto distinto
+    for (var i = 0; i < n; i++) {
+      var node = seq[i];
+      var fmt = _zpdType(node.id);   // difficoltà ZPD dal livello mastery del nodo (null → rotazione legacy)
+      var type = fmt ? (fmt === 'tf' ? 0 : (fmt === 'mc' ? 1 : 2)) : (i % 3);
+      // ogni domanda porta nodeId+subjLabel del SOGGETTO → mastery per-quesito + telemetria (prima si perdevano)
+      if (node.kind === 'rel') { qs.push({ kind: 'open', nodeId: node.id, subjLabel: node.label, q: 'Spiega con parole tue questa relazione:<br><span style="color:#b9e6c9">«' + _esch(node.label) + '»</span>', answer: node.label, ref: node.desc }); continue; } // relazioni → sempre "spiega" (il masking le distruggerebbe)
+      var aiq = (type < 2) ? _aiQuestionFor(node, type === 0 ? 'tf' : 'mc') : null; // MC/TF dal generatore AI ancorato al contenuto, se pronto
+      if (aiq) { aiq.nodeId = node.id; aiq.subjLabel = node.label; qs.push(aiq); continue; }
+      // FALLBACK senza quiz AI pronto: SEMPRE domanda aperta (valutata semanticamente). Niente cloze "____" → era la causa delle "domande stupide".
+      qs.push({ kind: 'open', nodeId: node.id, subjLabel: node.label, q: 'Spiega con parole tue: «' + _esch(node.label) + '» — che cosa sai di questo concetto?', answer: node.label, ref: node.desc });
+    }
+    return qs;
+  }
+  // nodo reale di appState per id (così flashcardTest si cachea sul nodo condiviso)
+  function _nodeById(id) { var st = _getAppState(), nodes = (st && st.db && st.db.nodes) || []; for (var i = 0; i < nodes.length; i++) if (String(nodes[i].id) === String(id)) return nodes[i]; return null; }
+  function _groupOf(id) { var n = _nodeById(id); return n ? n.group : null; } // macro-area per distrattori MC
+  function _nodeLabel(id) { var n = _nodeById(id); return n ? _clean(n.label) : ''; }
+  function _lid(x) { return (x && x.id != null) ? x.id : x; }   // link source/target può essere id o nodo D3
+  // una relazione del nodo (per i vasi): {targetId, targetLabel, rel}. null se il nodo non ha link con rel.
+  function _relFor(node) {
+    var st = _getAppState(), links = (st && st.db && st.db.links) || [], cand = [];
+    links.forEach(function (l) {
+      if (!l || !l.rel) return;
+      var s = String(_lid(l.source)), t = String(_lid(l.target));
+      if (s === String(node.id)) { var lb = _nodeLabel(t); if (lb) cand.push({ targetId: t, targetLabel: lb, rel: _clean(l.rel) }); }
+      else if (t === String(node.id)) { var lb2 = _nodeLabel(s); if (lb2) cand.push({ targetId: s, targetLabel: lb2, rel: _clean(l.rel) }); }
+    });
+    return cand.length ? cand[Math.floor(Math.random() * cand.length)] : null;
+  }
+  // Un nodo è STUDIABILE se ha una desc non vuota o almeno una citazione (A12).
+  // I nodi vuoti non diventano sorgenti sul pavimento: verrebbero interrogati sul nulla.
+  function _hasContent(nd) {
+    if (_clean(_desc(nd) || '')) return true;
+    var st = _getAppState(), c = (st && st.db && st.db.sourcesDict && st.db.sourcesDict[nd.id]) || [];
+    return !!(c.length && _clean(c[0].text));
+  }
+  // risolve il contenuto da catturare in base al tipo di sorgente, con fallback a 'desc'
+  function _memoryContent(node, kind) {
+    var st = _getAppState();
+    if (kind === 'cite') { var c = (st && st.db && st.db.sourcesDict && st.db.sourcesDict[node.id]) || []; if (c.length && _clean(c[0].text)) return { kind: 'cite' }; }
+    if (kind === 'rel') { var rel = _relFor(node); if (rel) return { kind: 'rel', rel: rel }; }
+    return { kind: 'desc' };
+  }
+  function _poolEntry(d) { return { id: d.id, label: d.label, desc: d.desc, g: _groupOf(d.id), kind: d.kind || 'desc' }; }
+  // ════════ AI 3-TIER (F2): cloud (timeout) → LLM locale (GBNF) → deterministico ════════
+  // Timeout via Promise.race: la UI si sblocca sempre (la richiesta zombie sottostante è accettabile
+  // — niente AbortController senza toccare app.js).
+  function _withTimeout(p, ms) {
+    return new Promise(function (resolve, reject) {
+      var t = setTimeout(function () { reject(new Error('AI_TIMEOUT')); }, ms);
+      Promise.resolve(p).then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
+    });
+  }
+  // Tier LOCALE: riusa il servizio NPC (node-llama-cpp) via IPC. Grammatica GBNF da JSON-schema
+  // → output SEMPRE ben formato. Model path = stesso del sistema NPC (mappai_npc_model_path).
+  var _localLlmDead = false;   // LOW_RAM / errore fatale → tier locale spento per la sessione
+  function _localModelPath() { try { return localStorage.getItem('mappai_npc_model_path') || null; } catch (e) { return null; } }
+  function _localTierOn() { try { return localStorage.getItem('mappai_dungeon_ai_tiers') !== '0'; } catch (e) { return true; } }
+  function _localLlmOk() { return !!(!_localLlmDead && _localModelPath() && _localTierOn() && window.electronAPI && typeof window.electronAPI.generateLocalNPCAction === 'function'); }
+  function _setAiMode(m) { if (DUN && DUN.aiMode !== m) { DUN.aiMode = m; _logEv('ai', { mode: m }); } }
+  function _localStructured(systemPrompt, userText, schema, maxTokens, timeoutMs) {
+    if (!_localLlmOk()) return Promise.reject(new Error('NO_LOCAL'));
+    return _withTimeout(window.electronAPI.generateLocalNPCAction({
+      npcId: 'dungeon_quizmaster', systemPrompt: systemPrompt, userText: userText,
+      schema: schema, modelPath: _localModelPath(), temperature: 0.3, maxTokens: maxTokens || 350
+    }), timeoutMs || 45000).then(function (r) {
+      if (r && r.success && r.data != null) return r.data;
+      var msg = (r && r.error) || 'LOCAL_FAIL';
+      if (/LOW_RAM/i.test(String(msg))) _localLlmDead = true;   // RAM insufficiente: non riprovare in sessione
+      throw new Error(msg);
+    });
+  }
+  // ── CACHE QUIZ persistente per mappa (A7): sopravvive al reload, zero costi ripetuti.
+  // Invalidazione per HASH della desc: se il contenuto del nodo cambia → cache miss → rigenera.
+  function _quizKey() { return 'mappai_dungeon_quiz__' + _mapSig(); }
+  function _quizCacheAll() { try { var o = JSON.parse(localStorage.getItem(_quizKey()) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; } catch (e) { return {}; } }
+  function _hash(s) { var C = _core(); if (C) return C.strHash(s); s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+  function _quizCacheGet(nodeId, desc) {
+    var e = _quizCacheAll()[String(nodeId)];
+    if (!e || e.h !== _hash(desc) || !Array.isArray(e.items) || !e.items.length) return null;
+    return e;   // {h, items, ts, src:'cloud'|'local'}
+  }
+  function _quizCachePut(nodeId, desc, items, src) {
+    var all = _quizCacheAll(), k = String(nodeId), prev = all[k];
+    if (prev && prev.src === 'cloud' && src === 'local' && prev.h === _hash(desc)) return;   // il locale non sovrascrive MAI il cloud
+    all[k] = { h: _hash(desc), items: items, ts: Date.now(), src: src || 'cloud' };
+    _lsSet(_quizKey(), JSON.stringify(all));
+  }
+  // idrata in blocco i _dunQuiz dei nodi del diario dalla cache (solo lettura, zero AI) — a inizio dungeon
+  function _hydrateQuizFromCache() {
+    (DUN.diary || []).forEach(function (d) {
+      if (d.ghost) return; var node = _nodeById(d.id); if (!node || node._dunQuiz) return;
+      var c = _quizCacheGet(d.id, _desc(node)); if (c) node._dunQuiz = c.items;
+    });
+  }
+  // Genera quiz ancorati al contenuto: ① cloud (12s timeout) → ② locale (2 item, prompt corto,
+  // validazione deterministica obbligatoria — il 4B produce JSON valido ma non item garantiti sensati)
+  // → ③ null (fallback = domande aperte in _genQuestions). Schema {stem,a1,a2,a3,correct 1-based}.
+  function _genQuizForNode(node) {
+    var content = _desc(node);
+    if (!content) return Promise.resolve(null);
+    var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
+    var canCloud = !!(key && typeof window.fetchModelAPI === 'function');
+    var cached = _quizCacheGet(node.id, content);
+    if (cached && !(cached.src === 'local' && canCloud)) { node._dunQuiz = cached.items; return Promise.resolve(cached.items); }   // cache hit (ma il cloud può sostituire il locale)
+    function accept(arr, src) {
+      if (!Array.isArray(arr)) return null;
+      var C = _core();
+      var clean = arr.filter(function (it) { return C ? C.validQuizItem(it, node.label) : (it && (it.stem || it.q) && it.a1 && it.a2); });
+      if (!clean.length) return null;
+      node._dunQuiz = clean;
+      _quizCachePut(node.id, content, clean, src);
+      return clean;
+    }
+    if (canCloud) {
+      var sys = 'Sei un autore di quiz didattici per studenti BES/DSA. Scrivi SEMPRE in italiano. Basati ESCLUSIVAMENTE sul contenuto fornito: NON inventare fatti non presenti, NON usare conoscenza esterna o di cultura generale.';
+      var prompt = 'Concetto: "' + _clean(node.label) + '"\n\nContenuto di studio (UNICA fonte ammessa):\n' + content + '\n\nGenera 4 domande a COMPLETAMENTO in italiano, basate SOLO su questo contenuto. Ogni domanda è un INCIPIT di frase ("stem") da completare, con 3 completamenti brevi: UNO solo corretto e fedele al contenuto, due plausibili ma errati. I completamenti devono proseguire NATURALMENTE lo stem (non ripeterlo, non iniziare con maiuscola, niente punto di domanda). Evita completamenti che svelano la risposta nello stem. Rispondi SOLO con un array JSON, senza testo prima o dopo:\n[{"stem":"La Commissione Bergier aveva il compito di","a1":"esaminare in modo imparziale le accuse contro la Svizzera","a2":"processare i banchieri svizzeri","a3":"ridefinire i confini nazionali","correct":1}]\n"correct" è 1, 2 o 3 (numero del completamento corretto).';
+      var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { temperature: 0.3, maxOutputTokens: 1024 } };
+      return _withTimeout(window.fetchModelAPI(payload, key), 12000).then(function (resp) {
+        _setAiMode('cloud');
+        var txt = (resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0] && resp.candidates[0].content.parts[0].text) || '';
+        var arr = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(txt) : JSON.parse(txt);
+        return accept(arr, 'cloud') || _genQuizLocal(node, content, accept);   // cloud vuoto/invalido → prova il locale
+      }).catch(function () { return _genQuizLocal(node, content, accept); });
+    }
+    return _genQuizLocal(node, content, accept);
+  }
+  function _genQuizLocal(node, content, accept) {
+    if (!_localLlmOk()) { _setAiMode('off'); return Promise.resolve(node._dunQuiz || null); }
+    if (DUN && (DUN.gardenFloor || DUN.duel)) return Promise.resolve(node._dunQuiz || null);   // mutex NPC: mai durante dialoghi giardino/duelli
+    var sys = 'Sei un autore di quiz didattici. Rispondi SOLO in italiano. Basati SOLO sul contenuto fornito, niente conoscenza esterna.';
+    var user = 'Concetto: "' + _clean(node.label) + '"\nContenuto:\n' + _softCut(content, 400) + '\n\nScrivi 2 domande a completamento: "stem" = incipit di frase, poi 3 completamenti brevi (uno solo corretto). "correct" = numero del completamento corretto (1, 2 o 3).';
+    var schema = { type: 'array', items: { type: 'object', properties: { stem: { type: 'string' }, a1: { type: 'string' }, a2: { type: 'string' }, a3: { type: 'string' }, correct: { type: 'integer' } }, required: ['stem', 'a1', 'a2', 'correct'] } };
+    return _localStructured(sys, user, schema, 350, 45000).then(function (arr) {
+      _setAiMode('local');
+      return accept(arr, 'local');
+    }).catch(function () { _setAiMode('off'); return node._dunQuiz || null; });
+  }
+  function _ensureQuiz(id) {
+    var node = _nodeById(id);
+    if (!node) return;
+    var content = _desc(node);
+    if (!content) return;
+    if (!node._dunQuiz) { var c = _quizCacheGet(id, content); if (c) node._dunQuiz = c.items; }   // idrata dalla cache (zero costi)
+    var canCloud = false; try { canCloud = !!(window.getSystemKey && window.getSystemKey() && typeof window.fetchModelAPI === 'function'); } catch (e) {}
+    var cached = _quizCacheGet(id, content);
+    var wantUpgrade = !!(node._dunQuiz && cached && cached.src === 'local' && canCloud);   // il cloud sostituisce gli item locali
+    if (node._dunQuiz && !wantUpgrade) return;
+    var pend = node._quizGenPending;
+    if (pend && (Date.now() - pend) < 60000) return;   // A17: pending con timestamp → retry ammesso dopo 60s (mai bloccato per sempre)
+    node._quizGenPending = Date.now();
+    _genQuizForNode(node).then(function () { node._quizGenPending = 0; }, function () { node._quizGenPending = 0; });
+  }
+  // Costruisce una domanda dal pool AI del nodo (schema {stem|q, a1,a2,a3, correct 1-based}). null se non pronto → fallback.
+  // Forma: STEM dichiarativo da completare + completamenti. 'tf' → scelta binaria (corretto + 1 distrattore); altrimenti MC a 3.
+  function _aiQuestionFor(entry, kind) {
+    var node = (entry && entry.id != null) ? _nodeById(entry.id) : null;
+    var fc = node && node._dunQuiz;   // solo quiz dungeon ancorati al contenuto (non l'app flashcardTest, rotta)
+    if (!fc || !fc.length) return null;
+    var it = fc[Math.floor(Math.random() * fc.length)];
+    if (!it || (!it.stem && !it.q) || it.a1 == null) return null;
+    var opts = [it.a1, it.a2, it.a3].filter(function (o) { return o != null && String(o).trim() !== ''; });
+    if (opts.length < 2) return null;
+    var ci = Math.max(1, Math.min(3, parseInt(it.correct, 10) || 1));   // correct è 1-based (1→a1, 2→a2, 3→a3)
+    var correct = it['a' + ci] != null ? it['a' + ci] : it.a1;
+    var stem = (it.stem && String(it.stem).trim()) ? String(it.stem).trim() : '';
+    var head = stem
+      ? (_esch(stem) + ' …<br><span style="color:#9fb3d4;font-size:14px">Completa la frase:</span>')   // stem dichiarativo da completare (BES/DSA, esempio utente)
+      : _esch(it.q);                                                                                    // legacy: domanda "?" diretta
+    if (kind === 'tf') {   // scelta binaria A/B: completamento corretto + 1 distrattore plausibile
+      var wrong = opts.filter(function (o) { return o !== correct; });
+      if (!wrong.length) return { kind: 'mc', q: head, opts: _shuffle(opts.slice()), answer: correct, expl: it.explanation };
+      var two = _shuffle([correct, wrong[Math.floor(Math.random() * wrong.length)]]);
+      return { kind: 'mc', q: head, opts: two, answer: correct, expl: it.explanation };
+    }
+    return { kind: 'mc', q: head, opts: _shuffle(opts.slice()), answer: correct, expl: it.explanation };
+  }
+  // Scoring risposte aperte: AI di DEFAULT (affinità SEMANTICA, non match esatto di parole). 'false' forza il fallback deterministico (offline/no costo).
+  function _aiScoring() { try { return localStorage.getItem('mappai_dungeon_ai_scoring') !== 'false'; } catch (e) { return true; } }
+  // IDF sul corpus del diario (text-network-light): termini rari/specifici pesano di più dei comuni.
+  function _corpusIDF() {
+    if (!DUN || !DUN.diary || !DUN.diary.length) return null;
+    var docs = DUN.diary.map(function (d) { return _norm(d.desc); }), N = docs.length, df = {};
+    docs.forEach(function (doc) { var seen = {}; doc.split(' ').forEach(function (w) { if (w.length > 3 && !seen[w]) { seen[w] = 1; df[w] = (df[w] || 0) + 1; } }); });
+    var idf = {}; Object.keys(df).forEach(function (w) { idf[w] = Math.log((N + 1) / df[w]); });
+    return idf;
+  }
+  // Copertura concettuale deterministica: % (pesata IDF) dei termini-chiave del riferimento presenti nella risposta.
+  function _keywordCoverage(student, ref, idf) {
+    var rw = _norm(ref).split(' ').filter(function (w) { return w.length > 3; });
+    if (!rw.length) return 0;
+    var sw = {}; _norm(student).split(' ').forEach(function (w) { if (w.length > 3) sw[w] = 1; });
+    var uniq = {}; rw.forEach(function (w) { uniq[w] = 1; });
+    var keys = Object.keys(uniq), tot = 0, hit = 0;
+    keys.forEach(function (w) { var wt = (idf && idf[w]) ? idf[w] : 1; tot += wt; if (sw[w]) hit += wt; });
+    return tot ? hit / tot : 0;
+  }
+  // Scoring risposta aperta (produzione): coverage AI 0-100 se c'è chiave, altrimenti fallback deterministico.
+  // Riproduce il pattern di ActiveStudy.scoreDesc (BES/DSA, JSON {accuracy, feedback}). Ritorna {ok, acc, feedback}.
+  function _scoreOpen(student, q) {
+    student = String(student || '').trim();
+    if (!student) return Promise.resolve({ ok: false, acc: 0, feedback: 'Nessuna risposta.' });
+    var ref = (q && q.ref) || '', label = (q && q.answer) || '';
+    var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
+    if (_aiScoring() && key && ref && typeof window.fetchModelAPI === 'function') { // AI solo se opt-in
+      var sys = 'Sei un tutor didattico per studenti BES/DSA. Valuti quanto la spiegazione di uno studente copre i CONCETTI CHIAVE di una descrizione di riferimento. Conta il contenuto, non la forma o la lunghezza. Incoraggiante ma onesto.';
+      var prompt = 'Concetto: "' + label + '"\n\nDescrizione di riferimento (fonte):\n' + ref + '\n\nSpiegazione dello studente:\n' + student + '\n\nValuta da 0 a 100 quanto la spiegazione copre i concetti chiave del riferimento. Rispondi SOLO con un oggetto JSON: {"accuracy": <numero 0-100>, "feedback": "<1-2 frasi in italiano: cosa ha colto e cosa manca>"}';
+      var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { temperature: 0.2, maxOutputTokens: 256 } };
+      return _withTimeout(window.fetchModelAPI(payload, key), 12000).then(function (resp) {
+        _setAiMode('cloud');
+        var txt = (resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0] && resp.candidates[0].content.parts[0].text) || '';
+        var parsed = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(txt) : JSON.parse(txt);
+        var acc = Number(parsed && parsed.accuracy); if (!isFinite(acc)) acc = 0; acc = Math.max(0, Math.min(100, Math.round(acc)));
+        return { ok: acc >= 60, acc: acc, feedback: (parsed && parsed.feedback) || '' };
+      }).catch(function () { return _scoreOpenHybrid(student, ref, label); });
+    }
+    return _scoreOpenHybrid(student, ref, label);
+  }
+  // Tier locale IBRIDO per le aperte (trade-off deciso): l'ACCURACY resta deterministica (IDF, stabile
+  // — un giudice 4B dà voti instabili, e per BES/DSA un voto ingiusto è peggio di un voto grezzo);
+  // il locale genera SOLO la frase di feedback esplicativo. Senza locale → puro deterministico.
+  function _scoreOpenHybrid(student, ref, label) {
+    var det = _scoreOpenLocal(student, ref, label);
+    if (!_localLlmOk() || !ref) { _setAiMode(_localLlmOk() ? (DUN && DUN.aiMode) || 'off' : 'off'); return Promise.resolve(det); }
+    var sys = 'Sei un tutor didattico per studenti BES/DSA. Rispondi SOLO in italiano. Incoraggiante ma onesto.';
+    var user = 'Concetto: "' + label + '"\nFonte:\n' + _softCut(ref, 400) + '\nRisposta dello studente:\n' + _softCut(student, 300) + '\n\nScrivi UNA sola frase di feedback formativo: cosa ha colto e cosa manca rispetto alla fonte.';
+    var schema = { type: 'object', properties: { feedback: { type: 'string' } }, required: ['feedback'] };
+    return _localStructured(sys, user, schema, 120, 20000).then(function (d) {
+      _setAiMode('local');
+      if (d && d.feedback && String(d.feedback).trim()) det.feedback = String(d.feedback).trim();
+      return det;
+    }).catch(function () { _setAiMode('off'); return det; });
+  }
+  function _scoreOpenLocal(student, ref, label) {
+    var cov = _keywordCoverage(student, ref, _corpusIDF());
+    var ok = cov >= 0.25 || _fuzzy(student, label);
+    return { ok: ok, acc: Math.round(cov * 100), feedback: ok ? 'Hai colto i concetti chiave principali.' : 'Prova a includere più concetti chiave della descrizione.' };
+  }
+  var GBS = 'padding:10px;border-radius:8px;border:1px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer;font-size:14px';
+  // esegue un quiz nel modal; onFinish(correct, total, results). manaReward: +1 mana per risposta giusta.
+  // activity (opzionale): se presente ('dungeon_gate'|'dungeon_boss'|'dungeon_review') OGNI quesito
+  // viene registrato per-nodo su MappAIMastery → lo spaced retrieval e la heatmap vedono anche il richiamo,
+  // non solo la cattura (prima ~70% dell'apprendimento era invisibile alla mastery).
+  function _runQuiz(pool, count, title, manaReward, onFinish, subjects, activity) {
+    var qs = _genQuestions(pool, count, subjects), idx = 0, correct = 0, results = [];
+    var simplifyUsed = false;   // "domanda più semplice": 1 uso per quiz, nessuna penalità (adaptable, c10)
+    var ov = _overlay(); ov.card.style.width = 'min(600px,94vw)';
+    var un = _esc(function () { ov.close(); onFinish(correct, qs.length, results); });   // Esc → results parziali
+    function advance() { idx++; if (idx >= qs.length) { un(); ov.close(); onFinish(correct, qs.length, results); } else render(); }
+    function score(ok) { if (ok) { correct++; if (manaReward && DUN) DUN.mana = Math.min(DUN.maxMana, DUN.mana + 1); } }
+    // esito per-quesito: results per il chiamante (gate guidato), mastery record, event-log
+    function rec(q, ok, acc) {
+      results.push({ nodeId: q.nodeId, label: q.subjLabel || q.answer, ok: ok, acc: acc, kind: q.kind });
+      if (activity && q.nodeId != null && _nodeById(q.nodeId)) {   // guard: nodi fantasma esclusi
+        try {
+          if (window.MappAIStudyBus) window.MappAIStudyBus.record(q.nodeId, q.subjLabel || String(q.answer || ''), activity, { score: acc });
+          else if (window.MappAIMastery) window.MappAIMastery.record(q.nodeId, q.subjLabel || String(q.answer || ''), activity, { score: acc });
+        } catch (e) {}
+      }
+      _logEv('quiz_item', { nodeId: q.nodeId, acc: Math.round(acc * 100) / 100, ctx: activity || title, kind: q.kind });
+      if (DUN) { DUN._sessQ = (DUN._sessQ || 0) + 1; if (ok) DUN._sessQok = (DUN._sessQok || 0) + 1; }   // per il digest di fine sessione
+    }
+    // feedback esplicativo (c8): esito + risposta corretta + spiegazione/feedback + estratto fonte, poi "continua"
+    function reveal(ok, q, extra, fbText) {
+      var body = ov.card.querySelector('#g-body');
+      var bad = q.kind === 'open' ? '↻ Da rivedere' : '✗ Sbagliato'; // aperta: feedback gentile (BES/DSA, c5)
+      var corr = q.kind === 'mc' ? ('Risposta corretta: ' + _esch(String(q.answer))) : (q.kind === 'tf' ? ('Risposta: ' + (q.answer ? 'Vero' : 'Falso')) : '');
+      var note = fbText ? '<p style="font-size:13.5px;color:#c3d2ea;line-height:1.55;margin:0 0 12px">' + _esch(fbText) + '</p>'
+        : (q.expl ? '<p style="font-size:13px;color:#9fb3d4;line-height:1.55;margin:0 0 12px"><i>' + _esch(q.expl) + '</i></p>' : '<div style="height:6px"></div>');
+      // process feedback ancorato al contenuto (c8): su errore rileggi il passo della TUA fonte (costo zero AI)
+      var src = (!ok && q.ref && !fbText) ? '<p style="font-size:12.5px;color:#9fb3d4;line-height:1.55;margin:0 0 12px;border-left:2px solid #2a3a55;padding-left:8px">Dal tuo diario: «' + _esch(_softCut(q.ref, 220)) + '»</p>' : '';
+      body.innerHTML = '<div style="font-size:15px;font-weight:500;margin-bottom:8px;color:' + (ok ? '#3fae5a' : '#e0a23f') + '">' + (ok ? '✓ Corretto' : bad) + (extra ? ' · ' + extra : '') + '</div>'
+        + ((!ok && corr) ? '<p style="font-size:14px;color:#eaf2ff;line-height:1.5;margin:0 0 8px">' + corr + '</p>' : '')
+        + note + src + '<button id="g-cont" style="width:100%;' + GBS + '">continua</button>';
+      body.querySelector('#g-cont').onclick = advance;
+    }
+    function render() {
+      var q = qs[idx];
+      ov.card.innerHTML = '<div style="font-size:12px;color:#8fa4c4;margin-bottom:2px">' + title + ' · ' + (idx + 1) + '/' + qs.length + '</div>'
+        + '<div style="font-size:17px;font-weight:500;line-height:1.65;margin:8px 0 18px;max-height:46vh;overflow:auto">' + q.q + '</div>'
+        + '<div id="g-body"></div>';
+      var body = ov.card.querySelector('#g-body');
+      if (q.kind === 'tf') {
+        body.innerHTML = '<div style="display:flex;gap:10px"><button id="g-t" style="flex:1;padding:13px;' + GBS + '">Vero</button><button id="g-f" style="flex:1;padding:13px;' + GBS + '">Falso</button></div>';
+        body.querySelector('#g-t').onclick = function () { var ok = q.answer === true; score(ok); rec(q, ok, ok ? 1 : 0); reveal(ok, q); };
+        body.querySelector('#g-f').onclick = function () { var ok = q.answer === false; score(ok); rec(q, ok, ok ? 1 : 0); reveal(ok, q); };
+      } else if (q.kind === 'mc') {
+        body.innerHTML = q.opts.map(function (o, n) { return '<button class="g-o" data-o="' + n + '" style="display:block;width:100%;margin:7px 0;text-align:left;line-height:1.45;padding:12px 14px;' + GBS + '">' + _esch(String(o)) + '</button>'; }).join('');
+        Array.prototype.forEach.call(body.querySelectorAll('.g-o'), function (b) { b.onclick = function () { var ok = q.opts[+b.dataset.o] === q.answer; score(ok); rec(q, ok, ok ? 1 : 0); reveal(ok, q); }; });
+      } else {
+        var canSimplify = !simplifyUsed && q.nodeId != null && q.kind === 'open';
+        body.innerHTML = '<textarea id="g-in" rows="3" style="width:100%;padding:11px;border-radius:8px;border:1px solid #3aa0c9;background:#16203a;color:#eaf2ff;box-sizing:border-box;font-family:inherit;font-size:14px;line-height:1.5;resize:none" placeholder="Spiega con parole tue… (Ctrl+Invio per confermare)"></textarea><button id="g-ok" style="margin-top:8px;width:100%;' + GBS + '">Conferma</button>'
+          + (canSimplify ? '<button id="g-simp" type="button" style="margin-top:6px;width:100%;padding:7px;border-radius:8px;border:1px solid #2a3a55;background:transparent;color:#8fa4c4;cursor:pointer;font-size:12.5px">💡 domanda più semplice</button>' : '');
+        var inp = body.querySelector('#g-in'); setTimeout(function () { inp.focus(); }, 30);
+        var simp = body.querySelector('#g-simp');
+        if (simp) simp.onclick = function () {   // degrada aperta → MC dello stesso nodo (scelta dello studente, nessuna penalità)
+          simplifyUsed = true;
+          var alt = _aiQuestionFor({ id: q.nodeId }, 'mc');
+          if (alt) { alt.nodeId = q.nodeId; alt.subjLabel = q.subjLabel; qs[idx] = alt; render(); }
+          else { simp.remove(); _msg('Nessuna versione più semplice disponibile per questa domanda.'); }
+        };
+        var scoring = false;
+        var sub = function () {
+          if (scoring) return; scoring = true;
+          var btn = body.querySelector('#g-ok'); if (btn) { btn.textContent = 'Valuto…'; btn.style.opacity = '.6'; btn.style.cursor = 'default'; }
+          Promise.resolve(_scoreOpen(inp.value, q)).then(function (res) { score(res.ok); rec(q, res.ok, isFinite(res.acc) ? res.acc / 100 : (res.ok ? 1 : 0)); reveal(res.ok, q, (isFinite(res.acc) ? res.acc + '%' : ''), res.feedback); });
+        };
+        body.querySelector('#g-ok').onclick = sub;
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sub(); });
+      }
+    }
+    render();
+  }
+  // ── Spaced retrieval nel gate (gap #2) ──────────────────────────────────────
+  // Quanto un nodo "va ripassato": debole (mastery nuovo/in-corso) + stale (>7gg).
+  // Riuso della logica di mappai-study-path (masteryFn + staleDays=7) su MappAIMastery.
+  function _needReview(id) {
+    var MM = window.MappAIMastery;
+    var agg = (MM && typeof MM.node === 'function') ? MM.node(id) : null;
+    if (!agg || !agg.attempts) return 2; // mai studiato a fondo → priorità massima al richiamo
+    var lvl = (typeof MM.masteryLevel === 'function')
+      ? MM.masteryLevel({ attempts: agg.attempts, accuracy: agg.accuracy, rate: agg.rate })
+      : (agg.accuracy >= 0.8 ? 'acquisito' : 'in-corso');
+    var weak = (lvl === 'nuovo' || lvl === 'in-corso') ? 1 : 0;
+    var lastTs = (agg.byActivity || []).reduce(function (m, r) { return Math.max(m, r.lastTs || 0); }, 0);
+    var stale = (lastTs && (Date.now() - lastTs) > 7 * 86400000) ? 1 : 0;
+    return weak + stale; // 0..2
+  }
+  function _shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  // Compone i soggetti del gate: ~70% piano corrente + ~30% richiamo dai piani precedenti
+  // (deboli/stale prima). Voci legacy senza fi → trattate come "precedenti" (richiamo).
+  function _gateSelection(count) {
+    var cur = [], prev = [], seen = {};
+    DUN.diary.forEach(function (d) { if (d.ghost || seen[d.id]) return; seen[d.id] = 1; (d.fi === DUN.fi ? cur : prev).push(d); }); // 1 sola voce per NODO (no doppioni desc/cite/rel); ghost esclusi
+    prev.sort(function (a, b) { return _needReview(b.id) - _needReview(a.id); }); // più bisognoso prima
+    _shuffle(cur); cur.sort(function (a, b) { return _needReview(b.id) - _needReview(a.id); }); // B16: anche nel piano corrente i deboli prima (shuffle+sort stabile → pari bisogno in ordine casuale)
+    var nRecall = 0;
+    if (prev.length) nRecall = Math.min(prev.length, Math.max(1, Math.round(count * 0.3)));
+    if (!cur.length) nRecall = Math.min(count, prev.length); // nessun nodo corrente → tutto richiamo
+    else nRecall = Math.min(nRecall, count - 1);              // se c'è corrente, lascia ≥1 corrente
+    var pick = prev.slice(0, nRecall).concat(cur.slice(0, count - nRecall));
+    if (pick.length < count) pick = pick.concat(prev.slice(nRecall)); // completa se i correnti scarseggiano
+    pick = _shuffle(pick.slice(0, count));
+    return { subjects: pick.map(_poolEntry), recall: nRecall };
+  }
+  // Gate fallito → percorso GUIDATO (c8 hint laddering, B17): il fallimento diventa informativo.
+  // Mostra COSA rivedere (max 3, linguaggio mastery-framed, mai "sbagliato/fallito" nel titolo),
+  // con scelta libera (SDT): apri il diario su quei nodi, oppure torna subito al piano. Il warp resta.
+  function _gateFailGuide(results, thenWarp) {
+    var wrong = (results || []).filter(function (r) { return !r.ok && r.label; }).slice(0, 3);
+    if (!wrong.length) { thenWarp(); return; }
+    var ov = _overlay(), done = false;
+    function go(openDiary) {
+      if (done) return; done = true; un(); ov.close();
+      thenWarp();   // la conseguenza (warp) resta in entrambi i casi — graceful ma reale
+      if (openDiary) setTimeout(function () { if (DUN) _openDiary(wrong.map(function (r) { return r.nodeId; }).filter(function (x) { return x != null; })); }, 400);
+    }
+    var un = _esc(function () { go(false); });   // Esc = torna al piano (non lascia DUN.busy appeso)
+    ov.card.innerHTML =
+      '<div style="font-size:12px;color:#8fa4c4">Gate Keeper</div>' +
+      '<h3 style="margin:4px 0 8px;font-size:18px;font-weight:600">Sei quasi pronto</h3>' +
+      '<p style="font-size:13px;color:#c3d2ea;line-height:1.55;margin:0 0 10px">Ripassa ' + (wrong.length === 1 ? 'questa memoria' : 'queste ' + wrong.length + ' memorie') + ' e ritenta alle scale:</p>' +
+      wrong.map(function (r) { return '<div style="font-size:14px;color:#e7d6a6;margin:4px 0 4px 6px">• ' + _esch(r.label) + '</div>'; }).join('') +
+      '<div style="display:flex;gap:8px;margin-top:14px">' +
+        '<button id="gf-diary" type="button" style="flex:1;' + GBS + '">📖 Apri il diario su questi</button>' +
+        '<button id="gf-back" type="button" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">torna al piano</button>' +
+      '</div>';
+    ov.card.querySelector('#gf-diary').onclick = function () { go(true); };
+    ov.card.querySelector('#gf-back').onclick = function () { go(false); };
+  }
+  function _openGate(onPass, onFail) {
+    var live = DUN.diary.filter(function (d) { return !d.ghost; });   // ghost esclusi da conteggio e distrattori
+    var count = Math.min(3, Math.max(1, live.length || 1));
+    var sel = _gateSelection(count);
+    var pool = live.map(_poolEntry); // distrattori = tutto il diario vivo (con macro-area)
+    _runQuiz(pool, count, 'Gate Keeper', true, function (correct, total, results) {
+      var acc = total ? correct / total : 0, pass = acc >= _gateThr();
+      _logEv('gate', { fi: DUN ? DUN.fi : -1, acc: Math.round(acc * 100) / 100, pass: pass, recall: sel.recall });
+      if (pass) { _msg('Gate superato (' + Math.round(acc * 100) + '%)' + (sel.recall ? ' · ' + sel.recall + ' di richiamo' : '') + ' · +' + correct + ' mana.'); onPass(); }
+      else { _msg('Gate fallito (' + Math.round(acc * 100) + '% < ' + Math.round(_gateThr() * 100) + '%).'); if (onFail) onFail(results); }
+    }, sel.subjects, 'dungeon_gate');
+  }
+
+  // ════════════════════════ BOSS + HEATMAP + REVEAL (gap #3) ═════════════════
+  // Climax: il Guardiano interroga su TUTTO il diario (richiamo cross-piano).
+  // Vinto → heatmap di padronanza → "Rivela la mappa" chiude l'overlay e scopre il grafo.
+  function _bossThr() { return Math.max(0.66, _gateThr()); }   // soglia boss più alta del gate
+  function _startBoss() {
+    if (DUN.busy) return;
+    var pool = DUN.diary.filter(function (d) { return !d.ghost; }).map(_poolEntry);
+    if (!pool.length) { _msg('Cattura almeno una memory unit prima di affrontare il Guardiano.'); return; }
+    var ov = _overlay(); var un = _esc(ov.close);
+    ov.card.innerHTML =
+      '<div style="font-size:12px;color:#8fa4c4">Ultimo piano · sfida finale</div>' +
+      '<h3 style="margin:4px 0 8px;font-size:19px;font-weight:600">⚔ Il Guardiano della Memoria</h3>' +
+      '<p style="font-size:13px;color:#c3d2ea;line-height:1.55;margin:0 0 14px">Dimostra cosa hai imparato richiamando le memory unit catturate in tutto il dungeon. Supera il ' + Math.round(_bossThr() * 100) + '% per rivelare la mappa di conoscenza.</p>' +
+      '<div style="display:flex;gap:8px"><button id="bz-go" type="button" style="flex:1;' + GBS + ';border-color:#d24b8f;background:#2a1430">Affronta il Guardiano</button><button id="bz-x" type="button" style="' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4">più tardi</button></div>';
+    ov.card.querySelector('#bz-go').onclick = function () { un(); ov.close(); _bossQuiz(pool); };
+    ov.card.querySelector('#bz-x').onclick = function () { un(); ov.close(); };
+  }
+  // Selezione boss STRATIFICATA per macro-area (B18): round-robin fra i gruppi, dentro il gruppo
+  // prima i mai testati poi i più bisognosi → ogni area del grafo rappresentata, niente blind spot.
+  function _bossSelection(count) {
+    var seen = {}, entries = [];
+    DUN.diary.forEach(function (d) {
+      if (d.ghost || seen[d.id]) return; seen[d.id] = 1;
+      var att = 0; try { var agg = window.MappAIMastery && window.MappAIMastery.node(d.id); att = (agg && agg.attempts) || 0; } catch (e) {}
+      entries.push({ id: d.id, label: d.label, desc: d.desc, kind: d.kind || 'desc', macro: _macroOf(d.id), attempts: att, need: _needReview(d.id) });
+    });
+    var C = _core();
+    var pick = C ? C.stratifiedPick(entries, count) : _shuffle(entries).slice(0, count);
+    return pick.map(_poolEntry);
+  }
+  function _bossQuiz(pool) {
+    var count = Math.min(8, Math.max(3, pool.length));
+    var subjects = _bossSelection(count);
+    _runQuiz(pool, count, '⚔ Guardiano della Memoria', true, function (correct, total, results) {
+      var acc = total ? correct / total : 0, pass = acc >= _bossThr();
+      _logEv('boss', { acc: Math.round(acc * 100) / 100, pass: pass, n: total });
+      if (pass) { if (DUN.boss) DUN.boss.defeated = true; _snd('powerup'); _msg('Guardiano sconfitto (' + Math.round(acc * 100) + '%)! La mappa si rivela…'); _showEndSequence(correct, total); }
+      else _msg('Il Guardiano resiste (' + Math.round(acc * 100) + '% < ' + Math.round(_bossThr() * 100) + '%). Ripassa il diario (B) e riprova.');
+    }, subjects, 'dungeon_boss');
+  }
+  // chiavi = livelli reali di MappAIMastery.masteryLevel: nuovo · in-corso · acquisito · fluente
+  var _BOSS_LV = { nuovo: ['Da studiare', '#5a6577'], 'in-corso': ['In corso', '#3a7bd5'], acquisito: ['Acquisito', '#3fae5a'], fluente: ['Fluente', '#e2b13c'] };
+  function _showEndSequence(correct, total) {
+    var ov = _overlay(); var un = _esc(ov.close); ov.card.style.width = 'min(680px,95vw)';
+    var counts = { nuovo: 0, 'in-corso': 0, acquisito: 0, fluente: 0 };
+    var cells = DUN.diary.map(function (d) {
+      var lv = _level(d.id); if (counts[lv] == null) lv = 'nuovo'; counts[lv]++;
+      return '<div title="' + _esch(d.label) + ' — ' + lv + '" style="width:22px;height:22px;border-radius:4px;background:' + (_BOSS_LV[lv] || _BOSS_LV.nuovo)[1] + '"></div>';
+    }).join('');
+    // B19 — niente blind spot: i nodi dei piani visitati MAI catturati compaiono in grigio
+    // "Ancora da esplorare" (framing non punitivo), distinti da 'Da studiare' (catturati ma deboli).
+    var inDiary = {}; DUN.diary.forEach(function (d) { inDiary[String(d.id)] = 1; });
+    var missSeen = {}, nMissing = 0, missCells = '';
+    DUN.floors.forEach(function (f) {
+      if (f.kind !== 'misto' && f.kind !== 'scuola') return;
+      (f.nodes || []).forEach(function (nd) {
+        var k = String(nd.id);
+        if (inDiary[k] || missSeen[k] || !_hasContent(nd)) return;
+        missSeen[k] = 1; nMissing++;
+        missCells += '<div title="' + _esch(_clean(nd.label)) + ' — ancora da esplorare" style="width:22px;height:22px;border-radius:4px;background:#39404d;border:1px dashed #5a6577;box-sizing:border-box"></div>';
+      });
+    });
+    cells += missCells;
+    var legend = Object.keys(_BOSS_LV).map(function (k) { return '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:11px;color:#b8c8e0"><span style="width:11px;height:11px;border-radius:2px;background:' + _BOSS_LV[k][1] + '"></span>' + _BOSS_LV[k][0] + ' ' + counts[k] + '</span>'; }).join('')
+      + (nMissing ? '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:11px;color:#b8c8e0"><span style="width:11px;height:11px;border-radius:2px;background:#39404d;border:1px dashed #5a6577;box-sizing:border-box"></span>Ancora da esplorare ' + nMissing + '</span>' : '');
+    ov.card.innerHTML =
+      '<div style="font-size:12px;color:#8fa4c4">Percorso completato</div>' +
+      '<h3 style="margin:4px 0 6px;font-size:20px;font-weight:600">🗺 La mappa si rivela</h3>' +
+      '<p style="font-size:13px;color:#c3d2ea;line-height:1.5;margin:0 0 12px">Hai catturato <b>' + DUN.diary.length + '</b> memory unit e superato il Guardiano (' + correct + '/' + total + '). La tua padronanza:</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">' + (cells || '<span style="color:#8fa4c4;font-size:13px">—</span>') + '</div>' +
+      '<div style="margin-bottom:16px">' + legend + '</div>' +
+      '<button id="es-reveal" type="button" style="width:100%;' + GBS + ';border-color:#3fae5a;background:#15301f;font-size:15px;padding:13px">🗺 Rivela la mappa di conoscenza</button>';
+    ov.card.querySelector('#es-reveal').onclick = function () { un(); ov.close(); _revealGraph(); };
+  }
+  function _revealGraph() { _closeDungeon(); _toast('La tua mappa di conoscenza è pronta — esplorala!', 'success'); }
+
+  // ════════════════════════ SELF-TEST (logica) ═══════════════════════════════
+  function _selftest() {
+    var pass = 0, fail = 0, log = [];
+    function ok(name, cond) { if (cond) pass++; else { fail++; log.push('FAIL: ' + name); } }
+    ok('fuzzy eq', _fuzzy('Fotosintesi', 'fotosintesi'));
+    ok('fuzzy diff', !_fuzzy('cane', 'gatto'));
+    ok('gateThr default 0.6', _gateThr() >= 0 && _gateThr() <= 1);
+    ok('genQuestions count', _genQuestions([{ label: 'A', desc: 'aaa' }, { label: 'B', desc: 'bbb' }, { label: 'C', desc: 'ccc' }, { label: 'D', desc: 'ddd' }], 3).length === 3);
+    ok('genQuestions subjects', (function () { var qs = _genQuestions([{ label: 'A', desc: 'aaa' }, { label: 'B', desc: 'bbb' }], 2, [{ label: 'X', desc: 'xxxx' }, { label: 'Y', desc: 'yyyy' }]); return qs.length === 2 && /X|Y/.test(qs.map(function (q) { return q.answer + ' ' + (q.q || ''); }).join(' ')); })());
+    ok('stem maschera la risposta', _stem('La Fotosintesi converte la luce in energia chimica.', 'Fotosintesi').toLowerCase().indexOf('fotosintesi') < 0);
+    ok('genQuestions fallback aperto (no cloze)', (function () { var qs = _genQuestions([{ label: 'Fotosintesi', desc: 'La Fotosintesi converte luce in energia nelle piante.' }, { label: 'Respirazione', desc: 'La Respirazione cellulare produce ATP.' }], 3); return qs.length === 3 && qs.every(function (q) { return q.kind === 'open' && (q.q || '').indexOf('____') < 0; }); })());
+    ok('keywordCoverage', _keywordCoverage('le piante convertono luce in energia', 'La fotosintesi converte luce in energia chimica nelle piante') > 0.3 && _keywordCoverage('xyz', 'La fotosintesi converte la luce') === 0);
+    ok('genQuestions rel → aperta spiega', (function () { var qs = _genQuestions([{ label: 'A → causa → B', desc: 'x', kind: 'rel' }], 1); return qs.length === 1 && qs[0].kind === 'open' && /[Ss]piega/.test(qs[0].q || ''); })());
+    ok('genQuestions porta nodeId+subjLabel', (function () { var qs = _genQuestions([{ id: 'n1', label: 'A', desc: 'aaa' }], 1); return qs.length === 1 && qs[0].nodeId === 'n1' && qs[0].subjLabel === 'A'; })());
+    ok('core presente o fallback ok', (function () { var C = _core(); return !C || (typeof C.capEvents === 'function' && typeof C.validQuizItem === 'function' && typeof C.zpdFormat === 'function'); })());
+    ok('events array', Array.isArray(_events()));
+    ok('quiz cache: hit + invalidazione hash', (function () {
+      try {
+        _quizCachePut('__selftest1', 'desc A', [{ stem: 'quattro parole di stem valido', a1: 'x', a2: 'y', correct: 1 }], 'cloud');
+        var hit = _quizCacheGet('__selftest1', 'desc A'), miss = _quizCacheGet('__selftest1', 'desc CAMBIATA');
+        return !!hit && hit.src === 'cloud' && !miss;
+      } catch (e) { return false; }
+      finally { try { var all = _quizCacheAll(); delete all.__selftest1; _lsSet(_quizKey(), JSON.stringify(all)); } catch (e2) {} }
+    })());
+    ok('quiz cache: il locale non sovrascrive il cloud', (function () {
+      try {
+        _quizCachePut('__selftest2', 'd', [{ v: 1 }], 'cloud'); _quizCachePut('__selftest2', 'd', [{ v: 2 }], 'local');
+        var e = _quizCacheGet('__selftest2', 'd'); return !!e && e.src === 'cloud' && e.items[0].v === 1;
+      } catch (e3) { return false; }
+      finally { try { var all2 = _quizCacheAll(); delete all2.__selftest2; _lsSet(_quizKey(), JSON.stringify(all2)); } catch (e4) {} }
+    })());
+    ok('wordCount', _wordCount('uno due tre') === 3 && _wordCount('') === 0 && _wordCount('  ') === 0);
+    ok('captureMin range', (function () { var m = _captureMin({ desc: new Array(200).join('x ') }); return m >= 6 && m <= 20; })());
+    ok('bossThr ≥ gateThr', _bossThr() >= _gateThr() && _bossThr() >= 0.66);
+    ok('studyMode boolean', typeof _studyMode() === 'boolean');
+    ok('loadDiary array', Array.isArray(_loadDiary()));
+    ok('memoryContent fallback a desc', _memoryContent({ id: '__none__', label: 'x' }, 'rel').kind === 'desc' && _memoryContent({ id: '__none__', label: 'x' }, 'cite').kind === 'desc');
+    ok('onboarded boolean', typeof _onboarded() === 'boolean');
+    ok('soundOn boolean', typeof _soundOn() === 'boolean');
+    // ── hub Giardino dei Sapienti (Fasi 1-4) ──
+    ok('map-loader presente + parse minimale', (function () {
+      var L = window.MappAIMapLoader; if (!L) return true;   // modulo opzionale: senza, fallback procedurale
+      var g = [[{ ts: 'overworld', c: 0, r: 0 }, { ts: 'overworld', c: 16, r: 1 }]];
+      var m = L.parseMap({ version: 2, cols: 2, rows: 1, layers: [{ name: 'ground', data: g }, { name: 'over', data: [[null, null]] }], objects: [] });
+      return m && m.map['0,0'] === 0 && m.map['1,0'] === 1 && m.water['1,0'] === true;
+    })());
+    ok('composeFloors: misto+intermezzi', (function () {
+      var fl = _composeFloors([{ level: 1, nodes: [1] }, { level: 2, nodes: [2] }], false);
+      return fl.length >= 3 && fl[0].kind === 'misto' && (fl[1].kind === 'radura' || fl[1].kind === 'combat');
+    })());
+    ok('composeFloors: study senza intermezzi', _composeFloors([{ level: 1, nodes: [1] }, { level: 2, nodes: [2] }], true).length === 2);
+    ok('gardenMapName stabile', _gardenMapName() === _gardenMapName());
+    ok('hub flags boolean', typeof _hubBranchesOn() === 'boolean' && typeof _hubGuardianOn() === 'boolean');
+    // ── NPC Slices 1-3 (SDS §5-§7) ──
+    ok('npc-behavior presente + determinismo', (function () {
+      var B = window.MappAINpcBehavior; if (!B) return true;   // modulo opzionale
+      var r1 = B.mulberry32(B.strSeed('x')), r2 = B.mulberry32(B.strSeed('x'));
+      if (r1() !== r2()) return false;
+      var st2 = B.mkBehavior('static', 3, 3, 2);
+      B.stepNpc(st2, { now: 99999, rng: r1, walkable: function () { return true; }, playerDist: 9 });
+      return st2.x === 3 && st2.y === 3 && st2.state === 'IDLE';
+    })());
+    ok('npc flags + costo cross-link', typeof _npcGardenOn() === 'boolean' && typeof _npcVaultSaveOn() === 'boolean' && NPC_XLINK_COST > 0);
+    ok('xlink bought è oggetto', typeof _xlinkBought() === 'object');
+    var save = DUN;
+    DUN = { px: 5, py: 5, facing: [0, -1], map: {}, kills: 0, duelStats: {}, mobs: [], items: {}, mana: 9, maxMana: 10, coins: 0, gems: 0, messages: [], msgDirty: false };
+    for (var x = 0; x < 11; x++) for (var y = 0; y < 11; y++) DUN.map[x + ',' + y] = 0;
+    ok('spell AoE = 11 celle', _spellCells().length === 11);
+    ok('reactWindow base 1600', _reactWindow() === 1600);
+    DUN.kills = 10; ok('reactWindow -10% dopo 10 kill', _reactWindow() === 1440); DUN.kills = 0;
+    DUN.items = { '5,5': { type: 'potion_blue' } }; DUN.mana = 9; _checkPickup(); ok('pozione blu +1 (clamp 10)', DUN.mana === 10);
+    DUN.items = { '5,5': { type: 'potion_green' } }; DUN.mana = 2; _checkPickup(); ok('pozione verde = full', DUN.mana === 10);
+    DUN = save;
+    var r = pass + '/' + (pass + fail) + ' PASS' + (fail ? ' — ' + log.join(' | ') : '');
+    console.log('%c[memory-dungeon selftest] ' + r, fail ? 'color:#e24b4a;font-weight:bold' : 'color:#3fae5a;font-weight:bold');
+    return { pass: pass, fail: fail, log: log };
+  }
+
+  // ─────────────────────────── launcher in-app (gated da flag) ───────────────
+  function openChooser() {
+    var ov = _overlay(); var un = _esc(ov.close);
+    function go(fn) { un(); ov.close(); fn(); }
+    ov.card.innerHTML =
+      '<h3 style="margin:0 0 4px;font-size:17px;font-weight:500">Memory Dungeon — prova minigiochi</h3>' +
+      '<div style="font-size:12px;color:#8fa4c4;margin-bottom:14px">Esplorazione, cattura attiva e door keeper attivi. Boss + reveal in costruzione.</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<button id="c-dun" style="padding:11px;border-radius:10px;border:0.5px solid #3fae5a;background:#15301f;color:#eaf2ff;cursor:pointer;text-align:left">🏰 Entra nel dungeon — esplora (point&amp;click)</button>' +
+      '<button id="c-seq" style="padding:11px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer;text-align:left">▶ Sblocco libro/scroll — forme &amp; calcolo</button>' +
+      '<button id="c-sg"  style="padding:11px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer;text-align:left">▶ Prova inibizione — stop/go (F/J)</button>' +
+      '<button id="c-study" style="padding:9px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer">🎓 Modalità studio: ' + (_studyMode() ? 'ON (combat off)' : 'OFF') + '</button>' +
+      '<button id="c-set" style="padding:9px;border-radius:10px;border:0.5px solid #3aa0c9;background:#16203a;color:#eaf2ff;cursor:pointer">⚙ Impostazioni giochi <span style="color:#8fa4c4;font-size:11px">(Ctrl+Shift+Q,A,Y)</span></button>' +
+      '<button id="c-rst" style="padding:9px;border-radius:10px;border:0.5px solid rgba(120,160,220,.35);background:transparent;color:#8fa4c4;cursor:pointer">↺ Reset skill &amp; WM</button>' +
+      '<button id="c-cls" style="padding:9px;border-radius:10px;border:none;background:transparent;color:#8fa4c4;cursor:pointer">chiudi</button>' +
+      '</div>';
+    ov.card.querySelector('#c-dun').onclick = function () { go(_startDungeon); };
+    ov.card.querySelector('#c-seq').onclick = function () { go(testUnlock); };
+    ov.card.querySelector('#c-sg').onclick = function () { go(testStopGo); };
+    ov.card.querySelector('#c-study').onclick = function () { var on = window.MappAIGames.studyMode(!_studyMode()); ov.card.querySelector('#c-study').textContent = '🎓 Modalità studio: ' + (on ? 'ON (combat off)' : 'OFF'); };
+    ov.card.querySelector('#c-set').onclick = function () { go(_openGamesDashboard); };
+    ov.card.querySelector('#c-rst').onclick = function () { window.MappAIGames.resetSkill(); ov.card.querySelector('#c-rst').textContent = '✓ azzerati'; };
+    ov.card.querySelector('#c-cls').onclick = function () { un(); ov.close(); };
+  }
+
+  // ─────────────── DASHBOARD impostazioni giochi (chord Ctrl+Shift+Q,A,Y) ───────
+  function _gamesOn() { return localStorage.getItem('mappai_games_enabled') === '1'; }
+  function _openGamesDashboard() {
+    var ov = _overlay(); var un = _esc(ov.close);
+    ov.card.style.width = 'min(620px,94vw)'; ov.card.style.maxHeight = '88vh'; ov.card.style.overflowY = 'auto'; ov.card.style.padding = '18px';
+    function tgl(id, on, label, desc) {
+      return '<button id="' + id + '" type="button" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;' + GBS + ';margin:5px 0">' +
+        '<span><b>' + label + '</b>' + (desc ? '<br><span style="font-size:11px;color:#8fa4c4">' + desc + '</span>' : '') + '</span>' +
+        '<span style="flex:none;padding:3px 10px;border-radius:12px;font-size:12px;' + (on ? 'background:#15301f;color:#7fe0a0;border:1px solid #3fae5a' : 'background:#2a1c1c;color:#e6a0a0;border:1px solid #5a3a3a') + '">' + (on ? 'ON' : 'OFF') + '</span></button>';
+    }
+    function render() {
+      var sk = _skill(), wm = Math.round(_wm()), thr = Math.round(_gateThr() * 100), diary = _loadDiary().length;
+      var duel; try { duel = JSON.parse(localStorage.getItem('mappai_dungeon_duel') || '{}'); } catch (e) { duel = {}; }
+      var avgRt = duel.correct ? Math.round(duel.sumRt / duel.correct) : null, acc = duel.n ? Math.round(100 * (duel.correct || 0) / duel.n) : null;
+      var lab = 'font-size:11px;color:#5e6b82;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px';
+      ov.card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0;font-size:18px;font-weight:600">🎮 Impostazioni Giochi</h3><span style="font-size:11px;color:#8fa4c4">Ctrl+Shift+Q,A,Y</span></div>' +
+        '<div style="' + lab + ';margin-top:0">Generale</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+          tgl('gd-en', _gamesOn(), 'Modulo Giochi', 'Bottone 🎮 in alto a destra') +
+          tgl('gd-study', _studyMode(), 'Modalità studio', 'Solo cattura/sblocco, no combat') +
+          tgl('gd-snd', _soundOn(), 'Suoni', 'Effetti audio del dungeon') +
+        '</div>' +
+        '<div style="' + lab + '">Difficoltà</div>' +
+        '<div style="' + GBS + ';cursor:default;margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Soglia Door Keeper / Gate</span><b id="gd-thrv">' + thr + '%</b></div><input id="gd-thr" type="range" min="40" max="90" step="5" value="' + thr + '" style="width:100%;margin-top:8px"></div>' +
+        '<div style="' + GBS + ';cursor:default;margin:5px 0;font-size:12px;color:#b8c8e0;line-height:1.6">Skill: sequenza <b>lv ' + sk.seq + '</b> · calcolo <b>lv ' + sk.calc + '</b> &nbsp;|&nbsp; Memoria di lavoro <b>' + wm + '/100</b>' + (avgRt != null ? '<br>Duello: RT medio <b>' + avgRt + 'ms</b> · precisione <b>' + acc + '%</b>' : '') + '</div>' +
+        '<div style="' + lab + '">Combattimento</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+          tgl('gd-ckeys', _combatCfg().keys === 'arrows', 'Tasti: ' + (_combatCfg().keys === 'arrows' ? 'Frecce ←→' : 'Lettere F / J'), 'OFF = F / J · ON = frecce ←→') +
+          tgl('gd-cmode', _combatCfg().mode === 'diritto', 'Logica: ' + (_combatCfg().mode === 'diritto' ? 'Diritto' : 'Rovescio'), 'OFF = premi l\'OPPOSTO · ON = premi lo STESSO') +
+        '</div>' +
+        '<div style="' + lab + '">Docente · Giardino all\'apertura del vault</div>' +
+        '<div style="' + GBS + ';cursor:default;margin:5px 0">' +
+          '<div style="display:flex;gap:6px;margin-bottom:8px">' +
+            ['off', 'proposto', 'obbligatorio'].map(function (m) {
+              var on = _hubMode() === m;
+              return '<button id="gd-hub-' + m + '" type="button" style="flex:1;padding:7px;border-radius:8px;cursor:pointer;font-size:12px;' + (on ? 'background:#15301f;color:#7fe0a0;border:1px solid #3fae5a' : 'background:#16203a;color:#b8c8e0;border:0.5px solid #2a3a55') + '">' + m + '</button>';
+            }).join('') +
+          '</div>' +
+          '<label style="font-size:12px;color:#b8c8e0;display:flex;gap:6px;align-items:center;cursor:pointer"><input id="gd-hub-pv" type="checkbox" style="width:auto"' + (function () { try { return localStorage.getItem('mappai_hub_mode::' + _vaultId()) ? ' checked' : ''; } catch (e) { return ''; } })() + '> applica solo a questo vault</label>' +
+          '<button id="gd-hub-rst" type="button" style="width:100%;margin-top:8px;' + GBS + '">↺ Riproponi il Giardino (reset "visto")</button>' +
+        '</div>' +
+        '<div style="' + lab + '">Dati · ' + diary + ' voci diario</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+          '<button id="gd-onb" type="button" style="flex:1 1 46%;' + GBS + '">🏫 Rivedi onboarding</button>' +
+          '<button id="gd-rskill" type="button" style="flex:1 1 46%;' + GBS + '">↺ Reset skill+WM</button>' +
+          '<button id="gd-rdiary" type="button" style="flex:1 1 46%;' + GBS + '">🗑 Svuota diario</button>' +
+          '<button id="gd-rduel" type="button" style="flex:1 1 46%;' + GBS + '">↺ Reset metriche duello</button>' +
+        '</div>' +
+        '<button id="gd-x" type="button" style="width:100%;' + GBS + ';background:transparent;border-color:#2a3a55;color:#8fa4c4;margin-top:12px">chiudi</button>';
+      var q = function (s) { return ov.card.querySelector(s); };
+      q('#gd-en').onclick = function () { if (_gamesOn()) window.MappAIGames.disable(); else window.MappAIGames.enable(); render(); };
+      q('#gd-study').onclick = function () { window.MappAIGames.studyMode(!_studyMode()); render(); };
+      q('#gd-snd').onclick = function () { try { localStorage.setItem(SND_KEY, _soundOn() ? '0' : '1'); } catch (e) {} render(); };
+      q('#gd-ckeys').onclick = function () { try { localStorage.setItem('mappai_dungeon_combat_keys', _combatCfg().keys === 'arrows' ? 'fj' : 'arrows'); } catch (e) {} render(); };
+      q('#gd-cmode').onclick = function () { try { localStorage.setItem('mappai_dungeon_combat_mode', _combatCfg().mode === 'diritto' ? 'opposto' : 'diritto'); } catch (e) {} render(); };
+      var thrEl = q('#gd-thr'); thrEl.oninput = function () { q('#gd-thrv').textContent = thrEl.value + '%'; window.MappAIGames.gateConfig(parseInt(thrEl.value, 10) / 100); };
+      ['off', 'proposto', 'obbligatorio'].forEach(function (m) {
+        q('#gd-hub-' + m).onclick = function () { window.MappAIGames.hubMode(m, q('#gd-hub-pv').checked); render(); };
+      });
+      q('#gd-hub-pv').onchange = function () { if (!this.checked) { try { localStorage.removeItem('mappai_hub_mode::' + _vaultId()); } catch (e) {} render(); } };
+      q('#gd-hub-rst').onclick = function () { window.MappAIGames.hubResetSeen(); _toast('Hub: "visto" azzerato — il Giardino riapparirà alla prossima apertura', 'success'); };
+      q('#gd-onb').onclick = function () { window.MappAIGames.resetOnboarding(); _toast('Onboarding reimpostato — riapparirà al prossimo ingresso', 'success'); };
+      q('#gd-rskill').onclick = function () { window.MappAIGames.resetSkill(); render(); };
+      q('#gd-rdiary').onclick = function () { window.MappAIGames.resetDiary(); render(); };
+      q('#gd-rduel').onclick = function () { window.MappAIGames.resetDuelStats(); render(); };
+      q('#gd-x').onclick = function () { un(); ov.close(); };
+    }
+    render();
+  }
+  // chord Ctrl+Shift + Q,A,Y (sequenziale, stile admin P,O,I,U) — attivo anche a modulo disattivato
+  var _gKeys = [];
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.shiftKey) {
+      var k = (e.key || '').toLowerCase();
+      if (k === 'q' || k === 'a' || k === 'y') {
+        _gKeys.push(k); if (_gKeys.length > 3) _gKeys.shift();
+        if (_gKeys.join('') === 'qay') { _openGamesDashboard(); _gKeys = []; e.preventDefault(); }
+      } else _gKeys = [];
+    } else _gKeys = [];
+  });
+
+  function _injectLauncher() {
+    if (document.getElementById('mdg-launch') || !document.body) return;
+    var b = document.createElement('button');
+    b.id = 'mdg-launch'; b.type = 'button'; b.textContent = '🎮';
+    b.title = 'Memory Dungeon';
+    b.style.cssText = 'position:fixed;bottom:340px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #3aa0c9;background:#fff;color:#3aa0c9;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(58,160,201,.5)';
+    b.onclick = openChooser;
+    document.body.appendChild(b);
+  }
+
+  // ─────────────── HUB "Garden as Hub" (S1) — giardino alla prima apertura vault ───────────────
+  // Controllo docente: 'off' (default) | 'proposto' (banner invito) | 'obbligatorio' (apre il giardino).
+  // Flag: 'mappai_hub_mode' globale + override per-vault 'mappai_hub_mode::<vaultId>'.
+  // "Visto": 'mappai_hub_seen::<vaultId>', marcato quando il giardino viene realmente caricato.
+  // Rilevazione apertura vault via watcher (app.js non emette eventi e non va toccato — WIP utente).
+  function _vaultId() { var st = _getAppState(); return (st && st.activeVaultPath) || _mapSig(); }
+  function _hubMode() {
+    try {
+      var ov = localStorage.getItem('mappai_hub_mode::' + _vaultId()); if (ov) return ov;
+      return localStorage.getItem('mappai_hub_mode') || 'off';
+    } catch (e) { return 'off'; }
+  }
+  function _hubSeen() { try { return localStorage.getItem('mappai_hub_seen::' + _vaultId()) === '1'; } catch (e) { return false; } }
+  function _hubMarkSeen() { try { localStorage.setItem('mappai_hub_seen::' + _vaultId(), '1'); } catch (e) {} var b = document.getElementById('mdg-hub-banner'); if (b) b.remove(); }
+  function _hubBanner() {
+    if (document.getElementById('mdg-hub-banner') || !document.body) return;
+    var d = document.createElement('div');
+    d.id = 'mdg-hub-banner';
+    d.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9997;display:flex;gap:10px;align-items:center;background:#141c2e;border:1px solid #3aa0c9;border-radius:12px;padding:10px 14px;color:#eaf2ff;font-size:13px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6)';
+    d.innerHTML = '<span>🌿 I Sapienti ti aspettano nel Giardino per presentarti questa mappa.</span>' +
+      '<button id="mdg-hub-go" type="button" style="padding:6px 12px;border-radius:8px;border:1px solid #3fae5a;background:#15301f;color:#eaf2ff;cursor:pointer">Visita il Giardino</button>' +
+      '<button id="mdg-hub-x" type="button" style="padding:6px 10px;border-radius:8px;border:none;background:transparent;color:#8fa4c4;cursor:pointer">✕</button>';
+    document.body.appendChild(d);
+    d.querySelector('#mdg-hub-go').onclick = function () { d.remove(); _logEv('hub_banner_accept'); window.MappAIGames.openDungeon(); };
+    d.querySelector('#mdg-hub-x').onclick = function () { d.remove(); _logEv('hub_banner_dismiss'); };
+  }
+  function _onVaultOpened() {
+    var mode = _hubMode();
+    if (mode === 'off' || _hubSeen() || DUN) return;                      // mai interrompere una sessione in corso
+    var st = _getAppState(); if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) return;
+    if (mode === 'obbligatorio') { _logEv('hub_auto_open', { mode: mode }); _startDungeon(); }   // giardino = piano 0; Esc/chiusura sempre attivi ("mai bloccati")
+    else if (mode === 'proposto') { _logEv('hub_banner_show', { mode: mode }); _hubBanner(); }
+  }
+  // ─────────────── HUB S2: "Custode del Sapere" — tutor bridge nel giardino ───────────────
+  // NPC fisso vicino allo spawn. Core deterministico (panoramica + bottoni percorso/prova);
+  // la chat libera passa da _npcGenerate (catena locale→cloud→fallback) → funziona offline.
+  function _custodeOn() { try { return localStorage.getItem('mappai_hub_custode') !== '0'; } catch (e) { return true; } }
+  function _hubAssessOn() { try { return localStorage.getItem('mappai_hub_assessment') !== '0'; } catch (e) { return true; } }
+  function _spMasteryFn(id) {
+    var n = _mnode(id); if (!n || !n.attempts) return { level: 'nuovo', attempts: 0, lastTs: 0 };
+    var lastTs = (n.byActivity || []).reduce(function (m, r) { return Math.max(m, r.lastTs || 0); }, 0);
+    return { level: _level(id), attempts: n.attempts, lastTs: lastTs };
+  }
+  function _spClassify() {
+    try {
+      var SPm = window.MappAIStudyPath, st = _getAppState();
+      var nodes = (st && st.db && st.db.nodes) || [], links = (st && st.db && st.db.links) || [];
+      if (!SPm || !SPm.classify || !nodes.length) return null;
+      return SPm.classify(nodes.map(function (n) { return n.id; }), SPm.buildParentMap(nodes, links), _spMasteryFn, { staleDays: 7 });
+    } catch (e) { return null; }
+  }
+  function _custodeOverview() {
+    var st = _getAppState(), root = (st && st.rootNodeLabel) || 'questa mappa';
+    var nodes = (st && st.db && st.db.nodes) || [];
+    var lv = (_levelsFromState() || []).length;
+    var t = 'Benvenuto, viandante. Sono il Custode del Sapere e veglio su "' + root + '": ' + nodes.length + ' concetti in ' + lv + ' livelli.';
+    var c = _spClassify();
+    if (c) t += ' Il tuo cammino oggi: ' + c.ready.length + ' pronti da studiare, ' + c.review.length + ' da ripassare, ' + c.mastered.length + ' padroneggiati.';
+    return t + ' Chiedimi del percorso, o mettiti alla prova.';
+  }
+  // ─────────────── HUB S3: "Prova del Viandante" — assessment d'ingresso → baseline mastery ───────────────
+  // ~2 nodi per livello (cap 10) → _runQuiz con activity 'baseline' → MappAIMastery (pipeline esistente).
+  // Anti-seduzione: nessuna ricompensa (manaReward=false), feedback neutro, nessuna classifica.
+  function _provaViandante() {
+    var base = _levelsFromState() || [], pool = [];
+    base.forEach(function (lf) {
+      (lf.nodes || []).slice(0, 2).forEach(function (nd) {
+        pool.push({ id: nd.id, label: _clean(nd.label), desc: _desc(nd), g: _groupOf(nd.id), kind: 'desc' });
+      });
+    });
+    pool = pool.slice(0, 10);
+    if (pool.length < 2) { _toast('Mappa troppo piccola per la prova d\'ingresso.', 'warning'); return; }
+    _logEv('hub_prova_start', { n: pool.length });
+    _runQuiz(pool, pool.length, '🥾 Prova del Viandante', false, function (c, t) {
+      _logEv('hub_prova_done', { correct: c, total: t });
+      var m = 'Prova del Viandante completata (' + c + '/' + t + '). Il Custode ora conosce il tuo cammino.';
+      if (DUN) _msg(m); else _toast(m, 'info');
+    }, null, 'baseline');
+  }
+  var _hubLastVault = null;
+  setInterval(function () {
+    try {
+      var st = _getAppState(); var vp = st && st.activeVaultPath;
+      if (vp && vp !== _hubLastVault && st.db && st.db.nodes && st.db.nodes.length) { _hubLastVault = vp; _onVaultOpened(); }
+    } catch (e) {}
+  }, 1500);
+
+  // ─────────────────────────── stile minimo ──────────────────────────────────
+  var st = document.createElement('style');
+  st.textContent = '.mdg-ov button:hover{filter:brightness(1.15)} .mdg-ov button:active{transform:scale(.97)} .mdg-ov svg{display:block}';
+  document.head.appendChild(st);
 
   // ─────────────────────────── API pubblica ──────────────────────────────────
   window.MappAIGames = {
-    openDungeon: openDungeon,
-    close: function () { if (_live) _live.close(); },
+    // SLICE 1 — disponibile ora:
+    startUnlock: startUnlock,        // startUnlock(opts, cb) — usato dai device (slice 2)
+    testUnlock: testUnlock,          // prova il game feel dello sblocco (forme/calcolo)
+    testStopGo: testStopGo,          // prova lo stop/go dei droidi (inibizione, F/J)
+    skill: _skill, wm: _wm,
+    resetSkill: function () { localStorage.removeItem(SKILL_KEY); localStorage.removeItem(WM_KEY); console.log('[memory-dungeon] skill+WM azzerati'); },
+    duelStats: function () { try { var s = JSON.parse(localStorage.getItem('mappai_dungeon_duel') || '{}'); s.avgRt = s.correct ? Math.round(s.sumRt / s.correct) : null; s.accuracy = s.n ? Math.round(100 * (s.correct || 0) / s.n) : null; return s; } catch (e) { return {}; } },
+    resetDuelStats: function () { localStorage.removeItem('mappai_dungeon_duel'); console.log('[memory-dungeon] metriche duello azzerate'); },
+    selftest: _selftest,             // verifica logica (mana/spell/timing/gate) in console
+    openSettings: _openGamesDashboard, // dashboard impostazioni (anche da chord Ctrl+Shift+Q,A,Y)
+    testBoss: function () { if (DUN) _startBoss(); else _toast('Apri prima il dungeon (openDungeon)', 'warning'); }, // QA: forza la sfida finale
+    studyMode: function (on) { if (on === undefined) return _studyMode(); try { if (on) localStorage.setItem('mappai_dungeon_study_mode', '1'); else localStorage.removeItem('mappai_dungeon_study_mode'); } catch (e) {} console.log('[memory-dungeon] modalità studio', _studyMode() ? 'ON (combat off)' : 'OFF'); return _studyMode(); },
+    resetDiary: function () { try { localStorage.removeItem(_diaryKey()); } catch (e) {} if (DUN) DUN.diary = []; console.log('[memory-dungeon] diario azzerato (mappa corrente)'); },
+    // telemetria unificata (event-log ECD): lettura, reset, export JSON per il docente
+    events: function () { return _events(); },
+    resetEvents: function () { try { localStorage.removeItem(EV_KEY); } catch (e) {} console.log('[memory-dungeon] event-log azzerato'); },
+    exportEvents: function () {
+      try {
+        var b = new Blob([JSON.stringify(_events(), null, 1)], { type: 'application/json' }), u = URL.createObjectURL(b), a = document.createElement('a');
+        a.href = u; a.download = 'memory-dungeon-eventi.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+      } catch (e) { console.warn('[memory-dungeon] export eventi fallito', e); }
+    },
+    // accuracy delle sintesi scritte (per-mappa) — letta da MappAIMasteryView per gli anelli dorati
+    synthScores: function () { return _synthScores(); },
+    resetQuiz: function () { // svuota _dunQuiz dai nodi → forza rigenerazione AI ancorata al contenuto (nodi catturati prima del fix non l'avevano)
+      var n = 0, ids = {};
+      if (DUN && DUN.diary) DUN.diary.forEach(function (d) { ids[d.id] = true; });
+      var st = _getAppState(), nodes = (st && st.db && st.db.nodes) || [];
+      nodes.forEach(function (nd) { if (nd._dunQuiz || nd._quizGenPending) { delete nd._dunQuiz; delete nd._quizGenPending; n++; } });
+      Object.keys(ids).forEach(function (id) { _ensureQuiz(id); });   // re-genera in background per i nodi nel diario
+      console.log('[memory-dungeon] quiz azzerati su ' + n + ' nodi; rigenerazione avviata per ' + Object.keys(ids).length + ' nodi del diario');
+      return n;
+    },
+    resetOnboarding: function () { try { localStorage.removeItem('mappai_dungeon_onboarded'); } catch (e) {} console.log('[memory-dungeon] onboarding resettato — riapparirà la scuola + le regole'); },
+    gateConfig: function (accThr) { try { localStorage.setItem('mappai_dungeon_gate', JSON.stringify({ accThr: accThr })); console.log('[memory-dungeon] gate soglia =', accThr); } catch (e) {} },
+    aiScoring: function (on) { if (on === undefined) return _aiScoring(); try { if (on === false) localStorage.setItem('mappai_dungeon_ai_scoring', 'false'); else localStorage.removeItem('mappai_dungeon_ai_scoring'); } catch (e) {} console.log('[memory-dungeon] scoring aperte:', _aiScoring() ? 'AI semantica (default)' : 'deterministico (offline, no costo)'); return _aiScoring(); },
+    launcher: _injectLauncher,       // mostra il bottone flottante "🎮 Giochi" in-app
+    openChooser: openChooser,        // menu minigiochi + entra nel dungeon
+    startDungeon: _startDungeon,     // esplorazione dungeon (slice 2a)
+    tune: function (o) { // engine ASCII Space Bears: es. MappAIGames.tune({theme:'#5f9ad6'}) o {theme:false}
+      if (!DUN || !o) return;
+      if (o.theme !== undefined) DUN.theme = (o.theme === false) ? null : (typeof o.theme === 'string' ? { n: 'custom', t: o.theme } : o.theme);
+    },
+    // SKIN reskin "Legend of Lua":
+    skin: function (n) { if (n === undefined) return _skin(); try { if (n === 'fantastic') localStorage.setItem('mappai_dungeon_skin', 'fantastic'); else localStorage.setItem('mappai_dungeon_skin', 'lol'); } catch (e) {} console.log('[memory-dungeon] skin =', _skin()); return _skin(); },
+    tuneLoL: function (o) { // taratura coord live: es. MappAIGames.tuneLoL({biome:'caverna', floor:[2,2], decals:[[7,3],[8,3]], decalPct:8})
+      if (!o) return LOL;
+      if (o.biome && LOL.biomes[o.biome]) { var b = LOL.biomes[o.biome]; if (o.floor) b.floor = o.floor; if (o.wall) b.wall = o.wall; if (o.water !== undefined) b.water = o.water; if (o.decals) b.decals = o.decals; if (o.decalPct !== undefined) b.decalPct = o.decalPct; }
+      return LOL.biomes;
+    },
+    // polish uso-asset (ombre, buio+luci, bossbar, bolle): on/off live
+    polish: function (on) { try { localStorage.setItem('mappai_dungeon_polish', on === false ? '0' : '1'); } catch (e) {} return on !== false; },
+    // HUB S1 — giardino alla prima apertura vault (controllo docente):
+    hubMode: function (m, perVault) {
+      if (m === undefined) return _hubMode();
+      if (m !== 'off' && m !== 'proposto' && m !== 'obbligatorio') { console.warn('[memory-dungeon] hubMode: off | proposto | obbligatorio'); return _hubMode(); }
+      try { if (perVault) localStorage.setItem('mappai_hub_mode::' + _vaultId(), m); else localStorage.setItem('mappai_hub_mode', m); } catch (e) {}
+      console.log('[memory-dungeon] hub mode =', m, perVault ? '(solo questo vault)' : '(globale)'); return m;
+    },
+    hubCheck: function () { _onVaultOpened(); return { mode: _hubMode(), seen: _hubSeen(), vault: _vaultId() }; },   // QA: forza un tick del watcher
+    qaState: function () { return DUN ? { fi: DUN.fi, kind: DUN.floors[DUN.fi].kind, stairReady: !!DUN.stairReady, floors: DUN.floors.map(function (f) { return { kind: f.kind, level: f.level, n: (f.nodes || []).length }; }) } : null; },   // QA console
+    qaSoftGate: function (next) { if (!DUN) return 'apri prima il dungeon'; _softGateWarn(next != null ? next : DUN.fi + 1, function () { _toast('soft-gate: proceed', 'info'); }); },   // QA: forza il check del gating morbido
+    qaDescend: function () { if (DUN) _loadFloor(Math.min(DUN.fi + 1, DUN.floors.length - 1)); },   // QA: salta al piano successivo senza gate
+    qaGarden: function () {   // QA console: stato giardino + apri il Custode senza click di precisione
+      if (!DUN || !DUN.gardenNpcs) return null;
+      var out = { npcs: [] }, cust = null;
+      for (var k in DUN.gardenNpcs) { var g = DUN.gardenNpcs[k]; out.npcs.push({ k: k, label: g.label, custode: !!g.custode }); if (g.custode) cust = g; }
+      out.openCustode = function () { if (cust) _openGardenNpc(cust); return !!cust; };
+      return out;
+    },
+    hubResetSeen: function () { try { localStorage.removeItem('mappai_hub_seen::' + _vaultId()); } catch (e) {} console.log('[memory-dungeon] hub "visto" azzerato per', _vaultId()); },
+    // SLICE 2a:
+    openDungeon: function () { var st = _getAppState(); if (st && st.db && st.db.nodes && st.db.nodes.length) _startDungeon(); else openChooser(); },
     enabled: function () { return localStorage.getItem('mappai_games_enabled') === '1'; },
-    enable: function () { localStorage.setItem('mappai_games_enabled', '1'); console.log('%c[games] abilitato. MappAIGames.openDungeon()', 'color:#3aa0c9'); },
-    disable: function () { localStorage.removeItem('mappai_games_enabled'); console.log('[games] disabilitato'); }
+    enable: function () { localStorage.setItem('mappai_games_enabled', '1'); _injectLauncher(); console.log('%c[memory-dungeon] abilitato — bottone 🎮 in alto a destra', 'color:#3aa0c9'); },
+    disable: function () { localStorage.removeItem('mappai_games_enabled'); var b = document.getElementById('mdg-launch'); if (b) b.remove(); }
   };
+
+  // auto-mostra il launcher se il flag è attivo
+  if (window.MappAIGames.enabled()) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _injectLauncher);
+    else _injectLauncher();
+  }
 })();

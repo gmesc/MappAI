@@ -65,28 +65,35 @@ Per accedere alla memoria di un device si supera **sempre** una sfida.
 
   | Lv | span | esposizione/simbolo |
   |----|------|---------------------|
-  | 1 | 3 | 0.9 s |
-  | 2 | 4 | 0.9 s |
-  | 3 | 4 | 0.7 s |
-  | 4 | 5 | 0.7 s |
-  | 5 | 5 | 0.6 s |
-  | 6 | 6 | 0.6 s |
-  | 7 | 7 | 0.5 s |
+  | 1 | 3 | 1.5 s |
+  | 2 | 3 | 1.3 s |
+  | 3 | 4 | 1.3 s |
+  | 4 | 4 | 1.1 s |
+  | 5 | 5 | 1.0 s |
+  | 6 | 5 | 0.9 s |
+  | 7 | 6 | 0.8 s |
+
+  Affinamenti (validati 25/6, dopo 2 feedback "troppo difficile"): partenza **monocromo** — un solo colore, obiettivo = ricordare **solo la sequenza/ordine**. La ricostruzione mostra **esattamente** i simboli della sequenza (nessun intruso esterno) → puro compito di ordinamento. La variabile **colore entra solo con lo score WM**, gradualmente: 1 → 2 → 3 → 4 colori (`1 + WM/30`, max 4). Span parte da 3, esposizione 1.5 s; velocità adattiva al WM ma lenta (`base − WM*3`, min 600 ms). Salita **graduale**: 3 successi consecutivi per +1.
+
+  ### Sblocco droidi = stop/go (inibizione)
+  I device di tipo **droide** usano un gioco **stop/go** (go/no-go) per allenare l'**inibizione dello stimolo**, stessa UI di forme/calcolo, tasti **F/J**: Blu → F, Arancio → J (GO); Rosso → **non premere** (NO-GO, ~30% dei trial). Score = % di trial corretti su 12; **sblocco se ≥ 60%**, altrimenti si **ripete all'infinito senza malus**.
 
 - **Calcolo = solo addizione/sottrazione, timer generoso**:
 
-  | Lv | forma | timer |
-  |----|-------|-------|
-  | 1 | a±b, ≤9 | 25 s |
-  | 2 | a±b, ≤20 | 22 s |
-  | 3 | a±b±c, ≤20 | 22 s |
-  | 4 | a±b, ≤50 | 20 s |
-  | 5 | a±b±c, ≤50 | 20 s |
-  | 6 | a±b, ≤100 | 18 s |
+  | Lv | forma | operazioni | timer |
+  |----|-------|-----------|-------|
+  | 1 | a+b, ≤5 | solo addizione | 30 s |
+  | 2 | a+b, ≤9 | solo addizione | 28 s |
+  | 3 | a±b, ≤9 | + sottrazione | 26 s |
+  | 4 | a±b, ≤20 | +/− | 24 s |
+  | 5 | a±b±c, ≤20 | +/− | 22 s |
+  | 6 | a±b, ≤50 | +/− (cap) | 22 s |
 
-  Ai livelli bassi il timeout è **morbido** (si ritenta, nessuna penalità dura).
+  Affinamenti (25/6): si **parte da sola addizione con numeri piccoli** (≤5); la sottrazione entra solo al livello 3; il cap (livello 6, ≤50) è il massimo. Salita graduale (3 successi consecutivi per +1).
 
-- **Difficoltà adattiva**: due tracce separate `seqLv` / `calcLv` (start 1; +1 dopo 2 successi consecutivi; −1 dopo un fallimento; clamp 1–7). Persistite in `localStorage 'mappai_dungeon_skill' = {seq, calc}`.
+  Ai livelli bassi il timeout è **morbido** (si ritenta, nessuna penalità dura). Difficoltà **progressiva e incrementale** sul profilo del player (metriche memorizzate); **cap rigido**: mai operazioni più complesse di questa tabella (max testato nella demo).
+
+- **Difficoltà adattiva**: due tracce separate `seqLv` / `calcLv` (start 1; +1 dopo **3** successi consecutivi; −1 dopo un fallimento; clamp 1–7). Persistite in `localStorage 'mappai_dungeon_skill' = {seq, calc}`.
 - **Doppio fallimento** (entrambe le modalità): il device va in **cooldown** (si ritenta dopo averne sbloccato un altro) e quella modalità scende di 1 livello. Nessuna penalità dura.
 - **Effetto**: lo sblocco alimenta un **misuratore di memoria di lavoro (WM)** dedicato (0–100, EWMA di successo + velocità + livello raggiunto), **separato** dalla conoscenza del contenuto.
 
@@ -276,3 +283,27 @@ Ogni modalità aggiuntiva va sempre offerta come **opzione**, mai imposta, per n
 - **WM meter**: misuratore di memoria di lavoro alimentato dagli sblocchi, separato dalla conoscenza del contenuto.
 - **Knowledge / Fluency / Transfer**: i tre livelli della pipeline cognitiva (cattura / door keeper / boss).
 - **Heatmap di studio**: colorazione finale della mappa per area, sintesi di knowledge + fluency + transfer.
+
+---
+
+## 16. Esplorazione, nemici e combattimento (stile 8-bit)
+
+Direzione visiva decisa (25/6): **2D top-down 8-bit con sprite animate**, asset in `public/assets/rogue8x8/` (pack 8×8 stile rogue-like — verificare licenza). **Niente cabinato disegnato, niente effetti CRT** (mockup arcade scartato per il gioco vero).
+
+- **Movimento = point&click col mouse** (sempre): si clicca una cella esplorata, il personaggio raggiunge la destinazione via pathfinding (`ROT.Path.AStar`). Nessun tasto direzionale per muoversi.
+- **Stanze**: generate con `ROT.Map.Digger` per ogni piano (= livello). Nebbia di guerra con `ROT.FOV`.
+- **Sorgenti memoria** (rinominati da computer/server/droide): **📖 libro → sequenza forme**, **📜 scroll → calcolo**, **🧟 zombi → stop/go**. Arrivando sulla sorgente parte il minigioco di sblocco; al successo si estrae la memory unit.
+- **Nemici (fantasmi)** — distinti dagli zombi-sorgente. Vagano per il dungeon.
+- **Combattimento = duello d'inibizione**, si avvia al **contatto** player↔nemico:
+  - Appare un balloon sopra il nemico con una lettera **F** o **J**.
+  - Per colpire si preme il tasto **OPPOSTO** a quello mostrato (F→J, J→F).
+  - Tasto **giusto al momento giusto** → nemico **−2 HP**; tasto **sbagliato** → player **−1 HP**.
+  - HP nemico per livello: **L1 = 5, L2 = 6, L3/4/5 = 8**.
+- **Salute**: barra a **cuoricini sempre in alto**; player rigenera **1 HP ogni 10 s**; **pozioni** (GroundItems) curano.
+- **Morte = soft permadeath inclusivo**: il **diario NON perde memoria**; le sorgenti già estratte restano disattive; respawn a inizio piano, HP pieno. Nessuna perdita di apprendimento.
+- **Diario**: si apre con il tasto **B**.
+- **Asset → ruolo**: `Tileset` (dungeon), character sheets (player animato, selezione personaggio), `Enemies` (fantasmi/zombi), `OrcSheet` (boss), `Book` (diario aperto + libri), `GroundItems` (pozioni/scroll), `UIthings` (cuori/HUD), `KeyButtons` (prompt F/J), `NPC`/`EnemyPortraits` (door keeper/boss).
+
+### Stato build
+- **Slice 2a FATTO**: stanze + esplorazione point&click + fog + sorgenti agganciate ai 3 minigiochi + memory unit mostrata + diario (B) + scala/piani + cuori/rigen. Rendering provvisorio a **emoji** (sprite PNG reali = slice 2b).
+- **Slice 2b TODO**: sprite PNG 8-bit animate (slicing fogli), nemici fantasmi + duello F/J-opposto, pozioni, diario markdown ricco con export Vault.

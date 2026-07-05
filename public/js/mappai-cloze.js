@@ -107,6 +107,7 @@
     const items = buildSession();
     if (!items.length) { toast('Nessuna descrizione con concetti collegati da oscurare in questa mappa.'); return; }
     CZ._items = items; CZ._i = 0;
+    if (window.MappAIStudyBus) window.MappAIStudyBus.begin('cloze', 'Cloze — completa');
     renderItem();
   };
 
@@ -141,7 +142,10 @@
         </div>
       </div>`;
     document.body.appendChild(modal);
-    modal.querySelector('#cz-exit').onclick = () => modal.remove();
+    modal.querySelector('#cz-exit').onclick = () => {
+      modal.remove();
+      if (window.MappAIStudyBus) window.MappAIStudyBus.end(); // salva la sessione parziale (se ha risultati)
+    };
     modal.querySelector('#cz-check').onclick = () => checkItem(modal, item);
     const first = modal.querySelector('.cz-blank'); if (first) first.focus();
   }
@@ -165,9 +169,12 @@
     const elapsedMin = Math.max((Date.now() - (CZ._nodeStart || Date.now())) / 60000, 2 / 60);
     const rate = ok / elapsedMin;
 
-    // registra la padronanza (attività 'cloze') con accuratezza + fluenza
+    // registra la padronanza (attività 'cloze') con accuratezza + fluenza;
+    // via StudyBus finisce anche in sessioni.jsonl per la meta-analisi docente
     try {
-      if (window.MappAIMastery && window.MappAIMastery.record) {
+      if (window.MappAIStudyBus) {
+        window.MappAIStudyBus.record(item.nodeId, item.label, 'cloze', { score, rate });
+      } else if (window.MappAIMastery && window.MappAIMastery.record) {
         window.MappAIMastery.record(item.nodeId, item.label, 'cloze', { score, rate });
       }
     } catch (e) { console.warn('[Cloze] record', e); }
@@ -178,7 +185,11 @@
     const isLast = CZ._i >= CZ._items.length - 1;
     const btn = modal.querySelector('#cz-check');
     btn.textContent = isLast ? 'Fine' : 'Avanti →';
-    btn.onclick = () => { modal.remove(); if (isLast) { toast('Cloze completato! Padronanza aggiornata.'); } else { CZ._i++; renderItem(); } };
+    btn.onclick = () => {
+      modal.remove();
+      if (isLast) { if (window.MappAIStudyBus) window.MappAIStudyBus.end(); toast('Cloze completato! Padronanza aggiornata.'); }
+      else { CZ._i++; renderItem(); }
+    };
   }
 
   // Bottone fluttuante di avvio

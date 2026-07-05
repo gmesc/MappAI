@@ -8,6 +8,10 @@ const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
+// Servizio LLM locale per gli NPC narranti. Require sicuro: node-llama-cpp
+// è caricato lazy SOLO al primo uso (vedi main_npc_llm.js). Se la dep manca,
+// il servizio resta dormiente e gli handler ritornano un errore gestito.
+const npcLlm = require('./main_npc_llm');
 
 let mainWindow;
 
@@ -403,6 +407,117 @@ ipcMain.handle('open-external', async (event, url) => {
     }
 });
 
+// ===================== NPC LLM locale (node-llama-cpp) =====================
+// Stato del servizio: modello caricato?, RAM libera, sessioni attive.
+ipcMain.handle('npc-model-status', async () => {
+    try { return { success: true, ...npcLlm.status() }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+// Genera la storia di priming o continua il dialogo con un NPC.
+// stream=true → invia i token man mano sul canale 'npc-token' (typewriter).
+ipcMain.handle('generate-local-npc', async (event, { npcId, systemPrompt, userText, modelPath, temperature, maxTokens, requestId, stream }) => {
+    try {
+        await npcLlm.ensureLoaded(modelPath);
+        const onChunk = stream
+            ? (token) => { try { event.sender.send('npc-token', { npcId, requestId, token }); } catch (e) { /* renderer chiuso */ } }
+            : null;
+        const text = await npcLlm.prompt({ npcId, systemPrompt, userText, temperature, maxTokens }, onChunk);
+        return { success: true, text };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// Resetta la conversazione di un NPC (es. al cambio mappa).
+ipcMain.handle('npc-reset', async (event, { npcId }) => {
+    try { await npcLlm.resetNpc(npcId); return { success: true }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+// AZIONE strutturata (JSON-schema vincolato) per NPC che agiscono nel dungeon.
+ipcMain.handle('generate-local-npc-action', async (event, { npcId, systemPrompt, userText, schema, modelPath, temperature, maxTokens }) => {
+    try {
+        await npcLlm.ensureLoaded(modelPath);
+        const data = await npcLlm.promptStructured({ npcId, systemPrompt, userText, schema, temperature, maxTokens });
+        return { success: true, data };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Cartella dei modelli GGUF in userData.
+function _npcModelsDir() {
+    const dir = path.join(app.getPath('userData'), 'models');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return dir;
+}
+
+ipcMain.handle('npc-models-dir', async () => {
+    try { return { success: true, dir: _npcModelsDir() }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+// Elenca i GGUF già scaricati in userData/models.
+ipcMain.handle('npc-list-local-models', async () => {
+    try {
+        const dir = _npcModelsDir();
+        const models = fs.readdirSync(dir)
+            .filter(f => f.toLowerCase().endsWith('.gguf'))
+            .map(f => {
+                const p = path.join(dir, f);
+                const st = fs.statSync(p);
+                return { fileName: f, path: p, sizeMB: Math.round(st.size / 1e6) };
+            });
+        return { success: true, models };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Elimina un GGUF scaricato. Sicurezza: solo file dentro userData/models e solo .gguf.
+ipcMain.handle('npc-delete-model', async (event, { path: filePath }) => {
+    try {
+        if (!filePath) throw new Error('Percorso mancante');
+        const dir = path.resolve(_npcModelsDir());
+        const resolved = path.resolve(filePath);
+        if (resolved !== dir && !resolved.startsWith(dir + path.sep)) throw new Error('Percorso fuori dalla cartella modelli');
+        if (!resolved.toLowerCase().endsWith('.gguf')) throw new Error('Non è un file .gguf');
+        if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Scarica un GGUF da URL in userData/models, con progresso su 'npc-download-progress'.
+ipcMain.handle('npc-download-model', async (event, { url, fileName, modelId }) => {
+    try {
+        if (!url || !fileName) throw new Error('URL o fileName mancante');
+        const dir = _npcModelsDir();
+        const dest = path.join(dir, fileName);
+        const tmp = dest + '.part';
+        const response = await axios({ method: 'get', url, responseType: 'stream', maxRedirects: 5 });
+        const total = parseInt(response.headers['content-length'] || '0', 10);
+        let received = 0, lastEmit = 0;
+        const writer = fs.createWriteStream(tmp);
+        response.data.on('data', (chunk) => {
+            received += chunk.length;
+            const now = Date.now();
+            if (now - lastEmit > 250) { // throttle progressi
+                lastEmit = now;
+                try { event.sender.send('npc-download-progress', { modelId, received, total, pct: total ? Math.round(received / total * 100) : null }); } catch (e) { /* renderer chiuso */ }
+            }
+        });
+        await new Promise((resolve, reject) => {
+            response.data.pipe(writer);
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+            response.data.on('error', reject);
+        });
+        fs.renameSync(tmp, dest);
+        try { event.sender.send('npc-download-progress', { modelId, received: total || received, total, pct: 100, done: true }); } catch (e) { /* noop */ }
+        return { success: true, path: dest };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Libera il modello alla chiusura dell'app (best-effort).
+app.on('before-quit', () => { try { npcLlm.dispose(); } catch (e) { /* noop */ } });
+
 // Capture current window content as image
 ipcMain.handle('capture-page', async () => {
     if (!mainWindow) return null;
@@ -588,6 +703,48 @@ ipcMain.handle('save-study-record', async (event, { vaultPath, dateStr, markdown
 // DATA ABSTRACTION LAYER (DAL) - MARKDOWN VAULT
 // ==========================================
 
+// === Sottocartelle per ramo dentro Nodi/ (gated da mapData.branchFolders) ===
+// Layout JIGSAW: un ramo L1 = una cartella. Reversibile: flag OFF → layout piatto.
+function _vaultSafeSeg(s) {
+    return String(s || '').replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 40) || 'x';
+}
+// Cartella ramo per un nodo MindMap: risale la catena parent fino all'L1 (level 1).
+// '' = scrivi nella radice Nodi/ (piatto). '_root' per il nodo radice/orfani.
+function _vaultBranchFolder(node, nodesById) {
+    if (!node) return '';
+    if (node.level === 0) return '_root';
+    let cur = node, guard = 0;
+    while (cur && cur.level > 1 && cur.parent && guard < 64) {
+        cur = nodesById[cur.parent];
+        guard++;
+    }
+    if (!cur || cur.level !== 1) return '_root';
+    return `g${cur.group != null ? cur.group : 0}_${_vaultSafeSeg(cur.label)}`;
+}
+// Walk ricorsivo: lista di path assoluti .md sotto dir (qualsiasi profondità).
+function _vaultWalkMd(dir) {
+    const out = [];
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
+    for (const ent of entries) {
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) out.push(..._vaultWalkMd(full));
+        else if (ent.name.endsWith('.md')) out.push(full);
+    }
+    return out;
+}
+// Rimuove ricorsivamente le sottocartelle vuote sotto dir (non dir stessa).
+function _vaultPruneEmptyDirs(dir) {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+    for (const ent of entries) {
+        if (!ent.isDirectory()) continue;
+        const sub = path.join(dir, ent.name);
+        _vaultPruneEmptyDirs(sub);
+        try { if (fs.readdirSync(sub).length === 0) fs.rmdirSync(sub); } catch (e) {}
+    }
+}
+
 ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
     try {
         if (!fs.existsSync(folderPath)) {
@@ -606,13 +763,20 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const indexYaml = yaml.dump(indexData, { lineWidth: -1, quotingType: '"', forceQuotes: false });
         fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
 
-        // 2. Save Links (Relationship index)
-        const linksData = (mapData.links || []).map(l => ({
+        // 2. Save Links (Relationship index) — i PONTI JIGSAW vanno isolati in Nodi/_ponti/_bridges.json
+        const _mapLink = l => ({
             source: typeof l.source === 'object' ? l.source.id : l.source,
             target: typeof l.target === 'object' ? l.target.id : l.target,
             rel: l.rel || "",
             isCross: !!l.isCross
+        });
+        const _bridgesData = (mapData.links || []).filter(l => l.isBridge).map(l => Object.assign(_mapLink(l), {
+            isBridge: true,
+            bridgeStatus: l.bridgeStatus || 'proposed',
+            bridgeAuthor: l.bridgeAuthor || '',
+            justification: l.justification || ''
         }));
+        const linksData = (mapData.links || []).filter(l => !l.isBridge).map(_mapLink);
         fs.writeFileSync(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2), 'utf-8');
 
         // 3. Save Nodes & Allegati directory (Updated)
@@ -621,21 +785,49 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
         if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
 
+        // 3b. Ponti JIGSAW isolati (contributi inter-area dello studente)
+        const _pontiBridgesPath = path.join(nodesDir, '_ponti', '_bridges.json');
+        if (_bridgesData.length > 0 || fs.existsSync(_pontiBridgesPath)) {
+            const _pontiDir = path.join(nodesDir, '_ponti');
+            if (!fs.existsSync(_pontiDir)) fs.mkdirSync(_pontiDir, { recursive: true });
+            fs.writeFileSync(_pontiBridgesPath, JSON.stringify(_bridgesData, null, 2), 'utf-8');
+        }
+
         // Collect all links for the summary file
         const globalLinks = [];
 
-        // 4a. Elimina i file .md orfani (nodi rimossi via merge/relink non sono più in mapData.nodes)
-        const validNodeFileNames = new Set(
+        // === Sottocartelle per ramo (gated): mappa id→nodo + helper layout ===
+        const _nodesById = {};
+        (mapData.nodes || []).forEach(n => { _nodesById[n.id] = n; });
+        // Deriva parent dai link quando assente: le mappe appena generate non settano
+        // node.parent, e senza parent _vaultBranchFolder manda tutti gli L2+ in _root/
+        // (layout per-ramo JIGSAW rotto). Il parent derivato viene poi persistito nel
+        // frontmatter → i vault si auto-riparano al primo salvataggio.
+        const _endpointId = v => (v && typeof v === 'object') ? v.id : v;
+        (mapData.links || []).forEach(l => {
+            if (l.isCross || l.isBridge) return;
+            const s = _nodesById[_endpointId(l.source)], t = _nodesById[_endpointId(l.target)];
+            if (s && t && !t.parent && typeof s.level === 'number' && typeof t.level === 'number' && s.level === t.level - 1) {
+                t.parent = s.id;
+            }
+        });
+        const _useBranchFolders = !!mapData.branchFolders && mapData.extractionMode !== 'kg';
+        const _nodeFolder = (node) => _useBranchFolders ? _vaultBranchFolder(node, _nodesById) : '';
+        const _nodeFileName = (node) => `${node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${node.id}.md`;
+
+        // 4a. Pulizia orfani + migrazione layout — chiave = PATH RELATIVO (posix), non basename.
+        //     Così i vecchi file piatti vengono rimossi quando un nodo migra in sottocartella (e viceversa
+        //     quando il flag viene spento), in un solo passaggio insieme agli orfani di merge/relink.
+        const validRelPaths = new Set(
             (mapData.nodes || []).map(node => {
-                const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                return `${safeLabel}_${node.id}.md`;
+                const folder = _nodeFolder(node);
+                return (folder ? folder + '/' : '') + _nodeFileName(node);
             })
         );
         try {
-            fs.readdirSync(nodesDir).forEach(file => {
-                if (file.endsWith('.md') && !validNodeFileNames.has(file)) {
-                    fs.unlinkSync(path.join(nodesDir, file));
-                }
+            _vaultWalkMd(nodesDir).forEach(abs => {
+                const rel = path.relative(nodesDir, abs).split(path.sep).join('/');
+                if (!validRelPaths.has(rel)) fs.unlinkSync(abs);
             });
         } catch(e) {
             console.warn('[Vault] Pulizia file orfani fallita:', e.message);
@@ -645,7 +837,10 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         (mapData.nodes || []).forEach(node => {
             const safeLabel = node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const fileName = `${safeLabel}_${node.id}.md`;
-            
+            const branchFolder = _nodeFolder(node);
+            const nodeTargetDir = branchFolder ? path.join(nodesDir, branchFolder) : nodesDir;
+            if (branchFolder && !fs.existsSync(nodeTargetDir)) fs.mkdirSync(nodeTargetDir, { recursive: true });
+
             let frontmatter = '---\n';
             frontmatter += `id: "${node.id}"\n`;
             frontmatter += `label: "${node.label}"\n`;
@@ -659,6 +854,11 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             if (node.y !== undefined) frontmatter += `y: ${node.y}\n`;
             if (node.savedX !== undefined) frontmatter += `savedX: ${node.savedX}\n`;
             if (node.savedY !== undefined) frontmatter += `savedY: ${node.savedY}\n`;
+            // Stato di studio (spaced repetition): senza questi campi il semaforo
+            // e la programmazione dei ripassi si perdono a ogni riapertura del vault.
+            if (node.studyStatus && node.studyStatus !== 'none') frontmatter += `studyStatus: "${node.studyStatus}"\n`;
+            if (node.nextReview) frontmatter += `nextReview: ${node.nextReview}\n`;
+            if (node.lastReviewed) frontmatter += `lastReviewed: ${node.lastReviewed}\n`;
             
             // Handle Links Summary
             const nodeUrls = node.urls || (node.url ? [node.url] : []);
@@ -737,9 +937,12 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                 });
             }
 
-            fs.writeFileSync(path.join(nodesDir, fileName), frontmatter + content, 'utf-8');
+            fs.writeFileSync(path.join(nodeTargetDir, fileName), frontmatter + content, 'utf-8');
         });
-        
+
+        // 4c. Rimuovi le sottocartelle ramo rimaste vuote (rinomina L1 / flag spento)
+        _vaultPruneEmptyDirs(nodesDir);
+
         // 5. Save Global Links Summary
         const summaryHeader = `INDICE FONTI E LINK - ${mapData.rootNodeLabel}\n`;
         const summaryTxt = summaryHeader + "=".repeat(summaryHeader.length) + "\n\n" + 
@@ -749,6 +952,13 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         // 6. Save Tutor Chat State
         if (mapData.tutorState) {
             fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
+        }
+
+        // 6b. Save Mastery store (padronanza per pinpoint) → Studio Attivo/mastery.json (per meta-analisi docente)
+        if (mapData.masteryStore && Object.keys(mapData.masteryStore).length > 0) {
+            const studioDir = path.join(folderPath, 'Studio Attivo');
+            if (!fs.existsSync(studioDir)) fs.mkdirSync(studioDir, { recursive: true });
+            fs.writeFileSync(path.join(studioDir, 'mastery.json'), JSON.stringify(mapData.masteryStore, null, 2), 'utf-8');
         }
 
         // 7. Save Study Sets (Quiz e Flashcard)
@@ -789,6 +999,29 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         });
 
         return { success: true, path: folderPath, upgrades: upgrades };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+// JIGSAW: scrive i marker _lock.yaml per cartella ramo + garantisce _ponti/ vuota.
+// locks = { 'g1_cause': {editable, owner, role, ...}, ... }. Chiamato dopo save-vault
+// (con branchFolders:true) su ciascuna copia esportata dal docente.
+ipcMain.handle('write-branch-locks', async (event, { folderPath, locks }) => {
+    try {
+        const nodesDir = path.join(folderPath, 'Nodi');
+        if (!fs.existsSync(nodesDir)) return { success: false, error: 'Cartella Nodi assente' };
+        Object.keys(locks || {}).forEach(branchKey => {
+            const dir = path.join(nodesDir, branchKey);
+            if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+                const yml = yaml.dump(locks[branchKey], { lineWidth: -1, quotingType: '"', forceQuotes: false });
+                fs.writeFileSync(path.join(dir, '_lock.yaml'), yml, 'utf-8');
+            }
+        });
+        // Cartella ponti (contributi inter-area dello studente) — sempre presente, anche vuota.
+        const ponti = path.join(nodesDir, '_ponti');
+        if (!fs.existsSync(ponti)) fs.mkdirSync(ponti, { recursive: true });
+        return { success: true };
     } catch (err) {
         return { success: false, error: err.message };
     }
@@ -850,9 +1083,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         // Load Nodes
         const nodesDir = path.join(folderPath, 'Nodi');
         if (fs.existsSync(nodesDir)) {
-            const files = fs.readdirSync(nodesDir).filter(f => f.endsWith('.md'));
-            files.forEach(file => {
-                const content = fs.readFileSync(path.join(nodesDir, file), 'utf-8');
+            _vaultWalkMd(nodesDir).forEach(absPath => {
+                const content = fs.readFileSync(absPath, 'utf-8');
                 const parts = content.split('---');
                 if (parts.length >= 3) {
                     const fmLines = parts[1].trim().split('\n');
@@ -880,6 +1112,9 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                         if (k === 'y') { node.y = parseFloat(cleanV); node.fy = node.y; }
                         if (k === 'savedX') node.savedX = parseFloat(cleanV);
                         if (k === 'savedY') node.savedY = parseFloat(cleanV);
+                        if (k === 'studyStatus') node.studyStatus = cleanV;
+                        if (k === 'nextReview') node.nextReview = parseInt(cleanV);
+                        if (k === 'lastReviewed') node.lastReviewed = parseInt(cleanV);
                     });
 
                     // Remove embedded images from description text since they are in node.images
@@ -911,6 +1146,29 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 }
             });
         }
+        // Load branch locks (JIGSAW): _lock.yaml per cartella ramo → mapData.branchLocks
+        mapData.branchLocks = {};
+        try {
+            if (fs.existsSync(nodesDir)) {
+                fs.readdirSync(nodesDir, { withFileTypes: true }).forEach(ent => {
+                    if (!ent.isDirectory()) return;
+                    const lp = path.join(nodesDir, ent.name, '_lock.yaml');
+                    if (fs.existsSync(lp)) {
+                        try { mapData.branchLocks[ent.name] = yaml.load(fs.readFileSync(lp, 'utf-8')); } catch (e) {}
+                    }
+                });
+            }
+        } catch (e) {}
+
+        // Load JIGSAW bridges: Nodi/_ponti/_bridges.json → uniti ai link (con i marker isBridge)
+        try {
+            const bpath = path.join(nodesDir, '_ponti', '_bridges.json');
+            if (fs.existsSync(bpath)) {
+                const br = JSON.parse(fs.readFileSync(bpath, 'utf-8'));
+                if (Array.isArray(br)) mapData.links = (mapData.links || []).concat(br);
+            }
+        } catch (e) {}
+
         // Load Study Sets
         mapData.studySets = [];
         const studyDir = path.join(folderPath, 'Materiale Studio');
@@ -928,6 +1186,42 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };
+    }
+});
+
+// META-ANALISI: elenca le sottocartelle-vault dentro un parent (le copie studenti).
+ipcMain.handle('list-vault-subfolders', async (event, parentPath) => {
+    try {
+        if (!parentPath || !fs.existsSync(parentPath)) return { folders: [] };
+        const folders = fs.readdirSync(parentPath, { withFileTypes: true })
+            .filter(e => e.isDirectory())
+            .map(e => ({ name: e.name, path: path.join(parentPath, e.name) }))
+            .filter(f => fs.existsSync(path.join(f.path, 'Nodi')) || fs.existsSync(path.join(f.path, 'index.yaml')));
+        return { folders: folders };
+    } catch (err) {
+        return { folders: [], error: err.message };
+    }
+});
+
+// META-ANALISI: legge Studio Attivo/sessioni.jsonl di un vault → array di record sessione.
+ipcMain.handle('read-study-sessions', async (event, vaultPath) => {
+    try {
+        let sessions = [];
+        const p = path.join(vaultPath, 'Studio Attivo', 'sessioni.jsonl');
+        if (fs.existsSync(p)) {
+            sessions = fs.readFileSync(p, 'utf-8').split('\n').filter(Boolean).map(line => {
+                try { return JSON.parse(line); } catch (e) { return null; }
+            }).filter(Boolean);
+        }
+        // Store di padronanza (accuratezza + fluenza per pinpoint), se esportato nel vault.
+        let mastery = null;
+        const mp = path.join(vaultPath, 'Studio Attivo', 'mastery.json');
+        if (fs.existsSync(mp)) {
+            try { mastery = JSON.parse(fs.readFileSync(mp, 'utf-8')); } catch (e) {}
+        }
+        return { sessions: sessions, mastery: mastery };
+    } catch (err) {
+        return { sessions: [], mastery: null, error: err.message };
     }
 });
 

@@ -334,24 +334,33 @@
         return displaced;
     }
 
-    // mode7: trova un ramo "cronologico" (più nodi con data) o il ramo più lungo
+    // mode7: trova una CATENA vera (ogni nodo con esattamente un figlio) — solo lì
+    // l'ordine "corretto" è non ambiguo. Prima si prendeva il ramo più lungo ordinato
+    // per level: su rami cespugliosi l'ordine tra fratelli era arbitrario e lo studente
+    // veniva valutato su una sequenza non semantica.
     function setupSequenceBranch() {
         const st = S();
-        const nodes = st.db.nodes || [];
         const snap = ActiveStudy.session.snapshot;
-        // raggruppa per group (ramo); scegli quello con più figli sequenziali
-        const byGroup = {};
-        nodes.forEach(n => { if (n.level >= 1) (byGroup[n.group] = byGroup[n.group] || []).push(n); });
-        let best = null, bestLen = 0;
-        Object.values(byGroup).forEach(arr => { if (arr.length > bestLen) { bestLen = arr.length; best = arr; } });
-        if (!best || best.length < 3) { toast('Nessun ramo abbastanza lungo per la sequenza', 'warning'); return null; }
-        // ordine originale = per livello poi per ordine nei nodi
-        const ordered = best.slice().sort((a, b) => (a.level - b.level));
-        const ids = ordered.map(n => n.id);
-        // strippa i link interni a questo ramo, lascia il resto
-        const idset = new Set(ids);
+        const children = {};
+        Object.keys(snap.parentOf).forEach(c => {
+            const p = snap.parentOf[c];
+            (children[p] = children[p] || []).push(c);
+        });
+        let best = null;
+        Object.keys(snap.nodes).forEach(id => {
+            // testa di catena: il genitore non ha un solo figlio (o non esiste)
+            const p = snap.parentOf[id];
+            if (p && (children[p] || []).length === 1) return;
+            const path = [id];
+            let cur = id;
+            while (children[cur] && children[cur].length === 1) { cur = children[cur][0]; path.push(cur); }
+            if (path.length >= 3 && (!best || path.length > best.length)) best = path;
+        });
+        if (!best) { toast('Nessuna catena ordinabile in questa mappa (serve un ramo a sequenza, senza biforcazioni)', 'warning'); return null; }
+        // strippa i link interni alla catena, lascia il resto (la testa resta ancorata)
+        const idset = new Set(best);
         st.db.links = st.db.links.filter(l => !(idset.has(lid(l.source)) && idset.has(lid(l.target))));
-        return { ids };
+        return { ids: best };
     }
 
     // --------------------------------------------------------------- click API
@@ -511,7 +520,7 @@
                 ActiveStudy._selfTally = ActiveStudy._selfTally || { ok: 0, ko: 0 };
                 if (ok) ActiveStudy._selfTally.ok++; else ActiveStudy._selfTally.ko++;
                 ActiveStudy._entries = ActiveStudy._entries || [];
-                ActiveStudy._entries.push({ label: clean(d.label), userText: student, accuracy: res.accuracy, isCorrect: ok, source: original, feedback: res.feedback, gradedBy: 'ai' });
+                ActiveStudy._entries.push({ nodeId: d.id, label: clean(d.label), userText: student, accuracy: res.accuracy, isCorrect: ok, source: original, feedback: res.feedback, gradedBy: 'ai' });
                 updatePanelScore();
                 const barColor = ok ? '#22c55e' : '#f59e0b';
                 fb.innerHTML = `
@@ -543,7 +552,7 @@
                 <button id="as-md-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✗ No</button>
             </div>`;
         container.appendChild(wrap);
-        const record = (ok) => ActiveStudy._entries.push({ label: clean(d.label), userText: studentText || '', accuracy: ok ? 100 : 0, isCorrect: ok, source: source || '', gradedBy: 'self' });
+        const record = (ok) => ActiveStudy._entries.push({ nodeId: d.id, label: clean(d.label), userText: studentText || '', accuracy: ok ? 100 : 0, isCorrect: ok, source: source || '', gradedBy: 'self' });
         wrap.querySelector('#as-md-ok').onclick = () => { ActiveStudy._selfTally.ok++; record(true); updatePanelScore(); wrap.innerHTML = '<div style="color:#15803d;font-weight:600;font-size:13.5px">✓ Segnato come corretto</div>'; };
         wrap.querySelector('#as-md-ko').onclick = () => { ActiveStudy._selfTally.ko++; record(false); updatePanelScore(); wrap.innerHTML = '<div style="color:#b45309;font-weight:600;font-size:13.5px">↻ Segnato da rivedere</div>'; };
     }
@@ -604,7 +613,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                 const correct = (chosen === origFam);
                 if (correct) ActiveStudy._selfTally.ok++; else ActiveStudy._selfTally.ko++;
                 ActiveStudy._entries = ActiveStudy._entries || [];
-                ActiveStudy._entries.push({ source: a, target: b, chosenFamily: chosen, correctFamily: origFam, correctRel: origRel, isCorrect: correct });
+                ActiveStudy._entries.push({ nodeId: lid(linkDatum.target), source: a, target: b, chosenFamily: chosen, correctFamily: origFam, correctRel: origRel, isCorrect: correct });
                 // rivela il verbo originale sull'arco
                 ActiveStudy._revealed = ActiveStudy._revealed || new Set();
                 ActiveStudy._revealed.add(linkKey(linkDatum));
@@ -645,6 +654,8 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
             const targets = (S().db.nodes || []).filter(n => n !== root);
             let ok = 0;
             const entries = [];
+            // fluenza di sessione (corrette/min): abilita il livello 'fluente' anche qui
+            const elapsedMin = Math.max((Date.now() - (ActiveStudy.session.startedAt || Date.now())) / 60000, 2 / 60);
             targets.forEach(n => {
                 const placed = pl[n.id] || null;
                 const correctLabel = clean(n.label);
@@ -652,6 +663,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                 if (correct) ok++; else ActiveStudy._wrong.add(n.id);
                 entries.push({ nodeId: n.id, placed: placed, correct: correctLabel, isCorrect: correct });
             });
+            entries.forEach(e => { e.rate = ok / elapsedMin; });
             const tot = targets.length;
             setPanelResult(`Etichette: <b>${ok}/${tot}</b> al posto giusto (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso sono sbagliati.' : ' 🎉 Perfetto!'));
             summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
@@ -666,35 +678,52 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
         else if (mode === 6) {
             const t = ActiveStudy._selfTally || { ok: 0, ko: 0 };
             const tot = t.ok + t.ko;
+            // fluenza di sessione anche per i verbi
+            const elapsedMin6 = Math.max((Date.now() - (ActiveStudy.session.startedAt || Date.now())) / 60000, 2 / 60);
+            (ActiveStudy._entries || []).forEach(e => { if (e.rate == null) e.rate = t.ok / elapsedMin6; });
             setPanelResult(`Verbi: <b>${t.ok}/${tot}</b> famiglie corrette (${pct(t.ok, tot)}%).`);
             summary = { score: t.ok, total: tot, accuracy: pct(t.ok, tot), scoreText: `${t.ok}/${tot}`, entries: (ActiveStudy._entries || []) };
         }
         else {
             // modalità gerarchiche (2, 5, 7): confronto con l'albero originale
             const studentParent = buildStudentParentMap();
+            // entries per-nodo: senza, questi modi restavano invisibili alla padronanza
+            const labelOf = id => clean((nodesById[id] || {}).label);
             if (mode === 5) {
                 const disp = ActiveStudy._displaced || [];
                 let ok = 0;
-                disp.forEach(d => { if (studentParent[d.id] === d.originalParent) ok++; else ActiveStudy._wrong.add(d.id); });
+                const entries = [];
+                disp.forEach(d => {
+                    const correct = studentParent[d.id] === d.originalParent;
+                    if (correct) ok++; else ActiveStudy._wrong.add(d.id);
+                    entries.push({ nodeId: d.id, label: labelOf(d.id), isCorrect: correct });
+                });
                 setPanelResult(`Intrusi ricollocati: <b>${ok}/${disp.length}</b> corretti.` + (ActiveStudy._wrong.size ? ' Quelli in rosso sono ancora nel ramo sbagliato.' : ' 🎉'));
-                summary = { score: ok, total: disp.length, accuracy: pct(ok, disp.length), scoreText: `${ok}/${disp.length}`, entries: [] };
+                summary = { score: ok, total: disp.length, accuracy: pct(ok, disp.length), scoreText: `${ok}/${disp.length}`, entries: entries };
             } else if (mode === 7) {
                 const ids = (ActiveStudy._seqBranch || {}).ids || [];
                 let ok = 0;
-                for (let i = 1; i < ids.length; i++) { if (studentParent[ids[i]] === ids[i - 1]) ok++; else ActiveStudy._wrong.add(ids[i]); }
+                const entries = [];
+                for (let i = 1; i < ids.length; i++) {
+                    const correct = studentParent[ids[i]] === ids[i - 1];
+                    if (correct) ok++; else ActiveStudy._wrong.add(ids[i]);
+                    entries.push({ nodeId: ids[i], label: labelOf(ids[i]), isCorrect: correct });
+                }
                 const tot = Math.max(ids.length - 1, 1);
                 setPanelResult(`Sequenza: <b>${ok}/${tot}</b> collegamenti nell'ordine giusto.`);
-                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: [] };
+                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
             } else {
                 // mode 2
                 let ok = 0, tot = 0;
+                const entries = [];
                 Object.keys(snap.parentOf).forEach(childId => {
                     tot++;
-                    if (studentParent[childId] === snap.parentOf[childId]) ok++;
-                    else ActiveStudy._wrong.add(childId);
+                    const correct = studentParent[childId] === snap.parentOf[childId];
+                    if (correct) ok++; else ActiveStudy._wrong.add(childId);
+                    entries.push({ nodeId: childId, label: labelOf(childId), isCorrect: correct });
                 });
                 setPanelResult(`Gerarchia: <b>${ok}/${tot}</b> collegamenti corretti (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso hanno il genitore sbagliato.' : ' 🎉 Perfetto!'));
-                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: [] };
+                summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
             }
             window.renderGraph();
         }
@@ -727,10 +756,13 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
             let md = `- **${timeStr}** · ${mode}. ${modeTitle} · "${project}" · **${summary.scoreText}**`;
             if (summary.accuracy != null) md += ` (${summary.accuracy}%)`;
             md += '\n';
+            const durationSec = ActiveStudy.session.startedAt
+                ? Math.max(1, Math.round((Date.now() - ActiveStudy.session.startedAt) / 1000)) : null;
             const jsonRecord = {
                 timestamp: now.toISOString(), date: dateStr, time: timeStr,
                 mode: mode, modeTitle: modeTitle, project: project,
                 score: summary.score, total: summary.total, accuracy: summary.accuracy,
+                durationSec: durationSec,
                 entries: summary.entries || []
             };
             const r = await window.electronAPI.saveStudyRecord({
@@ -768,16 +800,21 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
     }
 
     // ----------------------------------------------------------------- enter/exit
+    // I modi gerarchici hanno bisogno di una radice (level 0); 3/4/6 funzionano
+    // anche su Knowledge Graph senza radice (overlay su struttura intatta).
+    const HIERARCHICAL_MODES = { 1: true, 2: true, 5: true, 7: true };
+
     ActiveStudy.enter = function (mode) {
         mode = Number(mode);
         if (!MODES[mode]) return;
         const root = findRoot();
-        if (!root) { toast('Serve una mappa con un nodo centrale (radice) per lo studio attivo', 'error'); return; }
+        if (!root && HIERARCHICAL_MODES[mode]) { toast('Serve una mappa con un nodo centrale (radice) per questa modalità', 'error'); return; }
         if (ActiveStudy.session.active) restoreSnapshot(); // pulizia da una sessione precedente
 
         ActiveStudy.session.snapshot = takeSnapshot();
         ActiveStudy.session.mode = mode;
         ActiveStudy.session.active = true;
+        ActiveStudy.session.startedAt = Date.now();
         ActiveStudy._link1 = null;
         ActiveStudy._revealed = new Set();
         ActiveStudy._selfTally = { ok: 0, ko: 0 };
@@ -790,6 +827,14 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
 
         wrapRender();
         applyTransform(mode);
+        // mode 7 senza catena valida: annulla la sessione invece di entrare in uno stato rotto
+        if (mode === 7 && !ActiveStudy._seqBranch) {
+            restoreSnapshot();
+            ActiveStudy.session.active = false;
+            ActiveStudy.session.mode = null;
+            window.renderGraph();
+            return;
+        }
         if (mode === 1 || mode === 2 || mode === 7 || mode === 5) scatterLooseNodes();
         if (window.updateDegreeStats) window.updateDegreeStats();
         window.renderGraph();
@@ -855,9 +900,15 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
 
     // Launcher: scelta della modalità
     ActiveStudy.openLauncher = function () {
-        if (!findRoot()) { toast('Apri una mappa con un nodo centrale per usare lo studio attivo', 'error'); return; }
+        const nodes = (S() && S().db && S().db.nodes) || [];
+        if (!nodes.length) { toast('Apri una mappa per usare lo studio attivo', 'error'); return; }
+        const hasRoot = !!findRoot();
         let cards = '';
+        if (!hasRoot) {
+            cards += '<p style="font-size:12px;color:#b45309;background:#fffbeb;border-radius:8px;padding:8px 10px;margin:0 0 10px">Mappa senza nodo centrale (es. Knowledge Graph): disponibili le modalità che non richiedono la gerarchia.</p>';
+        }
         Object.entries(MODES).forEach(([num, m]) => {
+            if (!hasRoot && HIERARCHICAL_MODES[Number(num)]) return;
             cards += `<button class="as-mode-card" data-mode="${num}" style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s">
                 <i data-lucide="${m.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
                 <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${num}. ${m.title}</span>
