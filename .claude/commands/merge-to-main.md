@@ -1,6 +1,6 @@
 # /merge-to-main
 
-Merge sicuro del branch `dev` su `MappAI_main` con checklist di sicurezza.
+Merge sicuro del branch di lavoro corrente su `main` con checklist di sicurezza.
 
 ## Quando usarlo
 
@@ -9,47 +9,66 @@ Quando una feature è stabile, testata e pronta per diventare la versione "uffic
 ## Istruzioni per Claude
 
 Esegui questi passi nell'ordine. Fermati se uno fallisce e spiega cosa è andato storto.
+Chiama `WORK` il branch di lavoro corrente (es. `feat/...`, `refactor/...`, `dev`).
 
-### Step 1 — Verifica che siamo su dev
+### Step 1 — Identifica il branch di lavoro
 ```bash
 git branch --show-current
 ```
-Se non siamo su `dev`, avvisa e fermati.
+Se siamo già su `main`, avvisa e fermati: il merge parte sempre dal branch di lavoro.
 
-### Step 2 — Verifica che dev sia pulito
+### Step 2 — Verifica che WORK sia pulito
 ```bash
 git status --short
 ```
-Se ci sono modifiche non committate, esegui `/save-work` prima di continuare.
+Se ci sono modifiche non committate: ispezionale con `git diff`, poi committale
+(o esegui `/save-work`) prima di continuare. Mai mergiare con il working tree sporco.
 
 ### Step 3 — Mostra cosa sta per essere mergiato
 ```bash
-git log MappAI_main..dev --oneline
+git log main..WORK --oneline
 ```
-Elenca i commit che entreranno in main. Chiedi conferma all'utente: "Questi N commit stanno per essere mergiati su MappAI_main. Confermi?"
+Elenca i commit che entreranno in main. Chiedi conferma all'utente: "Questi N commit
+stanno per essere mergiati su main. Confermi?" — salta la domanda solo se l'utente
+ha già chiesto esplicitamente il merge in questo scambio.
 
 ### Step 4 — Aggiorna main e fai il merge
 ```bash
-git checkout MappAI_main
-git pull origin MappAI_main
-git merge dev --no-ff -m "merge: integra sessione $(date '+%Y-%m-%d') da dev"
+git remote -v   # prima verifica se esiste un remote
+git checkout main
+git pull origin main   # SOLO se esiste un remote, altrimenti salta
+git merge WORK --no-ff -m "merge: integra sessione $(date '+%Y-%m-%d') da WORK"
 ```
 
-### Step 5 — Push di main
+### Step 5 — Verifica post-merge
 ```bash
-git push origin MappAI_main
+npm test
 ```
+La suite (`node --test`, 144+ test) deve passare al 100% sullo stato mergiato.
+Se fallisce: `git reset --hard ORIG_HEAD` su main, torna su WORK e indaga.
 
-### Step 6 — Torna su dev
+### Step 6 — Push di main
 ```bash
-git checkout dev
+git push origin main
+```
+SOLO se esiste un remote. Se non c'è, segnala che il repo vive solo su disco
+(niente backup remoto) e prosegui.
+
+### Step 7 — Torna sul branch di lavoro
+```bash
+git checkout WORK
 ```
 
-### Step 7 — Riepilogo
+### Step 8 — Riepilogo
 Mostra:
 - Quanti commit sono stati mergiati
-- Il nuovo HEAD di MappAI_main
-- Conferma che siamo tornati su dev
+- Il nuovo HEAD di main (hash + messaggio del merge commit)
+- Esito della suite di test
+- Conferma che siamo tornati su WORK
 
-## Nota
-Il merge usa `--no-ff` (no fast-forward) per mantenere traccia esplicita di ogni sessione di lavoro nella storia del repo.
+## Note
+- Il merge usa `--no-ff` (no fast-forward) per mantenere traccia esplicita di ogni
+  sessione di lavoro nella storia del repo.
+- Storia: fino a giugno 2026 il flusso era `dev` → `MappAI_main`; quei branch non
+  esistono più. Il default branch è `main`, il lavoro avviene su branch `feat/*`
+  o `refactor/*` (aggiornato 6 luglio 2026 dopo il merge dell'innesto BERT).
