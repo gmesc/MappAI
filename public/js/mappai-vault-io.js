@@ -23,6 +23,7 @@ window.saveMapVault = async function () {
                 rootNodeLabel: appState.rootNodeLabel,
                 nodes: appState.db.nodes,
                 links: appState.db.links,
+                studySets: appState.db.studySets || [],
                 userProfile: appState.userProfile,
                 tutorState: serializeTutorState(tutorState),
                 aiProvider: appState.aiProvider,
@@ -110,13 +111,9 @@ window.loadDemoGraph = async function (url) {
             }
         });
 
-        if (data.tutorState) {
-            window.tutorState = data.tutorState;
-            localStorage.setItem('mappai_tutor_state', JSON.stringify(window.tutorState));
-        } else {
-            window.tutorState = { messages: [], mode: "tutor", flashcards: [], currentFlashcardIndex: 0 };
-            localStorage.removeItem('mappai_tutor_state');
-        }
+        // reset/rimpiazzo chat: setTutorState aggiorna la variabile reale (il vecchio
+        // window.tutorState era una reference morta con shape legacy)
+        window.setTutorState(data.tutorState || null);
 
         appState.rootNodeLabel = data.rootNodeLabel || "Mappa Esempio";
 
@@ -187,6 +184,14 @@ window.loadMapVault = async function () {
                 sourcesDict: {},
                 customColors: loadRes.data.customColors || {}
             };
+
+            if (window.MappAIJigsaw) {
+                window.MappAIJigsaw.syncModeToVault(loadRes.data.branchLocks);
+                window.MappAIJigsaw.applyLocks(appState.db.nodes, loadRes.data.branchLocks);
+            }
+
+            // Ripristina le chat del vault (o azzera: mai ereditare quelle della mappa precedente)
+            window.setTutorState(loadRes.data.tutorState || null);
 
             if (window.renderStudySets) window.renderStudySets();
 

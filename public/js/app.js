@@ -1315,6 +1315,9 @@ window.startGeneration = async function () {
         return;
     }
 
+    // Nuova mappa = chat nuove: mai ereditare il tutorState della mappa precedente
+    if (window.setTutorState) window.setTutorState(null);
+
     window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
     if (appState.extractionMode === 'mindmap') {

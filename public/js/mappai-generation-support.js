@@ -495,19 +495,19 @@ Evita "include"/"correlato a" salvo pura appartenenza gerarchica.
         : '';
 
     return `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
-Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
+Hai il compito di sviluppare in profondità il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
 ${charter}
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5), fino al livello di dettaglio realmente coperto dalle fonti.
 2. Ciascun sotto-nodo generato deve definire:
    - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
-   - "desc": paragrafo descrittivo approfondito e chiaro (da 50 a 80 parole). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
+   - "desc": paragrafo descrittivo chiaro (50-80 parole quando la fonte lo permette, più corto altrimenti). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
    - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
 3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare connessioni trasversali verso nodi di altri rami — quelle verranno aggiunte in una fase successiva.
-${relGuide}
+${window.MM_FIDELITY_RULES_IT}${relGuide}
 ⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
 NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
 
@@ -536,6 +536,22 @@ ${focusInjection}${sc}
 FONTI DA ANALIZZARE:
 ${textParts.join('\n\n')}`;
 };
+
+// ⚓ Blocco di fedeltà alla fonte — iniettato in TUTTI i prompt che generano
+// label/desc dei nodi MM (Fase 3 inline, builder JSONL). Nato dal bug "desc
+// romanzate" (5 lug 2026): il modello drammatizzava oltre la fonte ("come un
+// funambolo", "terrore che Hitler...") e inventava nodi astratti a L4/L5
+// quando la fonte era esaurita. Stessa regola replicata nei template
+// MIND_MAP_FULL_TREE / MIND_MAP_BRANCH di prompts_config.json.
+window.MM_FIDELITY_RULES_IT = `
+⚓ REGOLA DI FEDELTÀ ALLA FONTE — PRIORITARIA SU OGNI ALTRA REGOLA ⚓
+- TONO ESPOSITIVO da manuale scolastico: la 'desc' riporta SOLO fatti, dati e relazioni presenti nelle fonti.
+- VIETATO nella 'desc': metafore e similitudini (es. "come un funambolo"), emozioni o motivazioni NON scritte nella fonte (es. "terrore", "paura" se la fonte non le nomina), amplificazioni retoriche, giudizi personali.
+- Se la fonte dice poco su un concetto: scrivi una 'desc' più breve ma fedele. MAI gonfiare una descrizione per raggiungere un numero di parole.
+- Il 'label' deve nominare un concetto ESPLICITO della fonte, non una tua astrazione interpretativa.
+- PROFONDITÀ ONESTA: crea i livelli più profondi SOLO dove la fonte contiene davvero quel dettaglio; meglio un ramo più corto che nodi inventati.
+- VERIFICA FINALE: ogni frase della 'desc' deve trovare riscontro nei 'chunks' o nel testo fonte; se non lo trova, riscrivila o eliminala.
+`;
 
 // Feature flag — abilita JSONL solo per Infomaniak e solo se opt-in via localStorage.
 // Attivazione: localStorage.setItem('mappai_jsonl_enabled', '1')
@@ -1043,8 +1059,8 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
 
     const isIT = document.documentElement.lang !== 'en';
     const prompt = isIT
-        ? `Hai una mappa mentale sul tema "${rootNodeLabel}" con queste macro-categorie di livello 1:\n\n${l1List}\n\nPer CIASCUNA categoria genera:\n- "desc": 40-60 parole narrative che spiegano COSA copre questa categoria, PERCHÉ esiste come categoria separata e QUALI concetti chiave contiene.\n- "confini": 1-2 frasi che indicano ESPLICITAMENTE cosa NON appartiene a questa categoria, con riferimento alle ALTRE categorie della lista.\n\nRestituisci SOLO un Array JSON: [{"label": "...", "desc": "...", "confini": "..."}]\nNessun commento o testo aggiuntivo.`
-        : `You have a mind map on the topic "${rootNodeLabel}" with these level 1 macro-categories:\n\n${l1List}\n\nFor EACH category generate:\n- "desc": 40-60 word narrative explaining WHAT this category covers, WHY it exists as a separate category, and WHICH key concepts it contains.\n- "confini": 1-2 sentences explicitly stating what does NOT belong in this category, referencing the OTHER categories in the list.\n\nReturn ONLY a JSON Array: [{"label": "...", "desc": "...", "confini": "..."}]\nNo comments or additional text.`;
+        ? `Hai una mappa mentale sul tema "${rootNodeLabel}" con queste macro-categorie di livello 1:\n\n${l1List}\n\nPer CIASCUNA categoria genera:\n- "desc": 40-60 parole in tono espositivo da manuale (niente metafore, niente giudizi) che spiegano COSA copre questa categoria, PERCHÉ esiste come categoria separata e QUALI concetti chiave contiene.\n- "confini": 1-2 frasi che indicano ESPLICITAMENTE cosa NON appartiene a questa categoria, con riferimento alle ALTRE categorie della lista.\n\nRestituisci SOLO un Array JSON: [{"label": "...", "desc": "...", "confini": "..."}]\nNessun commento o testo aggiuntivo.`
+        : `You have a mind map on the topic "${rootNodeLabel}" with these level 1 macro-categories:\n\n${l1List}\n\nFor EACH category generate:\n- "desc": 40-60 words in expository textbook tone (no metaphors, no judgments) explaining WHAT this category covers, WHY it exists as a separate category, and WHICH key concepts it contains.\n- "confini": 1-2 sentences explicitly stating what does NOT belong in this category, referencing the OTHER categories in the list.\n\nReturn ONLY a JSON Array: [{"label": "...", "desc": "...", "confini": "..."}]\nNo comments or additional text.`;
 
     const payload = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -1113,9 +1129,11 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
 //
 // I modali dei nodi sono lo strumento di studio principale per gli studenti
 // BES/DSA → le desc devono essere ricche. Questo post-pass individua i nodi
-// con desc sotto soglia (a QUALSIASI livello) e le riscrive in 50-80 parole
-// FEDELI al documento sorgente (zero allucinazioni). Batched per contenere i
-// token. Gated da `mappai_enrich_descs_enabled` (default OFF). Non bloccante.
+// con desc sotto soglia (a QUALSIASI livello) O con groundedness bassa
+// (desc romanzata: parole non riscontrabili nella fonte, via
+// MappAIDescFidelity) e le riscrive FEDELI al documento sorgente (zero
+// allucinazioni). Batched per contenere i token.
+// Gated da `mappai_enrich_descs_enabled` (default OFF). Non bloccante.
 window.isEnrichDescsEnabled = function () {
     try {
         return localStorage.getItem('mappai_enrich_descs_enabled') === '1'
@@ -1147,11 +1165,24 @@ window.enrichThinDescs = async function (textParts, apiKey) {
         return link ? (idToNode.get(linkId(link.source)) || null) : null;
     };
 
-    const thin = nodes.filter(n => (n.level ?? 0) >= 1 && window._descWordCount(n.desc) < THRESHOLD);
-    if (!thin.length) { console.log('[enrichThinDescs] nessuna desc sottile — skip'); return; }
+    const fullSource = (Array.isArray(textParts) ? textParts.join('\n\n') : String(textParts || ''));
+    if (!fullSource.trim()) { console.warn('[enrichThinDescs] nessun testo fonte — skip'); return; }
+    const source = fullSource.slice(0, SOURCE_CAP);
 
-    const source = (Array.isArray(textParts) ? textParts.join('\n\n') : String(textParts || '')).slice(0, SOURCE_CAP);
-    if (!source.trim()) { console.warn('[enrichThinDescs] nessun testo fonte — skip'); return; }
+    // Gate fedeltà: desc lunghe ma poco ancorate alla fonte (romanzate) vanno
+    // riscritte quanto quelle corte. Score sul testo pieno, prompt su quello cappato.
+    const FIDELITY_MIN = 0.45;
+    const fidelity = window.MappAIDescFidelity || null;
+    const srcIndex = fidelity ? fidelity.buildSourceIndex(fullSource) : null;
+    const isLowFidelity = (n) => {
+        if (!srcIndex) return false;
+        const s = fidelity.groundedness(n.desc, srcIndex);
+        return s !== null && s < FIDELITY_MIN;
+    };
+
+    const thin = nodes.filter(n => (n.level ?? 0) >= 1
+        && (window._descWordCount(n.desc) < THRESHOLD || isLowFidelity(n)));
+    if (!thin.length) { console.log('[enrichThinDescs] nessuna desc sottile o romanzata — skip'); return; }
 
     const isIT = document.documentElement.lang !== 'en';
     let applied = 0;
@@ -1166,8 +1197,8 @@ window.enrichThinDescs = async function (textParts, apiKey) {
         }).join('\n');
 
         const prompt = isIT
-            ? `Sei un redattore didattico per studenti con DSA/BES. Basandoti ESCLUSIVAMENTE sul DOCUMENTO qui sotto, scrivi per ciascun concetto elencato una descrizione chiara di 50-80 parole, in frasi semplici, lineari e fedeli al documento. NON inventare fatti non presenti nel documento. Se il documento non contiene abbastanza informazioni su un concetto, scrivi una descrizione più breve ma corretta.\n\nDOCUMENTO:\n${source}\n\nCONCETTI DA DESCRIVERE:\n${listStr}\n\nRestituisci SOLO un array JSON: [{"n": 1, "desc": "..."}]. Il campo "n" è il numero del concetto. Nessun altro testo.`
-            : `You are an educational editor for students with learning disabilities (SLD/SEN). Based EXCLUSIVELY on the DOCUMENT below, write for each listed concept a clear 50-80 word description, in simple linear sentences faithful to the document. Do NOT invent facts not present in the document. If the document lacks enough information on a concept, write a shorter but accurate description.\n\nDOCUMENT:\n${source}\n\nCONCEPTS TO DESCRIBE:\n${listStr}\n\nReturn ONLY a JSON array: [{"n": 1, "desc": "..."}]. The "n" field is the concept number. No other text.`;
+            ? `Sei un redattore didattico per studenti con DSA/BES. Basandoti ESCLUSIVAMENTE sul DOCUMENTO qui sotto, scrivi per ciascun concetto elencato una descrizione chiara di 50-80 parole, in frasi semplici, lineari e fedeli al documento. NON inventare fatti non presenti nel documento. TONO ESPOSITIVO da manuale: niente metafore né similitudini, niente emozioni o motivazioni che il documento non nomina, niente amplificazioni retoriche. Se il documento non contiene abbastanza informazioni su un concetto, scrivi una descrizione più breve ma corretta.\n\nDOCUMENTO:\n${source}\n\nCONCETTI DA DESCRIVERE:\n${listStr}\n\nRestituisci SOLO un array JSON: [{"n": 1, "desc": "..."}]. Il campo "n" è il numero del concetto. Nessun altro testo.`
+            : `You are an educational editor for students with learning disabilities (SLD/SEN). Based EXCLUSIVELY on the DOCUMENT below, write for each listed concept a clear 50-80 word description, in simple linear sentences faithful to the document. Do NOT invent facts not present in the document. EXPOSITORY TEXTBOOK TONE: no metaphors or similes, no emotions or motives the document does not name, no rhetorical amplification. If the document lacks enough information on a concept, write a shorter but accurate description.\n\nDOCUMENT:\n${source}\n\nCONCEPTS TO DESCRIBE:\n${listStr}\n\nReturn ONLY a JSON array: [{"n": 1, "desc": "..."}]. The "n" field is the concept number. No other text.`;
 
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -1187,11 +1218,18 @@ window.enrichThinDescs = async function (textParts, apiKey) {
                 const idx = parseInt(item && item.n);
                 if (isNaN(idx) || idx < 1 || idx > batch.length) continue;
                 const node = batch[idx - 1];
-                if (item.desc && typeof item.desc === 'string'
-                    && window._descWordCount(item.desc) > window._descWordCount(node.desc)) {
-                    node.desc = item.desc.trim();
-                    node.aiDesc = node.desc;
-                    applied++;
+                if (item.desc && typeof item.desc === 'string') {
+                    // Applica se più ricca in parole O più ancorata alla fonte:
+                    // una riscrittura fedele può legittimamente essere più corta
+                    // della desc romanzata che sostituisce.
+                    const moreWords = window._descWordCount(item.desc) > window._descWordCount(node.desc);
+                    const moreGrounded = srcIndex
+                        && (fidelity.groundedness(item.desc, srcIndex) ?? 0) > (fidelity.groundedness(node.desc, srcIndex) ?? 0);
+                    if (moreWords || moreGrounded) {
+                        node.desc = item.desc.trim();
+                        node.aiDesc = node.desc;
+                        applied++;
+                    }
                 }
             }
         } catch (e) {
@@ -1200,7 +1238,7 @@ window.enrichThinDescs = async function (textParts, apiKey) {
     }
 
     window.showLoadingOverlay(false);
-    console.log(`%c[enrichThinDescs] ${applied}/${thin.length} desc arricchite (soglia ${THRESHOLD} parole, ancorate alla fonte)`,
+    console.log(`%c[enrichThinDescs] ${applied}/${thin.length} desc riscritte (soglia ${THRESHOLD} parole o groundedness < ${FIDELITY_MIN}, ancorate alla fonte)`,
         'color:#10b981;font-weight:bold');
 };
 

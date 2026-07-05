@@ -78,13 +78,10 @@ window.showContextMenu = function (e, type, data) {
             <hr class="my-1 border-slate-200">
         ` : '';
 
-        menu.innerHTML = `
-                    <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> Leggi ad alta voce</div>
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">Stato di Studio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> Ripasso necessario</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
+        // JIGSAW: su un nodo di ramo altrui (bloccato) nascondi le voci di scrittura.
+        // Sul PROPRIO ramo il nodo è editabile → resta tutto, incluso "Crea Figlio".
+        const jLocked = !!(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled() && !window.MappAIJigsaw.canEdit(data));
+        const editorHtml = !jLocked ? `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
                     ${expandAiHtml}
                     <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> Edit Contenuto</div>
@@ -94,11 +91,47 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item text-amber-600" onclick="window.ctxAction('merge')"><i data-lucide="git-merge"></i> Fondi con...</div>
                     ${appState.extractionMode !== 'kg' ? `<div class="ctx-item text-sky-600" onclick="window.ctxAction('relink')"><i data-lucide="unlink"></i> Cambia Link</div>` : ''}
                     <hr class="my-1 border-slate-200">
+                ` : '';
+        const deleteHtml = !jLocked ? `<div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>` : '';
+
+        menu.innerHTML = `
+                    <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> Leggi ad alta voce</div>
+                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">Stato di Studio</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> Ripasso necessario</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
+                    ${editorHtml}
                     ${spacedRepetitionHtml}
-                    <div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>
+                    ${deleteHtml}
                 `;
     } else if (type === 'link') {
-        if (data.aiSuggested) {
+        // JIGSAW: ponte inter-area + docente (modalità OFF) → menu di ratifica.
+        if (data.isBridge && window.MappAIJigsaw && !window.MappAIJigsaw.isEnabled()) {
+            menu.innerHTML =
+                '<div class="px-3 py-2" style="max-width:270px;"><div style="font-weight:700;color:#6366f1;font-size:12px;">Ponte inter-area</div>' +
+                '<div style="color:#64748b;font-size:11px;margin-top:2px;">Autore: ' + (data.bridgeAuthor || '?') + ' · stato: ' + (data.bridgeStatus || 'proposed') + '</div>' +
+                (data.justification ? '<div style="color:#475569;font-size:12px;margin-top:4px;font-style:italic;">"' + String(data.justification).replace(/[<>]/g, '') + '"</div>' : '') + '</div>' +
+                '<hr class="my-1 border-slate-200">' +
+                '<div class="ctx-item text-emerald-600" onclick="window.ctxAction(\'ratify_bridge\')"><i data-lucide="check-circle"></i> Ratifica ponte</div>' +
+                '<div class="ctx-item danger" onclick="window.ctxAction(\'reject_bridge\')"><i data-lucide="x-circle"></i> Rifiuta ponte</div>' +
+                '<hr class="my-1 border-slate-200">' +
+                '<div class="ctx-item" onclick="window.ctxAction(\'rename_link\')"><i data-lucide="type"></i> Rinomina Relazione</div>' +
+                '<div class="ctx-item danger" onclick="window.ctxAction(\'delete_link\')"><i data-lucide="trash-2"></i> Elimina Ponte</div>';
+            window.safeCreateIcons();
+            menu.classList.remove('hidden');
+            let bx = e.clientX, by = e.clientY;
+            if (bx + 224 > window.innerWidth) bx -= 224;
+            if (by + menu.offsetHeight > window.innerHeight) by = window.innerHeight - menu.offsetHeight - 10;
+            menu.style.left = `${bx}px`; menu.style.top = `${Math.max(10, by)}px`;
+            return;
+        }
+        // JIGSAW: link tra rami bloccati → nessuna azione di scrittura, solo hint.
+        const linkEditable = !(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled()) ||
+            (window.MappAIJigsaw.canEditLink ? window.MappAIJigsaw.canEditLink(data) : true);
+        if (!linkEditable) {
+            menu.innerHTML = `<div class="px-3 py-2 text-xs text-slate-400 flex items-center gap-2"><i data-lucide="lock" class="w-3.5 h-3.5"></i> Link bloccato (solo studio)</div>`;
+        } else if (data.aiSuggested) {
             menu.innerHTML = `
                         <div class="px-3 py-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-widest bg-amber-50 border-b border-amber-200">🤖 Link AI Suggerito</div>
                         <div class="ctx-item text-emerald-600" onclick="window.ctxAction('validate_ai_link')"><i data-lucide="check-circle"></i> Valida Correlazione</div>
@@ -113,17 +146,19 @@ window.showContextMenu = function (e, type, data) {
                     `;
         }
     } else if (type === 'bg') {
+        // JIGSAW: creazione di nodi isolati (fuori da ogni ramo) vietata → nascondi le voci.
+        const jOn = !!(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled());
         if (appState.extractionMode === 'kg') {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>
+                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>` : ''}
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
                 <hr class="my-1 border-slate-200">
                 <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
             `;
         } else {
             menu.innerHTML = `
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>
+                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>` : ''}
                 <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
                 <hr class="my-1 border-slate-200">
                 <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
@@ -200,12 +235,17 @@ window.ctxAction = function (action) {
         if (currentNode && currentNode.id === data.id) window.handleNodeClick({ stopPropagation: () => { } }, currentNode);
     }
     else if (action === 'rename') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'rinomina')) return;
         window.showPrompt("Nuova etichetta del nodo:", cleanLabel(data.label), (newLabel) => {
             if (newLabel) { data.label = newLabel; renderGraph(); }
         });
     }
-    else if (action === 'edit') { window.openEditModal(data); }
+    else if (action === 'edit') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'modifica')) return;
+        window.openEditModal(data);
+    }
     else if (action === 'add_child') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'aggiungi figlio')) return;
         if (appState.extractionMode === 'kg') {
             // In KG mode, add_child becomes a choice or defaults to node
             window.showPrompt("Nome del nuovo nodo figlio:", "", (lbl) => {
@@ -228,6 +268,7 @@ window.ctxAction = function (action) {
         }
     }
     else if (action === 'add_isolated_hub') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardIsolated('hub isolato')) return;
         window.showPrompt("Nome del nuovo Super-Hub:", "", (lbl) => {
             if (lbl) {
                 let newId = 'HUB_' + Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -239,6 +280,7 @@ window.ctxAction = function (action) {
         });
     }
     else if (action === 'add_isolated_node') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardIsolated('nodo isolato')) return;
         window.showPrompt("Nome del nuovo nodo isolato:", "", (lbl) => {
             if (lbl) {
                 let newId = 'NODE_' + Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -248,6 +290,7 @@ window.ctxAction = function (action) {
         });
     }
     else if (action === 'link') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'collega')) return;
         linkingState = { active: true, sourceNode: data };
         const hint = document.getElementById('mode-hint');
         hint.innerText = "MODALITÀ COLLEGAMENTO: Clicca sul nodo di destinazione"; hint.classList.remove('hidden');
@@ -266,6 +309,7 @@ window.ctxAction = function (action) {
         window.openStudyConfigModal('quiz', data, 'branch');
     }
     else if (action === 'delete_node') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'elimina')) return;
         window.showConfirm("Elimina Nodo", "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?", () => {
             if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina nodo: ' + data.label);
             appState.db.nodes = appState.db.nodes.filter(n => n.id !== data.id);
@@ -285,23 +329,40 @@ window.ctxAction = function (action) {
         window.startRelinkMode(data);
     }
     else if (action === 'rename_link') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWriteLink(data, 'rinomina link')) return;
         window.showPrompt("Etichetta relazione (lascia vuoto per nascondere la label):", data.rel || '', (newRel) => {
             data.rel = newRel; // stringa vuota = link senza label visibile
             renderGraph();
         });
     }
     else if (action === 'delete_link') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWriteLink(data, 'elimina link')) return;
         if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina link: ' + (data.rel || data.source + '→' + data.target));
         appState.db.links = appState.db.links.filter(l => l !== data);
         window.updateDegreeStats(); renderGraph();
     }
     else if (action === 'validate_ai_link') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWriteLink(data, 'valida link')) return;
         window.openValidateModal(data);
     }
     else if (action === 'remove_ai_link') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWriteLink(data, 'rimuovi link')) return;
         window.removeAILink(data);
     }
+    else if (action === 'ratify_bridge') {
+        if (window.MappAIJigsaw && window.MappAIJigsaw.setBridgeStatus(data, 'ratified')) {
+            renderGraph();
+            if (window.showToast) window.showToast('Ponte ratificato — salva il vault per rendere permanente', 'success');
+        }
+    }
+    else if (action === 'reject_bridge') {
+        if (window.MappAIJigsaw && window.MappAIJigsaw.setBridgeStatus(data, 'rejected')) {
+            renderGraph();
+            if (window.showToast) window.showToast('Ponte rifiutato', 'info');
+        }
+    }
     else if (action === 'add_isolated') {
+        if (window.MappAIJigsaw && !window.MappAIJigsaw.guardIsolated('nodo isolato')) return;
         window.showPrompt("Nome del nuovo nodo:", "", (lbl) => {
             if (lbl) {
                 let newId = 'NODE_' + Math.random().toString(36).substr(2, 6).toUpperCase();

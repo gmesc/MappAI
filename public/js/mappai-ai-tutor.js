@@ -52,6 +52,7 @@ let tutorState = {
     },
     nodes: {} // Persist node chats: { nodeId: { phase: 'studio', turns: 0, history: [] } }
 };
+window.tutorState = tutorState; // reference condivisa per i moduli esterni
 
 /**
  * Ritorna una copia deep-serializzabile di tutorState (solo scalari + array + oggetti plain).
@@ -66,7 +67,35 @@ function serializeTutorState(state) {
         console.warn('[MappAI] tutorState non serializzabile, uso fallback vuoto:', e);
         return { sidebar: { history: [] }, nodes: {} };
     }
+    if (raw.nodes && typeof raw.nodes === 'object' && !Array.isArray(raw.nodes)) base.nodes = raw.nodes;
+    return base;
 }
+
+/**
+ * Normalizza qualsiasi tutorState in ingresso alla shape corrente
+ * { sidebar: { history: [] }, nodes: {} }. Vault vecchi o shape legacy
+ * ({ messages, mode, ... }) non devono far crashare la chat.
+ */
+function normalizeTutorState(raw) {
+    const base = { sidebar: { history: [] }, nodes: {} };
+    if (!raw || typeof raw !== 'object') return base;
+    if (raw.sidebar && Array.isArray(raw.sidebar.history)) {
+        base.sidebar.history = raw.sidebar.history;
+        if (raw.sidebar.mode) base.sidebar.mode = raw.sidebar.mode;
+    }
+}
+
+/**
+ * UNICO punto di rimpiazzo del tutorState. Va chiamato a OGNI cambio mappa,
+ * anche con null: senza reset le chat della mappa precedente "sanguinano"
+ * nella nuova (e finiscono salvate nel vault sbagliato → meta-analisi
+ * contaminata tra studenti sulla stessa macchina).
+ */
+window.setTutorState = function (raw) {
+    tutorState = normalizeTutorState(raw);
+    window.tutorState = tutorState; // stessa reference per i moduli esterni (effort-view, meta-analisi)
+    return tutorState;
+};
 
 window.parseSimpleMarkdown = function (text) {
     if (!text) return "";
@@ -180,20 +209,28 @@ window.sendSidebarTutorMessage = async function () {
 
         tutorState.sidebar.history.push({
             role: "user",
-            parts: [{ text: `Contesto globale del progetto:\n${globalContext}\n\nDomanda dell'utente: ${customQuery}` }]
+            parts: [{ text: `Contesto globale del progetto:\n${globalContext}\n\nDomanda dell'utente: ${customQuery}` }],
+            mode: tutorState.sidebar.mode || null
         });
     } else {
         tutorState.sidebar.history.push({
             role: "user",
-            parts: [{ text: customQuery }]
+            parts: [{ text: customQuery }],
+            mode: tutorState.sidebar.mode || null
         });
     }
 
     try {
         const apiKey = window.getSystemKey();
+        let sidebarSys = "Sei un Tutor per studenti. Hai accesso all'intero contesto del progetto dell'utente. Rispondi sempre in italiano, in modo didattico, conciso e incoraggiante. Usa formattazione HTML (<strong>, <p>, <ul>, <li>).";
+        if (tutorState.sidebar.mode) {
+            const mi = window.fillPromptTemplate('TUTOR_MODE_' + String(tutorState.sidebar.mode).toUpperCase(), {});
+            if (mi) sidebarSys += ' ' + mi;
+        }
         const payload = {
-            systemInstruction: { parts: [{ text: "Sei un Tutor per studenti. Hai accesso all'intero contesto del progetto dell'utente. Rispondi sempre in italiano, in modo didattico, conciso e incoraggiante. Usa formattazione HTML (<strong>, <p>, <ul>, <li>)." }] },
-            contents: tutorState.sidebar.history
+            systemInstruction: { parts: [{ text: sidebarSys }] },
+            // Strip del tag 'mode' (l'API vuole solo {role, parts}); resta nello storico per la meta-analisi.
+            contents: tutorState.sidebar.history.map(m => ({ role: m.role, parts: m.parts }))
         };
 
         const data = await window.fetchModelAPI(payload, apiKey);
@@ -204,7 +241,8 @@ window.sendSidebarTutorMessage = async function () {
 
         tutorState.sidebar.history.push({
             role: "model",
-            parts: [{ text: rawText }]
+            parts: [{ text: rawText }],
+            mode: tutorState.sidebar.mode || null
         });
 
         // Update UI
@@ -258,14 +296,15 @@ window.startNodeTutor = function () {
         // Initialize new session for this node
         tutorState.nodes[editTarget.id] = {
             phase: null,
+            mode: 'socratic',
             turns: 0,
             history: []
         };
 
         const lang = appState.language || 'it';
         const firstMsg = lang === 'it' ?
-            "Sei in fase di studio o di ragionamento?" :
-            "Are you in the study or reasoning phase?";
+            "Ciao! Scegli una <strong>modalità</strong> qui sotto (Socratico, Spiega tu, Interroga tu, Dubbio, Collega, Ripasso) e scrivimi: lavoriamo insieme su questo nodo." :
+            "Hi! Pick a <strong>mode</strong> below (Socratic, Explain it, You ask, Doubt, Connect, Recall) and write to me: let's work on this node together.";
 
         let safeRawTextForBtn = firstMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML = `
@@ -314,7 +353,61 @@ window.startNodeTutor = function () {
         window.safeCreateIcons();
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
+
+    window.renderNodeTutorModes();
 }
+
+// Modalità di interazione della chat-nodo (system prompt TUTOR_MODE_* in prompts_config.json).
+const NODE_TUTOR_MODES = [
+    { id: 'socratic', it: 'Socratico', en: 'Socratic' },
+    { id: 'explain', it: 'Spiega tu', en: 'Explain it' },
+    { id: 'ask', it: 'Interroga tu', en: 'You ask' },
+    { id: 'devil', it: 'Dubbio', en: 'Doubt' },
+    { id: 'connect', it: 'Collega', en: 'Connect' },
+    { id: 'recall', it: 'Ripasso', en: 'Recall' }
+];
+window.renderNodeTutorModes = function () {
+    const el = document.getElementById('node-tutor-modes');
+    if (!el || !editTarget) return;
+    const st = tutorState.nodes[editTarget.id];
+    const cur = (st && st.mode) || 'socratic';
+    const lang = appState.language === 'en' ? 'en' : 'it';
+    el.innerHTML = NODE_TUTOR_MODES.map(m => {
+        const active = m.id === cur;
+        return `<button type="button" onclick="window.setNodeTutorMode('${m.id}')" title="${m[lang]}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
+    }).join('');
+};
+window.setNodeTutorMode = function (mode) {
+    if (!editTarget) return;
+    if (!tutorState.nodes[editTarget.id]) tutorState.nodes[editTarget.id] = { phase: null, mode: 'socratic', turns: 0, history: [] };
+    tutorState.nodes[editTarget.id].mode = mode;
+    window.renderNodeTutorModes();
+    const m = NODE_TUTOR_MODES.find(x => x.id === mode);
+    const lang = appState.language === 'en' ? 'en' : 'it';
+    if (window.showToast && m) window.showToast((lang === 'en' ? 'Mode: ' : 'Modalità: ') + m[lang], 'info');
+};
+
+// Stesse modalità per il Tutor Globale (sidebar) + opzione "Libero" (default = comportamento attuale).
+window.renderSidebarTutorModes = function () {
+    const el = document.getElementById('sidebar-tutor-modes');
+    if (!el) return;
+    const cur = (tutorState.sidebar && tutorState.sidebar.mode) || null;
+    const lang = appState.language === 'en' ? 'en' : 'it';
+    const list = [{ id: null, it: 'Libero', en: 'Free' }].concat(NODE_TUTOR_MODES);
+    el.innerHTML = list.map(m => {
+        const active = (m.id || null) === cur;
+        return `<button type="button" onclick="window.setSidebarTutorMode(${m.id ? "'" + m.id + "'" : 'null'})" title="${m[lang]}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
+    }).join('');
+};
+window.setSidebarTutorMode = function (mode) {
+    if (!tutorState.sidebar) tutorState.sidebar = { history: [] };
+    tutorState.sidebar.mode = mode || null;
+    window.renderSidebarTutorModes();
+    const m = NODE_TUTOR_MODES.find(x => x.id === mode);
+    const lang = appState.language === 'en' ? 'en' : 'it';
+    if (window.showToast) window.showToast((lang === 'en' ? 'Mode: ' : 'Modalità: ') + (m ? m[lang] : (lang === 'en' ? 'Free' : 'Libero')), 'info');
+};
+document.addEventListener('DOMContentLoaded', () => { try { window.renderSidebarTutorModes(); } catch (e) {} });
 
 window.sendNodeTutorMessage = async function () {
     if (!editTarget) return;
@@ -340,12 +433,8 @@ window.sendNodeTutorMessage = async function () {
     let currentNodeState = tutorState.nodes[editTarget.id];
     if (!currentNodeState) return;
 
-    if (currentNodeState.turns === 0 && !currentNodeState.phase) {
-        const lowerQ = customQuery.toLowerCase();
-        if (lowerQ.includes('studio')) currentNodeState.phase = 'studio';
-        else if (lowerQ.includes('ragionamento')) currentNodeState.phase = 'ragionamento';
-        else currentNodeState.phase = 'studio';
-    }
+    // Modalità di interazione (default 'socratic'). Sostituisce il vecchio switch studio/ragionamento.
+    if (!currentNodeState.mode) currentNodeState.mode = 'socratic';
 
     currentNodeState.turns++;
 
@@ -391,27 +480,13 @@ window.sendNodeTutorMessage = async function () {
         }
     }
 
-    let phaseStr = "";
-    if (lang === 'it') {
-        if (currentNodeState.phase === 'studio') {
-            phaseStr = currentNodeState.turns <= 3 ?
-                "L'utente è in fase di STUDIO. Accogli la sua interazione con 1-2 frasi incoraggianti, e fagli una sola domanda facile per testare le basi." :
-                "L'utente è in fase di STUDIO (Turno > 3). SWITCH SOCRATICO: poni UNA domanda mirata per sollecitarlo a rielaborare autonomamente.";
-        } else {
-            phaseStr = currentNodeState.turns <= 3 ?
-                "L'utente è in fase di RAGIONAMENTO. Prendi l'iniziativa: fagli UNA singola domanda di ragionamento per valutare la sua comprensione." :
-                "L'utente è in fase di RAGIONAMENTO (Turno > 3). Formula un breve feedback oggettivo. Proponi UNA singola pista di ragionamento alternativa.";
-        }
-    } else {
-        if (currentNodeState.phase === 'studio') {
-            phaseStr = currentNodeState.turns <= 3 ?
-                "The user is in the STUDY phase. Welcome their interaction with 1-2 encouraging sentences, and ask only one easy question to test the basics." :
-                "The user is in the STUDY phase (Turn > 3). SOCRATIC SWITCH: ask ONE targeted question to prompt them to re-elaborate independently.";
-        } else {
-            phaseStr = currentNodeState.turns <= 3 ?
-                "The user is in the REASONING phase. Take the initiative: ask them ONE single reasoning question to assess their understanding." :
-                "The user is in the REASONING phase (Turn > 3). Formulate brief objective feedback. Propose ONE single alternative reasoning path.";
-        }
+    // phaseInstruction = system prompt della modalità scelta (TUTOR_MODE_<MODE>_<lang> in prompts_config.json).
+    const modeKey = 'TUTOR_MODE_' + String(currentNodeState.mode || 'socratic').toUpperCase();
+    let phaseStr = window.fillPromptTemplate(modeKey, {});
+    if (!phaseStr) {
+        phaseStr = lang === 'it'
+            ? "Guida lo studente con UNA domanda alla volta per farlo rielaborare da solo."
+            : "Guide the student with ONE question at a time to help them re-elaborate on their own.";
     }
 
     let kgStr = "";
@@ -439,13 +514,14 @@ window.sendNodeTutorMessage = async function () {
         apiQuery = `${contextStr}\n\n${prefix} ${customQuery}`;
     }
 
-    currentNodeState.history.push({ role: "user", parts: [{ text: apiQuery }] });
+    currentNodeState.history.push({ role: "user", parts: [{ text: apiQuery }], mode: currentNodeState.mode });
 
     try {
         const apiKey = window.getSystemKey();
         const payload = {
             systemInstruction: { parts: [{ text: instruction }] },
-            contents: currentNodeState.history,
+            // Strip del tag 'mode' (l'API accetta solo {role, parts}); il tag resta nello storico per la meta-analisi.
+            contents: currentNodeState.history.map(m => ({ role: m.role, parts: m.parts })),
             // Limita i token per Infomaniak: risposte corte prevengono i loop
             ...(isInfomaniakTutor && { generationConfig: { maxOutputTokens: 400 } })
         };
@@ -457,7 +533,7 @@ window.sendNodeTutorMessage = async function () {
         let resultHTML = window.parseSimpleMarkdown(rawText);
         let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-        currentNodeState.history.push({ role: "model", parts: [{ text: rawText }] });
+        currentNodeState.history.push({ role: "model", parts: [{ text: rawText }], mode: currentNodeState.mode });
 
         document.getElementById(loaderId).remove();
         chatHistory.innerHTML += `

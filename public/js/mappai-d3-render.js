@@ -589,6 +589,46 @@ function renderGraph() {
         return out;
     };
 
+    // Wrap per-parola: 2 parole significative → 2 righe, 3 → 3 righe.
+    // Le parole-funzione (articoli, preposizioni semplici e articolate,
+    // congiunzioni) non contano e restano attaccate alla parola significativa
+    // successiva: "La Guerra Fredda" → ["La Guerra", "Fredda"], "Ciclo di
+    // Calvin" → ["Ciclo", "di Calvin"], "ATP e NADPH" → ["ATP", "e NADPH"].
+    // I token elisi ("L'Esercito") sono un'unica parola e contano come 1.
+    const LABEL_FUNCTION_WORDS = new Set([
+        // articoli
+        'il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una',
+        // preposizioni semplici
+        'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
+        // preposizioni articolate
+        'del', 'dello', 'della', 'dei', 'degli', 'delle',
+        'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+        'dal', 'dallo', 'dalla', 'dai', 'dagli', 'dalle',
+        'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
+        'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
+        // congiunzioni
+        'e', 'ed', 'o', 'od',
+        // inglese (label EN)
+        'the', 'an', 'of', 'to', 'and', 'or', 'for', 'with', 'in', 'on'
+    ]);
+    const splitLabelWords = (s) => {
+        const tokens = String(s || '').trim().split(/\s+/).filter(Boolean);
+        const groups = [];
+        let pending = [];
+        tokens.forEach(t => {
+            const bare = t.toLowerCase().replace(/[^\p{L}']/gu, '');
+            if (LABEL_FUNCTION_WORDS.has(bare)) { pending.push(t); return; }
+            groups.push(pending.concat(t).join(' '));
+            pending = [];
+        });
+        // parola-funzione in coda senza parola dopo: resta sull'ultima riga
+        if (pending.length) {
+            if (groups.length) groups[groups.length - 1] += ' ' + pending.join(' ');
+            else groups.push(pending.join(' '));
+        }
+        return groups;
+    };
+
     nodeMerge.select("text.node-text")
         .style("font-size", d => {
             let baseSize = 8;
@@ -608,8 +648,12 @@ function renderGraph() {
             const nameStr = dateParsed ? dateParsed.name : labelStr;
 
             let lines;
+            const wordGroups = splitLabelWords(nameStr);
             if (nameStr.indexOf('\n') !== -1) {
                 lines = getLabelLines(nameStr);
+            } else if (wordGroups.length === 2 || wordGroups.length === 3) {
+                // 2 parole significative → 2 righe, 3 → 3 righe (una per riga)
+                lines = wordGroups;
             } else if (d.level >= 4) {
                 lines = wrapLabel(nameStr, 16, 3);
             } else if (d.level === 3) {
@@ -688,6 +732,11 @@ function renderGraph() {
             let icons = [];
             const outlineClass = "node-icon-outline";
             const vis = d.iconVisibility || { text: true, image: true, link: true };
+
+            // JIGSAW: lucchetto sui capi-ramo bloccati (ramo altrui / zona docente). Solo L0-L1 per non intasare.
+            if (window.MappAIJigsaw && window.MappAIJigsaw.isEnabled() && d.level <= 1 && !window.MappAIJigsaw.canEdit(d)) {
+                icons.push(`<i data-lucide="lock" class="w-3 h-3 text-rose-500 ${outlineClass}"></i>`);
+            }
 
             if (d.hasCustomText && vis.text) icons.push(`<i data-lucide="pencil" class="w-3 h-3 text-slate-800 ${outlineClass}"></i>`);
 

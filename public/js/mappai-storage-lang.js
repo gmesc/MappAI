@@ -27,7 +27,12 @@ const StorageManager = {
             name: appState.rootNodeLabel || "Mappa Senza Nome",
             date: Date.now(),
             nodesCount: appState.db.nodes.length,
-            type: appState.extractionMode || 'mindmap'
+            type: appState.extractionMode || 'mindmap',
+            // Nome della cartella vault collegata (null = progetto solo-localStorage):
+            // usato da renderRecentProjects per nascondere i progetti il cui vault è stato eliminato
+            vault: appState.activeVaultPath
+                ? (String(appState.activeVaultPath).split(/[\\/]/).filter(Boolean).pop() || null)
+                : null
         };
 
         if (idx >= 0) projects[idx] = pMeta;
@@ -147,7 +152,9 @@ const StorageManager = {
         });
     },
 
-    validVaultFolders: [], // Cache dei nomi di cartelle vault che effettivamente esistono
+    // Cache dei nomi di cartelle vault che effettivamente esistono.
+    // null = non ancora verificato (o verifica fallita) → nessun filtro in render.
+    validVaultFolders: null,
 
     // Verifica quali vault EFFETTIVAMENTE ESISTONO nel file system
     // (senza toccare localStorage, il quale rimane integro)
@@ -155,18 +162,80 @@ const StorageManager = {
         try {
             if (!window.electronAPI || !window.electronAPI.getValidVaultFolders) return;
             this.validVaultFolders = await window.electronAPI.getValidVaultFolders();
+            this._migrateProjectVaultNames();
         } catch (e) {
             console.warn("[StorageManager] Errore syncValidVaults:", e);
-            this.validVaultFolders = [];
+            this.validVaultFolders = null;
         }
+    },
+
+    // Una tantum: arricchisce le voci legacy di tutor_ai_projects con p.vault
+    // (nome cartella vault) estratto dallo snapshot salvato — così render non
+    // deve mai riparsare gli snapshot (possono pesare MB).
+    _migrateProjectVaultNames: function () {
+        try {
+            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+            let changed = false;
+            projects.forEach(p => {
+                if (p.vault !== undefined) return;
+                let vault = null;
+                try {
+                    const snap = JSON.parse(localStorage.getItem(p.id) || 'null');
+                    if (snap && snap.activeVaultPath) {
+                        vault = String(snap.activeVaultPath).split(/[\\/]/).filter(Boolean).pop() || null;
+                    }
+                } catch (e) { /* snapshot corrotto → niente filtro per questa voce */ }
+                p.vault = vault;
+                changed = true;
+            });
+            if (changed) localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
+        } catch (e) {
+            console.warn("[StorageManager] Errore migrazione vault names:", e);
+        }
+    },
+
+    // Elimina DEFINITIVAMENTE da localStorage i progetti il cui vault non esiste più
+    // (voce in tutor_ai_projects + snapshot appState — libera quota localStorage).
+    // Da console: StorageManager.purgeStaleProjects()
+    purgeStaleProjects: async function () {
+        await this.syncValidVaults();
+        if (!Array.isArray(this.validVaultFolders)) {
+            console.warn('[StorageManager] Vault non verificabili — nessuna pulizia eseguita.');
+            return 0;
+        }
+        let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+        const stale = projects.filter(p => p.vault && !this.validVaultFolders.includes(p.vault));
+        stale.forEach(p => localStorage.removeItem(p.id));
+        projects = projects.filter(p => !stale.includes(p));
+        localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
+        this.renderRecentProjects();
+        console.log('[StorageManager] Rimossi ' + stale.length + ' progetti stale:', stale.map(p => p.name));
+        return stale.length;
     },
 
     renderRecentProjects: function () {
         const container = document.getElementById('recent-projects-container');
         if (!container) return;
 
+        // Rotella del mouse → scorrimento orizzontale (bind una sola volta)
+        if (!container._hScrollBound) {
+            container._hScrollBound = true;
+            container.addEventListener('wheel', function (e) {
+                if (!e.deltaY) return;
+                if (container.scrollWidth <= container.clientWidth) return; // niente overflow → lascia lo scroll verticale
+                e.preventDefault();
+                container.scrollLeft += e.deltaY;
+            }, { passive: false });
+        }
+
         try {
             let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+
+            // Nasconde i progetti il cui vault è stato eliminato dal file system.
+            // localStorage resta integro: per pulire davvero → StorageManager.purgeStaleProjects()
+            if (Array.isArray(this.validVaultFolders)) {
+                projects = projects.filter(p => !p.vault || this.validVaultFolders.includes(p.vault));
+            }
 
             if (projects.length === 0) {
                 container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';

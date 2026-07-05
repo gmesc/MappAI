@@ -218,10 +218,16 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
             if (linkingState.sourceNode.id !== d.id) {
                 window.showLinkFamilyPrompt(cleanLabel(linkingState.sourceNode.label), cleanLabel(d.label), (rel, bidir) => {
                     if (rel) {
-                        const link = { source: linkingState.sourceNode.id, target: d.id, rel: rel };
+                        const src = linkingState.sourceNode;
+                        const link = { source: src.id, target: d.id, rel: rel };
                         if (bidir) link.bidirectional = true;
-                        appState.db.links.push(link);
-                        window.updateDegreeStats(); renderGraph();
+                        const create = () => { appState.db.links.push(link); window.updateDegreeStats(); renderGraph(); };
+                        // JIGSAW: un link fra rami diversi è un PONTE inter-area → chiedi giustificazione.
+                        if (window.MappAIJigsaw && window.MappAIJigsaw.isBridgeLink(src, d)) {
+                            window.MappAIJigsaw.finalizeBridge(link, src, d, create);
+                        } else {
+                            create();
+                        }
                     }
                 });
             }
@@ -552,6 +558,7 @@ window.openSourceModal = function (nodeId) {
                     </div>
                     <div id="node-tutor-chat-area" class="hidden flex-col h-[450px]">
                         <div id="node-tutor-chat-history" class="flex-grow overflow-y-auto modal-scroll pr-2 flex flex-col gap-2 mb-3"></div>
+                        <div id="node-tutor-modes" class="flex flex-wrap gap-1 mb-2"></div>
                         <div class="flex gap-2 mt-auto">
                             <input type="text" id="node-tutor-input" placeholder="Rispondi al tutor..." class="flex-grow border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" onkeypress="if(event.key === 'Enter') window.sendNodeTutorMessage()">
                             <button onclick="window.sendNodeTutorMessage()" id="btn-node-tutor-send" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center justify-center">
@@ -982,6 +989,8 @@ window.importGraph = function (event) {
             });
 
             appState.rootNodeLabel = data.rootNodeLabel || "Mappa Importata";
+            // Mappa nuova = chat nuove (mai ereditare quelle della mappa precedente)
+            window.setTutorState(data.tutorState || null);
             // Reset D3 simulation so it's recreated fresh
             simulation = null;
             window.switchToMapLayout();

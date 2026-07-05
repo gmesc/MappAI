@@ -811,19 +811,19 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
                     siblingCatalog
                 })
                 : `SEI UN MOTORE DI GENERAZIONE SOTTO-RAMI PER MAPPE MENTALI (Fase 3 - Dettagli del Ramo).
-Hai il compito di sviluppare in ESTREMA PROFONDITÀ il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
+Hai il compito di sviluppare in profondità il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5) per esplorare in dettaglio estremo la macro-area.
+1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5), fino al livello di dettaglio realmente coperto dalle fonti.
 2. Ciascun sotto-nodo generato deve definire:
    - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
-   - "desc": descrizione scientifica o storica approfondita ma chiarissima (da 30 a 50 parole) tarata sul profilo dello studente indicato.
+   - "desc": descrizione scientifica o storica chiarissima (da 30 a 50 parole), in tono espositivo e fedele alle fonti, tarata sul profilo dello studente indicato.
    - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
 3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare mai connessioni trasversali.
-
+${window.MM_FIDELITY_RULES_IT}
 Restituisci SOLO un oggetto JSON con chiavi "nodes" e "links". Nessun commento, nessun blocco markdown.
 Formato richiesto:
 {

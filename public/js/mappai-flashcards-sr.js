@@ -251,6 +251,7 @@ window.openQuizModal = function (node) {
 
     currentSubQuestionIdx = 0;
     correctSubAnswersCount = 0;
+    window._quizStartTs = Date.now(); // cronometro fluenza (corrette/min) per la padronanza
     window.renderSubQuestion();
 
     const iconElem = document.getElementById('quiz-modal-icon');
@@ -358,6 +359,21 @@ window.handleQuizAnswer = function (selectedBtn, container, isCorrect) {
     } else {
         const finalScore = `${correctSubAnswersCount}/${questions.length}`;
         currentQuizNode.lastScore = finalScore;
+        // Padronanza per-concetto (Precision Teaching): senza questo il quiz — l'attività
+        // di studio più usata — non alimentava lo store EWMA né le sessioni per la meta-analisi.
+        try {
+            const _qScore = questions.length ? correctSubAnswersCount / questions.length : 0;
+            const _qRate = window._quizStartTs
+                ? correctSubAnswersCount / Math.max((Date.now() - window._quizStartTs) / 60000, 2 / 60)
+                : undefined;
+            if (window.MappAIStudyBus) {
+                window.MappAIStudyBus.begin('quiz', 'Quiz spaced repetition');
+                window.MappAIStudyBus.record(currentQuizNode.id, currentQuizNode.label, 'quiz', { score: _qScore, rate: _qRate });
+                window.MappAIStudyBus.end();
+            } else if (window.MappAIMastery && window.MappAIMastery.record) {
+                window.MappAIMastery.record(currentQuizNode.id, currentQuizNode.label, 'quiz', { score: _qScore, rate: _qRate });
+            }
+        } catch (e) { console.warn('[Quiz] mastery record', e); }
         feedbackDesc.innerHTML = `Hai terminato questo set! Punteggio finale: <b class="text-indigo-600">${finalScore}</b>.<br>Valuta ora la difficoltà per programmare il prossimo ripasso:`;
         srButtons.classList.remove('hidden');
     }

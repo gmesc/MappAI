@@ -132,16 +132,19 @@ window.directLoadVault = async function (folderPath) {
                 sourcesDict: {}
             };
 
+            if (window.MappAIJigsaw) {
+                window.MappAIJigsaw.syncModeToVault(loadRes.data.branchLocks);
+                window.MappAIJigsaw.applyLocks(appState.db.nodes, loadRes.data.branchLocks);
+            }
+
             if (window.renderStudySets) window.renderStudySets();
 
             if (loadRes.data.userProfile) {
                 appState.userProfile = loadRes.data.userProfile;
             }
 
-            // Ripristina lo stato delle chat se presente
-            if (loadRes.data.tutorState) {
-                tutorState = loadRes.data.tutorState;
-            }
+            // Ripristina lo stato delle chat (o azzera: mai ereditare quelle della mappa precedente)
+            window.setTutorState(loadRes.data.tutorState || null);
 
             // Ripristina AI Provider e Modello se presenti
             if (loadRes.data.aiProvider) {

@@ -166,6 +166,7 @@ window.closeEditModal = function () {
 
 window.saveEditNode = function () {
     if (!editTarget) return;
+    if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(editTarget, 'modifica')) return;
     editTarget.label = document.getElementById('edit-n-label').value.trim();
     const newContent = document.getElementById('edit-n-content').value.trim();
     const oldContent = (editTarget.desc || "").trim();
