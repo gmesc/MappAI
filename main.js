@@ -14,6 +14,62 @@ const yaml = require('js-yaml');
 const npcLlm = require('./main_npc_llm');
 
 let mainWindow;
+let launcherWindow;
+let studioWindow;
+
+// Launcher all'avvio: scegli MappAI o Memory Dungeon Studio.
+// Presente ANCHE nella build pacchettizzata (richiesta 7/7/26: i docenti devono
+// poter entrare nello Studio dall'app installata).
+function createLauncherWindow() {
+    launcherWindow = new BrowserWindow({
+        width: 640,
+        height: 420,
+        resizable: false,
+        title: "MappAI — Avvio",
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'public/js/preload.js')
+        }
+    });
+    launcherWindow.loadFile('public/launcher.html');
+    launcherWindow.on('closed', () => { launcherWindow = null; });
+}
+
+// Memory Dungeon Studio: landing (tools/voxel-proto/studio.html) → editor voxel.
+// Preload AGGANCIATO: la landing legge i vault via IPC (getAllVaults/loadVault/
+// loadDungeonFloors) e l'editor salva i piani nel vault (saveDungeonFloor).
+// three r164 VENDORED (public/js/vendor/three-r164.module.min.js) → offline ok.
+function createStudioWindow() {
+    studioWindow = new BrowserWindow({
+        width: 1440,
+        height: 900,
+        title: "Memory Dungeon Studio",
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'public/js/preload.js')
+        }
+    });
+    studioWindow.loadFile('tools/voxel-proto/studio.html');
+    studioWindow.on('closed', () => { studioWindow = null; });
+}
+
+ipcMain.handle('launcher-choice', (event, choice) => {
+    if (choice === 'studio') createStudioWindow();
+    else createWindow();
+    if (launcherWindow) launcherWindow.close();
+    return true;
+});
+
+// Uscita segreta: 5 click nell'angolo in alto a sinistra (landing MappAI o Studio)
+// → torna alla schermata di scelta iniziale chiudendo la finestra corrente.
+ipcMain.handle('launcher-return', (event) => {
+    createLauncherWindow();
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && win !== launcherWindow) win.close();
+    return true;
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -101,11 +157,12 @@ if (!app.isPackaged) {
 
 app.whenReady().then(() => {
     initDefaultVaultFolder();
-    createWindow();
+    // Launcher con scelta MappAI / Memory Dungeon Studio — sempre, anche pacchettizzata
+    createLauncherWindow();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            createLauncherWindow();
         }
     });
 });
@@ -785,6 +842,34 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
         if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
 
+        // 3a-bis. Memory Dungeon: cartella piani custom creata di default, con LEGGIMI
+        // per studenti/docenti (contratto: docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md).
+        // Vuota = nessun effetto: i piani senza file restano procedurali.
+        const dungeonPianiDir = path.join(folderPath, 'Memory Dungeon', 'piani');
+        if (!fs.existsSync(dungeonPianiDir)) fs.mkdirSync(dungeonPianiDir, { recursive: true });
+        const dungeonReadme = path.join(folderPath, 'Memory Dungeon', 'LEGGIMI.md');
+        if (!fs.existsSync(dungeonReadme)) {
+            fs.writeFileSync(dungeonReadme, [
+                '# Memory Dungeon — piani personalizzati',
+                '',
+                'In questa cartella vivono i piani del dungeon disegnati da te, dal tuo docente o dai compagni.',
+                '',
+                '## Hai ricevuto un file di piano? Due strade:',
+                '1. **Consigliata**: in MappAI, menu azioni (in basso a sinistra) → «Importa piano Dungeon».',
+                '   Il file viene controllato (niente piani ingiocabili) e copiato qui al posto giusto.',
+                '2. Manuale: trascina il file `.json` dentro la cartella `piani/`. Il nome del file non',
+                '   conta: il piano si riconosce dal campo `"id": "piano-N"` scritto dentro il file.',
+                '',
+                '## Come funziona',
+                '- Ogni file descrive UN piano del dungeon. Al prossimo avvio del Memory Dungeon quel',
+                '  piano sostituisce quello generato automaticamente.',
+                '- I piani senza file restano generati automaticamente: cartella vuota = tutto come prima.',
+                '- `ruleset.json` (facoltativo, accanto a `piani/`) è per docenti/OPI: regola le soglie di',
+                '  validazione (quante memorie, distanze minime, numero massimo di nemici).',
+                ''
+            ].join('\n'), 'utf-8');
+        }
+
         // 3b. Ponti JIGSAW isolati (contributi inter-area dello studente)
         const _pontiBridgesPath = path.join(nodesDir, '_ponti', '_bridges.json');
         if (_bridgesData.length > 0 || fs.existsSync(_pontiBridgesPath)) {
@@ -1222,6 +1307,159 @@ ipcMain.handle('read-study-sessions', async (event, vaultPath) => {
         return { sessions: sessions, mastery: mastery };
     } catch (err) {
         return { sessions: [], mastery: null, error: err.message };
+    }
+});
+
+// MEMORY DUNGEON: piani custom dal vault (Memory Dungeon/piani/*.json + Memory Dungeon/ruleset.json).
+// Contratto mappai-dungeon-floor@1 — design: docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md
+// Nome file LIBERO: il legame al piano viene dal nome `piano-N.json` se presente,
+// altrimenti dal campo "id" interno ("piano-N") — così un file ricevuto da docente o
+// compagno si droppa in piani/ senza doverlo rinominare. Due file per lo stesso piano
+// → vince il più recente (mtime), con warning.
+// Cartella assente o file rotti → si torna al procedurale (fallback nel renderer).
+ipcMain.handle('load-dungeon-floors', async (event, vaultPath) => {
+    try {
+        if (!vaultPath) return { success: false, error: 'vaultPath mancante' };
+        const dir = path.join(vaultPath, 'Memory Dungeon');
+        const pianiDir = path.join(dir, 'piani');
+        const out = { success: true, plans: {}, ruleset: null, materials: null };
+        const rp = path.join(dir, 'ruleset.json');
+        if (fs.existsSync(rp)) {
+            try { out.ruleset = JSON.parse(fs.readFileSync(rp, 'utf-8')); }
+            catch (e) { console.warn('Memory Dungeon/ruleset.json non valido:', e.message); }
+        }
+        // texture + materiali del vault (contratto: mappai-dungeon-materials@1)
+        const mp = path.join(dir, 'materiali.json');
+        if (fs.existsSync(mp)) {
+            try { out.materials = JSON.parse(fs.readFileSync(mp, 'utf-8')); }
+            catch (e) { console.warn('Memory Dungeon/materiali.json non valido:', e.message); }
+        }
+        // mappa-mondo (contratto §11: mappai-dungeon-world@1) — se presente e valida,
+        // il gioco può partire in modalità mondo al posto della pila di piani
+        const wp = path.join(dir, 'mondo.json');
+        out.world = null;
+        if (fs.existsSync(wp)) {
+            try { out.world = JSON.parse(fs.readFileSync(wp, 'utf-8')); }
+            catch (e) { console.warn('Memory Dungeon/mondo.json non valido:', e.message); }
+        }
+        if (fs.existsSync(pianiDir)) {
+            const chosen = {};   // idx → { mtime, file }
+            for (const f of fs.readdirSync(pianiDir)) {
+                if (!/\.json$/i.test(f)) continue;
+                const full = path.join(pianiDir, f);
+                let plan;
+                try { plan = JSON.parse(fs.readFileSync(full, 'utf-8')); }
+                catch (e) { console.warn('Memory Dungeon/piani/' + f + ' non valido:', e.message); continue; }
+                const m = f.match(/^piano-(\d+)\.json$/i) ||
+                    (plan && typeof plan.id === 'string' ? plan.id.match(/^piano-(\d+)$/) : null);
+                if (!m) {
+                    console.warn('Memory Dungeon/piani/' + f + ': manca il legame al piano (nome piano-N.json o campo "id") — ignorato');
+                    continue;
+                }
+                const idx = m[1];
+                const mtime = fs.statSync(full).mtimeMs;
+                if (chosen[idx]) {
+                    const keep = chosen[idx].mtime >= mtime ? chosen[idx].file : f;
+                    console.warn('Memory Dungeon/piani: piano-' + idx + ' definito da più file (' + chosen[idx].file + ', ' + f + ') — vince il più recente: ' + keep);
+                    if (chosen[idx].mtime >= mtime) continue;
+                }
+                chosen[idx] = { mtime, file: f };
+                out.plans[idx] = plan;
+            }
+        }
+        return out;
+    } catch (err) {
+        console.error('Errore load-dungeon-floors:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// MEMORY DUNGEON STUDIO: scrive texture+materiali del vault (Memory Dungeon/materiali.json).
+// Schema mappai-dungeon-materials@1 — un piano con facce testurizzate senza le sue
+// texture sarebbe rotto: le librerie viaggiano col vault (e col pacchetto classe).
+ipcMain.handle('save-dungeon-materials', async (event, { vaultPath, materials }) => {
+    try {
+        if (!vaultPath || !materials) return { success: false, error: 'vaultPath o materials mancante' };
+        const dir = path.join(vaultPath, 'Memory Dungeon');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'materiali.json'), JSON.stringify(materials, null, 2), 'utf-8');
+        return { success: true };
+    } catch (err) {
+        console.error('Errore save-dungeon-materials:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// MEMORY DUNGEON STUDIO: scrive il ruleset del docente (Memory Dungeon/ruleset.json).
+// Form nella landing Studio (contratto §3: soglie + severità, 1 per vault).
+ipcMain.handle('save-dungeon-ruleset', async (event, { vaultPath, ruleset }) => {
+    try {
+        if (!vaultPath || !ruleset) return { success: false, error: 'vaultPath o ruleset mancante' };
+        const dir = path.join(vaultPath, 'Memory Dungeon');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'ruleset.json'), JSON.stringify(ruleset, null, 2), 'utf-8');
+        return { success: true };
+    } catch (err) {
+        console.error('Errore save-dungeon-ruleset:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// MEMORY DUNGEON STUDIO: esporta un pacchetto classe (bundle multi-piano) da condividere.
+// Legge i piani scelti dal vault, chiede dove salvare, scrive un file unico.
+ipcMain.handle('export-dungeon-bundle', async (event, { vaultPath, ids, title, author }) => {
+    try {
+        if (!vaultPath || !Array.isArray(ids) || !ids.length) return { success: false, error: 'vaultPath o ids mancanti' };
+        const pianiDir = path.join(vaultPath, 'Memory Dungeon', 'piani');
+        const floors = [];
+        for (const id of ids) {
+            const p = path.join(pianiDir, 'piano-' + id + '.json');
+            if (fs.existsSync(p)) floors.push(JSON.parse(fs.readFileSync(p, 'utf-8')));
+        }
+        if (!floors.length) return { success: false, error: 'nessun piano trovato' };
+        const bundle = {
+            schema: 'mappai-dungeon-bundle@1',
+            title: title || path.basename(vaultPath) + ' — pacchetto piani',
+            author: author || '',
+            created: new Date().toISOString().slice(0, 10),
+            floors
+        };
+        // le texture/materiali del vault viaggiano col pacchetto (facce testurizzate)
+        const bmp = path.join(vaultPath, 'Memory Dungeon', 'materiali.json');
+        if (fs.existsSync(bmp)) {
+            try { bundle.materials = JSON.parse(fs.readFileSync(bmp, 'utf-8')); } catch (e) { /* senza materiali */ }
+        }
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const res = await dialog.showSaveDialog(win, {
+            title: 'Esporta pacchetto classe',
+            defaultPath: path.join(app.getPath('documents'), (bundle.title || 'pacchetto').replace(/[/\\:]/g, '-') + '.mappai-dungeon.json'),
+            filters: [{ name: 'Pacchetto Memory Dungeon', extensions: ['json'] }]
+        });
+        if (res.canceled || !res.filePath) return { success: false, canceled: true };
+        fs.writeFileSync(res.filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+        return { success: true, file: res.filePath, floors: floors.length };
+    } catch (err) {
+        console.error('Errore export-dungeon-bundle:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+// MEMORY DUNGEON: scrive un piano validato in Memory Dungeon/piani/piano-N.json.
+// Usato dall'import in-app (la validazione avviene nel renderer, contratto §4).
+ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {
+    try {
+        if (!vaultPath || !plan) return { success: false, error: 'vaultPath o plan mancante' };
+        const m = typeof plan.id === 'string' ? plan.id.match(/^piano-(\d+)$/) : null;
+        if (!m) return { success: false, error: 'campo "id" non valido (atteso "piano-N")' };
+        const pianiDir = path.join(vaultPath, 'Memory Dungeon', 'piani');
+        if (!fs.existsSync(pianiDir)) fs.mkdirSync(pianiDir, { recursive: true });
+        const target = path.join(pianiDir, 'piano-' + m[1] + '.json');
+        const existed = fs.existsSync(target);
+        fs.writeFileSync(target, JSON.stringify(plan, null, 2), 'utf-8');
+        return { success: true, file: 'piano-' + m[1] + '.json', overwritten: existed };
+    } catch (err) {
+        console.error('Errore save-dungeon-floor:', err);
+        return { success: false, error: err.message };
     }
 });
 

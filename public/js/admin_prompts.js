@@ -67,8 +67,12 @@ window.currentAdminTab = "MINDMAPS";
 
 // Helper function to fill variables in prompt string
 window.fillPromptTemplate = function(promptKey, variables) {
-    // Prova a cercare il prompt con il suffisso della lingua corrente (es. _IT o _EN)
-    const langSuffix = (window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? '_EN' : '_IT';
+    // Suffisso template dalla LINGUA MAPPE (mappai_map_language), non dall'interfaccia.
+    // Default 'ui' → segue l'interfaccia: comportamento storico invariato.
+    const promptLang = (typeof window.getPromptLanguage === 'function')
+        ? window.getPromptLanguage()
+        : ((window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? 'en' : 'it');
+    const langSuffix = promptLang === 'en' ? '_EN' : '_IT';
     
     let text = "";
     // Seleziona preferenzialmente i prompt specifici per Infomaniak se il provider è attivo
@@ -92,6 +96,27 @@ window.fillPromptTemplate = function(promptKey, variables) {
     for (const [key, value] of Object.entries(variables || {})) {
         text = text.replace(new RegExp(`{{${key}}}`, 'g'), value);
     }
+    // {{relVocabulary}}: vocabolario linking words centralizzato (mappai-relations.js).
+    // Riempito qui per OGNI template, senza che i chiamanti debbano passarlo.
+    // Lingua mappe 'auto' → vocabolario doppio (IT + EN): l'AI pesca nella lingua delle fonti.
+    if (text.indexOf('{{relVocabulary}}') !== -1) {
+        let vocab = '';
+        if (window.MappAIRelations && window.MappAIRelations.buildRelVocabularyBlock) {
+            const mapLang = (typeof window.getMapLanguage === 'function') ? window.getMapLanguage() : 'it';
+            vocab = (mapLang === 'auto')
+                ? window.MappAIRelations.buildRelVocabularyBlock('flat', 'it') + ', ' + window.MappAIRelations.buildRelVocabularyBlock('flat', 'en')
+                : window.MappAIRelations.buildRelVocabularyBlock('flat', mapLang === 'en' ? 'en' : 'it');
+        }
+        text = text.replace(/{{relVocabulary}}/g, vocab);
+    }
+    // Lingua mappe 'auto' + prompt di generazione (contiene le fonti):
+    // istruzione esplicita di rispondere nella lingua delle fonti.
+    try {
+        if (typeof window.getMapLanguage === 'function' && window.getMapLanguage() === 'auto'
+            && /\{\{textParts\}\}|FONTI DA ANALIZZARE|SOURCES TO ANALYZE/i.test(text + (window.systemPromptsConfig[promptKey + langSuffix] || ''))) {
+            text += "\n\n⚠️ OUTPUT LANGUAGE: write every 'label', 'content', 'desc' and 'rel' in the SAME LANGUAGE as the provided sources (do NOT translate them).";
+        }
+    } catch (e) { /* no-op */ }
     return text;
 };
 

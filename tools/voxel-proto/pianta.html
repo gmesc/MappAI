@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Pianta — Memory Dungeon Studio</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#12141c; color:#eef0f6;
+    font-family:-apple-system,'Segoe UI',sans-serif; }
+  #panel { position:absolute; top:0; left:0; bottom:0; width:292px; z-index:10;
+    background:rgba(23,26,37,.97); padding:12px; font-size:12.5px; line-height:1.5;
+    overflow-y:auto; box-sizing:border-box; }
+  #panel h1 { font-size:14px; margin:0 0 6px; }
+  #panel h2 { font-size:11.5px; margin:14px 0 6px; color:#8a91a5; text-transform:uppercase; letter-spacing:.05em; }
+  #panel a { color:#9fc3ee; }
+  .dim { color:#8a91a5; font-size:11px; }
+  button, select, input[type=text] { background:#2a2e3d; color:#eef0f6; border:1px solid #3a4054;
+    border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
+  button:hover { background:#333850; }
+  button.active { background:#5b6ee1; border-color:#5b6ee1; }
+  button.primary { background:#5b6ee1; border-color:#5b6ee1; font-weight:600; }
+  .row { display:flex; gap:5px; margin:6px 0; flex-wrap:wrap; }
+  .field { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:5px 0; }
+  .field input[type=range] { width:120px; }
+  #wrap { position:absolute; inset:0; left:292px; display:flex; align-items:center; justify-content:center; }
+  #cv { image-rendering:pixelated; background:#0c0e15; cursor:crosshair;
+    box-shadow:0 2px 18px rgba(0,0,0,.5); border-radius:4px; }
+  #prev3d { width:100%; height:120px; background:#101321; border-radius:6px; }
+  #toast { position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    background:rgba(28,28,26,.94); color:#f0efe9; padding:8px 16px; border-radius:8px;
+    font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; }
+  label.ck { display:flex; gap:6px; align-items:center; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>✏️ Pianta</h1>
+  <div class="dim"><a href="./studio.html">&larr; Studio</a> · disegna la forma, poi «Applica»
+    per rifinirla nell'editor 3D. Ctrl+Z = annulla.</div>
+
+  <h2>Tela</h2>
+  <div class="field"><label>Lato (celle)</label>
+    <select id="p-size"><option>16</option><option>24</option><option selected>32</option><option>48</option><option>64</option></select></div>
+  <div class="field"><label>Il nero diventa</label>
+    <select id="p-black"><option value="water" selected>acqua</option><option value="lava">lava</option><option value="void">vuoto</option></select></div>
+  <div class="field"><label>Dislivello <span id="v-disl">0.5</span></label>
+    <input type="range" id="p-disl" min="0.2" max="1.2" step="0.1" value="0.5"></div>
+
+  <h2>Pennello</h2>
+  <div class="row">
+    <button id="t-floor" type="button" class="active">Pavimento</button>
+    <button id="t-erase" type="button">Nero</button>
+    <button id="t-wall" type="button">Muro interno</button>
+  </div>
+  <div class="row">
+    <button id="s-square" type="button" class="active">■ quadrato</button>
+    <button id="s-round" type="button">● rotondo</button>
+  </div>
+  <div class="field"><label>Dimensione <span id="v-bsize">3</span></label>
+    <input type="range" id="p-bsize" min="1" max="11" step="2" value="3"></div>
+  <div class="field"><label>Altezza muro <span id="v-walt">2</span></label>
+    <input type="range" id="p-walt" min="1" max="4" step="1" value="2"></div>
+
+  <h2>Strumenti</h2>
+  <div class="row">
+    <button id="t-line" type="button">Istmo (linea)</button>
+    <button id="t-stamp-rect" type="button">Timbro stanza ■</button>
+    <button id="t-stamp-round" type="button">Timbro stanza ●</button>
+  </div>
+  <div class="field"><label>Taglia timbro <span id="v-stamp">7</span></label>
+    <input type="range" id="p-stamp" min="4" max="17" step="1" value="7"></div>
+  <div class="field"><label>Simmetria</label>
+    <select id="p-sym"><option value="none" selected>nessuna</option><option value="x">specchio ↔</option><option value="y">specchio ↕</option><option value="xy">4 vie</option></select></div>
+  <div class="row">
+    <button id="t-smooth" type="button">Coste organiche</button>
+    <button id="t-undo" type="button">↩ Annulla</button>
+    <button id="t-clear" type="button">Svuota</button>
+  </div>
+
+  <h2>Muri automatici</h2>
+  <label class="ck"><input type="checkbox" id="p-outline" checked> contorno in offset attorno al pavimento</label>
+  <div class="field"><label>Altezza contorno <span id="v-oalt">2</span></label>
+    <input type="range" id="p-oalt" min="1" max="4" step="1" value="2"></div>
+
+  <h2>Import / export</h2>
+  <div class="row">
+    <button id="t-png" type="button">Importa PNG (bianco/nero)</button>
+    <input type="file" id="p-png-file" accept="image/png" style="display:none">
+  </div>
+  <h2>Anteprima 3D</h2>
+  <canvas id="prev3d" width="540" height="240"></canvas>
+  <div class="row" style="margin-top:10px">
+    <button id="t-apply" type="button" class="primary">Applica → editor 3D</button>
+  </div>
+  <div class="dim">La pianta resta salvata: puoi tornare a ritoccarla (ripassare «Applica»
+    rigenera il terreno; asset e slot già piazzati vengono conservati).</div>
+</div>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ============================================================
+// PIANTA — blockout 2D della mappa (P1). Genera cells del contratto
+// mappai-dungeon-floor@1: bianco=floor, nero=water|lava|void, muri
+// interni + contorno offset. Lava = floor {blocca:true, quota<0,
+// mat:'lava'} → nessun bioma nuovo, la veste il sistema materiali.
+// Sketch persistito in voxelproto_pianta; output in voxelproto_map.
+// ============================================================
+function el(id) { return document.getElementById(id); }
+function toast(m) { var t = el('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast._h); toast._h = setTimeout(function () { t.style.opacity = 0; }, 2200); }
+function mulberry32(seed) { let a = seed >>> 0; return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// stato: 0 = nero · 1 = pavimento · 2 = muro interno (alt in altG)
+var S = { size: 32, grid: null, altG: null, tool: 'floor', shape: 'square', lineA: null };
+function newGrid(size) {
+  S.size = size;
+  S.grid = new Uint8Array(size * size);
+  S.altG = new Uint8Array(size * size);
+}
+newGrid(32);
+
+// ---------- persistenza sketch ----------
+function saveSketch() {
+  localStorage.setItem('voxelproto_pianta', JSON.stringify({
+    size: S.size, grid: Array.from(S.grid), alt: Array.from(S.altG),
+    black: el('p-black').value, disl: +el('p-disl').value,
+    outline: el('p-outline').checked, oalt: +el('p-oalt').value
+  }));
+}
+function loadSketch() {
+  try {
+    var s = JSON.parse(localStorage.getItem('voxelproto_pianta') || 'null');
+    if (!s || !Array.isArray(s.grid)) return false;
+    newGrid(s.size);
+    S.grid.set(s.grid); S.altG.set(s.alt || []);
+    el('p-size').value = String(s.size);
+    el('p-black').value = s.black || 'water';
+    el('p-disl').value = s.disl || 0.5; el('v-disl').textContent = el('p-disl').value;
+    el('p-outline').checked = s.outline !== false;
+    el('p-oalt').value = s.oalt || 2; el('v-oalt').textContent = el('p-oalt').value;
+    return true;
+  } catch (e) { return false; }
+}
+
+// ---------- undo ----------
+var undoStack = [];
+function pushUndo() {
+  undoStack.push({ g: S.grid.slice(), a: S.altG.slice() });
+  if (undoStack.length > 40) undoStack.shift();
+}
+function undo() {
+  var u = undoStack.pop();
+  if (!u) { toast('Niente da annullare'); return; }
+  S.grid.set(u.g); S.altG.set(u.a);
+  render();
+}
+
+// ---------- pittura ----------
+function setCell(x, y, v, alt) {
+  if (x < 0 || y < 0 || x >= S.size || y >= S.size) return;
+  S.grid[y * S.size + x] = v;
+  S.altG[y * S.size + x] = v === 2 ? alt : 0;
+}
+function applySym(x, y, fn) {
+  var sym = el('p-sym').value, W = S.size - 1;
+  fn(x, y);
+  if (sym === 'x' || sym === 'xy') fn(W - x, y);
+  if (sym === 'y' || sym === 'xy') fn(x, W - y);
+  if (sym === 'xy') fn(W - x, W - y);
+}
+function paintBrush(cx, cy) {
+  var b = +el('p-bsize').value, r = (b - 1) / 2;
+  var v = S.tool === 'floor' ? 1 : (S.tool === 'wall' ? 2 : 0);
+  var alt = +el('p-walt').value;
+  applySym(cx, cy, function (mx, my) {
+    for (var dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) for (var dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
+      if (S.shape === 'round' && Math.hypot(dx, dy) > r + 0.4) continue;
+      if (S.shape === 'square' && (Math.abs(dx) > r || Math.abs(dy) > r)) continue;
+      setCell(mx + dx, my + dy, v, alt);
+    }
+  });
+}
+function paintLine(x0, y0, x1, y1) {
+  var steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  var keep = S.tool; S.tool = 'floor';
+  for (var i = 0; i <= steps; i++) {
+    paintBrush(Math.round(x0 + (x1 - x0) * i / steps), Math.round(y0 + (y1 - y0) * i / steps));
+  }
+  S.tool = keep;
+}
+function stamp(cx, cy, round) {
+  var w = +el('p-stamp').value, r = w / 2, alt = +el('p-walt').value;
+  applySym(cx, cy, function (mx, my) {
+    for (var dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) for (var dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
+      var d = round ? Math.hypot(dx, dy) : Math.max(Math.abs(dx), Math.abs(dy));
+      if (d > r) continue;
+      // perimetro = muro, interno = pavimento (stanza pronta)
+      if (d > r - 1.2) setCell(mx + dx, my + dy, 2, alt);
+      else setCell(mx + dx, my + dy, 1, 0);
+    }
+  });
+}
+// coste organiche: 1 passo di cellular automata SOLO su nero/pavimento
+function smooth() {
+  pushUndo();
+  var out = S.grid.slice();
+  for (var y = 0; y < S.size; y++) for (var x = 0; x < S.size; x++) {
+    if (S.grid[y * S.size + x] === 2) continue;
+    var n = 0;
+    for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      var xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= S.size || yy >= S.size) continue;
+      if (S.grid[yy * S.size + xx] === 1) n++;
+    }
+    if (n >= 5) out[y * S.size + x] = 1;
+    else if (n <= 2) out[y * S.size + x] = 0;
+  }
+  S.grid = out instanceof Uint8Array ? out : Uint8Array.from(out);
+  render();
+}
+// contorno offset: celle nere adiacenti (8 dir) al pavimento
+function outlineCells() {
+  var res = [];
+  if (!el('p-outline').checked) return res;
+  for (var y = 0; y < S.size; y++) for (var x = 0; x < S.size; x++) {
+    if (S.grid[y * S.size + x] !== 0) continue;
+    var adj = false;
+    for (var dy = -1; dy <= 1 && !adj; dy++) for (var dx = -1; dx <= 1; dx++) {
+      var xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= S.size || yy >= S.size) continue;
+      if (S.grid[yy * S.size + xx] === 1) { adj = true; break; }
+    }
+    if (adj) res.push([x, y]);
+  }
+  return res;
+}
+
+// ---------- render 2D ----------
+var cv = el('cv'), ctx = cv.getContext('2d');
+function px() { return Math.max(6, Math.floor(Math.min((innerWidth - 320) , innerHeight - 40) / S.size)); }
+function render() {
+  var p = px();
+  cv.width = S.size * p; cv.height = S.size * p;
+  var black = el('p-black').value;
+  var cBlack = black === 'lava' ? '#571b10' : (black === 'void' ? '#0c0e15' : '#1d3350');
+  for (var y = 0; y < S.size; y++) for (var x = 0; x < S.size; x++) {
+    var v = S.grid[y * S.size + x];
+    ctx.fillStyle = v === 1 ? '#e8e4d8' : (v === 2 ? '#8a6a4a' : cBlack);
+    ctx.fillRect(x * p, y * p, p - (p > 8 ? 1 : 0), p - (p > 8 ? 1 : 0));
+  }
+  ctx.fillStyle = '#6f6b62';
+  outlineCells().forEach(function (c) { ctx.fillRect(c[0] * p, c[1] * p, p - 1, p - 1); });
+  // linea istmo in corso
+  if (S.lineA && S.lineB) {
+    ctx.strokeStyle = '#5b6ee1'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo((S.lineA[0] + 0.5) * p, (S.lineA[1] + 0.5) * p);
+    ctx.lineTo((S.lineB[0] + 0.5) * p, (S.lineB[1] + 0.5) * p); ctx.stroke();
+  }
+  render3d();
+  clearTimeout(render._h); render._h = setTimeout(saveSketch, 400);
+}
+// ---------- anteprima 3D isometrica ----------
+function render3d() {
+  var c3 = el('prev3d'), c = c3.getContext('2d');
+  c.clearRect(0, 0, c3.width, c3.height);
+  var Sp = Math.max(2, Math.floor(c3.width / (S.size * 2.2)));
+  var ox = c3.width / 2, oy = 24;
+  function iso(x, y) { return [ox + (x - y) * Sp, oy + (x + y) * Sp / 2]; }
+  function shade(hex, f) { var n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255; return 'rgb(' + Math.min(255, r * f | 0) + ',' + Math.min(255, g * f | 0) + ',' + Math.min(255, b * f | 0) + ')'; }
+  function cube(p2, s, h, col) {
+    c.fillStyle = shade(col, 1.15); c.beginPath(); c.moveTo(p2[0], p2[1] - h); c.lineTo(p2[0] + s, p2[1] + s / 2 - h); c.lineTo(p2[0], p2[1] + s - h); c.lineTo(p2[0] - s, p2[1] + s / 2 - h); c.closePath(); c.fill();
+    c.fillStyle = shade(col, 0.72); c.beginPath(); c.moveTo(p2[0] - s, p2[1] + s / 2 - h); c.lineTo(p2[0], p2[1] + s - h); c.lineTo(p2[0], p2[1] + s); c.lineTo(p2[0] - s, p2[1] + s / 2); c.closePath(); c.fill();
+    c.fillStyle = shade(col, 0.5); c.beginPath(); c.moveTo(p2[0] + s, p2[1] + s / 2 - h); c.lineTo(p2[0], p2[1] + s - h); c.lineTo(p2[0], p2[1] + s); c.lineTo(p2[0] + s, p2[1] + s / 2); c.closePath(); c.fill();
+  }
+  var black = el('p-black').value;
+  var outl = {};
+  outlineCells().forEach(function (o) { outl[o[0] + ',' + o[1]] = 1; });
+  for (var y = 0; y < S.size; y++) for (var x = 0; x < S.size; x++) {
+    var v = S.grid[y * S.size + x], p2 = iso(x, y);
+    if (outl[x + ',' + y]) cube(p2, Sp, Sp * 1.4, '#6f6b62');
+    else if (v === 1) cube(p2, Sp, 0, '#9a958a');
+    else if (v === 2) cube(p2, Sp, Sp * 1.4, '#8a6a4a');
+    else if (black !== 'void') cube(p2, Sp, -Sp * 0.4, black === 'lava' ? '#c33b1e' : '#3d6f96');
+  }
+}
+
+// ---------- input ----------
+var drawing = false;
+function cellFromEvent(e) {
+  var r = cv.getBoundingClientRect(), p = px();
+  return [Math.floor((e.clientX - r.left) / p), Math.floor((e.clientY - r.top) / p)];
+}
+cv.addEventListener('pointerdown', function (e) {
+  var c = cellFromEvent(e);
+  if (S.tool === 'line') {
+    if (!S.lineA) { S.lineA = c; toast('Trascina fino all\'altra isola e rilascia'); }
+    return;
+  }
+  if (S.tool === 'stampRect' || S.tool === 'stampRound') {
+    pushUndo(); stamp(c[0], c[1], S.tool === 'stampRound'); render(); return;
+  }
+  pushUndo(); drawing = true; paintBrush(c[0], c[1]); render();
+});
+cv.addEventListener('pointermove', function (e) {
+  var c = cellFromEvent(e);
+  if (S.tool === 'line' && S.lineA) { S.lineB = c; render(); return; }
+  if (drawing) { paintBrush(c[0], c[1]); render(); }
+});
+window.addEventListener('pointerup', function (e) {
+  if (S.tool === 'line' && S.lineA && S.lineB) {
+    pushUndo(); paintLine(S.lineA[0], S.lineA[1], S.lineB[0], S.lineB[1]);
+    S.lineA = S.lineB = null; render();
+  }
+  drawing = false;
+});
+window.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+});
+
+// ---------- toolbar ----------
+function setTool(t, btn) {
+  S.tool = t; S.lineA = S.lineB = null;
+  ['t-floor', 't-erase', 't-wall', 't-line', 't-stamp-rect', 't-stamp-round'].forEach(function (id) {
+    el(id).classList.toggle('active', el(id) === btn);
+  });
+}
+el('t-floor').onclick = function () { setTool('floor', this); };
+el('t-erase').onclick = function () { setTool('erase', this); };
+el('t-wall').onclick = function () { setTool('wall', this); };
+el('t-line').onclick = function () { setTool('line', this); };
+el('t-stamp-rect').onclick = function () { setTool('stampRect', this); };
+el('t-stamp-round').onclick = function () { setTool('stampRound', this); };
+el('s-square').onclick = function () { S.shape = 'square'; this.classList.add('active'); el('s-round').classList.remove('active'); };
+el('s-round').onclick = function () { S.shape = 'round'; this.classList.add('active'); el('s-square').classList.remove('active'); };
+el('t-smooth').onclick = smooth;
+el('t-undo').onclick = undo;
+el('t-clear').onclick = function () { pushUndo(); S.grid.fill(0); S.altG.fill(0); render(); };
+el('p-size').onchange = function () {
+  var ns = +this.value, old = S.grid, oa = S.altG, os = S.size;
+  pushUndo(); newGrid(ns);
+  for (var y = 0; y < Math.min(os, ns); y++) for (var x = 0; x < Math.min(os, ns); x++) {
+    S.grid[y * ns + x] = old[y * os + x]; S.altG[y * ns + x] = oa[y * os + x];
+  }
+  render();
+};
+['p-disl', 'p-bsize', 'p-walt', 'p-oalt', 'p-stamp'].forEach(function (id) {
+  el(id).addEventListener('input', function () {
+    el('v-' + id.slice(2)) && (el('v-' + id.slice(2)).textContent = this.value);
+    if (id === 'p-disl' || id === 'p-oalt') render();
+  });
+});
+el('p-black').onchange = render;
+el('p-outline').onchange = render;
+window.addEventListener('resize', render);
+
+// ---------- import PNG (bianco/nero → pianta) ----------
+el('t-png').onclick = function () { el('p-png-file').click(); };
+el('p-png-file').addEventListener('change', function (ev) {
+  var f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  var img = new Image();
+  img.onload = function () {
+    pushUndo();
+    var off = document.createElement('canvas');
+    off.width = off.height = S.size;
+    var c = off.getContext('2d');
+    c.drawImage(img, 0, 0, S.size, S.size);
+    var d = c.getImageData(0, 0, S.size, S.size).data;
+    for (var i = 0; i < S.size * S.size; i++) {
+      var lum = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.6 + d[i * 4 + 2] * 0.1) / 255;
+      var a = d[i * 4 + 3] / 255;
+      S.grid[i] = (a > 0.5 && lum > 0.5) ? 1 : 0;
+      S.altG[i] = 0;
+    }
+    render();
+    toast('PNG importato: chiaro = pavimento');
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f);
+});
+
+// ---------- APPLICA → cells del contratto → editor 3D ----------
+el('t-apply').onclick = function () {
+  var black = el('p-black').value, disl = +el('p-disl').value, oalt = +el('p-oalt').value;
+  var rng = mulberry32(20260707);
+  var cells = [];
+  var outl = {};
+  outlineCells().forEach(function (o) { outl[o[0] + ',' + o[1]] = 1; });
+  for (var y = 0; y < S.size; y++) for (var x = 0; x < S.size; x++) {
+    var v = S.grid[y * S.size + x];
+    if (v === 1) cells.push({ x: x, z: y, biome: 'floor', quota: 0, alt: 0 });
+    else if (v === 2) cells.push({ x: x, z: y, biome: 'wall', quota: 0, alt: S.altG[y * S.size + x] || 2 });
+    else if (outl[x + ',' + y]) cells.push({ x: x, z: y, biome: 'wall', quota: 0, alt: oalt });
+    else if (black === 'water') cells.push({ x: x, z: y, biome: 'water', quota: -(disl + rng() * 0.15), alt: 0 });
+    else if (black === 'lava') cells.push({ x: x, z: y, biome: 'floor', quota: -(disl + rng() * 0.1), alt: 0, blocca: true, mat: 'lava' });
+    // void: cella omessa = fuori mappa
+  }
+  if (!cells.some(function (c) { return c.biome === 'floor' && !c.blocca; })) { toast('Disegna almeno un po\' di pavimento'); return; }
+  // lava: se il materiale non esiste ancora, creane uno base (poi lo rifinisci in Materiali)
+  if (black === 'lava') {
+    try {
+      var mats = JSON.parse(localStorage.getItem('voxelproto_materials') || '{}');
+      if (!mats.lava) {
+        mats.lava = { color: '#c33b1e', faces: { top: '#lava', side: null, bottom: null }, tags: ['lava'] };
+        localStorage.setItem('voxelproto_materials', JSON.stringify(mats));
+      }
+    } catch (e) {}
+  }
+  // conserva props (asset piazzati) di un eventuale lavoro precedente
+  var props = [];
+  try { props = (JSON.parse(localStorage.getItem('voxelproto_map') || '{}').props) || []; } catch (e) {}
+  localStorage.setItem('voxelproto_map', JSON.stringify({ seed: 20260707, size: S.size, sub: 3, cells: cells, props: props }));
+  saveSketch();
+  location.href = './editor.html';
+};
+
+// ---------- avvio ----------
+if (!loadSketch()) {
+  // tela iniziale: un'isoletta al centro per orientarsi
+  var c0 = S.size >> 1;
+  for (var dy = -3; dy <= 3; dy++) for (var dx = -3; dx <= 3; dx++) {
+    if (Math.hypot(dx, dy) <= 3.4) setCell(c0 + dx, c0 + dy, 1, 0);
+  }
+}
+render();
+window.__pianta = { S: S, paintBrush: paintBrush, paintLine: paintLine, stamp: stamp, smooth: smooth, outlineCells: outlineCells, render: render, setCell: setCell };
+</script>
+</body>
+</html>

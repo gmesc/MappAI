@@ -101,7 +101,8 @@
     (json.objects || []).forEach(function (ob) {
       if (!ob || typeof ob.x !== 'number' || typeof ob.y !== 'number') return;
       if (ob.name === 'gatekeeper') { gatekeeper = { x: ob.x, y: ob.y }; return; }
-      if (NPC_SLOTS[ob.name]) { npcs.push({ name: ob.name, x: ob.x, y: ob.y }); return; }
+      // slot NPC: i nomi noti + qualsiasi 'sapiente-*' (mappe curate con più di 4 Sapienti)
+      if (NPC_SLOTS[ob.name] || /^sapiente-/.test(ob.name)) { npcs.push({ name: ob.name, x: ob.x, y: ob.y }); return; }
       if (ANCHOR_OBJ[ob.name]) anchors.push({ name: ob.name, x: ob.x, y: ob.y });
       if (SOLID_OBJ[ob.name]) { decor.push({ name: ob.name, x: ob.x, y: ob.y }); map[ob.x + ',' + ob.y] = 1; }
       else if (!ANCHOR_OBJ[ob.name]) ambient.push({ name: ob.name, x: ob.x, y: ob.y });

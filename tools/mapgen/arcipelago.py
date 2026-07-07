@@ -2,12 +2,13 @@
 """Round A del loop ipotesi→implementazione: mare PIXEL-LEVEL (H16), pontile (H17),
 micro-radure egg (H18). Palette costa campionata dai tile LoL."""
 import re, base64, io, random, math, sys
+import os
 from PIL import Image
 
-sys.path.insert(0, '/Users/giacomomeschini/Claude/MappAI BERT/tools/mapgen')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from grass import scatter_tufts, PALETTE as GRASS_PAL
 
-ROOT = '/Users/giacomomeschini/Claude/MappAI BERT'
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo corrente
 T = 16; COLS, ROWS = 30, 20; Wpx, Hpx = COLS*T, ROWS*T
 TERRA = (195, 147, 100, 255); TERRA_DASH = (203, 158, 114, 255); TERRA_DARK = (185, 138, 92, 255)
 FOAM = (125, 95, 65, 255); FOAM_DARK = (82, 58, 35, 255)

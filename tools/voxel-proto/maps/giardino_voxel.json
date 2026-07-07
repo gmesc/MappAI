@@ -1,0 +1,1030 @@
+{
+ "seed": 20260706,
+ "size": 20,
+ "sub": 3,
+ "meta": "Giardino dei Sapienti — hub, 6 Sapienti (§19.5)",
+ "lit": true,
+ "palette": {
+  "floorA": "#a8c37e",
+  "floorB": "#87a562",
+  "wallA": "#7d945c",
+  "wallB": "#5d7245",
+  "waterA": "#5fa8d9",
+  "waterB": "#2d6da8",
+  "bg": "#dfe8d0"
+ },
+ "cells": [
+  {
+   "x": 0,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 18,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 3,
+   "biome": "water",
+   "quota": -0.3580124925609347,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 3,
+   "biome": "water",
+   "quota": -0.39427647735022797,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 4,
+   "biome": "water",
+   "quota": -0.6381897484586274,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 4,
+   "biome": "water",
+   "quota": -0.3570882069362384,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 4,
+   "biome": "water",
+   "quota": -0.4327143382100748,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 4,
+   "biome": "water",
+   "quota": -0.3679714162156508,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.45485827489836106,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.5504537233139764,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.6888584335525628,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.5180512712088191,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.39552625503364275,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 5,
+   "biome": "water",
+   "quota": -0.3649636430899115,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.414574640208957,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.3725849285996802,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.3798561691121604,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.5532547818629483,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.4371565118312849,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 6,
+   "biome": "water",
+   "quota": -0.4359593038700322,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 7,
+   "biome": "water",
+   "quota": -0.6682582972215496,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 7,
+   "biome": "water",
+   "quota": -0.5560826863343746,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 7,
+   "biome": "water",
+   "quota": -0.6251261597506046,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 7,
+   "biome": "water",
+   "quota": -0.6759939300359581,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.675886324040218,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5806603398941456,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 14,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 14,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 14,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 15,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 15,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 15,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 16,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 16,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 18,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 18,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 18,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 19,
+   "z": 19,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  }
+ ],
+ "entities": [
+  {
+   "id": "hero",
+   "sprite": "rogue8x8/Girl-Melee",
+   "x": 9.5,
+   "z": 17.5
+  },
+  {
+   "id": "gk",
+   "type": "gatekeeper",
+   "x": 9.5,
+   "z": 2.2
+  },
+  {
+   "id": "sap1",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-viola",
+   "x": 2.5,
+   "z": 15.5
+  },
+  {
+   "id": "sap2",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-rosso",
+   "x": 8.5,
+   "z": 14.5
+  },
+  {
+   "id": "sap3",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-blu",
+   "x": 13.5,
+   "z": 3.5
+  },
+  {
+   "id": "sap4",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-ocra",
+   "x": 11.5,
+   "z": 8.5
+  },
+  {
+   "id": "sap5",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-verde",
+   "x": 17.5,
+   "z": 12.5
+  },
+  {
+   "id": "sap6",
+   "type": "npc",
+   "sprite": "rogue8x8/NPC",
+   "name": "sapiente-oro",
+   "x": 13.5,
+   "z": 10.5
+  },
+  {
+   "id": "tree0",
+   "type": "decor",
+   "name": "tree",
+   "x": 5.1,
+   "z": 1.6
+  },
+  {
+   "id": "tree1",
+   "type": "decor",
+   "name": "tree",
+   "x": 10.3,
+   "z": 17.4
+  },
+  {
+   "id": "tree2",
+   "type": "decor",
+   "name": "tree",
+   "x": 1.6,
+   "z": 13.1
+  },
+  {
+   "id": "tree3",
+   "type": "decor",
+   "name": "tree",
+   "x": 17.4,
+   "z": 5.9
+  },
+  {
+   "id": "tree4",
+   "type": "decor",
+   "name": "tree",
+   "x": 5.7,
+   "z": 1.6
+  },
+  {
+   "id": "tree5",
+   "type": "decor",
+   "name": "tree",
+   "x": 3.6,
+   "z": 17.4
+  },
+  {
+   "id": "tree6",
+   "type": "decor",
+   "name": "tree",
+   "x": 1.6,
+   "z": 2.6
+  },
+  {
+   "id": "tree7",
+   "type": "decor",
+   "name": "tree",
+   "x": 17.4,
+   "z": 3.5
+  },
+  {
+   "id": "tree8",
+   "type": "decor",
+   "name": "tree",
+   "x": 10.8,
+   "z": 1.6
+  },
+  {
+   "id": "tree9",
+   "type": "decor",
+   "name": "tree",
+   "x": 12.9,
+   "z": 17.4
+  },
+  {
+   "id": "fl0",
+   "type": "decor",
+   "name": "flower",
+   "x": 3.5,
+   "z": 8.3
+  },
+  {
+   "id": "fl1",
+   "type": "decor",
+   "name": "flower",
+   "x": 10.0,
+   "z": 3.0
+  },
+  {
+   "id": "fl2",
+   "type": "decor",
+   "name": "flower",
+   "x": 6.0,
+   "z": 2.6
+  },
+  {
+   "id": "fl3",
+   "type": "decor",
+   "name": "flower",
+   "x": 5.6,
+   "z": 7.0
+  },
+  {
+   "id": "fl4",
+   "type": "decor",
+   "name": "flower",
+   "x": 12.6,
+   "z": 11.0
+  },
+  {
+   "id": "fl5",
+   "type": "decor",
+   "name": "flower",
+   "x": 7.4,
+   "z": 16.2
+  },
+  {
+   "id": "fl6",
+   "type": "decor",
+   "name": "flower",
+   "x": 16.8,
+   "z": 3.1
+  },
+  {
+   "id": "fl7",
+   "type": "decor",
+   "name": "flower",
+   "x": 15.1,
+   "z": 5.9
+  }
+ ]
+}

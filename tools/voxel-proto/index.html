@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voxel Proto — Memory Dungeon 3D</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #ecebe6; font-family: -apple-system, 'Segoe UI', sans-serif; }
+  #scene { position: absolute; inset: 0; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; z-index: 10;
+    background: rgba(28, 28, 26, 0.82); color: #f0efe9;
+    border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.55;
+    max-width: 260px; user-select: none;
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
+  #panel .dim { color: #b9b7ae; }
+  #panel .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  #panel button {
+    background: #3d3c38; color: #f0efe9; border: 1px solid #57554f;
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  #panel button:hover { background: #4a4944; }
+  #stats { position: absolute; bottom: 10px; left: 12px; z-index: 10; color: #6b6a64; font-size: 11.5px; }
+  #toast {
+    position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: rgba(28,28,26,0.9); color: #f0efe9; padding: 8px 16px;
+    border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; z-index: 20;
+    pointer-events: none;
+  }
+</style>
+<!-- three r164 VENDORED (niente CDN: funziona offline e nella finestra Studio di Electron) -->
+<script type="importmap">
+{ "imports": { "three": "../../public/js/vendor/three-r164.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="panel">
+  <h1>Voxel proto — Memory Dungeon 3D</h1>
+  <div class="dim">
+    Click &nbsp;muovi eroe (point &amp; click)<br>
+    WASD / frecce &nbsp;movimento libero<br>
+    Q / E &nbsp;ruota camera (90°)<br>
+    Rotella &nbsp;zoom · O &nbsp;cicla ombre
+  </div>
+  <div class="row">
+    <button id="btn-rot-l" type="button">&#8634; Ruota</button>
+    <button id="btn-rot-r" type="button">Ruota &#8635;</button>
+  </div>
+  <div class="row">
+    <button id="btn-shadow" type="button">Ombre: dure</button>
+    <button id="btn-export" type="button">Copia JSON mappa</button>
+  </div>
+  <div class="row">
+    <a href="./editor.html" style="color:#9fc3ee; font-size:12px;">Apri editor (colori · luci · voxel · pixel) &rarr;</a>
+  </div>
+</div>
+<div id="stats"></div>
+<div id="toast"></div>
+<script type="module" src="./proto.js"></script>
+</body>
+</html>

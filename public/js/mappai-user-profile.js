@@ -141,7 +141,7 @@ window.closeUserProfileModal = function () {
 window.saveUserProfile = function () {
     const nickname = document.getElementById('up-nickname').value.trim();
     if (!nickname) {
-        window.showToast("Il nickname è obbligatorio", "error");
+        window.showToast(window.t('tst_nickname_required', "Il nickname è obbligatorio"), "error");
         return;
     }
 
@@ -161,14 +161,14 @@ window.saveUserProfile = function () {
     localStorage.setItem('mappai_user_profile', JSON.stringify(appState.userProfile));
     localStorage.setItem('mappai_all_profiles', JSON.stringify(appState.allProfiles));
 
-    window.showToast("Profilo salvato correttamente!", "success");
+    window.showToast(window.t('tst_profile_saved', "Profilo salvato correttamente!"), "success");
     window.closeUserProfileModal();
 };
 
 window.resetUserProfile = function () {
     const currentNickname = appState.userProfile.nickname;
     if (!currentNickname) {
-        window.showToast("Nessun profilo selezionato da eliminare.", "error");
+        window.showToast(window.t('tst_no_profile', "Nessun profilo selezionato da eliminare."), "error");
         return;
     }
 
@@ -182,10 +182,10 @@ window.resetUserProfile = function () {
             appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
             localStorage.removeItem('mappai_user_profile');
 
-            window.showToast("Profilo eliminato.", "success");
+            window.showToast(window.t('tst_profile_deleted', "Profilo eliminato."), "success");
             window.closeUserProfileModal();
         } else {
-            window.showToast("Stringa errata. Reset annullato.");
+            window.showToast(window.t('tst_wrong_string', "Stringa errata. Reset annullato."));
         }
     }, "Scrivi 'elimina' per confermare la cancellazione di " + currentNickname + ":");
 };

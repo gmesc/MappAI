@@ -484,13 +484,8 @@ window.buildBranchPromptJSONL = function (branch, opts) {
         ? `
 🔗 LINKING WORDS — OGNI ARCO È UNA PROPOSIZIONE (stile concept-map)
 Il campo "rel" NON deve quasi mai essere "include". Scegli il verbo/locuzione che rende la frase "GENITORE → rel → FIGLIO" una proposizione VERA e leggibile, supportata dalla fonte. Pesca dal vocabolario per famiglia:
-- Causa/effetto: causa, provoca, genera, determina, porta a, alimenta
-- Dipendenza/prerequisito: richiede, dipende da, è condizione di, permette
-- Sequenza/processo: precede, segue, deriva da, evolve in
-- Regolazione/controllo: regola, governa, guida, limita, sostiene
-- Opposizione/contrasto: si oppone a, contrasta, ostacola, smaschera, condanna
-- Contenimento (SOLO se non esiste relazione più precisa): comprende, è formato da, è esempio di, fa parte di
-Evita "include"/"correlato a" salvo pura appartenenza gerarchica.
+${window.relVocab('perFamily')}
+Usa i verbi di Gerarchia (comprende, è formato da, fa parte di) SOLO se non esiste una relazione più precisa. Evita "include"/"correlato a" salvo pura appartenenza gerarchica.
 `
         : '';
 
@@ -507,7 +502,7 @@ ISTRUZIONI PER IL RAMO:
    - "level": assegna un intero da 2 a ${maxMapLevel} in base alla profondità concettuale (2 per primari, fino a ${maxMapLevel} per foglie).
    - "chunks": un array contenente da 1 a 2 citazioni testuali REALI, INTEGRALI e VERBATIM (minimo 10-15 parole) copiate fedelmente dalle fonti testuali originali.
 3. Definisci i collegamenti ("links") in un rigoroso albero gerarchico genitore-figlio. Ogni nodo di livello N deve avere come sorgente ("source") il rispettivo genitore di livello N-1. Il Livello 2 ha come sorgente "${branch.id}". Non creare connessioni trasversali verso nodi di altri rami — quelle verranno aggiunte in una fase successiva.
-${window.MM_FIDELITY_RULES_IT}${relGuide}
+${window.MM_FIDELITY_RULES_IT}${window.mapLangNote()}${relGuide}
 ⚠️ FORMATO DI OUTPUT — TASSATIVO ⚠️
 NON restituire un singolo oggetto JSON. Restituisci DUE sezioni separate, OGNI OGGETTO SU UNA RIGA INDIPENDENTE:
 
@@ -1526,13 +1521,11 @@ REGOLE:
 - Massimo 20 nuovi cross-link, scegli i più significativi pedagogicamente.
 - Nessun commento, nessun markdown, nessun testo prima/dopo le sezioni.
 - "rel" deve essere un verbo italiano SPECIFICO che esprima il TIPO reale di relazione:
-  causa, richiede, precede, genera, si oppone a, è esempio di, dipende da, regola,
-  finanzia, influenza, smaschera, condanna, contraddice, rafforza, giustifica,
-  è condizione di, è conseguenza di, legittima, alimenta.
+  ${window.relVocab('flat')}.
   REGOLA QUALITÀ: preferisci verbi precisi e critici (es. "smaschera", "condanna",
   "è condizione di") invece di generici come "influenza" o "collega".
   ⚠️ Usa SOLO ID presenti nell'elenco nodi qui sotto — non inventare ID.
-
+${window.mapLangNote()}
 ${l1Catalog}
 ELENCO NODI DELLA MAPPA (cerca le parole-chiave ricorrenti per identificare duplicati,
 e confronta i label con gli AMBITI degli L1 sopra per individuare nodi mal classificati):

@@ -111,7 +111,7 @@ window.executeMerge = function (A, B) {
 
     if (typeof window.updateDegreeStats === 'function') window.updateDegreeStats();
     renderGraph();
-    window.showToast(`"${window.cleanLabel(A.label)}" fuso in "${window.cleanLabel(B.label)}"`, 'success');
+    window.showToast(window.t('tst_merged_into', '"{a}" fuso in "{b}"').replace('{a}', window.cleanLabel(A.label)).replace('{b}', window.cleanLabel(B.label)), 'success');
 };
 
 // ==========================================
@@ -196,7 +196,7 @@ window.executeRelink = function (A, newParent, rel) {
 
     if (typeof window.updateDegreeStats === 'function') window.updateDegreeStats();
     renderGraph();
-    window.showToast(`"${window.cleanLabel(A.label)}" spostato sotto "${window.cleanLabel(newParent.label)}"`, 'success');
+    window.showToast(window.t('tst_moved_under', '"{a}" spostato sotto "{b}"').replace('{a}', window.cleanLabel(A.label)).replace('{b}', window.cleanLabel(newParent.label)), 'success');
 };
 
 // ==========================================

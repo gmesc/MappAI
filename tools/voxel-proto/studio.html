@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Memory Dungeon Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; min-height:100%; background:#12141c; color:#eef0f6;
+    font-family:-apple-system,'Segoe UI',sans-serif; }
+  body { overflow-y:auto; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 26px 22px 60px; }
+  header { display:flex; align-items:center; gap:16px; margin-bottom:22px; }
+  header canvas { width:84px; height:64px; }
+  header .t1 { font-family:'Space Mono',ui-monospace,monospace; font-weight:700; font-size:26px;
+    color:#ffd9a0; text-shadow:2px 2px 0 #000; line-height:1.1; }
+  header .t2 { font-family:'Space Mono',ui-monospace,monospace; font-size:12px; letter-spacing:.5em; color:#b9c2d8; }
+  header .back { margin-left:auto; }
+  a, .linkish { color:#9fc3ee; cursor:pointer; text-decoration:none; font-size:12.5px; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:10px; }
+  .cards.sec { grid-template-columns:repeat(3,1fr); }
+  .acard { background:#1c1f2b; border:1px solid #2c3040; border-radius:12px; padding:14px;
+    cursor:pointer; transition:transform .1s,border-color .1s; }
+  .acard:hover { transform:translateY(-2px); border-color:#5b6ee1; }
+  .acard.active { border-color:#5b6ee1; background:#212536; }
+  .acard .ico { font-size:24px; }
+  .acard h3 { margin:8px 0 4px; font-size:13.5px; }
+  .acard p { margin:0; font-size:11px; color:#9aa1b4; line-height:1.45; }
+  .panel { background:#171a25; border:1px solid #262b3a; border-radius:12px; padding:16px; margin-top:14px; display:none; }
+  .panel.open { display:block; }
+  .panel h2 { font-size:14px; margin:0 0 10px; color:#cdd3e0; }
+  .panel h4 { font-size:12px; margin:14px 0 6px; color:#8a91a5; text-transform:uppercase; letter-spacing:.05em; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  button, select, input[type=text], input[type=number] {
+    background:#2a2e3d; color:#eef0f6; border:1px solid #3a4054; border-radius:7px;
+    padding:6px 11px; font-size:12.5px; cursor:pointer; }
+  input[type=number] { width:70px; } input[type=text] { min-width:180px; cursor:text; }
+  button:hover { background:#333850; }
+  button.primary { background:#5b6ee1; border-color:#5b6ee1; font-weight:600; }
+  button.primary:hover { background:#6c7ef0; }
+  button:disabled { opacity:.4; cursor:default; }
+  .list { display:flex; flex-direction:column; gap:6px; max-height:230px; overflow-y:auto; }
+  .list .it { background:#20242f; border:1px solid #2c3040; border-radius:8px; padding:8px 12px;
+    cursor:pointer; font-size:12.5px; display:flex; justify-content:space-between; gap:10px; }
+  .list .it:hover, .list .it.sel { border-color:#5b6ee1; }
+  .list .it small { color:#8a91a5; }
+  .floors { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
+  .fcard { background:#20242f; border:1px solid #2c3040; border-radius:10px; padding:10px; }
+  .fcard canvas { width:100%; height:96px; background:#101321; border-radius:6px; image-rendering:auto; }
+  .fcard .fh { display:flex; justify-content:space-between; align-items:center; margin:8px 0 2px; font-size:12.5px; }
+  .fcard .sub { font-size:10.5px; color:#8a91a5; min-height:26px; }
+  .badge { font-size:10px; padding:2px 7px; border-radius:99px; font-weight:600; }
+  .badge.ok { background:#1d3a24; color:#7fd98a; } .badge.warn { background:#3a331d; color:#e0c46a; }
+  .badge.err { background:#3a1d1d; color:#e07a7a; } .badge.proc { background:#25293a; color:#8a91a5; }
+  .field { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:6px 0; font-size:12.5px; }
+  .note { font-size:11px; color:#7b8194; margin-top:8px; }
+  .dim { color:#8a91a5; font-size:11.5px; }
+  #toast { position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
+    background:rgba(28,28,26,.94); color:#f0efe9; padding:9px 18px; border-radius:8px;
+    font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; }
+  label.ck { display:flex; gap:6px; align-items:center; font-size:12px; cursor:pointer; }
+</style>
+<!-- validatore contratto §4 (UMD → window.MappAIDungeonCore) -->
+<script src="../../public/js/mappai-dungeon-core.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <canvas id="logo" width="252" height="192"></canvas>
+    <div>
+      <div class="t1">Memory Dungeon</div>
+      <div class="t2">STUDIO</div>
+    </div>
+    <div class="back"><span class="linkish" id="go-editor-free">Apri editor libero →</span></div>
+  </header>
+
+  <div class="cards">
+    <div class="acard" data-panel="p-new"><div class="ico">🆕</div><h3>Nuova mappa</h3>
+      <p>Scegli un progetto o un vault: lo Studio ne estrae i requisiti (memorie per livello) e valida mentre disegni.</p></div>
+    <div class="acard" data-panel="p-vault"><div class="ico">📂</div><h3>Apri vault</h3>
+      <p>Menu dei piani del vault: anteprime, stato di validazione, regole del docente, pacchetto classe.</p></div>
+    <div class="acard" data-panel="p-resume"><div class="ico">⏪</div><h3>Riprendi</h3>
+      <p>Torna all'ultimo lavoro salvato automaticamente dall'editor.</p></div>
+    <div class="acard" data-panel="p-file"><div class="ico">📩</div><h3>Apri file</h3>
+      <p>Un piano o un pacchetto ricevuto da un collega: modificalo e salvalo nel tuo vault.</p></div>
+  </div>
+  <div class="cards sec">
+    <div class="acard" id="go-assets"><div class="ico">🧊</div><h3>Solo asset</h3>
+      <p>Vai dritto alle schede Voxel e Pixel: crea asset per la libreria senza aprire una mappa.</p></div>
+    <div class="acard" data-panel="p-draft"><div class="ico">🎲</div><h3>Genera bozza</h3>
+      <p>Layout procedurale da un seed come punto di partenza, poi lo ritocchi nell'editor.</p></div>
+    <div class="acard" data-panel="p-export"><div class="ico">📦</div><h3>Pacchetto classe</h3>
+      <p>Esporta più piani di un vault in un file unico da condividere con la classe.</p></div>
+  </div>
+
+  <!-- ─── NUOVA MAPPA ─── -->
+  <div class="panel" id="p-new">
+    <h2>🆕 Nuova mappa — da quale progetto?</h2>
+    <div class="row">
+      <button type="button" id="src-recent">Progetti recenti</button>
+      <button type="button" id="src-vault">Da un vault</button>
+      <span class="dim" id="src-hint"></span>
+    </div>
+    <div class="list" id="src-list"></div>
+    <div id="new-step2" style="display:none">
+      <h4>Requisiti estratti — scegli il livello del piano</h4>
+      <div class="list" id="level-list"></div>
+      <div class="row">
+        <label>Tipo: <select id="new-kind">
+          <option value="misto">misto</option><option value="combat">combat</option>
+          <option value="giardino">giardino</option><option value="scuola">scuola</option>
+          <option value="radura">radura</option></select></label>
+        <label>Numero piano (id): piano-<input type="number" id="new-id" min="0" value="1"></label>
+        <label>Lato griglia: <select id="new-size">
+          <option>12</option><option selected>16</option><option>20</option><option>24</option></select></label>
+      </div>
+      <div class="row">
+        <label class="ck"><input type="radio" name="tela" value="flat" checked> Tela piena di pavimento</label>
+        <label class="ck"><input type="radio" name="tela" value="draft"> Bozza procedurale (seed)</label>
+        <label class="ck"><input type="radio" name="tela" value="pianta"> ✏️ Pianta (disegna tu la forma)</label>
+        <input type="number" id="new-seed" value="20260707" style="width:110px">
+      </div>
+      <div class="row"><button type="button" class="primary" id="new-go">Apri nell'editor →</button></div>
+      <div class="note">Gli slot (spawn, scale, memorie) vengono generati automaticamente al salvataggio
+        se non presenti; l'editing manuale degli slot arriva con la fase E1.</div>
+    </div>
+  </div>
+
+  <!-- ─── APRI VAULT ─── -->
+  <div class="panel" id="p-vault">
+    <h2>📂 Apri vault</h2>
+    <div class="list" id="vault-list"></div>
+    <div id="vault-detail" style="display:none">
+      <h4 id="vd-title"></h4>
+      <div class="floors" id="floor-cards"></div>
+      <h4>⚙️ Regole del docente (ruleset.json)</h4>
+      <div class="row" style="max-width:640px">
+        <div class="field">Copertura memorie:
+          <select id="rs-coverage"><option value="all">tutte (all)</option><option value="min">almeno N</option></select>
+          <input type="number" id="rs-covmin" value="3" min="1" style="display:none"></div>
+        <div class="field">Distanza minima memorie (blocchi): <input type="number" id="rs-spacing" value="40" min="0"></div>
+        <div class="field">Nemici max: <input type="number" id="rs-enemies" value="6" min="0"></div>
+      </div>
+      <div class="row">
+        <label>Severità distanza: <select id="rs-sev-spacing"><option>warning</option><option>error</option></select></label>
+        <label>Severità copertura: <select id="rs-sev-coverage"><option>error</option><option>warning</option></select></label>
+        <label>Severità nemici: <select id="rs-sev-enemies"><option>error</option><option>warning</option></select></label>
+        <button type="button" id="rs-save">Salva regole</button>
+      </div>
+      <div class="note">Le regole valgono per TUTTO il vault: il validatore le applica al salvataggio
+        dei piani e all'import in MappAI. Assenti = default (coverage all, 40 blocchi, 6 nemici).</div>
+    </div>
+  </div>
+
+  <!-- ─── RIPRENDI ─── -->
+  <div class="panel" id="p-resume">
+    <h2>⏪ Riprendi ultimo lavoro</h2>
+    <div id="resume-body"></div>
+  </div>
+
+  <!-- ─── APRI FILE ─── -->
+  <div class="panel" id="p-file">
+    <h2>📩 Apri piano o pacchetto ricevuto</h2>
+    <div class="row"><input type="file" id="file-in" accept=".json"></div>
+    <div class="list" id="file-floors" style="display:none"></div>
+    <div class="row" id="file-target" style="display:none">
+      <span class="dim">Vault di destinazione (per «Salva nel vault» dall'editor):</span>
+      <select id="file-vault"></select>
+      <button type="button" class="primary" id="file-go">Apri nell'editor →</button>
+    </div>
+  </div>
+
+  <!-- ─── BOZZA ─── -->
+  <div class="panel" id="p-draft">
+    <h2>🎲 Genera bozza procedurale</h2>
+    <div class="row">
+      <label>Seed: <input type="number" id="draft-seed" value="20260707" style="width:110px"></label>
+      <label>Lato: <select id="draft-size"><option>12</option><option selected>16</option><option>20</option><option>24</option></select></label>
+      <button type="button" id="draft-gen">Genera</button>
+      <button type="button" class="primary" id="draft-go" disabled>Apri nell'editor →</button>
+    </div>
+    <canvas id="draft-cv" width="560" height="300" style="width:100%;max-width:560px;background:#101321;border-radius:8px"></canvas>
+    <div class="note">La bozza non è legata a nessun progetto: aprila nell'editor e poi salvala nel
+      vault che vuoi (o esportala). Per la validazione coverage serve un progetto → usa «Nuova mappa».</div>
+  </div>
+
+  <!-- ─── PACCHETTO CLASSE ─── -->
+  <div class="panel" id="p-export">
+    <h2>📦 Esporta pacchetto classe</h2>
+    <div class="list" id="exp-vaults"></div>
+    <div id="exp-detail" style="display:none">
+      <h4>Piani da includere</h4>
+      <div class="list" id="exp-floors"></div>
+      <div class="row">
+        <input type="text" id="exp-title" placeholder="Titolo pacchetto">
+        <input type="text" id="exp-author" placeholder="Autore (facoltativo)">
+        <button type="button" class="primary" id="exp-go">Esporta…</button>
+      </div>
+      <div class="note">Il file si importa in MappAI (menu azioni → «Importa piano Dungeon»): ogni piano
+        viene validato e copiato nel vault dello studente.</div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* Memory Dungeon Studio — landing. Ponte verso l'editor:
+ *  - voxelproto_map      = {seed,size,sub,cells,props} (l'editor la carica già)
+ *  - voxelproto_plan_ctx = contesto piano: {id,level,kind,slots,meta,vaultPath,
+ *      vaultName,levelNodeCount,isLast,ruleset} → l'editor mostra la barra vault,
+ *      valida col contratto §4 e salva nel vault via IPC.
+ * Senza electronAPI (browser): le sezioni vault sono disabilitate con spiegazione. */
+var API = window.electronAPI || null;
+var CORE = window.MappAIDungeonCore;
+function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast._h); toast._h = setTimeout(function () { t.style.opacity = 0; }, 2600); }
+function el(id) { return document.getElementById(id); }
+
+/* ── requisiti: memorie richieste per livello = nodi con contenuto (desc||content) ── */
+function perLevelCounts(nodes) {
+  var per = {}, max = 0;
+  (nodes || []).forEach(function (n) {
+    if (!n || typeof n.level !== 'number' || n.level < 1) return;
+    var txt = ((n.desc || n.content || '') + '').trim();
+    if (!txt) return;
+    per[n.level] = (per[n.level] || 0) + 1;
+    if (n.level > max) max = n.level;
+  });
+  return { per: per, maxLevel: max };
+}
+
+/* ── mini-render isometrico di un piano (stessa tecnica del launcher) ── */
+function isoPreview(cv, plan) {
+  var ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!plan || !plan.cells || !plan.cells.length) return;
+  var size = plan.size || 16;
+  var S = Math.max(4, Math.floor(cv.width / (size * 2.4)));
+  var ox = cv.width / 2, oy = Math.max(10, cv.height / 2 - size * S / 2);
+  function iso(x, y) { return [ox + (x - y) * S, oy + (x + y) * S / 2]; }
+  function shade(hex, f) { var r = hex >> 16 & 255, g = hex >> 8 & 255, b = hex & 255; return 'rgb(' + Math.min(255, r * f | 0) + ',' + Math.min(255, g * f | 0) + ',' + Math.min(255, b * f | 0) + ')'; }
+  function cube(px, py, s, h, col) {
+    ctx.fillStyle = shade(col, 1.15); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px - s, py + s / 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.78); ctx.beginPath(); ctx.moveTo(px - s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px - s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.55); ctx.beginPath(); ctx.moveTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px + s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+  }
+  var COLS = { floor: 0x9a958a, wall: 0x6f6b62, water: 0x3d6f96 };
+  var sorted = plan.cells.slice().sort(function (a, b) { return (a.x + a.z) - (b.x + b.z); });
+  sorted.forEach(function (c) {
+    var p = iso(c.x, c.z), col = COLS[c.biome] || COLS.floor;
+    cube(p[0], p[1], S, c.biome === 'wall' ? S * 1.6 : S * 0.35, col);
+  });
+  var SLOT = { spawn: '#7fd98a', stairs: '#9fc3ee', gatekeeper: '#c59fee', memory: '#ffd9a0', enemy: '#e07a7a' };
+  (plan.slots || []).forEach(function (s) {
+    var p = iso(s.x, s.z);
+    ctx.fillStyle = SLOT[s.type] || '#fff';
+    ctx.beginPath(); ctx.arc(p[0], p[1], Math.max(2.5, S * 0.4), 0, 7); ctx.fill();
+  });
+}
+
+/* ── bozza procedurale: random-walk digger seedato ── */
+function procDraft(seed, size) {
+  var s = seed >>> 0;
+  function rnd() { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }
+  var grid = {};
+  var x = size >> 1, z = size >> 1, carved = 0, target = Math.floor(size * size * 0.42);
+  var guard = size * size * 30;
+  while (carved < target && guard-- > 0) {
+    var k = x + ',' + z;
+    if (!grid[k]) { grid[k] = 'floor'; carved++; }
+    var d = Math.floor(rnd() * 4);
+    x += (d === 0 ? 1 : d === 1 ? -1 : 0); z += (d === 2 ? 1 : d === 3 ? -1 : 0);
+    x = Math.max(1, Math.min(size - 2, x)); z = Math.max(1, Math.min(size - 2, z));
+  }
+  // muro attorno a ogni pavimento (celle adiacenti non scavate)
+  Object.keys(grid).forEach(function (k) {
+    var p = k.split(','), cx = +p[0], cz = +p[1];
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) {
+      var nk = (cx + dd[0]) + ',' + (cz + dd[1]);
+      if (!grid[nk]) grid[nk] = 'wall';
+    });
+  });
+  // pozza d'acqua in un angolo scavato
+  var floors = Object.keys(grid).filter(function (k) { return grid[k] === 'floor'; });
+  if (floors.length > 30) {
+    var wk = floors[Math.floor(rnd() * floors.length)].split(',');
+    for (var dz = 0; dz < 2; dz++) for (var dx = 0; dx < 2; dx++) {
+      var kk = (+wk[0] + dx) + ',' + (+wk[1] + dz);
+      if (grid[kk] === 'floor') grid[kk] = 'water';
+    }
+  }
+  var cells = [];
+  Object.keys(grid).forEach(function (k) {
+    var p = k.split(','), b = grid[k];
+    cells.push({ x: +p[0], z: +p[1], biome: b, quota: b === 'water' ? -0.5 : 0, alt: b === 'wall' ? 2 : 0 });
+  });
+  return cells;
+}
+function flatCanvas(size) {
+  var cells = [];
+  for (var z = 0; z < size; z++) for (var x = 0; x < size; x++) {
+    var border = x === 0 || z === 0 || x === size - 1 || z === size - 1;
+    cells.push({ x: x, z: z, biome: border ? 'wall' : 'floor', quota: 0, alt: border ? 2 : 0 });
+  }
+  return cells;
+}
+
+function openEditor(ctx, cells, size, seed) {
+  if (cells) localStorage.setItem('voxelproto_map', JSON.stringify({ seed: seed || 20260707, size: size, sub: 3, cells: cells, props: (ctx && ctx.props) || [] }));
+  if (ctx) localStorage.setItem('voxelproto_plan_ctx', JSON.stringify(ctx)); else localStorage.removeItem('voxelproto_plan_ctx');
+  location.href = './editor.html';
+}
+// texture+materiali del vault (Memory Dungeon/materiali.json) → librerie locali
+// dell'editor, così le facce testurizzate dei piani si vedono subito
+function mergeVaultMaterials(fl) {
+  try {
+    var m = fl && fl.materials;
+    if (!m) return;
+    ['textures', 'materials'].forEach(function (k) {
+      var key = k === 'textures' ? 'voxelproto_textures' : 'voxelproto_materials';
+      var lib = JSON.parse(localStorage.getItem(key) || '{}');
+      Object.keys(m[k] || {}).forEach(function (n) { lib[n] = m[k][n]; });
+      localStorage.setItem(key, JSON.stringify(lib));
+    });
+  } catch (e) { console.warn('merge materiali vault:', e); }
+}
+
+/* ── logo header (riuso illustrazione launcher, ridotta) ── */
+(function () {
+  var cv = el('logo'), ctx = cv.getContext('2d'), seed = 20260707;
+  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+  function shade(hex, f) { var r = hex >> 16 & 255, g = hex >> 8 & 255, b = hex & 255; return 'rgb(' + Math.min(255, r * f | 0) + ',' + Math.min(255, g * f | 0) + ',' + Math.min(255, b * f | 0) + ')'; }
+  function cube(px, py, s, h, col) {
+    ctx.fillStyle = shade(col, 1.15); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px - s, py + s / 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.78); ctx.beginPath(); ctx.moveTo(px - s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px - s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.55); ctx.beginPath(); ctx.moveTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px + s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+  }
+  var S = 22;
+  for (var y = 0; y < 3; y++) for (var x = 0; x < 3; x++) {
+    var px = 126 + (x - y) * S, py = 50 + (x + y) * S / 2;
+    if (x === 1 && y === 0) { cube(px, py - 26, S, 34, 0x6f6b62); continue; }
+    cube(px, py + rnd() * 2, S, 8, x === 1 && y === 1 ? 0xd9a94a : 0x9a958a);
+  }
+})();
+
+/* ── pannelli ── */
+var panels = ['p-new', 'p-vault', 'p-resume', 'p-file', 'p-draft', 'p-export'];
+document.querySelectorAll('.acard[data-panel]').forEach(function (c) {
+  c.addEventListener('click', function () {
+    panels.forEach(function (p) { el(p).classList.toggle('open', p === c.dataset.panel); });
+    document.querySelectorAll('.acard').forEach(function (a) { a.classList.toggle('active', a === c); });
+    var init = { 'p-vault': initVault, 'p-resume': initResume, 'p-export': initExport, 'p-new': initNew }[c.dataset.panel];
+    if (init) init();
+  });
+});
+el('go-editor-free').addEventListener('click', function () { openEditor(null); });
+el('go-assets').addEventListener('click', function () {
+  localStorage.removeItem('voxelproto_plan_ctx');
+  location.href = './editor.html#voxel';
+});
+
+/* ── NUOVA MAPPA ── */
+var NEW = { nodes: null, per: null, maxLevel: 0, level: null, sourceName: '', vaultPath: null, ruleset: null };
+function initNew() { el('src-hint').textContent = API ? '' : 'browser: solo progetti recenti (vault via app Electron)'; }
+function pickSource(nodes, name, vaultPath, ruleset) {
+  var r = perLevelCounts(nodes);
+  NEW.nodes = nodes; NEW.per = r.per; NEW.maxLevel = r.maxLevel;
+  NEW.sourceName = name; NEW.vaultPath = vaultPath || null; NEW.ruleset = ruleset || null;
+  var box = el('level-list'); box.innerHTML = '';
+  if (!r.maxLevel) { box.innerHTML = '<div class="dim">Nessun nodo con contenuto: genera prima la mappa in MappAI.</div>'; }
+  Object.keys(r.per).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+    var it = document.createElement('div'); it.className = 'it';
+    it.innerHTML = '<span>Livello ' + lv + (+lv === r.maxLevel ? ' — ULTIMO (Guardiano al posto delle scale)' : '') +
+      '</span><small>' + r.per[lv] + ' memorie richieste</small>';
+    it.addEventListener('click', function () {
+      box.querySelectorAll('.it').forEach(function (n) { n.classList.remove('sel'); });
+      it.classList.add('sel'); NEW.level = +lv; el('new-id').value = lv;
+    });
+    box.appendChild(it);
+  });
+  el('new-step2').style.display = 'block';
+}
+el('src-recent').addEventListener('click', function () {
+  var box = el('src-list'); box.innerHTML = '';
+  var projects = [];
+  try { projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]'); } catch (e) {}
+  if (!projects.length) { box.innerHTML = '<div class="dim">Nessun progetto recente trovato (apri prima MappAI e salva un progetto).</div>'; return; }
+  projects.forEach(function (p) {
+    var it = document.createElement('div'); it.className = 'it';
+    it.innerHTML = '<span>' + (p.name || p.id) + '</span><small>recente</small>';
+    it.addEventListener('click', function () {
+      try {
+        var snap = JSON.parse(localStorage.getItem(p.id) || 'null');
+        var nodes = snap && snap.db && snap.db.nodes;
+        if (!nodes) { toast('Progetto senza dati'); return; }
+        box.querySelectorAll('.it').forEach(function (n) { n.classList.remove('sel'); }); it.classList.add('sel');
+        pickSource(nodes, p.name || p.id, null, null);
+      } catch (e) { toast('Progetto non leggibile'); }
+    });
+    box.appendChild(it);
+  });
+});
+el('src-vault').addEventListener('click', function () {
+  var box = el('src-list'); box.innerHTML = '';
+  if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Vault disponibili solo nell\'app Electron.</div>'; return; }
+  API.getAllVaults().then(function (vaults) {
+    if (!vaults || !vaults.length) { box.innerHTML = '<div class="dim">Nessun vault in Documents/MappAI - Vault.</div>'; return; }
+    vaults.forEach(function (v) {
+      var it = document.createElement('div'); it.className = 'it';
+      it.innerHTML = '<span>' + v.name + '</span><small>vault</small>';
+      it.addEventListener('click', function () {
+        Promise.all([API.loadVault(v.path), API.loadDungeonFloors ? API.loadDungeonFloors(v.path) : null]).then(function (rr) {
+          var md = rr[0], fl = rr[1];
+          if (!md || !md.nodes) { toast('Vault non leggibile'); return; }
+          box.querySelectorAll('.it').forEach(function (n) { n.classList.remove('sel'); }); it.classList.add('sel');
+          mergeVaultMaterials(fl);
+          pickSource(md.nodes, v.name, v.path, (fl && fl.ruleset) || null);
+        });
+      });
+      box.appendChild(it);
+    });
+  });
+});
+el('new-go').addEventListener('click', function () {
+  if (NEW.level == null) { toast('Scegli prima il livello'); return; }
+  var size = +el('new-size').value, seed = +el('new-seed').value || 20260707;
+  var tela = document.querySelector('input[name=tela]:checked').value;
+  if (tela === 'pianta') {
+    // fase pianta: salva solo il contesto piano, il terreno lo disegni lì
+    localStorage.setItem('voxelproto_plan_ctx', JSON.stringify({
+      id: 'piano-' + (+el('new-id').value), level: NEW.level, kind: el('new-kind').value,
+      slots: [], props: [],
+      meta: { author: 'studio', title: NEW.sourceName + ' — piano livello ' + NEW.level, created: new Date().toISOString().slice(0, 10) },
+      vaultPath: NEW.vaultPath, vaultName: NEW.sourceName,
+      levelNodeCount: NEW.per[NEW.level] || 0, isLast: NEW.level === NEW.maxLevel,
+      ruleset: NEW.ruleset
+    }));
+    location.href = './pianta.html';
+    return;
+  }
+  var cells = tela === 'draft' ? procDraft(seed, size) : flatCanvas(size);
+  openEditor({
+    id: 'piano-' + (+el('new-id').value), level: NEW.level, kind: el('new-kind').value,
+    slots: [], props: [],
+    meta: { author: 'studio', title: NEW.sourceName + ' — piano livello ' + NEW.level, created: new Date().toISOString().slice(0, 10) },
+    vaultPath: NEW.vaultPath, vaultName: NEW.sourceName,
+    levelNodeCount: NEW.per[NEW.level] || 0, isLast: NEW.level === NEW.maxLevel,
+    ruleset: NEW.ruleset
+  }, cells, size, seed);
+});
+
+/* ── APRI VAULT (badge #1, anteprime #2, ruleset #5) ── */
+var VLT = { path: null, name: '', plans: {}, ruleset: null, per: {}, maxLevel: 0 };
+function initVault() {
+  var box = el('vault-list'); box.innerHTML = '';
+  el('vault-detail').style.display = 'none';
+  if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Vault disponibili solo nell\'app Electron (npm start → Studio).</div>'; return; }
+  API.getAllVaults().then(function (vaults) {
+    if (!vaults || !vaults.length) { box.innerHTML = '<div class="dim">Nessun vault trovato.</div>'; return; }
+    vaults.forEach(function (v) {
+      var it = document.createElement('div'); it.className = 'it';
+      it.innerHTML = '<span>' + v.name + '</span><small>apri →</small>';
+      it.addEventListener('click', function () { loadVaultDetail(v); });
+      box.appendChild(it);
+    });
+  });
+}
+function loadVaultDetail(v) {
+  Promise.all([API.loadVault(v.path), API.loadDungeonFloors(v.path)]).then(function (rr) {
+    var md = rr[0] || {}, fl = rr[1] || {};
+    mergeVaultMaterials(fl);
+    var r = perLevelCounts(md.nodes || []);
+    VLT.path = v.path; VLT.name = v.name; VLT.plans = (fl.success && fl.plans) || {};
+    VLT.ruleset = fl.ruleset || null; VLT.per = r.per; VLT.maxLevel = r.maxLevel;
+    el('vd-title').textContent = v.name + ' — piani (' + Object.keys(VLT.plans).length + ' custom)';
+    rulesetToForm(VLT.ruleset);
+    var box = el('floor-cards'); box.innerHTML = '';
+    // piani custom presenti
+    Object.keys(VLT.plans).sort(function (a, b) { return a - b; }).forEach(function (idx) {
+      var plan = VLT.plans[idx];
+      var need = (typeof plan.level === 'number') ? (VLT.per[plan.level] || 0) : null;
+      var val = CORE.validatePlan(plan, VLT.ruleset, need);
+      var badge = val.ok ? (val.warnings.length ? '<span class="badge warn">⚠ ' + val.warnings.length + '</span>' : '<span class="badge ok">✓ valido</span>')
+        : '<span class="badge err">✗ ' + val.errors.length + '</span>';
+      var card = document.createElement('div'); card.className = 'fcard';
+      card.innerHTML = '<canvas width="420" height="192"></canvas>' +
+        '<div class="fh"><b>piano-' + idx + '</b>' + badge + '</div>' +
+        '<div class="sub">livello ' + plan.level + ' · ' + (plan.kind || 'misto') + ' · ' + (plan.cells || []).length + ' celle' +
+        (val.ok ? '' : '<br>' + val.errors[0].msg) + '</div>' +
+        '<div class="row"><button type="button" class="primary">Modifica</button><button type="button" class="prova">Prova</button></div>';
+      isoPreview(card.querySelector('canvas'), plan);
+      card.querySelector('.primary').addEventListener('click', function () {
+        openEditor({
+          id: plan.id || ('piano-' + idx), level: plan.level, kind: plan.kind || 'misto',
+          slots: plan.slots || [], props: plan.props || [], meta: plan.meta || {},
+          vaultPath: VLT.path, vaultName: VLT.name,
+          levelNodeCount: need, isLast: plan.level === VLT.maxLevel, ruleset: VLT.ruleset
+        }, plan.cells, plan.size, plan.seed);
+      });
+      card.querySelector('.prova').addEventListener('click', function () {
+        localStorage.setItem('voxelproto_map', JSON.stringify({ seed: plan.seed || 1, size: plan.size, sub: plan.sub || 3, cells: plan.cells, props: plan.props || [] }));
+        location.href = './index.html';
+      });
+      box.appendChild(card);
+    });
+    // livelli senza piano custom → procedurale + CTA crea
+    Object.keys(VLT.per).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+      var has = Object.keys(VLT.plans).some(function (idx) { return VLT.plans[idx].level === +lv; });
+      if (has) return;
+      var card = document.createElement('div'); card.className = 'fcard';
+      card.innerHTML = '<canvas width="420" height="192"></canvas>' +
+        '<div class="fh"><b>livello ' + lv + '</b><span class="badge proc">procedurale</span></div>' +
+        '<div class="sub">' + VLT.per[lv] + ' memorie richieste · nessun piano disegnato</div>' +
+        '<div class="row"><button type="button" class="primary">Crea piano</button></div>';
+      card.querySelector('.primary').addEventListener('click', function () {
+        pickSource([], VLT.name, VLT.path, VLT.ruleset);   // riusa step2 con dati vault
+        NEW.per = VLT.per; NEW.maxLevel = VLT.maxLevel; NEW.level = +lv;
+        el('new-id').value = lv;
+        panels.forEach(function (p) { el(p).classList.toggle('open', p === 'p-new'); });
+        pickSourceLevels();
+        toast('Livello ' + lv + ' preselezionato');
+      });
+      box.appendChild(card);
+    });
+    el('vault-detail').style.display = 'block';
+  });
+}
+function pickSourceLevels() {   // ridisegna la lista livelli da NEW.per (per il CTA "Crea piano")
+  var box = el('level-list'); box.innerHTML = '';
+  Object.keys(NEW.per).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+    var it = document.createElement('div'); it.className = 'it' + (+lv === NEW.level ? ' sel' : '');
+    it.innerHTML = '<span>Livello ' + lv + (+lv === NEW.maxLevel ? ' — ULTIMO (Guardiano)' : '') + '</span><small>' + NEW.per[lv] + ' memorie</small>';
+    it.addEventListener('click', function () {
+      box.querySelectorAll('.it').forEach(function (n) { n.classList.remove('sel'); });
+      it.classList.add('sel'); NEW.level = +lv; el('new-id').value = lv;
+    });
+    box.appendChild(it);
+  });
+  el('new-step2').style.display = 'block';
+}
+/* ruleset form ↔ json */
+function rulesetToForm(rs) {
+  var m = (rs && rs.memory) || {}, sev = (rs && rs.severity) || {};
+  var cov = m.coverage != null ? m.coverage : 'all';
+  el('rs-coverage').value = (cov && cov.min != null) ? 'min' : 'all';
+  el('rs-covmin').style.display = el('rs-coverage').value === 'min' ? '' : 'none';
+  if (cov && cov.min != null) el('rs-covmin').value = cov.min;
+  el('rs-spacing').value = m.minSpacing != null ? m.minSpacing : 40;
+  el('rs-enemies').value = (rs && rs.enemies && rs.enemies.max != null) ? rs.enemies.max : 6;
+  el('rs-sev-spacing').value = sev.minSpacing || 'warning';
+  el('rs-sev-coverage').value = sev.coverage || 'error';
+  el('rs-sev-enemies').value = sev.enemiesMax || 'error';
+}
+el('rs-coverage').addEventListener('change', function () { el('rs-covmin').style.display = this.value === 'min' ? '' : 'none'; });
+el('rs-save').addEventListener('click', function () {
+  if (!VLT.path) return;
+  var ruleset = {
+    schema: 'mappai-dungeon-ruleset@1',
+    memory: {
+      coverage: el('rs-coverage').value === 'min' ? { min: +el('rs-covmin').value || 1 } : 'all',
+      minSpacing: +el('rs-spacing').value || 0, maxPerRoom: null
+    },
+    enemies: { max: +el('rs-enemies').value || 0 },
+    required: ['spawn', 'stairs'], requiredLastFloor: ['gatekeeper'],
+    severity: { minSpacing: el('rs-sev-spacing').value, coverage: el('rs-sev-coverage').value, enemiesMax: el('rs-sev-enemies').value }
+  };
+  API.saveDungeonRuleset({ vaultPath: VLT.path, ruleset: ruleset }).then(function (r) {
+    if (r && r.success) { VLT.ruleset = ruleset; toast('Regole salvate nel vault'); loadVaultDetail({ path: VLT.path, name: VLT.name }); }
+    else toast('Errore: ' + ((r && r.error) || '?'));
+  });
+});
+
+/* ── RIPRENDI (#3) + Prova (#6) ── */
+function initResume() {
+  var body = el('resume-body'); body.innerHTML = '';
+  var map = null, ctx = null;
+  try { map = JSON.parse(localStorage.getItem('voxelproto_map') || 'null'); } catch (e) {}
+  try { ctx = JSON.parse(localStorage.getItem('voxelproto_plan_ctx') || 'null'); } catch (e) {}
+  if (!map) { body.innerHTML = '<div class="dim">Nessun lavoro salvato: l\'editor salva qui quando premi «Salva».</div>'; return; }
+  var card = document.createElement('div'); card.className = 'fcard'; card.style.maxWidth = '300px';
+  card.innerHTML = '<canvas width="420" height="192"></canvas>' +
+    '<div class="fh"><b>' + (ctx ? (ctx.id + ' · livello ' + ctx.level) : 'mappa libera') + '</b></div>' +
+    '<div class="sub">' + (ctx && ctx.vaultName ? 'vault: ' + ctx.vaultName : 'non legata a un vault') + ' · ' + (map.cells || []).length + ' celle</div>' +
+    '<div class="row"><button type="button" class="primary">Riapri editor</button><button type="button" class="prova">Prova nel gioco</button></div>';
+  isoPreview(card.querySelector('canvas'), { cells: map.cells, size: map.size, slots: (ctx && ctx.slots) || [] });
+  card.querySelector('.primary').addEventListener('click', function () { location.href = './editor.html'; });
+  card.querySelector('.prova').addEventListener('click', function () { location.href = './index.html'; });
+  body.appendChild(card);
+}
+
+/* ── APRI FILE (#4: piano singolo o bundle) ── */
+var FIL = { plan: null };
+el('file-in').addEventListener('change', function (ev) {
+  var f = ev.target.files && ev.target.files[0]; if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    var data; try { data = JSON.parse(String(rd.result)); } catch (e) { toast('JSON non valido'); return; }
+    var floorsBox = el('file-floors'); floorsBox.innerHTML = ''; floorsBox.style.display = 'none';
+    FIL.plan = null;
+    if (data && typeof data.schema === 'string' && data.schema.indexOf('mappai-dungeon-bundle@') === 0) {
+      if (data.materials) mergeVaultMaterials({ materials: data.materials });   // texture del pacchetto
+      floorsBox.style.display = '';
+      (data.floors || []).forEach(function (p) {
+        var it = document.createElement('div'); it.className = 'it';
+        it.innerHTML = '<span>' + (p.id || '?') + ' · livello ' + p.level + '</span><small>' + (p.meta && p.meta.title || '') + '</small>';
+        it.addEventListener('click', function () {
+          floorsBox.querySelectorAll('.it').forEach(function (n) { n.classList.remove('sel'); });
+          it.classList.add('sel'); FIL.plan = p;
+        });
+        floorsBox.appendChild(it);
+      });
+      toast('Pacchetto: ' + (data.floors || []).length + ' piani — scegline uno');
+    } else if (data && typeof data.schema === 'string' && data.schema.indexOf('mappai-dungeon-floor@') === 0) {
+      FIL.plan = data; toast('Piano caricato: ' + (data.id || '?'));
+    } else { toast('Né piano né pacchetto Memory Dungeon'); return; }
+    var sel = el('file-vault'); sel.innerHTML = '<option value="">— nessun vault (solo modifica) —</option>';
+    if (API && API.getAllVaults) API.getAllVaults().then(function (vaults) {
+      (vaults || []).forEach(function (v) {
+        var o = document.createElement('option'); o.value = v.path; o.textContent = v.name; sel.appendChild(o);
+      });
+    });
+    el('file-target').style.display = '';
+  };
+  rd.readAsText(f);
+});
+el('file-go').addEventListener('click', function () {
+  var p = FIL.plan; if (!p) { toast('Scegli un piano'); return; }
+  var vp = el('file-vault').value || null;
+  var vname = vp ? el('file-vault').selectedOptions[0].textContent : '';
+  var done = function (need, isLast, ruleset) {
+    openEditor({
+      id: p.id, level: p.level, kind: p.kind || 'misto', slots: p.slots || [], props: p.props || [],
+      meta: p.meta || {}, vaultPath: vp, vaultName: vname,
+      levelNodeCount: need, isLast: isLast, ruleset: ruleset
+    }, p.cells, p.size, p.seed);
+  };
+  if (vp && API) {
+    Promise.all([API.loadVault(vp), API.loadDungeonFloors(vp)]).then(function (rr) {
+      var r = perLevelCounts((rr[0] && rr[0].nodes) || []);
+      mergeVaultMaterials(rr[1]);
+      done(r.per[p.level] || null, p.level === r.maxLevel, (rr[1] && rr[1].ruleset) || null);
+    });
+  } else done(null, !!(p.slots || []).some(function (s) { return s.type === 'gatekeeper'; }), null);
+});
+
+/* ── BOZZA (#8) ── */
+var DRAFT = { cells: null, size: 16, seed: 20260707 };
+el('draft-gen').addEventListener('click', function () {
+  DRAFT.seed = +el('draft-seed').value || 20260707;
+  DRAFT.size = +el('draft-size').value;
+  DRAFT.cells = procDraft(DRAFT.seed, DRAFT.size);
+  isoPreview(el('draft-cv'), { cells: DRAFT.cells, size: DRAFT.size });
+  el('draft-go').disabled = false;
+});
+el('draft-go').addEventListener('click', function () {
+  if (!DRAFT.cells) return;
+  openEditor(null, DRAFT.cells, DRAFT.size, DRAFT.seed);
+});
+
+/* ── PACCHETTO CLASSE (#9) ── */
+function initExport() {
+  var box = el('exp-vaults'); box.innerHTML = '';
+  el('exp-detail').style.display = 'none';
+  if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Solo nell\'app Electron.</div>'; return; }
+  API.getAllVaults().then(function (vaults) {
+    (vaults || []).forEach(function (v) {
+      var it = document.createElement('div'); it.className = 'it';
+      it.innerHTML = '<span>' + v.name + '</span><small>scegli →</small>';
+      it.addEventListener('click', function () {
+        API.loadDungeonFloors(v.path).then(function (fl) {
+          var plans = (fl && fl.success && fl.plans) || {};
+          var fb = el('exp-floors'); fb.innerHTML = '';
+          var ids = Object.keys(plans).sort(function (a, b) { return a - b; });
+          if (!ids.length) { fb.innerHTML = '<div class="dim">Questo vault non ha piani custom.</div>'; }
+          ids.forEach(function (idx) {
+            var lab = document.createElement('label'); lab.className = 'ck it';
+            lab.innerHTML = '<input type="checkbox" value="' + idx + '" checked> piano-' + idx + ' · livello ' + plans[idx].level;
+            fb.appendChild(lab);
+          });
+          el('exp-title').value = v.name + ' — pacchetto piani';
+          el('exp-go').onclick = function () {
+            var sel = Array.prototype.slice.call(fb.querySelectorAll('input:checked')).map(function (i) { return i.value; });
+            if (!sel.length) { toast('Seleziona almeno un piano'); return; }
+            API.exportDungeonBundle({ vaultPath: v.path, ids: sel, title: el('exp-title').value, author: el('exp-author').value }).then(function (r) {
+              if (r && r.success) toast('Pacchetto esportato (' + r.floors + ' piani)');
+              else if (!(r && r.canceled)) toast('Errore: ' + ((r && r.error) || '?'));
+            });
+          };
+          el('exp-detail').style.display = 'block';
+        });
+      });
+      box.appendChild(it);
+    });
+  });
+}
+
+initResume();   // il pannello Riprendi è utile subito se c'è lavoro salvato
+if (localStorage.getItem('voxelproto_map')) {
+  el('p-resume').classList.add('open');
+  document.querySelector('.acard[data-panel=p-resume]').classList.add('active');
+}
+
+// Uscita segreta: 5 click nell'angolo in alto a sinistra (entro 3s) → launcher.
+// In Electron chiude la finestra Studio e riapre la scelta; nel browser naviga al file.
+(function () {
+  var clicks = [];
+  document.addEventListener('click', function (e) {
+    if (e.clientX > 56 || e.clientY > 56) return;
+    var now = Date.now();
+    clicks = clicks.filter(function (t) { return now - t < 3000; });
+    clicks.push(now);
+    if (clicks.length >= 5) {
+      clicks = [];
+      if (API && API.launcherReturn) API.launcherReturn();
+      else location.href = '../../public/launcher.html';
+    }
+  });
+})();
+</script>
+</body>
+</html>

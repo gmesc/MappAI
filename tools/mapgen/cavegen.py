@@ -2,11 +2,12 @@
 """C5 v2: renderer CAVERNA — tile verificati a contact-sheet (pavimento [0,0..2],
 buio [2,1], muro [2,3]/[2,4], statue [6..9,0..2], lago prefab [0..2,7..9])."""
 import sys, random
+import os
 from PIL import Image
 sys.path.insert(0, "/private/tmp/claude-501/-Users-giacomomeschini-Claude-MappAI-BERT/a9dc8b97-ef3f-4b65-aad8-c705c64d137c/scratchpad")
 from arcipelago import sprite, SHADOW_LOOT, SHADOW_TREE, NO_SHADOW, TREE_SHADOW, T, COLS, ROWS, Wpx, Hpx, coast_blob, capsule
 
-ROOT = "/Users/giacomomeschini/Claude/MappAI BERT"
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo corrente
 CAVE = Image.open(ROOT + "/public/assets/legendoflua/tilesets/cave.png").convert("RGBA")
 def ctile(c, r, strip=False):
     t = CAVE.crop((c*T, r*T, c*T+T, r*T+T)).copy()

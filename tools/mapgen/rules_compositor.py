@@ -4,12 +4,13 @@ Legge i JSON del map-editor e ricompone: erba procedurale (R3b/R3c via grass.py)
 terra con frange organiche + angoli interni a disco (R12) + ombra direzionale (R13),
 asset LoL per laghetto/siepe/facciata, ombre sprite (R7), scala intera (R8)."""
 import json, re, base64, io, random, sys, math
+import os
 from PIL import Image, ImageDraw
 
-sys.path.insert(0, '/Users/giacomomeschini/Claude/MappAI BERT/tools/mapgen')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from grass import scatter_tufts, PALETTE as GRASS_PAL
 
-ROOT = '/Users/giacomomeschini/Claude/MappAI BERT'
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo corrente
 T = 16
 TERRA = (195, 147, 100, 255)      # campionato da ex3_radura (validata)
 TERRA_DASH = (203, 158, 114, 255)

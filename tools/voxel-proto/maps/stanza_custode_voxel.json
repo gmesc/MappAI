@@ -1,0 +1,516 @@
+{
+ "seed": 20260706,
+ "size": 13,
+ "sub": 3,
+ "meta": "Stanza del Custode — gate room (§19.5)",
+ "lit": false,
+ "palette": {
+  "floorA": "#9a92a8",
+  "floorB": "#7c7590",
+  "wallA": "#6b6378",
+  "wallB": "#4d4660",
+  "waterA": "#4a4670",
+  "waterB": "#2c294a",
+  "bg": "#17141f"
+ },
+ "cells": [
+  {
+   "x": 0,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.41123513384965055,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5612030708033475,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5282298573680733,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.510770761042951,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.4796777366438046,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.4072012953183814,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5964134325271734,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.6125109223506222,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5544554528742134,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 8,
+   "biome": "water",
+   "quota": -0.5745425576558737,
+   "alt": 0,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 2,
+   "blocca": true
+  }
+ ],
+ "entities": [
+  {
+   "id": "hero",
+   "sprite": "rogue8x8/Girl-Melee",
+   "x": 6.5,
+   "z": 10.5
+  },
+  {
+   "id": "gk",
+   "type": "gatekeeper",
+   "x": 6.5,
+   "z": 5.0
+  },
+  {
+   "id": "stairs",
+   "type": "stairs",
+   "x": 6.5,
+   "z": 1.6
+  },
+  {
+   "id": "lan1",
+   "type": "decor",
+   "name": "lantern",
+   "x": 2.0,
+   "z": 2.0
+  },
+  {
+   "id": "lan2",
+   "type": "decor",
+   "name": "lantern",
+   "x": 11.0,
+   "z": 2.0
+  }
+ ]
+}

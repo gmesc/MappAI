@@ -11,7 +11,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from arcipelago import sprite, SHADOW_LOOT, SHADOW_TREE, NO_SHADOW, TREE_SHADOW, tile as owtile, T
 
-ROOT = '/Users/giacomomeschini/Claude/MappAI BERT'
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo corrente
 ERBA = ('overworld', 0, 0)
 # R19 (Giacomo 5/7/26): [6,10] NON e' erba pura -> ha terra reale sul lato E (58% banda marrone,
 # verificato via pixel). Bandito dal fill random di sfondo: piazzato a caso crea una riga marrone

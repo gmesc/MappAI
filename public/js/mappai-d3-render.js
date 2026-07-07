@@ -1055,10 +1055,10 @@ window.changeFontScale = function (dir) {
 window.exportSnapshot = async function () {
     try {
         if (!window.electronAPI || !window.electronAPI.capturePage) {
-            throw new Error("La cattura PNG non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+            throw new Error(window.t('err_png_ipad', "La cattura PNG non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!"));
         }
 
-        window.showToast("Cattura immagine pulita in corso...", "info");
+        window.showToast(window.t('tst_png_capturing', "Cattura immagine pulita in corso..."), "info");
 
         // Attiva modalità snapshot (nasconde UI)
         document.body.classList.add('is-snapshotting');
@@ -1071,7 +1071,7 @@ window.exportSnapshot = async function () {
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
-        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
+        if (!dataUrl) throw new Error(window.t('err_screen_capture', "Errore durante la cattura dello schermo"));
 
         const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
         if (isCapacitor) {
@@ -1084,16 +1084,16 @@ window.exportSnapshot = async function () {
                     title: "Esporta Snapshot",
                     text: "Snapshot della mappa mentale creato con MappAI"
                 });
-                window.showToast("Snapshot condiviso con successo!", "success");
+                window.showToast(window.t('tst_png_shared', "Snapshot condiviso con successo!"), "success");
             } else {
-                throw new Error("Condivisione file non supportata da questo dispositivo");
+                throw new Error(window.t('err_share_unsupported', "Condivisione file non supportata da questo dispositivo"));
             }
         } else {
             const a = document.createElement("a");
             a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
             a.href = dataUrl;
             a.click();
-            window.showToast("Snapshot PNG (Clean) creato con successo!", "success");
+            window.showToast(window.t('tst_png_done', "Snapshot PNG (Clean) creato con successo!"), "success");
         }
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
@@ -1105,10 +1105,10 @@ window.exportSnapshot = async function () {
 window.exportPDF = async function () {
     try {
         if (!window.electronAPI || !window.electronAPI.capturePage) {
-            throw new Error("La cattura PDF non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!");
+            throw new Error(window.t('err_pdf_ipad', "La cattura PDF non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!"));
         }
 
-        window.showToast("Generazione PDF in corso...", "info");
+        window.showToast(window.t('tst_pdf_working', "Generazione PDF in corso..."), "info");
 
         // Attiva modalità snapshot (nasconde l'UI)
         document.body.classList.add('is-snapshotting');
@@ -1121,7 +1121,7 @@ window.exportPDF = async function () {
         // Ripristina UI
         document.body.classList.remove('is-snapshotting');
 
-        if (!dataUrl) throw new Error("Errore durante la cattura dello schermo");
+        if (!dataUrl) throw new Error(window.t('err_screen_capture', "Errore durante la cattura dello schermo"));
 
         // Utilizziamo jsPDF (già incluso nell'app)
         const { jsPDF } = window.jspdf;
@@ -1149,14 +1149,14 @@ window.exportPDF = async function () {
                     title: "Esporta PDF",
                     text: "Mappa mentale creata con MappAI"
                 });
-                window.showToast("PDF condiviso con successo!", "success");
+                window.showToast(window.t('tst_pdf_shared', "PDF condiviso con successo!"), "success");
             } else {
                 throw new Error("Condivisione PDF non supportata da questo dispositivo");
             }
         } else {
             // Su Desktop (Electron/Browser), salva direttamente sul filesystem
             pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
-            window.showToast("Esportazione PDF completata!", "success");
+            window.showToast(window.t('tst_pdf_done', "Esportazione PDF completata!"), "success");
         }
     } catch (err) {
         document.body.classList.remove('is-snapshotting');
@@ -1167,7 +1167,7 @@ window.exportPDF = async function () {
 
 window.exportSVG = async function () {
     try {
-        window.showToast("Generazione SVG in corso...", "info");
+        window.showToast(window.t('tst_svg_working', "Generazione SVG in corso..."), "info");
         const svgElement = document.getElementById("map-svg");
         if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
 
@@ -1215,7 +1215,7 @@ window.exportSVG = async function () {
                     title: "Esporta SVG",
                     text: "Esporta mappa mentale in vettoriale"
                 });
-                window.showToast("SVG condiviso con successo!", "success");
+                window.showToast(window.t('tst_svg_shared', "SVG condiviso con successo!"), "success");
             } else {
                 throw new Error("Condivisione non supportata su questo dispositivo. Prova a salvare.");
             }
@@ -1225,11 +1225,11 @@ window.exportSVG = async function () {
             a.download = `MappAI_Mappa_${new Date().getTime()}.svg`;
             a.href = URL.createObjectURL(blob);
             a.click();
-            window.showToast("Esportazione SVG completata con successo!", "success");
+            window.showToast(window.t('tst_svg_done', "Esportazione SVG completata con successo!"), "success");
         }
     } catch (err) {
         console.error("Errore esportazione SVG:", err);
-        window.showToast("Errore esportazione: " + err.message, "error");
+        window.showToast(window.t('tst_export_error', "Errore esportazione: ") + err.message, "error");
     }
 };
 
@@ -1285,7 +1285,7 @@ window.toggleLayout = function () {
                 n.pinned = true;
             }
         });
-        window.showToast("Layout Personale Ripristinato", "success");
+        window.showToast(window.t('tst_layout_restored', "Layout Personale Ripristinato"), "success");
     } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
         const layoutId = appState.layoutMode.replace('custom_', '');
         const layout = appState.savedLayouts.find(l => l.id === layoutId);
@@ -1306,7 +1306,7 @@ window.toggleLayout = function () {
                     d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
                 );
             }
-            window.showToast(`Layout "${layout.name}" Ripristinato`, "success");
+            window.showToast(window.t('tst_layout_x_restored', 'Layout "{x}" Ripristinato').replace('{x}', layout.name), "success");
         }
     }
 
@@ -1418,7 +1418,7 @@ window.openLensMenu = function () {
             onmouseleave="this.style.color=''">
             <span class="lens-dot" style="background:${fam.color};"></span>
             <i data-lucide="${fam.icon}" style="width:12px;height:12px;flex-shrink:0;"></i>
-            ${fam.label}
+            ${window.MappAIRelations.getFamilyLabel(key, (window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? 'en' : 'it')}
         </button>`;
     });
 

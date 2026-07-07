@@ -383,6 +383,11 @@ window.changeLanguage = function (lang) {
         const key = el.getAttribute('data-i18n-placeholder');
         if (t[key]) el.setAttribute('placeholder', t[key]);
     });
+    // Tooltip hover: title="" tradotti via data-i18n-title
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        if (t[key]) el.setAttribute('title', t[key]);
+    });
 
     // --- 1b. LOCALIZZAZIONE PRICING (Inner HTML) ---
     const pricingFree = document.getElementById('pricing-free');
@@ -443,6 +448,58 @@ window.changeLanguage = function (lang) {
     }
 };
 
+// ── Onboarding lingua al primo avvio ─────────────────────────────────────────
+// Doppia scelta: lingua INTERFACCIA + lingua MAPPE (due cose diverse: un docente
+// può volere l'app in inglese ma mappe in italiano per i suoi studenti).
+// Appare SOLO su installazione fresca (nessuna mappai_language salvata).
+window.showLanguageOnboarding = function () {
+    const T = window.t || ((k, f) => f);
+    const modal = document.createElement('div');
+    modal.id = 'lang-onboarding-modal';
+    modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4';
+    const opt = (name, value, label, desc, checked) => `
+        <label class="pm-option">
+            <input type="radio" name="${name}" value="${value}" ${checked ? 'checked' : ''}>
+            <div><span class="pm-option-label">${label}</span>
+            ${desc ? `<span class="pm-option-desc">${desc}</span>` : ''}</div>
+        </label>`;
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="lang-onb-title">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="pm-icon-wrap"><i data-lucide="languages" class="w-6 h-6"></i></div>
+            <div>
+                <h3 class="pm-title" id="lang-onb-title">${T('onb_title', 'Benvenuto in MappAI! · Welcome!')}</h3>
+                <p class="pm-subtitle">${T('onb_subtitle', 'Scegli le lingue · Choose your languages')}</p>
+            </div>
+        </div>
+        <div class="pm-section">
+            <div class="pm-section-title">🖥 ${T('onb_ui_lang', 'Lingua dell\'interfaccia · Interface language')}</div>
+            ${opt('onb-ui-lang', 'it', 'Italiano 🇮🇹', '', true)}
+            ${opt('onb-ui-lang', 'en', 'English 🇬🇧', '', false)}
+        </div>
+        <div class="pm-section">
+            <div class="pm-section-title">🗺 ${T('onb_map_lang', 'Lingua delle mappe · Map language')}</div>
+            ${opt('onb-map-lang', 'ui', T('onb_map_ui', 'Come l\'interfaccia · Same as interface'), '', true)}
+            ${opt('onb-map-lang', 'it', 'Italiano', '', false)}
+            ${opt('onb-map-lang', 'en', 'English', '', false)}
+            ${opt('onb-map-lang', 'auto', T('onb_map_auto', 'Lingua delle fonti · Language of the sources'), T('onb_map_auto_desc', 'Le mappe nascono nella lingua dei documenti caricati · Maps follow the language of your documents'), false)}
+        </div>
+        <div class="flex justify-end mt-5">
+            <button type="button" id="lang-onb-ok" class="pm-btn-primary">${T('onb_start', 'Inizia · Start')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+    document.getElementById('lang-onb-ok').onclick = () => {
+        const uiLang = (modal.querySelector('input[name="onb-ui-lang"]:checked') || {}).value || 'it';
+        const mapLang = (modal.querySelector('input[name="onb-map-lang"]:checked') || {}).value || 'ui';
+        localStorage.setItem('mappai_map_language', mapLang);
+        localStorage.setItem('mappai_lang_onboarded', '1');
+        modal.remove();
+        window.changeLanguage(uiLang);
+    };
+};
+
 // Add auto-render projects on load
 document.addEventListener('DOMContentLoaded', async () => {
     // Inizializza secure keys dal Keychain nativo se disponibile, o da localStorage
@@ -456,6 +513,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Inizializza Lingua
     window.changeLanguage(window.currentLanguage);
+
+    // Onboarding lingue: solo installazione fresca (mai vista una lingua salvata)
+    try {
+        if (!localStorage.getItem('mappai_lang_onboarded')) {
+            if (localStorage.getItem('mappai_language') === null) {
+                window.showLanguageOnboarding();
+            } else {
+                localStorage.setItem('mappai_lang_onboarded', '1'); // utente esistente: non disturbare
+            }
+        }
+    } catch (e) { /* localStorage non disponibile */ }
 
     // Header Buttons
     const btnConfig = document.getElementById('btn-config-ai');

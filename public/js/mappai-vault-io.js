@@ -56,7 +56,7 @@ window.saveMapVault = async function () {
                 syncBtn.classList.add('flex');
             }
 
-            window.showToast("Vault creato e collegato!", "success");
+            window.showToast(window.t('tst_vault_created', "Vault creato e collegato!"), "success");
         } else {
             window.showAlert("Errore Salvataggio", saveRes.error);
         }
@@ -122,7 +122,7 @@ window.loadDemoGraph = async function (url) {
         if (typeof initD3Visualization === 'function') initD3Visualization();
 
         window.showLoadingOverlay(false);
-        window.showToast("Mappa dimostrativa caricata con successo!", "success");
+        window.showToast(window.t('tst_demo_loaded', "Mappa dimostrativa caricata con successo!"), "success");
     } catch (err) {
         window.showLoadingOverlay(false);
         console.error(err);
@@ -215,7 +215,7 @@ window.loadMapVault = async function () {
             }
 
             setTimeout(() => { initD3Visualization(); }, 200);
-            window.showToast("Vault caricato con successo!", "success");
+            window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }
@@ -268,7 +268,7 @@ window.handleIPadVaultFileSelected = async function (event) {
 
             window.showLoadingOverlay(false);
             if (saveRes && saveRes.success) {
-                window.showToast("Vault importato con successo!", "success");
+                window.showToast(window.t('tst_vault_imported', "Vault importato con successo!"), "success");
                 // Ricarica la lista dei vault nel modale
                 if (typeof window.loadVaultList === 'function') {
                     await window.loadVaultList();
@@ -306,7 +306,7 @@ window.startEmptyMap = function () {
     simulation = null;
     window.switchToMapLayout();
     initD3Visualization();
-    window.showToast("Nuovo progetto creato", "info");
+    window.showToast(window.t('tst_new_project', "Nuovo progetto creato"), "info");
 };
 
 // --- Gestione Drag & Drop Globale ---
@@ -317,6 +317,6 @@ window.addEventListener('drop', (e) => {
     if (files.length > 0 && files[0].name.endsWith('.json')) {
         const mockEvent = { target: { files: [files[0]], value: '' } };
         window.importGraph(mockEvent);
-        window.showToast("Mappa caricata con successo!", "success");
+        window.showToast(window.t('tst_map_loaded', "Mappa caricata con successo!"), "success");
     }
 });

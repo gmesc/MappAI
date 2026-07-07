@@ -51,3 +51,27 @@ test('isMatch: vuoto e lontano → false', () => {
   assert.equal(P.isMatch('', 'Alfa'), false);
   assert.equal(P.isMatch('zzz', 'Alfa'), false);
 });
+
+// ── perItemRate: fluenza per-item, non media di stanza (fix stile T2) ──
+
+test('perItemRate: tempo di stanza ripartito sui trovati (= matched/min)', () => {
+  assert.equal(P.perItemRate(4, 60), 4);   // 4 trovati in 60s → 15s/item → 4/min
+  assert.equal(P.perItemRate(2, 30), 4);   // stesso ritmo, stanza più corta
+  assert.equal(P.perItemRate(1, 120), 0.5);
+});
+
+test('perItemRate: cap 30 come rateFromSeconds', () => {
+  assert.equal(P.perItemRate(10, 2), 30);  // 0.2s/item → cap
+});
+
+test('perItemRate: coerente con rateFromSeconds dello Studio Attivo', () => {
+  const ASC = require('../public/js/mappai-active-study-core.js');
+  assert.equal(P.perItemRate(3, 45), ASC.rateFromSeconds(45 / 3));
+});
+
+test('perItemRate: 0 trovati o input non validi → null (nessuna osservazione)', () => {
+  assert.equal(P.perItemRate(0, 60), null);
+  assert.equal(P.perItemRate(3, 0), null);
+  assert.equal(P.perItemRate(NaN, 60), null);
+  assert.equal(P.perItemRate(3, -5), null);
+});

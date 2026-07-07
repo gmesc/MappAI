@@ -152,7 +152,7 @@ window.revertToAIContent = function () {
     document.getElementById('edit-n-content').value = editTarget.aiDesc;
     editTarget.hasCustomText = false;
     document.getElementById('revert-ai-btn').classList.add('hidden');
-    window.showToast("Testo ripristinato alla versione AI.", "info");
+    window.showToast(window.t('tst_text_restored', "Testo ripristinato alla versione AI."), "info");
 }
 
 window.closeEditModal = function () {

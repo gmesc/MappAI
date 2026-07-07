@@ -66,15 +66,15 @@ window.showContextMenu = function (e, type, data) {
 
     if (type === 'node') {
         const expandAiHtml = !appState.studentMode ? `
-            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> Espandi da Fonte</div>
+            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> ${window.t('ctx_expand_source', "Espandi da Fonte")}</div>
         ` : '';
 
         const spacedRepetitionHtml = !appState.studentMode ? `
             <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
-            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> Flashcard Nodo</div>
-            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> Flashcard Ramo</div>
-            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> Quiz Nodo</div>
-            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> Quiz Ramo</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> ${window.t('ctx_flashcard_nodo', "Flashcard Nodo")}</div>
+            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> ${window.t('ctx_flashcard_ramo', "Flashcard Ramo")}</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> ${window.t('ctx_quiz_nodo', "Quiz Nodo")}</div>
+            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> ${window.t('ctx_quiz_ramo', "Quiz Ramo")}</div>
             <hr class="my-1 border-slate-200">
         ` : '';
 
@@ -82,25 +82,25 @@ window.showContextMenu = function (e, type, data) {
         // Sul PROPRIO ramo il nodo è editabile → resta tutto, incluso "Crea Figlio".
         const jLocked = !!(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled() && !window.MappAIJigsaw.canEdit(data));
         const editorHtml = !jLocked ? `
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Editor Mappa</div>
+                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">${window.t('ctx_map_editor', "Editor Mappa")}</div>
                     ${expandAiHtml}
-                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> Edit Contenuto</div>
-                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> Rinomina</div>
-                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> Crea Figlio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> Crea Link</div>
-                    <div class="ctx-item text-amber-600" onclick="window.ctxAction('merge')"><i data-lucide="git-merge"></i> Fondi con...</div>
-                    ${appState.extractionMode !== 'kg' ? `<div class="ctx-item text-sky-600" onclick="window.ctxAction('relink')"><i data-lucide="unlink"></i> Cambia Link</div>` : ''}
+                    <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> ${window.t('ctx_edit_content', "Edit Contenuto")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> ${window.t('ctx_rename', "Rinomina")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> ${window.t('ctx_add_child', "Crea Figlio")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('link')"><i data-lucide="link"></i> ${window.t('ctx_add_link', "Crea Link")}</div>
+                    <div class="ctx-item text-amber-600" onclick="window.ctxAction('merge')"><i data-lucide="git-merge"></i> ${window.t('ctx_merge', "Fondi con...")}</div>
+                    ${appState.extractionMode !== 'kg' ? `<div class="ctx-item text-sky-600" onclick="window.ctxAction('relink')"><i data-lucide="unlink"></i> ${window.t('ctx_relink', "Cambia Link")}</div>` : ''}
                     <hr class="my-1 border-slate-200">
                 ` : '';
-        const deleteHtml = !jLocked ? `<div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> Elimina Nodo</div>` : '';
+        const deleteHtml = !jLocked ? `<div class="ctx-item danger" onclick="window.ctxAction('delete_node')"><i data-lucide="trash-2"></i> ${window.t('ctx_delete_node', "Elimina Nodo")}</div>` : '';
 
         menu.innerHTML = `
-                    <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> Leggi ad alta voce</div>
-                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">Stato di Studio</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> Da studiare</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> Ripasso necessario</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> Imparato!</div>
-                    <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> Azzera Semaforo</div>
+                    <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> ${window.t('ctx_tts', "Leggi ad alta voce")}</div>
+                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">${window.t('ctx_study_status', "Stato di Studio")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> ${window.t('ctx_status_todo', "Da studiare")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> ${window.t('ctx_status_review', "Ripasso necessario")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> ${window.t('ctx_status_done', "Imparato!")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> ${window.t('ctx_status_none', "Azzera Semaforo")}</div>
                     ${editorHtml}
                     ${spacedRepetitionHtml}
                     ${deleteHtml}
@@ -113,11 +113,11 @@ window.showContextMenu = function (e, type, data) {
                 '<div style="color:#64748b;font-size:11px;margin-top:2px;">Autore: ' + (data.bridgeAuthor || '?') + ' · stato: ' + (data.bridgeStatus || 'proposed') + '</div>' +
                 (data.justification ? '<div style="color:#475569;font-size:12px;margin-top:4px;font-style:italic;">"' + String(data.justification).replace(/[<>]/g, '') + '"</div>' : '') + '</div>' +
                 '<hr class="my-1 border-slate-200">' +
-                '<div class="ctx-item text-emerald-600" onclick="window.ctxAction(\'ratify_bridge\')"><i data-lucide="check-circle"></i> Ratifica ponte</div>' +
-                '<div class="ctx-item danger" onclick="window.ctxAction(\'reject_bridge\')"><i data-lucide="x-circle"></i> Rifiuta ponte</div>' +
+                '<div class="ctx-item text-emerald-600" onclick="window.ctxAction(\'ratify_bridge\')"><i data-lucide="check-circle"></i> ' + window.t('ctx_ratify_bridge', 'Ratifica ponte') + '</div>' +
+                '<div class="ctx-item danger" onclick="window.ctxAction(\'reject_bridge\')"><i data-lucide="x-circle"></i> ' + window.t('ctx_reject_bridge', 'Rifiuta ponte') + '</div>' +
                 '<hr class="my-1 border-slate-200">' +
-                '<div class="ctx-item" onclick="window.ctxAction(\'rename_link\')"><i data-lucide="type"></i> Rinomina Relazione</div>' +
-                '<div class="ctx-item danger" onclick="window.ctxAction(\'delete_link\')"><i data-lucide="trash-2"></i> Elimina Ponte</div>';
+                '<div class="ctx-item" onclick="window.ctxAction(\'rename_link\')"><i data-lucide="type"></i> ' + window.t('ctx_rename_rel', 'Rinomina Relazione') + '</div>' +
+                '<div class="ctx-item danger" onclick="window.ctxAction(\'delete_link\')"><i data-lucide="trash-2"></i> ' + window.t('ctx_delete_bridge', 'Elimina Ponte') + '</div>';
             window.safeCreateIcons();
             menu.classList.remove('hidden');
             let bx = e.clientX, by = e.clientY;
@@ -130,19 +130,19 @@ window.showContextMenu = function (e, type, data) {
         const linkEditable = !(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled()) ||
             (window.MappAIJigsaw.canEditLink ? window.MappAIJigsaw.canEditLink(data) : true);
         if (!linkEditable) {
-            menu.innerHTML = `<div class="px-3 py-2 text-xs text-slate-400 flex items-center gap-2"><i data-lucide="lock" class="w-3.5 h-3.5"></i> Link bloccato (solo studio)</div>`;
+            menu.innerHTML = `<div class="px-3 py-2 text-xs text-slate-400 flex items-center gap-2"><i data-lucide="lock" class="w-3.5 h-3.5"></i> ${window.t('ctx_link_locked', "Link bloccato (solo studio)")}</div>`;
         } else if (data.aiSuggested) {
             menu.innerHTML = `
-                        <div class="px-3 py-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-widest bg-amber-50 border-b border-amber-200">🤖 Link AI Suggerito</div>
-                        <div class="ctx-item text-emerald-600" onclick="window.ctxAction('validate_ai_link')"><i data-lucide="check-circle"></i> Valida Correlazione</div>
+                        <div class="px-3 py-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-widest bg-amber-50 border-b border-amber-200">${window.t('ctx_ai_link', "\ud83e\udd16 Link AI Suggerito")}</div>
+                        <div class="ctx-item text-emerald-600" onclick="window.ctxAction('validate_ai_link')"><i data-lucide="check-circle"></i> ${window.t('ctx_validate_corr', "Valida Correlazione")}</div>
                         <hr class="my-1 border-slate-200">
-                        <div class="ctx-item danger" onclick="window.ctxAction('remove_ai_link')"><i data-lucide="trash-2"></i> Rimuovi Link AI</div>
+                        <div class="ctx-item danger" onclick="window.ctxAction('remove_ai_link')"><i data-lucide="trash-2"></i> ${window.t('ctx_remove_ai_link', "Rimuovi Link AI")}</div>
                     `;
         } else {
             menu.innerHTML = `
-                        <div class="ctx-item" onclick="window.ctxAction('rename_link')"><i data-lucide="type"></i> Rinomina Relazione</div>
+                        <div class="ctx-item" onclick="window.ctxAction('rename_link')"><i data-lucide="type"></i> ${window.t('ctx_rename_rel', "Rinomina Relazione")}</div>
                         <hr class="my-1 border-slate-200">
-                        <div class="ctx-item danger" onclick="window.ctxAction('delete_link')"><i data-lucide="trash-2"></i> Elimina Link</div>
+                        <div class="ctx-item danger" onclick="window.ctxAction('delete_link')"><i data-lucide="trash-2"></i> ${window.t('ctx_delete_link', "Elimina Link")}</div>
                     `;
         }
     } else if (type === 'bg') {
@@ -150,18 +150,18 @@ window.showContextMenu = function (e, type, data) {
         const jOn = !!(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled());
         if (appState.extractionMode === 'kg') {
             menu.innerHTML = `
-                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> Nuovo Hub</div>
-                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> Nuovo Nodo</div>` : ''}
-                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated_hub')"><i data-lucide="sun" class="text-amber-500"></i> ${window.t('ctx_new_hub', "Nuovo Hub")}</div>
+                <div class="ctx-item" onclick="window.ctxAction('add_isolated_node')"><i data-lucide="circle"></i> ${window.t('ctx_new_node', "Nuovo Nodo")}</div>` : ''}
+                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> ${window.t('ctx_center_view', "Centra Vista")}</div>
                 <hr class="my-1 border-slate-200">
-                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> ${window.t('ctx_pin_layout', "Fissa Layout")}</div>
             `;
         } else {
             menu.innerHTML = `
-                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> Nuovo Nodo</div>` : ''}
-                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> Centra Vista</div>
+                ${!jOn ? `<div class="ctx-item" onclick="window.ctxAction('add_isolated')"><i data-lucide="plus"></i> ${window.t('ctx_new_node', "Nuovo Nodo")}</div>` : ''}
+                <div class="ctx-item" onclick="window.resetZoom()"><i data-lucide="maximize"></i> ${window.t('ctx_center_view', "Centra Vista")}</div>
                 <hr class="my-1 border-slate-200">
-                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> Fissa Layout</div>
+                <div class="ctx-item text-indigo-600 font-bold" onclick="window.salvaLayout()"><i data-lucide="pin"></i> ${window.t('ctx_pin_layout', "Fissa Layout")}</div>
             `;
         }
     }
@@ -187,7 +187,7 @@ document.addEventListener('click', hideContextMenu);
 // Text-to-Speech: legge titolo + descrizione/contenuto del nodo (toggle stop)
 window.speakNode = function (data) {
     if (!data) return;
-    if (!('speechSynthesis' in window)) { showToast("Sintesi vocale non supportata su questo dispositivo", "error"); return; }
+    if (!('speechSynthesis' in window)) { showToast(window.t('tst_no_tts', "Sintesi vocale non supportata su questo dispositivo"), "error"); return; }
     const synth = window.speechSynthesis;
     // se sta già leggendo → ferma (toggle)
     if (synth.speaking || synth.pending) { synth.cancel(); return; }
@@ -202,7 +202,7 @@ window.speakNode = function (data) {
         .replace(/[\\{}\[\]]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    if (!text) { showToast("Nessun testo da leggere", "info"); return; }
+    if (!text) { showToast(window.t('tst_no_text_tts', "Nessun testo da leggere"), "info"); return; }
 
     const u = new SpeechSynthesisUtterance(text);
     u.lang = (window.currentLanguage === 'en') ? 'en-US' : 'it-IT';
@@ -310,7 +310,7 @@ window.ctxAction = function (action) {
     }
     else if (action === 'delete_node') {
         if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'elimina')) return;
-        window.showConfirm("Elimina Nodo", "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?", () => {
+        window.showConfirm(window.t('ctx_delete_node', "Elimina Nodo"), window.t('cfm_delete_node', "Sei sicuro di voler eliminare questo nodo e tutti i link connessi?"), () => {
             if (typeof window.pushUndoSnapshot === 'function') window.pushUndoSnapshot('Elimina nodo: ' + data.label);
             appState.db.nodes = appState.db.nodes.filter(n => n.id !== data.id);
             appState.db.links = appState.db.links.filter(l => {
@@ -352,13 +352,13 @@ window.ctxAction = function (action) {
     else if (action === 'ratify_bridge') {
         if (window.MappAIJigsaw && window.MappAIJigsaw.setBridgeStatus(data, 'ratified')) {
             renderGraph();
-            if (window.showToast) window.showToast('Ponte ratificato — salva il vault per rendere permanente', 'success');
+            if (window.showToast) window.showToast(window.t('tst_bridge_ratified', 'Ponte ratificato — salva il vault per rendere permanente'), 'success');
         }
     }
     else if (action === 'reject_bridge') {
         if (window.MappAIJigsaw && window.MappAIJigsaw.setBridgeStatus(data, 'rejected')) {
             renderGraph();
-            if (window.showToast) window.showToast('Ponte rifiutato', 'info');
+            if (window.showToast) window.showToast(window.t('tst_bridge_rejected', 'Ponte rifiutato'), 'info');
         }
     }
     else if (action === 'add_isolated') {

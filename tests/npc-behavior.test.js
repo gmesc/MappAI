@@ -111,3 +111,60 @@ test('pickEmoteTerm: parola >4 lettere da label/desc, cap 12 char', () => {
   assert.ok(term.length > 4 && term.length <= 12);
   assert.equal(B.pickEmoteTerm('a b c', 'x y', rng), '');
 });
+
+// ── personalità (§ Sapienti runtime) ─────────────────────────────────────────
+test('pickPersonality: deterministica per lo stesso seed, ben formata', () => {
+  const p1 = B.pickPersonality('Storia::n42');
+  const p2 = B.pickPersonality('Storia::n42');
+  assert.equal(p1.key, p2.key);
+  assert.ok(typeof p1.tone === 'string' && p1.tone.length > 0);
+  assert.ok(p1.radius > 0 && p1.pauseProb >= 0 && p1.pauseProb <= 1);
+  assert.ok(Array.isArray(p1.stepMs) && Array.isArray(p1.idleMs) && Array.isArray(p1.emoteMs));
+});
+
+test('pickPersonality: accetta sia stringa sia intero (via strSeed)', () => {
+  assert.equal(B.pickPersonality('lago').key, B.pickPersonality(B.strSeed('lago')).key);
+});
+
+test('pickPersonality: distribuisce fra archetipi diversi', () => {
+  const keys = new Set();
+  for (let i = 0; i < 40; i++) keys.add(B.pickPersonality('n' + i).key);
+  assert.ok(keys.size >= 3, 'troppo poca varietà di caratteri: ' + keys.size);
+});
+
+test('mkBehavior senza persona = comportamento storico (retrocompat)', () => {
+  const beh = B.mkBehavior('wander', 5, 5, 2);
+  assert.equal(beh.radius, 2);
+  assert.equal(beh.pauseProb, undefined);   // niente campi persona → stepNpc usa i default
+  assert.equal(beh.stepMs, undefined);
+});
+
+test('mkBehavior con persona: eredita raggio e cadenza', () => {
+  const persona = { key: 'curioso', tone: 't', radius: 3, pauseProb: 0.32, stepMs: [520, 300], idleMs: [900, 1000], emoteMs: [6000, 6000] };
+  const beh = B.mkBehavior('wander', 5, 5, 2, persona);
+  assert.equal(beh.radius, 3);              // persona override del radius arg
+  assert.equal(beh.persona, 'curioso');
+  assert.equal(beh.pauseProb, 0.32);
+  assert.deepEqual(beh.stepMs, [520, 300]);
+});
+
+test('stepNpc rispetta il raggio della persona (curioso: 3)', () => {
+  const persona = B.PERSONALITIES.find(p => p.key === 'curioso');
+  const beh = B.mkBehavior('wander', 10, 10, 2, persona);
+  const rng = B.mulberry32(42);
+  for (let t = 0; t < 200000; t += 90) {
+    B.stepNpc(beh, { now: t, rng, walkable: allWalk, playerDist: 9 });
+    assert.ok(Math.abs(beh.x - 10) + Math.abs(beh.y - 10) <= 3);
+  }
+});
+
+test('stepNpc: pauseProb della persona pilota la frequenza dei passi', () => {
+  function steps(pauseProb) {
+    const beh = B.mkBehavior('wander', 20, 20, 4, { key: 'x', tone: 't', radius: 4, pauseProb, stepMs: [1, 1], idleMs: [1, 1] });
+    const rng = B.mulberry32(123);
+    let moved = 0;
+    for (let t = 0; t < 4000; t += 2) if (B.stepNpc(beh, { now: t, rng, walkable: allWalk, playerDist: 9 })) moved++;
+    return moved;
+  }
+  assert.ok(steps(0.1) > steps(0.9), 'pausa alta dovrebbe muovere meno di pausa bassa');
+});

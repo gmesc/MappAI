@@ -62,7 +62,7 @@ window.togglePomodoro = function () {
                 } catch (e) {
                     console.error("Error updating pomodoro sessions", e);
                 }
-                window.showToast("Tempo scaduto! Fai una pausa.", "success");
+                window.showToast(window.t('tst_time_up', "Tempo scaduto! Fai una pausa."), "success");
             }
         }, 1000);
     }
@@ -104,7 +104,7 @@ window.resetPomodoroSessions = function () {
         try {
             localStorage.setItem('mappai_pomodoro_sessions', '0');
             window.updatePomodoroSessionsDisplay();
-            window.showToast("Sessioni azzerate", "info");
+            window.showToast(window.t('tst_sessions_reset', "Sessioni azzerate"), "info");
         } catch (e) {
             console.error("Error resetting pomodoro sessions", e);
         }

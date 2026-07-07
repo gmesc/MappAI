@@ -152,7 +152,7 @@ window.printAllNodeLabels = async function () {
         : allNodes;
 
     if (nodes.length === 0) {
-        window.showToast("Nessun nodo presente nella mappa.", "warning");
+        window.showToast(window.t('tst_no_nodes', "Nessun nodo presente nella mappa."), "warning");
         return;
     }
 
@@ -264,7 +264,7 @@ window.printAllNodeLabels = async function () {
     }
 
     doc.save(`Label-${projectTitle}.pdf`);
-    window.showToast("Download PDF delle etichette avviato!", "success");
+    window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 };
 
 window.printAllNodeDossiers = function () {
@@ -408,7 +408,7 @@ window.generateDossierPDFFromOptions = async function () {
         } else {
             const selectedNode = appState.db.nodes.find(n => n.id === selectedNodeId);
             if (!selectedNode) {
-                window.showToast("Nodo non trovato", "error");
+                window.showToast(window.t('tst_node_not_found', "Nodo non trovato"), "error");
                 return;
             }
 
@@ -441,7 +441,7 @@ window.generateDossierPDFFromOptions = async function () {
         }
 
         if (targetNodes.length === 0) {
-            window.showToast("Nessun nodo selezionato da stampare.", "warning");
+            window.showToast(window.t('tst_no_print_node', "Nessun nodo selezionato da stampare."), "warning");
             return;
         }
 
@@ -893,7 +893,7 @@ window.generateDossierPDFFromOptions = async function () {
 
         const printWindow = window.open("", "_blank");
         if (!printWindow) {
-            window.showToast("Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser.", "error");
+            window.showToast(window.t('tst_popup_blocked', "Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser."), "error");
             return;
         }
 

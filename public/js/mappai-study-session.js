@@ -99,14 +99,14 @@ window.startStudySession = async function () {
     }
 
     if (!studyText || studyText.trim() === '') {
-        window.showToast("Nessun contenuto trovato per lo studio.", "error");
+        window.showToast(window.t('tst_no_study_content', "Nessun contenuto trovato per lo studio."), "error");
         return;
     }
 
     const apiKey = window.getSystemKey();
-    if (!apiKey) { window.showToast("Inserisci API Key nelle impostazioni.", "error"); return; }
+    if (!apiKey) { window.showToast(window.t('tst_key_in_settings', "Inserisci API Key nelle impostazioni."), "error"); return; }
 
-    window.showLoadingOverlay(true, "Generazione materiale di studio in corso...", window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
+    window.showLoadingOverlay(true, window.t('lo_study_gen', "Generazione materiale di studio in corso..."), window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
 
     try {
         let schema, prompt;
@@ -155,6 +155,7 @@ window.startStudySession = async function () {
 
         appState.db.studySets = appState.db.studySets || [];
         const label = targetLabel;
+        window.activeStudySetTitle = label; // titolo corretto in storico e sul bus
         appState.db.studySets.push({
             id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
             title: label,
@@ -192,7 +193,7 @@ window.studySeconds = 0;
 
 window.openStudyPlayer = function () {
     if (!window.activeStudySessionItems || window.activeStudySessionItems.length === 0) {
-        window.showToast("Nessuna domanda generata.", "error");
+        window.showToast(window.t('tst_no_questions', "Nessuna domanda generata."), "error");
         return;
     }
 
@@ -298,9 +299,12 @@ window.flipFlashcard = function () {
 };
 
 window.checkQuizAnswer = function (selected, item) {
-    const isCorrect = String(selected).toLowerCase() === String(item.correct).toLowerCase() ||
-        String(selected).includes(String(item.correct)) ||
-        String(item.correct).includes(String(selected));
+    // Match fuzzy con vincolo di lunghezza: il vecchio includes() bidirezionale
+    // dava falsi positivi ("Roma" matchava "Romania").
+    const _core = window.MappAIActiveStudyCore;
+    const isCorrect = _core
+        ? _core.answerMatches(selected, item.correct)
+        : String(selected).trim().toLowerCase() === String(item.correct).trim().toLowerCase();
 
     if (isCorrect) {
         window.studyResults.correct++;
@@ -504,7 +508,7 @@ window.clearStudyScores = function () {
         try {
             localStorage.removeItem('mappai_study_scores');
             window.updateStudyScoresDisplay();
-            window.showToast("Storico cancellato", "info");
+            window.showToast(window.t('tst_history_cleared', "Storico cancellato"), "info");
         } catch (e) {
             console.error("Error clearing scores", e);
         }
@@ -543,11 +547,45 @@ window.autoSaveOpenQuizResponses = async function () {
                 textContent: txt,
                 vaultPath: appState.activeVaultPath
             });
-            window.showToast("Risposte salvate con successo nel tuo Vault!", "success");
+            window.showToast(window.t('tst_answers_saved', "Risposte salvate con successo nel tuo Vault!"), "success");
         }
     } catch (e) {
         console.error("Errore durante il salvataggio automatico delle risposte del quiz aperto:", e);
     }
+};
+
+// Il quiz/flashcard configurato era l'unica attività INVISIBILE a padronanza e
+// meta-analisi (scriveva solo i 10 score in localStorage): ora passa dal bus come
+// tutte le altre. Attribuzione: nodo/ramo target esplicito → label dal titolo del
+// set → nodo radice. Su KG senza radice e senza target si rinuncia (meglio nessun
+// dato che un pinpoint fantasma).
+window.recordStudySessionOnBus = function () {
+    try {
+        if (!window.MappAIStudyBus || !window.studyResults || !window.studyResults.total) return;
+        const cl = window.cleanLabel || (s => String(s || '').trim());
+        let node = (window.studyConfig && window.studyConfig.target) ? window.studyConfig.target : null;
+        if (!node) {
+            const title = String(window.activeStudySetTitle || '');
+            const m = title.match(/^(?:Nodo|Hub|Ramo):\s*(.+)$/);
+            if (m) {
+                const label = m[1].trim().toLowerCase();
+                node = (appState.db.nodes || []).find(n => cl(n.label).toLowerCase() === label) || null;
+            }
+        }
+        if (!node) node = (appState.db.nodes || []).find(n => n.level === 0) || null;
+        if (!node) return;
+        const score = window.studyResults.correct / window.studyResults.total;
+        let rate;
+        if (window.studyConfig && window.studyConfig.timer && window.studySeconds > 0) {
+            rate = window.studyResults.correct / Math.max(window.studySeconds / 60, 2 / 60);
+        }
+        const activity = window.studyResults.mode === 'flashcard' ? 'flashcard-set' : 'quiz-set';
+        const modeTitle = (window.studyResults.mode === 'flashcard' ? 'Flashcard' : 'Quiz') +
+            ' — ' + (window.activeStudySetTitle || 'sessione');
+        window.MappAIStudyBus.begin(activity, modeTitle);
+        window.MappAIStudyBus.record(node.id, cl(node.label), activity, { score: score, rate: rate });
+        window.MappAIStudyBus.end();
+    } catch (e) { console.warn('[StudySession] bus record', e); }
 };
 
 window.showStudySummary = function () {
@@ -555,6 +593,9 @@ window.showStudySummary = function () {
 
     // Salva il punteggio nello storico
     window.addStudyScore();
+
+    // Padronanza + sessioni.jsonl via bus (meta-analisi docente)
+    window.recordStudySessionOnBus();
 
     // Se ci sono risposte aperte, salvale automaticamente come file di chat .txt nel Vault
     if (window.studyResults && window.studyResults.openAnswers && window.studyResults.openAnswers.length > 0) {
@@ -596,11 +637,11 @@ window.showStudySummary = function () {
 window.saveStudyReport = async function () {
     const apiKey = window.getSystemKey();
     if (!appState.activeVaultPath) {
-        window.showToast("Nessun Vault attivo. Collega o crea un Vault per salvare.", "warning");
+        window.showToast(window.t('tst_no_vault', "Nessun Vault attivo. Collega o crea un Vault per salvare."), "warning");
         return;
     }
 
-    window.showLoadingOverlay(true, "Salvataggio report nel Vault...");
+    window.showLoadingOverlay(true, window.t('lo_report_save', "Salvataggio report nel Vault..."));
 
     const m = Math.floor(window.studySeconds / 60);
     const s = window.studySeconds % 60;
@@ -637,7 +678,7 @@ window.saveStudyReport = async function () {
         });
 
         if (res.success) {
-            window.showToast("Report salvato con successo nel Vault!", "success");
+            window.showToast(window.t('tst_report_saved', "Report salvato con successo nel Vault!"), "success");
         } else {
             throw new Error(res.error);
         }

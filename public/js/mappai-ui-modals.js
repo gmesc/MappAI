@@ -130,16 +130,10 @@ window.showPrompt = function (title, defaultValue, onConfirm, description = null
     };
 }
 
-const FAMILY_DEFAULT_REL = {
-    trasformazione: 'causa',
-    dipendenza: 'richiede',
-    sequenza: 'precede',
-    appartenenza: 'fa parte di',
-    regolazione: 'regola',
-    opposizione: 'si oppone a',
-    analogia: 'è simile a',
-    altro: ''
-};
+// Verbi default per famiglia: ora bilingui, centralizzati in mappai-relations.js
+function _lfmLang() { return (window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? 'en' : 'it'; }
+function _lfmDefaultRel(key) { return window.MappAIRelations.getFamilyDefaultRel(key, _lfmLang()); }
+function _lfmKeywords(fam) { return (_lfmLang() === 'en' && fam.keywordsEn) ? fam.keywordsEn : (fam.keywords || []); }
 
 window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const modal = document.getElementById('link-family-modal');
@@ -153,7 +147,7 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const btnCancel = document.getElementById('link-family-cancel');
     const btnOk = document.getElementById('link-family-ok');
 
-    question.innerHTML = `Che relazione c'è tra <strong>${srcLabel}</strong> e <strong>${tgtLabel}</strong>?`;
+    question.innerHTML = window.t('lfm_question', `Che relazione c'è tra <strong>{a}</strong> e <strong>{b}</strong>?`).replace('{a}', srcLabel).replace('{b}', tgtLabel);
     input.value = '';
     grid.innerHTML = '';
     chipsDiv.innerHTML = '';
@@ -180,11 +174,11 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
         btn.type = 'button';
         btn.className = 'flex flex-row items-center gap-3 px-4 py-2.5 w-full rounded-xl border-2 border-transparent text-white transition-all cursor-pointer hover:brightness-110 hover:shadow-md';
         btn.style.backgroundColor = fam.color;
-        const kw = (fam.keywords || []).slice(0, 3).join(' · ');
+        const kw = _lfmKeywords(fam).slice(0, 3).join(' · ');
         btn.innerHTML = `
             <i data-lucide="${fam.icon}" class="w-5 h-5 flex-shrink-0"></i>
             <div class="flex flex-col items-start min-w-0">
-                <span class="text-sm font-semibold leading-tight">${fam.label}</span>
+                <span class="text-sm font-semibold leading-tight">${window.MappAIRelations.getFamilyLabel(key, _lfmLang())}</span>
                 ${kw ? `<span class="text-[11px] font-normal opacity-75 leading-tight">${kw}</span>` : ''}
             </div>`;
         btn.onclick = () => {
@@ -198,12 +192,12 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
             btn.style.opacity = '1';
 
             // Pre-compila input con il verbo default
-            const def = FAMILY_DEFAULT_REL[key] || '';
+            const def = _lfmDefaultRel(key) || '';
             input.value = def;
 
             // Costruisce i chip delle keyword
             chipsDiv.innerHTML = '';
-            (fam.keywords || []).forEach(kw => {
+            _lfmKeywords(fam).forEach(kw => {
                 const chip = document.createElement('button');
                 chip.type = 'button';
                 chip.className = 'px-2.5 py-1 rounded-full text-xs font-semibold border-2 transition-all cursor-pointer hover:brightness-90';
@@ -242,7 +236,7 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
 
     const confirm = () => {
         const rel = input.value.trim()
-            || (selectedFamKey ? FAMILY_DEFAULT_REL[selectedFamKey] : '')
+            || (selectedFamKey ? _lfmDefaultRel(selectedFamKey) : '')
             || 'collegato_a';
         cleanup();
         onConfirm(rel, isBidir);
@@ -256,7 +250,7 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
 // --- Modal Management (con try/catch per robustezza) ---
 window.showConfigAIModal = function () {
     if (appState.studentMode) {
-        window.showToast("Configurazione AI non disponibile nella versione studente", "warning");
+        window.showToast(window.t('tst_config_student', "Configurazione AI non disponibile nella versione studente"), "warning");
         return;
     }
     try {
@@ -264,6 +258,8 @@ window.showConfigAIModal = function () {
         if (m) {
             const productInput = document.getElementById('infomaniak-product-id');
             if (productInput) productInput.value = appState.infomaniakProductId || '';
+            const mapLangSel = document.getElementById('map-language-select');
+            if (mapLangSel && window.getMapLanguageSetting) mapLangSel.value = window.getMapLanguageSetting();
             m.style.display = '';
             m.classList.remove('hidden');
             m.classList.add('flex');
@@ -1065,8 +1061,8 @@ window.refreshGeminiModels = async function () {
 
     // If no API key, clear the select box and show message
     if (!apiKey) {
-        if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca API Key)</option>';
-        window.showToast("Inserisci prima una API Key per caricare i modelli.", "error");
+        if (selectEl) selectEl.innerHTML = '<option value="">' + window.t('opt_no_model_key', 'Nessun modello (manca API Key)') + '</option>';
+        window.showToast(window.t('tst_need_key_models', "Inserisci prima una API Key per caricare i modelli."), "error");
         if (statusEl) {
             statusEl.innerText = "Attesa inserimento API Key...";
             statusEl.classList.remove('hidden');
@@ -1079,8 +1075,8 @@ window.refreshGeminiModels = async function () {
     if (isInfomaniak) {
         productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
         if (!productId) {
-            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello (manca Product ID)</option>';
-            window.showToast("Inserisci il Product ID per caricare i modelli Infomaniak.", "error");
+            if (selectEl) selectEl.innerHTML = '<option value="">' + window.t('opt_no_model_pid', 'Nessun modello (manca Product ID)') + '</option>';
+            window.showToast(window.t('tst_need_pid', "Inserisci il Product ID per caricare i modelli Infomaniak."), "error");
             if (statusEl) { statusEl.innerText = "Attesa inserimento Product ID..."; statusEl.classList.remove('hidden'); }
             if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
             return;
@@ -1109,7 +1105,7 @@ window.refreshGeminiModels = async function () {
 
         if (!rawModels || rawModels.error || !Array.isArray(rawModels)) {
             const errMsg = (rawModels && rawModels.error) ? rawModels.error : "Risposta non valida o errore di connessione.";
-            if (selectEl) selectEl.innerHTML = `<option value="">Errore: ${errMsg}</option>`;
+            if (selectEl) selectEl.innerHTML = `<option value="">${window.t('opt_error', 'Errore')}: ${errMsg}</option>`;
             if (statusEl) statusEl.innerText = `Errore: ${errMsg}`;
             return;
         }
@@ -1138,7 +1134,7 @@ window.refreshGeminiModels = async function () {
         }
 
         if (filteredModels.length === 0) {
-            if (selectEl) selectEl.innerHTML = '<option value="">Nessun modello compatibile</option>';
+            if (selectEl) selectEl.innerHTML = '<option value="">' + window.t('opt_no_compatible', 'Nessun modello compatibile') + '</option>';
             if (statusEl) statusEl.innerText = "Nessun modello compatibile trovato.";
             return;
         }

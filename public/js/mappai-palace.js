@@ -14,6 +14,7 @@
 (function () {
   'use strict';
 
+  function _tSafe(k, f) { return (typeof window !== 'undefined' && typeof window.t === 'function') ? window.t(k, f) : f; }
   // ───────────────────────────── CORE PURO ─────────────────────────────
   const lid = (x) => (x && typeof x === 'object') ? x.id : x;
 
@@ -71,7 +72,32 @@
     return { result, matched, total, score: total ? matched / total : 0 };
   }
 
-  const CORE = { normalize, lev, isMatch, buildRooms, matchRecall };
+  // rateFromSeconds condiviso con lo Studio Attivo (cap 30, arrotondamento 0.1):
+  // require in Node, window nel browser (caricato prima in index.html).
+  let _asc = null;
+  try {
+    _asc = (typeof module !== 'undefined' && module.exports)
+      ? require('./mappai-active-study-core.js')
+      : (typeof window !== 'undefined' ? window.MappAIActiveStudyCore : null);
+  } catch (e) {}
+
+  // Fluenza per-item della stanza — stesso difetto corretto in mappai-active-study
+  // (fix T2, 6/7/2026): mai stampare la media di sessione su ogni entry, l'EWMA
+  // per-pinpoint riceverebbe una media invece della fluenza dell'item.
+  // Nel Palazzo il recall è un textarea unico per stanza: il tempo del singolo
+  // item NON è osservabile. Approssimazione scelta: tempo di stanza ripartito
+  // fra gli item TROVATI → rateFromSeconds(elapsedSec / matched). È lo stesso
+  // valore di matched/min, ma passa dal helper condiviso (cap 30 + rounding).
+  // Il rate va SOLO agli item found: un item non ricordato non testimonia
+  // alcuna fluenza (applyResult in mappai-mastery ignora rate == null).
+  function perItemRate(matched, elapsedSec) {
+    const m = Number(matched), s = Number(elapsedSec);
+    if (!isFinite(m) || m <= 0 || !isFinite(s) || s <= 0) return null;
+    if (_asc && _asc.rateFromSeconds) return _asc.rateFromSeconds(s / m);
+    return Math.round(Math.min(60 / (s / m), 30) * 10) / 10;
+  }
+
+  const CORE = { normalize, lev, isMatch, buildRooms, matchRecall, perItemRate };
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
   if (typeof window === 'undefined') return;
 
@@ -83,9 +109,9 @@
   const PAL = window.MappAIPalace = Object.assign({}, CORE, { _rooms: null, _i: 0 });
 
   PAL.start = function () {
-    if (!(S() && S().db && S().db.nodes && S().db.nodes.length)) { toast('Apri una mappa.'); return; }
+    if (!(S() && S().db && S().db.nodes && S().db.nodes.length)) { toast(_tSafe('tst_pal_open_map', 'Apri una mappa.')); return; }
     const rooms = buildRooms(S().db.nodes || [], S().db.links || []);
-    if (!rooms.length) { toast('Servono rami con almeno 2 concetti per il Palazzo.'); return; }
+    if (!rooms.length) { toast(_tSafe('tst_pal_need_branches', 'Servono rami con almeno 2 concetti per il Palazzo.')); return; }
     PAL._rooms = rooms; PAL._i = 0;
     if (window.MappAIStudyBus) window.MappAIStudyBus.begin('palazzo', 'Palazzo della Memoria');
     encode();
@@ -150,15 +176,17 @@
     const typed = modal.querySelector('#pal-ta').value;
     const res = matchRecall(room.items.map(it => it.label), typed);
 
-    // registra la padronanza per ogni concetto della stanza (+ fluenza della stanza);
-    // via StudyBus finisce anche in sessioni.jsonl per la meta-analisi docente
-    const elapsedMin = Math.max((Date.now() - (PAL._recallStart || Date.now())) / 60000, 2 / 60);
-    const rate = res.matched / elapsedMin;
+    // registra la padronanza per ogni concetto della stanza; via StudyBus finisce
+    // anche in sessioni.jsonl per la meta-analisi docente. Fluenza per-item via
+    // perItemRate (vedi commento nel CORE): solo sugli item trovati, mai la media
+    // di stanza stampata su ogni entry.
+    const elapsedSec = Math.max((Date.now() - (PAL._recallStart || Date.now())) / 1000, 2);
+    const rate = perItemRate(res.matched, elapsedSec); // null se nessun match
     room.items.forEach((it, idx) => {
       const found = res.result[idx] && res.result[idx].found;
       try {
-        if (window.MappAIStudyBus) window.MappAIStudyBus.record(it.id, it.label, 'palazzo', { score: found ? 1 : 0, rate });
-        else if (window.MappAIMastery && window.MappAIMastery.record) window.MappAIMastery.record(it.id, it.label, 'palazzo', { score: found ? 1 : 0 });
+        if (window.MappAIStudyBus) window.MappAIStudyBus.record(it.id, it.label, 'palazzo', found ? { score: 1, rate } : { score: 0 });
+        else if (window.MappAIMastery && window.MappAIMastery.record) window.MappAIMastery.record(it.id, it.label, 'palazzo', found ? { score: 1, rate } : { score: 0 });
       } catch (e) {}
     });
 
@@ -174,7 +202,7 @@
     btn.style.background = '#7c3aed';
     btn.onclick = () => {
       modal.remove();
-      if (last) { if (window.MappAIStudyBus) window.MappAIStudyBus.end(); toast('Viaggio completato! Padronanza aggiornata.'); }
+      if (last) { if (window.MappAIStudyBus) window.MappAIStudyBus.end(); toast(_tSafe('tst_pal_done', 'Viaggio completato! Padronanza aggiornata.')); }
       else { PAL._i++; encode(); }
     };
   }

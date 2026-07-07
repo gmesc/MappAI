@@ -188,7 +188,7 @@ window.directLoadVault = async function (folderPath) {
             }
 
             setTimeout(() => { initD3Visualization(); }, 200);
-            window.showToast("Vault caricato con successo!", "success");
+            window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }

@@ -190,7 +190,7 @@ window.generateTimelineWithAI = async function () {
         var apiKey = window.getSystemKey ? window.getSystemKey() : '';
         if (!apiKey) {
             window.showLoadingOverlay(false);
-            window.showToast("Inserisci un'API Key per continuare", 'error');
+            window.showToast(window.t('tst_need_key', "Inserisci un'API Key per continuare"), 'error');
             return;
         }
 

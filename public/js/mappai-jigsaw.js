@@ -18,6 +18,7 @@
 // ==========================================================================
 (function () {
     'use strict';
+    function _tSafe(k, f) { return (typeof window !== 'undefined' && typeof window.t === 'function') ? window.t(k, f) : f; }
 
     function _getAppState() {
         try { return (typeof appState !== 'undefined') ? appState : window.appState; }
@@ -112,7 +113,7 @@
         if (canEdit(node)) return true;
         const owner = node && node._owner ? ` (${node._owner})` : '';
         try {
-            if (window.showToast) window.showToast(`Ramo bloccato dal docente${owner} — solo studio in modalità JIGSAW`, 'error');
+            if (window.showToast) window.showToast(_tSafe('tst_jig_locked', 'Ramo bloccato dal docente{o} — solo studio in modalità JIGSAW').replace('{o}', owner), 'error');
         } catch (e) {}
         return false;
     }
@@ -208,7 +209,7 @@
         const q = 'Ponte inter-area: perché «' + label(src.label) + '» è legato a «' + label(tgt.label) + '»? (giustifica il legame)';
         const apply = (just) => {
             if (!just || !String(just).trim()) {
-                if (window.showToast) window.showToast('Un ponte richiede una giustificazione', 'error');
+                if (window.showToast) window.showToast(_tSafe('tst_jig_need_just', 'Un ponte richiede una giustificazione'), 'error');
                 return;
             }
             link.isBridge = true;
@@ -217,7 +218,7 @@
             link.justification = String(just).trim();
             link.isCross = true;
             if (onCreate) onCreate();
-            if (window.showToast) window.showToast('Ponte proposto — sarà ratificato dal docente', 'success');
+            if (window.showToast) window.showToast(_tSafe('tst_jig_proposed', 'Ponte proposto — sarà ratificato dal docente'), 'success');
         };
         if (window.showPrompt) window.showPrompt(q, '', apply);
         else apply(window.prompt ? window.prompt(q) : '');
@@ -228,7 +229,7 @@
     function guardWriteLink(link, action) {
         if (canEditLink(link)) return true;
         try {
-            if (window.showToast) window.showToast('Link tra rami bloccati — non modificabile in modalità JIGSAW', 'error');
+            if (window.showToast) window.showToast(_tSafe('tst_jig_link_locked', 'Link tra rami bloccati — non modificabile in modalità JIGSAW'), 'error');
         } catch (e) {}
         return false;
     }
@@ -238,7 +239,7 @@
     function guardIsolated(action) {
         if (!_isOn()) return true;
         try {
-            if (window.showToast) window.showToast('In modalità JIGSAW crea nodi solo nel tuo ramo (i legami inter-area sono ponti)', 'error');
+            if (window.showToast) window.showToast(_tSafe('tst_jig_own_branch', 'In modalità JIGSAW crea nodi solo nel tuo ramo (i legami inter-area sono ponti)'), 'error');
         } catch (e) {}
         return false;
     }
@@ -331,14 +332,14 @@
     function openExportModal() {
         const st = _getAppState();
         if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
-            if (window.showToast) window.showToast('Nessuna mappa aperta', 'error'); return;
+            if (window.showToast) window.showToast(_tSafe('tst_no_map_open', 'Nessuna mappa aperta'), 'error'); return;
         }
         if (st.extractionMode === 'kg') {
-            if (window.showToast) window.showToast('Export JIGSAW disponibile solo in MindMap', 'error'); return;
+            if (window.showToast) window.showToast(_tSafe('tst_jig_mm_only', 'Export JIGSAW disponibile solo in MindMap'), 'error'); return;
         }
         const branches = listBranches();
         if (!branches.length) {
-            if (window.showToast) window.showToast('Nessun ramo L1 nella mappa', 'error'); return;
+            if (window.showToast) window.showToast(_tSafe('tst_jig_no_l1', 'Nessun ramo L1 nella mappa'), 'error'); return;
         }
         const existing = document.getElementById('jigsaw-export-modal');
         if (existing) existing.remove();
@@ -518,7 +519,7 @@
     function openReconcileModal() {
         const st = _getAppState();
         if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
-            if (window.showToast) window.showToast('Apri prima la mappa master', 'error'); return;
+            if (window.showToast) window.showToast(_tSafe('tst_jig_open_master', 'Apri prima la mappa master'), 'error'); return;
         }
         if (window.showConfirm) {
             window.showConfirm('Ricomponi copie JIGSAW',
@@ -596,7 +597,7 @@
     async function openGapModal() {
         const st = _getAppState();
         if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
-            if (window.showToast) window.showToast('Apri prima la mappa master', 'error'); return;
+            if (window.showToast) window.showToast(_tSafe('tst_jig_open_master', 'Apri prima la mappa master'), 'error'); return;
         }
         let pick; try { pick = await window.electronAPI.pickFolder(); } catch (e) { pick = null; }
         if (!pick || pick.canceled || !pick.folderPath) return;
@@ -610,9 +611,9 @@
             }
         } catch (e) {}
         if (window.showLoadingOverlay) window.showLoadingOverlay(false);
-        if (!reports.length) { if (window.showToast) window.showToast('Nessuna copia trovata nella cartella', 'error'); return; }
+        if (!reports.length) { if (window.showToast) window.showToast(_tSafe('tst_jig_no_copies', 'Nessuna copia trovata nella cartella'), 'error'); return; }
         const w = window.open('', '_blank');
-        if (!w) { if (window.showToast) window.showToast('Popup bloccato: consenti le finestre', 'error'); return; }
+        if (!w) { if (window.showToast) window.showToast(_tSafe('tst_jig_popup', 'Popup bloccato: consenti le finestre'), 'error'); return; }
         w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Revisione JIGSAW</title></head><body style="margin:0;background:#fff;">' + _gapHtml(reports) +
             '<div style="text-align:center;padding:16px;"><button onclick="window.print()" style="padding:8px 20px;border:1px solid #6366f1;background:#6366f1;color:#fff;border-radius:8px;cursor:pointer;">Stampa / PDF</button></div></body></html>');
         w.document.close();

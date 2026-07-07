@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MappAI — Avvio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #12141c; color: #eef0f6;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  .wrap { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+  .hint { font-size: 11.5px; color: #7b8194; }
+  .cards { display: flex; gap: 18px; }
+  .card {
+    width: 280px; height: 250px; border-radius: 16px; cursor: pointer; overflow: hidden;
+    border: 1px solid #2c3040; display: flex; flex-direction: column;
+    transition: transform .12s, border-color .12s, box-shadow .12s;
+  }
+  .card:hover { transform: translateY(-4px); border-color: #5b6ee1; box-shadow: 0 10px 32px rgba(91,110,225,.25); }
+
+  /* Card MappAI — stile landing: fondo chiaro, icona + titolo Space Mono nero */
+  .card.mappai { background: #f8fafc; color: #1e293b; align-items: center; justify-content: center; gap: 4px; }
+  .card.mappai .brand { display: flex; flex-direction: row; align-items: center; gap: 14px; }
+  .card.mappai img { width: 72px; height: 72px; object-fit: contain; padding-top: 4px; }
+  .card.mappai h2 {
+    margin: 0; font-family: 'Space Mono', ui-monospace, monospace;
+    font-size: 40px; font-weight: 700; letter-spacing: -0.04em; color: #1e293b; line-height: 1;
+  }
+  .card.mappai p { margin: 10px 18px 0; font-size: 11.5px; line-height: 1.5; color: #64748b; text-align: center; }
+
+  /* Card Studio — illustrazione voxel disegnata a canvas + titolo pixel */
+  .card.studio { background: #101321; position: relative; align-items: center; justify-content: flex-end; }
+  .card.studio canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .card.studio .title {
+    position: relative; z-index: 2; text-align: center; padding-bottom: 16px;
+    font-family: 'Space Mono', ui-monospace, monospace; line-height: 1.15;
+  }
+  .card.studio .title .md {
+    font-size: 24px; font-weight: 700; color: #ffd9a0;
+    text-shadow: 2px 2px 0 #000, 4px 4px 0 rgba(0,0,0,.45);
+  }
+  .card.studio .title .st {
+    font-size: 13px; font-weight: 700; letter-spacing: .5em; margin-left: .5em; color: #b9c2d8;
+    text-shadow: 1px 1px 0 #000;
+  }
+  .note { font-size: 10.5px; color: #5f6577; min-height: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="cards">
+    <div class="card mappai" id="go-app" title="1 / Invio">
+      <div class="brand">
+        <img src="MappAI_icon.png" alt="MappAI">
+        <h2>MappAI</h2>
+      </div>
+      <p>Mappe mentali e knowledge graph, studio attivo, Memory Dungeon (gioco).</p>
+    </div>
+    <div class="card studio" id="go-studio" title="2">
+      <canvas id="vox" width="560" height="500"></canvas>
+      <div class="title">
+        <div class="md">Memory Dungeon</div>
+        <div class="st">STUDIO</div>
+      </div>
+    </div>
+  </div>
+  <div class="hint">1 / Invio = MappAI &nbsp;·&nbsp; 2 = Studio</div>
+  <div class="note" id="note"></div>
+</div>
+<script>
+  // ── Illustrazione voxel (canvas isometrico, seedata → identica a ogni avvio) ──
+  (function () {
+    var cv = document.getElementById('vox'), ctx = cv.getContext('2d');
+    var seed = 20260707;
+    function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+    function shade(hex, f) {
+      var r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+      return 'rgb(' + Math.min(255, r * f | 0) + ',' + Math.min(255, g * f | 0) + ',' + Math.min(255, b * f | 0) + ')';
+    }
+    // cubo isometrico: (px,py) = vertice alto del rombo top; s = semi-larghezza; h = altezza estrusione
+    function cube(px, py, s, h, col) {
+      ctx.fillStyle = shade(col, 1.15);   // top
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px - s, py + s / 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(col, 0.78);   // sinistra
+      ctx.beginPath(); ctx.moveTo(px - s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px - s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(col, 0.55);   // destra
+      ctx.beginPath(); ctx.moveTo(px + s, py + s / 2); ctx.lineTo(px, py + s); ctx.lineTo(px, py + s + h); ctx.lineTo(px + s, py + s / 2 + h); ctx.closePath(); ctx.fill();
+    }
+    var S = 26, W = 9, H = 7, ox = 280, oy = 96;
+    function iso(x, y) { return [ox + (x - y) * S, oy + (x + y) * S / 2]; }
+    var FLOOR = 0x9a958a, WALL = 0x6f6b62, WATER = 0x3d6f96, AMBER = 0xd9a94a;
+    // celle: pavimento con jitter, pozza d'acqua, colonne muro sul retro, tile ambra "lanterna"
+    var walls = { '2,0': 1, '3,0': 1, '5,0': 1, '6,0': 1, '2,1': 1, '6,1': 1 };
+    var water = { '6,4': 1, '7,4': 1, '6,5': 1, '7,5': 1, '7,3': 1 };
+    var amber = { '4,3': 1 };
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var k = x + ',' + y, p = iso(x, y);
+      if (walls[k]) { cube(p[0], p[1] - 34 - rnd() * 14, S, 44 + rnd() * 14, WALL); continue; }
+      var col = water[k] ? WATER : (amber[k] ? AMBER : FLOOR);
+      var j = 0.86 + rnd() * 0.28;
+      var jr = Math.min(255, (col >> 16 & 255) * j | 0),
+          jg = Math.min(255, (col >> 8 & 255) * j | 0),
+          jb = Math.min(255, (col & 255) * j | 0);
+      cube(p[0], p[1] + (water[k] ? 7 : rnd() * 2.5), S, water[k] ? 4 : 9, (jr << 16) | (jg << 8) | jb);
+    }
+    // alone caldo della lanterna sopra la tile ambra
+    var lp = iso(4, 3);
+    var grad = ctx.createRadialGradient(lp[0], lp[1] + 8, 4, lp[0], lp[1] + 8, 96);
+    grad.addColorStop(0, 'rgba(255,217,160,0.5)'); grad.addColorStop(1, 'rgba(255,217,160,0)');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, cv.width, cv.height);
+    // velo scuro in basso per leggibilità del titolo
+    var g2d = ctx.createLinearGradient(0, cv.height * 0.55, 0, cv.height);
+    g2d.addColorStop(0, 'rgba(16,19,33,0)'); g2d.addColorStop(1, 'rgba(16,19,33,0.92)');
+    ctx.fillStyle = g2d; ctx.fillRect(0, 0, cv.width, cv.height);
+  })();
+
+  function choose(c) {
+    if (window.electronAPI && window.electronAPI.launcherChoice) window.electronAPI.launcherChoice(c);
+    else document.getElementById('note').textContent = 'electronAPI assente: apri dal launcher Electron (npm start).';
+  }
+  document.getElementById('go-app').onclick = function () { choose('app'); };
+  document.getElementById('go-studio').onclick = function () { choose('studio'); };
+  window.addEventListener('keydown', function (e) {
+    if (e.key === '1' || e.key === 'Enter') choose('app');
+    else if (e.key === '2') choose('studio');
+  });
+</script>
+</body>
+</html>

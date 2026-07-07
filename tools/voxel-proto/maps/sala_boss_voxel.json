@@ -1,0 +1,846 @@
+{
+ "seed": 20260706,
+ "size": 18,
+ "sub": 3,
+ "meta": "Sala del Guardiano — boss room (§19.5)",
+ "lit": false,
+ "palette": {
+  "floorA": "#8a6a62",
+  "floorB": "#6d5049",
+  "wallA": "#5e4640",
+  "wallB": "#40302c",
+  "waterA": "#8a3a2a",
+  "waterB": "#571f14",
+  "bg": "#1a1214"
+ },
+ "cells": [
+  {
+   "x": 0,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 7,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 8,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 9,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 10,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 11,
+   "z": 1,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 17,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 7,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 8,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 9,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 10,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 11,
+   "z": 2,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 17,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 7,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 8,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 9,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 10,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 11,
+   "z": 3,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 17,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 7,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 8,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 9,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 10,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 11,
+   "z": 4,
+   "biome": "floor",
+   "quota": 1,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 17,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 5,
+   "biome": "floor",
+   "quota": 0.5,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 8,
+   "z": 5,
+   "biome": "floor",
+   "quota": 0.5,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 9,
+   "z": 5,
+   "biome": "floor",
+   "quota": 0.5,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 10,
+   "z": 5,
+   "biome": "floor",
+   "quota": 0.5,
+   "alt": 0,
+   "blocca": false
+  },
+  {
+   "x": 17,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 14,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 14,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 15,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 15,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 16,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 16,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 14,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 15,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 16,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  },
+  {
+   "x": 17,
+   "z": 17,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 3,
+   "blocca": true
+  }
+ ],
+ "entities": [
+  {
+   "id": "hero",
+   "sprite": "rogue8x8/Girl-Melee",
+   "x": 8.5,
+   "z": 15.5
+  },
+  {
+   "id": "boss",
+   "type": "boss",
+   "x": 8.5,
+   "z": 2.5
+  },
+  {
+   "id": "br1",
+   "type": "decor",
+   "name": "brazier",
+   "x": 5.0,
+   "z": 5.6
+  },
+  {
+   "id": "br2",
+   "type": "decor",
+   "name": "brazier",
+   "x": 12.0,
+   "z": 5.6
+  }
+ ]
+}

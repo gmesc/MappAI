@@ -15,7 +15,7 @@ window.mergeGraph = function (event) {
     const file = event.target.files[0]; if (!file) return;
     pendingMergeInputId = event.target.id;
     if (!appState.db.nodes.length) {
-        window.showToast("Nessuna mappa aperta. Usa 'Carica' per aprire una mappa prima.", "error");
+        window.showToast(window.t('tst_no_open_map', "Nessuna mappa aperta. Usa 'Carica' per aprire una mappa prima."), "error");
         event.target.value = '';
         return;
     }
@@ -87,7 +87,7 @@ window.confirmMerge = function () {
         window.electronAPI.saveMapJSON(appState);
     }
     StorageManager.saveCurrentProject();
-    window.showToast("Salvataggio automatico completato.", "success");
+    window.showToast(window.t('tst_autosave_done', "Salvataggio automatico completato."), "success");
 
     const data = pendingMergeData;
     const wantAICrosslink = document.getElementById('merge-ai-crosslink')?.checked && appState.extractionMode !== 'mindmap';
@@ -190,7 +190,7 @@ window.confirmMerge = function () {
     window.updateUserNotesSidebar();
 
     const importedLabel = pendingMergeData.rootNodeLabel || pendingMergeFile;
-    window.showToast(`Unione completata: +${addedNodes} nodi, +${addedLinks} link da "${importedLabel}"`, "success");
+    window.showToast(window.t('tst_merge_done', 'Unione completata: +{n} nodi, +{l} link da "{x}"').replace('{n}', addedNodes).replace('{l}', addedLinks).replace('{x}', importedLabel), "success");
 
     // 7. AI Cross-linking (async)
     if (wantAICrosslink) {
@@ -211,7 +211,7 @@ window.confirmMerge = function () {
 window.aiCrossLink = async function (existingIds, newIds) {
     const apiKey = window.getSystemKey();
     if (!apiKey) {
-        window.showToast("Nessuna API Key per le correlazioni AI.", "error");
+        window.showToast(window.t('tst_no_key_corr', "Nessuna API Key per le correlazioni AI."), "error");
         return;
     }
 
@@ -245,7 +245,7 @@ window.aiCrossLink = async function (existingIds, newIds) {
 
         if (!Array.isArray(suggestions) || suggestions.length === 0) {
             window.showLoadingOverlay(false);
-            window.showToast("Nessuna correlazione trovata dall'AI.", "info");
+            window.showToast(window.t('tst_no_corr', "Nessuna correlazione trovata dall'AI."), "info");
             return;
         }
 
@@ -271,11 +271,11 @@ window.aiCrossLink = async function (existingIds, newIds) {
         initD3Visualization();
 
         window.showLoadingOverlay(false);
-        window.showToast(`L'AI ha suggerito ${addedAI} correlazioni. Click destro sui link tratteggiati per validarli o rimuoverli.`, "success");
+        window.showToast(window.t('tst_ai_corr', "L'AI ha suggerito {n} correlazioni. Click destro sui link tratteggiati per validarli o rimuoverli.").replace('{n}', addedAI), "success");
 
     } catch (err) {
         window.showLoadingOverlay(false);
-        window.showToast("Errore AI cross-linking: " + err.message, "error");
+        window.showToast(window.t('tst_crosslink_error', "Errore AI cross-linking: ") + err.message, "error");
     }
 }
 
@@ -308,7 +308,7 @@ window.confirmValidateLink = function () {
     if (!validateLinkTarget) return;
     const newRel = document.getElementById('validate-rel-input').value.trim();
     if (!newRel) {
-        window.showToast("Inserisci una parola di relazione.", "error");
+        window.showToast(window.t('tst_need_rel_word', "Inserisci una parola di relazione."), "error");
         return;
     }
     // Update the link
@@ -318,7 +318,7 @@ window.confirmValidateLink = function () {
     // Re-render to update visual
     renderGraph();
     window.closeValidateModal();
-    window.showToast("Link validato e confermato!", "success");
+    window.showToast(window.t('tst_link_validated', "Link validato e confermato!"), "success");
 }
 
 window.removeAILink = function (linkData) {
@@ -326,6 +326,6 @@ window.removeAILink = function (linkData) {
     if (idx >= 0) {
         appState.db.links.splice(idx, 1);
         renderGraph();
-        window.showToast("Link AI rimosso.", "info");
+        window.showToast(window.t('tst_ai_link_removed', "Link AI rimosso."), "info");
     }
 }

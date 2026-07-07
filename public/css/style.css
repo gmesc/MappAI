@@ -405,6 +405,25 @@ body.a11y-zoom-x2 {
     opacity: 1 !important;
     transition: all 0.3s ease !important;
     transform: translateY(0) !important;
+    /* Altezza legata alla finestra: riserva lo spazio del toggle in basso
+       (bottom-8 = 32px + altezza toggle + margine 12px) e un margine in alto */
+    max-height: calc(100vh - 120px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #c7d2fe transparent !important;
+}
+
+/* Scrollbar discreta (WebKit) coerente con l'estetica del menu */
+#floating-actions-menu::-webkit-scrollbar {
+    width: 8px !important;
+}
+#floating-actions-menu::-webkit-scrollbar-thumb {
+    background: #c7d2fe !important;
+    border-radius: 9999px !important;
+}
+#floating-actions-menu::-webkit-scrollbar-track {
+    background: transparent !important;
 }
 
 #floating-actions-menu.hidden {

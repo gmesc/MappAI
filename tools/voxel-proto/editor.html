@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor — Memory Dungeon 3D</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #ecebe6; font-family: -apple-system, 'Segoe UI', sans-serif; }
+  #scene { position: absolute; inset: 0; }
+  #panel {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 292px; z-index: 10;
+    background: rgba(28, 28, 26, 0.9); color: #f0efe9;
+    padding: 12px; font-size: 12.5px; line-height: 1.5; overflow-y: auto;
+    box-sizing: border-box;
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
+  #panel h2 { font-size: 12px; margin: 14px 0 6px; font-weight: 600; color: #cfcdc4; text-transform: uppercase; letter-spacing: .04em; }
+  #panel .dim { color: #b9b7ae; font-size: 11.5px; }
+  #panel a { color: #9fc3ee; }
+  .tabs { display: flex; gap: 4px; margin: 10px 0; flex-wrap: wrap; }
+  .tabs button { flex: 1; min-width: 60px; }
+  button, select, input[type="text"] {
+    background: #3d3c38; color: #f0efe9; border: 1px solid #57554f;
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer;
+  }
+  button:hover { background: #4a4944; }
+  button.active { background: #5b6ee1; border-color: #5b6ee1; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; }
+  .field label { flex: 1; }
+  .field input[type="color"] { width: 44px; height: 26px; border: none; background: none; padding: 0; cursor: pointer; }
+  .field input[type="range"] { width: 130px; }
+  .row { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  .tabpane { display: none; }
+  .tabpane.active { display: block; }
+  #light-list .item, #asset-list .item {
+    display: flex; align-items: center; gap: 6px; margin: 4px 0;
+    background: #34332f; border-radius: 6px; padding: 4px 6px;
+  }
+  #light-list .item button, #asset-list .item button { padding: 2px 7px; }
+  #toast {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(28,28,26,0.9); color: #f0efe9; padding: 8px 16px;
+    border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; z-index: 20;
+    pointer-events: none;
+  }
+  #pixel-wrap {
+    position: absolute; inset: 0; left: 292px; display: none;
+    align-items: center; justify-content: center; background: #dedcd4; z-index: 5;
+  }
+  #px-canvas { image-rendering: pixelated; background: #fff; cursor: crosshair; box-shadow: 0 2px 14px rgba(0,0,0,.25); }
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin: 6px 0; }
+  .swatches button { width: 100%; aspect-ratio: 1; padding: 0; border-radius: 4px; border: 1px solid #57554f; }
+  #hint { position: absolute; bottom: 10px; right: 14px; color: #6b6a64; font-size: 11.5px; z-index: 6; text-align: right; }
+</style>
+<!-- three r164 VENDORED (niente CDN: funziona offline e nella finestra Studio di Electron) -->
+<script type="importmap">
+{ "imports": { "three": "../../public/js/vendor/three-r164.module.min.js" } }
+</script>
+<!-- validatore contratto §4 (UMD, stessa fonte di verità del gioco) -->
+<script src="../../public/js/mappai-dungeon-core.js"></script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="pixel-wrap"><canvas id="px-canvas" width="512" height="512"></canvas></div>
+
+<div id="panel">
+  <h1>Editor — Memory Dungeon 3D</h1>
+  <div class="dim"><a href="./studio.html">&larr; Studio</a> · <a href="./pianta.html">✏️ pianta</a> · <a href="./index.html">gioco</a> · Q/E ruota · WASD sposta · rotella zoom</div>
+  <!-- barra contesto piano (visibile solo se aperto dallo Studio con un piano legato) -->
+  <div id="vault-bar" style="display:none; background:#232838; border:1px solid #3a4054; border-radius:8px; padding:8px 10px; margin:8px 0; font-size:11.5px; line-height:1.5;">
+    <div id="vb-info" style="color:#cfd6e6"></div>
+    <div id="vb-req" style="color:#e0c46a"></div>
+    <div class="row" style="margin-top:6px">
+      <button id="vb-save" type="button" style="background:#5b6ee1; border-color:#5b6ee1; font-weight:600">💾 Salva nel vault</button>
+      <button id="vb-try" type="button">▶ Prova</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button id="tab-colori" type="button" class="active">Colori</button>
+    <button id="tab-luci" type="button">Luci</button>
+    <button id="tab-mappa" type="button">Mappa</button>
+    <button id="tab-voxel" type="button">Voxel</button>
+    <button id="tab-materiali" type="button">Materiali</button>
+    <button id="tab-pixel" type="button">Pixel</button>
+  </div>
+
+  <div id="pane-colori" class="tabpane active">
+    <h2>Palette volumi</h2>
+    <div class="field"><label>Pavimento A</label><input type="color" id="c-floorA"></div>
+    <div class="field"><label>Pavimento B</label><input type="color" id="c-floorB"></div>
+    <div class="field"><label>Muro A</label><input type="color" id="c-wallA"></div>
+    <div class="field"><label>Muro B</label><input type="color" id="c-wallB"></div>
+    <div class="field"><label>Acqua (bassa)</label><input type="color" id="c-waterA"></div>
+    <div class="field"><label>Acqua (fonda)</label><input type="color" id="c-waterB"></div>
+    <div class="field"><label>Sfondo</label><input type="color" id="c-bg"></div>
+    <h2>Variazione</h2>
+    <div class="field"><label>Varietà colore <span id="v-colorVar"></span></label><input type="range" id="c-colorVar" min="0" max="1" step="0.05"></div>
+    <div class="field"><label>Jitter quota <span id="v-jitter"></span></label><input type="range" id="c-jitter" min="0" max="0.4" step="0.02"></div>
+    <div class="row">
+      <button id="pal-save" type="button">Salva (usata dal gioco)</button>
+      <button id="pal-reset" type="button">Reset</button>
+      <button id="pal-export" type="button">Copia JSON</button>
+    </div>
+    <div class="dim">Il gioco legge la palette salvata a ogni avvio (localStorage <code>voxelproto_palette</code>).</div>
+  </div>
+
+  <div id="pane-luci" class="tabpane">
+    <h2>Luce generale</h2>
+    <div class="field"><label>Ambiente <span id="v-hemi"></span></label><input type="range" id="l-hemi" min="0" max="3" step="0.1"></div>
+    <div class="field"><label>Sole (direzionale) <span id="v-dir"></span></label><input type="range" id="l-dir" min="0" max="5" step="0.1"></div>
+    <div class="field"><label>Colore sole</label><input type="color" id="l-dirColor"></div>
+    <div class="field"><label>Azimut sole <span id="v-az"></span>°</label><input type="range" id="l-az" min="0" max="360" step="5"></div>
+    <div class="field"><label>Altezza sole <span id="v-el"></span>°</label><input type="range" id="l-el" min="10" max="85" step="5"></div>
+    <h2>Punti luce (torce, fuochi, lanterne)</h2>
+    <div class="field"><label>Colore</label><input type="color" id="l-ptColor" value="#ffb347"></div>
+    <div class="field"><label>Intensità <span id="v-ptInt"></span></label><input type="range" id="l-ptInt" min="1" max="40" step="1" value="14"></div>
+    <div class="field"><label>Raggio <span id="v-ptRange"></span></label><input type="range" id="l-ptRange" min="3" max="30" step="1" value="10"></div>
+    <div class="field"><label>Sfarfallio (fuoco)</label><input type="checkbox" id="l-ptFlicker" checked></div>
+    <div class="row"><button id="l-place" type="button">Piazza con click sul terreno</button></div>
+    <div id="light-list"></div>
+    <div class="row">
+      <button id="l-save" type="button">Salva (usato dal gioco)</button>
+      <button id="l-reset" type="button">Reset</button>
+      <button id="l-export" type="button">Copia JSON</button>
+    </div>
+  </div>
+
+  <div id="pane-mappa" class="tabpane">
+    <h2>Superficie mappa</h2>
+    <div class="field"><label>Dimensione (tile per lato)</label>
+      <select id="m-size"><option>12</option><option selected>16</option><option>24</option><option>32</option></select>
+    </div>
+    <div class="row">
+      <button id="m-floor" type="button" class="active">Pavimento</button>
+      <button id="m-water" type="button">Acqua</button>
+      <button id="m-wall" type="button">Muro</button>
+      <button id="m-void" type="button">Vuoto</button>
+      <button id="m-bump" type="button">⛰ Rilievo</button>
+    </div>
+    <div class="field"><label>Quota pavimento <span id="v-mquota">0</span></label><input type="range" id="m-quota" min="-1" max="2" step="0.5" value="0"></div>
+    <div class="field"><label>Altezza muro <span id="v-malt">2</span></label><input type="range" id="m-alt" min="1" max="4" step="1" value="2"></div>
+    <!-- RILIEVO (bump): alza/abbassa progressivamente la quota per colline dolci -->
+    <div id="bump-controls" style="display:none">
+      <div class="field"><label>Intensità rilievo <span id="v-mbump">0.15</span></label><input type="range" id="m-bump-amt" min="0.05" max="0.5" step="0.05" value="0.15"></div>
+      <div class="field"><label>Raggio (celle) <span id="v-mbumpr">3</span></label><input type="range" id="m-bump-r" min="1" max="8" step="1" value="3"></div>
+      <div class="row">
+        <button id="m-bump-up" type="button" class="active">▲ alza</button>
+        <button id="m-bump-down" type="button">▼ abbassa</button>
+      </div>
+      <div class="dim">Trascina per modellare colline: il centro sale di più, i bordi sfumano (pendii dolci). Limite quota ±2.</div>
+    </div>
+    <div class="field"><label>Materiale pennello</label><select id="m-mat"><option value="">— nessuno (colori) —</option></select></div>
+    <div class="field"><label>…oppure texture/tag</label><select id="m-texref"><option value="">— nessuna —</option></select></div>
+    <div class="dim">Texture/tag pavimento: crea al volo un materiale che veste il pavimento dipinto
+      (per nome o <code>#tag</code> = random tra le texture col tag). Click o trascina per dipingere.
+      "Vuoto" scava i bordi.</div>
+    <h2>Asset sulla mappa</h2>
+    <div class="field"><label>Asset (da libreria Voxel)</label><select id="m-asset"></select></div>
+    <canvas id="m-asset-thumb" width="200" height="90" style="width:100%;background:#101321;border-radius:6px"></canvas>
+    <div class="field"><label>Scala <span id="v-mscale">1</span></label>
+      <input type="range" id="m-scale" min="0.5" max="2" step="0.1" value="1"></div>
+    <div class="field"><label>Rotazione</label>
+      <select id="m-rot"><option value="0" selected>0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></div>
+    <div class="row"><button id="m-place" type="button">Piazza con click</button></div>
+    <div class="dim">Le regole di piazzamento seguono l'asset: pavimento/acqua secondo la sua
+      proprietà «si piazza su»; mai su muro o vuoto.</div>
+    <div id="prop-list"></div>
+    <h2>Salvataggio</h2>
+    <div class="row">
+      <button id="m-save" type="button">Salva (usata dal gioco)</button>
+      <button id="m-reset" type="button">Reset demo</button>
+      <button id="m-export" type="button">Copia JSON</button>
+    </div>
+    <div class="dim">Il gioco carica la mappa salvata a ogni avvio (localStorage <code>voxelproto_map</code>); la query <code>?map=</code> ha la priorità.</div>
+  </div>
+
+  <div id="pane-voxel" class="tabpane">
+    <h2>Costruttore asset voxel</h2>
+    <div class="field"><label>Area (unità mondo)</label>
+      <select id="vx-grid"><option>3</option><option selected>6</option><option>9</option></select>
+    </div>
+    <div class="field"><label>Dimensione cubo</label>
+      <select id="vx-cube"><option value="1">1 — standard</option><option value="0.5" selected>1/2</option><option value="0.3333333333333333">1/3</option></select>
+    </div>
+    <div class="dim">Le taglie si possono mischiare nello stesso asset: ogni cubo ricorda la propria.</div>
+    <div class="field"><label>Colore</label><input type="color" id="vx-color" value="#8f563b"></div>
+    <div class="swatches" id="vx-swatches"></div>
+    <div class="row">
+      <button id="vx-pen" type="button" class="active">Aggiungi</button>
+      <button id="vx-erase" type="button">Rimuovi</button>
+      <button id="vx-texface" type="button">Texture faccia</button>
+      <button id="vx-clear" type="button">Svuota</button>
+    </div>
+    <div class="dim">Click su terreno o su una faccia = nuovo cubo adiacente. Rimuovi = cancella il cubo.
+      Texture faccia = applica la texture/tag scelta alla faccia cliccata.</div>
+    <div class="field"><label>Materiale cubi nuovi</label><select id="vx-mat"><option value="">— colore semplice —</option></select></div>
+    <div class="field"><label>Texture per faccia</label><select id="vx-texref"></select></div>
+    <h2>Proprietà asset</h2>
+    <div class="field"><label>Si piazza su</label>
+      <select id="vx-surface">
+        <option value="floor" selected>solo pavimento</option>
+        <option value="water">solo acqua</option>
+        <option value="any">pavimento e acqua</option>
+      </select>
+    </div>
+    <div class="field"><label><input type="checkbox" id="vx-billboard" style="width:auto"> Billboard (gira verso la camera)</label></div>
+    <div class="dim">Default: ancorato al mondo — ruota con la mappa quando cambi inquadratura.</div>
+    <div class="field"><label>Altezza dal suolo <span id="v-yoff">0</span></label>
+      <input type="range" id="vx-yoff" min="0" max="3" step="0.1" value="0"></div>
+    <div class="dim">0 = tocca terra. Sopra 0 l'item fluttua (con leggero dondolio nel gioco).</div>
+    <div class="field"><label><input type="checkbox" id="vx-walkable" style="width:auto"> Calpestabile (non blocca la cella)</label></div>
+    <div class="field"><label>Tag (virgole)</label><input type="text" id="vx-tags" placeholder="natura, arredo, luci…" style="width:150px"></div>
+    <div class="field"><label><input type="checkbox" id="vx-light-on" style="width:auto"> Emette luce</label></div>
+    <div class="row" id="vx-light-row" style="display:none">
+      <input type="color" id="vx-light-color" value="#ffd9a0" title="colore luce">
+      <label>int <input type="number" id="vx-light-int" value="1.6" min="0" max="6" step="0.2" style="width:54px"></label>
+      <label>raggio <input type="number" id="vx-light-range" value="6" min="1" max="20" step="1" style="width:54px"></label>
+      <label><input type="checkbox" id="vx-light-flicker" style="width:auto" checked> sfarfallio</label>
+    </div>
+    <h2>Libreria</h2>
+    <div class="row">
+      <input type="text" id="vx-name" placeholder="nome asset" style="flex:1">
+      <button id="vx-save" type="button">Salva</button>
+    </div>
+    <div class="row"><input type="text" id="vx-filter" placeholder="filtra per nome o tag…" style="flex:1"></div>
+    <div id="asset-list"></div>
+    <div class="row">
+      <button id="vx-export" type="button">Copia JSON asset</button>
+      <button id="vx-import-vox" type="button">Importa .vox</button>
+      <input type="file" id="vx-vox-file" accept=".vox" style="display:none">
+    </div>
+    <div class="row">
+      <button id="vx-lib-export" type="button">Esporta libreria</button>
+      <button id="vx-lib-import" type="button">Importa libreria</button>
+      <input type="file" id="vx-lib-file" accept=".json" style="display:none">
+    </div>
+    <div class="dim">.vox = MagicaVoxel (asset scaricabili da itch.io, Kenney…). Controlla la licenza:
+      CC0/CC-BY ok. Modelli grandi vengono ridotti o rifiutati per proteggere il frame rate.</div>
+  </div>
+
+  <div id="pane-materiali" class="tabpane">
+    <h2>Materiali (ricette riusabili)</h2>
+    <div class="dim">Un materiale assegna texture (o <code>#tag</code> = random stabile tra le
+      texture col tag) alle facce dei cubi e alle superfici della mappa.</div>
+    <div class="field"><label>Nome</label><input type="text" id="mt-name" placeholder="erba" style="width:140px"></div>
+    <div class="field"><label>Colore base</label><input type="color" id="mt-color" value="#4a7a3a"></div>
+    <div class="field"><label>Faccia TOP</label><select id="mt-top"></select></div>
+    <div class="field"><label>Facce LATO</label><select id="mt-side"></select></div>
+    <div class="field"><label>Faccia SOTTO</label><select id="mt-bottom"></select></div>
+    <div class="field"><label>Tag (virgole)</label><input type="text" id="mt-tags" placeholder="pavimento" style="width:140px"></div>
+    <canvas id="mt-preview" width="200" height="130" style="width:100%;background:#101321;border-radius:6px"></canvas>
+    <div class="row"><button id="mt-save" type="button">Salva materiale</button></div>
+    <div id="mt-list"></div>
+    <h2>Texture in libreria</h2>
+    <div class="dim">Le texture si disegnano nella scheda Pixel («Salva come texture»).</div>
+    <div id="tx-list"></div>
+  </div>
+
+  <div id="pane-pixel" class="tabpane">
+    <h2>Editor pixel art</h2>
+    <div class="field"><label>Dimensione</label>
+      <select id="px-size"><option>8</option><option selected>16</option><option>32</option></select>
+    </div>
+    <div class="row">
+      <button id="px-pen" type="button" class="active">Matita</button>
+      <button id="px-erase" type="button">Gomma</button>
+      <button id="px-fill" type="button">Riempi</button>
+      <button id="px-pick" type="button">Preleva</button>
+    </div>
+    <div class="field"><label>Colore</label><input type="color" id="px-color" value="#df7126"></div>
+    <div class="swatches" id="px-swatches"></div>
+    <div class="row">
+      <button id="px-load" type="button">Carica PNG</button>
+      <input type="file" id="px-file" accept="image/png" style="display:none">
+      <button id="px-clear" type="button">Pulisci</button>
+    </div>
+    <div class="row">
+      <button id="px-export1" type="button">PNG 1&times;</button>
+      <button id="px-export8" type="button">PNG 8&times;</button>
+    </div>
+    <h2>Salva come texture</h2>
+    <div class="row">
+      <input type="text" id="px-tex-name" placeholder="erba-01" style="flex:1">
+    </div>
+    <div class="row">
+      <input type="text" id="px-tex-tags" placeholder="tag: pavimento, erba" style="flex:1">
+      <button id="px-tex-save" type="button">Salva texture</button>
+    </div>
+    <div class="dim">La texture entra in libreria (scheda Materiali) e diventa richiamabile
+      dalle facce: per nome o via <code>#tag</code> (random stabile tra le texture col tag).</div>
+    <div class="dim">Palette DB32 (la stessa degli asset Aseprite del repo). Per lavori grossi resta la pipeline Aseprite; questo serve per ritocchi rapidi.</div>
+  </div>
+</div>
+
+<div id="hint"></div>
+<div id="toast"></div>
+<!-- ?v= : bump a ogni modifica di editor.js — la memory-cache dei moduli (browser
+     e Electron) può servire la versione vecchia anche dopo un reload normale -->
+<script type="module" src="./editor.js?v=e6-quota"></script>
+</body>
+</html>

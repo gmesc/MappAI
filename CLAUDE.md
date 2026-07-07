@@ -491,10 +491,348 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
     `pm-subtitle` nell'header; `pm-section` + `pm-section-title` per gruppi opzioni;
     `pm-option` + `pm-option-label` + `pm-option-desc` per radio/checkbox; `pm-btn-cancel` /
     `pm-btn-primary` per i bottoni footer
+12. **Linking words (verbi `rel`)** → unica fonte: i `keywords` di `EDGE_FAMILIES` in
+    `mappai-relations.js`. Verbo nuovo = 1 riga lì (famiglia giusta) → appare in tutti i
+    prompt (`buildRelVocabularyBlock`, placeholder `{{relVocabulary}}` nei template JSON)
+    e viene classificato col colore giusto (`REL_FAMILY_MAP` è generata dai keywords).
+    MAI hardcodare liste di verbi nei prompt. Dettagli: `docs/rules/07-relations-taxonomy.md`
+13. **i18n (UI in inglese, 6 lug 2026)** → tre meccanismi:
+    - HTML statico: attributi `data-i18n` / `data-i18n-placeholder` / `data-i18n-title`
+      processati da `changeLanguage` (mappai-storage-lang.js). Le chiavi DEVONO esistere
+      in ENTRAMBI i dizionari (`public/traduzioni/*_translations.js`), altrimenti lo
+      switch EN→IT non ripristina l'italiano.
+    - Stringhe nei moduli JS: `window.t('chiave', 'fallback italiano')` (helper in
+      `public/traduzioni/i18n-helper.js`, caricato subito dopo i dizionari). Il fallback
+      inline È il testo italiano → chiave solo in `en_translations.js`.
+    - Moduli UMD testati in Node (jigsaw, palace, games): usare `_tSafe(k, f)` locale,
+      MAI `window.t` diretto (in Node `window` non esiste → test rossi).
+    Verifica di coerenza: ogni chiave `data-i18n` in index.html presente in entrambi i
+    dizionari; ogni chiave `t()`/`_tSafe()` presente in en_translations.js.
+14. **Lingua delle MAPPE (≠ lingua interfaccia, 7 lug 2026)** → impostazione
+    `mappai_map_language`: `'ui'` (default, segue l'interfaccia = comportamento storico),
+    `'it'`, `'en'`, `'auto'` (lingua delle fonti). Selettore nel modale config AI
+    (`#map-language-select`) + onboarding doppia scelta al primo avvio
+    (`showLanguageOnboarding`, solo installazioni fresche).
+    - Helper (i18n-helper.js): `getMapLanguage()` → 'it'|'en'|'auto';
+      `getPromptLanguage()` → lingua dei testi prompt; `relVocab(style)` → vocabolario
+      linking words nella lingua giusta ('auto' = doppio IT+EN); `mapLangNote()` →
+      istruzione OUTPUT LANGUAGE (vuota per 'it').
+    - `fillPromptTemplate` sceglie `_IT`/`_EN` dalla lingua mappe e riempie
+      `{{relVocabulary}}` di conseguenza; con 'auto' appende l'istruzione lingua-fonti.
+    - Tassonomia BILINGUE: `EDGE_FAMILIES` ha `keywordsEn`/`labelEn`/`defaultRelEn`;
+      `REL_FAMILY_MAP` contiene entrambe le lingue → frecce inglesi classificate/colorate.
+      `KG_REL_ENUM` è GENERATO dalla tassonomia; lo schema usa `window.getKgRelEnum()`
+      (lingua mappe). MAI ri-hardcodare l'enum.
+    - Prompt JS: KG Community ha coppia IT/EN completa; Fase 2 KG multi-pass, Fase 3
+      JSONL e Fase 4 usano istruzioni IT + `mapLangNote()` (output nella lingua giusta).
+    - Dungeon: prompt quiz/tutor/NPC condizionali via `_dgEn()` (segue `getMapLanguage`,
+      'auto' → italiano). Narrativa di gioco e Studio Attivo via `_tSafe`/`t()`.
+    - ⚠️ Le mappe già generate NON vengono ritradotte: il selettore governa solo le
+      generazioni successive.
 
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (7/7/26): §21 movimento quota-aware in-app — gradini/salto/discesa cappata
+Design + implementazione completa Q1→Q4 in `MEMORY_DUNGEON_DESIGN.md` §21 (stato: §21.9).
+Regole (decisioni utente §21.8): salita walk ≤0.9 / jump ≤1.6 (arco 0.32s) / oltre
+BLOCCATO; **discesa cappata a 1.6 (DQ0** — diverge dal proto: niente caduta libera) →
+movimento SIMMETRICO → softlock impossibile per costruzione; mob territoriali |Δq|≤0.9
+nei due versi (DQ1, non ingaggiano attraverso un dislivello); no fall damage (DQ2).
+- **Core**: `planToGrid`→`quota`+`hasQuota`; `stepKindGrid` walk/jump/fall/blocked;
+  `findPathQuota` (BFS — rot.js A* NON basta: callback solo (x,y)); `reachableCells`;
+  `_reachableFrom`+flood-fill `worldZones` quota-aware (rupe >1.6 = muro, divide zone);
+  `validatePlan` warning `slot-unreachable`. +9 test `tests/dungeon-quota.test.js`.
+- **Runtime**: `DUN.quota` dai loader piano/mondo (altri loader → null = piatto);
+  kill-switch `mappai_dungeon_quota='0'`; `DUN.path.wait` per-passo (jump 320ms) +
+  `jumpFx`/`fallFx`; `_mobStepOk`/`_mobEngage`; staleness solo su celle raggiungibili;
+  `_jumpBump` saltello skin 2D; chiave i18n `dg_cliff` in en_translations.
+- **Voxel**: terreno a quota reale, entità a y=quota (`st.gy`), lerp y eroe + arco
+  mezzo-seno, camera/lanterna seguono il terreno (senza bump).
+- **Authoring**: `autoSlots` editor quota-aware (bump `editor.js?v=e6-quota`);
+  contratto §2/§4 aggiornati. Esempio test manuale:
+  `docs/game-design/esempi/piano-1-rilievo.json` (valle/terrazza/gradino-salto/rampa,
+  validato col core). Suite **250/250** ✅.
+- **Batch fix post-test Electron (stessa sera, dettagli §21.9)**: canvas voxel
+  dimensionato sul CONTENITORE `#game` (+ResizeObserver — era il bug "non giocabile
+  se non fullscreen"); **WASD/frecce+SPAZIO SCREEN-RELATIVE con HOLD**
+  (`_screenToGrid` da `MappAIDungeonVoxel.yaw()`: W=su-schermo, in iso = diagonale
+  di griglia, stessa formula del proto; `DUN.held`+`_keyDrive()` nel `_dunTick` =
+  passi continui finché premuto, non un passo per keydown; salto §21); **zoom
+  rotellina** (st.half 4..18); **sprite LoL
+  nella skin voxel** (playerSheet outfit, scheletro/bat, boss guardian, Sapienti
+  per-file, flip eroe — parità visiva 2D↔3D, frame verificati in preview); **NPC
+  giardino animati anche in voxel** (la skin ora segue x/y della logica). Nota: erano
+  gap proto↔app documentati (§19), non regressioni — unico bug vero il canvas.
+
+### 📐 DESIGN (7/7/26): §20 mappa-mondo — open world a zone (P2, decisioni PRESE)
+Scritto `MEMORY_DUNGEON_DESIGN.md` **§20**: mappa unica grande, zone = macro-aree L1
+(metodo dei loci giocabile, convergenza con Palazzo §19 F3 e defrag §17), GATE di
+confine con guardiani, zone detection per flood-fill + binding soft `branchHint`,
+validatore BFS-con-porte, valvole ADHD (minimappa a zone, bussola, fog per zona).
+Schema bozza `mappai-dungeon-world@1`. **Decisioni fissate con l'utente (§20.9)**:
+D1 docente assegna zone↔rami (fallback per capienza) · D2 gate default = coverage 0.6
++ quiz 2 domande · D4 file separato `Memory Dungeon/mondo.json` · D7 giardino = zona
+di spawn. Default non obiettati: D3 ordine dalla topologia, D5 cap 64×64, D6 solo
+voxel. Fasi W1-W4 in §20.8.
+**✅ W1 FATTA (7/7/26)**: contratto §11 (`mondo.json`, schema `mappai-dungeon-world@1`,
+celle/props IDENTICI a §2 → Pianta e materiali funzionano già) + logica pura in
+`mappai-dungeon-core.js`: `worldZones` (flood-fill deterministico, i gate tagliano;
+anchor match; conteggi per zona), `bindZones` (D1: hint fuzzy poi capienza),
+`validateWorld` (BFS-con-porte: `gate-not-boundary`, `zone-unreachable`, coverage
+per ZONA con severità ruleset, `gate-req-invalid` → default D2, `zone-no-memory`
+con zona spawn esente per D7). +17 test in `tests/dungeon-world.test.js` → suite
+**239/239** ✅.
+**✅ W2 FATTA (7/7/26)**: runtime mondo — loader legge `mondo.json`; `_loadWorld`
+(zone→rami L1 via `_branchGroups`+`bindZones`; memorie del ramo → slot della zona,
+staleness IN-zona; gate chiusi = celle bloccate; gatekeeper = boss; guard SOLO-voxel
+D6 con fallback ai piani + toast; kill-switch `mappai_world_mode`); gate runtime
+(click vicino → `checkGateReq` puro (coverage/mastery, default D2) → quiz guardiano
+`_runQuiz` con pool dal diario del ramo → apertura = cella sbloccata + `worldRev++`
+→ skin voxel ricostruisce, porta 🚪 sparisce); minimappa a ZONE in alto a destra
+(bolle colore-ramo, scure se irraggiungibili, archi gate verdi/tratteggiati, anello
+zona corrente). +19 test core totali; suite **241/241** ✅. Esempio validato:
+`docs/game-design/esempi/mondo.json` (giardino-hub + 2 zone) — primo test manuale:
+copiarlo in `<vault>/Memory Dungeon/` e aprire il dungeon con skin voxel.
+⚠️ Non testato in Electron vivo. Prossimo: W3 authoring (gate nella Pianta,
+requisiti per ramo nello Studio, pannello zone editor).
+
+### ✅ FATTO (7/7/26): editor rilievo/texture pavimento + movimento a dislivelli (proto)
+Tutto in `tools/voxel-proto` (editor + proto), verificato in preview. Suite 241/241 ✅.
+- **#1 texture/tag diretta sul pavimento**: select «…oppure texture/tag» nella scheda
+  Mappa → dipingendo pavimento crea al volo un materiale `auto:<ref>` (top=ref) e lo
+  assegna a `cell.mat`. Il materiale pennello salvato resta l'alternativa. Bump cache
+  `editor.js?v=e5-bump`.
+- **#2 pennello ⛰ Rilievo (bump)**: alza/abbassa la quota dei pavimenti nel raggio con
+  sfumatura coseno ai bordi (colline a pendii progressivi); intensità 0.05-0.5, raggio
+  1-8, su/giù; clamp ±2; solo su celle floor. Verificato: profilo simmetrico 0.03→0.9→0.03.
+- **#3 dislivelli asimmetrici nel PROTO** (`stepKind` sostituisce `walkableFrom` simmetrico):
+  salita camminando ≤ `STEP_UP_WALK` 0.9, col salto ≤ `STEP_UP_JUMP` 1.6 (arco mezzo-seno
+  0.32s in animate), oltre bloccato; discesa illimitata (caduta dai bordi); mai in
+  acqua/lava/vuoto (restano `blocca`). `findPath` aggiornato (salita>jump bloccata,
+  discesa libera). Verificato: 0.5→walk, 1.0→jump, 2.0→blocked, pit→walk, acqua/void→blocked.
+  ⚠️ SOLO proto (movimento continuo). L'app usa griglia piatta 0/1: portare i dislivelli
+  in-app è lavoro F2 separato (la quota lì è solo estetica della skin voxel).
+
+### ✅ FATTO (7/7/26): P1 — editor Pianta (blockout 2D → mappa 3D)
+`tools/voxel-proto/pianta.html` (self-contained, niente three). ZERO tocchi al contratto:
+genera `cells` standard; lava = `{biome:'floor', quota<0, blocca:true, mat:'lava'}` (nessun
+bioma nuovo — la veste il sistema materiali; materiale lava base auto-creato se assente).
+- Pennelli quadrato/rotondo (1-11), pavimento/nero/muro interno (altezza per-cella);
+  nero → acqua | lava | vuoto; slider dislivello (quota, con jitter deterministico)
+- **Contorno offset** (toggle + altezza): muri auto attorno al pavimento (adiacenza 8)
+- Strumenti: **istmo** (linea con larghezza pennello), timbri stanza ■/● (perimetro muro +
+  interno pavimento), simmetria x/y/4-vie, coste organiche (1 passo CA), undo (Ctrl+Z,
+  stack 40), import PNG bianco/nero, anteprima 3D iso live
+- Sketch persistito (`voxelproto_pianta`) → si ritocca e si ri-applica (props conservati)
+- Aggancio: Studio «Nuova mappa» terza tela «✏️ Pianta» (ctx piano passa attraverso);
+  link ✏️ nell'header editor
+- Verificato in preview: isole+istmo+timbro+coste→Applica→editor 3D (102 floor/90 wall/
+  832 water, muri offset corretti), persistenza sketch, simmetria 4 vie, zero errori.
+  Suite 222/222 ✅. P2 (design mappa-mondo: zone=rami L1, gate con requisito) = da discutere.
+
+### ✅ FATTO (7/7/26): materiali & texture — editor Materiali, contratto §2-quater
+I 3 tocchi al contratto approvati dall'utente, più la filiera che li usa (VAULT_DUNGEON_
+MAPS_CONTRACT.md §1/§2/§2-bis/§2-quater aggiornati):
+- **Contratto**: `Memory Dungeon/materiali.json` (schema `mappai-dungeon-materials@1`:
+  textures {png dataURL, tags} + materials {color, faces{top/side/bottom/all}, tags});
+  celle con `mat` opzionale; cubi props con `m` (materiale) e `f` (override per faccia).
+  Riferimenti: "nome-texture" diretta o `"#tag"` = random DETERMINISTICO (seed dalla
+  posizione → zero sfarfallio tra rebuild).
+- **Modulo condiviso** `tools/voxel-proto/voxel-materials.js` (editor+proto): resolve
+  riferimenti, cache texture NearestFilter, cubi a 6 materiali, QuadBatcher (1 draw
+  call per texture sul terreno: top pavimenti + top/lati esposti muri; acqua esclusa v1).
+- **Editor**: scheda MATERIALI (form ricetta + anteprima cubo iso con texture reali +
+  liste materiali/texture); Pixel → «Salva come texture» (nome+tag); pennelli mappa con
+  select materiale; costruttore voxel con select «materiale cubi nuovi» + strumento
+  «Texture faccia» (click sulla faccia = applica texture/#tag, via faceKeyFromNormal).
+  Bump cache `editor.js?v=e3-materials`.
+- **Vault/condivisione**: IPC `save-dungeon-materials`; `load-dungeon-floors` ritorna
+  `materials`; lo Studio fa merge nel localStorage all'apertura vault/file; «Salva nel
+  vault» dell'editor scrive anche materiali.json; il pacchetto classe include
+  `materials` e l'import in MappAI lo scrive nel vault dello studente.
+- Verificato in preview (texture generate + mappa 10×10): pavimento erba con varietà
+  per-tile, muri roccia, cubo-materiale, anteprima "blocco erba" (top erba/lati roccia),
+  resolve deterministico (stessa cella→stessa texture), zero errori console. Suite 222/222 ✅.
+- ⚠️ La skin voxel dell'app NON renderizza ancora materiali (arriva con la F2, come i props).
+
+### ✅ FATTO (7/7/26): asset v3 — 4 regole, import .vox, WASD pan, uscita segreta
+Contratto aggiornato (props: `yOff/billboard/scale/rot/walkable/light` — vedi
+VAULT_DUNGEON_MAPS_CONTRACT.md §2 e README voxel-proto; `surface` resta SOLO in libreria).
+- **4 regole**: piazzamento mai su muro/vuoto; per-asset `surface` floor/water/any
+  (default floor — alberi/item solo su pavimento); checkbox billboard (default: ancorato
+  al mondo, ruota con la mappa); slider `yOff` altezza dal suolo (default 0; >0 = fluttua
+  con bob sinusoidale). Slot memoria/personaggi: già coperti dal validatore (`slot-blocked`).
+- **Idee implementate**: thumbnail isometriche in libreria + anteprima asset in scheda
+  Mappa; scala (0.5-2) e rotazione (0/90/180/270) per-istanza; luce agganciata all'asset
+  (point light + sfarfallio, statica nel proto); `walkable` (footprint 1×1, multi-cella
+  = futuro); tag + filtro libreria; varianti hue-shift (🎨); libreria export/import file
+  (`mappai-voxel-assets@1`).
+- **Import .vox (MagicaVoxel)**: parser chunk SIZE/XYZI/RGBA, assi Z-up→Y-up, palette
+  default approssimata se manca RGBA, cap 3000 (proponi riduzione 2×) / 10000 (rifiuto),
+  nota licenze in UI. Carica nel costruttore → si impostano proprietà → Salva.
+- **Editor**: WASD = pan della vista relativo all'inquadratura (camera non più ancorata);
+  guard input su tutti i tasti (Q/E compresi — prima digitare 'q' nel nome ruotava).
+- **Uscita segreta**: 5 click nell'angolo alto-sinistra (56px, entro 3s) su landing
+  MappAI E Studio → IPC `launcher-return` → torna alla schermata di scelta.
+- Verificato in preview: parser .vox su file sintetico (palette default ordine spec ✓),
+  regola "solo acqua" rifiutata su pavimento ✓, istanza con scale/rot ✓, thumbnails ✓,
+  WASD ✓, hue-shift rosso→verde ✓. Suite 222/222 ✅. Bump cache: `editor.js?v=e2-assets`.
+
+### ✅ FATTO (7/7/26): landing Memory Dungeon Studio — 9 punti + flussi base
+Fonte di verità aggiornata: VAULT_DUNGEON_MAPS_CONTRACT.md (§2-bis bundle, §9.6 Studio).
+`tools/voxel-proto/studio.html` = entry della finestra Studio (main.js, preload agganciato).
+- **Nuova mappa**: da progetto recente (localStorage condiviso file://) o vault (IPC) →
+  requisiti estratti (memorie per livello) → livello/kind/tela → editor
+- **Apri vault**: menu piani con anteprime isometriche + badge validazione (✓/⚠/✗),
+  CTA "Crea" sui livelli procedurali, form regole docente (IPC `save-dungeon-ruleset`)
+- **Riprendi** (autosave), **Apri file** (piano o bundle + vault destinazione),
+  **Solo asset** (`#voxel`/`#pixel`), **Genera bozza** (digger seedato),
+  **Pacchetto classe** (IPC `export-dungeon-bundle` + dialog)
+- **Editor**: barra vault da `voxelproto_plan_ctx`, «Salva nel vault» con SLOT AUTOMATICI
+  (spawn/uscita BFS/memorie farthest-point) se non disegnati, validatePlan §4 prima
+  della scrittura. ⚠️ `editor.js` caricato con `?v=` anti-cache: bump a ogni modifica.
+- **MappAI**: `importFloorPlan` accetta anche `mappai-dungeon-bundle@1` (`_importBundle`:
+  valida ogni piano, conferma unica, riepilogo sovrascritture)
+- Verificato in browser: estrazione requisiti, auto-slot (piano 16×16 VALIDO, warning
+  minSpacing correttamente rilassato), bozza, hash-tab, fallback senza electronAPI.
+  Parti vault/IPC non testate in Electron vivo. Suite 222/222 ✅.
+
+### ✅ FATTO (7/7/26): launcher all'avvio — scelta MappAI / Memory Dungeon Studio
+All'avvio (`npm start` E build pacchettizzata: richiesta utente, i docenti devono avere
+lo Studio) si apre `public/launcher.html` (640×420, tasti 1/2/Invio) → IPC
+`launcher-choice` → MappAI (`createWindow`) o **Studio** (`createStudioWindow`:
+`tools/voxel-proto/editor.html` in finestra Electron 1440×900, nessun preload).
+- Card MappAI in stile landing (MappAI_icon.png + titolo Space Mono font-black chiaro);
+  card Studio con illustrazione voxel isometrica disegnata a canvas (seedata,
+  palette della skin: pietra/acqua/tile ambra+alone lanterna) + titolo pixel-style.
+- **three.js r164 VENDORED** in `public/js/vendor/three-r164.module.min.js` (674KB,
+  jsdelivr scaricato una volta): import map RELATIVI in editor.html e index.html del
+  proto → editor/proto/Studio funzionano OFFLINE. Verificato: network tab senza CDN.
+- electron-builder senza whitelist `files` → `tools/voxel-proto` finisce nel pacchetto ✓
+- ⚠️ Studio = editor voxel attuale: salvataggi ancora in localStorage; export contratto
+  piano-N + slot didattici = piano E1, non ancora fatto.
+- `launcherChoice` esposto in preload.js. Verificato in browser (screenshot launcher,
+  editor con three locale, zero errori); non testato in Electron vivo.
+
+### ✅ FATTO (7/7/26): Memory Dungeon — sprite PNG animati + skin voxel DEFAULT (§19 F2)
+Su richiesta utente ("d'ora in poi three.js e basta"), scelta: portare prima gli sprite
+del proto, poi girare il default. Fonte: `MEMORY_DUNGEON_DESIGN.md` §19 "Stato implementazione".
+- `_skin()` ora ritorna **`'voxel'`** di default (era `'lol'`). Fallback SICURO: se THREE
+  assente o `frame()` fallisce → `_dunRenderLoL()` (2D), mai il vecchio renderer ASCII.
+  Setter `MappAIGames.skin('voxel'|'lol'|'fantastic')`.
+- `mappai-dungeon-voxel.js`: PERSONAGGI = sprite PNG animati dai fogli `rogue8x8`
+  (eroe Girl-Melee walk/idle, mob OrcSheet, boss gatekeeper 4-frame, NPC statici variati).
+  Frame via UV `offset`/`repeat` (clone del foglio), animati su clock globale in `V.frame`.
+  LANDMARK di studio (libri/scale/condotto/server/portale) restano emoji self-lit.
+  Async con placeholder emoji → PNG mancante = emoji resta (fallback).
+- ⚠️ Giardino curato `_gmap` reso solo in 'lol'; in voxel → layout procedurale seedato.
+  Duelli F/J senza balloon in voxel (F2 world-space da fare). Non testato in Electron vivo
+  (licensing blocca browser); verificato con harness three-r128 (6/6 sprite, crop ok).
+- **Parità visiva col proto** (7/7/26, da feedback screenshot utente): Q/E ruota camera 90°
+  (lerp; supera lo yaw-fisso §19.4), 1 tile = SUB×SUB mini-voxel adattivo (3/2/1 per
+  1200/3000/oltre celle) con jitter quota+colore, muri a colonne variabili, acqua incassata,
+  ombre BasicShadowMap + customDepthMaterial sugli sprite (segue il frame anim), taglie in
+  rapporto proto (eroe 0.78, mob 0.62, boss 0.95, landmark 0.62-0.85), reset tinta visitato
+  al passaggio a luce piena. Dettagli: MEMORY_DUNGEON_DESIGN.md §19.
+
+### ✅ FATTO (6/7/26): vault ↔ Memory Dungeon — cartella default, nome-libero, import validato
+Fonte di verità: `docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md` (§1/§9/§10 aggiornati).
+- Cartella vault RINOMINATA `Dungeon/` → **`Memory Dungeon/`** (nessun vault legacy: mai rilasciata)
+- `save-map-vault` (main.js) crea `Memory Dungeon/piani/` + `LEGGIMI.md` di default a ogni salvataggio
+- **Loader nome-libero** (`load-dungeon-floors`): piano legato dal nome `piano-N.json` SE presente,
+  altrimenti dal campo `"id"` interno → file ricevuti da docenti/compagni si droppano senza rinominare;
+  conflitto stesso piano → vince mtime più recente + warning
+- **`validatePlan(plan, ruleset, levelNodeCount)`** in `mappai-dungeon-core.js` (contratto §4, pura,
+  UMD): giocabilità sempre error (spawn/scale-BFS/gatekeeper/slot-su-muro), pedagogia con severità
+  da ruleset; minSpacing in BLOCCHI con rilassamento a warning se insoddisfabile; ultimo piano
+  dedotto dagli slot (gatekeeper presente = finale). +15 test → suite **222/222** ✅
+- **Import in-app**: menu azioni → «Importa piano Dungeon» (`#menu-import-floorplan`, i18n nei 2
+  dizionari) → `MappAIGames.importFloorPlan`: schema+id+level check → validatePlan coi nodi correnti
+  → conferma sovrascrittura → IPC `save-dungeon-floor` scrive `piano-N.json` normalizzato
+- ⚠️ Non testato nell'app Electron viva (browser bloccato dal licensing; unit test + DOM check ok).
+  Primo test manuale: importare `docs/game-design/esempi/piano-1.json` da un vault aperto.
+
+### ✅ FATTO (6/7/26 notte): Giardino per-mappa + Sapienti con personalità
+Vincolo: `docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md` è fonte di verità, no slot npc in
+v1 → personalità e giardino sono RUNTIME (zero campi contratto). Dettagli in
+`MEMORY_DUNGEON_DESIGN.md` §19 "Giardino per-mappa". In sintesi:
+- Movimento + stop-chat-ripresa dei Sapienti già in `mappai-npc-behavior.js`: ora
+  `mappai_npc_garden_enabled` **default ON** (kill-switch '0').
+- Personalità: catalogo `PERSONALITIES` (5 archetipi) + `pickPersonality(seed)` in
+  npc-behavior.js; detta raggio/cadenza/`tone`. `mkBehavior` 5° arg `persona` (retrocompat).
+  Seed = rootNodeLabel+nodeId → carattere stabile per la classe. `tone` usato nel prompt
+  `NPC_NARRATOR` (prima hardcodato 'misterioso e gentile').
+- Giardino seedato per-mappa in `_loadGarden` (flag `mappai_garden_seeded` default ON):
+  stesso giardino a ogni visita della stessa mappa, diverso tra mappe (loci).
+- Numero Sapienti: uno per macro-area L1 (non più fisso a 4), fino a
+  `mappai_garden_sapienti_max` (default 8, clamp 1..12); sprite ciclato; loader accetta
+  slot `sapiente-*` generici per mappe curate. Suite 222/222 ✅.
+
+### ✅ F0+F1 FATTI (6/7/26 notte): §19 — voxel 3D, prime due fasi
+F0 nel proto (buio+lanterna, condotto-ponte, boot=luce, entità §19.2 — validato in browser).
+F1 nell'app: skin `mappai_dungeon_skin='voxel'` in `mappai-dungeon-voxel.js` (three r128
+vendored), hook in games.js, auto-fallback 2D su errore, sfide §17 ancora modali.
+Mapgen bonificato (path BERT → repo-relativi). Limite F1: duelli F/J senza balloon in
+voxel → usare modalità studio. Suite 188/188 ✅. Prossime: F2 world-space, F3 default.
+Dettagli: `MEMORY_DUNGEON_DESIGN.md` §19 "Stato implementazione".
+
+### 📐 DESIGN (6/7/26 notte): §19 — ambiente voxel 3D × studio world-space
+Nuova direzione grafica in `tools/voxel-proto` (volumi flat + sprite billboard, griglia
+logica INTATTA). Design completo in `MEMORY_DUNGEON_DESIGN.md` §19, **in attesa di conferma
+prima di codificare**. Decisioni utente: design-first · fog = buio+lanterna (boot = luce
+globale) · sfide §17 world-space (verbo unificante "porta-e-deposita"; input digitati
+restano DOM come terminali CRT diegetici) · mapgen ibrido (stanze speciali curate,
+piani normali procedurali runtime). Contratto entità v1 nel §19.2. Migrazione in 4 fasi
+(F0 proto → F1 terza skin 'voxel' → F2 world-space → F3 default). ⚠️ Debito: script
+`tools/mapgen` puntano hardcoded al repo MappAI BERT — da portare in casa prima di F1.
+
+### ✅ COMPLETATO (6/7/26 sera): Memory Dungeon §17 — le 7 modalità di Studio Attivo nel dungeon
+Implementata TUTTA la sezione §17 di `docs/game-design/MEMORY_DUNGEON_DESIGN.md` (tabella
+"Stato implementazione" in fondo al doc con flag e dettagli). In sintesi:
+- **⚡ Condotto** (modo 6): cross-link con verbo → scegli la famiglia del connettore (2 tentativi,
+  conta il 1°); il condotto resta fast-travel tra piani visitati + "visione" dell'altro capo
+- **🖥 Server di boot** (modo 7): riavvia le macchine nell'ordine della catena; LCS; successo =
+  nebbia del piano dissolta
+- **🎭 Mimic + 📁 archivio al gate** (modo 5): memoria di un altro piano; voce mal archiviata
+  (intruso lessicalmente distante via `pickMisfiled`)
+- **🗂 Indice corrotto** (modo 3): al gate riassegni i titoli alle TUE sintesi (fuzzy opzionale)
+- **▁ Unit corrotta/cloze** (modo 4): nodi già incontrati → riparazione a memoria (hint ladder);
+  anti-pappagallo nella cattura standard (jaccard ≥0.8 → riformula)
+- **🧩 Defrag della memoria** (modi 1-2): reveal ATTIVO post-boss — ricollochi le unit nelle
+  macro-aree e la heatmap si accende man mano; skippabile
+Codice: sezione «PONTE STUDIO ATTIVO ↔ DUNGEON» in `mappai-games.js`; logica pura + 10 test in
+`mappai-dungeon-core.js` / `tests/dungeon-core-s17.test.js`. Attività mastery: `dungeon_verbs`,
+`dungeon_seq`, `dungeon_intruso`, `dungeon_index`, `dungeon_defrag`. Kill-switch (default ON):
+`mappai_dungeon_{circuits,boot,mimic,archive,cloze,defrag}='0'`. Suite: 173/173 ✅.
+
+### ✅ COMPLETATO (6/7/26): Studio Attivo v2 — misurazione PT + revisione pedagogica
+Revisione completa delle 7 modalità (lente: Handbook of Game-Based Learning) + fix implementati.
+**Nuovo file**: `mappai-active-study-core.js` (helper puri UMD, testati in `tests/active-study-core.test.js`,
+19 test) — caricato in index.html PRIMA di `mappai-active-study.js`.
+**⚠️ Cambio semantica salvataggio**: il punteggio si salva UNA volta a fine sessione
+(exit/riprova/nuovo enter), NON più a ogni Verifica — ripetere Verifica non duplica jsonl
+né martella l'EWMA. Record arricchito: `metric` (completion|structure|recognition|recall|coverage),
+`attempts`, `totalAvailable`, `revealed`, `reflection`, `scope`, `aiSimilarity`.
+Altri interventi chiave:
+- **rate per-item** (60/sec sull'item, cap 30) al posto della media di sessione stampata su ogni entry
+- **scope per ramo + cap 15 item** (modi 2/3/4/6, mappe >20 nodi) — carico ADHD/DSA
+- **adattività dal mastery store** (finora write-only): modo 3 sceglie i nodi più deboli,
+  modo 2 sfuma i colori-scaffold con padronanza ≥0.6, modo 5 numero intrusi adattivo
+- modo 1: confronto formativo AI studente-vs-originale; modo 3: toggle "Scrivi tu" (richiamo
+  digitato fuzzy); modo 4: anti-pappagallo + hint ladder + autovalutazione a 3 livelli + TTS fonte;
+- modo 5: intruso nel ramo lessicalmente più distante (mai random); modo 6: solo archi con verbi
+  non generici, 2 tentativi (conta il primo), niente keyword-leak; modo 7: credito parziale LCS
+- launcher: card "⭐ Consigliato" dalla padronanza, card disabilitate CON motivo (7 senza catena,
+  6 senza verbi ricchi); hint ladder nei modi strutturali (2ª verifica: ramo; 3ª: genitore esatto)
+- riflessione metacognitiva facoltativa all'uscita + bottone 📈 Crescita (celeration)
+- **T7**: quiz/flashcard configurati (`study-session`) ora sul StudyBus (prima invisibili a
+  padronanza/meta-analisi) + `answerMatches` fuzzy ("Roma" non matcha più "Romania")
+- **T8**: intervalli SR scalati sulla padronanza EWMA (0.5×–1.5×); studyStatus/nextReview
+  sincronizzati dalle sessioni di Studio Attivo
+- A11y: errori con tratteggio (non solo colore), ARIA su pannelli/modali/chips
+Proposte Memory Dungeon: `docs/game-design/MEMORY_DUNGEON_DESIGN.md` §17 (da discutere).
 
 ### ✅ COMPLETATO (9/6/26 sera): token budget MM multi-pass finalizzato
 Run 77 nodi, 6 L1, density 1.221, 25.5% crosslinks, **truncated: 0/22** ✅

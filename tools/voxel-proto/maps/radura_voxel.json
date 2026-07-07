@@ -1,0 +1,530 @@
+{
+ "seed": 20260706,
+ "size": 14,
+ "sub": 3,
+ "meta": "Radura — scaffolding funzioni esecutive (§19.5)",
+ "lit": true,
+ "palette": {
+  "floorA": "#b5c98a",
+  "floorB": "#98af6e",
+  "wallA": "#8a9d68",
+  "wallB": "#68794c",
+  "waterA": "#5fa8d9",
+  "waterB": "#2d6da8",
+  "bg": "#e6ead2"
+ },
+ "cells": [
+  {
+   "x": 0,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 0,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 1,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 2,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 3,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 4,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 5,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 6,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 7,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 8,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 9,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 10,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 11,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 12,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 0,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 1,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 2,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 3,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 4,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 5,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 6,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 7,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 8,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 9,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 10,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 11,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 12,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  },
+  {
+   "x": 13,
+   "z": 13,
+   "biome": "wall",
+   "quota": 0,
+   "alt": 1,
+   "blocca": true
+  }
+ ],
+ "entities": [
+  {
+   "id": "hero",
+   "sprite": "rogue8x8/Girl-Melee",
+   "x": 6.5,
+   "z": 11.5
+  },
+  {
+   "id": "tot1",
+   "type": "totem",
+   "x": 4.5,
+   "z": 5.0
+  },
+  {
+   "id": "tot2",
+   "type": "totem",
+   "x": 9.0,
+   "z": 4.2
+  },
+  {
+   "id": "tot3",
+   "type": "totem",
+   "x": 6.8,
+   "z": 7.8
+  },
+  {
+   "id": "stairs",
+   "type": "stairs",
+   "x": 12.0,
+   "z": 2.0
+  },
+  {
+   "id": "tree0",
+   "type": "decor",
+   "name": "tree",
+   "x": 6.1,
+   "z": 1.5
+  },
+  {
+   "id": "tree1",
+   "type": "decor",
+   "name": "tree",
+   "x": 12.0,
+   "z": 11.5
+  },
+  {
+   "id": "tree2",
+   "type": "decor",
+   "name": "tree",
+   "x": 1.5,
+   "z": 12.0
+  },
+  {
+   "id": "tree3",
+   "type": "decor",
+   "name": "tree",
+   "x": 11.5,
+   "z": 10.9
+  },
+  {
+   "id": "tree4",
+   "type": "decor",
+   "name": "tree",
+   "x": 11.5,
+   "z": 1.5
+  },
+  {
+   "id": "tree5",
+   "type": "decor",
+   "name": "tree",
+   "x": 9.9,
+   "z": 11.5
+  },
+  {
+   "id": "tree6",
+   "type": "decor",
+   "name": "tree",
+   "x": 1.5,
+   "z": 3.0
+  },
+  {
+   "id": "tree7",
+   "type": "decor",
+   "name": "tree",
+   "x": 11.5,
+   "z": 2.1
+  }
+ ]
+}

@@ -132,7 +132,7 @@ window.startEditingTitle = function () {
                 window.StorageManager.saveCurrentProject();
             }
 
-            window.showToast("Titolo aggiornato e salvato", "success");
+            window.showToast(window.t('tst_title_saved', "Titolo aggiornato e salvato"), "success");
         }
     }, "Inserisci il nuovo nome da assegnare al progetto:");
 };
@@ -732,7 +732,7 @@ window.setMode = function (mode) {
                 selectEl.value = selectEl.options[bestIdx].value;
                 localStorage.setItem('infomaniak_selected_model', selectEl.value);
                 if (typeof updateModelCapabilities === 'function') updateModelCapabilities();
-                window.showToast(`Apertus non supporta KG — cambiato a ${selectEl.options[bestIdx].text}`, 'info');
+                window.showToast(window.t('tst_apertus_no_kg', 'Apertus non supporta KG — cambiato a {x}').replace('{x}', selectEl.options[bestIdx].text), 'info');
                 console.info(`[MappAI] Auto-selezione modello KG (Apertus→altro): ${previousModel} → ${selectEl.value}`);
             }
         }
@@ -888,7 +888,7 @@ window.riordinaMappa = function () {
             }
         });
         simulation.alpha(1).restart();
-        window.showToast("Layout ricalcolato", "success");
+        window.showToast(window.t('tst_layout_recalc', "Layout ricalcolato"), "success");
     }
 };
 
@@ -910,7 +910,7 @@ window.salvaLayout = function () {
         StorageManager.saveCurrentProject();
     }
 
-    window.showToast("Layout Salvato (Snapshot creato)!", "success");
+    window.showToast(window.t('tst_layout_snapshot', "Layout Salvato (Snapshot creato)!"), "success");
 };
 
 window.exportGraph = function () {
@@ -937,10 +937,10 @@ window.openSaveFolder = async function () {
             await window.electronAPI.openSaveFolder();
         } catch (e) {
             console.error("Errore openSaveFolder:", e);
-            window.showToast("Errore apertura cartella", "error");
+            window.showToast(window.t('tst_folder_error', "Errore apertura cartella"), "error");
         }
     } else {
-        window.showToast("Funzione disponibile solo nell'app Desktop.", "error");
+        window.showToast(window.t('tst_desktop_only', "Funzione disponibile solo nell'app Desktop."), "error");
     }
 };
 

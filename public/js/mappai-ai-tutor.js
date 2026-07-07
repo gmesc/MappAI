@@ -278,7 +278,7 @@ window.resetNodeTutor = function () {
     document.getElementById('node-tutor-chat-area').classList.remove('flex');
     document.getElementById('node-tutor-chat-history').innerHTML = '';
 
-    window.showToast("Chat del nodo resettata.", "success");
+    window.showToast(window.t('tst_chat_reset', "Chat del nodo resettata."), "success");
     initD3Visualization(); // Update icons on graph
 }
 

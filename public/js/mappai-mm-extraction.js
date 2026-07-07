@@ -493,7 +493,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             }
         } catch (e) {
             console.warn("Errore durante la generazione single-pass:", e);
-            window.showToast("Errore durante la generazione dell'albero.", "error");
+            window.showToast(window.t('tst_tree_error', "Errore durante la generazione dell'albero."), "error");
         }
 
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).

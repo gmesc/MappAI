@@ -247,11 +247,11 @@ window.toggleStudentMode = function () {
     if (appState.studentMode) {
         if (setupForm) setupForm.classList.add('hidden');
         if (btnConfig) btnConfig.classList.add('hidden');
-        window.showToast("Generatore BLOCCATO! Modalità Studente attiva.", "info");
+        window.showToast(window.t('tst_gen_locked', "Generatore BLOCCATO! Modalità Studente attiva."), "info");
     } else {
         if (setupForm) setupForm.classList.remove('hidden');
         if (btnConfig) btnConfig.classList.remove('hidden');
-        window.showToast("Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo.", "success");
+        window.showToast(window.t('tst_gen_unlocked', "Generatore SBLOCCATO! Sezione 1 limitata a Documenti e Testo."), "success");
     }
 
     window.applyStudentModeUI();
@@ -277,7 +277,7 @@ window.setMultiPassMode = function (enabled, silent) {
         }
     }
 
-    if (!silent) window.showToast(enabled ? "Generazione Multi-Pass (HD) ATTIVATA" : "Generazione Multi-Pass DISATTIVATA", "info");
+    if (!silent) window.showToast(enabled ? window.t('tst_multipass_on', "Generazione Multi-Pass (HD) ATTIVATA") : window.t('tst_multipass_off', "Generazione Multi-Pass DISATTIVATA"), "info");
 };
 
 // ==========================================
@@ -353,17 +353,24 @@ window.getPipeline = function () {
  * iniettato nel testo del prompt (VOCABOLARIO RELAZIONI nel template).
  * Allineato al template KNOWLEDGE_GRAPH_SINGLE_IT.
  */
-const KG_REL_ENUM = [
-    "causa", "provoca", "produce", "genera", "determina",
-    "richiede", "dipende da", "è condizione di",
-    "trasforma in", "porta a", "alimenta",
-    "si oppone a", "contrasta", "ostacola",
-    "precede", "segue", "deriva da",
-    "fa parte di", "comprende", "contiene", "appartiene a",
-    "è regolato da", "regola", "governa", "guida",
-    "utilizza", "catalizza", "avviene in", "è esempio di",
-    "rappresenta", "sostiene", "coinvolge", "permette"
-];
+// GENERATO dalla tassonomia (mappai-relations.js): enum e prompt offrono
+// SEMPRE lo stesso vocabolario. Prima erano due liste separate: il prompt
+// proponeva verbi (es. "smaschera") che lo schema Google poi bloccava.
+function _kgRelEnumFor(langs) {
+    const R = window.MappAIRelations;
+    const out = [];
+    langs.forEach(l => Object.keys(R.EDGE_FAMILIES).forEach(k => {
+        if (k !== 'altro') out.push(...R.getFamilyVerbs(k, l));
+    }));
+    return out;
+}
+const KG_REL_ENUM = _kgRelEnumFor(['it']);
+// Versione lingua-mappe: 'en' → verbi inglesi, 'auto' → doppio vocabolario
+window.getKgRelEnum = function () {
+    const m = (typeof window.getMapLanguage === 'function') ? window.getMapLanguage() : 'it';
+    if (m === 'auto') return _kgRelEnumFor(['it', 'en']);
+    return _kgRelEnumFor([m === 'en' ? 'en' : 'it']);
+};
 
 // ── Lente Relazioni — famiglie semantiche ──────────────────────────────────
 // Palette daltonismo-safe (no rosso/verde puri). Ogni famiglia ha:
@@ -1112,13 +1119,13 @@ window.startGeneration = async function () {
 
     const apiKey = window.getSystemKey();
     if (!apiKey) {
-        window.showToast("Inserisci un'API Key AI per continuare.", "error"); return;
+        window.showToast(window.t('tst_need_api_key', "Inserisci un'API Key AI per continuare."), "error"); return;
     }
     var rootName = document.getElementById('root-node-name')?.value.trim();
     appState.extractionMode = document.getElementById('extraction-mode').value;
 
     if (appState.extractionMode === 'mindmap' && !rootName) {
-        window.showToast("Inserisci il nome del nodo centrale per la mappa.", "error");
+        window.showToast(window.t('tst_need_root', "Inserisci il nome del nodo centrale per la mappa."), "error");
         return;
     }
     // Per KG: rootName opzionale — se vuoto, usa focus-input o nome primo PDF come titolo
@@ -1165,7 +1172,7 @@ window.startGeneration = async function () {
         } else if (src.type === 'url') {
             var urlVal = el.value.trim();
             if (urlVal) {
-                window.showLoadingOverlay(true, "Download contenuti dal Web...");
+                window.showLoadingOverlay(true, window.t('lo_web_download', "Download contenuti dal Web..."));
                 try {
                     const res = await window.electronAPI.fetchUrl(urlVal);
                     if (res.success) {
@@ -1175,7 +1182,7 @@ window.startGeneration = async function () {
                         throw new Error(res.error);
                     }
                 } catch (e) {
-                    window.showToast("Errore caricamento URL: " + e.message, "error");
+                    window.showToast(window.t('tst_url_error', "Errore caricamento URL: ") + e.message, "error");
                     window.showLoadingOverlay(false);
                     return;
                 }
@@ -1184,7 +1191,7 @@ window.startGeneration = async function () {
             var ytVal = el.value.trim();
             if (ytVal) { textParts.push("[FONTE YOUTUBE]: " + ytVal); hasSources = true; }
         } else if (src.type === 'pdf' && src.file) {
-            window.showLoadingOverlay(true, "Estrazione testo dal PDF locale...");
+            window.showLoadingOverlay(true, window.t('lo_pdf_local', "Estrazione testo dal PDF locale..."));
             try {
                 let pdfText = await window.extractTextFromPDF(src.file);
                 if (pdfText.trim()) {
@@ -1192,13 +1199,13 @@ window.startGeneration = async function () {
                     hasSources = true;
                 }
             } catch (err) {
-                window.showToast("Errore di estrazione dal PDF: " + err.message, "error");
+                window.showToast(window.t('tst_pdf_extract_error', "Errore di estrazione dal PDF: ") + err.message, "error");
                 window.showLoadingOverlay(false);
                 return;
             }
         } else if (src.type === 'doc' && src.file && src.file.name.toLowerCase().endsWith('.pdf')) {
             // Caso PDF caricato tramite bottone Documenti
-            window.showLoadingOverlay(true, "Estrazione testo dal PDF...");
+            window.showLoadingOverlay(true, window.t('lo_pdf', "Estrazione testo dal PDF..."));
             try {
                 let pdfText = await window.extractTextFromPDF(src.file);
                 if (pdfText.trim()) {
@@ -1206,7 +1213,7 @@ window.startGeneration = async function () {
                     hasSources = true;
                 }
             } catch (err) {
-                window.showToast("Errore PDF: " + err.message, "error");
+                window.showToast(window.t('tst_pdf_error', "Errore PDF: ") + err.message, "error");
             }
         } else if (src.type === 'doc' && src.file && src.file.name.toLowerCase().endsWith('.txt')) {
             // Estrazione TXT diretta per risparmiare tempo/upload
@@ -1218,7 +1225,7 @@ window.startGeneration = async function () {
                 }
             } catch (e) { console.error("Errore lettura TXT", e); }
         } else if (src.type === 'doc' && src.file && src.file.name.toLowerCase().endsWith('.docx')) {
-            window.showLoadingOverlay(true, "Estrazione testo dal documento Word...");
+            window.showLoadingOverlay(true, window.t('lo_docx', "Estrazione testo dal documento Word..."));
             try {
                 if (window.electronAPI && window.electronAPI.parseDocx && src.path) {
                     const docText = await window.electronAPI.parseDocx(src.path);
@@ -1232,7 +1239,7 @@ window.startGeneration = async function () {
                 continue;
             } catch (e) {
                 console.error("Errore Lettura DOCX", e);
-                window.showToast("Errore di estrazione dal DOCX: " + e.message, "error");
+                window.showToast(window.t('tst_docx_error', "Errore di estrazione dal DOCX: ") + e.message, "error");
                 window.showLoadingOverlay(false);
                 return;
             }
@@ -1250,7 +1257,7 @@ window.startGeneration = async function () {
                 continue; // Salta la sezione File API sotto
             } catch (e) { console.error("Errore Base64 Documento", e); }
         } else if ((src.type === 'audio' || src.type === 'video' || src.type === 'doc') && src.file) {
-            window.showLoadingOverlay(true, `MappAI: Caricamento ${src.type.toUpperCase()} nel Cloud AI...`);
+            window.showLoadingOverlay(true, `MappAI: ${window.t('lo_cloud_upload', "Caricamento")} ${src.type.toUpperCase()} ${window.t('lo_cloud_upload2', "nel Cloud AI...")}`);
             try {
                 let uploadedFile;
                 // Usiamo l'API Electron solo se abbiamo un percorso file valido (stringa)
@@ -1303,7 +1310,7 @@ window.startGeneration = async function () {
                     hasSources = true;
                 }
             } catch (err) {
-                window.showToast(`Errore upload ${src.type}: ${err.message}`, "error");
+                window.showToast(`${window.t('tst_upload_error', "Errore upload")} ${src.type}: ${err.message}`, "error");
                 window.showLoadingOverlay(false);
                 return;
             }
@@ -1311,14 +1318,14 @@ window.startGeneration = async function () {
     }
 
     if (!hasSources) {
-        window.showToast("Inserisci almeno una fonte testuale o un file valido per generare la mappa.", "error");
+        window.showToast(window.t('tst_need_source', "Inserisci almeno una fonte testuale o un file valido per generare la mappa."), "error");
         return;
     }
 
     // Nuova mappa = chat nuove: mai ereditare il tutorState della mappa precedente
     if (window.setTutorState) window.setTutorState(null);
 
-    window.showLoadingOverlay(true, "Inizializzazione elaborazione " + (appState.extractionMode === 'mindmap' ? "Mappa Mentale..." : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
+    window.showLoadingOverlay(true, window.t('lo_init', "Inizializzazione elaborazione ") + (appState.extractionMode === 'mindmap' ? window.t('lo_init_mm', "Mappa Mentale...") : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
     if (appState.extractionMode === 'mindmap') {
         if (appState.multiPassMode) {
@@ -1407,7 +1414,7 @@ window.showGenerationReport = function () {
     const costText = kb && kb.free ? "Gratuito (Piano Free)" : (isInfomaniak ? `${totalCost.toFixed(4)} CHF` : `$${totalCost.toFixed(4)}`);
     const tokens = appState.generationUsage.totalTokens.toLocaleString();
 
-    window.showToast(`Generazione completata! Token: ${tokens} | Costo: ${costText}`, "success");
+    window.showToast(`${window.t('tst_gen_done', "Generazione completata!")} Token: ${tokens} | ${window.t('ui_cost', "Costo")}: ${costText}`, "success");
 
     // Log for debugging
     console.log("--- Generation Report ---");
@@ -1573,7 +1580,7 @@ window.applyAppTranslations = null;
     window.submitFeedback = function () {
         const text = document.getElementById('feedback-text').value.trim();
         if (!text) {
-            if (window.showToast) window.showToast("Inserisci i dettagli della segnalazione", "warning");
+            if (window.showToast) window.showToast(window.t('tst_fill_report', "Inserisci i dettagli della segnalazione"), "warning");
             return;
         }
 
@@ -1607,12 +1614,12 @@ window.applyAppTranslations = null;
         navigator.clipboard.writeText(emailBody).then(() => {
             const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
             window.location.href = mailtoUrl;
-            if (window.showToast) window.showToast("Segnalazione copiata e client email aperto!", "success");
+            if (window.showToast) window.showToast(window.t('tst_report_copied', "Segnalazione copiata e client email aperto!"), "success");
             window.closeFeedbackModal();
         }).catch(err => {
             const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
             window.location.href = mailtoUrl;
-            if (window.showToast) window.showToast("Email preparata!", "success");
+            if (window.showToast) window.showToast(window.t('tst_email_ready', "Email preparata!"), "success");
             window.closeFeedbackModal();
         });
     };
@@ -1875,7 +1882,7 @@ window.applyAppTranslations = null;
         const desc = document.getElementById('layout-new-desc').value.trim();
 
         if (!title || !keyword) {
-            window.showToast("Titolo e Keyword sono richiesti per salvare il layout", "warning");
+            window.showToast(window.t('tst_layout_need_title', "Titolo e Keyword sono richiesti per salvare il layout"), "warning");
             return;
         }
 
@@ -1885,11 +1892,11 @@ window.applyAppTranslations = null;
 
         // Check limit only when creating a new layout
         if (!window.currentEditingLayoutId && appState.savedLayouts.length >= 5) {
-            window.showToast("Hai raggiunto il limite massimo di 5 layout salvati. Cancellane uno prima di procedere.", "error");
+            window.showToast(window.t('tst_layout_limit', "Hai raggiunto il limite massimo di 5 layout salvati. Cancellane uno prima di procedere."), "error");
             return;
         }
 
-        window.showToast("Cattura in corso...", "info");
+        window.showToast(window.t('tst_capturing', "Cattura in corso..."), "info");
 
         // 1. Cattura anteprima immagine e markup SVG
         const previewImg = document.getElementById('layout-current-preview-img');
@@ -1929,7 +1936,7 @@ window.applyAppTranslations = null;
                 appState.savedLayouts[idx].svgMarkup = svgMarkup;
                 appState.savedLayouts[idx].positions = nodePositions;
                 appState.savedLayouts[idx].viewState = viewState;
-                window.showToast(`Layout "${title}" aggiornato correttamente!`, "success");
+                window.showToast(window.t('tst_layout_updated', 'Layout "{x}" aggiornato correttamente!').replace('{x}', title), "success");
             } else {
                 window.currentEditingLayoutId = null;
             }
@@ -1948,7 +1955,7 @@ window.applyAppTranslations = null;
                 viewState: viewState
             };
             appState.savedLayouts.push(newLayout);
-            window.showToast(`Layout "${title}" salvato correttamente!`, "success");
+            window.showToast(window.t('tst_layout_saved', 'Layout "{x}" salvato correttamente!').replace('{x}', title), "success");
         }
 
         StorageManager.saveCurrentProject();
@@ -2084,7 +2091,7 @@ window.applyAppTranslations = null;
 
     window.saveCurrentLayoutEditConfirm = async function () {
         if (!window.currentEditingLayoutId) {
-            window.showToast("Nessun layout in fase di modifica da aggiornare.", "warning");
+            window.showToast(window.t('tst_no_layout_editing', "Nessun layout in fase di modifica da aggiornare."), "warning");
             return;
         }
         await window.saveCurrentLayout();
@@ -2154,7 +2161,7 @@ window.applyAppTranslations = null;
 
         renderGraph();
         window.closeLayoutModal();
-        window.showToast(`Layout "${layout.name}" applicato!`, "success");
+        window.showToast(window.t('tst_layout_applied', 'Layout "{x}" applicato!').replace('{x}', layout.name), "success");
     };
 
     window.deleteSavedLayout = function (layoutId) {
@@ -2162,7 +2169,7 @@ window.applyAppTranslations = null;
 
         appState.savedLayouts = appState.savedLayouts.filter(l => l.id !== layoutId);
         StorageManager.saveCurrentProject();
-        window.showToast("Layout eliminato", "info");
+        window.showToast(window.t('tst_layout_deleted', "Layout eliminato"), "info");
         window.renderSavedLayoutsList();
     };
 
@@ -2171,7 +2178,7 @@ window.applyAppTranslations = null;
         if (!layout) return;
 
         try {
-            window.showToast("Esportazione PDF scheda in corso...", "info");
+            window.showToast(window.t('tst_pdf_exporting', "Esportazione PDF scheda in corso..."), "info");
             const pdf = await window.buildLayoutPDFDocument({
                 title: layout.name,
                 keyword: layout.keyword,
@@ -2190,17 +2197,17 @@ window.applyAppTranslations = null;
                         title: `Scheda Layout ${layout.name}`,
                         text: `Scheda esportata del layout ${layout.name}`
                     });
-                    window.showToast("Scheda condivisa con successo!", "success");
+                    window.showToast(window.t('tst_sheet_shared', "Scheda condivisa con successo!"), "success");
                 } else {
                     throw new Error("Condivisione non supportata.");
                 }
             } else {
                 pdf.save(`Scheda_Layout_${layout.keyword}.pdf`);
-                window.showToast("Scheda PDF salvata con successo!", "success");
+                window.showToast(window.t('tst_sheet_saved', "Scheda PDF salvata con successo!"), "success");
             }
         } catch (e) {
             console.error(e);
-            window.showToast("Errore esportazione PDF: " + e.message, "error");
+            window.showToast(window.t('tst_pdf_export_error', "Errore esportazione PDF: ") + e.message, "error");
         }
     };
 
@@ -2210,7 +2217,7 @@ window.applyAppTranslations = null;
         const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
 
         try {
-            window.showToast("Generazione PDF scheda in corso...", "info");
+            window.showToast(window.t('tst_pdf_generating', "Generazione PDF scheda in corso..."), "info");
             const previewData = await getSVGPreviewDataURL();
             if (!previewData) throw new Error("Impossibile catturare l'anteprima");
 
@@ -2232,17 +2239,17 @@ window.applyAppTranslations = null;
                         title: `Scheda Layout ${title}`,
                         text: `Scheda esportata del layout ${title}`
                     });
-                    window.showToast("Scheda condivisa con successo!", "success");
+                    window.showToast(window.t('tst_sheet_shared', "Scheda condivisa con successo!"), "success");
                 } else {
                     throw new Error("Condivisione non supportata.");
                 }
             } else {
                 pdf.save(`Scheda_Layout_${title.replace(/\s+/g, '_')}.pdf`);
-                window.showToast("Scheda PDF salvata con successo!", "success");
+                window.showToast(window.t('tst_sheet_saved', "Scheda PDF salvata con successo!"), "success");
             }
         } catch (e) {
             console.error(e);
-            window.showToast("Errore esportazione PDF: " + e.message, "error");
+            window.showToast(window.t('tst_pdf_export_error', "Errore esportazione PDF: ") + e.message, "error");
         }
     };
 
@@ -2252,12 +2259,12 @@ window.applyAppTranslations = null;
         const desc = document.getElementById('layout-new-desc').value.trim() || "Nessuna descrizione inserita.";
 
         if (!appState.activeVaultPath) {
-            window.showToast("Nessun Vault attivo. Collega o crea un Vault per salvare.", "warning");
+            window.showToast(window.t('tst_no_vault', "Nessun Vault attivo. Collega o crea un Vault per salvare."), "warning");
             return;
         }
 
         try {
-            window.showToast("Generazione ed esportazione PDF nel Vault in corso...", "info");
+            window.showToast(window.t('tst_pdf_vault_exporting', "Generazione ed esportazione PDF nel Vault in corso..."), "info");
             const previewData = await getSVGPreviewDataURL();
             if (!previewData) throw new Error("Impossibile catturare l'anteprima");
 
@@ -2280,13 +2287,13 @@ window.applyAppTranslations = null;
             });
 
             if (res.success) {
-                window.showToast(`Scheda PDF esportata con successo nel Vault: ${fileName}`, "success");
+                window.showToast(window.t('tst_pdf_vault_ok', 'Scheda PDF esportata con successo nel Vault: {x}').replace('{x}', fileName), "success");
             } else {
                 throw new Error(res.error);
             }
         } catch (e) {
             console.error(e);
-            window.showToast("Errore esportazione PDF nel Vault: " + e.message, "error");
+            window.showToast(window.t('tst_pdf_vault_error', "Errore esportazione PDF nel Vault: ") + e.message, "error");
         }
     };
 

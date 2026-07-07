@@ -89,7 +89,7 @@ window.executeContextualAIExtension = async function () {
 
         if (!newData.nodes || newData.nodes.length === 0) {
             window.showLoadingOverlay(false);
-            window.showToast("Nessun nuovo concetto trovato nel materiale.", "info");
+            window.showToast(window.t('tst_no_new_concepts', "Nessun nuovo concetto trovato nel materiale."), "info");
             return;
         }
 
@@ -141,7 +141,7 @@ window.executeContextualAIExtension = async function () {
         });
 
         window.showLoadingOverlay(false);
-        window.showToast(`Espansione completata: aggiunti ${newData.nodes.length} nuovi nodi.`, "success");
+        window.showToast(window.t('tst_expand_done', 'Espansione completata: aggiunti {n} nuovi nodi.').replace('{n}', newData.nodes.length), "success");
 
         simulation = null;
         initD3Visualization();

@@ -2,12 +2,13 @@
 """Giardini ORGANICI — bordo mare/foresta, zone distinte, zero tile tagliati.
 Regole COMPOSITION_RULES pedisseque + feedback: niente perimetro rettangolare."""
 import re, base64, io, random, math, sys
+import os
 from PIL import Image
 
-sys.path.insert(0, '/Users/giacomomeschini/Claude/MappAI BERT/tools/mapgen')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from grass import scatter_tufts, PALETTE as GRASS_PAL
 
-ROOT = '/Users/giacomomeschini/Claude/MappAI BERT'
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo corrente
 T = 16
 COLS, ROWS = 30, 20
 Wpx, Hpx = COLS*T, ROWS*T

@@ -82,7 +82,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const schema = {
         type: "OBJECT", properties: {
             nodes: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, label: { type: "STRING" }, content: { type: "STRING" }, desc: { type: "STRING" }, level: { type: "INTEGER" }, chunks: { type: "ARRAY", items: { type: "STRING" } } }, required: ["id", "label", "content", "desc", "level", "chunks"] } },
-            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: KG_REL_ENUM } }, required: ["source", "target", "rel"] } }
+            links: { type: "ARRAY", items: { type: "OBJECT", properties: { source: { type: "STRING" }, target: { type: "STRING" }, rel: { type: "STRING", enum: window.getKgRelEnum() } }, required: ["source", "target", "rel"] } }
         }, required: ["nodes", "links"]
     };
 
@@ -249,7 +249,21 @@ async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
         : '';
 
     // --- Prompt minimale, ispirato al system_prompt di MiniMAP ---
-    const systemPrompt = `Sei un esperto estrattore GraphRAG. Analizzi un testo e produci un Knowledge Graph esplorabile. Pubblico: studenti di scuola media, anche con DSA/BES.
+    // Coppia IT/EN scelta dalla lingua mappe (percorso default su Google).
+    const _communityLang = (typeof window.getPromptLanguage === 'function') ? window.getPromptLanguage() : 'it';
+    const systemPrompt = (_communityLang === 'en') ? `You are an expert GraphRAG extractor. You analyze a text and produce an explorable Knowledge Graph. Audience: middle-school students, including students with special educational needs (SEN/dyslexia).
+
+RULES:
+1. 'communities': split the content into 3-6 coherent macro-themes. For each: id (integer), name (2-4 words), summary (2-3 sentences that explain the theme to a student).
+2. 'nodes': extract from ${minNodesVal} to ${maxNodesVal} key concepts. For each:
+   - id: short name of the concept (max 3 words), UNIQUE
+   - community: the id of the community it belongs to
+   - icon: one single representative emoji
+   - desc: a clear 3-4 sentence explanation with concrete data from the text (names, dates, numbers, examples). Tuned to the student.
+3. 'links': LOGICAL relations between concepts. Connect concepts from DIFFERENT communities whenever the text justifies it (that is where reasoning is born). For each: source (concept id), target (concept id), label.
+   - The 'label' MUST be a MEANINGFUL verb/relation, for example: ${window.relVocab('flat')}.
+   - It is FORBIDDEN to use "related to", "linked to", "associated with" or generic relations.
+   - Distribute concepts EVENLY across communities: no community may remain empty.${userProfileStr}${window.mapLangNote()}` : `Sei un esperto estrattore GraphRAG. Analizzi un testo e produci un Knowledge Graph esplorabile. Pubblico: studenti di scuola media, anche con DSA/BES.
 
 REGOLE:
 1. 'communities': dividi il contenuto in 3-6 macro-temi coerenti. Per ciascuno: id (intero), name (2-4 parole), summary (2-3 frasi che spiegano il tema a uno studente).
@@ -259,9 +273,9 @@ REGOLE:
    - icon: una sola emoji rappresentativa
    - desc: spiegazione chiara di 3-4 frasi con dati concreti dal testo (nomi, date, numeri, esempi). Tarata sullo studente.
 3. 'links': relazioni LOGICHE tra concetti. Collega concetti di comunità DIVERSE quando il testo lo giustifica (è qui che nasce il ragionamento). Per ciascuno: source (id concetto), target (id concetto), label.
-   - La 'label' DEVE essere un verbo/relazione SIGNIFICATIVA: causa, provoca, permette, impedisce, precede, deriva da, si oppone a, fa parte di, regola, finanzia, protegge, sfrutta...
+   - La 'label' DEVE essere un verbo/relazione SIGNIFICATIVA, ad esempio: ${window.relVocab('flat')}.
    - VIETATO usare "correlato a", "collegato a", "associato a" o relazioni generiche.
-   - Distribuisci i concetti in modo BILANCIATO tra le comunità: nessuna comunità deve restare vuota.${userProfileStr}`;
+   - Distribuisci i concetti in modo BILANCIATO tra le comunità: nessuna comunità deve restare vuota.${userProfileStr}${window.mapLangNote()}`;
 
     const schema = {
         type: "OBJECT",
@@ -525,11 +539,11 @@ ISTRUZIONI:
 2. Ciascun collegamento deve definire:
    - "source": l'ID di origine esatto.
    - "target": l'ID di destinazione esatto.
-   - "rel": una brevissima parola o locuzione di collegamento in italiano. Scegli il verbo/locuzione PIÙ PRECISO tra (esempi, non esaustivi): "causa", "provoca", "produce", "genera", "influenza", "regola", "compone", "fa parte di", "appartiene a", "guida", "governa", "fonda", "scoperto da", "sviluppato in", "si oppone a", "alleato di", "precede", "segue", "deriva da", "porta a", "contrasta", "sostiene", "rappresenta", "membro di". Massimo 3 parole.
+   - "rel": una brevissima parola o locuzione di collegamento in italiano. Scegli il verbo/locuzione PIÙ PRECISO tra (esempi, non esaustivi): ${window.relVocab('flat')}. Massimo 3 parole.
 3. MULTI-LINK OBBLIGATORIO: ogni concetto di livello 2 deve avere ALMENO 2 collegamenti, di cui ALMENO UNO verso il Super-Hub (livello 1) tematicamente CORRETTO. Esempio: un personaggio sovietico va collegato al Super-Hub "Unione Sovietica", non a quello sbagliato. Avere più link riduce gli errori di classificazione. Nessun nodo deve restare isolato/orfano.
 4. ACCURATEZZA: verifica che ogni collegamento a un Super-Hub sia semanticamente corretto. Un nodo va collegato all'hub a cui APPARTIENE realmente secondo il testo, non a un hub a caso.
 
-Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.
+Restituisci SOLO un oggetto JSON con chiave "links". Nessun commento, nessun blocco markdown.${window.mapLangNote()}
 Formato richiesto:
 {
   "links": [
@@ -550,7 +564,7 @@ ${textParts.join('\n\n')}`;
                         properties: {
                             source: { type: "STRING" },
                             target: { type: "STRING" },
-                            rel: { type: "STRING", enum: KG_REL_ENUM }
+                            rel: { type: "STRING", enum: window.getKgRelEnum() }
                         },
                         required: ["source", "target", "rel"]
                     }

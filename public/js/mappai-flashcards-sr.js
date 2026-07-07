@@ -11,9 +11,9 @@ let currentQuizNode = null;
 window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
     const apiKey = window.getSystemKey();
     if (!apiKey) {
-        if (!silent) window.showToast("Nessuna API Key presente per generare le flashcard.", "error"); return;
+        if (!silent) window.showToast(window.t('tst_fc_no_key', "Nessuna API Key presente per generare le flashcard."), "error"); return;
     }
-    if (!silent) window.showLoadingOverlay(true, "Generazione Flashcard in corso...", "flashcard");
+    if (!silent) window.showLoadingOverlay(true, window.t('lo_fc_gen', "Generazione Flashcard in corso..."), "flashcard");
 
     const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
         nodeLabel: node.label,
@@ -59,7 +59,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
 
         if (!silent) {
             window.showLoadingOverlay(false);
-            window.showToast("Flashcard generata! Apri il menu per ripassare.", "success");
+            window.showToast(window.t('tst_fc_done', "Flashcard generata! Apri il menu per ripassare."), "success");
         }
     } catch (err) {
         if (!silent) {
@@ -186,7 +186,7 @@ window.getDescendants = function (nodeId) {
 
 window.generateBranchFlashcards = async function (node) {
     const apiKey = window.getSystemKey();
-    if (!apiKey) { window.showToast("Inserisci API Key.", "error"); return; }
+    if (!apiKey) { window.showToast(window.t('tst_enter_key', "Inserisci API Key."), "error"); return; }
 
     let nodes = [node, ...window.getDescendants(node.id)];
     if (nodes.length > 10) nodes = nodes.slice(0, 10);
@@ -219,14 +219,14 @@ window.generateBranchFlashcards = async function (node) {
         window.globalQuizQueue = nodes.filter(n => n.flashcardTest);
         window.playNextGlobalQuiz();
     } else {
-        window.showToast("Nessuna flashcard generata.", "error");
+        window.showToast(window.t('tst_fc_none', "Nessuna flashcard generata."), "error");
     }
 };
 
 window.testBranchFlashcards = function (node) {
     let nodes = [node, ...window.getDescendants(node.id)].filter(n => n.flashcardTest);
     if (nodes.length === 0) {
-        window.showToast("Nessuna flashcard trovata nel ramo. Generala prima!", "error");
+        window.showToast(window.t('tst_fc_none_branch', "Nessuna flashcard trovata nel ramo. Generala prima!"), "error");
         return;
     }
     window.globalQuizQueue = nodes;
@@ -397,6 +397,16 @@ window.processSRResponse = function (difficulty) {
     else if (difficulty === 'good') intervalDays = 3;
     else if (difficulty === 'hard') intervalDays = 0.5;
 
+    // Intervallo modulato dalla padronanza EWMA del nodo (0.5×–1.5×): a parità di
+    // autovalutazione, un concetto storicamente fragile torna prima. Gli intervalli
+    // fissi trattavano allo stesso modo primo incontro e concetto consolidato.
+    try {
+        if (window.MappAIMastery && window.MappAIMastery.node) {
+            const agg = window.MappAIMastery.node(currentQuizNode.id);
+            if (agg && agg.attempts) intervalDays *= (0.5 + agg.accuracy);
+        }
+    } catch (e) { /* store non disponibile: intervalli base */ }
+
     // Aggiorna lo studyStatus
     if (difficulty === 'easy') currentQuizNode.studyStatus = 'done';
     else if (difficulty === 'good') currentQuizNode.studyStatus = 'review';
@@ -410,7 +420,7 @@ window.processSRResponse = function (difficulty) {
     if (window.globalQuizQueue && window.globalQuizQueue.length > 0) {
         setTimeout(() => window.playNextGlobalQuiz(), 300);
     } else {
-        window.showToast("Stato aggiornato nel sistema Spaced Repetition.", "success");
+        window.showToast(window.t('tst_sr_updated', "Stato aggiornato nel sistema Spaced Repetition."), "success");
     }
 };
 
@@ -419,7 +429,7 @@ window.handleImageUpload = function (input) {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-        window.showToast("Immagine troppo grande (Massimo consentito: 2MB).", "error");
+        window.showToast(window.t('tst_img_too_big', "Immagine troppo grande (Massimo consentito: 2MB)."), "error");
         input.value = '';
         return;
     }

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>MappAI — Generatore AI di mappe e grafici di conoscenza</title>
+    <title data-i18n="app_title">MappAI — Generatore AI di mappe e grafici di conoscenza</title>
 
     <!-- Google Fonts: Space Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -318,7 +318,7 @@
             <img src="MappAI_icon.png" class="w-20 h-20 mx-auto mb-4 rounded-xl object-contain shadow-sm"
                 alt="MappAI Icon">
             <h2 class="hero_title">MappAI</h2>
-            <p class="text-xs text-slate-500 mb-2 leading-relaxed">Il software è bloccato e legato a questo dispositivo.
+            <p class="text-xs text-slate-500 mb-2 leading-relaxed"><span data-i18n="ui_locked">Il software è bloccato e legato a questo dispositivo.</span>
                 <span data-i18n="machine_id_desc">Invia il seguente <b>ID Macchina</b> a Giacomo per ricevere il tuo
                     codice di sblocco univoco:</span>
             </p>
@@ -335,9 +335,9 @@
                 class="w-full px-4 py-3 border border-slate-200 rounded-xl mb-4 text-center font-mono text-lg placeholder:text-slate-300 focus_ring_standard"
                 placeholder="INSERISCI SBLOCCO">
             <button onclick="window.checkBetaCode()"
-                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all">Sblocca
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all" data-i18n="ui_unlock">Sblocca
                 Software</button>
-            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold">Codice di sblocco errato per
+            <p id="beta-error-msg" class="text-red-500 text-xs mt-3 hidden font-bold" data-i18n="ui_wrong_code">Codice di sblocco errato per
                 questo dispositivo.</p>
         </div>
     </div>
@@ -438,13 +438,13 @@
             id="alert-box">
             <h3 class="error_title">
                 <i data-lucide="alert-triangle" class="text-red-500"></i>
-                <span id="alert-title">Errore</span>
+                <span id="alert-title" data-i18n="ui_error">Errore</span>
             </h3>
-            <div class="error_body_text" id="alert-message">Si
+            <div class="error_body_text" id="alert-message" data-i18n="ui_error_occurred">Si
                 è verificato un errore.</div>
             <div class="flex justify-end">
                 <button id="alert-ok"
-                    class="px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md">Ho
+                    class="px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md" data-i18n="ui_got_it">Ho
                     capito</button>
             </div>
         </div>
@@ -470,7 +470,7 @@
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 16v-4" />
                         <path d="M12 8h.01" />
-                    </svg> Chi ha creato MappAI?
+                    </svg> <span data-i18n="ui_who_created">Chi ha creato MappAI?</span>
                 </h2>
                 <div class="drawer_text">
                     <p>
@@ -623,7 +623,7 @@
                 <div>
                     <label class="step_container">
                         <span class="step_badge step_badge_blue">1</span>
-                        <span id="step-l1-title" class="step_title">Carica le tue Fonti</span>
+                        <span id="step-l1-title" class="step_title" data-i18n="ui_load_sources">Carica le tue Fonti</span>
                     </label>
 
                     <div class="flex source-buttons-container">
@@ -689,7 +689,7 @@
                 <div class="mt-15">
                     <label class="step_container">
                         <span class="step_badge step_badge_green">2</span>
-                        <span id="step-l1-title" class="step_title mt-0">Cosa desideri generare?</span>
+                        <span id="step-l1-title" class="step_title mt-0" data-i18n="ui_what_generate">Cosa desideri generare?</span>
                     </label>
                     <div class="flex flex-col gap-4">
                         <div class="flex flex-wrap gap-4 mode-buttons-container">
@@ -729,12 +729,12 @@
                 <div id="step-3-container" class="mt-15">
                     <label class="step_container">
                         <span class="step_badge step_badge_orange">3</span>
-                        <span id="step-l1-title" class="step_title">Tema Centrale e Macro-Aree</span>
+                        <span id="step-l1-title" class="step_title" data-i18n="ui_central_theme_areas">Tema Centrale e Macro-Aree</span>
                     </label>
 
                     <!-- Root Node (Visibile solo per Mappe Mentali) -->
                     <div id="step-root-container" class="space-y-2 transition-all duration-300">
-                        <p class="landing_label_primary">Tema Centrale:</p>
+                        <p class="landing_label_primary" data-i18n="ui_central_theme">Tema Centrale:</p>
                         <input type="text" id="root-node-name"
                             class="font-bold text-slate-700 w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 transition focus_ring_standard"
                             placeholder="Es. Rivoluzione Francese, Fotosintesi...">
@@ -742,12 +742,12 @@
 
                     <div class="pt-2">
                         <div id="input-l1-container" class="space-y-2 bg-slate-100 p-4 rounded-xl">
-                            <p class="landing_label_secondary" id="step-l1-desc">Definisci le macro-aree per organizzare
+                            <p class="landing_label_secondary" id="step-l1-desc" data-i18n="ui_define_areas">Definisci le macro-aree per organizzare
                                 lo studio:</p>
 
                             <button type="button" onclick="window.addL1Input()"
                                 class="btn_mode_selector_sm w-full items-center gap-1 mt-2 mb-4">
-                                <i data-lucide="plus-circle" class="w-6 h-6"></i> <span id="btn-add-l1-text">Aggiungi
+                                <i data-lucide="plus-circle" class="w-6 h-6"></i> <span id="btn-add-l1-text" data-i18n="ui_add_manually">Aggiungi
                                     Manualmente</span>
                             </button>
                             <div id="l1-inputs-container" class="space-y-3">
@@ -771,12 +771,12 @@
                                 </div>
                                 <span
                                     class="text-slate-500 font-bold uppercase tracking-wider group-hover:text-slate-700 transition-colors"
-                                    id="label-auto-l1">Genera Macro-Aree in automatico</span>
+                                    id="label-auto-l1" data-i18n="ui_auto_l1">Genera Macro-Aree in automatico</span>
                             </label>
                         </div>
 
                         <div>
-                            <p class="pt-4 landing_label_primary">Focus specifico (Opzionale):</p>
+                            <p class="pt-4 landing_label_primary" data-i18n="ui_specific_focus">Focus specifico (Opzionale):</p>
                             <textarea id="focus-input"
                                 class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition mt-1 focus_ring_standard"
                                 placeholder="Su cosa deve concentrarsi l'AI?"></textarea>
@@ -801,7 +801,7 @@
                 <div id="step-density-container" class="mt-15 transition-all duration-300">
                     <label class="step_container">
                         <span class="step_badge step_badge_yellow">4</span>
-                        <span id="step-l1-title" class="step_title">Densità Diramazioni</span>
+                        <span id="step-l1-title" class="step_title" data-i18n="ui_branch_density">Densità Diramazioni</span>
                     </label>
                     <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
                         <span class="input_label_sm font-bold">3</span>
@@ -812,7 +812,7 @@
                         <span id="branches-val"
                             class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">3</span>
                     </div>
-                    <p class="landing_label_secondary !mt-4">I rami fino a L3 vengono generati sempre. Scegli quanti
+                    <p class="landing_label_secondary !mt-4" data-i18n="ui_density_desc">I rami fino a L3 vengono generati sempre. Scegli quanti
                         rami
                         generare nei livelli più profondi.
                     </p>
@@ -821,7 +821,7 @@
                 <div id="step-kg-density-container" class="mt-15 transition-all duration-300 hidden">
                     <label class="step_container">
                         <span class="step_badge step_badge_yellow">4</span>
-                        <span id="step-l1-title" class="step_title">Numero di Concetti/Entità (Livello
+                        <span id="step-l1-title" class="step_title" data-i18n="ui_kg_step_title">Numero di Concetti/Entità (Livello
                             2)</span>
                     </label>
 
@@ -834,7 +834,7 @@
                         <span id="kg-nodes-val"
                             class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">20</span>
                     </div>
-                    <p class="landing_label_secondary !mt-4" id="label-step4-kg-desc">Numero di concetti/entità da
+                    <p class="landing_label_secondary !mt-4" id="label-step4-kg-desc" data-i18n="ui_kg_density_desc">Numero di concetti/entità da
                         generare
                         all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a
                         30+ per grafi completi).</p>
@@ -847,7 +847,7 @@
                     <!-- SEZIONE: Stima Costi e Analisi Token -->
                     <div id="token-cost-estimator-card" class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
-                            <span class="landing_label_primary 0 mb-0">Analisi Documento & Stima
+                            <span class="landing_label_primary 0 mb-0" data-i18n="estimator_title">Analisi Documento & Stima
                                 Costi</span>
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         </div>
@@ -879,8 +879,8 @@
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0">Generazione Multi-Pass</span>
-                                <span class="landing_label_secondary">Genera rami e nodi in fasi sequenziali per
+                                <span class="landing_label_primary mb-0" data-i18n="ui_multipass">Generazione Multi-Pass</span>
+                                <span class="landing_label_secondary" data-i18n="ui_multipass_desc">Genera rami e nodi in fasi sequenziali per
                                     evitare
                                     di saturare la memoria.</span>
                             </div>
@@ -898,8 +898,8 @@
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0">Logica MindMap</span>
-                                <span class="landing_label_secondary" id="mmlogic-desc">MappAI (consigliato) — BERT sperimentale (regola pertinenza)</span>
+                                <span class="landing_label_primary mb-0" data-i18n="ui_mm_logic">Logica MindMap</span>
+                                <span class="landing_label_secondary" id="mmlogic-desc" data-i18n="ui_mm_logic_desc">MappAI (consigliato) — BERT sperimentale (regola pertinenza)</span>
                             </div>
                             <div class="flex bg-emerald-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
@@ -914,8 +914,8 @@
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0">Logica KG (A/B)</span>
-                                <span class="landing_label_secondary" id="pipeline-desc">A · BERT Community — B · MappAI classico</span>
+                                <span class="landing_label_primary mb-0" data-i18n="ui_kg_logic">Logica KG (A/B)</span>
+                                <span class="landing_label_secondary" id="pipeline-desc" data-i18n="ui_kg_logic_desc">A · BERT Community — B · MappAI classico</span>
                             </div>
                             <div class="flex bg-indigo-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"
@@ -974,8 +974,8 @@
         <div class="max-w-2xl mx-auto mb-16 text-center">
             <button onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
-                title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)">
-                <i data-lucide="line-chart" class="w-4 h-4"></i> Analisi (docente)
+                title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
+                <i data-lucide="line-chart" class="w-4 h-4"></i> <span data-i18n="ui_teacher_analysis">Analisi (docente)</span>
             </button>
         </div>
 
@@ -993,16 +993,16 @@
             <button onclick="window.toggleProjectsBar()"
                 class="absolute bottom-full mb-[-1px] right-6 bg-white border-t border-l border-r border-indigo-100 px-4 py-2 rounded-t-2xl flex items-center gap-2 drawer_label_text text-[10px] text-indigo-500 shadow-[-5px_-5px_15px_rgba(99,102,241,0.02)] transition-colors hover:text-indigo-700 z-10">
                 <i id="toggle-bar-icon" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
-                <span id="toggle-bar-text">Nascondi Progetti</span>
+                <span id="toggle-bar-text" data-i18n="ui_hide_projects">Nascondi Progetti</span>
             </button>
 
             <!-- Contenuto a tutta larghezza -->
             <div class="max-w-full px-0 py-4 border-t border-indigo-100" id="projects-bar-content">
                 <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider ml-8">
-                    <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> Progetti Recenti
+                    <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> <span data-i18n="recent_projects">Progetti Recenti</span>
                 </h3>
                 <div id="recent-projects-container" class="flex gap-3 overflow-x-auto pb-1 px-8">
-                    <p class="text-xs text-slate-400 italic">Nessun progetto salvato. Crea una nuova mappa per
+                    <p class="text-xs text-slate-400 italic" data-i18n="ui_no_projects">Nessun progetto salvato. Crea una nuova mappa per
                         iniziare.
                     </p>
                 </div>
@@ -1059,7 +1059,7 @@
                 </button>
                 <button id="sidebar-tab-study" onclick="window.switchSidebarTab('study')"
                     class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
-                    title="Studio">
+                    title="Studio" data-i18n-title="tt_study">
                     <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
                 </button>
                 <button id="sidebar-tab-finder" onclick="window.switchSidebarTab('finder')"
@@ -1081,23 +1081,23 @@
                 <div id="structural-suggestions-block" class="hidden p-4 border-b border-slate-100 bg-slate-50/50">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
-                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> Suggerimenti strutturali
+                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> <span data-i18n="ui_struct_suggestions">Suggerimenti strutturali</span>
                         </h3>
                         <span id="structural-suggestions-status" class="text-[10px] text-slate-400"></span>
                     </div>
                     <div class="flex gap-2 mb-2 hidden">
                         <button onclick="window.renderStructuralSuggestions({withEmbeddings:false})"
                             class="flex-1 text-xs font-bold bg-indigo-600 text-white py-2 rounded-lg shadow-sm hover:bg-indigo-700 transition flex items-center justify-center gap-1.5">
-                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Analizza struttura
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> <span data-i18n="ui_analyze_structure">Analizza struttura</span>
                         </button>
                         <button onclick="window.renderStructuralSuggestions({withEmbeddings:true})"
-                            title="Include 1 chiamata di embedding per rilevare entità duplicate tra rami"
+                            title="Include 1 chiamata di embedding per rilevare entità duplicate tra rami" data-i18n-title="tt_embedding_call"
                             class="flex-1 text-xs font-bold bg-violet-100 text-violet-700 py-2 rounded-lg shadow-sm hover:bg-violet-200 transition flex items-center justify-center gap-1.5">
-                            <i data-lucide="git-merge" class="w-3.5 h-3.5"></i> + Analisi semantica
+                            <i data-lucide="git-merge" class="w-3.5 h-3.5"></i> <span data-i18n="ui_semantic_analysis">+ Analisi semantica</span>
                         </button>
                     </div>
                     <div id="structural-suggestions-list" class="space-y-2">
-                        <p class="text-xs text-slate-400 italic px-1">Clicca "Analizza struttura" per i suggerimenti.</p>
+                        <p class="text-xs text-slate-400 italic px-1" data-i18n="ui_click_analyze">Clicca "Analizza struttura" per i suggerimenti.</p>
                     </div>
                 </div>
 
@@ -1107,8 +1107,8 @@
                 <div class="p-5" id="node-details">
                     <div class="text-center text-slate-400 mt-8 animate-pulse">
                         <i data-lucide="scan-search" class="mx-auto h-10 w-10 text-slate-200 mb-3"></i>
-                        <h2 class="text-md font-bold text-slate-600">Nessun nodo selezionato</h2>
-                        <p class="text-sm mt-2 leading-relaxed text-left">Usa il tasto Sinistro per leggere i
+                        <h2 class="text-md font-bold text-slate-600" data-i18n="ui_no_node_selected">Nessun nodo selezionato</h2>
+                        <p class="text-sm mt-2 leading-relaxed text-left" data-i18n="ui_node_click_hint">Usa il tasto Sinistro per leggere i
                             contenuti
                             dei nodi e il tasto destro per modificarli.</p>
                     </div>
@@ -1130,7 +1130,7 @@
                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                    <p class="text-[14px] text-slate-400 mt-2 italic">Cerca in
+                    <p class="text-[14px] text-slate-400 mt-2 italic" data-i18n="ui_search_hint">Cerca in
                         etichette,
                         descrizioni, citazioni e fonti esterne.</p>
                 </div>
@@ -1138,7 +1138,7 @@
                 <div id="super-finder-results" class="p-2 space-y-4">
                     <div class="flex flex-col items-center justify-center py-20 text-slate-300">
                         <i data-lucide="search" class="w-10 h-10 mb-2 opacity-20"></i>
-                        <p class="text-xs font-bold uppercase tracking-widest opacity-50">Inizia a digitare...</p>
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-50" data-i18n="ui_start_typing">Inizia a digitare...</p>
                     </div>
                 </div>
             </div>
@@ -1150,14 +1150,14 @@
                     <div class="flex justify-between items-center mb-3">
                         <h3
                             class="text-[10px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5">
-                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> Tutor Globale
+                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> <span data-i18n="ui_global_tutor">Tutor Globale</span>
                         </h3>
                         <button onclick="window.resetSidebarTutor()"
                             class="text-slate-400 hover:text-indigo-600 transition" title="Resetta Chat">
                             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                         </button>
                     </div>
-                    <p class="text-xs text-slate-500">Dialoga con l'oracolo dell'intera mappa.</p>
+                    <p class="text-xs text-slate-500" data-i18n="ui_tutor_oracle">Dialoga con l'oracolo dell'intera mappa.</p>
                 </div>
 
                 <!-- Chat History -->
@@ -1165,7 +1165,7 @@
                     <!-- Initial message -->
                     <div
                         class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm markdown-body">
-                        <p>Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
+                        <p data-i18n="ui_tutor_greeting">Ciao! Sono il tuo Tutor AI globale. Come posso aiutarti a studiare questa mappa?</p>
                     </div>
                 </div>
 
@@ -1178,7 +1178,7 @@
                             onkeypress="if(event.key === 'Enter') window.sendSidebarTutorMessage()">
                         <button onclick="window.sendSidebarTutorMessage()" id="btn-sidebar-tutor-send"
                             class="w-full bg-indigo-600 text-white font-bold p-3 rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-                            <i data-lucide="send" class="w-4 h-4"></i> Invia Domanda
+                            <i data-lucide="send" class="w-4 h-4"></i> <span data-i18n="ui_send_question">Invia Domanda</span>
                         </button>
                     </div>
                 </div>
@@ -1191,11 +1191,11 @@
                 <div class="px-5 pt-5 pb-2">
                     <h3
                         class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-3">
-                        <i data-lucide="book-open" class="w-4 h-4"></i> Raccoglitore
+                        <i data-lucide="book-open" class="w-4 h-4"></i> <span data-i18n="ui_collector">Raccoglitore</span>
                     </h3>
                 </div>
                 <div id="user-notes-container" class="space-y-3 px-5 pb-5">
-                    <p class="text-[14px] text-slate-400 italic" id="empty-notes-hint">Nessuna nota presente.
+                    <p class="text-[14px] text-slate-400 italic" id="empty-notes-hint" data-i18n="ui_no_notes">Nessuna nota presente.
                     </p>
                 </div>
             </div>
@@ -1243,7 +1243,7 @@
                     <!-- Statistiche Progresso -->
                     <div>
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Progresso
+                            <span class="text-xs uppercase font-bold text-slate-400 tracking-widest" data-i18n="ui_map_progress">Progresso
                                 Mappa</span>
                             <span id="study-progress-text"
                                 class="text-xs font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded">0%</span>
@@ -1257,17 +1257,17 @@
                             <div
                                 class="flex flex-col items-center flex-1 bg-white border border-slate-200 rounded-l-lg py-2">
                                 <span id="stats-done" class="text-emerald-500 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Fatti</span>
+                                    class="text-slate-400 text-[10px] uppercase" data-i18n="ui_sr_done">Fatti</span>
                             </div>
                             <div
                                 class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 py-2">
                                 <span id="stats-review" class="text-amber-500 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Ripasso</span>
+                                    class="text-slate-400 text-[10px] uppercase" data-i18n="ui_sr_review">Ripasso</span>
                             </div>
                             <div
                                 class="flex flex-col items-center flex-1 bg-white border-y border-r border-slate-200 rounded-r-lg py-2">
                                 <span id="stats-todo" class="text-red-400 text-lg">0</span><span
-                                    class="text-slate-400 text-[10px] uppercase">Sospesi</span>
+                                    class="text-slate-400 text-[10px] uppercase" data-i18n="ui_sr_suspended">Sospesi</span>
                             </div>
                         </div>
                     </div>
@@ -1275,31 +1275,31 @@
                     <div class="space-y-3 mt-2">
                         <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl hidden">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest">Costo
+                                <span class="text-xs uppercase font-bold text-slate-400 tracking-widest" data-i18n="ui_graph_cost">Costo
                                     grafico</span>
                                 <span id="total-cost-display" class="text-xs font-bold text-indigo-600">$0.0000</span>
                             </div>
                             <div class="flex justify-between items-center text-xs text-slate-500">
-                                <span>Token Totali:</span>
+                                <span data-i18n="ui_total_tokens">Token Totali:</span>
                                 <span id="total-tokens-display" class="font-mono">0</span>
                             </div>
                             <div class="flex justify-between items-center text-xs text-slate-500 mt-1">
-                                <span>Modello Usato:</span>
+                                <span data-i18n="ui_model_used">Modello Usato:</span>
                                 <span id="used-model-display" class="font-mono font-bold text-slate-600">-</span>
                             </div>
                         </div>
 
                         <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
                             class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> Flashcard Mappa
+                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> <span data-i18n="ui_map_flashcards">Flashcard Mappa</span>
                         </button>
                         <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
                             class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="graduation-cap" class="w-5 h-5"></i> Quiz Mappa
+                            <i data-lucide="graduation-cap" class="w-5 h-5"></i> <span data-i18n="ui_map_quiz">Quiz Mappa</span>
                         </button>
                         <button onclick="window.showAppTutorial()"
                             class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="book-open" class="w-5 h-5"></i> Consigli di Studio
+                            <i data-lucide="book-open" class="w-5 h-5"></i> <span data-i18n="ui_study_tips">Consigli di Studio</span>
                         </button>
                     </div>
 
@@ -1307,10 +1307,10 @@
                     <div class="mt-4 border-t border-slate-200 pt-5">
                         <h3
                             class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="layers" class="w-4 h-4"></i> Set di Studio
+                            <i data-lucide="layers" class="w-4 h-4"></i> <span data-i18n="ui_study_sets">Set di Studio</span>
                         </h3>
                         <div id="study-sets-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="text-[14px] text-slate-400 italic" id="empty-sets-hint">Importa una mappa con
+                            <p class="text-[14px] text-slate-400 italic" id="empty-sets-hint" data-i18n="ui_no_sets">Importa una mappa con
                                 flashcard o quiz pre-generati.</p>
                         </div>
                     </div>
@@ -1319,10 +1319,10 @@
                     <div class="mt-4 border-t border-slate-200 pt-5">
                         <h3
                             class="text-lg uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5 mb-4">
-                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> Storico Punteggi
+                            <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i> <span data-i18n="ui_score_history">Storico Punteggi</span>
                         </h3>
                         <div id="study-scores-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            <p class="!text-[14px] text-slate-400 italic" id="empty-scores-hint"> Nessun punteggio
+                            <p class="!text-[14px] text-slate-400 italic" id="empty-scores-hint" data-i18n="ui_no_scores"> Nessun punteggio
                                 registrato.
                             </p>
                         </div>
@@ -1352,63 +1352,68 @@
             <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
                 <!-- Popover Menu -->
                 <div id="floating-actions-menu" class="hidden">
-                    <button onclick="window.exportNotesMarkdown()" title="Esporta Appunti MD">
-                        <i data-lucide="file-text"></i> Esporta Appunti
+                    <button onclick="window.exportNotesMarkdown()" title="Esporta Appunti MD" data-i18n-title="tt_export_notes_md">
+                        <i data-lucide="file-text"></i> <span data-i18n="ui_export_notes">Esporta Appunti</span>
                     </button>
                     <!-- SOTA: MARKDOWN VAULT ACTIONS -->
-                    <button onclick="window.saveMapVault()" title="Salva come Vault Markdown">
-                        <i data-lucide="archive"></i> Esporta nel Vault
+                    <button onclick="window.saveMapVault()" title="Salva come Vault Markdown" data-i18n-title="tt_save_vault">
+                        <i data-lucide="archive"></i> <span data-i18n="ui_export_vault">Esporta nel Vault</span>
                     </button>
-                    <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown">
-                        <i data-lucide="folder-open"></i> Importa dal Vault
+                    <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown" data-i18n-title="tt_open_vault">
+                        <i data-lucide="folder-open"></i> <span data-i18n="ui_import_vault">Importa dal Vault</span>
                     </button>
-                    <label for="menu-import-json" id="jigsaw-import-btn" title="Importa una mappa JSON">
-                        <i data-lucide="upload"></i> Importa JSON
+                    <label for="menu-import-json" id="jigsaw-import-btn" title="Importa una mappa JSON" data-i18n-title="tt_import_json">
+                        <i data-lucide="upload"></i> <span data-i18n="import_json">Importa JSON</span>
                     </label>
                     <input type="file" id="menu-import-json" accept=".json" class="hidden"
                         onchange="window.importGraph(event)">
                     <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
-                        title="Sincronizza modifiche nel Vault">
-                        <i data-lucide="refresh-cw"></i> Sincronizza Vault
+                        title="Sincronizza modifiche nel Vault" data-i18n-title="tt_sync_vault">
+                        <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
                     </button>
-                    <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente">
-                        <i data-lucide="merge"></i> Unisci Mappe
+                    <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente" data-i18n-title="tt_merge_json">
+                        <i data-lucide="merge"></i> <span data-i18n="ui_merge_maps">Unisci Mappe</span>
                     </label>
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
+                    <label for="menu-import-floorplan" title="Importa un piano del Memory Dungeon nel vault" data-i18n-title="tt_import_floorplan">
+                        <i data-lucide="castle"></i> <span data-i18n="ui_import_floorplan">Importa piano Dungeon</span>
+                    </label>
+                    <input type="file" id="menu-import-floorplan" accept=".json" class="hidden"
+                        onchange="window.MappAIGames && window.MappAIGames.importFloorPlan(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
-                    <button onclick="window.openNodeLabelsPrintModal()" title="Foglio nodi con forbici">
-                        <i data-lucide="scissors"></i> Foglio nodi
+                    <button onclick="window.openNodeLabelsPrintModal()" title="Foglio nodi con forbici" data-i18n-title="tt_node_sheet">
+                        <i data-lucide="scissors"></i> <span data-i18n="ui_node_sheet_btn">Foglio nodi</span>
                     </button>
-                    <button onclick="window.openDossierPrintModal()" title="Stampa dossier">
-                        <i data-lucide="files"></i> Stampa dossier
+                    <button onclick="window.openDossierPrintModal()" title="Stampa dossier" data-i18n-title="tt_print_dossier">
+                        <i data-lucide="files"></i> <span data-i18n="ui_print_dossier_btn">Stampa dossier</span>
                     </button>
-                    <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI">
-                        <i data-lucide="gantt-chart"></i> Crea Timeline
+                    <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI" data-i18n-title="tt_gen_timeline">
+                        <i data-lucide="gantt-chart"></i> <span data-i18n="ui_create_timeline">Crea Timeline</span>
                     </button>
-                    <button id="jigsaw-export-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openExportModal()" title="Esporta copie JIGSAW: una per gruppo, editing sbloccato su un solo ramo, studio su tutta la mappa">
-                        <i data-lucide="users"></i> Esporta JIGSAW
+                    <button id="jigsaw-export-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openExportModal()" title="Esporta copie JIGSAW: una per gruppo, editing sbloccato su un solo ramo, studio su tutta la mappa" data-i18n-title="tt_jigsaw_export">
+                        <i data-lucide="users"></i> <span data-i18n="ui_export_jigsaw">Esporta JIGSAW</span>
                     </button>
-                    <button id="jigsaw-reconcile-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openReconcileModal()" title="Ricomponi le copie dei gruppi nel master: rami lavorati + ponti ratificati">
-                        <i data-lucide="git-merge"></i> Ricomponi copie
+                    <button id="jigsaw-reconcile-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openReconcileModal()" title="Ricomponi le copie dei gruppi nel master: rami lavorati + ponti ratificati" data-i18n-title="tt_jigsaw_merge">
+                        <i data-lucide="git-merge"></i> <span data-i18n="ui_reassemble_copies">Ricomponi copie</span>
                     </button>
-                    <button id="jigsaw-gap-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openGapModal()" title="Confronta le copie dei gruppi col master: elenco lacune da restituire in revisione privata">
-                        <i data-lucide="clipboard-check"></i> Revisione lacune
+                    <button id="jigsaw-gap-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openGapModal()" title="Confronta le copie dei gruppi col master: elenco lacune da restituire in revisione privata" data-i18n-title="tt_jigsaw_compare">
+                        <i data-lucide="clipboard-check"></i> <span data-i18n="ui_gap_review">Revisione lacune</span>
                     </button>
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa">
-                        <i data-lucide="puzzle"></i> Studio attivo
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
+                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
-                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo">
-                        <i data-lucide="sparkles"></i> Sintesi di ramo (AI)
+                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo" data-i18n-title="tt_branch_synthesis">
+                        <i data-lucide="sparkles"></i> <span data-i18n="ui_branch_synth">Sintesi di ramo (AI)</span>
                     </button>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
-                        title="Nulla da annullare" style="opacity:0.4;">
-                        <i data-lucide="rotate-ccw"></i> Annulla<span class="undo-count"></span>
+                        title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
+                        <i data-lucide="rotate-ccw"></i> <span data-i18n="ui_undo">Annulla</span><span class="undo-count"></span>
                     </button>
                     <div class="h-px bg-slate-100 my-1"></div>
-                    <button onclick="window.backToLanding()" title="Nuovo Progetto">
-                        <i data-lucide="arrow-left"></i> Torna alla Home
+                    <button onclick="window.backToLanding()" title="Nuovo Progetto" data-i18n-title="tt_new_project">
+                        <i data-lucide="arrow-left"></i> <span data-i18n="back_to_home">Torna alla Home</span>
                     </button>
                 </div>
 
@@ -1429,18 +1434,18 @@
                 <!-- Centra Vista -->
                 <button onclick="window.resetZoom()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Centra e resetta la vista">
+                    title="Centra e resetta la vista" data-i18n-title="tt_center_view">
                     <i data-lucide="maximize" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">CENTRA</span>
+                    <span class="text-[9px] font-bold mt-1" data-i18n="ui_center_caps">CENTRA</span>
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 
                 <!-- Riordina Vista -->
                 <button onclick="window.riordinaMappa()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Riordina Layout Mappa">
+                    title="Riordina Layout Mappa" data-i18n-title="tt_reorder_layout">
                     <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1 uppercase">Riordina</span>
+                    <span class="text-[9px] font-bold mt-1 uppercase" data-i18n="ui_reorder">Riordina</span>
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 
@@ -1456,7 +1461,7 @@
                 <!-- Pinning -->
                 <button id="card-btn-physics" onclick="window.togglePhysics()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Pinning: Blocca Nodi">
+                    title="Pinning: Blocca Nodi" data-i18n-title="tt_pin_nodes">
                     <i data-lucide="anchor" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1">PIN</span>
                 </button>
@@ -1465,7 +1470,7 @@
                 <!-- Attrazione -->
                 <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Attiva/Disattiva forze di attrazione tra nodi">
+                    title="Attiva/Disattiva forze di attrazione tra nodi" data-i18n-title="tt_toggle_forces">
                     <i data-lucide="magnet" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1">ATTR</span>
                 </button>
@@ -1507,10 +1512,10 @@
                     <button id="card-btn-labels" type="button"
                         onclick="window.handleLabelsButtonClick(event)"
                         class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                        title="Click: mostra/nascondi etichette — Click sulla freccia: lente famiglie di relazione">
+                        title="Click: mostra/nascondi etichette — Click sulla freccia: lente famiglie di relazione" data-i18n-title="tt_toggle_labels">
                         <i data-lucide="tag" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-bold mt-1">TESTO</span>
-                        <span id="lens-caret" title="Lente famiglie di relazione">▾</span>
+                        <span class="text-[9px] font-bold mt-1" data-i18n="ui_text_caps">TESTO</span>
+                        <span id="lens-caret" title="Lente famiglie di relazione" data-i18n-title="tt_rel_lens">▾</span>
                     </button>
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>
@@ -1519,7 +1524,7 @@
                 <button id="card-btn-link-vis" type="button"
                     onclick="window.cycleLinkVisibility()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Click: cicla visibilità link (tutto / solo gerarchia / solo cross-link)">
+                    title="Click: cicla visibilità link (tutto / solo gerarchia / solo cross-link)" data-i18n-title="tt_cycle_links">
                     <i id="card-btn-link-vis-icon" data-lucide="network" class="w-5 h-5"></i>
                     <span id="card-btn-link-vis-label" class="text-[9px] font-bold mt-1">LINK</span>
                 </button>
@@ -1528,7 +1533,7 @@
                 <!-- Pathfinder -->
                 <button id="card-btn-pathfinder" onclick="window.togglePathfinder()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Pathfinder: Clicca 2 nodi per trovare il percorso logico">
+                    title="Pathfinder: Clicca 2 nodi per trovare il percorso logico" data-i18n-title="tt_pathfinder">
                     <i data-lucide="route" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1">PATH</span>
                 </button>
@@ -1548,7 +1553,7 @@
                 <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
                 <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
                     <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase">Profondità</span>
+                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_depth">Profondità</span>
                         <span id="level-slider-val"
                             class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
                     </div>
@@ -1561,16 +1566,16 @@
                 <!-- PDF -->
                 <button onclick="window.exportPDF()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta la mappa visibile in formato PDF">
+                    title="Esporta la mappa visibile in formato PDF" data-i18n-title="tt_export_pdf">
                     <i data-lucide="file-text" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1">PDF</span>
                 </button>
                 <!-- FISSA -->
                 <button onclick="window.openLayoutModal()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Gestisci e Fissa i Layout della mappa">
+                    title="Gestisci e Fissa i Layout della mappa" data-i18n-title="tt_manage_layouts">
                     <i data-lucide="map" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">FISSA</span>
+                    <span class="text-[9px] font-bold mt-1" data-i18n="ui_pin_caps">FISSA</span>
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
                 <!-- Timeline spostata nel menu Stampa -->
@@ -1579,7 +1584,7 @@
                     class="hidden flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
                     title="Glossario termini disciplinari">
                     <i data-lucide="book-open" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1 uppercase">Glossario</span>
+                    <span class="text-[9px] font-bold mt-1 uppercase" data-i18n="ui_glossary">Glossario</span>
                 </button>
             </div>
 
@@ -1617,8 +1622,8 @@
                     <div>
                         <div id="source-modal-kinship"
                             class="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1 hidden"></div>
-                        <h3 class="text-lg transition-all" id="source-modal-title">Titolo</h3>
-                        <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle">Livello</p>
+                        <h3 class="text-lg transition-all" id="source-modal-title" data-i18n="ui_title">Titolo</h3>
+                        <p class="text-xs opacity-80 mt-0.5" id="source-modal-subtitle" data-i18n="ui_level">Livello</p>
                     </div>
                 </div>
                 <button onclick="window.closeSourceModal()"
@@ -1632,9 +1637,9 @@
                 class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
                 <button id="btn-modal-ruler"
                     onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
-                    class="tts-button" title="Riga di Lettura"><i data-lucide="align-justify"></i></button>
+                    class="tts-button" title="Riga di Lettura" data-i18n-title="tt_reading_ruler"><i data-lucide="align-justify"></i></button>
                 <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
-                    title="Attiva/Desattiva Sillabazione"><i data-lucide="split-square-horizontal"></i></button>
+                    title="Attiva/Desattiva Sillabazione" data-i18n-title="tt_hyphenation"><i data-lucide="split-square-horizontal"></i></button>
                 <button
                     onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
                     class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
@@ -1709,13 +1714,13 @@
             </button>
             <div class="flex items-center gap-3 mb-3">
                 <i data-lucide="link-2" class="w-6 h-6 text-slate-500"></i>
-                <h3 class="text-lg font-bold text-slate-800">Collega nodi</h3>
+                <h3 class="text-lg font-bold text-slate-800" data-i18n="ui_link_nodes">Collega nodi</h3>
             </div>
             <p id="link-family-question" class="text-sm text-slate-600 mb-4 font-medium leading-snug"></p>
             <div id="link-family-grid" class="flex flex-col gap-2 mb-3"></div>
             <!-- Step 2: chip keyword per la famiglia selezionata -->
             <div id="link-family-tags" class="hidden flex-col gap-2 mb-3">
-                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scegli o scrivi la tua etichetta:</label>
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide" data-i18n="ui_link_label_choose">Scegli o scrivi la tua etichetta:</label>
                 <div id="link-family-chips" class="flex flex-wrap gap-2"></div>
             </div>
             <!-- Toggle bidirezionale -->
@@ -1723,19 +1728,19 @@
                 <button id="link-bidir-toggle" type="button"
                     class="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-slate-300 text-slate-500 text-xs font-semibold transition-all hover:border-indigo-400 hover:text-indigo-600">
                     <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
-                    <span>Bidirezionale</span>
+                    <span data-i18n="ui_bidirectional">Bidirezionale</span>
                 </button>
-                <span class="text-xs text-slate-400">per relazioni simmetriche (si oppone a…)</span>
+                <span class="text-xs text-slate-400" data-i18n="ui_bidir_hint">per relazioni simmetriche (si oppone a…)</span>
             </div>
             <div class="mb-5">
-                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Etichetta relazione</label>
+                <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block" data-i18n="ui_rel_label">Etichetta relazione</label>
                 <input id="link-family-input" type="text"
                     class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"
                     placeholder="es. causa, include, precede…">
             </div>
             <div class="flex gap-3 justify-end h-12">
-                <button id="link-family-cancel" type="button" class="btn_annulla_action">Annulla</button>
-                <button id="link-family-ok" type="button" class="btn_salva_action">Salva</button>
+                <button id="link-family-cancel" type="button" class="btn_annulla_action" data-i18n="ui_cancel">Annulla</button>
+                <button id="link-family-ok" type="button" class="btn_salva_action" data-i18n="ui_save">Salva</button>
             </div>
         </div>
     </div>
@@ -1755,23 +1760,23 @@
             <h3 class="modal_title"><i id="study-config-icon" data-lucide="book-open"
                     class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
             <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
-                <h3 id="study-config-title" class="text-xl font-black text-slate-800">Configura Sessione</h3>
-                <p class="text-sm text-slate-500 font-medium mt-1">Come vuoi Studiare?</p>
+                <h3 id="study-config-title" class="text-xl font-black text-slate-800" data-i18n="ui_config_session">Configura Sessione</h3>
+                <p class="text-sm text-slate-500 font-medium mt-1" data-i18n="ui_how_study">Come vuoi Studiare?</p>
             </div>
 
             <div id="quiz-type-container" class="mb-5 text-left hidden">
-                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Tipo di
+                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest" data-i18n="ui_quiz_type">Tipo di
                     Quiz</label>
                 <select id="study-quiz-type"
                     class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl block p-3 focus_ring_standard">
-                    <option value="Risposta Multipla">Risposta Multipla (A/B/C/D)</option>
-                    <option value="Vero o Falso">Vero o Falso</option>
-                    <option value="Risposta Aperta">Risposta Aperta Breve</option>
+                    <option value="Risposta Multipla" data-i18n="ui_multiple_choice">Risposta Multipla (A/B/C/D)</option>
+                    <option value="Vero o Falso" data-i18n="ui_true_false">Vero o Falso</option>
+                    <option value="Risposta Aperta" data-i18n="ui_open_answer">Risposta Aperta Breve</option>
                 </select>
             </div>
 
             <div class="mb-6 text-left">
-                <label class="block text-[14px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Quantità
+                <label class="block text-[14px] uppercase font-bold text-slate-400 mb-2 tracking-widest" data-i18n="ui_quantity">Quantità
                     (Domande/Card)</label>
                 <div class="grid grid-cols-4 gap-3">
                     <button onclick="window.selectStudyQuantity(5)"
@@ -1792,7 +1797,7 @@
             <div
                 class="mb-8 flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200/60 rounded-xl">
                 <div class="flex items-center gap-2 text-slate-700 text-sm font-bold">
-                    <i data-lucide="timer" class="w-4 h-4 text-slate-400"></i> Timer di Fluency
+                    <i data-lucide="timer" class="w-4 h-4 text-slate-400"></i> <span data-i18n="ui_fluency_timer">Timer di Fluency</span>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="study-timer-toggle" class="sr-only peer">
@@ -1820,14 +1825,14 @@
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-200"
             id="confirm-box">
-            <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title">Conferma</h3>
-            <p class="text-sm text-slate-600 mb-6" id="confirm-message">Sei sicuro?</p>
+            <h3 class="text-lg font-bold text-slate-800 mb-2" id="confirm-title" data-i18n="ui_confirm_title">Conferma</h3>
+            <p class="text-sm text-slate-600 mb-6" id="confirm-message" data-i18n="ui_are_you_sure">Sei sicuro?</p>
             <div class="flex justify-end gap-3">
                 <button id="confirm-cancel"
                     class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors"><span
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button id="confirm-ok"
-                    class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Conferma</button>
+                    class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors" data-i18n="ui_confirm_btn">Conferma</button>
             </div>
         </div>
     </div>
@@ -1850,29 +1855,29 @@
             <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-6">
                 <div class="space-y-4">
                     <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profili
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_saved_profiles">Profili
                             Salvati</label>
                         <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-slate-50 text-indigo-700 font-bold focus_ring_standard">
-                            <option value="">+ Nuovo Profilo</option>
+                            <option value="" data-i18n="ui_new_profile">+ Nuovo Profilo</option>
                         </select>
                     </div>
                     <div>
                         <label
                             class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nickname</label>
-                        <input type="text" id="up-nickname" placeholder="Come ti chiami?"
+                        <input type="text" id="up-nickname" placeholder="Come ti chiami?" data-i18n-placeholder="ph_your_name"
                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all focus_ring_standard">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Età</label>
-                            <input type="number" id="up-age" placeholder="Es. 15"
+                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_age">Età</label>
+                            <input type="number" id="up-age" placeholder="Es. 15" data-i18n-placeholder="ph_age_example"
                                 class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all focus_ring_standard">
                         </div>
                         <div>
                             <label
-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Classe</label>
+                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_class">Classe</label>
                             <select id="up-grade"
                                 class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
                                 <!-- Populated dynamically -->
@@ -1884,10 +1889,10 @@
                             data-i18n="profile_system">Sistema Scolastico</label>
                         <select id="up-system" onchange="window.updateGradeOptions()"
                             class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
-                            <option value="Ticino">Sistema Scolastico Ticinese (Medie)</option>
-                            <option value="Italia">Sistema Scolastico Italiano (Medie)</option>
-                            <option value="Liceo_Ticino">Liceo Cantonale (Ticino - 4 anni)</option>
-                            <option value="Liceo_Italia">Liceo / Scuola Superiore (Italia - 5 anni)</option>
+                            <option value="Ticino" data-i18n="ui_school_ticino">Sistema Scolastico Ticinese (Medie)</option>
+                            <option value="Italia" data-i18n="ui_school_italy">Sistema Scolastico Italiano (Medie)</option>
+                            <option value="Liceo_Ticino" data-i18n="ui_school_liceo_ti">Liceo Cantonale (Ticino - 4 anni)</option>
+                            <option value="Liceo_Italia" data-i18n="ui_school_liceo_it">Liceo / Scuola Superiore (Italia - 5 anni)</option>
                         </select>
                     </div>
                 </div>
@@ -1992,7 +1997,7 @@
             <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
                 <span data-i18n="vault_manager_title" class="hidden">Esplora i tuoi Vault</span>
                 <span data-i18n="vault_manager_subtitle" class="hidden">Second Brain Knowledge Management</span>
-                <p class="text-sm text-slate-500 font-medium">Sfoglia, gestisci e carica i tuoi vault locali.</p>
+                <p class="text-sm text-slate-500 font-medium" data-i18n="ui_vault_manager_desc">Sfoglia, gestisci e carica i tuoi vault locali.</p>
             </div>
 
             <div id="vault-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2 modal-scroll min-h-[300px]">
@@ -2013,7 +2018,7 @@
                         Documents/Salvataggi MappAI</p>
                     <button onclick="window.handleImportClick(event)"
                         class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Sfoglia altre cartelle
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> <span data-i18n="ui_browse_folders">Sfoglia altre cartelle</span>
                     </button>
                     <!-- Input file nascosto per importazione su iPad/iOS senza perdere il user gesture context -->
                     <input type="file" id="mappai-ipad-vault-file-picker" accept=".json" style="display: none;"
@@ -2086,21 +2091,21 @@
 
             <div class="mt-8 space-y-6 max-h-[70vh] overflow-y-auto pl-4 pr-4 modal-scroll select-text">
                 <h3 class="modal_title flex items-center gap-3"><i data-lucide="map"
-                        class="w-16 h-16 text-indigo-600"></i> Fissa Layout</h3>
+                        class="w-16 h-16 text-indigo-600"></i> <span data-i18n="ui_pin_layout">Fissa Layout</span></h3>
 
                 <div id="layout-edit-indicator"
                     class="hidden items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-lg">
                     <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
-                    <span>Stai modificando il layout salvato: <strong id="layout-edit-name"></strong></span>
+                    <span data-i18n="ui_layout_editing">Stai modificando il layout salvato: <strong id="layout-edit-name"></strong></span>
                     <button onclick="window.resetLayoutModalToNew()"
-                        class="underline font-bold hover:text-amber-950 ml-auto">Crea invece un nuovo layout</button>
+                        class="underline font-bold hover:text-amber-950 ml-auto" data-i18n="ui_layout_new_instead">Crea invece un nuovo layout</button>
                 </div>
 
                 <div class="space-y-6">
                     <!-- 1. Campo input "Titolo layout" -->
                     <div>
-                        <label class="modal_field_title block mb-1">Titolo del Layout</label>
-                        <input type="text" id="layout-new-title" placeholder="Inserisci il titolo della disposizione..."
+                        <label class="modal_field_title block mb-1" data-i18n="ui_layout_title">Titolo del Layout</label>
+                        <input type="text" id="layout-new-title" placeholder="Inserisci il titolo della disposizione..." data-i18n-placeholder="ph_layout_title"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
                     </div>
 
@@ -2108,12 +2113,12 @@
                     <div
                         class="flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner hide-on-minimize">
                         <div class="flex items-center justify-between w-full mb-2 px-1">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Anteprima della
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" data-i18n="ui_map_preview">Anteprima della
                                 Mappa</span>
                             <button onclick="window.updateLayoutPreviewDirect()"
                                 class="text-[10px] bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded flex items-center gap-1 shadow-sm transition-colors"
-                                title="Aggiorna l'inquadratura">
-                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Aggiorna
+                                title="Aggiorna l'inquadratura" data-i18n-title="tt_refresh_view">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> <span data-i18n="ui_refresh">Aggiorna</span>
                             </button>
                         </div>
                         <div id="layout-current-preview-container"
@@ -2130,25 +2135,25 @@
                         <div class="flex gap-4">
                             <button onclick="window.saveCurrentLayout()"
                                 class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
-                                title="Salva come nuovo layout">
-                                <i data-lucide="plus-circle" class="w-5 h-5"></i> Salva Nuovo Layout
+                                title="Salva come nuovo layout" data-i18n-title="tt_save_new_layout">
+                                <i data-lucide="plus-circle" class="w-5 h-5"></i> <span data-i18n="ui_save_new_layout_btn">Salva Nuovo Layout</span>
                             </button>
                             <button onclick="window.saveCurrentLayoutEditConfirm()" id="layout-confirm-edit-btn"
                                 class="btn_confirm_action bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2 opacity-50 cursor-not-allowed"
                                 disabled>
-                                <i data-lucide="check" class="w-5 h-5"></i> Salva
+                                <i data-lucide="check" class="w-5 h-5"></i> <span data-i18n="ui_save">Salva</span>
                             </button>
                         </div>
                         <div class="flex gap-4">
                             <button onclick="window.exportCurrentLayoutPDFDirect()"
                                 class="btn_confirm_action bg-slate-100 text-slate-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
-                                title="Scarica scheda studio PDF">
-                                <i data-lucide="download" class="w-5 h-5"></i> Scarica Scheda
+                                title="Scarica scheda studio PDF" data-i18n-title="tt_download_pdf_sheet">
+                                <i data-lucide="download" class="w-5 h-5"></i> <span data-i18n="ui_download_sheet_btn">Scarica Scheda</span>
                             </button>
                             <button onclick="window.exportCurrentLayoutPDFToVault()"
                                 class="btn_confirm_action bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white !h-12 flex-1 items-center justify-center gap-2"
-                                title="Salva scheda PDF direttamente nel Vault">
-                                <i data-lucide="archive" class="w-5 h-5"></i> Salva nel Vault
+                                title="Salva scheda PDF direttamente nel Vault" data-i18n-title="tt_save_pdf_vault">
+                                <i data-lucide="archive" class="w-5 h-5"></i> <span data-i18n="ui_save_vault_btn">Salva nel Vault</span>
                             </button>
                         </div>
                     </div>
@@ -2162,15 +2167,15 @@
 
                     <!-- 5. Campo input "descrizione" -->
                     <div>
-                        <label class="modal_field_title block mb-1">Commenti Mappa</label>
+                        <label class="modal_field_title block mb-1" data-i18n="ui_map_comments">Commenti Mappa</label>
                         <textarea id="layout-new-desc" rows="5"
-                            placeholder="Inserisci una descrizione di questa inquadratura e dei concetti chiave..."
+                            placeholder="Inserisci una descrizione di questa inquadratura e dei concetti chiave..." data-i18n-placeholder="ph_map_comments"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard"></textarea>
                     </div>
 
                     <!-- 6. Box scroll di selezione layout salvati -->
                     <div class="hide-on-minimize">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Layout Salvati (Max
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3" data-i18n="ui_saved_layouts">Layout Salvati (Max
                             5)</h4>
                         <div id="layout-saved-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-2 modal-scroll">
                             <!-- Lista dei layout salvati -->
@@ -2199,33 +2204,33 @@
                     <div class="pm-icon-wrap">
                         <i data-lucide="files" class="w-5 h-5 text-indigo-600"></i>
                     </div>
-                    <div class="pm-title">Opzioni Stampa Dossier</div>
+                    <div class="pm-title" data-i18n="ui_dossier_options">Opzioni Stampa Dossier</div>
                 </div>
 
                 <!-- MM Options Group -->
                 <div id="print-mm-options" class="hidden space-y-4">
-                    <span class="pm-badge pm-badge-mode-mm">Modalità: Mappa Mentale (MM)</span>
+                    <span class="pm-badge pm-badge-mode-mm" data-i18n="ui_mode_mm">Modalità: Mappa Mentale (MM)</span>
 
                     <div>
-                        <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
+                        <label class="modal_field_title block mb-1" data-i18n="ui_select_print_node">Seleziona Nodo da stampare</label>
                         <select id="print-mm-node-select" onchange="window.onDossierNodeChange('mm')"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
-                            <option value="all">Tutta la mappa (Tutti i nodi)</option>
+                            <option value="all" data-i18n="ui_whole_map_nodes">Tutta la mappa (Tutti i nodi)</option>
                         </select>
                     </div>
 
                     <div id="print-mm-scope-container" class="hidden">
-                        <span class="pm-section-title">Ambito di Stampa</span>
+                        <span class="pm-section-title" data-i18n="ui_print_scope">Ambito di Stampa</span>
                         <div class="space-y-2">
                             <label class="pm-option">
                                 <input type="radio" name="print-mm-scope" value="single" checked
                                     class="mt-0.5 accent-indigo-600 cursor-pointer">
-                                <span class="pm-option-label">Solo il nodo selezionato</span>
+                                <span class="pm-option-label" data-i18n="ui_only_selected">Solo il nodo selezionato</span>
                             </label>
                             <label class="pm-option">
                                 <input type="radio" name="print-mm-scope" value="branch"
                                     class="mt-0.5 accent-indigo-600 cursor-pointer">
-                                <span class="pm-option-label">Il nodo selezionato e tutto il suo sotto-ramo</span>
+                                <span class="pm-option-label" data-i18n="ui_node_subtree">Il nodo selezionato e tutto il suo sotto-ramo</span>
                             </label>
                         </div>
                     </div>
@@ -2234,35 +2239,35 @@
                         <label class="pm-option">
                             <input type="checkbox" id="print-mm-ascii-diagram" checked
                                 class="mt-0.5 accent-indigo-600 cursor-pointer rounded">
-                            <span class="pm-option-label">Includi diagramma ASCII delle relazioni del ramo con linking word</span>
+                            <span class="pm-option-label" data-i18n="ui_ascii_diagram">Includi diagramma ASCII delle relazioni del ramo con linking word</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- KG Options Group -->
                 <div id="print-kg-options" class="hidden space-y-4">
-                    <span class="pm-badge pm-badge-mode-kg">Modalità: Knowledge Graph (KG)</span>
+                    <span class="pm-badge pm-badge-mode-kg" data-i18n="ui_mode_kg">Modalità: Knowledge Graph (KG)</span>
 
                     <div>
-                        <label class="modal_field_title block mb-1">Seleziona Nodo da stampare</label>
+                        <label class="modal_field_title block mb-1" data-i18n="ui_select_print_node">Seleziona Nodo da stampare</label>
                         <select id="print-kg-node-select" onchange="window.onDossierNodeChange('kg')"
                             class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
-                            <option value="all">Tutta la mappa (Tutti i nodi)</option>
+                            <option value="all" data-i18n="ui_whole_map_nodes">Tutta la mappa (Tutti i nodi)</option>
                         </select>
                     </div>
 
                     <div id="print-kg-scope-container" class="hidden">
-                        <span class="pm-section-title">Ambito di Stampa</span>
+                        <span class="pm-section-title" data-i18n="ui_print_scope">Ambito di Stampa</span>
                         <div class="space-y-2">
                             <label class="pm-option">
                                 <input type="radio" name="print-kg-scope" value="single" checked
                                     class="mt-0.5 accent-indigo-600 cursor-pointer">
-                                <span class="pm-option-label">Solo i contenuti di questo singolo nodo/hub</span>
+                                <span class="pm-option-label" data-i18n="ui_only_hub">Solo i contenuti di questo singolo nodo/hub</span>
                             </label>
                             <label class="pm-option">
                                 <input type="radio" name="print-kg-scope" value="all"
                                     class="mt-0.5 accent-indigo-600 cursor-pointer">
-                                <span class="pm-option-label">Tutta la mappa</span>
+                                <span class="pm-option-label" data-i18n="ui_whole_map">Tutta la mappa</span>
                             </label>
                         </div>
                     </div>
@@ -2271,29 +2276,29 @@
                         <label class="pm-option">
                             <input type="checkbox" id="print-kg-relations" checked
                                 class="mt-0.5 accent-indigo-600 cursor-pointer rounded">
-                            <span class="pm-option-label">Includi elenco relazioni (Elenco A e Elenco B)</span>
+                            <span class="pm-option-label" data-i18n="ui_include_rel_list">Includi elenco relazioni (Elenco A e Elenco B)</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Selettore Grandezza Testo (comune a MM e KG) -->
                 <div class="space-y-2 pt-2 border-t border-slate-100">
-                    <span class="pm-section-title">Grandezza del testo</span>
+                    <span class="pm-section-title" data-i18n="ui_text_size">Grandezza del testo</span>
                     <div class="flex gap-2">
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="print-font-scale" value="0.82" class="sr-only peer">
                             <span
-                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Piccolo</span>
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50" data-i18n="ui_size_small">Piccolo</span>
                         </label>
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="print-font-scale" value="1.0" checked class="sr-only peer">
                             <span
-                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Normale</span>
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50" data-i18n="ui_size_normal">Normale</span>
                         </label>
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="print-font-scale" value="1.15" class="sr-only peer">
                             <span
-                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50">Grande</span>
+                                class="block text-center py-1.5 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 peer-checked:bg-indigo-50 peer-checked:border-indigo-500 peer-checked:text-indigo-700 font-semibold transition hover:bg-slate-50" data-i18n="ui_size_large">Grande</span>
                         </label>
                         <label class="flex-1 cursor-pointer">
                             <input type="radio" name="print-font-scale" value="1.3" class="sr-only peer">
@@ -2308,7 +2313,7 @@
                         Annulla
                     </button>
                     <button type="button" onclick="window.generateDossierPDFFromOptions()" class="pm-btn-primary">
-                        <i data-lucide="printer" class="w-4 h-4"></i> Stampa / Esporta PDF
+                        <i data-lucide="printer" class="w-4 h-4"></i> <span data-i18n="ui_print_export_pdf">Stampa / Esporta PDF</span>
                     </button>
                 </div>
             </div>
@@ -2327,10 +2332,10 @@
             </button>
 
             <h3 class="modal_title flex items-center justify-center gap-3 mb-4">
-                <i data-lucide="help-circle" class="w-10 h-10 text-indigo-500"></i> Conferma Uscita
+                <i data-lucide="help-circle" class="w-10 h-10 text-indigo-500"></i> <span data-i18n="ui_confirm_exit">Conferma Uscita</span>
             </h3>
 
-            <p class="text-sm text-slate-600 mb-8 leading-relaxed">
+            <p class="text-sm text-slate-600 mb-8 leading-relaxed" data-i18n="ui_save_layout_prompt">
                 Vuoi salvare la disposizione corrente prima di uscire, o preferisci chiudere senza salvare?
             </p>
 
@@ -2338,17 +2343,17 @@
                 <!-- Bottone Rosso: Annulla (Chiudi senza salvare) -->
                 <button onclick="window.closeLayoutModalDirectWithoutSaving()"
                     class="btn_annulla_action !h-12 !px-8 flex items-center justify-center gap-2">
-                    <i data-lucide="x" class="w-5 h-5"></i> Chiudi senza salvare
+                    <i data-lucide="x" class="w-5 h-5"></i> <span data-i18n="ui_close_no_save">Chiudi senza salvare</span>
                 </button>
                 <!-- Bottone Undo: ripristina ultima operazione -->
                 <button onclick="window.undoLastAction(); window.closeExitConfirmModal();" type="button"
                     class="!h-12 !px-6 flex items-center justify-center gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition text-sm">
-                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i> Annulla ultima azione
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i> <span data-i18n="ui_undo_last">Annulla ultima azione</span>
                 </button>
                 <!-- Bottone Verde: Salva (Salva ed esci) -->
                 <button onclick="window.saveLayoutAndClose()"
                     class="btn_salva_action !h-12 !px-8 flex items-center justify-center gap-2">
-                    <i data-lucide="check" class="w-5 h-5"></i> Salva
+                    <i data-lucide="check" class="w-5 h-5"></i> <span data-i18n="ui_save">Salva</span>
                 </button>
             </div>
         </div>
@@ -2384,7 +2389,7 @@
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="modal_field_title">COLLEGAMENTI (Web o File)</label>
+                        <label class="modal_field_title" data-i18n="ui_links_caps">COLLEGAMENTI (Web o File)</label>
                     </div>
                     <div id="edit-n-urls-list" class="space-y-2 mb-3">
                         <!-- Lista link qui -->
@@ -2399,12 +2404,12 @@
                         <button onclick="window.handlePickLocalFileForEdit()" class="btn_load_source">
                             <i data-lucide="folder-open" class="w-4 h-4 text-slate-600"></i>
                         </button>
-                        <button onclick="window.addLinkToNode()" class="btn_confirm_action w-48">aggiungi</button>
+                        <button onclick="window.addLinkToNode()" class="btn_confirm_action w-48" data-i18n="ui_add_lc">aggiungi</button>
                     </div>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="modal_field_title">IMMAGINI</label>
+                        <label class="modal_field_title" data-i18n="ui_images_caps">IMMAGINI</label>
                     </div>
                     <div id="edit-n-images-list" class="grid grid-cols-4 gap-0 mb-1">
                         <!-- Preview immagini qui -->
@@ -2415,7 +2420,7 @@
 
                         <div class="flex items-center gap-3">
                             <div class="h-[1px] flex-grow bg-slate-200"></div>
-                            <span class="input_label_xxs uppercase tracking-[0.2em] px-2">oppure</span>
+                            <span class="input_label_xxs uppercase tracking-[0.2em] px-2" data-i18n="ui_or">oppure</span>
                             <div class="h-[1px] flex-grow bg-slate-200"></div>
                         </div>
 
@@ -2435,7 +2440,7 @@
                     <!-- Colore elemento -->
                     <div>
                         <div class="flex justify-between items-center mb-1">
-                            <label class="modal_field_title">Colore nodo/hub</label>
+                            <label class="modal_field_title" data-i18n="ui_node_color">Colore nodo/hub</label>
                         </div>
                         <div
                             class="flex flex-col items-center justify-center gap-5 bg-slate-100 p-5 rounded-xl flex-grow h-100">
@@ -2494,7 +2499,7 @@
                     <!-- Icone Modifiche -->
                     <div>
                         <div class="flex justify-between items-center mb-1">
-                            <label class="modal_field_title">Icone modifiche
+                            <label class="modal_field_title" data-i18n="ui_edit_icons">Icone modifiche
                             </label>
                         </div>
                         <div class="flex flex-col gap-3 bg-slate-100 p-5 rounded-xl flex-grow justify-center h-100">
@@ -2502,7 +2507,7 @@
                                 class="flex items-center justify-between gap-4 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors border border-transparent hover:border-slate-100">
                                 <div class="flex items-center gap-3">
                                     <i data-lucide="pencil" class="w-6 h-6 text-slate-600"></i>
-                                    <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Testo</span>
+                                    <span class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase" data-i18n="ui_tab_text">Testo</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-text"
                                     class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
@@ -2512,7 +2517,7 @@
                                 <div class="flex items-center gap-3">
                                     <i data-lucide="image" class="w-6 h-6 text-slate-600"></i>
                                     <span
-                                        class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase">Immagini</span>
+                                        class="input_label_xxs text-slate-600 tracking-[0.2em] uppercase" data-i18n="ui_tab_images">Immagini</span>
                                 </div>
                                 <input type="checkbox" id="edit-vis-image"
                                     class="w-5 h-5 text-indigo-600 rounded focus_ring_standard" checked>
@@ -2563,7 +2568,7 @@
             <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                 <div class="flex items-center gap-2">
                     <div>
-                        <div class="input_label_m font-normal not-italic">Nodo da espandere: <span
+                        <div class="input_label_m font-normal not-italic"><span data-i18n="ui_node_to_expand">Nodo da espandere:</span> <span
                                 id="contextual-ai-node-title" class="text-indigo-600">...</span>
                         </div>
                     </div>
@@ -2577,7 +2582,7 @@
                         class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all bg-white shadow-sm text-indigo-600"><span
                             data-i18n="ctx_exp_tab_text">Testo / URL</span></button>
                     <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
-                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all text-slate-500 hover:text-slate-700">Carica
+                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all text-slate-500 hover:text-slate-700" data-i18n="ui_load_pdf">Carica
                         PDF</button>
                 </div>
 
@@ -2597,15 +2602,15 @@
                     <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
                             class="w-8 h-8"></i></div>
                     <div class="text-center">
-                        <p class="text-sm font-bold text-slate-700">Seleziona un file PDF</p>
-                        <p class="text-[10px] text-slate-400">Il testo verrà estratto localmente prima
+                        <p class="text-sm font-bold text-slate-700" data-i18n="ui_select_pdf">Seleziona un file PDF</p>
+                        <p class="text-[10px] text-slate-400" data-i18n="ui_pdf_local_extract">Il testo verrà estratto localmente prima
                             dell'espansione.
                         </p>
                     </div>
                     <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
                         onchange="window.handleCtxPDFSelect(this)">
                     <button onclick="document.getElementById('ctx-pdf-file').click()"
-                        class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors">Scegli
+                        class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors" data-i18n="ui_choose_file">Scegli
                         File</button>
                     <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
                 </div>
@@ -2616,7 +2621,7 @@
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
                     class="btn_salva_action w-48">
-                    <i data-lucide="zap" class="w-4 h-4"></i> Espandi
+                    <i data-lucide="zap" class="w-4 h-4"></i> <span data-i18n="ui_expand">Espandi</span>
                 </button>
             </div>
         </div>
@@ -2638,7 +2643,7 @@
                     class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
             <div class="pl-4 mb-4 border-b border-slate-100 pb-4 flex justify-between items-end text-left">
                 <div>
-                    <h3 class="font-bold text-xl text-slate-800" id="study-player-title">Sessione di Studio</h3>
+                    <h3 class="font-bold text-xl text-slate-800" id="study-player-title" data-i18n="ui_study_session">Sessione di Studio</h3>
                     <p class="text-xs text-slate-500 font-bold tracking-widest uppercase mt-1"><span
                             id="study-player-progress">1 / 10</span></p>
                 </div>
@@ -2657,7 +2662,7 @@
                     onclick="window.flipFlashcard()">
                     <p class="text-2xl font-bold text-slate-800" id="flashcard-front-text">Domanda?</p>
                     <p class="text-[10px] text-slate-400 uppercase font-bold mt-4 tracking-widest"><i
-                            data-lucide="rotate-cw" class="inline w-3 h-3"></i> Clicca per girare</p>
+                            data-lucide="rotate-cw" class="inline w-3 h-3"></i> <span data-i18n="ui_click_flip">Clicca per girare</span></p>
                 </div>
 
                 <div id="flashcard-back-container" class="hidden w-full flex-col items-center">
@@ -2672,17 +2677,17 @@
                         <button onclick="window.nextStudyItem('hard')"
                             class="flex-1 py-4 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 transition-all">
                             <span class="text-xl mb-1">😩</span>
-                            <span>Non conoscevo</span>
+                            <span data-i18n="ui_fc_unknown">Non conoscevo</span>
                         </button>
                         <button onclick="window.nextStudyItem('good')"
                             class="flex-1 py-4 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 transition-all">
                             <span class="text-xl mb-1">🤔</span>
-                            <span>Non ricordavo</span>
+                            <span data-i18n="ui_fc_forgot">Non ricordavo</span>
                         </button>
                         <button onclick="window.nextStudyItem('easy')"
                             class="flex-1 py-4 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 transition-all">
                             <span class="text-xl mb-1">😎</span>
-                            <span>Sapevo e ricordavo</span>
+                            <span data-i18n="ui_fc_knew">Sapevo e ricordavo</span>
                         </button>
                     </div>
                 </div>
@@ -2701,20 +2706,20 @@
                 <div id="study-quiz-open" class="hidden w-full flex-col gap-4 mb-6">
                     <textarea id="study-quiz-textarea"
                         class="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl resize-none text-slate-700 focus_ring_standard"
-                        placeholder="Scrivi la tua risposta qui..."></textarea>
+                        placeholder="Scrivi la tua risposta qui..." data-i18n-placeholder="ph_write_answer"></textarea>
                     <button onclick="window.checkOpenAnswer()"
-                        class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Verifica
+                        class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition" data-i18n="ui_check_answer">Verifica
                         Risposta</button>
                 </div>
 
                 <div id="study-quiz-feedback"
                     class="hidden p-6 rounded-xl border border-slate-200 bg-slate-50 mb-4 shadow-inner text-center">
                     <h4 class="font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
-                        id="study-quiz-feedback-title">Risultato</h4>
+                        id="study-quiz-feedback-title" data-i18n="ui_result">Risultato</h4>
                     <p class="text-md text-slate-700 mb-6 font-medium leading-relaxed" id="study-quiz-feedback-desc">
                     </p>
                     <button onclick="window.nextStudyItem()"
-                        class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition mx-auto">Prossima
+                        class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition mx-auto" data-i18n="ui_next_question">Prossima
                         Domanda</button>
                 </div>
             </div>
@@ -2726,14 +2731,14 @@
                         class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-md">
                         <i data-lucide="trophy" class="w-10 h-10"></i>
                     </div>
-                    <h3 class="text-2xl font-black text-slate-800">Sessione Completata!</h3>
+                    <h3 class="text-2xl font-black text-slate-800" data-i18n="ui_session_done">Sessione Completata!</h3>
                     <p class="text-slate-500 font-medium" id="study-summary-stats">Hai risposto correttamente a 8
                         domande su 10.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
-                        <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest">Analisi
+                        <span class="text-[10px] uppercase font-black text-slate-400 tracking-widest" data-i18n="ui_error_analysis">Analisi
                             Errori</span>
                         <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded"
                             id="study-summary-time">Tempo: 02:45</span>
@@ -2745,7 +2750,7 @@
 
                 <div class="flex gap-3">
                     <button onclick="window.closeStudyPlayer()"
-                        class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition">Torna
+                        class="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition" data-i18n="ui_back_to_map">Torna
                         alla Mappa</button>
                     <button onclick="window.saveStudyReport()"
                         class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
@@ -2789,35 +2794,35 @@
             <div id="quiz-feedback-container"
                 class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
                 <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
-                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> Risultato</h4>
+                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> <span data-i18n="ui_result">Risultato</span></h4>
                 <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
                 <div class="flex gap-3" id="quiz-sr-buttons">
                     <button
                         class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
                         onclick="window.processSRResponse('hard')">
                         <span class="text-lg mb-1">😩</span>
-                        <span>Difficile</span>
-                        <span class="text-[10px] text-red-400 font-normal mt-1 block">Ripeti tra poco</span>
+                        <span data-i18n="ui_sr_hard">Difficile</span>
+                        <span class="text-[10px] text-red-400 font-normal mt-1 block" data-i18n="ui_repeat_soon">Ripeti tra poco</span>
                     </button>
                     <button
                         class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
                         onclick="window.processSRResponse('good')">
                         <span class="text-lg mb-1">🤔</span>
-                        <span>Normale</span>
-                        <span class="text-[10px] text-amber-500 font-normal mt-1 block">Tutto ok</span>
+                        <span data-i18n="ui_sr_normal">Normale</span>
+                        <span class="text-[10px] text-amber-500 font-normal mt-1 block" data-i18n="ui_sr_ok">Tutto ok</span>
                     </button>
                     <button
                         class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
                         onclick="window.processSRResponse('easy')">
                         <span class="text-lg mb-1">😎</span>
-                        <span>Facile</span>
-                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block">Allontana ripasso</span>
+                        <span data-i18n="ui_sr_easy">Facile</span>
+                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block" data-i18n="ui_sr_postpone">Allontana ripasso</span>
                     </button>
                 </div>
                 <div id="quiz-next-container" class="hidden">
                     <button onclick="window.showNextSubQuestion()"
                         class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
-                        <span>Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        <span data-i18n="ui_next_question">Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
@@ -2945,8 +2950,8 @@
                 <circle cx="100" cy="100" r="24" fill="#0f172a" class="center-pulse" />
             </svg>
         </div>
-        <h2 class="text-xl font-bold text-slate-900 mb-2" id="loading-title">MappAI sta elaborando...</h2>
-        <p class="text-slate-700 text-center max-w-md px-4 font-medium" id="loading-desc">Interpretazione delle fonti
+        <h2 class="text-xl font-bold text-slate-900 mb-2" id="loading-title" data-i18n="loading_processing">MappAI sta elaborando...</h2>
+        <p class="text-slate-700 text-center max-w-md px-4 font-medium" id="loading-desc" data-i18n="ui_loading_desc">Interpretazione delle fonti
             con Gemini</p>
     </div>
 
@@ -2996,21 +3001,21 @@
                 onclick="document.getElementById('api-tutorial-modal').classList.remove('flex'); document.getElementById('api-tutorial-modal').classList.add('hidden')"
                 class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
             <h2 class="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
-                <i data-lucide="key" class="text-indigo-500"></i> Come ottenere la API Key
+                <i data-lucide="key" class="text-indigo-500"></i> <span data-i18n="ui_how_get_key">Come ottenere la API Key</span>
             </h2>
             <div class="space-y-4 text-sm text-slate-600">
-                <p>MappAI utilizza i potentissimi cervelli artificiali di Google per studiare i tuoi documenti.</p>
+                <p data-i18n="ui_google_intro">MappAI utilizza i potentissimi cervelli artificiali di Google per studiare i tuoi documenti.</p>
                 <ol class="list-decimal pl-4 space-y-2">
-                    <li>Vai al sito web <a href="#"
+                    <li><span data-i18n="ui_goto_site">Vai al sito web</span> <a href="#"
                             onclick="window.electronAPI ? window.require('electron').shell.openExternal('https://aistudio.google.com/app/apikey') : window.open('https://aistudio.google.com/app/apikey', '_blank')"
                             class="text-indigo-600 font-bold hover:underline">Google AI Studio</a>.</li>
-                    <li>Fai l'accesso con il tuo account Google gratuito.</li>
-                    <li>Clicca sul bottone blu <strong>Create API key</strong>.</li>
-                    <li>Copia la lunga stringa di testo (inizia con <i>AIza...</i>) e incollala qui nell'App MappAI!
+                    <li data-i18n="ui_google_login">Fai l'accesso con il tuo account Google gratuito.</li>
+                    <li data-i18n="ui_click_create_key">Clicca sul bottone blu <strong>Create API key</strong>.</li>
+                    <li data-i18n="ui_copy_key">Copia la lunga stringa di testo (inizia con <i>AIza...</i>) e incollala qui nell'App MappAI!
                     </li>
                 </ol>
                 <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs">
-                    💡 <strong>Nota:</strong> Le API di tipo "Gemini 1.5 Flash" sono completamente gratuite fino a 15
+                    💡 <strong data-i18n="ui_note">Nota:</strong> Le API di tipo "Gemini 1.5 Flash" sono completamente gratuite fino a 15
                     richieste al minuto!
                 </div>
             </div>
@@ -3041,9 +3046,20 @@
                         id="lang-btn-en" title="English">🇬🇧</button>
                 </div>
             </div>
+            <div class="flex items-center gap-3 mb-4">
+                <span class="input_label_xs" data-i18n="ui_map_lang_label">Lingua delle mappe:</span>
+                <select id="map-language-select"
+                    onchange="localStorage.setItem('mappai_map_language', this.value)"
+                    class="text-xs bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 focus_ring_standard">
+                    <option value="ui" data-i18n="ui_map_lang_ui">Come l'interfaccia</option>
+                    <option value="it">Italiano</option>
+                    <option value="en">English</option>
+                    <option value="auto" data-i18n="ui_map_lang_auto">Lingua delle fonti</option>
+                </select>
+            </div>
             <div class="space-y-5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 <div class="mb-5">
-                    <label class="input_label_xs uppercase font-bold tracking-wider">Provider
+                    <label class="input_label_xs uppercase font-bold tracking-wider" data-i18n="ui_provider_ai">Provider
                         AI</label>
                     <div class="flex bg-slate-100 p-1 rounded-xl">
                         <button type="button" onclick="window.switchAIProvider('google')" id="provider-google"
@@ -3058,10 +3074,10 @@
                 <div id="gemini-api-key-container">
                     <label class="input_label_xs uppercase font-bold tracking-wider" id="label-api-key-google">Google
                         API Key</label>
-                    <p class="input_label_xs flex items-center gap-2">API key salvata localmente.
+                    <p class="input_label_xs flex items-center gap-2"><span data-i18n="ui_api_key_local">API key salvata localmente.</span>
                         <button type="button" onclick="window.showAPITutorial('google')"
                             class="input_button_xs flex items-center gap-1"><i data-lucide="help-circle"
-                                class="w-3 h-3"></i> <span id="label-api-key-how-google">Come
+                                class="w-3 h-3"></i> <span id="label-api-key-how-google" data-i18n="ui_how_get_it">Come
                                 ottenerla?</span></button>
                     </p>
                     <div class="relative">
@@ -3079,10 +3095,10 @@
                         <label class="input_label_xs uppercase font-bold tracking-wider"
                             id="label-api-key-infomaniak">Infomaniak API
                             Token</label>
-                        <p class="input_label_xs flex items-center gap-2">Token salvato localmente.
+                        <p class="input_label_xs flex items-center gap-2"><span data-i18n="ui_token_local">Token salvato localmente.</span>
                             <button type="button" onclick="window.showAPITutorial('infomaniak')"
                                 class="input_button_xs flex items-center gap-1"><i data-lucide="help-circle"
-                                    class="w-3 h-3"></i><span id="label-api-key-how-infomaniak">Come
+                                    class="w-3 h-3"></i><span id="label-api-key-how-infomaniak" data-i18n="ui_how_create_it">Come
                                     crearlo?</span></button>
                         </p>
                         <div class="relative">
@@ -3090,7 +3106,7 @@
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
                             <input type="password" id="infomaniak-api-key-input"
                                 onblur="if(window.saveSecureKey) { window.saveSecureKey('infomaniak_api_key', this.value); } else { localStorage.setItem('infomaniak_api_key', this.value); } if(window.refreshGeminiModels) window.refreshGeminiModels();"
-                                class="form_input !pl-10" placeholder="Inserisci token Infomaniak...">
+                                class="form_input !pl-10" placeholder="Inserisci token Infomaniak..." data-i18n-placeholder="ph_infomaniak_token">
                         </div>
                     </div>
                     <div>
@@ -3121,7 +3137,7 @@
                         <select id="model-select"
                             onchange="window.onModelSelectChange && window.onModelSelectChange(this.value)"
                             class="w-full bg-white border border-indigo-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-700 appearance-none cursor-pointer focus_ring_standard">
-                            <option value="">Caricamento modelli in corso...</option>
+                            <option value="" data-i18n="ui_loading_models">Caricamento modelli in corso...</option>
                         </select>
                     </div>
                     <!-- Capability badges (populated by JS) -->
@@ -3303,9 +3319,9 @@
                         <path d="M12 18v4" />
                         <path d="M2 12h4" />
                         <path d="M18 12h4" />
-                    </svg> Unisci Mappa
+                    </svg> <span data-i18n="ui_merge_map_title">Unisci Mappa</span>
                 </h2>
-                <p class="text-amber-100 text-xs mt-1">Stai per aggiungere una nuova mappa alla vista corrente.</p>
+                <p class="text-amber-100 text-xs mt-1" data-i18n="ui_adding_map">Stai per aggiungere una nuova mappa alla vista corrente.</p>
             </div>
             <div class="p-5 space-y-3">
                 <div id="merge-modal-description" class="text-sm text-slate-600 leading-relaxed"></div>
@@ -3314,8 +3330,8 @@
                     <label class="flex items-start gap-3 cursor-pointer">
                         <input type="checkbox" id="merge-ai-crosslink" class="mt-0.5 accent-indigo-600 w-4 h-4" checked>
                         <div>
-                            <span class="text-xs font-bold text-indigo-700">🤖 Correlazioni AI</span>
-                            <p class="text-[10px] text-indigo-500 mt-0.5 leading-relaxed">L'AI cercherà possibili
+                            <span class="text-xs font-bold text-indigo-700" data-i18n="ui_ai_correlations">🤖 Correlazioni AI</span>
+                            <p class="text-[10px] text-indigo-500 mt-0.5 leading-relaxed" data-i18n="ui_ai_corr_desc">L'AI cercherà possibili
                                 correlazioni tra i nodi delle due mappe e creerà link tratteggiati che potrai validare o
                                 rimuovere.</p>
                         </div>
@@ -3323,7 +3339,7 @@
                 </div>
                 <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
                     <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
-                    <span class="text-[10px] text-emerald-700">La mappa corrente verrà <strong>salvata
+                    <span class="text-[10px] text-emerald-700" data-i18n="ui_map_autosaved">La mappa corrente verrà <strong>salvata
                             automaticamente</strong> prima dell'operazione.</span>
                 </div>
             </div>
@@ -3332,7 +3348,7 @@
                     class="flex-1 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"><span
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button id="merge-confirm-btn" onclick="window.confirmMerge()"
-                    class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-sm">Procedi</button>
+                    class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-sm" data-i18n="ui_proceed">Procedi</button>
             </div>
         </div>
     </div>
@@ -3345,23 +3361,23 @@
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
             <div class="p-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white">
                 <h2 class="text-sm font-bold flex items-center gap-2">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i> Valida Correlazione AI
+                    <i data-lucide="check-circle" class="w-4 h-4"></i> <span data-i18n="ui_validate_corr">Valida Correlazione AI</span>
                 </h2>
             </div>
             <div class="p-5 space-y-3">
-                <p class="text-xs text-slate-500">Modifica la parola di relazione e conferma per rendere permanente il
+                <p class="text-xs text-slate-500" data-i18n="ui_edit_rel_word">Modifica la parola di relazione e conferma per rendere permanente il
                     link.</p>
                 <div>
-                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Nodo A</label>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400" data-i18n="ui_node_a">Nodo A</label>
                     <p id="validate-node-a" class="text-sm font-bold text-slate-700 mt-0.5"></p>
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Relazione</label>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400" data-i18n="ui_relation">Relazione</label>
                     <input type="text" id="validate-rel-input"
                         class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus_ring_standard">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400">Nodo B</label>
+                    <label class="text-[10px] uppercase tracking-widest font-bold text-slate-400" data-i18n="ui_node_b">Nodo B</label>
                     <p id="validate-node-b" class="text-sm font-bold text-slate-700 mt-0.5"></p>
                 </div>
             </div>
@@ -3370,7 +3386,7 @@
                     class="flex-1 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"><span
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button onclick="window.confirmValidateLink()"
-                    class="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors">✓
+                    class="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors" data-i18n="ui_validate_btn">✓
                     Valida</button>
             </div>
         </div>
@@ -3381,6 +3397,7 @@
          ========================================== -->
     <script src="traduzioni/it_translations.js"></script>
     <script src="traduzioni/en_translations.js"></script>
+    <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/hypher.js"></script>
     <script src="js/it.js"></script>
     <script src="js/infomaniak_bridge.js"></script>
@@ -3424,6 +3441,7 @@
     <script src="js/mappai-l1-checkpoint.js"></script>
     <script src="js/mappai-mastery.js"></script>
     <script src="js/mappai-study-bus.js"></script>
+    <script src="js/mappai-active-study-core.js"></script>
     <script src="js/mappai-active-study.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
     <script src="js/mappai-effort-view.js"></script>
@@ -3432,6 +3450,7 @@
     <script src="js/mappai-study-path.js"></script>
     <script src="js/mappai-palace.js"></script>
     <script src="js/mappai-dungeon-core.js"></script>
+    <script src="js/mappai-dungeon-voxel.js"></script>
     <script src="js/mappai-map-loader.js"></script>
     <script src="js/mappai-npc-behavior.js"></script>
     <script src="js/mappai-games.js"></script>
@@ -3623,7 +3642,7 @@
                                 <h4 class="text-xs font-black text-indigo-600 uppercase tracking-[0.15em]">Stato motore</h4>
                                 <button onclick="window.MappAINpcAdmin && window.MappAINpcAdmin.refresh()"
                                     class="text-xs text-slate-500 hover:text-indigo-600 flex items-center gap-1">
-                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Aggiorna
+                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> <span data-i18n="ui_refresh">Aggiorna</span>
                                 </button>
                             </div>
                             <div id="npc-status-body" class="text-sm text-slate-600 space-y-1">Caricamento…</div>
@@ -3708,6 +3727,24 @@
     </div>
     <script src="js/admin_prompts.js"></script>
     <script src="js/mappai-npc-admin.js"></script>
+    <script>
+        // Uscita segreta: 5 click nell'angolo in alto a sinistra (entro 3s) → launcher
+        // (schermata di scelta MappAI/Studio). Listener sul documento: zero elementi
+        // che coprono la UI. Attiva solo in Electron (electronAPI presente).
+        (function () {
+            var clicks = [];
+            document.addEventListener('click', function (e) {
+                if (e.clientX > 56 || e.clientY > 56) return;
+                var now = Date.now();
+                clicks = clicks.filter(function (t) { return now - t < 3000; });
+                clicks.push(now);
+                if (clicks.length >= 5) {
+                    clicks = [];
+                    if (window.electronAPI && window.electronAPI.launcherReturn) window.electronAPI.launcherReturn();
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
