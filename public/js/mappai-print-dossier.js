@@ -83,7 +83,7 @@ window.openNodeLabelsPrintModal = function () {
     modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
 
     modal.innerHTML =
-        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[480px] p-8 relative">' +
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[880px] p-8 relative">' +
 
             '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
                 'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
@@ -107,9 +107,72 @@ window.openNodeLabelsPrintModal = function () {
                     'Scegli fino a che livello di profondità includere.' +
                 '</p>' +
 
+                '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">' +
+
                 '<div class="pm-section">' +
                     '<span class="pm-section-title">Profondità</span>' +
                     '<div class="space-y-3">' + levelOptions + '</div>' +
+                '</div>' +
+
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Formato foglio</span>' +
+                    '<div class="space-y-3">' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-fmt" value="3x4" checked onchange="window._nlSyncContentLock()" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">3 × 4 · 12 per foglio</div>' +
+                            '<div class="pm-option-desc">Etichette piccole · solo titolo</div></div>' +
+                        '</label>' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-fmt" value="2x2" onchange="window._nlSyncContentLock()" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">2 × 2 · 4 per foglio</div>' +
+                            '<div class="pm-option-desc">Etichette grandi · contenuto a scelta</div></div>' +
+                        '</label>' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-fmt" value="2x1" onchange="window._nlSyncContentLock()" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">2 × 1 · 2 per foglio</div>' +
+                            '<div class="pm-option-desc">Etichette molto grandi · contenuto a scelta</div></div>' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Contenuto etichetta</span>' +
+                    '<div class="space-y-3">' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-layout" value="title" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Solo titolo</div>' +
+                            '<div class="pm-option-desc">Il nome del nodo, centrato</div></div>' +
+                        '</label>' +
+                        '<label class="pm-option" data-nl-lock="1">' +
+                            '<input type="radio" name="nl-layout" value="summary" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Titolo + spazio riassunto</div>' +
+                            '<div class="pm-option-desc">Titolo in alto, spazio sotto per scrivere a mano keyword o frasi</div></div>' +
+                        '</label>' +
+                        '<label class="pm-option" data-nl-lock="1">' +
+                            '<input type="radio" name="nl-layout" value="keywords" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Titolo + parole chiave</div>' +
+                            '<div class="pm-option-desc">Titolo in alto + fino a 7 keyword AI (una per riga)</div></div>' +
+                        '</label>' +
+                        '<div class="pm-option-desc" style="margin-top:6px;font-style:italic">Riassunto e parole chiave solo con formato 2 × 2 o 2 × 1.</div>' +
+                    '</div>' +
+                '</div>' +
+
+                '</div>' +
+
+                '<div class="pm-section">' +
+                    '<span class="pm-section-title">Sfondo pagina</span>' +
+                    '<div class="flex flex-wrap gap-8">' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-bg" value="none" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Nessuno sfondo</div>' +
+                            '<div class="pm-option-desc">Pagina bianca</div></div>' +
+                        '</label>' +
+                        '<label class="pm-option">' +
+                            '<input type="radio" name="nl-bg" value="grid" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Griglia a quadretti 5 mm</div>' +
+                            '<div class="pm-option-desc">Linee cyan tenui (0,3 mm) su tutta la pagina</div></div>' +
+                        '</label>' +
+                    '</div>' +
                 '</div>' +
 
                 '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
@@ -126,6 +189,7 @@ window.openNodeLabelsPrintModal = function () {
 
     document.body.appendChild(modal);
     if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
+    window._nlSyncContentLock();
 
     var escHandler = function (e) {
         if (e.key === 'Escape') {
@@ -136,12 +200,43 @@ window.openNodeLabelsPrintModal = function () {
     document.addEventListener('keydown', escHandler);
 };
 
+// Blocca "riassunto" e "keyword" quando il formato è 3×4 (solo titolo);
+// li sblocca su 2×2 / 2×1. Chiamata all'apertura e a ogni cambio formato.
+window._nlSyncContentLock = function () {
+    var fmtEl = document.querySelector('input[name="nl-fmt"]:checked');
+    var locked = !fmtEl || fmtEl.value === '3x4';
+    var titleInp = document.querySelector('input[name="nl-layout"][value="title"]');
+    document.querySelectorAll('#node-labels-print-modal label[data-nl-lock]').forEach(function (lbl) {
+        var inp = lbl.querySelector('input');
+        if (!inp) return;
+        inp.disabled = locked;
+        lbl.style.opacity = locked ? '0.4' : '1';
+        lbl.style.pointerEvents = locked ? 'none' : 'auto';
+        lbl.style.cursor = locked ? 'not-allowed' : 'pointer';
+        if (locked && inp.checked && titleInp) titleInp.checked = true;
+    });
+};
+
 window.printAllNodeLabels = async function () {
     // Leggi il livello selezionato dal modal (se aperto), poi chiudi il modal
     var selectedDepthEl = document.querySelector('input[name="nl-depth"]:checked');
     var maxLevel = selectedDepthEl && selectedDepthEl.value !== 'all'
         ? parseInt(selectedDepthEl.value, 10)
         : null;
+
+    // Formato foglio (colonne × righe) e contenuto della card (title | summary | keywords)
+    var FMT = { '3x4': { cols: 3, rows: 4 }, '2x2': { cols: 2, rows: 2 }, '2x1': { cols: 2, rows: 1 } };
+    var selectedFmtEl = document.querySelector('input[name="nl-fmt"]:checked');
+    var fmt = (selectedFmtEl && FMT[selectedFmtEl.value]) ? selectedFmtEl.value : '3x4';
+    var cols = FMT[fmt].cols;
+    var rowsPerPage = FMT[fmt].rows;
+    var selectedLayoutEl = document.querySelector('input[name="nl-layout"]:checked');
+    var layout = selectedLayoutEl ? selectedLayoutEl.value : 'title';
+    if (fmt === '3x4') layout = 'title'; // 3×4 = solo titolo
+
+    // Sfondo pagina: none | grid (quadretti 5 mm cyan)
+    var selectedBgEl = document.querySelector('input[name="nl-bg"]:checked');
+    var pageBg = selectedBgEl ? selectedBgEl.value : 'none';
 
     var modal = document.getElementById('node-labels-print-modal');
     if (modal) modal.remove();
@@ -157,6 +252,27 @@ window.printAllNodeLabels = async function () {
     }
 
     const projectTitle = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Progetto MappAI";
+
+    // Modalità "keywords": genera le parole chiave con AI (fallback deterministico
+    // sui figli/desc se la chiamata fallisce o non c'è una API key)
+    var keywordsMap = {};
+    if (layout === 'keywords') {
+        var kwApiKey = window.getSystemKey ? window.getSystemKey() : '';
+        if (kwApiKey) {
+            window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi…');
+            try {
+                keywordsMap = await _generateNodeKeywords(nodes, kwApiKey) || {};
+            } catch (kwErr) {
+                console.warn('[Labels] Generazione keyword AI fallita, uso fallback:', kwErr);
+            }
+            window.showLoadingOverlay(false);
+        }
+        // Riempi i buchi (nodi saltati dall'AI o AI non disponibile) col fallback
+        nodes.forEach(function (n) {
+            var kw = keywordsMap[n.id];
+            if (!Array.isArray(kw) || kw.length === 0) keywordsMap[n.id] = _fallbackKeywords(n);
+        });
+    }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
@@ -203,20 +319,41 @@ window.printAllNodeLabels = async function () {
     const marginY = 15;
     const pageWidth = 297;
     const pageHeight = 210;
-    const cols = 4;
+
+    // Geometria: le card riempiono la pagina secondo il formato (colonne × righe).
     const colWidth = (pageWidth - 2 * marginX) / cols;
-    const rowHeight = 35;
-    const rowsPerPage = 5;
+    const rowHeight = (pageHeight - 2 * marginY) / rowsPerPage;
+    const PT2MM = 0.352778;
+    const padX = 4;
+
+    // Font per formato (card più grande = titolo/keyword più grandi)
+    const TITLE_PT = ({ '3x4': 20, '2x2': 26, '2x1': 30 })[fmt] || 20;
+    const KW_PT = ({ '2x2': 13, '2x1': 15 })[fmt] || 12;
+
+    // Sfondo pagina: griglia a quadretti 5 mm, linee 0,3 mm cyan al 10%
+    function drawPageGrid() {
+        if (pageBg !== 'grid') return;
+        const step = 5;
+        let useG = false;
+        try {
+            if (doc.GState && doc.setGState) { doc.setGState(new doc.GState({ 'stroke-opacity': 0.1 })); useG = true; }
+        } catch (e) { useG = false; }
+        // con GState = cyan puro al 10%; senza = cyan pre-miscelato al 10% su bianco
+        if (useG) doc.setDrawColor(0, 255, 255); else doc.setDrawColor(230, 255, 255);
+        doc.setLineWidth(0.3);
+        if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern([], 0);
+        for (let gx = 0; gx <= pageWidth + 0.01; gx += step) doc.line(gx, 0, gx, pageHeight);
+        for (let gy = 0; gy <= pageHeight + 0.01; gy += step) doc.line(0, gy, pageWidth, gy);
+        if (useG) { try { doc.setGState(new doc.GState({ 'stroke-opacity': 1 })); } catch (e) {} }
+    }
 
     let currentNodeIndex = 0;
-
-    doc.setFont(fontName, "normal");
-    doc.setFontSize(18);
 
     while (currentNodeIndex < nodes.length) {
         if (currentNodeIndex > 0) {
             doc.addPage();
         }
+        drawPageGrid(); // sfondo prima delle card
 
         for (let r = 0; r < rowsPerPage; r++) {
             for (let c = 0; c < cols; c++) {
@@ -228,8 +365,8 @@ window.printAllNodeLabels = async function () {
                 const x = marginX + c * colWidth;
                 const y = marginY + r * rowHeight;
 
-                // Disegna card con bordo tratteggiato
-                doc.setDrawColor(0, 128, 255); // #6b8cd0ff
+                // Card con bordo tratteggiato ARANCIONE per il ritaglio
+                doc.setDrawColor(255, 138, 0);
                 doc.setLineWidth(0.3);
                 if (typeof doc.setLineDashPattern === 'function') {
                     doc.setLineDashPattern([1, 1], 0);
@@ -240,24 +377,69 @@ window.printAllNodeLabels = async function () {
                     doc.setLineDashPattern([], 0);
                 }
 
-                // Testo del label
                 const labelText = cleanLabel(node.label);
-                doc.setTextColor(0, 0, 0); // #000000ff
+                doc.setTextColor(0, 0, 0);
+                const maxTextWidth = colWidth - 2 * padX;
 
-                const maxTextWidth = colWidth - 8;
-                const lines = doc.splitTextToSize(labelText, maxTextWidth);
+                if (layout === 'title') {
+                    // Titolo centrato verticalmente nella card
+                    doc.setFont(fontName, "normal");
+                    doc.setFontSize(TITLE_PT);
+                    const lines = doc.splitTextToSize(labelText, maxTextWidth);
+                    const fontHeight = TITLE_PT * PT2MM;
+                    const lineHeight = fontHeight * 1.3;
+                    const totalTextHeight = lines.length * lineHeight;
+                    let currentY = y + (rowHeight - totalTextHeight) / 2 + fontHeight - (lineHeight - fontHeight) / 2;
+                    lines.forEach(function (line) {
+                        doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
+                        currentY += lineHeight;
+                    });
+                } else {
+                    // "summary" e "keywords": titolo ancorato in alto (grassetto)
+                    doc.setFont(fontName, "bold");
+                    doc.setFontSize(TITLE_PT);
+                    const titleFH = TITLE_PT * PT2MM;
+                    const titleLH = titleFH * 1.25;
+                    const titleLines = doc.splitTextToSize(labelText, maxTextWidth).slice(0, 3);
+                    let ty = y + 8 + titleFH;
+                    titleLines.forEach(function (line) {
+                        doc.text(line, x + colWidth / 2, ty, { align: 'center' });
+                        ty += titleLH;
+                    });
 
-                const fontHeight = doc.getFontSize() * 0.352778; // pt to mm
-                const lineHeight = fontHeight * 1.3;
-                const totalTextHeight = lines.length * lineHeight;
-
-                // Centratura verticale
-                let currentY = y + (rowHeight - totalTextHeight) / 2 + fontHeight - (lineHeight - fontHeight) / 2;
-
-                lines.forEach(line => {
-                    doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
-                    currentY += lineHeight;
-                });
+                    if (layout === 'keywords') {
+                        // Keyword impaginate IN COLONNA, una per riga
+                        const kws = (keywordsMap[node.id] || []).slice(0, 7);
+                        if (kws.length) {
+                            doc.setFont(fontName, "normal");
+                            doc.setFontSize(KW_PT);
+                            doc.setTextColor(90, 90, 90);
+                            const kwFH = KW_PT * PT2MM;
+                            const kwLH = kwFH * 1.55;
+                            const maxKwBottom = y + rowHeight - 3;
+                            ty += 3;
+                            for (let ki = 0; ki < kws.length; ki++) {
+                                if (ty + kwFH > maxKwBottom) break;
+                                const kwLines = doc.splitTextToSize(kws[ki], maxTextWidth);
+                                for (let li = 0; li < kwLines.length; li++) {
+                                    if (ty + kwFH > maxKwBottom) break;
+                                    doc.text(kwLines[li], x + colWidth / 2, ty, { align: 'center' });
+                                    ty += kwLH;
+                                }
+                            }
+                            doc.setTextColor(0, 0, 0);
+                        }
+                    } else if (pageBg !== 'grid') {
+                        // "summary" senza sfondo a quadretti: righe guida per scrivere a mano
+                        doc.setDrawColor(210, 210, 210);
+                        doc.setLineWidth(0.1);
+                        if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern([], 0);
+                        const gStep = 8;
+                        for (let gy = ty + 3; gy < y + rowHeight - 5; gy += gStep) {
+                            doc.line(x + padX, gy, x + colWidth - padX, gy);
+                        }
+                    }
+                }
             }
             if (currentNodeIndex >= nodes.length) break;
         }
@@ -266,6 +448,122 @@ window.printAllNodeLabels = async function () {
     doc.save(`Label-${projectTitle}.pdf`);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 };
+
+// ── Keyword per le etichette ──────────────────────────────────────────────────
+// AI: chiamate a BATCH da _KW_BATCH nodi ciascuna → mappa { "<id>": ["kw",...] }.
+// Il batching evita il troncamento del JSON su mappe grandi (una sola chiamata
+// per 60+ nodi supera maxOutputTokens → i nodi in coda restavano senza keyword).
+var _KW_BATCH = 18;
+
+async function _kwCallBatch(nodesChunk, apiKey) {
+    var items = nodesChunk.map(function (n) {
+        var d = String(n.desc || n.content || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+        return { id: n.id, label: cleanLabel(n.label), desc: d };
+    });
+
+    var langNote = (window.mapLangNote ? window.mapLangNote() : '');
+    var userPrompt =
+        'Per OGNI nodo qui sotto genera da 3 a 7 PAROLE CHIAVE brevi (1-3 parole ciascuna) ' +
+        'che catturano i concetti essenziali del nodo, utili a uno studente per ricordarlo.\n' +
+        'Usa il titolo e la descrizione. Niente frasi intere, solo parole o locuzioni chiave. ' +
+        'Solo termini di CONTENUTO (nomi/concetti): niente verbi coniugati, articoli, ' +
+        'preposizioni o parole nella lingua della fonte se diversa. ' +
+        'Non ripetere il titolo del nodo come keyword.\n' + langNote + '\n' +
+        'Rispondi SOLO con un oggetto JSON { "<id>": ["kw1","kw2",...], ... } ' +
+        'usando ESATTAMENTE gli id forniti. Nessun markdown, nessun testo fuori dal JSON.\n\n' +
+        'NODI:\n' + JSON.stringify(items);
+
+    var payload = {
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        systemInstruction: {
+            parts: [{ text: 'Sei un assistente didattico. Rispondi SOLO con un oggetto JSON valido, senza markdown.' }]
+        },
+        generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(8192) : 8192)
+        }
+    };
+
+    var response = await window.fetchModelAPI(payload, apiKey);
+    var raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!raw) return {};
+
+    var parsed;
+    try { parsed = salvageTruncatedJSON(raw); } catch (e) { return {}; }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    var out = {};
+    Object.keys(parsed).forEach(function (id) {
+        var v = parsed[id];
+        if (Array.isArray(v)) {
+            out[id] = v.map(function (k) { return String(k).trim(); }).filter(Boolean).slice(0, 7);
+        }
+    });
+    return out;
+}
+
+async function _generateNodeKeywords(nodes, apiKey) {
+    var chunks = [];
+    for (var i = 0; i < nodes.length; i += _KW_BATCH) chunks.push(nodes.slice(i, i + _KW_BATCH));
+
+    var merged = {};
+    for (var c = 0; c < chunks.length; c++) {
+        if (chunks.length > 1) {
+            window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi… (' + (c + 1) + '/' + chunks.length + ')');
+        }
+        try {
+            var part = await _kwCallBatch(chunks[c], apiKey);
+            Object.keys(part).forEach(function (id) { merged[id] = part[id]; });
+        } catch (e) {
+            console.warn('[Labels] Batch keyword ' + (c + 1) + ' fallito:', e);
+        }
+    }
+    return merged;
+}
+
+// Stopword >4 lettere (IT + EN) da scartare nell'estrazione dalle desc.
+// Nota: il fallback è una rete di sicurezza (parole grezze della desc, non
+// concetti). La qualità vera arriva dall'AI; qui limitiamo solo il rumore.
+var _KW_STOPWORDS = (function () {
+    var list = ('contiene contengono essere stato stati quando quello quella questo questa ' +
+        'quelli queste anche perché perche mentre invece inoltre quindi tramite attraverso ' +
+        'responsabili responsabile responsabilita degli delle nelle negli sugli sulle dalla ' +
+        'dallo dagli dalle sotto sopra come sono viene vengono possono devono deve senza ' +
+        'dopo prima ancora molto tanto poco parte parti tutta tutte tutti tutto ogni ' +
+        'inserita inserito inseriti presenta presentano ' +
+        'about which where these those their there would could should because ' +
+        'through while between during their these those which their there being where').split(/\s+/);
+    var m = {}; list.forEach(function (w) { m[w] = 1; }); return m;
+})();
+
+// Fallback deterministico (zero AI): le label dei figli SONO le sotto-idee del
+// nodo; sui nodi foglia si estraggono le parole salienti dalla desc.
+function _fallbackKeywords(node) {
+    var nodes = appState.db?.nodes || [];
+    var links = appState.db?.links || [];
+    var kids = links
+        .filter(function (l) { return (l.source?.id || l.source) === node.id; })
+        .map(function (l) {
+            var tid = l.target?.id || l.target;
+            var t = nodes.find(function (n) { return n.id === tid; });
+            return t ? cleanLabel(t.label) : null;
+        })
+        .filter(Boolean);
+    if (kids.length) return kids.slice(0, 7);
+
+    var STOP = _KW_STOPWORDS;
+    // Escludi le parole del titolo (ripeterle come keyword è inutile)
+    var titleTokens = {};
+    cleanLabel(node.label).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/).forEach(function (w) { if (w) titleTokens[w] = 1; });
+
+    var txt = String(node.desc || node.content || '').toLowerCase();
+    var words = txt.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)
+        .filter(function (w) { return w.length > 4 && !STOP[w] && !titleTokens[w]; });
+    var seen = {}, uniq = [];
+    words.forEach(function (w) { if (!seen[w]) { seen[w] = 1; uniq.push(w); } });
+    return uniq.slice(0, 7);
+}
 
 window.printAllNodeDossiers = function () {
     window.openDossierPrintModal();
