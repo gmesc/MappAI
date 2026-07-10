@@ -534,19 +534,25 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
-### ✅ FATTO (10/7/26): 001-menu-reorg — riorganizzazione menu (spec-kit)
+### ✅ FATTO (10/7/26): 001-menu-reorg — riorganizzazione menu (spec-kit) + addendum
 Prima feature via **spec-kit** (`specs/001-menu-reorg/`, branch omonimo). Riordino UI
-puro, zero cambi di comportamento. (1) Cloze + Heat map padronanza + Mappa lavoro (effort)
-spostate dai bottoni flottanti del bordo destro dentro il launcher **Studio attivo**
-(nuova sezione "Viste ed esercizi rapidi" in `mappai-active-study.js`: Cloze avvia,
-le 2 viste sono toggle con stato). (2) Nuova sezione **"Output materiali di studio"**
-nel menu azioni rapide (`index.html`): Foglio nodi · Sintesi di ramo · Stampa dossier ·
-Timeline · Jigsaw×3. Kill-switch `mappai_legacy_float_btns='1'` ripristina i flottanti
-storici; i 4 flottanti restanti (celeration/study-path/palazzo/games) compattati verso
-il basso via ternaria sullo stesso flag. i18n bilingue (chiave `ui_output_materials` in
-entrambi i dizionari; `as_*` via `window.t`). Suite **250/250** ✅, syntax-check ok.
-⚠️ Non ancora testato in Electron vivo (browser bloccato dal licensing): resta il
-debug-run manuale `npm start` (quickstart.md della feature).
+puro, zero cambi di comportamento. (1) TUTTI i flottanti del bordo destro spostati nel
+launcher **Studio attivo**, ora modale **landscape 980px a due colonne**
+(`mappai-active-study.js`: `buildModal` con `opts.maxWidth`; sinistra "Modalità di
+studio", destra "Viste ed esercizi rapidi" — Cloze avvia, Heat map 🎯 e Mappa lavoro 🔥
+toggle con stato — + "Strumenti" — Cosa studiare ora 🧭, Palazzo della Memoria 🏛️,
+Progressi 📈). Colonna flottante destra VUOTA di default. (2) Nuova sezione **"Output
+materiali di studio"** nel menu azioni rapide (`index.html`): Foglio nodi · Sintesi di
+ramo · Stampa dossier · Timeline · Jigsaw×3. (3) Flottante **Memory Dungeon 🎮 rimosso**
+di default (ingresso futuro: hub Knowledge Garden). (4) Nuovo bottone **"Knowledge
+Garden"** (sprout) nel menu azioni rapide sotto Studio attivo — contratto: chiama
+`window.openKnowledgeGardenHub()` se definito (hub in sviluppo su altro filone),
+altrimenti toast `tst_kg_soon`. Kill-switch `mappai_legacy_float_btns='1'` ripristina
+TUTTI e 7 i flottanti alle posizioni storiche (20/84/148/212/276/340/404). i18n
+bilingue (`ui_output_materials`, `ui_knowledge_garden`, `tt_knowledge_garden` in
+entrambi i dizionari; `as_*`/`tst_kg_soon` via `window.t`). Suite **250/250** ✅.
+⚠️ Non ancora testato in Electron vivo: debug-run manuale `npm start`
+(quickstart.md + T025 della feature).
 
 ### ✅ FATTO (7/7/26): §21 movimento quota-aware in-app — gradini/salto/discesa cappata
 Design + implementazione completa Q1→Q4 in `MEMORY_DUNGEON_DESIGN.md` §21 (stato: §21.9).
@@ -979,7 +985,7 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_l1_split_enabled` | Fase 1.6: spezza macro-aree composte ("Neutralità e Difesa" → 2 atomiche) | OFF |
 | `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
 | `mappai_kg_community_mode` | **KG Community (stile MiniMAP)**: single-pass + comunità GraphRAG invece dell'albero forzato. Solo modalità KG | OFF |
-| `mappai_legacy_float_btns` | **Ripristina i bottoni flottanti storici** (Cloze 📝, Padronanza 🎯, Lavoro 🔥) sul bordo destro. Con feature 001-menu-reorg queste 3 funzioni sono passate nel launcher Studio attivo e i 4 flottanti restanti si sono compattati; `'1'` torna alla disposizione precedente | OFF |
+| `mappai_legacy_float_btns` | **Ripristina i 7 bottoni flottanti storici** del bordo destro (Cloze 📝 20 · Padronanza 🎯 84 · Progressi 📈 148 · Percorso 🧭 212 · Palazzo 🏛️ 276 · Dungeon 🎮 340 · Lavoro 🔥 404). Con feature 001-menu-reorg tutto vive nel launcher Studio attivo (viste+strumenti) e la colonna è vuota; `'1'` torna alla disposizione precedente | OFF |
 
 **Comandi console:**
 ```js

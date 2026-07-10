@@ -178,3 +178,20 @@ Task: "T008 bottom 340→212 in public/js/mappai-games.js"
   o accorpare.
 - Comportamento funzioni MAI modificato: solo punti d'ingresso e posizioni.
 - Commit dopo ogni story o gruppo logico; kill-switch documentato in T017.
+
+---
+
+## Phase 7: Addendum 2026-07-10 — Strumenti nel launcher, landscape, Knowledge Garden (US4)
+
+**Goal**: colonna flottante destra vuota di default; launcher landscape a due
+colonne con terza sezione "Strumenti"; via il flottante Memory Dungeon; nuovo
+bottone Knowledge Garden nel menu azioni rapide (hook `window.openKnowledgeGardenHub`).
+
+- [X] T018 [US4] In `public/js/mappai-active-study.js`: `buildModal` accetta `opts.maxWidth`; `openLauncher` ristrutturato a griglia landscape (auto-fit 300px) — colonna sinistra "Modalità di studio", colonna destra "Viste ed esercizi rapidi" + "Strumenti" (Cosa studiare ora → `MappAIStudyPath.open()`, Palazzo della Memoria → `MappAIPalace.start()`, Progressi → `MappAICeleration.open()`); modale a 980px.
+- [X] T019 [P] [US4] In `public/js/mappai-celeration.js`: gate legacy su `injectBtn()`, posizione storica 148 ripristinata (via ternaria di compattazione).
+- [X] T020 [P] [US4] In `public/js/mappai-study-path.js`: gate legacy, posizione storica 212.
+- [X] T021 [P] [US4] In `public/js/mappai-palace.js`: gate legacy, posizione storica 276.
+- [X] T022 [P] [US4] In `public/js/mappai-games.js` `_injectLauncher()`: gate legacy (flottante Memory Dungeon rimosso di default), posizione storica 340; commento-mappa colonna aggiornato in `mappai-effort-view.js`.
+- [X] T023 [US4] In `public/index.html`: bottone "Knowledge Garden" (icona sprout) sotto "Studio attivo" — chiama `window.openKnowledgeGardenHub()` se presente, altrimenti toast `tst_kg_soon`.
+- [X] T024 [P] [US4] i18n: `ui_knowledge_garden` + `tt_knowledge_garden` in ENTRAMBI i dizionari; `as_modes_header`, `as_tools_header`, `as_studypath_*`, `as_palace_*`, `as_celeration_*`, `tst_kg_soon` in en_translations.js.
+- [ ] T025 [US4] Verifica Electron: launcher landscape (2 colonne, 3 sezioni), 6 ex-flottanti funzionanti dal launcher, colonna destra vuota, bottone Knowledge Garden → toast, flag legacy → 7 flottanti alle posizioni storiche.

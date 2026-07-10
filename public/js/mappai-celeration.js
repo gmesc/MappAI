@@ -114,15 +114,14 @@
   };
 
   function injectBtn() {
+    // Spostato nel launcher Studio attivo (Strumenti): flottante solo in modalità legacy.
+    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
     if (document.getElementById('cel-btn')) return;
     const b = document.createElement('button');
     b.id = 'cel-btn';
     b.title = 'I tuoi progressi nel tempo';
     b.textContent = '📈';
-    // Colonna destra compattata dopo lo spostamento di cloze/mastery/effort nel
-    // launcher Studio attivo: legacy 148 → default 20 (flag mappai_legacy_float_btns).
-    const _legacy = localStorage.getItem('mappai_legacy_float_btns') === '1';
-    b.style.cssText = `position:fixed;bottom:${_legacy ? 148 : 20}px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #2563eb;background:#fff;color:#2563eb;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(37,99,235,.5)`;
+    b.style.cssText = 'position:fixed;bottom:148px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #2563eb;background:#fff;color:#2563eb;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(37,99,235,.5)';
     b.onclick = () => CEL.open();
     document.body.appendChild(b);
   }

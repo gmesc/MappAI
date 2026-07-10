@@ -101,10 +101,11 @@
     b.id = 'ev-btn';
     b.title = 'Mostra il lavoro svolto sul grafo (effort)';
     b.textContent = '🔥';
-    // Colonna flottante destra — solo modalità legacy. Ordine (legacy):
-    //   20 cloze · 84 mastery · 148 celeration · 212 study-path · 276 palazzo · 340 games · 404 effort
-    // Default (senza flag): cloze/mastery/effort spariscono, i restanti scalano a
-    //   20 celeration · 84 study-path · 148 palazzo · 212 games (vedi rispettivi injectBtn).
+    // Colonna flottante destra — SOLO modalità legacy (mappai_legacy_float_btns='1').
+    // Ordine legacy: 20 cloze · 84 mastery · 148 celeration · 212 study-path ·
+    //   276 palazzo · 340 games · 404 effort.
+    // Default (senza flag): colonna vuota — tutto vive nel launcher Studio attivo
+    //   (viste, esercizi, strumenti); Memory Dungeon passerà dall'hub Knowledge Garden.
     b.style.cssText = 'position:fixed;bottom:404px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #4f46e5;background:#fff;color:#4f46e5;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(79,70,229,.5)';
     b.onclick = () => EV.toggle();
     document.body.appendChild(b);

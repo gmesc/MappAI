@@ -440,6 +440,8 @@ const it_translations = {
     ui_merge_maps: "Unisci Mappe",
     ui_import_floorplan: "Importa piano Dungeon",
     ui_output_materials: "Output materiali di studio",
+    ui_knowledge_garden: "Knowledge Garden",
+    tt_knowledge_garden: "Knowledge Garden: crea, condividi ed esplora i giardini della classe",
     ui_node_sheet_btn: "Foglio nodi",
     ui_print_dossier_btn: "Stampa dossier",
     ui_create_timeline: "Crea Timeline",

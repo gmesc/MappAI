@@ -174,3 +174,37 @@ formato di salvataggio, vault o mappa viene toccato.
   palazzo, giochi) NON fanno parte di questa feature e non si toccano.
 - Non serve migrazione dati né onboarding dedicato: la voce "Studio attivo" nel
   menu azioni rapide esiste già ed è il punto d'ingresso naturale.
+
+## Addendum 2026-07-10 — Estensione richiesta dall'utente
+
+Dopo la prima consegna, tre interventi aggiuntivi (stessa filosofia: riordino
+punti d'ingresso, zero cambi di comportamento):
+
+### User Story 4 - Tutti gli strumenti di studio nel launcher (Priority: P1)
+
+Anche "Cosa studiare ora" (percorso di studio 🧭), "Palazzo della Memoria" (🏛️)
+e "I tuoi progressi nel tempo" (celeration 📈) escono dalla colonna flottante
+ed entrano nel launcher Studio attivo, in una terza sezione "Strumenti".
+Il launcher diventa un modale **landscape** (due colonne): a sinistra le
+modalità di studio, a destra "Viste ed esercizi rapidi" + "Strumenti".
+Su finestre strette le colonne si impilano.
+
+**Acceptance**: le 3 funzioni si avviano dal launcher identiche a prima; i loro
+flottanti non compaiono più (tornano col flag legacy alle posizioni storiche).
+
+### Rimozione bottone Memory Dungeon
+
+Il flottante 🎮 sparisce dalla UI di default (ingresso futuro: hub Knowledge
+Garden). Con `mappai_legacy_float_btns='1'` torna alla posizione storica.
+Resta invariata la voce "Importa piano Dungeon" nel menu azioni rapide.
+
+### Bottone Knowledge Garden nel menu azioni rapide
+
+Nuova voce "Knowledge Garden" (icona sprout) sotto "Studio attivo": apre l'hub
+dedicato a creazione/condivisione/esplorazione dei giardini (attività grafiche
+interdisciplinari, in sviluppo su altro filone). Contratto: l'hub espone
+`window.openKnowledgeGardenHub()`; finché assente, il bottone mostra un toast
+informativo ("in arrivo"). Etichette bilingui.
+
+**Effetto netto**: colonna flottante destra VUOTA di default — tutto vive nel
+launcher Studio attivo o nel menu azioni rapide.

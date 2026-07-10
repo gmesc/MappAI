@@ -1514,7 +1514,8 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         card.setAttribute('role', 'dialog');
         card.setAttribute('aria-modal', 'true');
         card.setAttribute('aria-label', title);
-        card.style.cssText = 'background:#fff;border-radius:16px;max-width:520px;width:92%;max-height:84vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px';
+        // opts.maxWidth: il launcher usa un formato landscape largo; gli altri modali restano 520px.
+        card.style.cssText = 'background:#fff;border-radius:16px;max-width:' + ((opts && opts.maxWidth) || '520px') + ';width:92%;max-height:84vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px';
         let btnHtml = '';
         (buttons || []).forEach(b => {
             const style = b.primary
@@ -1555,10 +1556,11 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         const chainOk = !!findBestChain(liveParentOf());
         const recommended = recommendedMode();
 
-        let cards = '';
+        let noRoot = '';
         if (!hasRoot) {
-            cards += '<p style="font-size:12px;color:#b45309;background:#fffbeb;border-radius:8px;padding:8px 10px;margin:0 0 10px">' + window.t('as_no_root_note', 'Mappa senza nodo centrale (es. Knowledge Graph): disponibili le modalità che non richiedono la gerarchia.') + '</p>';
+            noRoot = '<p style="font-size:12px;color:#b45309;background:#fffbeb;border-radius:8px;padding:8px 10px;margin:0 0 10px">' + window.t('as_no_root_note', 'Mappa senza nodo centrale (es. Knowledge Graph): disponibili le modalità che non richiedono la gerarchia.') + '</p>';
         }
+        let modeCards = '';
         Object.entries(MODES).forEach(([num, m]) => {
             const n = Number(num);
             if (!hasRoot && HIERARCHICAL_MODES[n]) return;
@@ -1568,19 +1570,20 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             if (n === 6 && richEdges < 3) disabled = window.t('as_need_verbs', 'Servono almeno 3 frecce con verbi significativi (attiva le linking words in generazione).');
             const isRec = !disabled && n === recommended;
             const badge = isRec ? '<span style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;margin-left:6px">⭐ ' + window.t('as_recommended', 'Consigliato') + '</span>' : '';
-            cards += `<button type="button" class="as-mode-card" data-mode="${num}" ${disabled ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1px solid ${isRec ? '#4f46e5' : '#e2e8f0'};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${disabled ? 'default' : 'pointer'};transition:border-color .15s;${disabled ? 'opacity:.5' : ''}">
+            modeCards += `<button type="button" class="as-mode-card" data-mode="${num}" ${disabled ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1px solid ${isRec ? '#4f46e5' : '#e2e8f0'};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${disabled ? 'default' : 'pointer'};transition:border-color .15s;${disabled ? 'opacity:.5' : ''}">
                 <i data-lucide="${m.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
                 <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${num}. ${m.title}${badge}</span>
                 <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${disabled || m.hint}</span></span>
             </button>`;
         });
 
-        // Viste ed esercizi rapidi: Cloze (avvia), Heat map padronanza e Mappa
-        // lavoro (toggle). Prima erano bottoni flottanti sul canvas; ora vivono
-        // qui sotto le modalità, così le attività di studio stanno in un posto solo.
+        // Viste ed esercizi rapidi (Cloze avvia; Heat map / Mappa lavoro toggle) +
+        // Strumenti (percorso di studio, palazzo della memoria, progressi).
+        // Prima erano bottoni flottanti sul canvas; ora vivono qui, così le
+        // attività di studio stanno in un posto solo.
         const mvOn = !!(window.MappAIMasteryView && window.MappAIMasteryView.active);
         const evOn = !!(window.MappAIEffortView && window.MappAIEffortView.active);
-        const extras = [
+        const views = [
             { key: 'cloze', icon: 'pencil-line', ok: !!window.MappAICloze,
               title: window.t('as_cloze_title', 'Cloze — completa le definizioni'),
               hint: window.t('as_cloze_hint', 'Riempi i termini oscurati nelle descrizioni dei nodi.') },
@@ -1591,18 +1594,40 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
               title: window.t('as_effort_title', 'Mappa lavoro'),
               hint: evOn ? window.t('as_view_on', 'Vista ATTIVA — clicca per spegnere') : window.t('as_view_off', 'Vista spenta — clicca per accendere') }
         ];
-        cards += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:16px 0 8px">${window.t('as_views_header', 'Viste ed esercizi rapidi')}</div>`;
-        extras.forEach(x => {
+        const tools = [
+            { key: 'studypath', icon: 'compass', ok: !!(window.MappAIStudyPath && window.MappAIStudyPath.open),
+              title: window.t('as_studypath_title', 'Cosa studiare ora'),
+              hint: window.t('as_studypath_hint', 'Percorso consigliato e ripasso programmato.') },
+            { key: 'palace', icon: 'landmark', ok: !!(window.MappAIPalace && window.MappAIPalace.start),
+              title: window.t('as_palace_title', 'Palazzo della Memoria'),
+              hint: window.t('as_palace_hint', 'Viaggio per stanze col metodo dei loci.') },
+            { key: 'celeration', icon: 'trending-up', ok: !!(window.MappAICeleration && window.MappAICeleration.open),
+              title: window.t('as_celeration_title', 'I tuoi progressi nel tempo'),
+              hint: window.t('as_celeration_hint', 'Grafico di crescita delle tue sessioni (celeration).') }
+        ];
+        const sectionHeader = txt => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 8px">${txt}</div>`;
+        const extraCard = x => {
             const dis = x.ok ? '' : window.t('as_extra_missing', 'Funzione non disponibile.');
             const activeBorder = x.on ? '#4f46e5' : '#e2e8f0';
-            cards += `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
+            return `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
                 <i data-lucide="${x.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
                 <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${x.title}</span>
                 <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${dis || x.hint}</span></span>
             </button>`;
-        });
+        };
 
-        const modal = buildModal('🧩 Studio attivo — scegli una modalità', cards, [{ label: 'Annulla', id: 'as-launch-cancel' }]);
+        // Layout landscape a due colonne: modalità a sinistra, viste+strumenti a
+        // destra. auto-fit → su finestre strette le colonne si impilano da sole.
+        const body = noRoot + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 22px;align-items:start">
+            <div>${sectionHeader(window.t('as_modes_header', 'Modalità di studio'))}${modeCards}</div>
+            <div>
+                ${sectionHeader(window.t('as_views_header', 'Viste ed esercizi rapidi'))}${views.map(extraCard).join('')}
+                <div style="height:10px"></div>
+                ${sectionHeader(window.t('as_tools_header', 'Strumenti'))}${tools.map(extraCard).join('')}
+            </div>
+        </div>`;
+
+        const modal = buildModal('🧩 Studio attivo — scegli una modalità', body, [{ label: 'Annulla', id: 'as-launch-cancel' }], { maxWidth: '980px' });
         modal.querySelector('#as-launch-cancel').onclick = () => modal.remove();
         modal.querySelectorAll('.as-mode-card').forEach(btn => {
             if (btn.disabled) return;
@@ -1622,6 +1647,9 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
                 if (key === 'cloze') { if (window.MappAICloze) window.MappAICloze.start(); }
                 else if (key === 'heatmap') { if (window.MappAIMasteryView) window.MappAIMasteryView.toggle(); }
                 else if (key === 'effort') { if (window.MappAIEffortView) window.MappAIEffortView.toggle(); }
+                else if (key === 'studypath') { if (window.MappAIStudyPath) window.MappAIStudyPath.open(); }
+                else if (key === 'palace') { if (window.MappAIPalace) window.MappAIPalace.start(); }
+                else if (key === 'celeration') { if (window.MappAICeleration) window.MappAICeleration.open(); }
             };
         });
         if (window.safeCreateIcons) window.safeCreateIcons();

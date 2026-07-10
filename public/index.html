@@ -1410,6 +1410,12 @@
                     <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
                         <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
+                    <!-- Hub Knowledge Garden: creazione/condivisione/esplorazione dei giardini
+                         (attività grafiche interdisciplinari). L'hub espone window.openKnowledgeGardenHub;
+                         finché non è caricato il bottone mostra un toast informativo. -->
+                    <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
+                        <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
+                    </button>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
                         <i data-lucide="rotate-ccw"></i> <span data-i18n="ui_undo">Annulla</span><span class="undo-count"></span>
