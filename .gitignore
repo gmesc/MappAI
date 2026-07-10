@@ -59,3 +59,7 @@ prompts_config_backup_*.json
 CONTEXT.md
 brain/
 .gemini_status.json
+
+# Claude Code — credenziali/log locali (spec-kit warning)
+.claude/settings.local.json
+.claude/*.log
