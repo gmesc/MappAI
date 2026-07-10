@@ -83,6 +83,9 @@ window.loadVaultList = async function () {
 };
 
 window.directLoadVault = async function (folderPath) {
+    // Mappa in sostituzione: chiudi un'eventuale sessione di Studio attivo
+    // (ripristino snapshot) prima di caricare il vault.
+    if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
     window.showLoadingOverlay(true, "Caricamento Vault...");
     try {
         const loadRes = await window.electronAPI.loadVault(folderPath);

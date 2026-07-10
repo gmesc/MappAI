@@ -195,3 +195,20 @@ bottone Knowledge Garden nel menu azioni rapide (hook `window.openKnowledgeGarde
 - [X] T023 [US4] In `public/index.html`: bottone "Knowledge Garden" (icona sprout) sotto "Studio attivo" — chiama `window.openKnowledgeGardenHub()` se presente, altrimenti toast `tst_kg_soon`.
 - [X] T024 [P] [US4] i18n: `ui_knowledge_garden` + `tt_knowledge_garden` in ENTRAMBI i dizionari; `as_modes_header`, `as_tools_header`, `as_studypath_*`, `as_palace_*`, `as_celeration_*`, `tst_kg_soon` in en_translations.js.
 - [ ] T025 [US4] Verifica Electron: launcher landscape (2 colonne, 3 sezioni), 6 ex-flottanti funzionanti dal launcher, colonna destra vuota, bottone Knowledge Garden → toast, flag legacy → 7 flottanti alle posizioni storiche.
+
+---
+
+## Phase 8: Fix critico 2026-07-10 — perdita gerarchia con sessione Studio attivo aperta
+
+**Bug**: le modalità che smontano la mappa (1/2/5/7: link rimossi, livelli/label
+alterati) + "Torna alla Home" = `saveCurrentProject()` persisteva lo stato
+dell'esercizio e il reload uccideva lo snapshot (solo in memoria) → gerarchia
+irrecuperabile. Aggravante: `renderGraph` è monkey-patchato per salvare, quindi
+lo stato smontato finiva in localStorage già DURANTE la sessione (autosave
+`setInterval` incluso) — un crash a metà sessione aveva lo stesso effetto.
+
+- [X] T026 GUARDIA persistenza in `public/js/mappai-storage-lang.js` `saveCurrentProject()`: se `ActiveStudy.session.active` → return. Protegge TUTTI i percorsi di salvataggio (autosave, renderGraph-patch, chiamate dirette).
+- [X] T027 `ActiveStudy.emergencyExit()` in `public/js/mappai-active-study.js`: chiusura sincrona senza modali — salva punteggio pendente (`finishSession(null)`), `doExit()` (ripristino snapshot + cleanup UI), fallback `restoreSnapshot()` se doExit fallisce.
+- [X] T028 `emergencyExit()` chiamata prima di ogni sostituzione mappa: `backToLanding` (mappai-ui-canvas.js), `importGraph` (mappai-ui-canvas.js), `loadMapVault` (mappai-vault-io.js), `directLoadVault` (mappai-vault-manager.js).
+- [X] T029 Launcher: Cloze e Palazzo della Memoria spostati nella colonna "Modalità di studio" (sotto le 7 numerate); a destra restano Viste (Heat map, Mappa lavoro) e Strumenti (Cosa studiare ora, Progressi).
+- [ ] T030 Verifica Electron: avvia modo 5 (intruso) → "Torna alla Home" → riapri progetto → gerarchia INTATTA; idem con import JSON e apertura vault a sessione attiva; autosave durante sessione non sporca localStorage.

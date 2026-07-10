@@ -11,6 +11,12 @@
 const StorageManager = {
     currentProjectId: null,
     saveCurrentProject: function () {
+        // GUARDIA Studio attivo: durante una sessione la mappa sul canvas è
+        // volutamente smontata dall'esercizio (link rimossi, livelli/label
+        // alterati). Persisterla renderebbe DEFINITIVO lo stato dell'esercizio:
+        // gerarchia irrecuperabile al reload (lo snapshot vive solo in memoria).
+        // exit()/emergencyExit() ripristinano la mappa e il salvataggio riprende.
+        if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) return;
         if (!appState || !appState.db || !appState.db.nodes || appState.db.nodes.length === 0) return;
 
         if (!this.currentProjectId) {

@@ -551,8 +551,16 @@ altrimenti toast `tst_kg_soon`. Kill-switch `mappai_legacy_float_btns='1'` ripri
 TUTTI e 7 i flottanti alle posizioni storiche (20/84/148/212/276/340/404). i18n
 bilingue (`ui_output_materials`, `ui_knowledge_garden`, `tt_knowledge_garden` in
 entrambi i dizionari; `as_*`/`tst_kg_soon` via `window.t`). Suite **250/250** ✅.
+**FIX CRITICO (stessa sera)**: le modalità di Studio attivo che smontano la mappa
+(1/2/5/7) + "Torna alla Home" perdevano la gerarchia PER SEMPRE — `renderGraph` è
+monkey-patchato per salvare, quindi lo stato smontato finiva in localStorage già
+durante la sessione; il reload uccideva lo snapshot (solo in memoria). Fix a 3 strati:
+guardia in `saveCurrentProject` (mai persistere con sessione attiva),
+`ActiveStudy.emergencyExit()` (chiusura sincrona: punteggio + ripristino snapshot,
+zero modali), chiamata in `backToLanding`/`importGraph`/`loadMapVault`/`directLoadVault`.
+Inoltre Cloze e Palazzo spostati tra le "Modalità di studio" nel launcher (richiesta utente).
 ⚠️ Non ancora testato in Electron vivo: debug-run manuale `npm start`
-(quickstart.md + T025 della feature).
+(quickstart.md + T025/T030 della feature).
 
 ### ✅ FATTO (7/7/26): §21 movimento quota-aware in-app — gradini/salto/discesa cappata
 Design + implementazione completa Q1→Q4 in `MEMORY_DUNGEON_DESIGN.md` §21 (stato: §21.9).

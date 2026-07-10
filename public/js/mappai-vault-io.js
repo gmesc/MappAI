@@ -130,6 +130,9 @@ window.loadDemoGraph = async function (url) {
     }
 };
 window.loadMapVault = async function () {
+    // Mappa in sostituzione: chiudi un'eventuale sessione di Studio attivo
+    // (ripristino snapshot) prima di caricare il vault.
+    if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
     try {
         const result = await window.electronAPI.pickFolder({ importOnly: true });
         if (result.canceled) return;

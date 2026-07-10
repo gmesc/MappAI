@@ -1486,6 +1486,26 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         doExit();
     };
 
+    // Chiusura SINCRONA senza modali — da chiamare PRIMA di salvare o sostituire
+    // la mappa (ritorno alla landing, cambio progetto, import). La sessione
+    // smonta la mappa e lo snapshot vive solo in memoria: senza questo ripristino
+    // un salvataggio+reload renderebbe permanente lo stato dell'esercizio
+    // (gerarchia persa). Il punteggio pendente si salva senza domanda di riflessione.
+    ActiveStudy.emergencyExit = function () {
+        const s = ActiveStudy.session;
+        if (!s.active) return false;
+        if (s.lastSummary && !s.saved) {
+            try { finishSession(null); } catch (e) { console.warn('[ActiveStudy] finishSession in emergencyExit', e); }
+        }
+        try { doExit(); } catch (e) {
+            // fallback estremo: i DATI prima di tutto, la UI si arrangia
+            console.warn('[ActiveStudy] doExit in emergencyExit', e);
+            try { restoreSnapshot(); } catch (e2) { console.error('[ActiveStudy] restoreSnapshot fallita', e2); }
+            s.active = false;
+        }
+        return true;
+    };
+
     function doExit() {
         restoreSnapshot();
         ActiveStudy.session.active = false;
@@ -1577,16 +1597,21 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             </button>`;
         });
 
-        // Viste ed esercizi rapidi (Cloze avvia; Heat map / Mappa lavoro toggle) +
-        // Strumenti (percorso di studio, palazzo della memoria, progressi).
-        // Prima erano bottoni flottanti sul canvas; ora vivono qui, così le
-        // attività di studio stanno in un posto solo.
+        // Cloze e Palazzo della Memoria = MODALITÀ di studio a tutti gli effetti
+        // (colonna sinistra, sotto le 7 numerate). Viste (toggle) e Strumenti
+        // a destra. Prima erano bottoni flottanti sul canvas; ora vivono qui,
+        // così le attività di studio stanno in un posto solo.
         const mvOn = !!(window.MappAIMasteryView && window.MappAIMasteryView.active);
         const evOn = !!(window.MappAIEffortView && window.MappAIEffortView.active);
-        const views = [
+        const extraModes = [
             { key: 'cloze', icon: 'pencil-line', ok: !!window.MappAICloze,
               title: window.t('as_cloze_title', 'Cloze — completa le definizioni'),
               hint: window.t('as_cloze_hint', 'Riempi i termini oscurati nelle descrizioni dei nodi.') },
+            { key: 'palace', icon: 'landmark', ok: !!(window.MappAIPalace && window.MappAIPalace.start),
+              title: window.t('as_palace_title', 'Palazzo della Memoria'),
+              hint: window.t('as_palace_hint', 'Viaggio per stanze col metodo dei loci.') }
+        ];
+        const views = [
             { key: 'heatmap', icon: 'target', ok: !!window.MappAIMasteryView, on: mvOn,
               title: window.t('as_heatmap_title', 'Heat map padronanza'),
               hint: mvOn ? window.t('as_view_on', 'Vista ATTIVA — clicca per spegnere') : window.t('as_view_off', 'Vista spenta — clicca per accendere') },
@@ -1598,9 +1623,6 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             { key: 'studypath', icon: 'compass', ok: !!(window.MappAIStudyPath && window.MappAIStudyPath.open),
               title: window.t('as_studypath_title', 'Cosa studiare ora'),
               hint: window.t('as_studypath_hint', 'Percorso consigliato e ripasso programmato.') },
-            { key: 'palace', icon: 'landmark', ok: !!(window.MappAIPalace && window.MappAIPalace.start),
-              title: window.t('as_palace_title', 'Palazzo della Memoria'),
-              hint: window.t('as_palace_hint', 'Viaggio per stanze col metodo dei loci.') },
             { key: 'celeration', icon: 'trending-up', ok: !!(window.MappAICeleration && window.MappAICeleration.open),
               title: window.t('as_celeration_title', 'I tuoi progressi nel tempo'),
               hint: window.t('as_celeration_hint', 'Grafico di crescita delle tue sessioni (celeration).') }
@@ -1619,7 +1641,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         // Layout landscape a due colonne: modalità a sinistra, viste+strumenti a
         // destra. auto-fit → su finestre strette le colonne si impilano da sole.
         const body = noRoot + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 22px;align-items:start">
-            <div>${sectionHeader(window.t('as_modes_header', 'Modalità di studio'))}${modeCards}</div>
+            <div>${sectionHeader(window.t('as_modes_header', 'Modalità di studio'))}${modeCards}${extraModes.map(extraCard).join('')}</div>
             <div>
                 ${sectionHeader(window.t('as_views_header', 'Viste ed esercizi rapidi'))}${views.map(extraCard).join('')}
                 <div style="height:10px"></div>

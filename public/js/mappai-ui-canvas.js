@@ -175,6 +175,10 @@ window.switchToMapLayout = function () {
 }
 
 window.backToLanding = function () {
+    // Studio attivo in corso = mappa smontata dall'esercizio (link/livelli
+    // alterati): ripristina lo snapshot PRIMA di salvare, altrimenti il reload
+    // rende permanente lo stato dell'esercizio e la gerarchia è persa.
+    if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
     StorageManager.saveCurrentProject();
     window.location.reload();
 }
@@ -945,6 +949,9 @@ window.openSaveFolder = async function () {
 };
 
 window.importGraph = function (event) {
+    // La mappa sta per essere sostituita: chiudi un'eventuale sessione di
+    // Studio attivo (ripristino snapshot) prima che lo snapshot punti a nodi morti.
+    if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
     const file = event.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = function (e) {
