@@ -194,6 +194,8 @@
 
   // Bottone fluttuante di avvio
   function injectBtn() {
+    // Spostato nel launcher Studio attivo: il flottante torna solo in modalità legacy.
+    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
     if (document.getElementById('cz-btn')) return;
     const b = document.createElement('button');
     b.id = 'cz-btn';

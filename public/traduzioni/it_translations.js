@@ -439,6 +439,7 @@ const it_translations = {
     ui_sync_vault: "Sincronizza Vault",
     ui_merge_maps: "Unisci Mappe",
     ui_import_floorplan: "Importa piano Dungeon",
+    ui_output_materials: "Output materiali di studio",
     ui_node_sheet_btn: "Foglio nodi",
     ui_print_dossier_btn: "Stampa dossier",
     ui_create_timeline: "Crea Timeline",

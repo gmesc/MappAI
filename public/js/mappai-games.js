@@ -4014,7 +4014,9 @@
     var b = document.createElement('button');
     b.id = 'mdg-launch'; b.type = 'button'; b.textContent = '🎮';
     b.title = 'Memory Dungeon';
-    b.style.cssText = 'position:fixed;bottom:340px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #3aa0c9;background:#fff;color:#3aa0c9;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(58,160,201,.5)';
+    // Colonna destra compattata (vedi celeration): legacy 340 → default 212.
+    var _legacy = localStorage.getItem('mappai_legacy_float_btns') === '1';
+    b.style.cssText = 'position:fixed;bottom:' + (_legacy ? 340 : 212) + 'px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #3aa0c9;background:#fff;color:#3aa0c9;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(58,160,201,.5)';
     b.onclick = openChooser;
     document.body.appendChild(b);
   }

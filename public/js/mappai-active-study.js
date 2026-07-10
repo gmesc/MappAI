@@ -1574,6 +1574,34 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
                 <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${disabled || m.hint}</span></span>
             </button>`;
         });
+
+        // Viste ed esercizi rapidi: Cloze (avvia), Heat map padronanza e Mappa
+        // lavoro (toggle). Prima erano bottoni flottanti sul canvas; ora vivono
+        // qui sotto le modalità, così le attività di studio stanno in un posto solo.
+        const mvOn = !!(window.MappAIMasteryView && window.MappAIMasteryView.active);
+        const evOn = !!(window.MappAIEffortView && window.MappAIEffortView.active);
+        const extras = [
+            { key: 'cloze', icon: 'pencil-line', ok: !!window.MappAICloze,
+              title: window.t('as_cloze_title', 'Cloze — completa le definizioni'),
+              hint: window.t('as_cloze_hint', 'Riempi i termini oscurati nelle descrizioni dei nodi.') },
+            { key: 'heatmap', icon: 'target', ok: !!window.MappAIMasteryView, on: mvOn,
+              title: window.t('as_heatmap_title', 'Heat map padronanza'),
+              hint: mvOn ? window.t('as_view_on', 'Vista ATTIVA — clicca per spegnere') : window.t('as_view_off', 'Vista spenta — clicca per accendere') },
+            { key: 'effort', icon: 'flame', ok: !!window.MappAIEffortView, on: evOn,
+              title: window.t('as_effort_title', 'Mappa lavoro'),
+              hint: evOn ? window.t('as_view_on', 'Vista ATTIVA — clicca per spegnere') : window.t('as_view_off', 'Vista spenta — clicca per accendere') }
+        ];
+        cards += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:16px 0 8px">${window.t('as_views_header', 'Viste ed esercizi rapidi')}</div>`;
+        extras.forEach(x => {
+            const dis = x.ok ? '' : window.t('as_extra_missing', 'Funzione non disponibile.');
+            const activeBorder = x.on ? '#4f46e5' : '#e2e8f0';
+            cards += `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
+                <i data-lucide="${x.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
+                <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${x.title}</span>
+                <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${dis || x.hint}</span></span>
+            </button>`;
+        });
+
         const modal = buildModal('🧩 Studio attivo — scegli una modalità', cards, [{ label: 'Annulla', id: 'as-launch-cancel' }]);
         modal.querySelector('#as-launch-cancel').onclick = () => modal.remove();
         modal.querySelectorAll('.as-mode-card').forEach(btn => {
@@ -1584,6 +1612,16 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
                 const mode = Number(btn.getAttribute('data-mode'));
                 modal.remove();
                 maybeChooseScope(mode, scope => ActiveStudy.enter(mode, scope));
+            };
+        });
+        modal.querySelectorAll('.as-extra-card').forEach(btn => {
+            if (btn.disabled) return;
+            btn.onclick = () => {
+                const key = btn.getAttribute('data-extra');
+                modal.remove();
+                if (key === 'cloze') { if (window.MappAICloze) window.MappAICloze.start(); }
+                else if (key === 'heatmap') { if (window.MappAIMasteryView) window.MappAIMasteryView.toggle(); }
+                else if (key === 'effort') { if (window.MappAIEffortView) window.MappAIEffortView.toggle(); }
             };
         });
         if (window.safeCreateIcons) window.safeCreateIcons();

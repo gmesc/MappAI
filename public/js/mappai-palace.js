@@ -213,7 +213,9 @@
     b.id = 'pal-btn';
     b.title = 'Palazzo della Memoria (viaggio per stanze)';
     b.textContent = '🏛️';
-    b.style.cssText = 'position:fixed;bottom:276px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
+    // Colonna destra compattata (vedi celeration): legacy 276 → default 148.
+    const _legacy = localStorage.getItem('mappai_legacy_float_btns') === '1';
+    b.style.cssText = `position:fixed;bottom:${_legacy ? 276 : 148}px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)`;
     b.onclick = () => PAL.start();
     document.body.appendChild(b);
   }

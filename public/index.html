@@ -1383,8 +1383,13 @@
                     <input type="file" id="menu-import-floorplan" accept=".json" class="hidden"
                         onchange="window.MappAIGames && window.MappAIGames.importFloorPlan(event)">
                     <div class="h-px bg-slate-100 my-1"></div>
+                    <!-- Sezione: Output Materiali di Studio (raggruppa le funzioni di generazione materiali) -->
+                    <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400" data-i18n="ui_output_materials">Output materiali di studio</div>
                     <button onclick="window.openNodeLabelsPrintModal()" title="Foglio nodi con forbici" data-i18n-title="tt_node_sheet">
                         <i data-lucide="scissors"></i> <span data-i18n="ui_node_sheet_btn">Foglio nodi</span>
+                    </button>
+                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo" data-i18n-title="tt_branch_synthesis">
+                        <i data-lucide="sparkles"></i> <span data-i18n="ui_branch_synth">Sintesi di ramo (AI)</span>
                     </button>
                     <button onclick="window.openDossierPrintModal()" title="Stampa dossier" data-i18n-title="tt_print_dossier">
                         <i data-lucide="files"></i> <span data-i18n="ui_print_dossier_btn">Stampa dossier</span>
@@ -1401,11 +1406,9 @@
                     <button id="jigsaw-gap-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openGapModal()" title="Confronta le copie dei gruppi col master: elenco lacune da restituire in revisione privata" data-i18n-title="tt_jigsaw_compare">
                         <i data-lucide="clipboard-check"></i> <span data-i18n="ui_gap_review">Revisione lacune</span>
                     </button>
+                    <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
                         <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
-                    </button>
-                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo" data-i18n-title="tt_branch_synthesis">
-                        <i data-lucide="sparkles"></i> <span data-i18n="ui_branch_synth">Sintesi di ramo (AI)</span>
                     </button>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
