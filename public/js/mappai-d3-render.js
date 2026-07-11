@@ -1133,16 +1133,17 @@ function _svgCloneWithStyles() {
 }
 
 // Registra Space Mono (normale + bold) in un'istanza jsPDF, così svg2pdf rende
-// il testo col font della mappa invece del serif di default. Il base64 viene
-// scaricato UNA volta e messo in cache (window.__spaceMonoB64). Best-effort:
-// se il fetch fallisce (offline), l'export prosegue col font di ripiego.
+// il testo col font della mappa invece del serif di default. Il font è
+// VENDORIZZATO in base64 (public/js/vendor/spacemono-font.js) → nessun fetch:
+// funziona OFFLINE. Fallback storico via fetch solo se il modulo non è caricato.
 async function _ensureSpaceMonoInPdf(pdf) {
+    if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(pdf)) return;
+    // Fallback (modulo font non caricato): scarica una volta e mette in cache.
     if (!window.__spaceMonoB64) {
-        const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
-        const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+        const base = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/';
         const [reg, bold] = await Promise.all([
-            fetch(regularUrl).then(r => r.arrayBuffer()),
-            fetch(boldUrl).then(r => r.arrayBuffer())
+            fetch(base + 'SpaceMono-Regular.ttf').then(r => r.arrayBuffer()),
+            fetch(base + 'SpaceMono-Bold.ttf').then(r => r.arrayBuffer())
         ]);
         const b64 = (buf) => {
             let bin = ''; const bytes = new Uint8Array(buf);

@@ -288,34 +288,28 @@ window.printAllNodeLabels = async function () {
 
     let fontName = "courier";
     try {
-        const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
-        const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
-
-        const [regRes, boldRes] = await Promise.all([
-            fetch(regularUrl).then(res => res.arrayBuffer()),
-            fetch(boldUrl).then(res => res.arrayBuffer())
-        ]);
-
-        const arrayBufferToBase64 = (buffer) => {
-            let binary = '';
-            const bytes = new Uint8Array(buffer);
-            const len = bytes.byteLength;
-            for (let i = 0; i < len; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return window.btoa(binary);
-        };
-
-        const regBase64 = arrayBufferToBase64(regRes);
-        const boldBase64 = arrayBufferToBase64(boldRes);
-
-        doc.addFileToVFS('SpaceMono-Regular.ttf', regBase64);
-        doc.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
-
-        doc.addFileToVFS('SpaceMono-Bold.ttf', boldBase64);
-        doc.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
-
-        fontName = "Space Mono";
+        // Font VENDORIZZATO (public/js/vendor/spacemono-font.js) → offline, zero fetch.
+        if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
+            fontName = "Space Mono";
+        } else {
+            // Fallback storico: scarica da GitHub se il modulo non è caricato.
+            const base = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/';
+            const [regRes, boldRes] = await Promise.all([
+                fetch(base + 'SpaceMono-Regular.ttf').then(res => res.arrayBuffer()),
+                fetch(base + 'SpaceMono-Bold.ttf').then(res => res.arrayBuffer())
+            ]);
+            const arrayBufferToBase64 = (buffer) => {
+                let binary = '';
+                const bytes = new Uint8Array(buffer);
+                for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                return window.btoa(binary);
+            };
+            doc.addFileToVFS('SpaceMono-Regular.ttf', arrayBufferToBase64(regRes));
+            doc.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+            doc.addFileToVFS('SpaceMono-Bold.ttf', arrayBufferToBase64(boldRes));
+            doc.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+            fontName = "Space Mono";
+        }
     } catch (err) {
         console.warn("Impossibile caricare Space Mono, uso Courier come fallback:", err);
     }
