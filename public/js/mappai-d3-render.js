@@ -1132,6 +1132,31 @@ function _svgCloneWithStyles() {
     return clonedSvg;
 }
 
+// Registra Space Mono (normale + bold) in un'istanza jsPDF, così svg2pdf rende
+// il testo col font della mappa invece del serif di default. Il base64 viene
+// scaricato UNA volta e messo in cache (window.__spaceMonoB64). Best-effort:
+// se il fetch fallisce (offline), l'export prosegue col font di ripiego.
+async function _ensureSpaceMonoInPdf(pdf) {
+    if (!window.__spaceMonoB64) {
+        const regularUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Regular.ttf';
+        const boldUrl = 'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/ttf/SpaceMono-Bold.ttf';
+        const [reg, bold] = await Promise.all([
+            fetch(regularUrl).then(r => r.arrayBuffer()),
+            fetch(boldUrl).then(r => r.arrayBuffer())
+        ]);
+        const b64 = (buf) => {
+            let bin = ''; const bytes = new Uint8Array(buf);
+            for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+            return window.btoa(bin);
+        };
+        window.__spaceMonoB64 = { regular: b64(reg), bold: b64(bold) };
+    }
+    pdf.addFileToVFS('SpaceMono-Regular.ttf', window.__spaceMonoB64.regular);
+    pdf.addFont('SpaceMono-Regular.ttf', 'Space Mono', 'normal');
+    pdf.addFileToVFS('SpaceMono-Bold.ttf', window.__spaceMonoB64.bold);
+    pdf.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
+}
+
 // Export PDF VETTORIALE (svg2pdf su jsPDF): l'intera mappa come vettori — testo
 // nitido a ogni zoom, niente overlay UI (per costruzione: si esporta solo l'SVG).
 // Su qualunque errore ripiega sull'export raster storico (_exportPDFRaster).
@@ -1164,6 +1189,14 @@ window.exportPDF = async function () {
         clone.setAttribute('viewBox', (bbox.x - MARGIN) + ' ' + (bbox.y - MARGIN) + ' ' + w + ' ' + h);
         clone.setAttribute('width', w);
         clone.setAttribute('height', h);
+        // svg2pdf risolve il font-family come CHIAVE ESATTA contro getFontList():
+        // la CSS globale "'Space Mono', monospace" ha gli apici → chiave con apici
+        // ≠ "Space Mono" registrato → ripiega su Times. Normalizziamo ogni
+        // font-family del <style> clonato a "Space Mono" nudo e lo forziamo anche
+        // come attributo su ogni testo (doppia difesa: stylesheet + attributo).
+        const cloneStyle = clone.querySelector('style');
+        if (cloneStyle) cloneStyle.textContent = cloneStyle.textContent.replace(/font-family\s*:[^;}]*/gi, 'font-family:Space Mono');
+        clone.querySelectorAll('text, tspan').forEach(el => el.setAttribute('font-family', 'Space Mono'));
 
         const pdf = new jsPDF({
             orientation: w > h ? 'landscape' : 'portrait',
@@ -1171,6 +1204,10 @@ window.exportPDF = async function () {
             format: [w, h],
             compress: true
         });
+        // Registra Space Mono nell'istanza: senza, svg2pdf usa un serif di default
+        // e le metriche sbagliate tagliano/deformano le etichette (best-effort).
+        try { await _ensureSpaceMonoInPdf(pdf); }
+        catch (e) { console.warn('[PDF] Space Mono non caricato, uso il font di ripiego:', e); }
         await pdf.svg(clone, { x: 0, y: 0, width: w, height: h });
 
         const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
