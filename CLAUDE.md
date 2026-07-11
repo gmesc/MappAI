@@ -561,7 +561,17 @@ allowlist statica, persistenza crash-safe, ripresa da disco con lo stesso token)
   `g#collab-overlay` a raggiera attorno al root — MAI dentro `appState.db`.
   Voce menu "Lavagna collaborativa" (presentation) sotto Knowledge Garden.
 - i18n: `ui/tt_collab_board` in ENTRAMBI i dizionari; `cl_*`/`tst_collab_*` in EN.
-  Suite **326/326** ✅ (301 + 13 core + 12 server).
+- **Rifiniture (11/7/26 sera, richiesta utente)**: pagina studente = VIEWPORT dell'app
+  (sfondo `#fafbff` + puntini `#ddd6fe`, Space Mono, root cerchio r45 `#0f172a` con
+  label centrata identica al L0); label più grandi (13/15/17) con alone bianco
+  `paint-order: stroke` (stile `.node-text`); gate **"Fatto ✓"** (flag `done` in
+  core/server/board, "Mostra classe" bloccato con hint finché non si consegna, badge ✓
+  in dashboard docente); tool **"⇢ Collega"** con keyword (tap A→B→dialog; edit/delete
+  dal label; `validateStudentLink`/`mergeGroupLinks` nel core, frecce+label con alone
+  su studente E overlay docente; `layerToGraph` esporta i link con la keyword, root
+  "propone" solo sui nodi senza entranti). UX ispirata a MiniMAP (~/Claude/minimap):
+  dot-grid, label con alone, keyword sugli archi. E2E ri-verificato contro server reale.
+  Suite **333/333** ✅ (18 core + 14 server).
 - ⚠️ T014 pendente: verifica in Electron vivo + 2 device Wi-Fi reali (serve l'utente).
 - Risposta alla domanda Jigsaw degli Appunti: il motore layer (toggle+rinomina) è
   questo; l'integrazione del reconcile Jigsaw sugli stessi layer = follow-up.

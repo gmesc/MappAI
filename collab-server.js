@@ -95,7 +95,10 @@ function createCollabServer(opts) {
       rootLabel: session.rootLabel,
       groups: Object.keys(groups).map(k => {
         const g = groups[k];
-        return { nick: g.nick, color: g.color, nodes: g.nodes, rev: g.rev, updatedAt: g.updatedAt };
+        return {
+          nick: g.nick, color: g.color, nodes: g.nodes, links: g.links || [],
+          done: !!g.done, rev: g.rev, updatedAt: g.updatedAt
+        };
       })
     };
   }
@@ -169,7 +172,7 @@ function createCollabServer(opts) {
           session: { name: session.name, rootLabel: session.rootLabel, startedAt: session.startedAt },
           groups: Object.keys(groups).map(k => {
             const g = groups[k];
-            return { nick: g.nick, color: g.color, nodeCount: (g.nodes || []).length, rev: g.rev, updatedAt: g.updatedAt };
+            return { nick: g.nick, color: g.color, nodeCount: (g.nodes || []).length, linkCount: (g.links || []).length, done: !!g.done, rev: g.rev, updatedAt: g.updatedAt };
           }),
           board: boardPublic()
         });
@@ -215,15 +218,25 @@ function createCollabServer(opts) {
             if (!g) return json(res, 404, { error: 'no-such-group' });
             if (g.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-group' });
             const r = CC.mergeGroupNodes(g.nodes, body.nodes);
-            if (!r.accepted && r.rejected.length) {
+            if (!r.accepted && r.rejected.length && !Array.isArray(body.links) && body.done === undefined) {
               return json(res, 422, { error: 'all-invalid', rejected: r.rejected });
             }
             g.nodes = r.nodes;
+            // collegamenti con keyword: merge con le estremità sui nodi correnti
+            const nodeIds = g.nodes.map(n => n.id);
+            const rl = CC.mergeGroupLinks(g.links || [], body.links, nodeIds);
+            g.links = rl.links;
+            // "Fatto": il gruppo dichiara chiusa la costruzione (sblocca la vista classe)
+            if (body.done === true) g.done = true;
             g.rev = (g.rev || 0) + 1;
             g.updatedAt = new Date().toISOString();
             persistGroup(slug);
             persist();
-            return json(res, 200, { ok: true, accepted: r.accepted, rejected: r.rejected, rev: g.rev });
+            return json(res, 200, {
+              ok: true, accepted: r.accepted, rejected: r.rejected,
+              linksAccepted: rl.accepted, linksRejected: rl.rejected,
+              done: !!g.done, rev: g.rev
+            });
           }
 
           if (p === '/api/release') {

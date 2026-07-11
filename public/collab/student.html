@@ -4,70 +4,109 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>MappAI — Lavagna collaborativa</title>
+<!-- Stesso font della viewport mappa dell'app (fallback monospace se la LAN è offline) -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
+      font-family: 'Space Mono', ui-monospace, monospace; }
   html, body { height: 100%; }
-  body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
-         display: flex; flex-direction: column; overflow: hidden; }
-  button { font-family: inherit; cursor: pointer; border: 0; }
+  body { background: #fafbff; color: #0f172a; display: flex; flex-direction: column; overflow: hidden; }
+  button { cursor: pointer; border: 0; }
 
   /* ── Join ── */
   #join { flex: 1; display: flex; flex-direction: column; align-items: center;
-          justify-content: center; gap: 14px; padding: 24px; text-align: center; }
-  #join h1 { font-size: 22px; color: #fff; }
-  #join .map-name { color: #818cf8; font-weight: 700; font-size: 15px; }
+          justify-content: center; gap: 14px; padding: 24px; text-align: center;
+          background-image: radial-gradient(#ddd6fe 1px, transparent 1px); background-size: 24px 24px; }
+  #join h1 { font-size: 22px; font-weight: 700; }
+  #join .map-name { color: #4f46e5; font-weight: 700; font-size: 15px; }
   #join input { width: min(320px, 84vw); padding: 13px 16px; border-radius: 12px;
-                border: 2px solid #334155; background: #1e293b; color: #fff;
+                border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
                 font-size: 16px; text-align: center; outline: none; }
   #join input:focus { border-color: #6366f1; }
   #join button { width: min(320px, 84vw); padding: 13px; border-radius: 12px;
                  background: #4f46e5; color: #fff; font-size: 16px; font-weight: 700; }
-  #join .err { color: #f87171; font-size: 13px; min-height: 18px; }
+  #join .err { color: #dc2626; font-size: 13px; min-height: 18px; }
 
   /* ── Editor ── */
   #editor { flex: 1; display: none; flex-direction: column; min-height: 0; }
   header { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-           background: #1e293b; border-bottom: 1px solid #334155; flex-wrap: wrap; }
-  header .title { font-weight: 700; font-size: 13px; color: #cbd5e1; flex: 1;
+           background: #fff; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+  header .title { font-weight: 700; font-size: 13px; color: #334155; flex: 1;
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .nick-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
-                color: #0f172a; }
-  #sync { font-size: 11px; color: #94a3b8; }
-  #sync.ok::before { content: '● '; color: #4ade80; }
-  #sync.wait::before { content: '● '; color: #fbbf24; }
-  #sync.err::before { content: '● '; color: #f87171; }
-  #board-toggle { background: #334155; color: #cbd5e1; border-radius: 8px;
+  .nick-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: #fff; }
+  #sync { font-size: 11px; color: #64748b; }
+  #sync.ok::before { content: '● '; color: #16a34a; }
+  #sync.wait::before { content: '● '; color: #d97706; }
+  #sync.err::before { content: '● '; color: #dc2626; }
+  #done-btn { background: #16a34a; color: #fff; border-radius: 8px; padding: 5px 12px;
+              font-size: 11px; font-weight: 700; }
+  #done-btn.is-done { background: #dcfce7; color: #166534; cursor: default; }
+  #board-toggle { background: #f1f5f9; color: #94a3b8; border-radius: 8px;
                   padding: 5px 10px; font-size: 11px; font-weight: 700; }
+  #board-toggle.ready { background: #e2e8f0; color: #334155; }
   #board-toggle.on { background: #4f46e5; color: #fff; }
 
-  #canvas-wrap { flex: 1; min-height: 0; position: relative; }
+  /* Canvas = viewport mappa dell'app: stesso sfondo a puntini */
+  #canvas-wrap { flex: 1; min-height: 0; position: relative;
+                 background-color: #fafbff;
+                 background-image: radial-gradient(#ddd6fe 1px, transparent 1px);
+                 background-size: 24px 24px; }
   svg { width: 100%; height: 100%; display: block; touch-action: none; }
-  .root-bubble { fill: #1e293b; stroke: #6366f1; stroke-width: 2.5; }
-  .root-label { fill: #e2e8f0; font-weight: 800; text-anchor: middle; }
-  .snode rect { rx: 10; stroke-width: 2.5; cursor: grab; }
-  .snode.mine rect { filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+
+  /* Root = nodo L0 dell'app: cerchio scuro, label centrata con alone bianco */
+  .root-circle { fill: #0f172a; stroke: #0f172a; stroke-width: 2; }
+  /* Label = .node-text dell'app: bold, alone bianco (paint-order stroke) */
+  .map-label { pointer-events: none; text-anchor: middle; font-weight: 700;
+               fill: #0f172a; stroke: #ffffff; stroke-width: 2.6px;
+               stroke-linejoin: round; paint-order: stroke fill; }
+  .snode rect { stroke-width: 2.5; cursor: grab; }
   .snode.ghost { opacity: .55; pointer-events: none; }
-  .snode text { fill: #0f172a; font-weight: 700; text-anchor: middle; pointer-events: none; }
   .snode.sel rect { stroke-dasharray: 6 3; }
+  .snode.linkfrom rect { stroke: #4f46e5; stroke-width: 4; }
+  .slink { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
+  .slink-label { text-anchor: middle; font-size: 11px; font-weight: 700;
+                 fill: #64748b; stroke: #ffffff; stroke-width: 2.4px;
+                 stroke-linejoin: round; paint-order: stroke fill; cursor: pointer; }
+  #mode-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+               background: #4f46e5; color: #fff; font-size: 12px; font-weight: 700;
+               padding: 6px 14px; border-radius: 999px; display: none; white-space: nowrap; }
 
   /* ── Toolbar ── */
-  #toolbar { background: #1e293b; border-top: 1px solid #334155; padding: 10px 12px;
+  #toolbar { background: #fff; border-top: 1px solid #e2e8f0; padding: 10px 12px;
              display: flex; flex-direction: column; gap: 8px; }
   #toolbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #node-text { flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 10px;
-               border: 2px solid #334155; background: #0f172a; color: #fff;
+               border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
                font-size: 15px; outline: none; }
   #node-text:focus { border-color: #6366f1; }
   .chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; }
-  .chip.sel { border-color: #fff; transform: scale(1.15); }
-  .size-btn { background: #334155; color: #cbd5e1; border-radius: 8px; padding: 6px 10px;
+  .chip.sel { border-color: #0f172a; transform: scale(1.15); }
+  .size-btn { background: #f1f5f9; color: #334155; border-radius: 8px; padding: 6px 10px;
               font-size: 12px; font-weight: 800; }
   .size-btn.sel { background: #6366f1; color: #fff; }
-  #add-btn { background: #22c55e; color: #052e16; border-radius: 10px; padding: 10px 18px;
+  #add-btn { background: #16a34a; color: #fff; border-radius: 10px; padding: 10px 18px;
              font-weight: 800; font-size: 14px; }
-  #del-btn { background: #7f1d1d; color: #fecaca; border-radius: 10px; padding: 10px 14px;
+  #link-btn { background: #f1f5f9; color: #334155; border-radius: 10px; padding: 10px 14px;
+              font-weight: 700; font-size: 13px; }
+  #link-btn.on { background: #4f46e5; color: #fff; }
+  #del-btn { background: #fee2e2; color: #b91c1c; border-radius: 10px; padding: 10px 14px;
              font-weight: 700; font-size: 13px; display: none; }
-  #hint { font-size: 10.5px; color: #64748b; }
+  #hint { font-size: 10.5px; color: #94a3b8; }
+
+  /* ── Dialog keyword collegamento ── */
+  #dlg { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none;
+         align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  #dlg .box { background: #fff; border-radius: 14px; padding: 18px; width: min(360px, 90vw);
+              display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+  #dlg .box b { font-size: 13px; }
+  #dlg input { padding: 10px 12px; border-radius: 10px; border: 2px solid #e2e8f0;
+               font-size: 15px; outline: none; }
+  #dlg input:focus { border-color: #6366f1; }
+  #dlg .btns { display: flex; gap: 8px; justify-content: flex-end; }
+  #dlg .btns button { border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 13px; }
+  #dlg-ok { background: #4f46e5; color: #fff; }
+  #dlg-cancel { background: #f1f5f9; color: #334155; }
+  #dlg-del { background: #fee2e2; color: #b91c1c; margin-right: auto; display: none; }
 </style>
 </head>
 <body>
@@ -85,13 +124,24 @@
     <span class="title" id="hd-title"></span>
     <span class="nick-badge" id="hd-nick"></span>
     <span id="sync" class="ok">salvato</span>
-    <button id="board-toggle" type="button">Mostra classe</button>
+    <button id="done-btn" type="button">Fatto ✓</button>
+    <button id="board-toggle" type="button" title="Prima premi Fatto">Mostra classe</button>
   </header>
-  <div id="canvas-wrap"><svg id="cv"></svg></div>
+  <div id="canvas-wrap">
+    <svg id="cv">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"></path>
+        </marker>
+      </defs>
+    </svg>
+    <div id="mode-hint"></div>
+  </div>
   <div id="toolbar">
     <div class="row">
       <input id="node-text" maxlength="80" placeholder="Testo del nodo…" autocomplete="off">
       <button id="add-btn" type="button">Aggiungi</button>
+      <button id="link-btn" type="button">⇢ Collega</button>
       <button id="del-btn" type="button">Elimina</button>
     </div>
     <div class="row">
@@ -99,9 +149,21 @@
       <span>
         <button class="size-btn" data-size="s" type="button">S</button>
         <button class="size-btn sel" data-size="m" type="button">M</button>
-        <button class="size-btn l" data-size="l" type="button">L</button>
+        <button class="size-btn" data-size="l" type="button">L</button>
       </span>
-      <span id="hint">Tocca un tuo nodo per modificarlo · trascina per spostarlo</span>
+      <span id="hint">Tocca un tuo nodo per modificarlo · trascina per spostarlo · ⇢ per collegare</span>
+    </div>
+  </div>
+</div>
+
+<div id="dlg">
+  <div class="box">
+    <b id="dlg-title">Parola di collegamento</b>
+    <input id="dlg-input" maxlength="30" placeholder="es. causa, produce, richiede…" autocomplete="off">
+    <div class="btns">
+      <button id="dlg-del" type="button">Elimina</button>
+      <button id="dlg-cancel" type="button">Annulla</button>
+      <button id="dlg-ok" type="button">OK</button>
     </div>
   </div>
 </div>
@@ -117,13 +179,16 @@
     (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
   localStorage.setItem('collab_device', deviceId);
 
-  var S = {                       // stato locale
+  var S = {
     nick: localStorage.getItem('collab_nick_' + TOKEN) || '',
     color: C.PALETTE[0],
     rootLabel: '', mapName: '',
-    myNodes: [],                  // i MIEI nodi (autorevoli qui, sync verso server)
-    others: [],                   // gruppi altrui (sola lettura, da /api/board)
-    selId: null,                  // nodo selezionato per edit
+    myNodes: [], myLinks: [],
+    others: [],                 // gruppi altrui (board, sola lettura)
+    selId: null,                // nodo selezionato per edit
+    linkFrom: null,             // primo capo in modalità collega
+    linkMode: false,
+    done: false,
     curColor: C.PALETTE[5], curSize: 'm',
     showBoard: false, dirty: false
   };
@@ -135,7 +200,7 @@
     });
   }
 
-  // ── Boot: meta sessione ───────────────────────────────────────────────
+  // ── Boot ────────────────────────────────────────────────────────────────
   api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
     if (r.status !== 200) { $('join-err').textContent = 'Sessione non valida — richiedi un nuovo QR.'; return; }
     S.mapName = r.body.session.name;
@@ -145,7 +210,6 @@
     if (S.nick) { $('nick').value = S.nick; }
   }).catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
 
-  // ── Join ──────────────────────────────────────────────────────────────
   $('join-btn').onclick = function () {
     var nick = C.sanitizeNick($('nick').value);
     if (!nick) { $('join-err').textContent = 'Nome gruppo: da 2 a 24 caratteri.'; return; }
@@ -161,12 +225,19 @@
         var b = $('hd-nick'); b.textContent = S.nick; b.style.background = S.color;
         S.curColor = S.color;
         buildChips();
-        render();
+        // ripresa: recupera link e stato "fatto" dal board
+        api('/api/board?s=' + encodeURIComponent(TOKEN)).then(function (br) {
+          if (br.status === 200) {
+            var mine = (br.body.groups || []).find(function (g) { return g.nick === S.nick; });
+            if (mine) { S.myLinks = mine.links || []; if (mine.done) setDone(true, false); }
+          }
+          render();
+        }).catch(function () { render(); });
       })
       .catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
   };
 
-  // ── Toolbar ───────────────────────────────────────────────────────────
+  // ── Toolbar ─────────────────────────────────────────────────────────────
   function buildChips() {
     var el = $('chips'); el.innerHTML = '';
     C.PALETTE.forEach(function (col) {
@@ -199,7 +270,7 @@
   $('add-btn').onclick = function () {
     var text = C.sanitizeText($('node-text').value);
     if (!text) return;
-    if (S.selId) {                      // modifica del selezionato
+    if (S.selId) {
       withSel(function (n) { n.text = text; n.updatedAt = Date.now(); });
       select(null);
       $('node-text').value = '';
@@ -220,6 +291,8 @@
   $('del-btn').onclick = function () {
     if (!S.selId) return;
     S.myNodes = S.myNodes.filter(function (n) { return n.id !== S.selId; });
+    // i link appesi al nodo eliminato muoiono con lui
+    S.myLinks = S.myLinks.filter(function (l) { return l.source !== S.selId && l.target !== S.selId; });
     select(null); markDirty(); render();
   };
 
@@ -232,31 +305,85 @@
     render();
   }
 
-  // ── Sync automatico (debounce): ultimo scrittore vince ────────────────
-  var syncTimer = null;
-  function markDirty() {
-    S.dirty = true;
-    setSync('wait', 'in attesa…');
-    clearTimeout(syncTimer);
-    syncTimer = setTimeout(pushNodes, 800);
+  // ── Modalità Collega (tap A → tap B → keyword) ──────────────────────────
+  $('link-btn').onclick = function () { setLinkMode(!S.linkMode); };
+  function setLinkMode(on) {
+    S.linkMode = on;
+    S.linkFrom = null;
+    select(null);
+    $('link-btn').classList.toggle('on', on);
+    var h = $('mode-hint');
+    if (on) { h.textContent = 'Tocca il PRIMO nodo da collegare'; h.style.display = 'block'; }
+    else h.style.display = 'none';
+    render();
   }
-  function setSync(cls, txt) { var s = $('sync'); s.className = cls; s.textContent = txt; }
-  function pushNodes() {
-    api('/api/nodes', {
-      method: 'POST',
-      body: JSON.stringify({ token: TOKEN, nick: S.nick, deviceId: deviceId, nodes: S.myNodes })
-    }).then(function (r) {
-      if (r.status === 200) { S.dirty = false; setSync('ok', 'salvato'); }
-      else setSync('err', 'errore ' + r.status);
-    }).catch(function () {
-      setSync('err', 'offline — riprovo');
-      clearTimeout(syncTimer); syncTimer = setTimeout(pushNodes, 3000);
+  function linkTap(nodeId) {
+    if (!S.linkFrom) {
+      S.linkFrom = nodeId;
+      $('mode-hint').textContent = 'Ora tocca il SECONDO nodo';
+      render();
+      return;
+    }
+    if (S.linkFrom === nodeId) { S.linkFrom = null; render(); return; }
+    var from = S.linkFrom;
+    openLinkDialog(null, function (rel) {
+      S.myLinks.push({
+        id: 'l' + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+        source: from, target: nodeId, rel: rel, updatedAt: Date.now()
+      });
+      markDirty(); setLinkMode(false);
     });
   }
 
-  // ── Mostra classe (board polling) ─────────────────────────────────────
+  // Dialog keyword: crea (link=null) o modifica/elimina (link esistente)
+  function openLinkDialog(link, onOk) {
+    var dlg = $('dlg'), inp = $('dlg-input'), del = $('dlg-del');
+    inp.value = link ? (link.rel === 'collega' ? '' : link.rel) : '';
+    del.style.display = link ? 'inline-block' : 'none';
+    dlg.style.display = 'flex';
+    setTimeout(function () { inp.focus(); }, 50);
+    function close() { dlg.style.display = 'none'; $('dlg-ok').onclick = $('dlg-cancel').onclick = del.onclick = inp.onkeydown = null; }
+    $('dlg-ok').onclick = function () {
+      var rel = C.sanitizeText(inp.value).slice(0, C.LIMITS.relMax);
+      close();
+      if (link) { link.rel = rel || 'collega'; link.updatedAt = Date.now(); markDirty(); render(); }
+      else if (onOk) onOk(rel);
+    };
+    $('dlg-cancel').onclick = function () { close(); if (!link) setLinkMode(false); };
+    del.onclick = function () {
+      close();
+      S.myLinks = S.myLinks.filter(function (l) { return l.id !== link.id; });
+      markDirty(); render();
+    };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') $('dlg-ok').click(); };
+  }
+
+  // ── Fatto ✓ → sblocca "Mostra classe" ───────────────────────────────────
+  $('done-btn').onclick = function () {
+    if (S.done) return;
+    setDone(true, true);
+  };
+  function setDone(val, push) {
+    S.done = val;
+    var d = $('done-btn'), bt = $('board-toggle');
+    if (val) {
+      d.textContent = '✓ Consegnato';
+      d.classList.add('is-done');
+      bt.classList.add('ready');
+      bt.title = '';
+    }
+    if (push) { markDirty(); }
+  }
+
   var boardTimer = null;
   $('board-toggle').onclick = function () {
+    if (!S.done) {
+      var h = $('mode-hint');
+      h.textContent = 'Prima premi "Fatto ✓" per consegnare';
+      h.style.display = 'block';
+      setTimeout(function () { if (!S.linkMode) h.style.display = 'none'; }, 1800);
+      return;
+    }
     S.showBoard = !S.showBoard;
     this.classList.toggle('on', S.showBoard);
     if (S.showBoard) { pollBoard(); }
@@ -272,7 +399,32 @@
     boardTimer = setTimeout(pollBoard, 5000);
   }
 
-  // ── Render SVG ────────────────────────────────────────────────────────
+  // ── Sync automatico ─────────────────────────────────────────────────────
+  var syncTimer = null;
+  function markDirty() {
+    S.dirty = true;
+    setSync('wait', 'in attesa…');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushNodes, 800);
+  }
+  function setSync(cls, txt) { var s = $('sync'); s.className = cls; s.textContent = txt; }
+  function pushNodes() {
+    api('/api/nodes', {
+      method: 'POST',
+      body: JSON.stringify({
+        token: TOKEN, nick: S.nick, deviceId: deviceId,
+        nodes: S.myNodes, links: S.myLinks, done: S.done || undefined
+      })
+    }).then(function (r) {
+      if (r.status === 200) { S.dirty = false; setSync('ok', 'salvato'); }
+      else setSync('err', 'errore ' + r.status);
+    }).catch(function () {
+      setSync('err', 'offline — riprovo');
+      clearTimeout(syncTimer); syncTimer = setTimeout(pushNodes, 3000);
+    });
+  }
+
+  // ── Render SVG ──────────────────────────────────────────────────────────
   var svg = $('cv');
   var NS = 'http://www.w3.org/2000/svg';
   function geo() {
@@ -281,7 +433,11 @@
   }
   function px(n, g) { return { x: g.cx + n.x * g.R, y: g.cy + n.y * g.R }; }
 
-  function wrapText(textEl, str, maxChars) {
+  // Font per taglia — più grande, stile viewport app (alone bianco via CSS)
+  var FONT = { s: 13, m: 15, l: 17 };
+  var WRAP = { s: 14, m: 17, l: 20 };
+
+  function wrapText(textEl, str, maxChars, x) {
     var words = String(str).split(' ');
     var lines = [''];
     words.forEach(function (w) {
@@ -292,29 +448,59 @@
     lines = lines.slice(0, 3);
     lines.forEach(function (ln, i) {
       var ts = document.createElementNS(NS, 'tspan');
-      ts.setAttribute('x', 0);
+      ts.setAttribute('x', x || 0);
       ts.setAttribute('dy', i === 0 ? (-(lines.length - 1) * 0.55) + 'em' : '1.1em');
       ts.textContent = ln;
       textEl.appendChild(ts);
     });
   }
 
-  function drawNode(n, mine, color, g) {
+  function drawLink(l, nodes, mine, g) {
+    var a = nodes.find(function (n) { return n.id === l.source; });
+    var b = nodes.find(function (n) { return n.id === l.target; });
+    if (!a || !b) return;
+    var pa = px(a, g), pb = px(b, g);
+    // accorcia sul bordo del rect di destinazione (freccia visibile)
+    var sz = C.SIZES[b.size] || C.SIZES.m;
+    var dx = pb.x - pa.x, dy = pb.y - pa.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var cut = Math.min(sz.w, sz.h) / 2 + 6;
+    var ex = pb.x - dx / len * cut, ey = pb.y - dy / len * cut;
+    var line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', pa.x); line.setAttribute('y1', pa.y);
+    line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+    line.setAttribute('class', 'slink');
+    if (!mine) line.setAttribute('opacity', '.5');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(line);
+    var lbl = document.createElementNS(NS, 'text');
+    lbl.setAttribute('class', 'slink-label');
+    lbl.setAttribute('x', (pa.x + pb.x) / 2);
+    lbl.setAttribute('y', (pa.y + pb.y) / 2 - 5);
+    if (!mine) { lbl.setAttribute('opacity', '.5'); lbl.style.pointerEvents = 'none'; }
+    lbl.textContent = l.rel;
+    if (mine) lbl.addEventListener('pointerup', function (e) { e.stopPropagation(); openLinkDialog(l); });
+    svg.appendChild(lbl);
+  }
+
+  function drawNode(n, mine, borderColor, g) {
     var sz = C.SIZES[n.size] || C.SIZES.m;
     var p = px(n, g);
     var grp = document.createElementNS(NS, 'g');
-    grp.setAttribute('class', 'snode' + (mine ? ' mine' : ' ghost') + (S.selId === n.id ? ' sel' : ''));
+    grp.setAttribute('class', 'snode' + (mine ? ' mine' : ' ghost') +
+      (S.selId === n.id ? ' sel' : '') + (S.linkFrom === n.id ? ' linkfrom' : ''));
     grp.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
     var rect = document.createElementNS(NS, 'rect');
     rect.setAttribute('x', -sz.w / 2); rect.setAttribute('y', -sz.h / 2);
     rect.setAttribute('width', sz.w); rect.setAttribute('height', sz.h);
     rect.setAttribute('rx', 10);
     rect.setAttribute('fill', n.color);
-    rect.setAttribute('stroke', color);
+    rect.setAttribute('stroke', borderColor);
     grp.appendChild(rect);
     var txt = document.createElementNS(NS, 'text');
-    txt.setAttribute('font-size', n.size === 'l' ? 15 : (n.size === 's' ? 11 : 13));
-    wrapText(txt, n.text, n.size === 'l' ? 24 : (n.size === 's' ? 16 : 20));
+    txt.setAttribute('class', 'map-label');
+    txt.setAttribute('font-size', FONT[n.size] || FONT.m);
+    wrapText(txt, n.text, WRAP[n.size] || WRAP.m);
     grp.appendChild(txt);
     if (mine) attachDrag(grp, n, g);
     svg.appendChild(grp);
@@ -322,29 +508,37 @@
 
   function render() {
     var g = geo();
-    svg.innerHTML = '';
-    // nodi altrui sotto (ghost)
+    // pulisci tutto tranne <defs> (marker freccia)
+    Array.prototype.slice.call(svg.childNodes).forEach(function (ch) {
+      if (ch.nodeName !== 'defs') svg.removeChild(ch);
+    });
+    // gruppi altrui sotto (ghost): prima i loro link, poi i loro nodi
+    S.others.forEach(function (grp) {
+      (grp.links || []).forEach(function (l) { drawLink(l, grp.nodes || [], false, g); });
+    });
     S.others.forEach(function (grp) {
       (grp.nodes || []).forEach(function (n) { drawNode(n, false, grp.color, g); });
     });
-    // root al centro
+    // i miei link sotto i miei nodi
+    S.myLinks.forEach(function (l) { drawLink(l, S.myNodes, true, g); });
+    // root = nodo L0 dell'app (cerchio r=45 scuro, label centrata con alone)
     var root = document.createElementNS(NS, 'g');
     root.setAttribute('transform', 'translate(' + g.cx + ',' + g.cy + ')');
-    var re = document.createElementNS(NS, 'ellipse');
-    re.setAttribute('class', 'root-bubble');
-    re.setAttribute('rx', Math.min(150, g.R * 0.45)); re.setAttribute('ry', 44);
-    root.appendChild(re);
+    var rc = document.createElementNS(NS, 'circle');
+    rc.setAttribute('class', 'root-circle');
+    rc.setAttribute('r', 45);
+    root.appendChild(rc);
     var rl = document.createElementNS(NS, 'text');
-    rl.setAttribute('class', 'root-label');
+    rl.setAttribute('class', 'map-label');
     rl.setAttribute('font-size', 14);
-    wrapText(rl, S.rootLabel, 24);
+    wrapText(rl, S.rootLabel, 12);
     root.appendChild(rl);
     svg.appendChild(root);
     // i miei nodi sopra
     S.myNodes.forEach(function (n) { drawNode(n, true, S.color, g); });
   }
 
-  // ── Drag (pointer events: mouse + touch) ──────────────────────────────
+  // ── Drag / tap (pointer events) ─────────────────────────────────────────
   function attachDrag(grp, n, g) {
     var drag = null;
     grp.addEventListener('pointerdown', function (e) {
@@ -354,7 +548,7 @@
       drag = { dx: e.clientX - p.x, dy: e.clientY - p.y, moved: false };
     });
     grp.addEventListener('pointermove', function (e) {
-      if (!drag) return;
+      if (!drag || S.linkMode) return;
       drag.moved = true;
       var nx = (e.clientX - drag.dx - g.cx) / g.R;
       var ny = (e.clientY - drag.dy - g.cy) / g.R;
@@ -363,8 +557,9 @@
       grp.setAttribute('transform', 'translate(' + px(n, g).x + ',' + px(n, g).y + ')');
     });
     grp.addEventListener('pointerup', function () {
-      if (drag && drag.moved) { n.updatedAt = Date.now(); markDirty(); }
-      else select(S.selId === n.id ? null : n.id);   // tap = seleziona/deseleziona
+      if (drag && drag.moved) { n.updatedAt = Date.now(); markDirty(); render(); }
+      else if (S.linkMode) linkTap(n.id);
+      else select(S.selId === n.id ? null : n.id);
       drag = null;
     });
   }

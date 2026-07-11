@@ -204,10 +204,14 @@
         box.innerHTML = groups.map(g => {
             const slug = C.slugify(g.nick);
             const lay = CT.layers[slug];
+            const doneBadge = g.done
+                ? `<span title="${t('cl_done_tip', 'Il gruppo ha premuto Fatto')}" style="font-size:10px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 7px">✓</span>`
+                : '';
             return `<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 10px">
                 <span style="width:12px;height:12px;border-radius:50%;background:${g.color};flex:0 0 auto"></span>
                 <input value="${esc(lay.label)}" data-slug="${slug}" class="cl-rename" style="flex:1;min-width:60px;border:0;background:none;font-weight:700;font-size:12.5px;color:#0f172a;outline:none">
-                <span style="font-size:11px;color:#94a3b8">${(g.nodes || []).length} ${t('cl_nodes', 'nodi')}</span>
+                ${doneBadge}
+                <span style="font-size:11px;color:#94a3b8">${(g.nodes || []).length}n · ${(g.links || []).length}⇢</span>
                 <button type="button" class="cl-toggle" data-slug="${slug}" title="${t('cl_toggle_tip', 'Mostra/nascondi questo layer sulla mappa')}" style="background:${lay.visible ? '#4f46e5' : '#e2e8f0'};color:${lay.visible ? '#fff' : '#64748b'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${lay.visible ? 'ON' : 'OFF'}</button>
                 <button type="button" class="cl-export" data-slug="${slug}" title="${t('cl_export_tip', 'Scarica il layer come mappa MappAI (JSON importabile)')}" style="background:#f1f5f9;color:#334155;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">JSON</button>
             </div>`;
@@ -232,7 +236,7 @@
         const g = (CT.board.groups || []).find(x => C.slugify(x.nick) === slug);
         if (!g) return;
         const lay = CT.layers[slug];
-        const graph = C.layerToGraph(CT.board.rootLabel, lay.label || g.nick, g.nodes);
+        const graph = C.layerToGraph(CT.board.rootLabel, lay.label || g.nick, g.nodes, g.links);
         const blob = new Blob([JSON.stringify(graph, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.download = 'vault-dinamico-' + slug + '.json';
@@ -267,6 +271,24 @@
             const slug = C.slugify(grp.nick);
             const lay = CT.layers[slug];
             if (!lay || !lay.visible) return;
+            // collegamenti del gruppo (sotto i suoi nodi), con la keyword al centro
+            (grp.links || []).forEach(l => {
+                const a = (grp.nodes || []).find(n => n.id === l.source);
+                const b = (grp.nodes || []).find(n => n.id === l.target);
+                if (!a || !b) return;
+                const ax = rx + a.x * R, ay = ry + a.y * R;
+                const bx = rx + b.x * R, by = ry + b.y * R;
+                layer.append('line')
+                    .attr('x1', ax).attr('y1', ay).attr('x2', bx).attr('y2', by)
+                    .attr('stroke', '#94a3b8').attr('stroke-width', 1.5);
+                layer.append('text')
+                    .attr('x', (ax + bx) / 2).attr('y', (ay + by) / 2 - 5)
+                    .attr('text-anchor', 'middle')
+                    .attr('font-size', 10).attr('font-weight', 700).attr('fill', '#64748b')
+                    .attr('stroke', '#ffffff').attr('stroke-width', 2.4)
+                    .attr('paint-order', 'stroke fill')
+                    .text(l.rel);
+            });
             (grp.nodes || []).forEach(n => {
                 const sz = C.SIZES[n.size] || C.SIZES.m;
                 const gx = rx + n.x * R, gy = ry + n.y * R;

@@ -24,7 +24,9 @@
   var SIZES = { s: { w: 120, h: 56 }, m: { w: 160, h: 72 }, l: { w: 200, h: 92 } };
   var LIMITS = {
     textMax: 80,          // caratteri per nodo
+    relMax: 30,           // caratteri per la keyword di collegamento
     nodesPerGroup: 30,    // cap contributi per gruppo
+    linksPerGroup: 40,    // cap collegamenti per gruppo
     nickMin: 2,
     nickMax: 24,
     coordMax: 1.5         // coordinate RELATIVE al centro: x,y ∈ [-1.5, 1.5]
@@ -104,24 +106,84 @@
     return PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
   }
 
+  // ── Validazione collegamento studente ───────────────────────────────────
+  // Link atteso: { id, source, target, rel, updatedAt }. nodeIds = Set/array
+  // degli id dei nodi del gruppo: entrambe le estremità devono esistere.
+  function validateStudentLink(l, nodeIds) {
+    var errors = [];
+    if (!l || typeof l !== 'object') return { ok: false, errors: ['not-an-object'] };
+    var ids = Array.isArray(nodeIds) ? nodeIds : [];
+    if (typeof l.id !== 'string' || !l.id.trim() || l.id.length > 40) errors.push('bad-id');
+    if (typeof l.source !== 'string' || ids.indexOf(l.source) < 0) errors.push('bad-source');
+    if (typeof l.target !== 'string' || ids.indexOf(l.target) < 0) errors.push('bad-target');
+    if (l.source === l.target) errors.push('self-link');
+    var rel = sanitizeText(l.rel).slice(0, LIMITS.relMax);
+    return { ok: errors.length === 0, errors: errors, clean: errors.length === 0 ? {
+      id: l.id.trim(), source: l.source, target: l.target,
+      rel: rel || 'collega',
+      updatedAt: (typeof l.updatedAt === 'number' && isFinite(l.updatedAt)) ? l.updatedAt : Date.now()
+    } : null };
+  }
+
+  // ── Merge collegamenti (ultimo scrittore vince, come i nodi) ────────────
+  // I link con estremità inesistenti vengono scartati; cap linksPerGroup.
+  function mergeGroupLinks(existing, incoming, nodeIds) {
+    var ids = Array.isArray(nodeIds) ? nodeIds : [];
+    var byId = {};
+    (Array.isArray(existing) ? existing : []).forEach(function (l) {
+      // i link esistenti restano solo se le estremità esistono ancora
+      if (l && l.id && ids.indexOf(l.source) >= 0 && ids.indexOf(l.target) >= 0) byId[l.id] = l;
+    });
+    var accepted = 0, rejected = [];
+    (Array.isArray(incoming) ? incoming : []).forEach(function (l) {
+      var v = validateStudentLink(l, ids);
+      if (!v.ok) { rejected.push({ id: l && l.id, errors: v.errors }); return; }
+      var prev = byId[v.clean.id];
+      if (prev && (prev.updatedAt || 0) > v.clean.updatedAt) return;
+      byId[v.clean.id] = v.clean;
+      accepted++;
+    });
+    var links = Object.keys(byId).map(function (k) { return byId[k]; })
+      .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })
+      .slice(0, LIMITS.linksPerGroup)
+      .sort(function (a, b) { return (a.updatedAt || 0) - (b.updatedAt || 0); });
+    return { links: links, accepted: accepted, rejected: rejected };
+  }
+
   // ── Layer → mappa MappAI importabile ────────────────────────────────────
-  // Root L0 + ogni nodo studente come figlio L1 (rel "propone", group 1).
-  // Il JSON risultante è compatibile con importGraph/Unisci Mappe.
-  function layerToGraph(rootLabel, nick, nodes) {
+  // Root L0 + nodi studente L1 (group 1). I collegamenti espliciti dello
+  // studente (con la loro keyword) diventano archi node→node; il link
+  // root→"propone" resta SOLO per i nodi senza alcun arco entrante, così
+  // l'albero non perde pezzi ma le relazioni volute dagli studenti comandano.
+  function layerToGraph(rootLabel, nick, nodes, links) {
     var root = {
       id: 'root_collab', label: String(rootLabel || 'Lavagna') + ' — ' + String(nick || 'gruppo'),
       level: 0, group: 0
     };
     var out = { nodes: [root], links: [] };
-    (Array.isArray(nodes) ? nodes : []).forEach(function (n, i) {
+    var slug = slugify(nick);
+    var idMap = {};   // id studente → id mappa (stabile: deriva dall'id, non dall'indice)
+    var validIds = [];
+    (Array.isArray(nodes) ? nodes : []).forEach(function (n) {
       var v = validateStudentNode(n);
       if (!v.ok) return;
-      var id = 'sn_' + slugify(nick) + '_' + (i + 1);
+      var id = 'sn_' + slug + '_' + slugify(v.clean.id);
+      idMap[v.clean.id] = id;
+      validIds.push(v.clean.id);
       out.nodes.push({
         id: id, label: v.clean.text, level: 1, group: 1,
         desc: v.clean.text, content: v.clean.text
       });
-      out.links.push({ source: root.id, target: id, rel: 'propone' });
+    });
+    var hasIncoming = {};
+    (Array.isArray(links) ? links : []).forEach(function (l) {
+      var v = validateStudentLink(l, validIds);
+      if (!v.ok) return;
+      out.links.push({ source: idMap[v.clean.source], target: idMap[v.clean.target], rel: v.clean.rel });
+      hasIncoming[v.clean.target] = true;
+    });
+    validIds.forEach(function (sid) {
+      if (!hasIncoming[sid]) out.links.push({ source: root.id, target: idMap[sid], rel: 'propone' });
     });
     return out;
   }
@@ -135,6 +197,8 @@
     slugify: slugify,
     validateStudentNode: validateStudentNode,
     mergeGroupNodes: mergeGroupNodes,
+    validateStudentLink: validateStudentLink,
+    mergeGroupLinks: mergeGroupLinks,
     groupColor: groupColor,
     layerToGraph: layerToGraph
   };

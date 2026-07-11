@@ -36,3 +36,13 @@ Nessuno (riuso infrastruttura esistente).
 - [X] T012 `npm test` verde (core+server inclusi) + `node --check`.
 - [X] T013 CLAUDE.md §11 stato feature.
 - [ ] T014 Verifica Electron + 2 device reali: QR → join → nodi → overlay → riavvio a metà → export/import layer. (Richiede l'utente.)
+
+---
+
+## Phase 7: Rifiniture 2026-07-11 (richiesta utente post-review)
+
+- [X] T015 Pagina studente = viewport mappa dell'app: sfondo `#fafbff` + griglia a puntini `#ddd6fe` 24px, font Space Mono ovunque (Google Fonts + fallback monospace offline), root = cerchio r45 `#0f172a` con label centrata (identico al nodo L0 dell'app), tema chiaro su header/toolbar/join.
+- [X] T016 Label più grandi (S13/M15/L17, era 11/13/15) con lo stesso stile outline della viewport: bold, fill `#0f172a`, alone bianco `stroke: #fff` + `paint-order: stroke fill` (classe `.map-label` = `.node-text` dell'app).
+- [X] T017 Gate "Fatto ✓": `done` flag nel core/server (`/api/nodes` accetta `done:true`, board/status lo espongono); "Mostra classe" bloccato con hint finché il gruppo non consegna; stato ripreso al re-join; badge ✓ nella dashboard docente.
+- [X] T018 Tool "⇢ Collega" + keyword: `validateStudentLink`/`mergeGroupLinks` nel core (rel ≤30 char, estremità vive, lww, cap 40) + 5 test; server merge link con 2 test; UI studente tap A→tap B→dialog keyword (modifica/elimina dal label del link); frecce con marker + label con alone; overlay docente disegna i link del gruppo; `layerToGraph` esporta i link con la loro keyword (root "propone" solo sui nodi senza entranti).
+- [X] T019 Verifica E2E browser contro server reale: join → 2 nodi → collega con "produce" → gate Mostra classe respinge → Fatto ✓ → server persiste done+link → board sbloccato. Suite 333/333.

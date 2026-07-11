@@ -482,6 +482,7 @@ const en_translations = {
     cl_qr_hint: "Click the QR to enlarge it full screen (whiteboard)",
     cl_toggle_tip: "Show/hide this layer on the map",
     cl_export_tip: "Download the layer as a MappAI map (importable JSON)",
+    cl_done_tip: "The group pressed Done",
     tst_collab_need_map: "Open a map to start the board",
     tst_collab_electron: "The collaborative board requires the desktop app",
     tst_collab_resumed: "Session RESUMED: the previous QR is still valid",

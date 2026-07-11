@@ -155,3 +155,46 @@ test('static: allowlist rigida (403 fuori, 200 il core)', async () => {
   const core = await fetch('http://127.0.0.1:' + port + '/public/js/mappai-collab-core.js');
   assert.strictEqual(core.status, 200);
 });
+
+test('POST /api/nodes: links con keyword + flag done → board li espone', async () => {
+  // stato post-restart: gruppo "I Leoni" adottato da dev2 con 1 nodo (n1)
+  const nodes = [
+    mkNode({ id: 'n1', text: 'Clorofilla' }),
+    mkNode({ id: 'n2', text: 'Ossigeno', x: -0.4 })
+  ];
+  const links = [{ id: 'l1', source: 'n1', target: 'n2', rel: 'produce', updatedAt: Date.now() }];
+  const r = await api('/api/nodes', {
+    method: 'POST',
+    body: JSON.stringify({ token: tok, nick: 'I Leoni', deviceId: 'dev2', nodes, links, done: true })
+  });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.linksAccepted, 1);
+  assert.strictEqual(r.body.done, true);
+
+  const board = await api('/api/board?s=' + tok);
+  const g = board.body.groups.find(g => g.nick === 'I Leoni');
+  assert.strictEqual(g.links.length, 1);
+  assert.strictEqual(g.links[0].rel, 'produce');
+  assert.strictEqual(g.done, true);
+
+  const st = await api('/api/status?admin=' + admin);
+  assert.strictEqual(st.body.groups[0].linkCount, 1);
+  assert.strictEqual(st.body.groups[0].done, true);
+});
+
+test('POST /api/nodes: link con estremità inesistente → rejected, non salvato', async () => {
+  const r = await api('/api/nodes', {
+    method: 'POST',
+    body: JSON.stringify({
+      token: tok, nick: 'I Leoni', deviceId: 'dev2',
+      nodes: [mkNode({ id: 'n1' }), mkNode({ id: 'n2', x: -0.4 })],
+      links: [{ id: 'l2', source: 'n1', target: 'ghost', rel: 'x', updatedAt: Date.now() }]
+    })
+  });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.linksAccepted, 0);
+  assert.strictEqual(r.body.linksRejected.length, 1);
+  const board = await api('/api/board?s=' + tok);
+  const g = board.body.groups.find(g => g.nick === 'I Leoni');
+  assert.strictEqual(g.links.length, 1);   // resta solo l1
+});

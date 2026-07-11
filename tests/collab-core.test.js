@@ -110,3 +110,55 @@ test('layerToGraph: root L0 + nodi L1 con link "propone"', () => {
   // ogni nodo L1 ha desc = testo (superfici di studio leggono desc||content)
   assert.ok(g.nodes.slice(1).every(n => n.desc && n.level === 1));
 });
+
+// ── Collegamenti (link con keyword) ──────────────────────────────────────
+
+function mkLink(over) {
+  return Object.assign({ id: 'l1', source: 'n1', target: 'n2', rel: 'causa', updatedAt: 1000 }, over || {});
+}
+
+test('validateStudentLink: valido con keyword sanitizzata', () => {
+  const v = C.validateStudentLink(mkLink({ rel: '  causa  ' }), ['n1', 'n2']);
+  assert.ok(v.ok);
+  assert.strictEqual(v.clean.rel, 'causa');
+});
+
+test('validateStudentLink: rel vuota → default "collega"; rel lunga troncata', () => {
+  assert.strictEqual(C.validateStudentLink(mkLink({ rel: '' }), ['n1', 'n2']).clean.rel, 'collega');
+  const long = C.validateStudentLink(mkLink({ rel: 'x'.repeat(50) }), ['n1', 'n2']);
+  assert.ok(long.clean.rel.length <= C.LIMITS.relMax);
+});
+
+test('validateStudentLink: estremità inesistente o self-link → errori', () => {
+  assert.ok(C.validateStudentLink(mkLink({ target: 'ghost' }), ['n1', 'n2']).errors.includes('bad-target'));
+  assert.ok(C.validateStudentLink(mkLink({ target: 'n1' }), ['n1', 'n2']).errors.includes('self-link'));
+});
+
+test('mergeGroupLinks: lww per id + scarta link con estremità morte', () => {
+  const r1 = C.mergeGroupLinks([], [mkLink()], ['n1', 'n2']);
+  assert.strictEqual(r1.links.length, 1);
+  const r2 = C.mergeGroupLinks(r1.links, [mkLink({ rel: 'richiede', updatedAt: 2000 })], ['n1', 'n2']);
+  assert.strictEqual(r2.links[0].rel, 'richiede');
+  // n2 sparisce → il link esistente muore, l'incoming è rejected
+  const r3 = C.mergeGroupLinks(r2.links, [mkLink({ id: 'l9' })], ['n1']);
+  assert.strictEqual(r3.links.length, 0);
+  assert.strictEqual(r3.rejected.length, 1);
+});
+
+test('layerToGraph con link: keyword preservate, root solo sui nodi senza entranti', () => {
+  const nodes = [
+    mkNode({ id: 'a', text: 'Clorofilla' }),
+    mkNode({ id: 'b', text: 'Ossigeno' }),
+    mkNode({ id: 'c', text: 'Glucosio' })
+  ];
+  const links = [{ id: 'l1', source: 'a', target: 'b', rel: 'produce', updatedAt: 1 }];
+  const g = C.layerToGraph('Fotosintesi', 'I Leoni', nodes, links);
+  assert.strictEqual(g.nodes.length, 4);
+  const studentLink = g.links.find(l => l.rel === 'produce');
+  assert.ok(studentLink, 'link studente con keyword presente');
+  // b ha un entrante → NIENTE link root→b; a e c ce l'hanno
+  const rootLinks = g.links.filter(l => l.source === 'root_collab');
+  assert.strictEqual(rootLinks.length, 2);
+  const bId = studentLink.target;
+  assert.ok(!rootLinks.some(l => l.target === bId));
+});
