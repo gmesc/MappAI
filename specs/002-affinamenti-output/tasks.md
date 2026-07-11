@@ -27,7 +27,7 @@ Nessuno — le 3 story sono indipendenti.
 - [X] T006 [US2] Flusso `__ALL__`: ≤30 nodi → chiamata unica su tutti i nodi (label = nome mappa). Altrimenti `_generateWholeMapSynthesis()`: loop rami (L1/hub) con overlay progresso (i/n), sezione per ramo via flusso esistente estratto in `_synthesizeOnce(nodes, label)`; ramo fallito → sezione segnaposto; chiamata finale panoramica (prompt inline + `mapLangNote()`, input = sintesi troncate a ~150 parole).
 - [X] T007 [US2] Render modale risultato + stampa per la forma multi-sezione: panoramica in testa, poi sezioni "Ramo: X" ciascuna con le SUE citazioni. Forma singola invariata.
 - [X] T008 [US2] i18n nuove stringhe via `window.t` + chiavi in `public/traduzioni/en_translations.js` (`bs_all_map`, `bs_overview`, `bs_progress`, `bs_branch_failed`, `bs_whole_title`).
-- [ ] T009 [US2] Verifica Electron: mappa multi-ramo → panoramica + sezioni; mappa piccola → passata unica; stampa ok; ramo fallito non azzera il resto.
+- [X] T009 [US2] Verificato via harness browser (codice reale del modulo, `fetchModelAPI` mockato per contare le chiamate e simulare un ramo ko): mappa 37 nodi/6 rami → 6 chiamate ramo + 1 panoramica, modale con "Panoramica" + 6 sezioni + citazioni; mappa 10 nodi → 1 sola chiamata; ramo fallito → segnaposto senza azzerare gli altri; stampa multi-sezione ok. 11/11 controlli verdi. ⚠️ Non ancora testato in Electron con AI reale (Gemini/Infomaniak): l'harness non copre l'integrazione IPC.
 
 ## Phase 5: US3 — Keyword foglie (P3)
 
