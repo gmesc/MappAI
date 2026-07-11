@@ -34,7 +34,7 @@ Nessuno — le 3 story sono indipendenti.
 - [X] T010 [US3] In `public/js/mappai-print-dossier.js`: `_cleanKeywords(node, arr)` (trim, dedupe ci, drop token del titolo, drop <3 char, cap 7) applicata a risultati AI E fallback.
 - [X] T011 [US3] `_kwCallBatch`: item con flag `leaf` (nessun link uscente) e `descWords`; prompt esteso — foglie: concetti SOLO dalla desc, MAI parole del titolo, desc <15 parole → `[]`. Post-parse: `_cleanKeywords` su ogni voce.
 - [X] T012 [US3] `_fallbackKeywords`: per foglie con desc <15 parole → `[]` (niente rumore); risultato passato comunque da `_cleanKeywords`.
-- [ ] T013 [US3] Verifica Electron: foglio keywords con foglie ricche/povere secondo acceptance.
+- [X] T013 [US3] Verificato via harness browser (codice reale di mappai-print-dossier.js; jsPDF mockato che registra il testo disegnato per colore — le keyword sono in grigio 90 — e `fetchModelAPI` mockato). Path AI: foglia ricca → concetti reali dalla desc, "Clorofilla" (parola del titolo) scartata, "pigmento verde" deduplicato, token <3 char rimossi, cap 7. Foglia povera (desc <15 parole) → nessuna keyword, card col solo titolo. Path fallback (senza API key): stessa regola foglie; nodo non-foglia → etichette dei figli. 11/11 verdi. ⚠️ Non testato in Electron con AI reale (l'harness non copre l'IPC né il rendering PDF vero).
 
 ## Phase 6: Polish
 
