@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>MappAI — Lavagna collaborativa</title>
+<style>
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
+         display: flex; flex-direction: column; overflow: hidden; }
+  button { font-family: inherit; cursor: pointer; border: 0; }
+
+  /* ── Join ── */
+  #join { flex: 1; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+  #join h1 { font-size: 22px; color: #fff; }
+  #join .map-name { color: #818cf8; font-weight: 700; font-size: 15px; }
+  #join input { width: min(320px, 84vw); padding: 13px 16px; border-radius: 12px;
+                border: 2px solid #334155; background: #1e293b; color: #fff;
+                font-size: 16px; text-align: center; outline: none; }
+  #join input:focus { border-color: #6366f1; }
+  #join button { width: min(320px, 84vw); padding: 13px; border-radius: 12px;
+                 background: #4f46e5; color: #fff; font-size: 16px; font-weight: 700; }
+  #join .err { color: #f87171; font-size: 13px; min-height: 18px; }
+
+  /* ── Editor ── */
+  #editor { flex: 1; display: none; flex-direction: column; min-height: 0; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+           background: #1e293b; border-bottom: 1px solid #334155; flex-wrap: wrap; }
+  header .title { font-weight: 700; font-size: 13px; color: #cbd5e1; flex: 1;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nick-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+                color: #0f172a; }
+  #sync { font-size: 11px; color: #94a3b8; }
+  #sync.ok::before { content: '● '; color: #4ade80; }
+  #sync.wait::before { content: '● '; color: #fbbf24; }
+  #sync.err::before { content: '● '; color: #f87171; }
+  #board-toggle { background: #334155; color: #cbd5e1; border-radius: 8px;
+                  padding: 5px 10px; font-size: 11px; font-weight: 700; }
+  #board-toggle.on { background: #4f46e5; color: #fff; }
+
+  #canvas-wrap { flex: 1; min-height: 0; position: relative; }
+  svg { width: 100%; height: 100%; display: block; touch-action: none; }
+  .root-bubble { fill: #1e293b; stroke: #6366f1; stroke-width: 2.5; }
+  .root-label { fill: #e2e8f0; font-weight: 800; text-anchor: middle; }
+  .snode rect { rx: 10; stroke-width: 2.5; cursor: grab; }
+  .snode.mine rect { filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+  .snode.ghost { opacity: .55; pointer-events: none; }
+  .snode text { fill: #0f172a; font-weight: 700; text-anchor: middle; pointer-events: none; }
+  .snode.sel rect { stroke-dasharray: 6 3; }
+
+  /* ── Toolbar ── */
+  #toolbar { background: #1e293b; border-top: 1px solid #334155; padding: 10px 12px;
+             display: flex; flex-direction: column; gap: 8px; }
+  #toolbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #node-text { flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 10px;
+               border: 2px solid #334155; background: #0f172a; color: #fff;
+               font-size: 15px; outline: none; }
+  #node-text:focus { border-color: #6366f1; }
+  .chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; }
+  .chip.sel { border-color: #fff; transform: scale(1.15); }
+  .size-btn { background: #334155; color: #cbd5e1; border-radius: 8px; padding: 6px 10px;
+              font-size: 12px; font-weight: 800; }
+  .size-btn.sel { background: #6366f1; color: #fff; }
+  #add-btn { background: #22c55e; color: #052e16; border-radius: 10px; padding: 10px 18px;
+             font-weight: 800; font-size: 14px; }
+  #del-btn { background: #7f1d1d; color: #fecaca; border-radius: 10px; padding: 10px 14px;
+             font-weight: 700; font-size: 13px; display: none; }
+  #hint { font-size: 10.5px; color: #64748b; }
+</style>
+</head>
+<body>
+
+<div id="join">
+  <h1>Lavagna collaborativa</h1>
+  <div class="map-name" id="join-map"></div>
+  <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off">
+  <button id="join-btn">Entra</button>
+  <div class="err" id="join-err"></div>
+</div>
+
+<div id="editor">
+  <header>
+    <span class="title" id="hd-title"></span>
+    <span class="nick-badge" id="hd-nick"></span>
+    <span id="sync" class="ok">salvato</span>
+    <button id="board-toggle" type="button">Mostra classe</button>
+  </header>
+  <div id="canvas-wrap"><svg id="cv"></svg></div>
+  <div id="toolbar">
+    <div class="row">
+      <input id="node-text" maxlength="80" placeholder="Testo del nodo…" autocomplete="off">
+      <button id="add-btn" type="button">Aggiungi</button>
+      <button id="del-btn" type="button">Elimina</button>
+    </div>
+    <div class="row">
+      <span id="chips"></span>
+      <span>
+        <button class="size-btn" data-size="s" type="button">S</button>
+        <button class="size-btn sel" data-size="m" type="button">M</button>
+        <button class="size-btn l" data-size="l" type="button">L</button>
+      </span>
+      <span id="hint">Tocca un tuo nodo per modificarlo · trascina per spostarlo</span>
+    </div>
+  </div>
+</div>
+
+<script src="/public/js/mappai-collab-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var C = window.MappAICollabCore;
+  var qs = new URLSearchParams(location.search);
+  var TOKEN = qs.get('s') || '';
+  var deviceId = localStorage.getItem('collab_device') ||
+    (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  localStorage.setItem('collab_device', deviceId);
+
+  var S = {                       // stato locale
+    nick: localStorage.getItem('collab_nick_' + TOKEN) || '',
+    color: C.PALETTE[0],
+    rootLabel: '', mapName: '',
+    myNodes: [],                  // i MIEI nodi (autorevoli qui, sync verso server)
+    others: [],                   // gruppi altrui (sola lettura, da /api/board)
+    selId: null,                  // nodo selezionato per edit
+    curColor: C.PALETTE[5], curSize: 'm',
+    showBoard: false, dirty: false
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function api(p, opts) {
+    return fetch(p, opts).then(function (r) {
+      return r.json().then(function (b) { return { status: r.status, body: b }; });
+    });
+  }
+
+  // ── Boot: meta sessione ───────────────────────────────────────────────
+  api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+    if (r.status !== 200) { $('join-err').textContent = 'Sessione non valida — richiedi un nuovo QR.'; return; }
+    S.mapName = r.body.session.name;
+    S.rootLabel = r.body.session.rootLabel;
+    $('join-map').textContent = S.mapName;
+    $('hd-title').textContent = S.mapName;
+    if (S.nick) { $('nick').value = S.nick; }
+  }).catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
+
+  // ── Join ──────────────────────────────────────────────────────────────
+  $('join-btn').onclick = function () {
+    var nick = C.sanitizeNick($('nick').value);
+    if (!nick) { $('join-err').textContent = 'Nome gruppo: da 2 a 24 caratteri.'; return; }
+    api('/api/join', { method: 'POST', body: JSON.stringify({ token: TOKEN, nick: nick, deviceId: deviceId }) })
+      .then(function (r) {
+        if (r.status === 409) { $('join-err').textContent = 'Nome già in uso da un altro gruppo — scegline un altro.'; return; }
+        if (r.status !== 200) { $('join-err').textContent = 'Errore di accesso (' + r.status + ').'; return; }
+        S.nick = r.body.nick; S.color = r.body.color;
+        S.myNodes = r.body.nodes || [];
+        localStorage.setItem('collab_nick_' + TOKEN, S.nick);
+        $('join').style.display = 'none';
+        $('editor').style.display = 'flex';
+        var b = $('hd-nick'); b.textContent = S.nick; b.style.background = S.color;
+        S.curColor = S.color;
+        buildChips();
+        render();
+      })
+      .catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
+  };
+
+  // ── Toolbar ───────────────────────────────────────────────────────────
+  function buildChips() {
+    var el = $('chips'); el.innerHTML = '';
+    C.PALETTE.forEach(function (col) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip' + (col === S.curColor ? ' sel' : '');
+      b.style.background = col;
+      b.onclick = function () {
+        S.curColor = col;
+        el.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('sel'); });
+        b.classList.add('sel');
+        if (S.selId) { withSel(function (n) { n.color = col; n.updatedAt = Date.now(); }); }
+      };
+      el.appendChild(b);
+    });
+  }
+  document.querySelectorAll('.size-btn').forEach(function (b) {
+    b.onclick = function () {
+      S.curSize = b.getAttribute('data-size');
+      document.querySelectorAll('.size-btn').forEach(function (x) { x.classList.remove('sel'); });
+      b.classList.add('sel');
+      if (S.selId) { withSel(function (n) { n.size = S.curSize; n.updatedAt = Date.now(); }); }
+    };
+  });
+
+  function withSel(fn) {
+    var n = S.myNodes.find(function (x) { return x.id === S.selId; });
+    if (n) { fn(n); markDirty(); render(); }
+  }
+
+  $('add-btn').onclick = function () {
+    var text = C.sanitizeText($('node-text').value);
+    if (!text) return;
+    if (S.selId) {                      // modifica del selezionato
+      withSel(function (n) { n.text = text; n.updatedAt = Date.now(); });
+      select(null);
+      $('node-text').value = '';
+      return;
+    }
+    if (S.myNodes.length >= C.LIMITS.nodesPerGroup) return;
+    var angle = Math.random() * Math.PI * 2;
+    S.myNodes.push({
+      id: 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+      text: text, color: S.curColor, size: S.curSize,
+      x: Math.cos(angle) * 0.7, y: Math.sin(angle) * 0.7,
+      updatedAt: Date.now()
+    });
+    $('node-text').value = '';
+    markDirty(); render();
+  };
+
+  $('del-btn').onclick = function () {
+    if (!S.selId) return;
+    S.myNodes = S.myNodes.filter(function (n) { return n.id !== S.selId; });
+    select(null); markDirty(); render();
+  };
+
+  function select(id) {
+    S.selId = id;
+    var n = id && S.myNodes.find(function (x) { return x.id === id; });
+    $('del-btn').style.display = n ? 'inline-block' : 'none';
+    $('add-btn').textContent = n ? 'Salva' : 'Aggiungi';
+    if (n) { $('node-text').value = n.text; }
+    render();
+  }
+
+  // ── Sync automatico (debounce): ultimo scrittore vince ────────────────
+  var syncTimer = null;
+  function markDirty() {
+    S.dirty = true;
+    setSync('wait', 'in attesa…');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushNodes, 800);
+  }
+  function setSync(cls, txt) { var s = $('sync'); s.className = cls; s.textContent = txt; }
+  function pushNodes() {
+    api('/api/nodes', {
+      method: 'POST',
+      body: JSON.stringify({ token: TOKEN, nick: S.nick, deviceId: deviceId, nodes: S.myNodes })
+    }).then(function (r) {
+      if (r.status === 200) { S.dirty = false; setSync('ok', 'salvato'); }
+      else setSync('err', 'errore ' + r.status);
+    }).catch(function () {
+      setSync('err', 'offline — riprovo');
+      clearTimeout(syncTimer); syncTimer = setTimeout(pushNodes, 3000);
+    });
+  }
+
+  // ── Mostra classe (board polling) ─────────────────────────────────────
+  var boardTimer = null;
+  $('board-toggle').onclick = function () {
+    S.showBoard = !S.showBoard;
+    this.classList.toggle('on', S.showBoard);
+    if (S.showBoard) { pollBoard(); }
+    else { clearTimeout(boardTimer); S.others = []; render(); }
+  };
+  function pollBoard() {
+    api('/api/board?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+      if (r.status === 200) {
+        S.others = (r.body.groups || []).filter(function (g) { return g.nick !== S.nick; });
+        render();
+      }
+    }).catch(function () {});
+    boardTimer = setTimeout(pollBoard, 5000);
+  }
+
+  // ── Render SVG ────────────────────────────────────────────────────────
+  var svg = $('cv');
+  var NS = 'http://www.w3.org/2000/svg';
+  function geo() {
+    var r = svg.getBoundingClientRect();
+    return { cx: r.width / 2, cy: r.height / 2, R: Math.min(r.width, r.height) / 2 * 0.82, w: r.width, h: r.height };
+  }
+  function px(n, g) { return { x: g.cx + n.x * g.R, y: g.cy + n.y * g.R }; }
+
+  function wrapText(textEl, str, maxChars) {
+    var words = String(str).split(' ');
+    var lines = [''];
+    words.forEach(function (w) {
+      var cur = lines[lines.length - 1];
+      if ((cur + ' ' + w).trim().length > maxChars && cur) lines.push(w);
+      else lines[lines.length - 1] = (cur + ' ' + w).trim();
+    });
+    lines = lines.slice(0, 3);
+    lines.forEach(function (ln, i) {
+      var ts = document.createElementNS(NS, 'tspan');
+      ts.setAttribute('x', 0);
+      ts.setAttribute('dy', i === 0 ? (-(lines.length - 1) * 0.55) + 'em' : '1.1em');
+      ts.textContent = ln;
+      textEl.appendChild(ts);
+    });
+  }
+
+  function drawNode(n, mine, color, g) {
+    var sz = C.SIZES[n.size] || C.SIZES.m;
+    var p = px(n, g);
+    var grp = document.createElementNS(NS, 'g');
+    grp.setAttribute('class', 'snode' + (mine ? ' mine' : ' ghost') + (S.selId === n.id ? ' sel' : ''));
+    grp.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+    var rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x', -sz.w / 2); rect.setAttribute('y', -sz.h / 2);
+    rect.setAttribute('width', sz.w); rect.setAttribute('height', sz.h);
+    rect.setAttribute('rx', 10);
+    rect.setAttribute('fill', n.color);
+    rect.setAttribute('stroke', color);
+    grp.appendChild(rect);
+    var txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('font-size', n.size === 'l' ? 15 : (n.size === 's' ? 11 : 13));
+    wrapText(txt, n.text, n.size === 'l' ? 24 : (n.size === 's' ? 16 : 20));
+    grp.appendChild(txt);
+    if (mine) attachDrag(grp, n, g);
+    svg.appendChild(grp);
+  }
+
+  function render() {
+    var g = geo();
+    svg.innerHTML = '';
+    // nodi altrui sotto (ghost)
+    S.others.forEach(function (grp) {
+      (grp.nodes || []).forEach(function (n) { drawNode(n, false, grp.color, g); });
+    });
+    // root al centro
+    var root = document.createElementNS(NS, 'g');
+    root.setAttribute('transform', 'translate(' + g.cx + ',' + g.cy + ')');
+    var re = document.createElementNS(NS, 'ellipse');
+    re.setAttribute('class', 'root-bubble');
+    re.setAttribute('rx', Math.min(150, g.R * 0.45)); re.setAttribute('ry', 44);
+    root.appendChild(re);
+    var rl = document.createElementNS(NS, 'text');
+    rl.setAttribute('class', 'root-label');
+    rl.setAttribute('font-size', 14);
+    wrapText(rl, S.rootLabel, 24);
+    root.appendChild(rl);
+    svg.appendChild(root);
+    // i miei nodi sopra
+    S.myNodes.forEach(function (n) { drawNode(n, true, S.color, g); });
+  }
+
+  // ── Drag (pointer events: mouse + touch) ──────────────────────────────
+  function attachDrag(grp, n, g) {
+    var drag = null;
+    grp.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      grp.setPointerCapture(e.pointerId);
+      var p = px(n, g);
+      drag = { dx: e.clientX - p.x, dy: e.clientY - p.y, moved: false };
+    });
+    grp.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      drag.moved = true;
+      var nx = (e.clientX - drag.dx - g.cx) / g.R;
+      var ny = (e.clientY - drag.dy - g.cy) / g.R;
+      n.x = Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, nx));
+      n.y = Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, ny));
+      grp.setAttribute('transform', 'translate(' + px(n, g).x + ',' + px(n, g).y + ')');
+    });
+    grp.addEventListener('pointerup', function () {
+      if (drag && drag.moved) { n.updatedAt = Date.now(); markDirty(); }
+      else select(S.selId === n.id ? null : n.id);   // tap = seleziona/deseleziona
+      drag = null;
+    });
+  }
+
+  window.addEventListener('resize', render);
+  $('node-text').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('add-btn').click();
+  });
+})();
+</script>
+</body>
+</html>

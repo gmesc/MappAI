@@ -1527,6 +1527,73 @@ ipcMain.handle('garden-open-folder', async () => {
     return { success: true, dir };
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// LAVAGNA COLLABORATIVA (003) — server LAN, stesso pattern del Knowledge Garden
+// ══════════════════════════════════════════════════════════════════════════
+const { createCollabServer } = require('./collab-server');
+let collabSrv = null;
+let collabInfo = null;
+
+function collabBaseDir() {
+    return path.join(app.getPath('documents'), 'MappAI - Lavagna');
+}
+
+// Avvia (o RIPRENDE) una sessione lavagna. Payload dal renderer:
+// { name (nome mappa), rootLabel (tema centrale) }
+ipcMain.handle('collab-start-session', async (event, opts) => {
+    try {
+        if (collabSrv) { await collabSrv.stop(); collabSrv = null; collabInfo = null; }
+        const name = (opts && opts.name) || 'Lavagna';
+        const slug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sessione';
+        const dir = path.join(collabBaseDir(), slug);
+        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        collabSrv = createCollabServer({
+            repoRoot: __dirname,
+            dir,
+            session: { name, rootLabel: (opts && opts.rootLabel) || name }
+        });
+        let port = null, lastErr = null;
+        for (let p = 8766; p <= 8776; p++) {
+            try { port = await collabSrv.listen(p, '0.0.0.0'); break; }
+            catch (e) { lastErr = e; }
+        }
+        if (!port) throw lastErr || new Error('nessuna porta libera 8766-8776');
+        const st = collabSrv.state();
+        collabInfo = {
+            port, urls: lanUrls(port), token: st.session.token,
+            adminToken: st.session.adminToken, dir, name, resumed: resuming
+        };
+        console.log('[collab] sessione lavagna avviata su :' + port, resuming ? '(RIPRESA)' : '');
+        return Object.assign({ success: true, groups: st.groups.length }, collabInfo);
+    } catch (err) {
+        console.error('Errore collab-start-session:', err);
+        collabSrv = null;
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('collab-stop-session', async () => {
+    try {
+        if (collabSrv) { await collabSrv.stop(); collabSrv = null; collabInfo = null; }
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Info sessione corrente (il polling dei gruppi lo fa il renderer
+// direttamente su 127.0.0.1:<port>/api/status con l'adminToken)
+ipcMain.handle('collab-session-info', async () => {
+    if (!collabSrv || !collabInfo) return { success: false, error: 'nessuna sessione attiva' };
+    return Object.assign({ success: true }, collabInfo);
+});
+
+ipcMain.handle('collab-open-folder', async () => {
+    const dir = collabInfo ? collabInfo.dir : collabBaseDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+    return { success: true, dir };
+});
+
 // MEMORY DUNGEON: scrive un piano validato in Memory Dungeon/piani/piano-N.json.
 // Usato dall'import in-app (la validazione avviene nel renderer, contratto §4).
 ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {

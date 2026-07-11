@@ -446,6 +446,8 @@ const it_translations = {
     ui_graph_manager: "Graph manager",
     tt_graph_manager: "Salva, apri, importa ed esporta la mappa",
     tt_knowledge_garden: "Knowledge Garden: crea, condividi ed esplora i giardini della classe",
+    ui_collab_board: "Lavagna collaborativa",
+    tt_collab_board: "Lavagna collaborativa: i gruppi propongono nodi dal telefono via QR",
     ui_node_sheet_btn: "Foglio nodi",
     ui_print_dossier_btn: "Stampa dossier",
     ui_create_timeline: "Crea Timeline",

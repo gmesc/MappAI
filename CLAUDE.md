@@ -534,6 +534,38 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
+Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge
+Garden (stessi pattern: server HTTP Node puro via IPC, token nel QR, adminToken,
+allowlist statica, persistenza crash-safe, ripresa da disco con lo stesso token).
+- **Core puro**: `public/js/mappai-collab-core.js` (UMD — sanitize nick/testo,
+  `validateStudentNode`, `mergeGroupNodes` last-write-wins cap 30, `layerToGraph` →
+  JSON mappa MappAI root L0 + nodi L1 rel "propone") + `tests/collab-core.test.js` (13).
+- **Server LAN**: `collab-server.js` (porte 8766-8776, storage
+  `~/Documents/MappAI - Lavagna/<slug>/` con `groups/<slug>.json` per gruppo +
+  `board.json`). API: session/join (409 nick di altro device, ripresa stesso device,
+  adozione gruppo rilasciato)/nodes (merge+422)/board/status admin/release.
+  `tests/collab-server.test.js` (12, incluso stop→restart con token identico).
+- **Pagina studente**: `public/collab/student.html` self-contained (join nickname,
+  editor SVG con root al centro, nodi rect testo≤80+palette 8+taglie S/M/L,
+  drag pointer-events, edit/delete, sync automatico debounce 800ms con indicatore,
+  "Mostra classe" polling 5s, deviceId in localStorage). ✅ VERIFICATA E2E in browser
+  CONTRO SERVER REALE: join → 2 nodi → sync su disco → drag (pointer events) → board.
+  ⚠️ il drag col tool di automazione non emette pointermove: testato via dispatch
+  programmatico — su device reali funziona (stesso stream di eventi).
+- **Docente**: IPC `collab-start/stop-session`, `collab-session-info`,
+  `collab-open-folder` (main.js + preload); `mappai-collab-teacher.js`
+  (`window.openCollabHub()`: avvio con istruzioni rete hotspot/router, QR grande +
+  fullscreen LIM, dashboard gruppi polling 3s diretto su 127.0.0.1, toggle+rinomina
+  layer, export `vault-dinamico-<gruppo>.json` importabile); overlay
+  `g#collab-overlay` a raggiera attorno al root — MAI dentro `appState.db`.
+  Voce menu "Lavagna collaborativa" (presentation) sotto Knowledge Garden.
+- i18n: `ui/tt_collab_board` in ENTRAMBI i dizionari; `cl_*`/`tst_collab_*` in EN.
+  Suite **326/326** ✅ (301 + 13 core + 12 server).
+- ⚠️ T014 pendente: verifica in Electron vivo + 2 device Wi-Fi reali (serve l'utente).
+- Risposta alla domanda Jigsaw degli Appunti: il motore layer (toggle+rinomina) è
+  questo; l'integrazione del reconcile Jigsaw sugli stessi layer = follow-up.
+
 ### ✅ FATTO (11/7/26): 002-affinamenti-output — PDF vettoriale, sintesi mappa intera, keyword foglie
 Spec-kit (`specs/002-affinamenti-output/`, branch omonimo). Da "Appunti Implementazione" §3.
 (1) **Export PDF VETTORIALE**: `svg2pdf.umd.min.js` v2.2.4 vendored (MIT, 84KB, registra
