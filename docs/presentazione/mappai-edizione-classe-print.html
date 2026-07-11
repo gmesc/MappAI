@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>MappAI Edizione Classe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fbf4e2;
+            --bg-card: #f8f2de;
+            --text-primary: #1A2E35;
+            --text-secondary: #4A5C64;
+            --text-muted: #7A8C94;
+            --teal: #00C896;
+            --teal-dark: #00A67A;
+            --pink: #FF3769;
+            --pink-dark: #E02858;
+            --blue: #0098FF;
+            --orange: #FE7F21;
+            --border: rgba(26, 46, 53, .12);
+            --font: 'Space Mono', 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        @page {
+            size: A4;
+            margin: 16mm 14mm 18mm;
+        }
+
+        body {
+            font-family: var(--font);
+            font-size: 9.6pt;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            background: #fff;
+        }
+
+        /* ---------- Copertina compatta ---------- */
+        .cover {
+            text-align: center;
+            padding: 10mm 0 8mm;
+            border-bottom: 3px solid var(--text-primary);
+            margin-bottom: 8mm;
+        }
+
+        .cover svg {
+            width: 26mm;
+            height: auto;
+            margin-bottom: 5mm;
+            filter: drop-shadow(2px 2px 0 rgba(26, 46, 53, .15));
+        }
+
+        .kicker {
+            font-weight: 700;
+            font-size: 8pt;
+            text-transform: uppercase;
+            letter-spacing: .22em;
+            color: var(--teal-dark);
+            margin-bottom: 2mm;
+        }
+
+        h1 {
+            font-size: 24pt;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            line-height: 1.15;
+            margin-bottom: 3mm;
+        }
+
+        .cover .rule {
+            width: 60mm;
+            height: 2.2pt;
+            margin: 0 auto 4mm;
+            background: linear-gradient(90deg, var(--teal), var(--pink));
+        }
+
+        .cover .lead {
+            max-width: 130mm;
+            margin: 0 auto;
+            font-size: 11.5pt;
+            font-weight: 700;
+            line-height: 1.55;
+            color: var(--text-primary);
+            text-wrap: balance;
+        }
+
+        .cover .autore {
+            margin-top: 5mm;
+            font-size: 8pt;
+            color: var(--text-muted);
+        }
+
+        /* ---------- Sezioni ---------- */
+        section {
+            margin-bottom: 8mm;
+        }
+
+        h2 {
+            font-size: 13.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-primary);
+            margin-bottom: 1.2mm;
+            break-after: avoid;
+        }
+
+        h2::after {
+            content: "";
+            display: block;
+            width: 34mm;
+            height: 1.8pt;
+            margin-top: 1.4mm;
+            background: linear-gradient(90deg, var(--teal), var(--pink));
+        }
+
+        h2 + p,
+        .sez-intro {
+            margin-top: 3mm;
+        }
+
+        p {
+            margin-bottom: 2.6mm;
+            text-align: justify;
+            hyphens: auto;
+            -webkit-hyphens: auto;
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        /* ---------- Griglie card ---------- */
+        .grid {
+            display: grid;
+            gap: 3.2mm;
+            margin-top: 4mm;
+        }
+
+        .grid.c2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .grid.c3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .grid.c4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1.6pt solid var(--border);
+            border-radius: 6pt;
+            padding: 3.4mm 3.8mm;
+            box-shadow: 2.2pt 2.2pt 0 rgba(0, 0, 0, .10);
+            break-inside: avoid;
+        }
+
+        .card .ico {
+            font-size: 13pt;
+            line-height: 1;
+            display: block;
+            margin-bottom: 1.6mm;
+        }
+
+        .card h4 {
+            font-size: 8.6pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: var(--text-primary);
+            margin-bottom: 1.2mm;
+        }
+
+        .card p {
+            font-size: 8.2pt;
+            line-height: 1.5;
+            margin: 0;
+            text-align: left;
+        }
+
+        /* ---------- Manifesto ---------- */
+        .manifesto {
+            margin-top: 5mm;
+            padding: 4.5mm 6mm;
+            background: linear-gradient(135deg, rgba(0, 200, 150, .10), rgba(255, 55, 105, .09));
+            border: 1.6pt solid var(--border);
+            border-radius: 6pt;
+            box-shadow: 2.2pt 2.2pt 0 rgba(0, 0, 0, .10);
+            text-align: center;
+            break-inside: avoid;
+        }
+
+        .manifesto p {
+            font-size: 10.5pt;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-align: center;
+            margin: 0;
+            text-wrap: balance;
+        }
+
+        /* ---------- Callout ---------- */
+        .callout {
+            margin-top: 4mm;
+            padding: 3.2mm 4.5mm;
+            background: rgba(26, 46, 53, .035);
+            border-left: 3pt solid var(--teal);
+            border-radius: 3pt;
+            font-size: 8.8pt;
+            line-height: 1.55;
+            break-inside: avoid;
+        }
+
+        .callout.pink {
+            border-left-color: var(--pink);
+        }
+
+        /* ---------- Tabelle ---------- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4mm;
+            font-size: 8.8pt;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 2.4mm 3mm;
+            border-bottom: 1.4pt solid rgba(26, 46, 53, .10);
+            vertical-align: top;
+            line-height: 1.5;
+        }
+
+        th {
+            font-size: 7.4pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--teal-dark);
+            border-bottom: 1.8pt solid var(--teal);
+        }
+
+        td:first-child {
+            color: var(--text-primary);
+            font-weight: 700;
+            width: 36%;
+        }
+
+        tr {
+            break-inside: avoid;
+        }
+
+        /* ---------- Liste ---------- */
+        ul {
+            margin: 3mm 0 0 5mm;
+        }
+
+        li {
+            font-size: 9pt;
+            line-height: 1.55;
+            margin-bottom: 1.8mm;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        /* ---------- Vcard (due colonne colorate) ---------- */
+        .vgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3.5mm;
+            margin-top: 4mm;
+        }
+
+        .vcard {
+            border: 1.6pt solid;
+            border-radius: 6pt;
+            padding: 3.8mm 4.2mm;
+            box-shadow: 2.2pt 2.2pt 0 rgba(0, 0, 0, .10);
+            break-inside: avoid;
+        }
+
+        .vcard.doc {
+            background: rgba(0, 200, 150, .08);
+            border-color: rgba(0, 200, 150, .35);
+        }
+
+        .vcard.stu {
+            background: rgba(255, 55, 105, .07);
+            border-color: rgba(255, 55, 105, .3);
+        }
+
+        .vcard h3 {
+            font-size: 9.4pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 1.8mm;
+        }
+
+        .vcard.doc h3 {
+            color: var(--teal-dark);
+        }
+
+        .vcard.stu h3 {
+            color: var(--pink-dark);
+        }
+
+        .vcard p {
+            font-size: 8.4pt;
+            margin-bottom: 1.6mm;
+            text-align: left;
+        }
+
+        .vcard ul {
+            margin: 0 0 0 4mm;
+        }
+
+        .vcard li {
+            font-size: 8.2pt;
+            margin-bottom: 1.2mm;
+            text-align: left;
+        }
+
+        /* ---------- Credenziali ---------- */
+        .creds {
+            display: flex;
+            justify-content: center;
+            gap: 2.6mm;
+            margin: 4mm 0 1mm;
+        }
+
+        .cred {
+            display: inline-flex;
+            align-items: center;
+            gap: 1.6mm;
+            background: var(--bg-card);
+            border: 1.4pt dashed rgba(26, 46, 53, .3);
+            border-radius: 4pt;
+            padding: 1.6mm 3mm;
+            font-weight: 700;
+            font-size: 9.5pt;
+            color: var(--text-primary);
+        }
+
+        .cred .em {
+            font-size: 11pt;
+            font-family: 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', sans-serif;
+        }
+
+        /* ---------- Flow steps ---------- */
+        .flow {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2.4mm;
+            margin-top: 4mm;
+        }
+
+        .fstep {
+            background: var(--bg-card);
+            border: 1.4pt solid var(--border);
+            border-radius: 5pt;
+            padding: 2.6mm 2.8mm;
+            box-shadow: 1.8pt 1.8pt 0 rgba(0, 0, 0, .09);
+            break-inside: avoid;
+        }
+
+        .fstep .n {
+            font-size: 6.6pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--teal-dark);
+        }
+
+        .fstep h5 {
+            font-size: 8.2pt;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: .8mm 0 1mm;
+        }
+
+        .fstep p {
+            font-size: 7.2pt;
+            line-height: 1.45;
+            margin: 0;
+            text-align: left;
+        }
+
+        /* ---------- Footer contatti ---------- */
+        .contatti {
+            margin-top: 8mm;
+            padding-top: 4mm;
+            border-top: 3px solid var(--text-primary);
+            text-align: center;
+            font-size: 9pt;
+        }
+
+        .contatti strong {
+            color: var(--teal-dark);
+        }
+
+        .pb {
+            break-before: page;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ============ COPERTINA ============ -->
+    <div class="cover">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g stroke="#1A2E35" stroke-width="6" stroke-linecap="round">
+                <line x1="100" y1="100" x2="100" y2="30"/>
+                <line x1="100" y1="100" x2="167" y2="78"/>
+                <line x1="100" y1="100" x2="141" y2="157"/>
+                <line x1="100" y1="100" x2="59" y2="157"/>
+                <line x1="100" y1="100" x2="33" y2="78"/>
+            </g>
+            <circle cx="100" cy="30" r="18" fill="#0098FF"/>
+            <circle cx="167" cy="78" r="18" fill="#33B44A"/>
+            <circle cx="141" cy="157" r="18" fill="#FE7F21"/>
+            <circle cx="59" cy="157" r="18" fill="#FF3769"/>
+            <circle cx="33" cy="78" r="18" fill="#FFC400"/>
+            <circle cx="100" cy="100" r="17" fill="#1A2E35"/>
+        </svg>
+        <div class="kicker">La nuova versione, pensata per l'aula</div>
+        <h1>MappAI<br>Edizione Classe</h1>
+        <div class="rule"></div>
+        <p class="lead">Il computer del docente diventa il server della classe: quiz dal vivo, mappe costruite a più
+            mani e materiali distribuiti con un codice QR. Tutto in locale, senza account e senza cloud.</p>
+        <p class="autore">Giacomo Meschini · giacomo@insegnai.ch · insegnai.ch/mappai.html</p>
+    </div>
+
+    <!-- ============ INTRO ============ -->
+    <section>
+        <p>MappAI è un'applicazione desktop (macOS, Windows, Linux) che trasforma le fonti di studio — PDF, pagine web,
+            video, documenti, appunti — in <strong>mappe mentali e grafi di conoscenza</strong> generati con
+            l'intelligenza artificiale, e poi le trasforma in strumenti di studio concreti: quiz, flashcard con ripasso
+            programmato, esercizi cloze, sintesi stampabili, dossier, timeline. È pensata fin dall'inizio per la scuola
+            reale: studenti <strong>BES/DSA</strong>, docenti di materia e OPI.</p>
+        <p>Le versioni precedenti erano uno strumento <strong>individuale</strong>. La nuova versione porta MappAI
+            <strong>in aula</strong>: gli studenti si collegano con i loro dispositivi inquadrando un codice QR
+            proiettato alla LIM, e la classe lavora insieme. Quattro principi hanno guidato la riprogettazione.</p>
+
+        <div class="grid c4">
+            <div class="card">
+                <span class="ico">🧭</span>
+                <h4>Meno menu</h4>
+                <p>Quattro hub chiari al posto di venti voci. Le spiegazioni compaiono al passaggio del mouse.</p>
+            </div>
+            <div class="card">
+                <span class="ico">🎯</span>
+                <h4>Strumenti concreti</h4>
+                <p>Ogni funzione risponde a una domanda pratica: cosa stampo? cosa faccio fare alla classe?</p>
+            </div>
+            <div class="card">
+                <span class="ico">🔒</span>
+                <h4>Tutto in locale</h4>
+                <p>I server di classe vivono sul computer del docente. I dati non lasciano mai la stanza.</p>
+            </div>
+            <div class="card">
+                <span class="ico">📱</span>
+                <h4>Zero installazioni</h4>
+                <p>Allo studente bastano un browser e una fotocamera per il QR, su qualunque dispositivo.</p>
+            </div>
+        </div>
+
+        <div class="manifesto">
+            <p>MappAI Edizione Classe non aggiunge tecnologia alla lezione: toglie attrito tra il docente e la
+                didattica che vuole già fare — vedere chi ha capito cosa, e intervenire dove serve.</p>
+        </div>
+    </section>
+
+    <!-- ============ QUATTRO HUB ============ -->
+    <section>
+        <h2>Un'interfaccia raccolta: quattro hub</h2>
+        <p class="sez-intro">Un docente alla prima apertura non deve esplorare un labirinto: vede quattro porte, ognuna
+            con un compito chiaro. Dentro, le schede sono pulite — icona e titolo — e il resto si scopre al passaggio
+            del mouse.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Hub</th>
+                    <th>A cosa serve</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>🧠 Studio attivo</td>
+                    <td>Le modalità di esercizio sulla mappa: ricostruzione, richiamo, cloze, Palazzo della Memoria,
+                        quiz — più le viste di monitoraggio: padronanza per concetto, mappa di lavoro, percorso
+                        consigliato, curva dei progressi.</td>
+                </tr>
+                <tr>
+                    <td>📄 Materiali di studio</td>
+                    <td>Tutto ciò che si stampa o si consegna: foglio nodi con parole chiave, sintesi di ramo o
+                        dell'intera mappa, dossier PDF, timeline cronologica, attività Jigsaw.</td>
+                </tr>
+                <tr>
+                    <td>🗂 Graph manager</td>
+                    <td>La gestione delle mappe: salvataggio nel vault, importazione, unione di più mappe, esportazione
+                        degli appunti.</td>
+                </tr>
+                <tr>
+                    <td>🌱 Knowledge Garden</td>
+                    <td>L'ambiente creativo di classe: uno spazio espositivo tridimensionale dove ogni studente
+                        costruisce la propria parcella legata a un concetto della mappa.</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- ============ STRUMENTI AFFINATI ============ -->
+    <section>
+        <h2>Strumenti affinati per l'efficienza didattica</h2>
+        <p class="sez-intro">Ogni strumento esistente è stato rivisto con una domanda in testa: <em>serve davvero in
+                classe, così com'è?</em> Dove la risposta era «quasi», abbiamo affinato.</p>
+        <div class="grid c3">
+            <div class="card">
+                <span class="ico">📖</span>
+                <h4>Sintesi dell'intera mappa</h4>
+                <p>Oltre alla sintesi del singolo ramo, una sintesi organica di tutta la mappa, sezione per sezione,
+                    con citazioni dalle fonti. Un ripasso completo, pronto da stampare.</p>
+            </div>
+            <div class="card">
+                <span class="ico">🔑</span>
+                <h4>Parole chiave calibrate</h4>
+                <p>Le schede stampabili estraggono parole chiave solo quando il contenuto le giustifica, senza
+                    riempitivi che confondono.</p>
+            </div>
+            <div class="card">
+                <span class="ico">🔍</span>
+                <h4>PDF vettoriale</h4>
+                <p>Le mappe esportate in PDF si ingrandiscono all'infinito senza sgranare. Fondamentale per studenti
+                    ipovedenti e per la stampa in grande formato.</p>
+            </div>
+            <div class="card">
+                <span class="ico">📝</span>
+                <h4>Descrizioni ricche</h4>
+                <p>Ogni nodo porta un paragrafo di studio denso e fedele alla fonte. Per uno studente DSA la
+                    descrizione <em>è</em> il materiale di studio.</p>
+            </div>
+            <div class="card">
+                <span class="ico">📊</span>
+                <h4>Studio attivo misurato</h4>
+                <p>Gli esercizi registrano precisione e fluenza, alimentano un indice di padronanza per concetto e si
+                    adattano ai punti deboli.</p>
+            </div>
+            <div class="card">
+                <span class="ico">⏰</span>
+                <h4>Ripasso su misura</h4>
+                <p>La ripetizione programmata si tara sulla padronanza reale: ripassa prima ciò che vacilla, più tardi
+                    ciò che tiene.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ QR + SERVER LOCALE ============ -->
+    <section>
+        <h2>La classe si collega con un QR</h2>
+        <p class="sez-intro">È la novità più grande. Dal computer del docente, MappAI avvia un <strong>server sulla
+                rete locale</strong> — il Wi-Fi dell'aula o un semplice hotspot dal telefono: si proietta un codice QR
+            alla LIM, gli studenti lo inquadrano e sono dentro. Funziona anche <strong>senza Internet</strong>, e se
+            l'app si chiude per sbaglio la sessione riprende da dove era, con lo stesso QR. Su questa base girano
+            quattro attività.</p>
+
+        <div class="grid c2">
+            <div class="card">
+                <span class="ico">🎯</span>
+                <h4>Studio attivo live — quiz di classe</h4>
+                <p>Il docente sceglie classe, tipo di domande — vero/falso, scelta multipla, cloze o domande scritte da
+                    lui — l'ambito (tutta la mappa o un ramo), quantità e timer. Le domande nascono dalla mappa in
+                    pochi secondi; gli studenti rispondono dal proprio dispositivo, con la libertà di tornare indietro,
+                    saltare e correggersi fino alla consegna. Il docente segue tutto in tempo reale dalla
+                    dashboard.</p>
+            </div>
+            <div class="card">
+                <span class="ico">🖍</span>
+                <h4>Lavagna collaborativa — mappe condivise</h4>
+                <p>Il docente lancia un concetto al centro; i gruppi aggiungono i propri nodi dal browser — testo,
+                    colore, dimensione — e li collegano con parole chiave («causa», «richiede», «si oppone a»...).
+                    Ogni gruppo lavora sul proprio livello, il docente li accende e spegne come lucidi sovrapposti, e
+                    il risultato si esporta come vera mappa MappAI, riutilizzabile nelle lezioni successive.</p>
+            </div>
+            <div class="card">
+                <span class="ico">📂</span>
+                <h4>Materiali in un tocco</h4>
+                <p>Il docente pubblica dispense, sintesi, fogli di lavoro; gli studenti li scaricano inquadrando il QR,
+                    senza alcun login. Fine delle chiavette e delle mail alla classe.</p>
+            </div>
+            <div class="card">
+                <span class="ico">🌱</span>
+                <h4>Knowledge Garden — la mostra di classe</h4>
+                <p>Ogni studente rivendica una parcella di un giardino tridimensionale condiviso e la costruisce,
+                    consegnandola con una targhetta obbligatoria: il concetto della mappa che rappresenta. Il metodo
+                    dei loci diventa un progetto collettivo, e la mostra resta salvata e riapribile per sempre.</p>
+            </div>
+        </div>
+
+        <div class="callout">
+            <strong>Il brainstorming che non finisce nel cestino.</strong> Ciò che la classe costruisce alla lavagna
+            collaborativa non evapora al suono della campanella: diventa una mappa MappAI a tutti gli effetti, su cui
+            generare quiz, sintesi e materiali nelle lezioni successive.
+        </div>
+    </section>
+
+    <!-- ============ ACCOUNT ANONIMI ============ -->
+    <section class="pb">
+        <h2>Account anonimi, risultati veri</h2>
+        <p class="sez-intro">Per raccogliere i risultati dei quiz servono identità — ma a scuola le identità sono un
+            problema di privacy. MappAI lo risolve alla radice: le credenziali sono <strong>coppie
+                emoji&nbsp;+&nbsp;numero</strong>, generate dall'app per ogni classe e stampabili su un foglio pronto
+            da ritagliare e distribuire.</p>
+
+        <div class="creds">
+            <span class="cred"><span class="em">🦊</span> 03</span>
+            <span class="cred"><span class="em">🐢</span> 07</span>
+            <span class="cred"><span class="em">🐝</span> 01</span>
+            <span class="cred"><span class="em">🦉</span> 09</span>
+            <span class="cred"><span class="em">🐬</span> 04</span>
+            <span class="cred"><span class="em">🦁</span> 02</span>
+        </div>
+
+        <div class="vgrid">
+            <div class="vcard doc">
+                <h3>Identità senza dati personali</h3>
+                <p>Lo studente al login sceglie la classe, tocca la sua emoji e digita il suo numero. Fine.</p>
+                <ul>
+                    <li><strong>Niente nomi, email o password</strong> richiesti agli studenti.</li>
+                    <li>Il docente crea la classe una volta sola: nome, anno, numero di allievi.</li>
+                    <li>Se vuole, associa un nome a ogni credenziale — in un registro che resta <strong>solo sul suo
+                            computer</strong>.</li>
+                    <li>Fino a 132 identità per classe; chi cambia dispositivo rientra senza perdere le risposte.</li>
+                </ul>
+            </div>
+            <div class="vcard stu">
+                <h3>Due report automatici</h3>
+                <p>Alla chiusura di una sessione live, due report stampabili, salvati in una cartella datata sul
+                    computer del docente.</p>
+                <ul>
+                    <li><strong>Per domanda</strong> — la mappa di calore della classe: quanti hanno risposto bene,
+                        male, in bianco. Si vede a colpo d'occhio quale concetto non è passato.</li>
+                    <li><strong>Per studente</strong> — una scheda per allievo: precisione, fluenza, punti forti e
+                        deboli raggruppati per area della mappa.</li>
+                    <li>Le risposte in bianco sono contate a parte: «non so» e «sbaglio» sono informazioni
+                        diverse.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="callout pink">
+            <strong>Dal quiz alla didattica.</strong> Il report per domanda dice <em>quale concetto</em> riprendere; il
+            report per studente dice <em>con chi</em>. La lezione successiva parte dai punti deboli reali, non dalle
+            impressioni.
+        </div>
+    </section>
+
+    <!-- ============ TARATURA ============ -->
+    <section>
+        <h2>L'AI si tara sugli studenti reali</h2>
+        <p class="sez-intro">Ogni classe registrata porta con sé un <strong>profilo di taratura</strong>: grado
+            scolastico, registro linguistico — semplice, medio o ricco — e note libere del docente, come la presenza di
+            studenti BES/DSA o particolari esigenze linguistiche. Quando una classe è attiva, tutta la generazione —
+            mappe, descrizioni, quiz, flashcard, tutor, timeline — adatta <em>come</em> si esprime a quel profilo,
+            restando fedele ai contenuti della fonte.</p>
+        <p>La stessa mappa, generata per una seconda media con studenti DSA o per una quarta liceo, avrà lessico,
+            lunghezza dei periodi e densità diverse. Il docente lo imposta una volta; l'app lo ricorda a ogni
+            generazione. Un interruttore nell'intestazione mostra sempre quale classe è attiva, e «Generico» riporta al
+            comportamento neutro.</p>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section>
+        <h2>Privacy per costruzione</h2>
+        <p class="sez-intro">Non un'informativa da firmare, ma scelte di architettura: la privacy in MappAI non dipende
+            dalle promesse di un fornitore, perché i dati non arrivano mai a un fornitore.</p>
+        <ul>
+            <li><strong>Tutto gira in locale.</strong> I server di classe vivono sul computer del docente e sulla rete
+                dell'aula; funzionano anche senza Internet, con un semplice hotspot.</li>
+            <li><strong>Nessun dato personale richiesto agli studenti.</strong> Le identità sono emoji e numeri;
+                l'eventuale associazione ai nomi resta sul disco del docente.</li>
+            <li><strong>I risultati si salvano su file</strong>, in cartelle leggibili e datate nei Documenti del
+                docente — non su piattaforme terze.</li>
+            <li><strong>L'AI si usa dove serve.</strong> Per generare mappe e domande il docente sceglie il provider:
+                Google Gemini, oppure Infomaniak — provider svizzero — per chi vuole che anche la generazione resti su
+                infrastruttura europea. Alle sessioni live gli studenti non toccano mai l'AI né le chiavi API.</li>
+            <li><strong>Sessioni a prova di imprevisto.</strong> Se l'app si chiude, si riapre e la sessione riprende
+                da dove era, con lo stesso QR.</li>
+        </ul>
+    </section>
+
+    <!-- ============ COSA SERVE ============ -->
+    <section>
+        <h2>Cosa serve per iniziare</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Chi</th>
+                    <th>Cosa serve</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Docente</td>
+                    <td>Un computer (macOS, Windows o Linux) con MappAI installato e una chiave API per la generazione
+                        AI.</td>
+                </tr>
+                <tr>
+                    <td>Aula</td>
+                    <td>Una rete Wi-Fi comune — quella della scuola o un hotspot dal telefono del docente — e una LIM o
+                        un proiettore per mostrare il QR.</td>
+                </tr>
+                <tr>
+                    <td>Studenti</td>
+                    <td>Qualunque dispositivo con un browser: tablet, telefono, Chromebook, PC. Nessuna installazione,
+                        nessuna registrazione.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 style="margin-top:8mm;">Il flusso di una lezione tipo</h2>
+        <div class="flow">
+            <div class="fstep">
+                <div class="n">Passo 1</div>
+                <h5>Apri la mappa</h5>
+                <p>Quella dell'argomento del giorno — o generala dalle tue fonti in pochi minuti.</p>
+            </div>
+            <div class="fstep">
+                <div class="n">Passo 2</div>
+                <h5>Scegli l'attività</h5>
+                <p>Dal menu MappAI Live: quiz, lavagna, materiali o Knowledge Garden. Seleziona la classe.</p>
+            </div>
+            <div class="fstep">
+                <div class="n">Passo 3</div>
+                <h5>Proietta il QR</h5>
+                <p>Gli studenti inquadrano ed entrano con emoji e numero. Niente da installare.</p>
+            </div>
+            <div class="fstep">
+                <div class="n">Passo 4</div>
+                <h5>La classe lavora</h5>
+                <p>Tu segui la dashboard in tempo reale: chi è dentro, chi ha finito, come procede.</p>
+            </div>
+            <div class="fstep">
+                <div class="n">Passo 5</div>
+                <h5>Leggi i report</h5>
+                <p>Per domanda e per studente, pronti da stampare. La prossima lezione parte da lì.</p>
+            </div>
+        </div>
+
+        <h2 style="margin-top:8mm;">In sintesi: prima e ora</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Prima</th>
+                    <th>Ora</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Strumento individuale sul PC del docente</td>
+                    <td>Piattaforma d'aula: il PC del docente serve tutta la classe via QR.</td>
+                </tr>
+                <tr>
+                    <td>Menu lunghi, funzioni da scoprire</td>
+                    <td>Quattro hub chiari, spiegazioni al passaggio del mouse.</td>
+                </tr>
+                <tr>
+                    <td>Quiz da stampare e correggere a mano</td>
+                    <td>Quiz live con correzione automatica e report per domanda e per studente.</td>
+                </tr>
+                <tr>
+                    <td>Brainstorming alla lavagna che si cancella</td>
+                    <td>Mappe condivise che diventano mappe MappAI riutilizzabili.</td>
+                </tr>
+                <tr>
+                    <td>Materiali via mail o chiavetta</td>
+                    <td>Distribuzione in un tocco, via QR, senza login.</td>
+                </tr>
+                <tr>
+                    <td>Identità = problema privacy</td>
+                    <td>Account anonimi emoji+numero generati in app.</td>
+                </tr>
+                <tr>
+                    <td>AI uguale per tutti</td>
+                    <td>Generazione tarata sul profilo reale della classe (registro, BES/DSA).</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="contatti">
+            <p>Domande, una demo per il tuo istituto, o un pilota in classe?</p>
+            <p><strong>giacomo@insegnai.ch</strong> · www.insegnai.ch/mappai.html</p>
+        </div>
+    </section>
+
+</body>
+
+</html>

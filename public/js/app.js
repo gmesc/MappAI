@@ -283,7 +283,7 @@ window.setMultiPassMode = function (enabled, silent) {
 // ==========================================
 // PIPELINE A/B SELECTION
 // ==========================================
-window.setPipeline = function (pipelineMode) {
+window.setPipeline = function (pipelineMode, silent) {
     const validModes = ['A', 'B'];
     if (!validModes.includes(pipelineMode)) {
         console.error('Invalid pipeline mode. Use A or B.');
@@ -322,11 +322,11 @@ window.setPipeline = function (pipelineMode) {
         pipelineDesc.textContent = descriptions[pipelineMode] || 'Scegli la logica di generazione KG';
     }
 
-    window.showToast(`Logica KG ${pipelineMode === 'A' ? 'A · BERT Community' : 'B · MappAI classico'}`, "info");
+    if (!silent) window.showToast(`Logica KG ${pipelineMode === 'A' ? 'A · BERT Community' : 'B · MappAI classico'}`, "info");
 };
 
 // Toggle "logica MM": 'mappai' (default, prompt L1 pulito) | 'bert' (prompt L1 con REGOLA DI PERTINENZA).
-window.setMMLogic = function (logic) {
+window.setMMLogic = function (logic, silent) {
     const mode = logic === 'bert' ? 'bert' : 'mappai';
     localStorage.setItem('mappai_mm_logic', mode);
     const btnM = document.getElementById('mmlogic-mappai-btn');
@@ -338,7 +338,7 @@ window.setMMLogic = function (logic) {
         sel.classList.add(...on); sel.classList.remove(...off);
         oth.classList.remove(...on); oth.classList.add(...off);
     }
-    if (typeof window.showToast === 'function') window.showToast(`Logica MM: ${mode === 'mappai' ? 'MappAI (consigliato)' : 'BERT sperimentale'}`, 'info');
+    if (!silent && typeof window.showToast === 'function') window.showToast(`Logica MM: ${mode === 'mappai' ? 'MappAI (consigliato)' : 'BERT sperimentale'}`, 'info');
 };
 window.getMMLogic = function () { return localStorage.getItem('mappai_mm_logic') || 'mappai'; };
 
@@ -1384,10 +1384,39 @@ REGOLE TASSATIVE DI OUTPUT:
 // Inietta il system prompt disciplinare (se attivo) nel systemInstruction base.
 // Chiamato da tutti i punti di costruzione payload per MM e KG.
 function buildSystemInstruction(base) {
+    let out = base;
     const disciplinePrompt = window.buildDisciplineSystemPrompt && window.buildDisciplineSystemPrompt();
-    if (!disciplinePrompt) return base;
-    return base + '\n\n--- FOCUS DISCIPLINARE ---\n' + disciplinePrompt;
+    if (disciplinePrompt) out += '\n\n--- FOCUS DISCIPLINARE ---\n' + disciplinePrompt;
+    // Taratura sulla CLASSE ATTIVA (registro/livello/note): adatta il linguaggio,
+    // non i fatti. '' se nessuna classe attiva → comportamento generico invariato.
+    out += window.classTuningPrompt();
+    return out;
 }
+
+// Blocco "PROFILO CLASSE" della classe attiva (o '' se generica). Usato da
+// buildSystemInstruction e da injectClassTuning per i generatori che NON passano
+// da lì (quiz, flashcard, tutor, timeline, arricchimento desc).
+window.classTuningPrompt = function () {
+    try {
+        return (window.MappAIClasses && window.MappAIClasses.tuningForPrompt)
+            ? (window.MappAIClasses.tuningForPrompt() || '') : '';
+    } catch (e) { return ''; }
+};
+
+// Inietta la taratura classe in un payload AI: la accoda al systemInstruction se
+// esiste, altrimenti ne crea uno. Ritorna il payload (mutato) per l'uso inline.
+// No-op se nessuna classe attiva → comportamento invariato su Google e Infomaniak.
+window.injectClassTuning = function (payload) {
+    const ct = window.classTuningPrompt();
+    if (!ct || !payload) return payload;
+    const si = payload.systemInstruction;
+    if (si && si.parts && si.parts[0]) {
+        si.parts[0].text = (si.parts[0].text || '') + ct;
+    } else {
+        payload.systemInstruction = { parts: [{ text: ct.replace(/^\n+/, '') }] };
+    }
+    return payload;
+};
 
 // MM EXTRACTION (extractMindMapIterative, extractMindMapMultiPass)
 // → estratto in js/mappai-mm-extraction.js (caricato dopo app.js)

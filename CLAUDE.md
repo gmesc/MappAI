@@ -534,6 +534,107 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (11/7/26): MappAI Live — hub QR (Studio attivo live + Materiali + Account classi)
+Terzo server fratello di garden/collab (stessi pattern: HTTP Node puro via IPC, token
+studente nel QR + adminToken, allowlist statica, autosave + ripresa crash-safe con stesso
+token). Bottone menu azioni **"MappAI Live"** (`radio`, sostituisce Lavagna che resta card
+dell'hub) → `window.openLiveHub()`. Porte quiz **8767-8777**, materiali **8768-8778**
+(basi distinte da garden 8765 / collab 8766 → i 4 server coesistono).
+- **Core puro** `public/js/mappai-live-core.js` (UMD): `EMOJI_SET` (12 emoji, identità =
+  chiave ascii `volpe-03`, MAI il glifo → zero problemi codepoint), `buildCredentials`
+  (coppie uniche emoji+num 00-10, max 132), `normalizeClassName` (NFKD: "2ª A"≡"2a A"),
+  schema `mappai-live-question@1` (tf/mc/cloze/open), `publicQuestions` (**strippa le
+  soluzioni** prima dell'invio agli studenti), `tfFromMc`/`mcFromItem`, `buildL1Resolver`
+  (replica pura del parent-walk di entity-backbone), `gradeAnswer` (cloze parziale, open
+  fuzzy `answerMatches`, blank/skip/manual), `rateFromMs`, **`computeResults`** = modello
+  dati unico dei 2 report (heatmap domande + schede; accuratezza SOLO su attempted, blank
+  a parte; topic per L1, custom senza nodeId esclusi dai topic; forte ≥0.8 con ≥2 item,
+  debole <0.5 o ≥50% bianchi). +23 test `tests/live-core.test.js`.
+- **Report puri** `public/js/mappai-live-reports.js` (UMD): `buildQuestionsReportHtml`
+  (heatmap giusto/sbagliato/bianco/a-mano, assoluti+%), `buildStudentsReportHtml` (una
+  scheda per allievo: pill per domanda, accuratezza, fluenza, punti forti/deboli),
+  `buildCredentialCardsHtml` (foglio credenziali stampabile). Stili tipo `QP_BASE_STYLES`.
+- **Server** `live-server.js`: `createLiveServer` (fase lobby→running→closed; `/api/join`
+  valida roster [409 identity-taken / release→adozione / stesso device rientra con risposte],
+  `/api/answer` sovrascrivibile fino a chiusura [Indietro] + `skipped` esplicito + autosave
+  per-risposta su `students/<id>.json`, `/api/phase` arma timer `endsAt`, `/api/close`
+  idempotente → `results.json` + 2 report HTML, `/api/report`; timer = setTimeout + ri-armo
+  al resume + guardia lazy). `createMaterialsServer` (`/files/<name>` basename-only,
+  Content-Disposition, **nessun login**). +5 test `tests/live-server.test.js`.
+  Cartella sessione `[titolo mappa]-[attività]-[classe]-[DD-MM-AAAA]` in
+  `~/Documents/MappAI - Live/`.
+- **Pagine studente** `public/live/student.html` (login classe/emoji/numero con
+  `inputmode=numeric` → lobby → player con **← Indietro / Salta / Avanti** + sync dot +
+  countdown + retry offline → fine con Consegna) e `materials.html`. Stile MappAI (Space
+  Mono, palette indigo/slate, sfondo puntinato, Noto Color Emoji), zero Tailwind. Boot da
+  `/api/session`, `deviceId` in localStorage, risposte mirror in localStorage.
+- **Account classi** `public/js/mappai-live-classes.js`: `window.MappAIClasses` store su
+  **disco** `~/Documents/MappAI - Classi/classi.json` (IPC, fallback localStorage), modale
+  `window.openClassAccountsModal()` (bottone nel footer Profilo Studente): crea classe
+  (nome/anno/n. allievi → credenziali), nome allievo **opzionale** per riga, stampa
+  credenziali, elimina. Login individuale SOLO per Studio attivo live; Lavagna resta a
+  nickname di gruppo; Materiali senza login.
+- **Hub docente** `public/js/mappai-live-teacher.js`: `openLiveHub()` (3 card — Studio
+  attivo live / Lavagna→`openCollabHub` intatta / Materiali), `openLiveSetup()` wizard
+  (classe → modalità V/F|MC|Cloze|Domande mie → scope mappa/ramo L1 → quantità/timer),
+  generazione: MC via `MappAIGames.genQuizForNode` (+cache dungeon, export 1 riga), V/F via
+  `tfFromMc`, cloze via `MappAIClozeCore.makeCloze` (export 1 riga), custom = editor inline;
+  `buildL1Resolver` su ogni domanda. Dashboard QR + proiettore + griglia roster (polling 3s
+  diretto a `127.0.0.1:<port>/api/status`), avvia domande, countdown, chiudi → report
+  domande/studenti + apri cartella. `openMaterialsPanel()` + helper `MappAILive.publishHtml`.
+- IPC main.js: `live-start/stop-session`, `-session-info`, `-open-folder`, `live-materials-*`,
+  `live-classes-load/save`. i18n: `ui_class_accounts`/`ui_live_hub`/`tt_live_hub` in ENTRAMBI
+  i dizionari; `lv_*`/`cls_*` con fallback IT inline + traduzione EN in `en_translations.js`.
+- ✅ Verificato in browser CONTRO SERVER REALE: flusso studente end-to-end (login emoji →
+  lobby → 4 tipi di domanda → autosave su disco → done), i 2 report renderizzati, hub +
+  wizard + editor custom + modale Account classi + generazione credenziali. Suite **361/361**.
+  ⚠️ Da testare in Electron vivo: avvio sessione via IPC, dashboard polling, QR da telefono
+  reale su LAN, generazione MC via AI, 2 dispositivi Wi-Fi.
+
+**Addendum (11/7/26): classe = CONTESTO ATTIVO che tara l'AI.** Modello scelto con l'utente:
+le mappe restano condivise (nessun lock), ma la **classe selezionata governa la taratura
+della generazione** al momento della creazione (le schede fonte sono già diverse per classe
+→ nessuna "ri-adatta", niente varianti). La classe è una lente globale, non un login duro.
+- **Oggetto classe esteso** (`classi.json`): `grade`, `system`, `register`
+  (semplice/medio/ricco → preset `REGISTERS` con istruzione per l'AI), `notes` (testo libero
+  BES/DSA/culturale). Sezione **"🎯 Taratura AI"** nel `renderEdit` di Account classi.
+- **Classe attiva** (`mappai-live-classes.js`): `MappAIClasses.getActive/setActive/activeId`
+  (`localStorage 'mappai_active_class'`), `buildTuningBlock`/`tuningForPrompt` → blocco
+  "PROFILO CLASSE" (Classe/sistema · registro · note · "resta fedele alla fonte, adatta solo
+  COME esprimi"). '' se generico → comportamento invariato.
+- **Iniezione unica** in `buildSystemInstruction` (app.js): dopo il FOCUS DISCIPLINARE appende
+  `MappAIClasses.tuningForPrompt()`. Copre TUTTA la generazione (MM iterativa/multipass, KG
+  single/community/multipass, espandi-con-AI, sotto-concetti) — è il choke point comune.
+- **Chip "classe attiva"** in header (`#header-utils`, `graduation-cap`, mostra nome o
+  "Generico") → `openClassSwitcher` (modale: Generico + classi, attiva evidenziata, sottotitolo
+  grade·registro, "Gestisci classi"). **Picker al primo avvio** una volta per sessione
+  (`sessionStorage 'mappai_class_prompted'`). Live setup wizard: `#lv-class` default alla
+  classe attiva. Evento `mappai-active-class-changed` per altri moduli.
+- i18n: `cls_*` di taratura con fallback IT inline + EN in `en_translations.js`.
+- ✅ Verificato in browser (harness): chip Generico→1ª A, switcher, campi taratura persistono,
+  `buildTuningBlock` corretto, `buildSystemInstruction` = base + blocco quando attiva / base
+  quando generico. Suite 361/361. ⚠️ Electron vivo: chip nell'header reale + picker al lancio.
+
+**Follow-up FATTO (11/7/26): taratura estesa a TUTTI i generatori AI + tab NPC nascosta.**
+- Helper unico in app.js: `window.classTuningPrompt()` (blocco classe attiva o '') e
+  `window.injectClassTuning(payload)` — accoda la taratura al `systemInstruction` se esiste,
+  altrimenti ne crea uno; **no-op se generico** (zero cambi su Google e Infomaniak).
+- Iniettato in tutti i generatori che NON passano da `buildSystemInstruction`: quiz+flashcard
+  (`mappai-study-session.js`), quiz MC per-nodo (`mappai-flashcards-sr.js`), i 3 payload del
+  tutor (`mappai-ai-tutor.js`), timeline (`mappai-timeline.js`), quiz live MC
+  (`mappai-games.js:_genQuizForNode`, path cloud), arricchimento desc
+  (`enrichL1Descs`/`enrichThinDescs` in `mappai-generation-support.js`). La generazione mappa
+  MM/KG + espandi + sotto-concetti erano già coperte da `buildSystemInstruction`.
+  **Cloze = deterministico (zero AI)** → eredita la taratura dalle desc già tarate, niente da
+  iniettare. Path local-LLM del quiz dungeon non toccato (offline, poco rilevante).
+- Verificato in harness: injectClassTuning corretto su payload con/senza systemInstruction,
+  generico → no-op, attiva → BASE preservata + blocco accodato (nessun newline iniziale).
+- **Nessun nuovo prompt admin-gestibile**: la taratura è un blocco costruito in JS (come
+  `buildDisciplineSystemPrompt`), il knob editabile sono i preset registro + le note classe.
+- **Tab "NPC" (Sapienti) nascosta** nel pannello admin prompt (`index.html`, classe `hidden`
+  sul bottone `data-tab="NPC"`): serviva solo al Memory Dungeon. Dati/gestione NPC restano,
+  fuori dalla UI. Le altre 5 tab (Mappe/KG/Tutor/Studio/Discipline) intatte. Suite 361/361.
+
 ### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
 Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge
 Garden (stessi pattern: server HTTP Node puro via IPC, token nel QR, adminToken,
@@ -1250,7 +1351,7 @@ grep -rn "pattern" public/js/ --include="*.js"
 
 ## 13. CONTESTO PERSONALE
 
-Giacomo è un ex insegnante in malattia per burnout autistico.
+Giacomo è un ex insegnante.
 MappAI è il suo progetto principale — ha investito ~900 ore.
 Ha già adesioni da professionisti dell'educazione svizzeri.
 Lavora come vibecoder usando IDE agentici (Antigravity, Claude Code).

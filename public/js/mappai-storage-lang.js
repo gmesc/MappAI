@@ -28,10 +28,20 @@ const StorageManager = {
 
         // Update or add
         const idx = projects.findIndex(p => p.id === this.currentProjectId);
+        const existing = idx >= 0 ? projects[idx] : null;
+        // Classe attiva al momento della CREAZIONE (congelata al primo salvataggio;
+        // progetti legacy senza campo restano null — mai retro-etichettati)
+        let activeClsName = null;
+        try {
+            const ac = window.MappAIClasses && window.MappAIClasses.getActive();
+            if (ac && ac.name) activeClsName = ac.name;
+        } catch (e) { /* store classi non disponibile */ }
         const pMeta = {
             id: this.currentProjectId,
             name: appState.rootNodeLabel || "Mappa Senza Nome",
-            date: Date.now(),
+            date: Date.now(),                                          // ultima modifica
+            created: (existing && (existing.created || existing.date)) || Date.now(), // creazione
+            cls: existing ? (existing.cls || null) : activeClsName,
             nodesCount: appState.db.nodes.length,
             type: appState.extractionMode || 'mindmap',
             // Nome della cartella vault collegata (null = progetto solo-localStorage):
@@ -149,13 +159,26 @@ const StorageManager = {
 
     deleteProject: function (e, id) {
         e.stopPropagation();
-        window.showConfirm("Elimina Progetto", "Sei sicuro di voler eliminare la mappa e gli appunti di questo progetto?", () => {
-            let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
-            projects = projects.filter(p => p.id !== id);
-            localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
-            localStorage.removeItem(id);
-            this.renderRecentProjects();
-        });
+        const T = window.t || ((k, f) => f);
+        // Conferma "forte": l'utente deve digitare la keyword — un click distratto
+        // sul cestino non deve poter cancellare mappa e appunti.
+        const keyword = T('rp_del_keyword', 'cancella');
+        window.showPrompt(
+            T('rp_del_title', 'Elimina Progetto'),
+            '',
+            (input) => {
+                if (String(input || '').trim().toLowerCase() !== keyword.toLowerCase()) {
+                    if (window.showToast) window.showToast(T('rp_del_wrong', 'Parola di conferma errata — progetto NON eliminato.'), 'error');
+                    return;
+                }
+                let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
+                projects = projects.filter(p => p.id !== id);
+                localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
+                localStorage.removeItem(id);
+                this.renderRecentProjects();
+            },
+            T('rp_del_desc', 'Eliminerà la mappa e gli appunti di questo progetto. Per confermare scrivi: ') + '"' + keyword + '"'
+        );
     },
 
     // Cache dei nomi di cartelle vault che effettivamente esistono.
@@ -222,17 +245,9 @@ const StorageManager = {
     renderRecentProjects: function () {
         const container = document.getElementById('recent-projects-container');
         if (!container) return;
-
-        // Rotella del mouse → scorrimento orizzontale (bind una sola volta)
-        if (!container._hScrollBound) {
-            container._hScrollBound = true;
-            container.addEventListener('wheel', function (e) {
-                if (!e.deltaY) return;
-                if (container.scrollWidth <= container.clientWidth) return; // niente overflow → lascia lo scroll verticale
-                e.preventDefault();
-                container.scrollLeft += e.deltaY;
-            }, { passive: false });
-        }
+        const T = window.t || ((k, f) => f);
+        const esc = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
         try {
             let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
@@ -248,27 +263,49 @@ const StorageManager = {
                 return;
             }
 
-            container.innerHTML = projects.map(p => {
-                const d = new Date(p.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short' });
-                const icon = p.type === 'kg' ? 'network' : 'git-merge';
-                const label = p.type === 'kg' ? 'KG' : 'MM';
-                const labelFull = p.type === 'kg' ? 'Knowledge Graph' : 'Mappa Mentale';
+            // Layout a righe (tabella): Tipo · Titolo · Classe · Nodi · Creato il · azioni.
+            // Header FUORI dal contenitore scrollabile: position:sticky dentro un
+            // antenato con zoom è renderizzato male da Chromium (righe che sbucano sopra).
+            const GRID = 'grid grid-cols-[56px_minmax(0,1fr)_120px_56px_110px_150px] items-center gap-2 px-3';
+            const header = `
+                    <div class="rp-header ${GRID} py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                        <span>${T('rp_type', 'Tipo')}</span>
+                        <span>${T('rp_title', 'Titolo')}</span>
+                        <span>${T('rp_class', 'Classe')}</span>
+                        <span class="text-right">${T('rp_nodes', 'Nodi')}</span>
+                        <span>${T('rp_created', 'Creato il')}</span>
+                        <span></span>
+                    </div>`;
+
+            const rows = projects.map(p => {
+                const isKg = p.type === 'kg';
+                const icon = isKg ? 'network' : 'git-merge';
+                const label = isKg ? 'KG' : 'MM';
+                const labelFull = isKg ? 'Knowledge Graph' : 'Mappa Mentale';
+                const created = new Date(p.created || p.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' });
+                const cls = p.cls
+                    ? `<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500 truncate"><i data-lucide="graduation-cap" class="w-3 h-3 shrink-0"></i>${esc(p.cls)}</span>`
+                    : '<span class="text-slate-300">—</span>';
                 return `
-                        <div class="flex-shrink-0 w-36 bg-white border border-indigo-200/60 rounded-lg p-2.5 flex flex-col justify-between hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md transition cursor-pointer group shadow-sm" onclick="window.loadSavedProject('${p.id}')">
-                            <div>
-                                <div class="flex items-center gap-1 mb-1.5 text-indigo-400">
-                                    <i data-lucide="${icon}" class="w-2.5 h-2.5 shrink-0"></i>
-                                    <span class="text-[9px] font-bold uppercase tracking-tight" title="${labelFull}">${label}</span>
-                                </div>
-                                <h4 class="text-[11px] leading-tight text-slate-700 font-bold mb-1.5 break-words group-hover:text-indigo-600 transition line-clamp-3">${p.name}</h4>
-                                <p class="text-[9px] text-slate-400">${p.nodesCount} nodi &bull; ${d}</p>
-                            </div>
-                            <div class="flex justify-between items-center mt-2">
-                                <span class="text-[9px] text-indigo-500 font-semibold flex items-center gap-0.5 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-2.5 h-2.5"></i> Riprendi</span>
-                                <button onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition p-0.5" title="Elimina"><i data-lucide="trash" class="w-2.5 h-2.5"></i></button>
-                            </div>
-                        </div>`;
+                    <div class="rp-row ${GRID} py-2 border-b border-slate-100 hover:bg-indigo-50 transition cursor-pointer group" onclick="window.loadSavedProject('${p.id}')">
+                        <span class="inline-flex items-center gap-1 text-indigo-400" title="${labelFull}">
+                            <i data-lucide="${icon}" class="w-3 h-3 shrink-0"></i>
+                            <span class="text-[9px] font-bold uppercase tracking-tight">${label}</span>
+                        </span>
+                        <span class="text-[12px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition" title="${esc(p.name)}">${esc(p.name)}</span>
+                        ${cls}
+                        <span class="text-[11px] text-slate-500 text-right tabular-nums">${p.nodesCount}</span>
+                        <span class="text-[11px] text-slate-400">${created}</span>
+                        <span class="flex justify-end items-center gap-3">
+                            <span class="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-3 h-3"></i> ${T('rp_resume', 'Riprendi')}</span>
+                            <button type="button" onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition p-1" title="${T('rp_delete', 'Elimina')}"><i data-lucide="trash" class="w-3 h-3"></i></button>
+                        </span>
+                    </div>`;
             }).join('');
+
+            // Solo le righe scrollano; l'header resta fisso sopra
+            container.innerHTML = header +
+                `<div class="rp-rows overflow-y-auto max-h-[300px]" style="scrollbar-gutter:stable;">${rows}</div>`;
             window.safeCreateIcons();
         } catch (e) {
             console.error("Error rendering projects:", e);
@@ -326,7 +363,7 @@ setInterval(() => {
 // Aggiungo il gestore lingue per i modali
 window.currentLanguage = localStorage.getItem('mappai_language') || 'it';
 
-window.changeLanguage = function (lang) {
+window.changeLanguage = function (lang, silent) {
     window.currentLanguage = lang;
     localStorage.setItem('mappai_language', lang);
     // Uso i nomi definiti nei file .js caricati
@@ -441,7 +478,7 @@ window.changeLanguage = function (lang) {
     }
 
     // Invia segnale di cambio lingua se necessario (es. per toast)
-    if (window.showToast) {
+    if (!silent && window.showToast) {
         window.showToast(lang === 'it' ? t.toast_lang_it : t.toast_lang_en, "info");
     }
 
@@ -517,8 +554,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Inizializza Lingua
-    window.changeLanguage(window.currentLanguage);
+    // Inizializza Lingua (silent=true: niente toast all'avvio)
+    window.changeLanguage(window.currentLanguage, true);
 
     // Onboarding lingue: solo installazione fresca (mai vista una lingua salvata)
     try {
@@ -552,7 +589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize Pipeline A/B selector. Default = B (MappAI classico KG).
     const savedPipeline = localStorage.getItem('mappai_generation_pipeline') || 'B';
-    window.setPipeline(savedPipeline);
+    window.setPipeline(savedPipeline, true);
     // Initialize MM logic toggle (default MappAI)
     // Migrazione una-tantum: la logica MM "BERT" era sperimentale e degradava le macro-aree L1
     // (deriva geografica / espansione di contesto). Chi aveva il flag legacy 'bert' viene
@@ -564,7 +601,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         localStorage.setItem('mappai_mm_logic_migrated', '1');
     }
-    if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic());
+    if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic(), true);
     const desc = document.getElementById('pipeline-desc');
     if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
 

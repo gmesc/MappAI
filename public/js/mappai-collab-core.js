@@ -20,6 +20,9 @@
   'use strict';
 
   // ── Costanti condivise ──────────────────────────────────────────────────
+  // id riservato per il nodo root (L0): estremità valida per i collegamenti
+  // che partono dal centro della mappa. Non è un nodo studente reale.
+  var ROOT_ID = '__root__';
   var PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
   var SIZES = { s: { w: 120, h: 56 }, m: { w: 160, h: 72 }, l: { w: 200, h: 92 } };
   var LIMITS = {
@@ -114,8 +117,8 @@
     if (!l || typeof l !== 'object') return { ok: false, errors: ['not-an-object'] };
     var ids = Array.isArray(nodeIds) ? nodeIds : [];
     if (typeof l.id !== 'string' || !l.id.trim() || l.id.length > 40) errors.push('bad-id');
-    if (typeof l.source !== 'string' || ids.indexOf(l.source) < 0) errors.push('bad-source');
-    if (typeof l.target !== 'string' || ids.indexOf(l.target) < 0) errors.push('bad-target');
+    if (typeof l.source !== 'string' || (ids.indexOf(l.source) < 0 && l.source !== ROOT_ID)) errors.push('bad-source');
+    if (typeof l.target !== 'string' || (ids.indexOf(l.target) < 0 && l.target !== ROOT_ID)) errors.push('bad-target');
     if (l.source === l.target) errors.push('self-link');
     var rel = sanitizeText(l.rel).slice(0, LIMITS.relMax);
     return { ok: errors.length === 0, errors: errors, clean: errors.length === 0 ? {
@@ -132,7 +135,7 @@
     var byId = {};
     (Array.isArray(existing) ? existing : []).forEach(function (l) {
       // i link esistenti restano solo se le estremità esistono ancora
-      if (l && l.id && ids.indexOf(l.source) >= 0 && ids.indexOf(l.target) >= 0) byId[l.id] = l;
+      if (l && l.id && (ids.indexOf(l.source) >= 0 || l.source === ROOT_ID) && (ids.indexOf(l.target) >= 0 || l.target === ROOT_ID)) byId[l.id] = l;
     });
     var accepted = 0, rejected = [];
     (Array.isArray(incoming) ? incoming : []).forEach(function (l) {
@@ -163,6 +166,7 @@
     var out = { nodes: [root], links: [] };
     var slug = slugify(nick);
     var idMap = {};   // id studente → id mappa (stabile: deriva dall'id, non dall'indice)
+    idMap[ROOT_ID] = root.id;   // i collegamenti dal centro puntano al vero nodo L0
     var validIds = [];
     (Array.isArray(nodes) ? nodes : []).forEach(function (n) {
       var v = validateStudentNode(n);
@@ -189,6 +193,7 @@
   }
 
   var CORE = {
+    ROOT_ID: ROOT_ID,
     PALETTE: PALETTE,
     SIZES: SIZES,
     LIMITS: LIMITS,

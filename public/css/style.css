@@ -506,7 +506,9 @@ body.a11y-zoom-x2 {
 #projects-bar-content {
     padding-top: 8px !important;
     padding-bottom: 12px !important;
-    --project-bar-zoom: var(--scale-factor, 1.8);
+    /* 1.8 era tarato sulle vecchie card 9px; le righe tabellari (2026-07-11)
+       hanno già font 11-12px → 1.25 basta e lascia respirare la colonna Titolo */
+    --project-bar-zoom: var(--scale-factor, 1.25);
     zoom: var(--project-bar-zoom);
 }
 
@@ -551,31 +553,37 @@ body.a11y-zoom-x2 {
     padding-right: 32px !important;
 }
 
-/* Modifiche agli spazi interni delle singole card */
-#recent-projects-container>div {
-    width: 220px !important;
-    /* Larghezza aumentata */
+/* Righe del layout tabellare (2026-07-11: card verticali → righe orizzontali).
+   Struttura: .rp-header (fissa) + .rp-rows (scrollabile) > .rp-row */
+#recent-projects-container .rp-header,
+#recent-projects-container .rp-row {
+    width: 100% !important;
     border: none !important;
-    /* Elimina bordo/outline */
-    background-color: #e5e5e548 !important;
-    padding: 18px !important;
-    border-radius: 14px !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
-    transition: all 0.2s ease-in-out !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    background-color: transparent !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    transition: background-color 0.15s ease-in-out !important;
 }
 
-#recent-projects-container>div:hover {
+#recent-projects-container .rp-header {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e0e7ff !important;
+    border-radius: 0 !important;
+}
+
+#recent-projects-container .rp-row:hover {
     background-color: #a7ffa87f !important;
     /* Colore di sfondo all'hover */
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08) !important;
 }
 
-#recent-projects-container>div .mb-1 {
+#recent-projects-container .mb-1 {
     margin-bottom: 15px !important;
 }
 
-#recent-projects-container>div .gap-1\.5,
-#recent-projects-container>div .gap-1 {
+#recent-projects-container .gap-1\.5,
+#recent-projects-container .gap-1 {
     gap: 5px !important;
 }
 
@@ -611,29 +619,29 @@ body.a11y-zoom-x2 {
 /* ==========================================
 
 /* 1. Icona della tipologia (Mappa Mentale / git-merge) */
-#recent-projects-container>div svg.lucide-git-merge,
-#recent-projects-container>div i[data-lucide="git-merge"] {
+#recent-projects-container svg.lucide-git-merge,
+#recent-projects-container i[data-lucide="git-merge"] {
     color: #10b981 !important;
     /* Verde per le mappe mentali */
 }
 
 /* 2. Icona della tipologia (Knowledge Graph / network) */
-#recent-projects-container>div svg.lucide-network,
-#recent-projects-container>div i[data-lucide="network"] {
+#recent-projects-container svg.lucide-network,
+#recent-projects-container i[data-lucide="network"] {
     color: #f59e0b !important;
     /* Arancione per i knowledge graph */
 }
 
 /* 3. Icona Play ("Riprendi") */
-#recent-projects-container>div svg.lucide-play-circle,
-#recent-projects-container>div i[data-lucide="play-circle"] {
+#recent-projects-container svg.lucide-play-circle,
+#recent-projects-container i[data-lucide="play-circle"] {
     color: #3b82f6 !important;
     /* Blu per l'icona play */
 }
 
 /* 4. Icona Cestino ("Elimina") */
-#recent-projects-container>div svg.lucide-trash,
-#recent-projects-container>div i[data-lucide="trash"] {
+#recent-projects-container svg.lucide-trash,
+#recent-projects-container i[data-lucide="trash"] {
     color: #ef4444 !important;
     /* Rosso per l'icona elimina */
 }
@@ -680,12 +688,8 @@ body.a11y-zoom-x2 {
     padding-bottom: 2px !important;
 }
 
-#projects-bar span.text-\[9px\],
-#projects-bar span {
-    font-size: 11px !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-}
+/* (2026-07-11) Rimossa la regola generica "#projects-bar span {font-size:11px}":
+   appiattiva la gerarchia tipografica delle nuove righe tabellari. */
 
 
 

@@ -162,3 +162,29 @@ test('layerToGraph con link: keyword preservate, root solo sui nodi senza entran
   const bId = studentLink.target;
   assert.ok(!rootLinks.some(l => l.target === bId));
 });
+
+test('validateStudentLink: ROOT_ID è estremità valida (source o target)', () => {
+  assert.ok(C.validateStudentLink(mkLink({ source: C.ROOT_ID, target: 'n1' }), ['n1', 'n2']).ok);
+  assert.ok(C.validateStudentLink(mkLink({ source: 'n1', target: C.ROOT_ID }), ['n1', 'n2']).ok);
+  // root→root resta self-link
+  assert.ok(C.validateStudentLink(mkLink({ source: C.ROOT_ID, target: C.ROOT_ID }), ['n1']).errors.includes('self-link'));
+});
+
+test('layerToGraph: link dal root → arco root_collab→nodo con keyword, niente propone duplicato', () => {
+  const nodes = [mkNode({ id: 'a', text: 'Clorofilla' }), mkNode({ id: 'b', text: 'Ossigeno' })];
+  const links = [{ id: 'l1', source: C.ROOT_ID, target: 'a', rel: 'introduce', updatedAt: 1 }];
+  const g = C.layerToGraph('Fotosintesi', 'I Leoni', nodes, links);
+  const rootLinks = g.links.filter(l => l.source === 'root_collab');
+  // a: arco esplicito 'introduce' dal root (niente 'propone'); b: 'propone' automatico
+  assert.ok(rootLinks.some(l => l.rel === 'introduce'));
+  assert.strictEqual(rootLinks.filter(l => l.target === g.nodes.find(n => n.label === 'Clorofilla').id).length, 1);
+  assert.ok(rootLinks.some(l => l.rel === 'propone'));
+});
+
+test('mergeGroupLinks: conserva i link dal root anche dopo rimerge', () => {
+  const rootLink = { id: 'lr', source: C.ROOT_ID, target: 'n1', rel: 'introduce', updatedAt: 1000 };
+  const r = C.mergeGroupLinks([], [rootLink], ['n1', 'n2']);
+  assert.strictEqual(r.accepted, 1);
+  const r2 = C.mergeGroupLinks(r.links, [], ['n1', 'n2']);
+  assert.ok(r2.links.some(l => l.source === C.ROOT_ID), 'link dal root sopravvive al rimerge');
+});

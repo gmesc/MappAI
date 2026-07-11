@@ -20,6 +20,12 @@
       "port": 8139
     },
     {
+      "name": "mappai-public",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8145", "--directory", "/Users/giacomomeschini/Claude/MappAI re/public"],
+      "port": 8145
+    },
+    {
       "name": "insegnai-preview",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8144", "--directory", "/Users/giacomomeschini/Claude/insegnai.ch"],

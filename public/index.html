@@ -593,7 +593,7 @@
                     </div>
 
                     <!-- Utils (Griglia 2x2) -->
-                    <div class="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
+                    <div id="header-utils" class="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
                         <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
                             class="btn_header_setting">
                             <i data-lucide="bot" class="nav_util_icon"></i>
@@ -1007,7 +1007,7 @@
                 <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider ml-8">
                     <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> <span data-i18n="recent_projects">Progetti Recenti</span>
                 </h3>
-                <div id="recent-projects-container" class="flex gap-3 overflow-x-auto pb-1 px-8">
+                <div id="recent-projects-container" class="flex flex-col pb-1 px-8">
                     <p class="text-xs text-slate-400 italic" data-i18n="ui_no_projects">Nessun progetto salvato. Crea una nuova mappa per
                         iniziare.
                     </p>
@@ -1374,8 +1374,8 @@
                     <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
                         <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
                     </button>
-                    <button onclick="window.openCollabHub && window.openCollabHub()" title="Lavagna collaborativa: i gruppi propongono nodi dal telefono via QR" data-i18n-title="tt_collab_board">
-                        <i data-lucide="presentation"></i> <span data-i18n="ui_collab_board">Lavagna collaborativa</span>
+                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
+                        <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
                     </button>
                     <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
                          mappai-vault-io/manager/storage-lang via getElementById → resta qui -->
@@ -1557,13 +1557,7 @@
 
                 <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
 
-                <!-- PDF -->
-                <button onclick="window.exportPDF()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Esporta la mappa visibile in formato PDF" data-i18n-title="tt_export_pdf">
-                    <i data-lucide="file-text" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">PDF</span>
-                </button>
+                <!-- PDF spostato nel menu "Materiali di studio" (openStudyMaterialsModal) -->
                 <!-- FISSA -->
                 <button onclick="window.openLayoutModal()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
@@ -1640,9 +1634,7 @@
                 <div class="w-px h-6 bg-slate-200 mx-1"></div>
                 <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
                     title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
-                <button onclick="window.readModalAloud('source-modal')" class="tts-button" title="Leggi ad alta voce">
-                    <i data-lucide="volume-2"></i>
-                </button>
+                <span class="mai-tts-slot" data-tts-body="#source-modal-body"></span>
             </div>
 
             <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl"
@@ -1895,6 +1887,11 @@
                     <button onclick="window.saveUserProfile()"
                         class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
                         Salva Profilo
+                    </button>
+                    <button type="button" onclick="window.openClassAccountsModal && window.openClassAccountsModal()"
+                        class="w-full py-3 bg-white border border-indigo-100 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                        data-i18n="ui_class_accounts">
+                        <i data-lucide="users" style="width:16px;height:16px"></i> Account classi
                     </button>
                     <button onclick="window.resetUserProfile()"
                         class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
@@ -3161,10 +3158,7 @@
                         id="modal-study-title-label">Metodi di Studio Attivo</span>
                 </h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="window.readModalAloud('app-tutorial-modal')" class="tts-button"
-                        title="Leggi ad alta voce">
-                        <i data-lucide="volume-2"></i>
-                    </button>
+                    <span class="mai-tts-slot" data-tts-body="#study-modal-content"></span>
                     <button onclick="window.closeAppTutorial()" class="text-slate-400 hover:text-slate-700 p-1"><i
                             data-lucide="x"></i></button>
                 </div>
@@ -3220,10 +3214,7 @@
                         usare MappAI</span>
                 </h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="window.readModalAloud('app-guide-modal')" class="tts-button"
-                        title="Leggi ad alta voce">
-                        <i data-lucide="volume-2"></i>
-                    </button>
+                    <span class="mai-tts-slot" data-tts-body="#guide-modal-content"></span>
                     <button onclick="window.closeAppGuide()" class="text-slate-400 hover:text-slate-700 p-1"><i
                             data-lucide="x"></i></button>
                 </div>
@@ -3422,6 +3413,8 @@
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-entity-backbone.js"></script>
     <script src="js/mappai-suggestions-panel.js"></script>
+    <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
+    <script src="js/mappai-study-export-core.js"></script>
     <script src="js/mappai-branch-synthesis.js"></script>
     <script src="js/mappai-node-merge.js"></script>
     <script src="js/mappai-jigsaw.js"></script>
@@ -3442,6 +3435,11 @@
     <script src="js/vendor/qrcode-generator.js"></script>
     <script src="js/mappai-collab-core.js"></script>
     <script src="js/mappai-collab-teacher.js"></script>
+    <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
+    <script src="js/mappai-live-core.js"></script>
+    <script src="js/mappai-live-reports.js"></script>
+    <script src="js/mappai-live-classes.js"></script>
+    <script src="js/mappai-live-teacher.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
     <script src="js/mappai-effort-view.js"></script>
     <script src="js/mappai-cloze.js"></script>
@@ -3470,6 +3468,7 @@
     <script src="js/mappai-ai-tutor.js"></script>
     <script src="js/mappai-study-session.js"></script>
     <script src="js/mappai-a11y.js"></script>
+    <script src="js/mappai-tts-reader.js"></script>
     <script src="js/mappai-dev-selftest.js"></script>
     <script src="js/dev-console-metrics.js"></script>
     <script>
@@ -3531,6 +3530,8 @@
             class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
         <button id="btn-text-zoom-panel" onclick="window.cycleTextZoom()" class="btn_a11y_tool"><i data-lucide="zoom-in"
                 class="w-4 h-4"></i> Testo x1</button>
+        <button id="btn-tts-tool" onclick="window.MappAITTS && window.MappAITTS.toggle(this)" class="btn_a11y_tool"
+            data-i18n="ui_tts_tool"><i data-lucide="volume-2" class="w-4 h-4"></i> Ascolto Testo</button>
     </div>
 
     <!-- ==========================================
@@ -3562,8 +3563,9 @@
                             class="admin-tab-btn py-2 px-1 text-[11px] leading-tight font-bold rounded-lg transition-all text-slate-600 hover:bg-white">Studio</button>
                         <button onclick="window.switchAdminTab('DISCIPLINES')" data-tab="DISCIPLINES"
                             class="admin-tab-btn py-2 px-1 text-[11px] leading-tight font-bold rounded-lg transition-all text-slate-600 hover:bg-white">Discipline</button>
+                        <!-- Tab NPC (Sapienti) nascosta: serviva solo al Memory Dungeon. -->
                         <button onclick="window.switchAdminTab('NPC')" data-tab="NPC"
-                            class="admin-tab-btn py-2 px-1 text-[11px] leading-tight font-bold rounded-lg transition-all text-slate-600 hover:bg-white">NPC</button>
+                            class="admin-tab-btn hidden py-2 px-1 text-[11px] leading-tight font-bold rounded-lg transition-all text-slate-600 hover:bg-white">NPC</button>
                     </div>
 
                     <div class="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0">

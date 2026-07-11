@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>MappAI Live — Quiz</title>
+<!-- Stesso font dell'app (fallback monospace se la LAN è offline) + emoji Android -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  :root { --emoji: 'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
+      font-family: 'Space Mono', ui-monospace, monospace; }
+  html, body { height: 100%; }
+  body { background: #fafbff; color: #0f172a; display: flex; flex-direction: column; overflow: hidden; }
+  button { cursor: pointer; border: 0; font: inherit; }
+  .dotbg { background-image: radial-gradient(#ddd6fe 1px, transparent 1px); background-size: 24px 24px; }
+  .emoji { font-family: var(--emoji); }
+
+  /* ── Sezioni ── */
+  section { flex: 1; display: none; flex-direction: column; min-height: 0; }
+  section.on { display: flex; }
+
+  /* ── Login ── */
+  #login { align-items: center; justify-content: flex-start; gap: 14px; padding: 26px 20px;
+           text-align: center; overflow-y: auto; }
+  #login h1 { font-size: 21px; font-weight: 700; margin-top: 6px; }
+  #login .name { color: #4f46e5; font-weight: 700; font-size: 15px; }
+  .lbl { font-size: 12px; font-weight: 700; color: #475569; align-self: flex-start;
+         width: min(360px, 90vw); margin: 6px auto 0; }
+  #login input { width: min(360px, 90vw); padding: 13px 16px; border-radius: 12px;
+                 border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
+                 font-size: 17px; text-align: center; outline: none; }
+  #login input:focus { border-color: #6366f1; }
+  #emoji-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+                width: min(360px, 90vw); }
+  .egrid-btn { aspect-ratio: 1; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+               font-size: 30px; display: flex; align-items: center; justify-content: center; }
+  .egrid-btn.sel { border-color: #4f46e5; background: #eef2ff; transform: scale(1.05); }
+  #enter { width: min(360px, 90vw); padding: 14px; border-radius: 12px; margin-top: 4px;
+           background: #4f46e5; color: #fff; font-size: 17px; font-weight: 700; }
+  .err { color: #dc2626; font-size: 13px; min-height: 18px; }
+
+  /* ── Lobby ── */
+  #lobby { align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
+  #lobby .big { font-size: 64px; }
+  #lobby h2 { font-size: 20px; font-weight: 700; }
+  #lobby p { color: #64748b; font-size: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: #eef2ff; color: #4f46e5;
+           border-radius: 999px; padding: 8px 16px; font-weight: 700; font-size: 15px; }
+
+  /* ── Player ── */
+  #player { }
+  #pbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+          background: #fff; border-bottom: 1px solid #e2e8f0; }
+  #pcount { font-size: 13px; font-weight: 700; color: #334155; }
+  #pprogress { flex: 1; height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
+  #pprogress i { display: block; height: 100%; background: #4f46e5; width: 0; transition: width .2s; }
+  #ptimer { font-size: 13px; font-weight: 700; color: #64748b; }
+  #ptimer.low { color: #dc2626; }
+  #sync { font-size: 16px; }
+  #sync.ok { color: #16a34a; } #sync.wait { color: #d97706; } #sync.err { color: #dc2626; }
+
+  #qwrap { flex: 1; overflow-y: auto; padding: 20px 18px; }
+  #qtag { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;
+          letter-spacing: .06em; margin-bottom: 6px; }
+  #qtext { font-size: 19px; font-weight: 700; line-height: 1.4; margin-bottom: 18px; }
+  .opt { display: block; width: 100%; text-align: left; padding: 15px 16px; margin-bottom: 10px;
+         border-radius: 12px; border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
+         font-size: 16px; }
+  .opt.sel { border-color: #4f46e5; background: #eef2ff; }
+  .tf-row { display: flex; gap: 12px; }
+  .tf-btn { flex: 1; padding: 22px 8px; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+            font-size: 18px; font-weight: 800; }
+  .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
+  .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
+  .cloze-text { font-size: 17px; line-height: 2.1; }
+  .cloze-in { display: inline-block; border: none; border-bottom: 2px solid #6366f1; background: #eef2ff;
+              border-radius: 4px; padding: 2px 8px; font: inherit; color: #3730a3; margin: 0 3px; }
+  #qopen { width: 100%; min-height: 120px; padding: 12px 14px; border-radius: 12px; border: 2px solid #e2e8f0;
+           font-size: 16px; outline: none; resize: vertical; }
+  #qopen:focus { border-color: #6366f1; }
+
+  #pfoot { display: flex; gap: 10px; padding: 12px 14px; background: #fff; border-top: 1px solid #e2e8f0; }
+  #pfoot button { border-radius: 12px; padding: 14px 10px; font-weight: 800; font-size: 15px; }
+  #back { background: #f1f5f9; color: #334155; flex: 0 0 auto; padding-left: 18px; padding-right: 18px; }
+  #back:disabled { opacity: .4; }
+  #skip { background: #fff; color: #b45309; border: 2px solid #fde68a; flex: 0 0 auto; }
+  #next { background: #4f46e5; color: #fff; flex: 1; }
+
+  /* ── Done ── */
+  #done { align-items: center; justify-content: center; gap: 16px; padding: 26px; text-align: center; }
+  #done .big { font-size: 64px; }
+  #done h2 { font-size: 22px; font-weight: 700; }
+  #done p { color: #64748b; font-size: 14px; max-width: 340px; }
+  #done .recap { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 22px;
+                 font-size: 15px; }
+  #done button { width: min(320px, 84vw); padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 700; }
+  #review { background: #f1f5f9; color: #334155; }
+  #submit { background: #16a34a; color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<section id="login" class="on dotbg">
+  <h1>MappAI Live</h1>
+  <div class="name emoji" id="login-activity"></div>
+  <div class="lbl">La tua classe</div>
+  <input id="in-class" autocomplete="off" placeholder="es. 2ª A">
+  <div class="lbl">La tua emoji</div>
+  <div id="emoji-grid"></div>
+  <div class="lbl">Il tuo numero</div>
+  <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="es. 07">
+  <button id="enter">Entra</button>
+  <div class="err" id="login-err"></div>
+</section>
+
+<!-- ── LOBBY ── -->
+<section id="lobby">
+  <div class="big emoji" id="lobby-emoji">✅</div>
+  <h2>Sei dentro!</h2>
+  <div class="badge"><span class="emoji" id="lobby-who"></span></div>
+  <p id="lobby-msg">Aspetta che l'insegnante avvii le domande…</p>
+</section>
+
+<!-- ── PLAYER ── -->
+<section id="player">
+  <div id="pbar">
+    <span id="pcount">1 / 1</span>
+    <div id="pprogress"><i></i></div>
+    <span id="ptimer"></span>
+    <span id="sync" class="ok">●</span>
+  </div>
+  <div id="qwrap">
+    <div id="qtag"></div>
+    <div id="qtext"></div>
+    <div id="qbody"></div>
+  </div>
+  <div id="pfoot">
+    <button id="back">←</button>
+    <button id="skip">Salta</button>
+    <button id="next">Avanti</button>
+  </div>
+</section>
+
+<!-- ── DONE ── -->
+<section id="done">
+  <div class="big" id="done-emoji">🎉</div>
+  <h2 id="done-title">Hai finito!</h2>
+  <div class="recap" id="done-recap"></div>
+  <p id="done-msg">Puoi ancora rivedere e cambiare le risposte finché l'insegnante non chiude.</p>
+  <button id="review">Rivedi le risposte</button>
+  <button id="submit">Consegna</button>
+</section>
+
+<script src="/public/js/mappai-live-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var LC = window.MappAILiveCore;
+  var QS = new URLSearchParams(location.search);
+  var TOKEN = QS.get('s') || '';
+  var DEV_KEY = 'mappai_live_device';
+  var deviceId = localStorage.getItem(DEV_KEY);
+  if (!deviceId) { deviceId = 'd_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(DEV_KEY, deviceId); }
+
+  var $ = function (id) { return document.getElementById(id); };
+  function show(id) { document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === id); }); }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  var SESS = null;          // meta sessione
+  var IDENT = null;         // { emojiKey, num }
+  var QUESTIONS = [];       // pubbliche (senza soluzioni)
+  var ANSWERS = {};         // idx → { choice/text/blanks/skipped, ms }
+  var LSK = null;           // chiave localStorage risposte
+  var i = 0;                // domanda corrente
+  var qStart = 0;           // ts di visualizzazione domanda corrente
+  var chosenEmoji = null;
+  var pollTimer = null, timerTimer = null;
+
+  function api(p, opts) {
+    return fetch(p, opts).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }, function () { return { status: r.status, body: null }; }); });
+  }
+  function post(p, obj) { return api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }); }
+
+  // ── Boot: leggi la sessione, costruisci il login ──
+  function boot() {
+    if (!TOKEN) { $('login-err').textContent = 'Link non valido. Riscansiona il QR.'; return; }
+    api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+      if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
+      SESS = r.body;
+      $('login-activity').innerHTML = esc(SESS.activity || 'Quiz') + (SESS.className ? ' · ' + esc(SESS.className) : '');
+      if (SESS.className) $('in-class').value = SESS.className;
+      buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
+    }).catch(function () { $('login-err').textContent = 'Connessione assente. Sei sulla rete della classe?'; });
+  }
+
+  function buildEmojiGrid(set) {
+    var g = $('emoji-grid'); g.innerHTML = '';
+    set.forEach(function (e) {
+      var b = document.createElement('button');
+      b.className = 'egrid-btn emoji'; b.textContent = e.emoji; b.setAttribute('data-key', e.key);
+      b.setAttribute('aria-label', e.label || e.key);
+      b.onclick = function () {
+        chosenEmoji = e.key;
+        g.querySelectorAll('.egrid-btn').forEach(function (x) { x.classList.remove('sel'); });
+        b.classList.add('sel');
+      };
+      g.appendChild(b);
+    });
+  }
+
+  function classMatch(a, b) {
+    if (!LC) return true;
+    return LC.normalizeClassName(a).replace(/\s/g, '') === LC.normalizeClassName(b).replace(/\s/g, '');
+  }
+
+  $('enter').onclick = function () {
+    var cls = ($('in-class').value || '').trim();
+    var num = ($('in-num').value || '').replace(/\D/g, '');
+    $('login-err').textContent = '';
+    if (!cls) { $('login-err').textContent = 'Scrivi la tua classe.'; return; }
+    if (SESS && SESS.className && !classMatch(cls, SESS.className)) { $('login-err').textContent = 'Questa attività è per la classe ' + SESS.className + '.'; return; }
+    if (!chosenEmoji) { $('login-err').textContent = 'Tocca la tua emoji.'; return; }
+    if (num === '') { $('login-err').textContent = 'Scrivi il tuo numero.'; return; }
+    post('/api/join', { token: TOKEN, emojiKey: chosenEmoji, num: num, deviceId: deviceId }).then(function (r) {
+      if (r.status === 404) { $('login-err').textContent = 'Emoji e numero non trovati per questa classe.'; return; }
+      if (r.status === 409) { $('login-err').textContent = 'Sei già collegato su un altro dispositivo. Chiedi all\'insegnante di sbloccarti.'; return; }
+      if (r.status !== 200) { $('login-err').textContent = 'Errore di accesso. Riprova.'; return; }
+      IDENT = { emojiKey: chosenEmoji, num: LC ? LC.pad2(num) : num };
+      QUESTIONS = r.body.questions || [];
+      LSK = 'mappai_live_ans::' + TOKEN + '::' + (LC ? LC.identityKey(IDENT.emojiKey, IDENT.num) : IDENT.emojiKey + IDENT.num);
+      ANSWERS = mergeAnswers(r.body.answers || {}, loadLocal());
+      enterPhase(r.body.phase, r.body.displayName);
+    }).catch(function () { $('login-err').textContent = 'Connessione assente.'; });
+  };
+
+  function loadLocal() { try { return JSON.parse(localStorage.getItem(LSK) || '{}'); } catch (e) { return {}; } }
+  function saveLocal() { try { localStorage.setItem(LSK, JSON.stringify(ANSWERS)); } catch (e) {} }
+  // fonde le risposte del server con quelle locali (locale vince se più recente)
+  function mergeAnswers(server, local) {
+    var out = {}; Object.keys(server || {}).forEach(function (k) { out[k] = server[k]; });
+    Object.keys(local || {}).forEach(function (k) {
+      if (!out[k] || (local[k].updatedAt || 0) >= (out[k].updatedAt || 0)) out[k] = local[k];
+    });
+    return out;
+  }
+
+  function enterPhase(phase, displayName) {
+    if (phase === 'closed') { showDone(true); return; }
+    if (phase === 'running') { startPlayer(); return; }
+    // lobby
+    $('lobby-emoji').textContent = (LC && LC.emojiByKey(IDENT.emojiKey) || {}).emoji || '✅';
+    $('lobby-who').textContent = ((LC && LC.emojiByKey(IDENT.emojiKey) || {}).emoji || '') + ' ' + IDENT.num + (displayName && !/^\p{Emoji}/u.test(displayName) ? ' · ' + displayName : '');
+    show('lobby');
+    pollPhase();
+  }
+
+  function pollPhase() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+        if (r.status !== 200) return;
+        SESS = r.body;
+        if (SESS.phase === 'running') { clearInterval(pollTimer); startPlayer(); }
+        else if (SESS.phase === 'closed') { clearInterval(pollTimer); showDone(true); }
+      });
+    }, 2500);
+  }
+
+  // ── Player ──
+  function startPlayer() {
+    show('player');
+    i = firstUnanswered();
+    renderQuestion();
+    // poll leggero per intercettare la chiusura del docente
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+        if (r.status === 200) { SESS = r.body; if (SESS.phase === 'closed') { clearInterval(pollTimer); flushCurrent(); showDone(true); } updateTimer(); }
+      });
+    }, 5000);
+    updateTimer();
+    clearInterval(timerTimer);
+    timerTimer = setInterval(updateTimer, 1000);
+  }
+
+  function firstUnanswered() {
+    for (var k = 0; k < QUESTIONS.length; k++) { if (!ANSWERS[QUESTIONS[k].idx]) return k; }
+    return 0;
+  }
+
+  function updateTimer() {
+    var el = $('ptimer');
+    if (!SESS || !SESS.endsAt) { el.textContent = ''; return; }
+    var ms = new Date(SESS.endsAt).getTime() - Date.now();
+    if (ms <= 0) { el.textContent = '0:00'; el.classList.add('low'); return; }
+    var s = Math.floor(ms / 1000); var m = Math.floor(s / 60);
+    el.textContent = m + ':' + String(s % 60).padStart(2, '0');
+    el.classList.toggle('low', ms < 60000);
+  }
+
+  function renderQuestion() {
+    var q = QUESTIONS[i];
+    qStart = Date.now();
+    $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length;
+    $('pprogress').firstElementChild.style.width = Math.round((i) / QUESTIONS.length * 100) + '%';
+    $('qtag').textContent = q.nodeLabel || '';
+    $('back').disabled = (i === 0);
+    var body = $('qbody');
+    body.innerHTML = '';
+    var a = ANSWERS[q.idx] || {};
+
+    if (q.kind === 'mc') {
+      $('qtext').innerHTML = esc(q.text);
+      (q.options || []).forEach(function (opt, oi) {
+        var b = document.createElement('button');
+        b.className = 'opt' + (a.choice === oi ? ' sel' : ''); b.textContent = opt;
+        b.onclick = function () { setChoice(oi); };
+        body.appendChild(b);
+      });
+    } else if (q.kind === 'tf') {
+      $('qtext').innerHTML = esc(q.proposed || q.text);
+      var row = document.createElement('div'); row.className = 'tf-row';
+      var bt = document.createElement('button'); bt.className = 'tf-btn' + (a.choice === true ? ' sel-t' : ''); bt.textContent = 'VERO';
+      var bf = document.createElement('button'); bf.className = 'tf-btn' + (a.choice === false ? ' sel-f' : ''); bf.textContent = 'FALSO';
+      bt.onclick = function () { setChoice(true); }; bf.onclick = function () { setChoice(false); };
+      row.appendChild(bt); row.appendChild(bf); body.appendChild(row);
+    } else if (q.kind === 'cloze') {
+      $('qtext').textContent = '';
+      var wrap = document.createElement('div'); wrap.className = 'cloze-text';
+      var bi = 0; var saved = a.blanks || [];
+      (q.segments || []).forEach(function (seg) {
+        if (seg.blank) {
+          var inp = document.createElement('input'); inp.className = 'cloze-in'; inp.setAttribute('data-bi', bi);
+          var len = (seg.blank && seg.blank.len) || 6; inp.style.width = Math.max(60, len * 11) + 'px';
+          inp.autocomplete = 'off'; inp.spellcheck = false;
+          if (saved[bi] != null) inp.value = saved[bi];
+          wrap.appendChild(inp); bi++;
+        } else { wrap.appendChild(document.createTextNode(seg.text || '')); }
+      });
+      body.appendChild(wrap);
+    } else { // open
+      $('qtext').innerHTML = esc(q.text);
+      var ta = document.createElement('textarea'); ta.id = 'qopen'; ta.placeholder = 'Scrivi la tua risposta…';
+      if (a.text) ta.value = a.text;
+      body.appendChild(ta);
+    }
+  }
+
+  // mc/tf: selezione immediata + autosave
+  function setChoice(val) {
+    var q = QUESTIONS[i];
+    accumMs();
+    var a = ANSWERS[q.idx] || {}; a.choice = val; delete a.skipped; ANSWERS[q.idx] = a;
+    renderQuestionSelState(q, val);
+    saveAnswer(q.idx);
+  }
+  function renderQuestionSelState(q, val) {
+    if (q.kind === 'mc') { $('qbody').querySelectorAll('.opt').forEach(function (b, oi) { b.classList.toggle('sel', oi === val); }); }
+    else if (q.kind === 'tf') { var bs = $('qbody').querySelectorAll('.tf-btn'); bs[0].classList.toggle('sel-t', val === true); bs[1].classList.toggle('sel-f', val === false); }
+  }
+
+  // raccoglie il valore corrente della domanda (cloze/open) nel modello
+  function collectCurrent() {
+    var q = QUESTIONS[i]; var a = ANSWERS[q.idx] || {};
+    if (q.kind === 'cloze') {
+      var vals = []; $('qbody').querySelectorAll('.cloze-in').forEach(function (inp) { vals.push(inp.value || ''); });
+      if (vals.some(function (v) { return v.trim(); })) { a.blanks = vals; delete a.skipped; ANSWERS[q.idx] = a; }
+      else if (a.blanks) { a.blanks = vals; ANSWERS[q.idx] = a; }
+    } else if (q.kind === 'open') {
+      var ta = $('qopen'); if (ta && ta.value.trim()) { a.text = ta.value; delete a.skipped; ANSWERS[q.idx] = a; }
+      else if (ta && a.text) { a.text = ta.value; ANSWERS[q.idx] = a; }
+    }
+  }
+
+  function accumMs() {
+    var q = QUESTIONS[i]; var a = ANSWERS[q.idx];
+    if (!a) return;
+    a.ms = (a.ms || 0) + Math.max(0, Date.now() - qStart);
+    qStart = Date.now();
+  }
+
+  // salva su localStorage + POST (autosave, con retry leggero)
+  function saveAnswer(idx) {
+    var a = ANSWERS[idx]; if (!a) return;
+    a.updatedAt = Date.now();
+    saveLocal();
+    var payload = { token: TOKEN, emojiKey: IDENT.emojiKey, num: IDENT.num, deviceId: deviceId, qIdx: idx, ms: a.ms || 0 };
+    if (a.skipped) payload.skipped = true;
+    else if (a.choice !== undefined) payload.choice = a.choice;
+    else if (a.blanks) payload.blanks = a.blanks;
+    else if (a.text !== undefined) payload.text = a.text;
+    setSync('wait');
+    post('/api/answer', payload).then(function (r) {
+      if (r.status === 200) setSync('ok');
+      else if (r.status === 409 && r.body && r.body.error === 'closed') { setSync('ok'); showDone(true); }
+      else { setSync('err'); scheduleRetry(idx); }
+    }).catch(function () { setSync('err'); scheduleRetry(idx); });
+  }
+  var retryPend = {};
+  function scheduleRetry(idx) {
+    retryPend[idx] = true;
+    setTimeout(function () { if (retryPend[idx]) { delete retryPend[idx]; saveAnswer(idx); } }, 4000);
+  }
+  function setSync(s) { var el = $('sync'); el.className = s; el.textContent = s === 'err' ? '⚠' : '●'; }
+
+  // salva la domanda corrente prima di lasciarla
+  function flushCurrent() {
+    var q = QUESTIONS[i]; if (!q) return;
+    collectCurrent(); accumMs();
+    if (ANSWERS[q.idx]) saveAnswer(q.idx);
+  }
+
+  $('back').onclick = function () { if (i === 0) return; flushCurrent(); i--; renderQuestion(); };
+  $('next').onclick = function () {
+    flushCurrent();
+    if (i < QUESTIONS.length - 1) { i++; renderQuestion(); }
+    else showDone(false);
+  };
+  $('skip').onclick = function () {
+    var q = QUESTIONS[i]; accumMs();
+    var a = ANSWERS[q.idx] || {}; a.skipped = true; delete a.choice; delete a.blanks; delete a.text;
+    ANSWERS[q.idx] = a; saveAnswer(q.idx);
+    if (i < QUESTIONS.length - 1) { i++; renderQuestion(); } else showDone(false);
+  };
+
+  // ── Done ──
+  function showDone(closed) {
+    clearInterval(pollTimer); clearInterval(timerTimer);
+    show('done');
+    var answered = 0, skipped = 0;
+    QUESTIONS.forEach(function (q) { var a = ANSWERS[q.idx]; if (a && a.skipped) skipped++; else if (a && (a.choice !== undefined || a.blanks || a.text)) answered++; });
+    $('done-recap').innerHTML = 'Risposte: <b>' + answered + '</b> / ' + QUESTIONS.length + (skipped ? ' · saltate: ' + skipped : '');
+    if (closed) {
+      $('done-emoji').textContent = '🔒'; $('done-title').textContent = 'Sessione chiusa';
+      $('done-msg').textContent = 'Grazie! L\'insegnante ha chiuso il quiz.';
+      $('review').style.display = 'none'; $('submit').style.display = 'none';
+    } else {
+      $('done-emoji').textContent = '🎉'; $('done-title').textContent = 'Hai finito!';
+      $('review').style.display = ''; $('submit').style.display = '';
+    }
+  }
+  $('review').onclick = function () { i = 0; startPlayerResume(); };
+  function startPlayerResume() { show('player'); renderQuestion(); if (!pollTimer) startPlayer(); }
+  $('submit').onclick = function () {
+    flushCurrent();
+    post('/api/finish', { token: TOKEN, emojiKey: IDENT.emojiKey, num: IDENT.num, deviceId: deviceId }).then(function () {
+      $('done-msg').textContent = 'Consegnato! Puoi ancora rivedere finché l\'insegnante non chiude.';
+    });
+  };
+
+  // salva quando l'app va in background (chiusura schermo, cambio tab)
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && IDENT && $('player').classList.contains('on')) flushCurrent(); });
+
+  boot();
+})();
+</script>
+</body>
+</html>

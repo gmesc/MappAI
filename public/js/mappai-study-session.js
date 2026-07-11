@@ -144,10 +144,10 @@ window.startStudySession = async function () {
             };
         }
 
-        const response = await window.fetchModelAPI({
+        const response = await window.fetchModelAPI(window.injectClassTuning({
             contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + studyText }] }],
             generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
-        }, apiKey);
+        }), apiKey);
 
         let rawText = response.candidates[0].content.parts[0].text;
         let cleanText = rawText.split('```json').join('').split('```').join('').trim();

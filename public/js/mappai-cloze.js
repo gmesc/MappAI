@@ -77,6 +77,7 @@
   const CORE = { normalize, levenshtein, isCloseMatch, makeCloze };
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
   if (typeof window === 'undefined') return;
+  window.MappAIClozeCore = CORE; // MappAI Live riusa makeCloze per generare cloze scoped
 
   // ─────────────────────────── LAYER BROWSER ───────────────────────────
   function S() { try { return (typeof appState !== 'undefined') ? appState : window.appState; } catch (e) { return window.appState; } }

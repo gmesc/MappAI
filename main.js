@@ -1594,6 +1594,161 @@ ipcMain.handle('collab-open-folder', async () => {
     return { success: true, dir };
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// MAPPAI LIVE — Studio attivo via QR + Materiali (stesso pattern LAN)
+// Quiz: ~/Documents/MappAI - Live/<slug-sessione>/ · porte 8767-8777
+// Materiali: sottocartella materiali-<slug>-<data>/ · porte 8768-8778
+// Classi (roster credenziali): ~/Documents/MappAI - Classi/classi.json
+// ══════════════════════════════════════════════════════════════════════════
+const { createLiveServer, createMaterialsServer } = require('./live-server');
+let liveSrv = null, liveInfo = null;
+let liveMatSrv = null, liveMatInfo = null;
+
+function liveBaseDir() { return path.join(app.getPath('documents'), 'MappAI - Live'); }
+function classiFile() { return path.join(app.getPath('documents'), 'MappAI - Classi', 'classi.json'); }
+function slugLive(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
+}
+function dateStamp() {
+    const d = new Date(); const p = n => String(n).padStart(2, '0');
+    return p(d.getDate()) + '-' + p(d.getMonth() + 1) + '-' + d.getFullYear();
+}
+
+// Avvia (o RIPRENDE) una sessione quiz live. Payload dal renderer:
+// { name (titolo mappa), activity, className, durationMin, roster, questions }
+ipcMain.handle('live-start-session', async (event, opts) => {
+    try {
+        if (liveSrv) { await liveSrv.stop(); liveSrv = null; liveInfo = null; }
+        const o = opts || {};
+        const name = o.name || 'Quiz';
+        // cartella: [titolo mappa]-[attività]-[classe]-[DD-MM-AAAA]
+        const slug = [slugLive(name), slugLive(o.activity || 'quiz'), slugLive(o.className || 'classe'), dateStamp()].join('-');
+        const dir = path.join(liveBaseDir(), slug);
+        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        liveSrv = createLiveServer({
+            repoRoot: __dirname, dir,
+            session: { name, activity: o.activity || 'Quiz', className: o.className || '', durationMin: Number(o.durationMin) || 0 },
+            roster: Array.isArray(o.roster) ? o.roster : [],
+            questions: Array.isArray(o.questions) ? o.questions : []
+        });
+        let port = null, lastErr = null;
+        for (let p = 8767; p <= 8777; p++) {
+            try { port = await liveSrv.listen(p, '0.0.0.0'); break; } catch (e) { lastErr = e; }
+        }
+        if (!port) throw lastErr || new Error('nessuna porta libera 8767-8777');
+        const st = liveSrv.state();
+        liveInfo = {
+            port, urls: lanUrls(port), token: st.session.token,
+            adminToken: st.session.adminToken, dir, name, resumed: resuming
+        };
+        console.log('[live] sessione quiz avviata su :' + port, resuming ? '(RIPRESA)' : '');
+        return Object.assign({ success: true, questionCount: st.questionCount }, liveInfo);
+    } catch (err) {
+        console.error('Errore live-start-session:', err);
+        liveSrv = null;
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('live-stop-session', async () => {
+    try {
+        if (liveSrv) { await liveSrv.stop(); liveSrv = null; liveInfo = null; }
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Info sessione (il polling della dashboard lo fa il renderer direttamente su
+// 127.0.0.1:<port>/api/status con l'adminToken)
+ipcMain.handle('live-session-info', async () => {
+    if (!liveSrv || !liveInfo) return { success: false, error: 'nessuna sessione attiva' };
+    return Object.assign({ success: true }, liveInfo, liveSrv.state());
+});
+
+ipcMain.handle('live-open-folder', async () => {
+    const dir = liveInfo ? liveInfo.dir : liveBaseDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+    return { success: true, dir };
+});
+
+// ── Materiali di studio (download via QR, nessun login) ──
+ipcMain.handle('live-materials-start', async (event, opts) => {
+    try {
+        if (liveMatSrv) { await liveMatSrv.stop(); liveMatSrv = null; liveMatInfo = null; }
+        const name = (opts && opts.name) || 'Materiali';
+        const dir = path.join(liveBaseDir(), 'materiali-' + slugLive(name) + '-' + dateStamp());
+        liveMatSrv = createMaterialsServer({ repoRoot: __dirname, dir, session: { name } });
+        let port = null, lastErr = null;
+        for (let p = 8768; p <= 8778; p++) {
+            try { port = await liveMatSrv.listen(p, '0.0.0.0'); break; } catch (e) { lastErr = e; }
+        }
+        if (!port) throw lastErr || new Error('nessuna porta libera 8768-8778');
+        const st = liveMatSrv.state();
+        liveMatInfo = { port, urls: lanUrls(port), token: st.session.token, dir, name, filesDir: liveMatSrv.filesDir };
+        console.log('[live] server materiali avviato su :' + port);
+        return Object.assign({ success: true, files: st.files }, liveMatInfo);
+    } catch (err) {
+        console.error('Errore live-materials-start:', err);
+        liveMatSrv = null;
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('live-materials-stop', async () => {
+    try {
+        if (liveMatSrv) { await liveMatSrv.stop(); liveMatSrv = null; liveMatInfo = null; }
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('live-materials-info', async () => {
+    if (!liveMatSrv || !liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+    return Object.assign({ success: true }, liveMatInfo, { files: liveMatSrv.state().files });
+});
+
+// Aggiunge file scelti dal docente nella cartella materiali (copia)
+ipcMain.handle('live-materials-add', async () => {
+    if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Aggiungi materiali di studio', properties: ['openFile', 'multiSelections']
+    });
+    if (result.canceled || !result.filePaths.length) return { success: false, canceled: true };
+    let added = 0;
+    for (const src of result.filePaths) {
+        try { fs.copyFileSync(src, path.join(liveMatInfo.filesDir, path.basename(src))); added++; }
+        catch (e) { console.warn('[live] copia materiale fallita', src, e.message); }
+    }
+    return { success: true, added, files: liveMatSrv.state().files };
+});
+
+// Pubblica un HTML generato (dossier, sintesi...) come file materiale
+ipcMain.handle('live-materials-add-html', async (event, { filename, html }) => {
+    if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+    const safe = path.basename(String(filename || 'materiale.html')).replace(/[^a-zA-Z0-9._-]+/g, '_');
+    const target = path.join(liveMatInfo.filesDir, safe.endsWith('.html') ? safe : safe + '.html');
+    fs.writeFileSync(target, String(html || ''));
+    return { success: true, file: path.basename(target), files: liveMatSrv.state().files };
+});
+
+// ── Store classi su disco (roster credenziali) ──
+ipcMain.handle('live-classes-load', async () => {
+    try {
+        const f = classiFile();
+        if (!fs.existsSync(f)) return { success: true, data: { schema: 'mappai-classes@1', classes: [] } };
+        return { success: true, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('live-classes-save', async (event, data) => {
+    try {
+        const f = classiFile();
+        fs.mkdirSync(path.dirname(f), { recursive: true });
+        fs.writeFileSync(f, JSON.stringify(data || { schema: 'mappai-classes@1', classes: [] }, null, 2));
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
 // MEMORY DUNGEON: scrive un piano validato in Memory Dungeon/piani/piano-N.json.
 // Usato dall'import in-app (la validazione avviene nel renderer, contratto §4).
 ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {

@@ -271,7 +271,7 @@ window.generateTimelineWithAI = async function () {
         // ── 5. Chiama l'AI — try/catch separato per errori IPC ─────────────────
         var response;
         try {
-            response = await window.fetchModelAPI(payload, apiKey);
+            response = await window.fetchModelAPI(window.injectClassTuning(payload), apiKey);
         } catch (apiErr) {
             window.showLoadingOverlay(false);
             console.error('[Timeline] API error:', apiErr);

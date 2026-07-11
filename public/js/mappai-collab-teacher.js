@@ -30,8 +30,48 @@
         info: null,        // { port, token, adminToken, urls, dir, name }
         board: null,       // ultimo /api/status .board
         layers: {},        // slug → { visible, label }
+        focusSlug: null,   // slug del gruppo isolato ("solo questa mappa"); null = tutti
+        _prevDepth: null,  // valore slider profondità salvato prima del focus
+        _prevDepthHidden: null, // stato hidden del controllo profondità prima del focus
         _pollTimer: null
     };
+
+    // ── Profondità mappa base: porta a L0 in focus, ripristina all'uscita ────
+    // applyVisualFilters onora lo slider solo se #level-filter-control è visibile,
+    // quindi in focus lo mostro (così il collasso a L0 fa effetto) e poi ripristino.
+    function setBaseDepthL0() {
+        const sl = document.getElementById('level-slider');
+        if (!sl) return;
+        const ctrl = document.getElementById('level-filter-control');
+        CT._prevDepth = sl.value;
+        CT._prevDepthHidden = ctrl ? ctrl.classList.contains('hidden') : null;
+        if (ctrl) ctrl.classList.remove('hidden');
+        sl.value = 0;
+        if (window.onLevelSliderInput) window.onLevelSliderInput(0);
+    }
+    function restoreBaseDepth() {
+        const sl = document.getElementById('level-slider');
+        if (sl && CT._prevDepth != null) {
+            sl.value = CT._prevDepth;
+            const ctrl = document.getElementById('level-filter-control');
+            if (ctrl && CT._prevDepthHidden === true) ctrl.classList.add('hidden');
+            if (window.onLevelSliderInput) window.onLevelSliderInput(sl.value);
+        }
+        CT._prevDepth = null; CT._prevDepthHidden = null;
+    }
+
+    // Isola un gruppo (o esce dal focus se già attivo su quello slug)
+    function toggleFocus(slug) {
+        if (CT.focusSlug === slug) {
+            CT.focusSlug = null;
+            restoreBaseDepth();
+        } else {
+            if (CT.focusSlug == null) setBaseDepthL0();  // salva la profondità solo al 1° focus
+            CT.focusSlug = slug;
+        }
+        renderGroupsList();
+        renderOverlay();
+    }
 
     function esc(s) {
         const d = document.createElement('div'); d.textContent = s == null ? '' : String(s);
@@ -150,6 +190,7 @@
         if (qrImg) qrImg.onclick = () => openQrFull(url);
         ov.querySelector('#cl-stop').onclick = async () => {
             await window.electronAPI.collabStopSession();
+            if (CT.focusSlug) { CT.focusSlug = null; restoreBaseDepth(); }
             stopPolling(); removeOverlay();
             CT.info = null; CT.board = null;
             closeModal();
@@ -204,6 +245,7 @@
         box.innerHTML = groups.map(g => {
             const slug = C.slugify(g.nick);
             const lay = CT.layers[slug];
+            const focused = CT.focusSlug === slug;
             const doneBadge = g.done
                 ? `<span title="${t('cl_done_tip', 'Il gruppo ha premuto Fatto')}" style="font-size:10px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 7px">✓</span>`
                 : '';
@@ -212,6 +254,7 @@
                 <input value="${esc(lay.label)}" data-slug="${slug}" class="cl-rename" style="flex:1;min-width:60px;border:0;background:none;font-weight:700;font-size:12.5px;color:#0f172a;outline:none">
                 ${doneBadge}
                 <span style="font-size:11px;color:#94a3b8">${(g.nodes || []).length}n · ${(g.links || []).length}⇢</span>
+                <button type="button" class="cl-focus" data-slug="${slug}" title="${focused ? t('cl_focus_off_tip', 'Esci dall\'isolamento e ripristina la profondità') : t('cl_focus_tip', 'Isola questo gruppo e porta la mappa base a L0')}" style="background:${focused ? '#f59e0b' : '#f1f5f9'};color:${focused ? '#fff' : '#334155'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${t('cl_focus', 'SOLO')}</button>
                 <button type="button" class="cl-toggle" data-slug="${slug}" title="${t('cl_toggle_tip', 'Mostra/nascondi questo layer sulla mappa')}" style="background:${lay.visible ? '#4f46e5' : '#e2e8f0'};color:${lay.visible ? '#fff' : '#64748b'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${lay.visible ? 'ON' : 'OFF'}</button>
                 <button type="button" class="cl-export" data-slug="${slug}" title="${t('cl_export_tip', 'Scarica il layer come mappa MappAI (JSON importabile)')}" style="background:#f1f5f9;color:#334155;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">JSON</button>
             </div>`;
@@ -225,6 +268,9 @@
         });
         box.querySelectorAll('.cl-rename').forEach(inp => {
             inp.onchange = () => { CT.layers[inp.dataset.slug].label = inp.value.trim() || inp.dataset.slug; renderOverlay(); };
+        });
+        box.querySelectorAll('.cl-focus').forEach(b => {
+            b.onclick = () => toggleFocus(b.dataset.slug);
         });
         box.querySelectorAll('.cl-export').forEach(b => {
             b.onclick = () => exportLayer(b.dataset.slug);
@@ -270,7 +316,10 @@
         (CT.board.groups || []).forEach(grp => {
             const slug = C.slugify(grp.nick);
             const lay = CT.layers[slug];
-            if (!lay || !lay.visible) return;
+            if (!lay) return;
+            // in focus mostro SOLO il gruppo isolato; altrimenti rispetto il toggle ON/OFF
+            if (CT.focusSlug) { if (slug !== CT.focusSlug) return; }
+            else if (!lay.visible) return;
             // collegamenti del gruppo (sotto i suoi nodi), con la keyword al centro
             (grp.links || []).forEach(l => {
                 const a = (grp.nodes || []).find(n => n.id === l.source);

@@ -896,28 +896,10 @@ window.generateDossierPDFFromOptions = async function () {
         let targetNodes = [];
         let asciiTree = "";
 
-        // Funzione per raccogliere i nodi del ramo/dossier (con anti-ciclo)
-        const _visitedDesc = new Set();
-        function getDescendants(nodeId) {
-            if (_visitedDesc.has(nodeId)) return [];  // ciclo rilevato → stop
-            _visitedDesc.add(nodeId);
-            const startNode = appState.db.nodes.find(n => n.id === nodeId);
-            if (!startNode) return [];
-            if (isMM) {
-                // Per mappe mentali, l'intero branch è definito dal gruppo
-                return appState.db.nodes.filter(n => n.group === startNode.group).sort((a, b) => (a.level || 0) - (b.level || 0));
-            }
-            let list = [startNode];
-            const childrenLinks = appState.db.links.filter(l => {
-                const sId = (l.source && l.source.id) ? l.source.id : l.source;
-                return sId === nodeId;
-            });
-            childrenLinks.forEach(link => {
-                const tId = (link.target && link.target.id) ? link.target.id : link.target;
-                list.push(...getDescendants(tId));
-            });
-            return list;
-        }
+        // Raccolta nodi del ramo → base condivisa con la Sintesi
+        // (mappai-study-export-core.js). Usato solo dal ramo MindMap qui sotto:
+        // il KG "branch" del dossier ordina invece TUTTI i nodi per gruppo.
+        const collectBranch = (id) => window.MappAIStudyExport.collectBranchNodes(id);
 
         // Funzione per costruire il diagramma ASCII del ramo (con anti-ciclo)
         const _visitedASCII = new Set();
@@ -959,7 +941,7 @@ window.generateDossierPDFFromOptions = async function () {
                 if (scope === 'single') {
                     targetNodes = [selectedNode];
                 } else {
-                    targetNodes = getDescendants(selectedNodeId);
+                    targetNodes = collectBranch(selectedNodeId);
                 }
 
                 const includeAscii = document.getElementById('print-mm-ascii-diagram').checked;
@@ -1227,8 +1209,7 @@ window.generateDossierPDFFromOptions = async function () {
 
             // 2) Ciclo sulle Macro-Aree
             l1Nodes.forEach(l1 => {
-                _visitedDesc.clear();
-                const branchNodes = getDescendants(l1.id);
+                const branchNodes = collectBranch(l1.id);
                 if (branchNodes.length === 0) branchNodes.push(l1);
                 branchNodes.sort((a, b) => (a.level || 0) - (b.level || 0));
 
@@ -1433,12 +1414,6 @@ window.generateDossierPDFFromOptions = async function () {
         }
 
 
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) {
-            window.showToast(window.t('tst_popup_blocked', "Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser."), "error");
-            return;
-        }
-
         // ── Footer del documento: logo + nome mappa root ──────────────────────
         const rootMapName = cleanLabel(
             appState.db.nodes?.find(n => n.level === 0)?.label
@@ -1450,7 +1425,7 @@ window.generateDossierPDFFromOptions = async function () {
             : '';
         const footerHtml = '<div class="dossier-footer"><div class="dossier-footer-left">' + footerLogoHtml + '<span>MappAI by insegnai.ch</span></div><div class="dossier-footer-right">' + rootMapName + '</div></div>';
 
-        printWindow.document.write(`
+        const dossierHtml = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -2003,12 +1978,27 @@ window.generateDossierPDFFromOptions = async function () {
             ${footerHtml}
         </body>
         </html>
-    `);
-        printWindow.document.close();
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 800);
+    `;
+        // Auto-salvataggio nell'archivio documenti (richiamabile dall'hub
+        // Materiali di studio senza rigenerare). Best-effort.
+        if (window.MappAIStudyDocs) {
+            try {
+                window.MappAIStudyDocs.save({
+                    kind: 'dossier',
+                    title: dossierTitle + (dossierSubtitle ? ' — ' + dossierSubtitle : ''),
+                    mapName: rootMapName,
+                    html: dossierHtml
+                });
+            } catch (e) { console.warn('[Dossier] Salvataggio documento fallito:', e); }
+        }
+
+        // Shell di stampa condivisa con la Sintesi (mappai-study-export-core.js):
+        // popup-guard + write/close + stampa automatica.
+        window.MappAIStudyExport.openPrintable(dossierHtml, {
+            blockedMsg: window.t('tst_popup_blocked', "Impossibile aprire la finestra di stampa. Controlla il blocco popup del browser."),
+            blockedLevel: 'error',
+            autoPrint: true
+        });
         window.closeDossierPrintModal();
     } catch (err) {
         console.error('[Dossier] Errore durante la generazione:', err);

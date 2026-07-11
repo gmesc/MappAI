@@ -173,6 +173,7 @@
 (function () {
   'use strict';
   var C = window.MappAICollabCore;
+  var ROOT_ID = C.ROOT_ID || '__root__';
   var qs = new URLSearchParams(location.search);
   var TOKEN = qs.get('s') || '';
   var deviceId = localStorage.getItem('collab_device') ||
@@ -313,7 +314,7 @@
     select(null);
     $('link-btn').classList.toggle('on', on);
     var h = $('mode-hint');
-    if (on) { h.textContent = 'Tocca il PRIMO nodo da collegare'; h.style.display = 'block'; }
+    if (on) { h.textContent = 'Tocca il PRIMO nodo (o il centro) da collegare'; h.style.display = 'block'; }
     else h.style.display = 'none';
     render();
   }
@@ -455,13 +456,19 @@
     });
   }
 
+  // il root (centro mappa) è un'estremità valida ma non è nei nodi del gruppo:
+  // lo risolvo a coordinate 0,0 (= centro) con un raggio equivalente al cerchio r45
+  function endpoint(id, nodes) {
+    if (id === ROOT_ID) return { id: ROOT_ID, x: 0, y: 0, size: 'm', __root: true };
+    return nodes.find(function (n) { return n.id === id; });
+  }
   function drawLink(l, nodes, mine, g) {
-    var a = nodes.find(function (n) { return n.id === l.source; });
-    var b = nodes.find(function (n) { return n.id === l.target; });
+    var a = endpoint(l.source, nodes);
+    var b = endpoint(l.target, nodes);
     if (!a || !b) return;
     var pa = px(a, g), pb = px(b, g);
     // accorcia sul bordo del rect di destinazione (freccia visibile)
-    var sz = C.SIZES[b.size] || C.SIZES.m;
+    var sz = b.__root ? { w: 90, h: 90 } : (C.SIZES[b.size] || C.SIZES.m);
     var dx = pb.x - pa.x, dy = pb.y - pa.y;
     var len = Math.sqrt(dx * dx + dy * dy) || 1;
     var cut = Math.min(sz.w, sz.h) / 2 + 6;
@@ -527,12 +534,19 @@
     var rc = document.createElementNS(NS, 'circle');
     rc.setAttribute('class', 'root-circle');
     rc.setAttribute('r', 45);
+    // in modalità collega il root è un'estremità tappabile (evidenziato se è il 1° capo)
+    if (S.linkMode) {
+      root.style.cursor = 'pointer';
+      if (S.linkFrom === ROOT_ID) { rc.setAttribute('stroke', '#4f46e5'); rc.setAttribute('stroke-width', 5); }
+    }
     root.appendChild(rc);
     var rl = document.createElementNS(NS, 'text');
     rl.setAttribute('class', 'map-label');
     rl.setAttribute('font-size', 14);
+    rl.style.pointerEvents = 'none';
     wrapText(rl, S.rootLabel, 12);
     root.appendChild(rl);
+    if (S.linkMode) root.addEventListener('pointerup', function (e) { e.stopPropagation(); linkTap(ROOT_ID); });
     svg.appendChild(root);
     // i miei nodi sopra
     S.myNodes.forEach(function (n) { drawNode(n, true, S.color, g); });
@@ -545,11 +559,16 @@
       e.preventDefault();
       grp.setPointerCapture(e.pointerId);
       var p = px(n, g);
-      drag = { dx: e.clientX - p.x, dy: e.clientY - p.y, moved: false };
+      drag = { dx: e.clientX - p.x, dy: e.clientY - p.y, sx: e.clientX, sy: e.clientY, moved: false };
     });
     grp.addEventListener('pointermove', function (e) {
       if (!drag || S.linkMode) return;
-      drag.moved = true;
+      // soglia anti-jitter: un tap su touchscreen (Android) emette micro-pointermove →
+      // sotto 6px è un tap (→ select), non un trascinamento
+      if (!drag.moved) {
+        if (Math.abs(e.clientX - drag.sx) < 6 && Math.abs(e.clientY - drag.sy) < 6) return;
+        drag.moved = true;
+      }
       var nx = (e.clientX - drag.dx - g.cx) / g.R;
       var ny = (e.clientY - drag.dy - g.cy) / g.R;
       n.x = Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, nx));

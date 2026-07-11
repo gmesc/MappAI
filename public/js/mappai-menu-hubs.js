@@ -37,9 +37,11 @@
         document.body.appendChild(tipEl);
         return tipEl;
     }
+    let tipTarget = null;   // elemento attualmente hoverato (per rilevare rimozione dal DOM)
     function showTip(target) {
         const txt = target.getAttribute('data-tip');
         if (!txt) return;
+        tipTarget = target;
         const el = ensureTip();
         el.textContent = txt;
         el.style.opacity = '0';
@@ -55,8 +57,12 @@
             el.style.opacity = '1';
         });
     }
-    function hideTip() { if (tipEl) tipEl.style.opacity = '0'; }
+    function hideTip() { tipTarget = null; if (tipEl) tipEl.style.opacity = '0'; }
     document.addEventListener('mouseover', (e) => {
+        // guardia: se il target hoverato è stato rimosso dal DOM (cambio step del
+        // modale) mouseout non scatta → tooltip orfano. Chiudilo appena il mouse
+        // si muove su altro contenuto.
+        if (tipTarget && !tipTarget.isConnected) hideTip();
         const t = e.target.closest && e.target.closest('[data-tip]');
         if (t) showTip(t);
     });
@@ -64,6 +70,9 @@
         const t = e.target.closest && e.target.closest('[data-tip]');
         if (t) hideTip();
     });
+    // qualunque click (es. bottone che avanza uno step del prompt-modal) chiude
+    // il tooltip: l'elemento hoverato sparisce prima che mouseout possa scattare.
+    document.addEventListener('mousedown', hideTip, true);
     window.addEventListener('scroll', hideTip, true);
     window.MappAITips = { show: showTip, hide: hideTip };
 
@@ -136,10 +145,12 @@
         const J = window.MappAIJigsaw;
         const offTip = t('hub_fn_missing', 'Funzione non disponibile in questa versione.');
         const defs = {
+            pdf:      { icon: 'file-text',       ok: !!window.exportPDF,                 fn: () => window.exportPDF(),
+                        title: t('ui_export_pdf_btn', 'Esporta PDF mappa'),  tip: t('tt_export_pdf', 'Esporta la mappa visibile in formato PDF (vettoriale).') },
             sheet:    { icon: 'scissors',        ok: !!window.openNodeLabelsPrintModal,  fn: () => window.openNodeLabelsPrintModal(),
                         title: t('ui_node_sheet_btn', 'Foglio nodi'),        tip: t('tt_node_sheet', 'Foglio stampabile con i nodi da ritagliare (forbici).') },
             synth:    { icon: 'sparkles',        ok: !!window.openBranchSynthesisModal,  fn: () => window.openBranchSynthesisModal(),
-                        title: t('ui_branch_synth', 'Sintesi di ramo (AI)'), tip: t('tt_branch_synthesis', 'Genera una sintesi narrativa con citazioni di un ramo.') },
+                        title: t('ui_branch_synth', 'Sintesi materiale'), tip: t('tt_branch_synthesis', 'Genera una sintesi narrativa con citazioni di un ramo.') },
             dossier:  { icon: 'files',           ok: !!window.openDossierPrintModal,     fn: () => window.openDossierPrintModal(),
                         title: t('ui_print_dossier_btn', 'Stampa dossier'),  tip: t('tt_print_dossier', 'Dossier PDF stampabile con i contenuti della mappa.') },
             timeline: { icon: 'gantt-chart',     ok: !!window.openTimelineGeneratorModal, fn: () => window.openTimelineGeneratorModal(),
@@ -149,18 +160,91 @@
             jmerge:   { icon: 'git-merge',       ok: !!(J && J.openReconcileModal), fn: () => J.openReconcileModal(),
                         title: t('ui_reassemble_copies', 'Ricomponi copie'), tip: t('tt_jigsaw_merge', 'Ricompone le copie dei gruppi nel master: rami lavorati + ponti ratificati.') },
             jgap:     { icon: 'clipboard-check', ok: !!(J && J.openGapModal),       fn: () => J.openGapModal(),
-                        title: t('ui_gap_review', 'Revisione lacune'),       tip: t('tt_jigsaw_compare', 'Confronta le copie col master: elenco lacune per la revisione privata.') }
+                        title: t('ui_gap_review', 'Revisione lacune'),       tip: t('tt_jigsaw_compare', 'Confronta le copie col master: elenco lacune per la revisione privata.') },
+            saved:    { icon: 'folder-clock',    ok: !!window.openSavedDocsModal,   fn: () => window.openSavedDocsModal(),
+                        title: t('sd_card', 'Documenti salvati'), tip: t('sd_card_tip', 'Sintesi e dossier già generati: riaprili o condividili via QR senza rigenerare.') }
         };
         Object.keys(defs).forEach(k => { defs[k].key = k; defs[k].offTip = offTip; });
+        const nDocs = window.MappAIStudyDocs ? window.MappAIStudyDocs.list().length : 0;
+        if (nDocs) defs.saved.title = t('sd_card', 'Documenti salvati') + ' (' + nDocs + ')';
         let body =
             sectionHeader(t('mh_section_print', 'Stampati')) +
-            grid([defs.sheet, defs.synth, defs.dossier, defs.timeline]);
+            grid([defs.pdf, defs.sheet, defs.synth, defs.dossier, defs.timeline]) +
+            sectionHeader(t('sd_section', 'Salvati')) +
+            grid([defs.saved]);
         if (!jigsawStudentOn()) {   // funzioni docente: nascoste sulle copie studente
             body += sectionHeader(t('mh_section_jigsaw', 'JIGSAW — lavoro a gruppi')) +
                 grid([defs.jexport, defs.jmerge, defs.jgap]);
         }
         const overlay = buildHubModal('printer', t('ui_materials_hub', 'Materiali di studio'), body, '720px');
         wire(overlay, defs);
+    };
+
+    /* ── 🗂 Documenti salvati (tabella stile drawer progetti recenti) ────────── */
+    window.openSavedDocsModal = function () {
+        // dedup: chiudi un'eventuale istanza già aperta (re-render post-delete,
+        // doppio click) → mai overlay impilati.
+        document.querySelectorAll('[data-hub="saved-docs"]').forEach(el => el.remove());
+        const docs = window.MappAIStudyDocs ? window.MappAIStudyDocs.list() : [];
+        let body;
+        if (!docs.length) {
+            body = '<div style="color:#94a3b8;font-size:13px;padding:10px 2px;line-height:1.6">' +
+                esc(t('sd_empty', 'Nessun documento salvato. Genera una Sintesi o un Dossier: verranno archiviati qui e potrai riaprirli o condividerli via QR senza rigenerare.')) + '</div>';
+        } else {
+            const GRID = 'display:grid;grid-template-columns:88px minmax(0,1fr) 120px 96px 120px;align-items:center;gap:10px;padding:8px 10px';
+            const head = '<div style="' + GRID + ';border-bottom:1px solid #e0e7ff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">' +
+                '<span>' + esc(t('sd_col_kind', 'Tipo')) + '</span>' +
+                '<span>' + esc(t('sd_col_title', 'Titolo')) + '</span>' +
+                '<span>' + esc(t('sd_col_class', 'Classe')) + '</span>' +
+                '<span>' + esc(t('sd_col_date', 'Data')) + '</span>' +
+                '<span style="text-align:right">' + esc(t('sd_col_actions', 'Azioni')) + '</span></div>';
+            const rows = docs.map(d => {
+                const isSyn = d.kind === 'synthesis';
+                const icon = isSyn ? 'sparkles' : 'files';
+                const kindLbl = isSyn ? t('sd_kind_synthesis', 'Sintesi') : t('sd_kind_dossier', 'Dossier');
+                const dt = new Date(d.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' });
+                const cls = d.cls
+                    ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#4f46e5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i data-lucide="graduation-cap" style="width:13px;height:13px;flex:0 0 auto"></i>' + esc(d.cls) + '</span>'
+                    : '<span style="color:#cbd5e1">—</span>';
+                return '<div style="' + GRID + ';border-bottom:1px solid #f1f5f9">' +
+                    '<span style="display:inline-flex;align-items:center;gap:5px;color:#4f46e5;font-size:10px;font-weight:700;text-transform:uppercase"><i data-lucide="' + icon + '" style="width:15px;height:15px;flex:0 0 auto"></i>' + esc(kindLbl) + '</span>' +
+                    '<span style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.title) + '">' + esc(d.title) + '</span>' +
+                    cls +
+                    '<span style="font-size:11px;color:#94a3b8">' + esc(dt) + '</span>' +
+                    '<span style="display:flex;justify-content:flex-end;gap:4px">' +
+                        '<button type="button" class="sd-open" data-id="' + esc(d.id) + '" data-tip="' + esc(t('sd_open', 'Riapri il documento')) + '" style="background:#eef2ff;border:none;border-radius:8px;padding:6px;cursor:pointer;color:#4f46e5;display:inline-flex" aria-label="' + esc(t('sd_open', 'Riapri')) + '"><i data-lucide="external-link" style="width:16px;height:16px"></i></button>' +
+                        '<button type="button" class="sd-qr" data-id="' + esc(d.id) + '" data-tip="' + esc(t('sd_qr', 'Condividi via QR')) + '" style="background:#ecfdf5;border:none;border-radius:8px;padding:6px;cursor:pointer;color:#059669;display:inline-flex" aria-label="' + esc(t('sd_qr', 'QR')) + '"><i data-lucide="qr-code" style="width:16px;height:16px"></i></button>' +
+                        '<button type="button" class="sd-del" data-id="' + esc(d.id) + '" data-tip="' + esc(t('sd_delete', 'Elimina dall\'archivio')) + '" style="background:#fef2f2;border:none;border-radius:8px;padding:6px;cursor:pointer;color:#ef4444;display:inline-flex" aria-label="' + esc(t('sd_delete', 'Elimina')) + '"><i data-lucide="trash-2" style="width:16px;height:16px"></i></button>' +
+                    '</span></div>';
+            }).join('');
+            body = '<div style="max-height:52vh;overflow-y:auto">' + head + rows + '</div>';
+        }
+        const overlay = buildHubModal('folder-clock', t('sd_title', 'Documenti salvati'), body, '820px');
+        overlay.setAttribute('data-hub', 'saved-docs');
+
+        overlay.querySelectorAll('.sd-open').forEach(b => b.onclick = () => {
+            hideTip();
+            const rec = window.MappAIStudyDocs.get(b.dataset.id);
+            if (!rec || !rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
+            window.MappAIStudyExport.openPrintable(rec.html, { successMsg: t('sd_reopened', '✓ Documento riaperto') });
+        });
+        overlay.querySelectorAll('.sd-qr').forEach(b => b.onclick = () => {
+            hideTip();
+            const rec = window.MappAIStudyDocs.get(b.dataset.id);
+            if (!rec || !rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
+            if (!(window.MappAILive && window.MappAILive.shareDocQr)) { window.showToast && window.showToast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return; }
+            const fname = String(rec.title || 'documento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'documento';
+            window.MappAILive.shareDocQr(fname + '.html', rec.html);
+        });
+        overlay.querySelectorAll('.sd-del').forEach(b => b.onclick = () => {
+            hideTip();
+            const rec = window.MappAIStudyDocs.get(b.dataset.id);
+            window.showConfirm(
+                t('sd_del_title', 'Elimina documento'),
+                t('sd_del_msg', 'Rimuovere «') + (rec ? rec.title : '') + t('sd_del_msg2', '» dall\'archivio? La mappa non viene toccata.'),
+                () => { window.MappAIStudyDocs.remove(b.dataset.id); overlay.remove(); window.openSavedDocsModal(); }
+            );
+        });
     };
 
     /* ── Graph manager ─────────────────────────────────────────────────────── */

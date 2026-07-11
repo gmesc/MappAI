@@ -1057,13 +1057,13 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
         ? `Hai una mappa mentale sul tema "${rootNodeLabel}" con queste macro-categorie di livello 1:\n\n${l1List}\n\nPer CIASCUNA categoria genera:\n- "desc": 40-60 parole in tono espositivo da manuale (niente metafore, niente giudizi) che spiegano COSA copre questa categoria, PERCHÉ esiste come categoria separata e QUALI concetti chiave contiene.\n- "confini": 1-2 frasi che indicano ESPLICITAMENTE cosa NON appartiene a questa categoria, con riferimento alle ALTRE categorie della lista.\n\nRestituisci SOLO un Array JSON: [{"label": "...", "desc": "...", "confini": "..."}]\nNessun commento o testo aggiuntivo.`
         : `You have a mind map on the topic "${rootNodeLabel}" with these level 1 macro-categories:\n\n${l1List}\n\nFor EACH category generate:\n- "desc": 40-60 words in expository textbook tone (no metaphors, no judgments) explaining WHAT this category covers, WHY it exists as a separate category, and WHICH key concepts it contains.\n- "confini": 1-2 sentences explicitly stating what does NOT belong in this category, referencing the OTHER categories in the list.\n\nReturn ONLY a JSON Array: [{"label": "...", "desc": "...", "confini": "..."}]\nNo comments or additional text.`;
 
-    const payload = {
+    const payload = window.injectClassTuning({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
             temperature: 0.1,
             maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
         }
-    };
+    });
 
     try {
         const data = await window.fetchModelAPI(payload, apiKey);
@@ -1195,13 +1195,13 @@ window.enrichThinDescs = async function (textParts, apiKey) {
             ? `Sei un redattore didattico per studenti con DSA/BES. Basandoti ESCLUSIVAMENTE sul DOCUMENTO qui sotto, scrivi per ciascun concetto elencato una descrizione chiara di 50-80 parole, in frasi semplici, lineari e fedeli al documento. NON inventare fatti non presenti nel documento. TONO ESPOSITIVO da manuale: niente metafore né similitudini, niente emozioni o motivazioni che il documento non nomina, niente amplificazioni retoriche. Se il documento non contiene abbastanza informazioni su un concetto, scrivi una descrizione più breve ma corretta.\n\nDOCUMENTO:\n${source}\n\nCONCETTI DA DESCRIVERE:\n${listStr}\n\nRestituisci SOLO un array JSON: [{"n": 1, "desc": "..."}]. Il campo "n" è il numero del concetto. Nessun altro testo.`
             : `You are an educational editor for students with learning disabilities (SLD/SEN). Based EXCLUSIVELY on the DOCUMENT below, write for each listed concept a clear 50-80 word description, in simple linear sentences faithful to the document. Do NOT invent facts not present in the document. EXPOSITORY TEXTBOOK TONE: no metaphors or similes, no emotions or motives the document does not name, no rhetorical amplification. If the document lacks enough information on a concept, write a shorter but accurate description.\n\nDOCUMENT:\n${source}\n\nCONCEPTS TO DESCRIBE:\n${listStr}\n\nReturn ONLY a JSON array: [{"n": 1, "desc": "..."}]. The "n" field is the concept number. No other text.`;
 
-        const payload = {
+        const payload = window.injectClassTuning({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 temperature: 0.2,
                 maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
             }
-        };
+        });
 
         try {
             const data = await window.fetchModelAPI(payload, apiKey);

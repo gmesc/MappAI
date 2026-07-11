@@ -227,11 +227,11 @@ window.sendSidebarTutorMessage = async function () {
             const mi = window.fillPromptTemplate('TUTOR_MODE_' + String(tutorState.sidebar.mode).toUpperCase(), {});
             if (mi) sidebarSys += ' ' + mi;
         }
-        const payload = {
+        const payload = window.injectClassTuning({
             systemInstruction: { parts: [{ text: sidebarSys }] },
             // Strip del tag 'mode' (l'API vuole solo {role, parts}); resta nello storico per la meta-analisi.
             contents: tutorState.sidebar.history.map(m => ({ role: m.role, parts: m.parts }))
-        };
+        });
 
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
@@ -518,13 +518,13 @@ window.sendNodeTutorMessage = async function () {
 
     try {
         const apiKey = window.getSystemKey();
-        const payload = {
+        const payload = window.injectClassTuning({
             systemInstruction: { parts: [{ text: instruction }] },
             // Strip del tag 'mode' (l'API accetta solo {role, parts}); il tag resta nello storico per la meta-analisi.
             contents: currentNodeState.history.map(m => ({ role: m.role, parts: m.parts })),
             // Limita i token per Infomaniak: risposte corte prevengono i loop
             ...(isInfomaniakTutor && { generationConfig: { maxOutputTokens: 400 } })
-        };
+        });
 
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
@@ -586,14 +586,14 @@ window.generateAIQuiz = async function () {
             required: ["question", "options", "correctIndex", "explanation"]
         };
 
-        const payload = {
+        const payload = window.injectClassTuning({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 temperature: 0.7,
                 responseMimeType: "application/json",
                 responseSchema: schema
             }
-        };
+        });
 
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text || "";

@@ -34,20 +34,9 @@
     }
 
     // ── Raccolta nodi del ramo ────────────────────────────────────────────
+    // Raccolta ramo → base condivisa col Dossier (mappai-study-export-core.js).
     function _collectBranchNodes(rootId) {
-        const root = appState.db.nodes.find(n => n.id === rootId);
-        if (!root) return [];
-        if (appState.extractionMode === 'mindmap') {
-            return appState.db.nodes
-                .filter(n => n.group === root.group)
-                .sort((a, b) => (a.level || 0) - (b.level || 0));
-        }
-        const seen = new Set([root.id]);
-        const list = [root];
-        (window.getDescendants ? window.getDescendants(root.id) : []).forEach(n => {
-            if (!seen.has(n.id)) { seen.add(n.id); list.push(n); }
-        });
-        return list.sort((a, b) => (a.level || 0) - (b.level || 0));
+        return window.MappAIStudyExport.collectBranchNodes(rootId);
     }
 
     // ── Elenco fonti deduplicato + blocco contenuti per il prompt ─────────
@@ -247,7 +236,7 @@
                     '<div class="flex items-center gap-3">' +
                         '<div class="pm-icon-wrap"><i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i></div>' +
                         '<div>' +
-                            '<div class="pm-title">Sintesi di ramo (AI)</div>' +
+                            '<div class="pm-title">' + _escBS(window.t('ui_branch_synth', 'Sintesi materiale')) + '</div>' +
                             '<div class="pm-subtitle">' + _escBS(mapName) + '</div>' +
                         '</div>' +
                     '</div>' +
@@ -465,6 +454,7 @@
 
     // ── Modale risultato ───────────────────────────────────────────────────
     function _openBranchSynthesisResultModal(data) {
+        _saveSynthesisDoc(data);   // auto-salvataggio: la sintesi è "creata" ora
         const existing = document.getElementById('branch-synthesis-modal');
         if (existing) existing.remove();
 
@@ -494,7 +484,8 @@
                 '<div id="branch-synthesis-body" class="p-8 pt-4 overflow-y-auto flex-1">' +
                     contentHtml +
                 '</div>' +
-                '<div class="flex gap-3 p-6 pt-4 border-t border-slate-100">' +
+                '<div class="flex gap-3 p-6 pt-4 border-t border-slate-100 items-center">' +
+                    '<span class="mai-tts-slot" data-tts-body="#branch-synthesis-body" data-tts-sections></span>' +
                     '<button type="button" onclick="document.getElementById(\'branch-synthesis-modal\').remove()" class="pm-btn-cancel">Chiudi</button>' +
                     '<button type="button" onclick="window.printBranchSynthesis()" class="pm-btn-primary">' +
                         '<i data-lucide="printer" class="w-4 h-4"></i> Stampa' +
@@ -514,24 +505,25 @@
         document.addEventListener('keydown', escHandler);
     }
 
-    // ── Stampa ─────────────────────────────────────────────────────────────
-    window.printBranchSynthesis = function () {
-        if (!_lastSynthesis) return;
+    // ── Costruzione HTML stampabile (condiviso da stampa + salvataggio) ──────
+    function _buildSynthesisPrintHtml(data) {
+        data = data || _lastSynthesis;
+        if (!data) return '';
 
         const now = new Date().toLocaleString('it-IT');
         const accentColor = '#4f46e5';
-        const contentHtml = _lastSynthesis.whole
-            ? _wholeBodyHtml(_lastSynthesis, 'print')
-            : _mdToHtml(_lastSynthesis.rawText, 'print') + _buildCitationsHtml(_lastSynthesis.sourcesArr, 'print');
-        const kindLabel = _lastSynthesis.whole
+        const contentHtml = data.whole
+            ? _wholeBodyHtml(data, 'print')
+            : _mdToHtml(data.rawText, 'print') + _buildCitationsHtml(data.sourcesArr, 'print');
+        const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';
 
-        const fullHtml = `<!DOCTYPE html>
+        return `<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Sintesi — ${_escBS(_lastSynthesis.branchLabel)}</title>
+    <title>Sintesi — ${_escBS(data.branchLabel)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
     <style>
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -568,23 +560,38 @@
     <div style="height:52px;" class="no-print"></div>
 
     <div class="bs-header">
-        <div class="bs-title">${_escBS(_lastSynthesis.branchLabel)}</div>
-        <div class="bs-subtitle">${_escBS(_lastSynthesis.mapName)} · ${_escBS(kindLabel)} · ${now}</div>
+        <div class="bs-title">${_escBS(data.branchLabel)}</div>
+        <div class="bs-subtitle">${_escBS(data.mapName)} · ${_escBS(kindLabel)} · ${now}</div>
     </div>
     <div class="bs-body">${contentHtml}</div>
     <div class="bs-footer">MappAI by insegnai.ch · Generato il ${now}</div>
 </body>
 </html>`;
+    }
 
-        const win = window.open('', '_blank');
-        if (!win) {
-            window.showToast('Popup bloccato — abilita i popup', 'warning');
-            return;
-        }
-        win.document.write(fullHtml);
-        win.document.close();
-        window.showToast('✓ Sintesi stampabile aperta', 'success');
+    // ── Stampa ─────────────────────────────────────────────────────────────
+    window.printBranchSynthesis = function () {
+        if (!_lastSynthesis) return;
+        window.MappAIStudyExport.openPrintable(_buildSynthesisPrintHtml(_lastSynthesis), {
+            blockedMsg: 'Popup bloccato — abilita i popup',
+            successMsg: '✓ Sintesi stampabile aperta'
+        });
     };
+
+    // Salva la sintesi corrente nell'archivio documenti (richiamabile dall'hub
+    // Materiali di studio senza rigenerare). Best-effort: un errore non blocca.
+    function _saveSynthesisDoc(data) {
+        if (!window.MappAIStudyDocs) return;
+        try {
+            const kindTitle = data.whole ? window.t('bs_whole_title', 'Sintesi della mappa') : 'Sintesi';
+            window.MappAIStudyDocs.save({
+                kind: 'synthesis',
+                title: kindTitle + ': ' + (data.branchLabel || ''),
+                mapName: data.mapName || '',
+                html: _buildSynthesisPrintHtml(data)
+            });
+        } catch (e) { console.warn('[BranchSynthesis] Salvataggio documento fallito:', e); }
+    }
 
     console.log('[MappAI] mappai-branch-synthesis.js caricato ✓');
 })();

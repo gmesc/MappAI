@@ -33,7 +33,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         maxItems: 5
     };
 
-    const payload = { contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema } };
+    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema } });
 
     try {
         const data = await window.fetchModelAPI(payload, apiKey);
