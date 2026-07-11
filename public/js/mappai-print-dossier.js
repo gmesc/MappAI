@@ -153,7 +153,12 @@ window.openNodeLabelsPrintModal = function () {
                             '<div><div class="pm-option-label">Titolo + parole chiave</div>' +
                             '<div class="pm-option-desc">Titolo in alto + fino a 7 keyword AI (una per riga)</div></div>' +
                         '</label>' +
-                        '<div class="pm-option-desc" style="margin-top:6px;font-style:italic">Riassunto e parole chiave solo con formato 2 × 2 o 2 × 1.</div>' +
+                        '<label class="pm-option" data-nl-lock="1">' +
+                            '<input type="radio" name="nl-layout" value="card" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                            '<div><div class="pm-option-label">Scheda: titolo + descrizione</div>' +
+                            '<div class="pm-option-desc">Descrizione del nodo giustificata, sillabata, con concetti in grassetto</div></div>' +
+                        '</label>' +
+                        '<div class="pm-option-desc" style="margin-top:6px;font-style:italic">Riassunto, parole chiave e scheda solo con formato 2 × 2 o 2 × 1.</div>' +
                     '</div>' +
                 '</div>' +
 
@@ -327,8 +332,10 @@ window.printAllNodeLabels = async function () {
     const padX = 4;
 
     // Font per formato (card più grande = titolo/keyword più grandi)
-    const TITLE_PT = ({ '3x4': 20, '2x2': 26, '2x1': 30 })[fmt] || 20;
+    // Titoli in grassetto e +2pt rispetto alla versione base.
+    const TITLE_PT = ({ '3x4': 22, '2x2': 28, '2x1': 32 })[fmt] || 22;
     const KW_PT = ({ '2x2': 13, '2x1': 15 })[fmt] || 12;
+    const CARD_DESC_PT = ({ '2x2': 11, '2x1': 13 })[fmt] || 11; // corpo desc scheda
 
     // Sfondo pagina: griglia a quadretti 5 mm, linee 0,3 mm cyan al 10%
     function drawPageGrid() {
@@ -382,8 +389,8 @@ window.printAllNodeLabels = async function () {
                 const maxTextWidth = colWidth - 2 * padX;
 
                 if (layout === 'title') {
-                    // Titolo centrato verticalmente nella card
-                    doc.setFont(fontName, "normal");
+                    // Titolo centrato verticalmente nella card (grassetto)
+                    doc.setFont(fontName, "bold");
                     doc.setFontSize(TITLE_PT);
                     const lines = doc.splitTextToSize(labelText, maxTextWidth);
                     const fontHeight = TITLE_PT * PT2MM;
@@ -394,6 +401,30 @@ window.printAllNodeLabels = async function () {
                         doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
                         currentY += lineHeight;
                     });
+                } else if (layout === 'card') {
+                    // "card": titolo compatto in alto + descrizione giustificata,
+                    // sillabata, con concetti in grassetto, margini 4 mm dal taglio
+                    const CARD_TITLE_PT = ({ '2x2': 20, '2x1': 24 })[fmt] || 20;
+                    const boxLeft = x + 4;
+                    const boxW = colWidth - 8;
+                    doc.setFont(fontName, "bold");
+                    doc.setFontSize(CARD_TITLE_PT);
+                    const cTitleFH = CARD_TITLE_PT * PT2MM;
+                    const cTitleLH = cTitleFH * 1.2;
+                    const cTitleLines = doc.splitTextToSize(labelText, boxW).slice(0, 3);
+                    let cty = y + 4 + cTitleFH;
+                    cTitleLines.forEach(function (line) {
+                        doc.text(line, boxLeft, cty, { align: 'left' });
+                        cty += cTitleLH;
+                    });
+                    const descText = String(node.desc || node.content || '').trim();
+                    if (descText) {
+                        const descTop = cty + 1.5;
+                        const descBottom = y + rowHeight - 4;
+                        doc.setTextColor(30, 30, 30);
+                        _drawJustifiedDesc(doc, descText, boxLeft, descTop, boxW, descBottom - descTop, fontName, CARD_DESC_PT, _cardBoldSet(node));
+                        doc.setTextColor(0, 0, 0);
+                    }
                 } else {
                     // "summary" e "keywords": titolo ancorato in alto (grassetto)
                     doc.setFont(fontName, "bold");
@@ -612,6 +643,176 @@ function _fallbackKeywords(node) {
     var seen = {}, uniq = [];
     words.forEach(function (w) { if (!seen[w]) { seen[w] = 1; uniq.push(w); } });
     return _cleanKeywords(node, uniq);
+}
+
+// ── Schede nodo: descrizione giustificata + sillabata + bold ──────────────────
+
+function _isVowelCh(ch) {
+    return /[aeiouàáâäèéêëìíîïòóôöùúûüyAEIOUÀÁÂÄÈÉÊËÌÍÎÏÒÓÔÖÙÚÛÜY]/.test(ch);
+}
+
+// Sillabazione italiana approssimata → indici di taglio ammessi dentro la parola
+// (≥2 lettere prima e dopo). Regole: muta+liquida e digrafi restano onset;
+// "s"+consonante va con la sillaba successiva; doppie si spezzano.
+function _hyphenBreaks(word) {
+    var n = word.length;
+    if (n < 4) return [];
+    var isV = [];
+    for (var i = 0; i < n; i++) isV[i] = _isVowelCh(word[i]);
+    var breaks = [];
+    var onset = /^(ch|gh|gn|gl|sc|[bcdfgptv][lr])$/;
+    i = 0;
+    while (i < n && !isV[i]) i++;      // salta onset iniziale
+    while (i < n) {
+        while (i < n && isV[i]) i++;   // consuma nucleo (vocali)
+        if (i >= n) break;
+        var cStart = i;
+        while (i < n && !isV[i]) i++;   // consuma consonanti
+        var cEnd = i;
+        if (i >= n) break;              // consonanti finali → nessun taglio
+        var k = cEnd - cStart, brk;
+        if (k === 1) {
+            brk = cStart;               // V-CV
+        } else {
+            var c0 = word[cStart].toLowerCase();
+            var c1 = word[cStart + 1].toLowerCase();
+            var pair = c0 + c1;
+            if (c0 === 's' && c1 !== 's') {
+                brk = cStart;           // pa-sta, mo-stra (ma non doppia "ss")
+            } else if (k === 2) {
+                brk = onset.test(pair) ? cStart : cStart + 1;
+            } else {
+                var lastPair = word[cEnd - 2].toLowerCase() + word[cEnd - 1].toLowerCase();
+                brk = onset.test(lastPair) ? cEnd - 2 : cEnd - 1;
+            }
+        }
+        if (brk >= 2 && (n - brk) >= 2) breaks.push(brk);
+    }
+    return breaks;
+}
+
+// Parole da mettere in grassetto nella scheda: i concetti-figli del nodo.
+function _cardBoldSet(node) {
+    var set = new Set();
+    var nodes = appState.db?.nodes || [];
+    var links = appState.db?.links || [];
+    links.forEach(function (l) {
+        if ((l.source?.id || l.source) !== node.id) return;
+        var tid = l.target?.id || l.target;
+        var t = nodes.find(function (n) { return n.id === tid; });
+        if (!t) return;
+        cleanLabel(t.label).toLowerCase().split(/\s+/).forEach(function (w) {
+            var core = w.replace(/[^\p{L}\p{N}]/gu, '');
+            if (core.length >= 4) set.add(core);
+        });
+    });
+    return set;
+}
+
+// Impagina `text` giustificato a pacchetto in un box (mm), con sillabazione,
+// grassetto per-token e troncamento con "..." quando finisce lo spazio.
+function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt, boldSet) {
+    if (!text || boxH <= 0 || boxW <= 0) return;
+    var PT2MM = 0.352778;
+    var lineH = sizePt * PT2MM * 1.4;
+    var maxLines = Math.max(1, Math.floor(boxH / lineH + 0.001));
+    doc.setFontSize(sizePt);
+
+    function coreLower(t) { return t.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); }
+    function wWidth(str, bold) { doc.setFont(fontName, bold ? 'bold' : 'normal'); return doc.getTextWidth(str); }
+    var spaceW = wWidth(' ', false);
+
+    // Tokenizza con flag bold (concetto-figlio, oppure nome proprio a metà frase)
+    var prevEndsSentence = true;
+    var queue = [];
+    String(text).replace(/\s+/g, ' ').trim().split(' ').forEach(function (t) {
+        if (!t) return;
+        var core = coreLower(t);
+        var isProper = /^[A-ZÀÈÉÌÒÙ]/.test(t) && !prevEndsSentence && core.length >= 4;
+        queue.push({ text: t, bold: (boldSet && boldSet.has(core)) || isProper });
+        prevEndsSentence = /[.!?:;]$/.test(t);
+    });
+
+    function tryHyphen(tk, avail) {
+        var m = tk.text.match(/^([^\p{L}]*)(\p{L}[\p{L}\p{M}]*)([^\p{L}]*)$/u);
+        if (!m) return null;
+        var pre = m[1], letters = m[2], post = m[3];
+        if (letters.length < 4) return null;
+        var breaks = _hyphenBreaks(letters);
+        for (var bi = breaks.length - 1; bi >= 0; bi--) {
+            var p = breaks[bi];
+            var head = pre + letters.slice(0, p) + '-';
+            if (wWidth(head, tk.bold) <= avail) {
+                return { head: head, headW: wWidth(head, tk.bold), tail: letters.slice(p) + post };
+            }
+        }
+        return null;
+    }
+
+    var lines = [], cur = [], curW = 0, qi = queue.slice();
+    while (qi.length) {
+        var tk = qi.shift();
+        var tkW = wWidth(tk.text, tk.bold);
+        var gap0 = cur.length ? spaceW : 0;
+        if (curW + gap0 + tkW <= boxW) {
+            cur.push({ text: tk.text, bold: tk.bold, width: tkW });
+            curW += gap0 + tkW;
+        } else {
+            var avail = boxW - curW - gap0;
+            var hy = (avail > spaceW * 2) ? tryHyphen(tk, avail) : null;
+            if (hy) {
+                cur.push({ text: hy.head, bold: tk.bold, width: hy.headW });
+                lines.push({ parts: cur, natural: false }); cur = []; curW = 0;
+                qi.unshift({ text: hy.tail, bold: tk.bold });
+            } else if (cur.length) {
+                lines.push({ parts: cur, natural: false }); cur = []; curW = 0;
+                qi.unshift(tk);
+            } else {
+                var s = tk.text, cut = s.length;
+                while (cut > 1 && wWidth(s.slice(0, cut) + '-', tk.bold) > boxW) cut--;
+                var head2 = s.slice(0, cut) + '-';
+                cur.push({ text: head2, bold: tk.bold, width: wWidth(head2, tk.bold) });
+                lines.push({ parts: cur, natural: false }); cur = []; curW = 0;
+                qi.unshift({ text: s.slice(cut), bold: tk.bold });
+            }
+        }
+        if (lines.length >= maxLines) { cur = []; break; }
+    }
+    if (cur.length && lines.length < maxLines) { lines.push({ parts: cur, natural: true }); cur = []; }
+    var truncated = qi.length > 0 || cur.length > 0;
+
+    if (truncated && lines.length) {
+        var last = lines[lines.length - 1];
+        var ellW = wWidth('...', false);
+        while (last.parts.length) {
+            var sumW = last.parts.reduce(function (a, p) { return a + p.width; }, 0) + (last.parts.length - 1) * spaceW;
+            if (sumW + spaceW + ellW <= boxW) break;
+            last.parts.pop();
+        }
+        if (last.parts.length) {
+            var lp = last.parts[last.parts.length - 1];
+            lp.text = lp.text.replace(/[-.,;:]+$/, '') + '...';
+            lp.width = wWidth(lp.text, lp.bold);
+        }
+        last.natural = true; // riga troncata non va giustificata
+    }
+
+    var yline = boxY + sizePt * PT2MM;
+    for (var li = 0; li < lines.length; li++) {
+        var parts = lines[li].parts;
+        if (!parts.length) { yline += lineH; continue; }
+        var gaps = parts.length - 1;
+        var sum = parts.reduce(function (a, p) { return a + p.width; }, 0);
+        var gap = (!lines[li].natural && gaps > 0) ? (boxW - sum) / gaps : spaceW;
+        if (gap > spaceW * 4) gap = spaceW; // evita "fiumi" su righe con poche parole
+        var cx = boxX;
+        for (var pi = 0; pi < parts.length; pi++) {
+            doc.setFont(fontName, parts[pi].bold ? 'bold' : 'normal');
+            doc.text(parts[pi].text, cx, yline, { align: 'left' });
+            cx += parts[pi].width + gap;
+        }
+        yline += lineH;
+    }
 }
 
 window.printAllNodeDossiers = function () {
