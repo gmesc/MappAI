@@ -534,6 +534,69 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
+Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge
+Garden (stessi pattern: server HTTP Node puro via IPC, token nel QR, adminToken,
+allowlist statica, persistenza crash-safe, ripresa da disco con lo stesso token).
+- **Core puro**: `public/js/mappai-collab-core.js` (UMD — sanitize nick/testo,
+  `validateStudentNode`, `mergeGroupNodes` last-write-wins cap 30, `layerToGraph` →
+  JSON mappa MappAI root L0 + nodi L1 rel "propone") + `tests/collab-core.test.js` (13).
+- **Server LAN**: `collab-server.js` (porte 8766-8776, storage
+  `~/Documents/MappAI - Lavagna/<slug>/` con `groups/<slug>.json` per gruppo +
+  `board.json`). API: session/join (409 nick di altro device, ripresa stesso device,
+  adozione gruppo rilasciato)/nodes (merge+422)/board/status admin/release.
+  `tests/collab-server.test.js` (12, incluso stop→restart con token identico).
+- **Pagina studente**: `public/collab/student.html` self-contained (join nickname,
+  editor SVG con root al centro, nodi rect testo≤80+palette 8+taglie S/M/L,
+  drag pointer-events, edit/delete, sync automatico debounce 800ms con indicatore,
+  "Mostra classe" polling 5s, deviceId in localStorage). ✅ VERIFICATA E2E in browser
+  CONTRO SERVER REALE: join → 2 nodi → sync su disco → drag (pointer events) → board.
+  ⚠️ il drag col tool di automazione non emette pointermove: testato via dispatch
+  programmatico — su device reali funziona (stesso stream di eventi).
+- **Docente**: IPC `collab-start/stop-session`, `collab-session-info`,
+  `collab-open-folder` (main.js + preload); `mappai-collab-teacher.js`
+  (`window.openCollabHub()`: avvio con istruzioni rete hotspot/router, QR grande +
+  fullscreen LIM, dashboard gruppi polling 3s diretto su 127.0.0.1, toggle+rinomina
+  layer, export `vault-dinamico-<gruppo>.json` importabile); overlay
+  `g#collab-overlay` a raggiera attorno al root — MAI dentro `appState.db`.
+  Voce menu "Lavagna collaborativa" (presentation) sotto Knowledge Garden.
+- i18n: `ui/tt_collab_board` in ENTRAMBI i dizionari; `cl_*`/`tst_collab_*` in EN.
+- **Rifiniture (11/7/26 sera, richiesta utente)**: pagina studente = VIEWPORT dell'app
+  (sfondo `#fafbff` + puntini `#ddd6fe`, Space Mono, root cerchio r45 `#0f172a` con
+  label centrata identica al L0); label più grandi (13/15/17) con alone bianco
+  `paint-order: stroke` (stile `.node-text`); gate **"Fatto ✓"** (flag `done` in
+  core/server/board, "Mostra classe" bloccato con hint finché non si consegna, badge ✓
+  in dashboard docente); tool **"⇢ Collega"** con keyword (tap A→B→dialog; edit/delete
+  dal label; `validateStudentLink`/`mergeGroupLinks` nel core, frecce+label con alone
+  su studente E overlay docente; `layerToGraph` esporta i link con la keyword, root
+  "propone" solo sui nodi senza entranti). UX ispirata a MiniMAP (~/Claude/minimap):
+  dot-grid, label con alone, keyword sugli archi. E2E ri-verificato contro server reale.
+  Suite **333/333** ✅ (18 core + 14 server).
+- ⚠️ T014 pendente: verifica in Electron vivo + 2 device Wi-Fi reali (serve l'utente).
+- Risposta alla domanda Jigsaw degli Appunti: il motore layer (toggle+rinomina) è
+  questo; l'integrazione del reconcile Jigsaw sugli stessi layer = follow-up.
+
+### ✅ FATTO (11/7/26): 002-affinamenti-output — PDF vettoriale, sintesi mappa intera, keyword foglie
+Spec-kit (`specs/002-affinamenti-output/`, branch omonimo). Da "Appunti Implementazione" §3.
+(1) **Export PDF VETTORIALE**: `svg2pdf.umd.min.js` v2.2.4 vendored (MIT, 84KB, registra
+`jsPDF.API.svg()` su jsPDF 2.5.1); `exportPDF` (mappai-d3-render.js) clona `#map-svg`
+con CSS inline (`_svgCloneWithStyles`, condiviso con exportSVG), azzera la transform di
+zoom e usa `getBBox()` del g → PDF con l'INTERA mappa come vettori, zero overlay UI per
+costruzione. Percorso raster preservato come `_exportPDFRaster()` = fallback automatico
+su errore (toast `tst_pdf_vector_fallback`). Il vettoriale funziona anche su iPad
+(niente capturePage). (2) **Sintesi "Tutta la mappa"** (mappai-branch-synthesis.js):
+opzione `__ALL__` nel modale; ≤30 nodi = chiamata unica, altrimenti map-reduce —
+`_synthesizeOnce()` per ramo (budget invariato, overlay progresso i/n, ramo fallito =
+segnaposto non bloccante) + chiamata panoramica finale (prompt inline, `mapLangNote()`);
+citazioni numerate PER SEZIONE (rinumerazione globale = fragile, evitata di proposito);
+render modale+stampa multi-sezione via `_wholeBodyHtml`. (3) **Keyword foglie**
+(mappai-print-dossier.js): `_cleanKeywords()` unica per AI e fallback (dedupe, via
+token del titolo, via <3 char, cap 7 — smoke-tested in Node); item batch marcati `leaf`,
+prompt con regola foglie (concetti SOLO dalla desc; desc <15 parole → `[]`);
+`_fallbackKeywords` ritorna `[]` su foglie povere (card col solo titolo, niente rumore).
+i18n: `bs_*`/`tst_pdf_vector_*` in EN (fallback IT inline). Suite **301/301** ✅.
+⚠️ Verifica Electron pendente: T004 (PDF), T009 (sintesi), T013 (keyword).
+
 ### 🧹 FATTO (11/7/26 sera): menu hub + tooltip hover (richiesta utente anti-sovraccarico)
 I docenti poco esperti si spaventano davanti a menu lunghi e testi grigi esplicativi.
 (1) **Menu azioni rapide asciugato a 4 hub**: Studio attivo · **Materiali di studio** ·

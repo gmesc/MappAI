@@ -60,6 +60,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     gardenStopSession: () => ipcRenderer.invoke('garden-stop-session'),
     gardenSessionStatus: () => ipcRenderer.invoke('garden-session-status'),
     gardenOpenFolder: () => ipcRenderer.invoke('garden-open-folder'),
+    // --- Lavagna Collaborativa (sessione LAN dal PC docente) ---
+    collabStartSession: (data) => ipcRenderer.invoke('collab-start-session', data),
+    collabStopSession: () => ipcRenderer.invoke('collab-stop-session'),
+    collabSessionInfo: () => ipcRenderer.invoke('collab-session-info'),
+    collabOpenFolder: () => ipcRenderer.invoke('collab-open-folder'),
     launcherChoice: (choice) => ipcRenderer.invoke('launcher-choice', choice),
     launcherReturn: () => ipcRenderer.invoke('launcher-return'),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),

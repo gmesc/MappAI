@@ -23,6 +23,9 @@
     <!-- jsPDF (Local) -->
     <script src="js/jspdf.umd.min.js"></script>
 
+    <!-- svg2pdf (Local, MIT) — export PDF vettoriale: registra jsPDF.API.svg() -->
+    <script src="js/vendor/svg2pdf.umd.min.js"></script>
+
     <!-- App Styles -->
     <link rel="stylesheet" href="css/style.css">
 
@@ -1367,6 +1370,9 @@
                     </button>
                     <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
                         <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
+                    </button>
+                    <button onclick="window.openCollabHub && window.openCollabHub()" title="Lavagna collaborativa: i gruppi propongono nodi dal telefono via QR" data-i18n-title="tt_collab_board">
+                        <i data-lucide="presentation"></i> <span data-i18n="ui_collab_board">Lavagna collaborativa</span>
                     </button>
                     <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
                          mappai-vault-io/manager/storage-lang via getElementById → resta qui -->
@@ -3429,6 +3435,10 @@
     <script src="js/mappai-active-study-core.js"></script>
     <script src="js/mappai-active-study.js"></script>
     <script src="js/mappai-menu-hubs.js"></script>
+    <!-- Lavagna Collaborativa (003): QR vendored + core puro + lato docente -->
+    <script src="js/vendor/qrcode-generator.js"></script>
+    <script src="js/mappai-collab-core.js"></script>
+    <script src="js/mappai-collab-teacher.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
     <script src="js/mappai-effort-view.js"></script>
     <script src="js/mappai-cloze.js"></script>
