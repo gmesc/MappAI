@@ -132,7 +132,7 @@
     modal.id = 'cz-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;padding:16px';
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:620px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:20px">📝</span><b style="color:#0f172a;font-size:16px">Cloze — completa</b><span style="margin-left:auto;color:#94a3b8;font-size:13px">${CZ._i + 1} / ${total}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i data-lucide="pencil-line" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:#0f172a;font-size:16px">Cloze — completa</b><span style="margin-left:auto;color:#94a3b8;font-size:13px">${CZ._i + 1} / ${total}</span></div>
         <div style="font-weight:700;color:#4f46e5;font-size:14px;margin-bottom:10px">${esc(item.label)}</div>
         <div style="font-size:15px;color:#1e293b;line-height:2">${body}</div>
         <div id="cz-fb" style="display:none;margin-top:12px;font-size:13.5px"></div>
@@ -142,6 +142,7 @@
         </div>
       </div>`;
     document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.querySelector('#cz-exit').onclick = () => {
       modal.remove();
       if (window.MappAIStudyBus) window.MappAIStudyBus.end(); // salva la sessione parziale (se ha risultati)
@@ -181,7 +182,7 @@
 
     const fb = modal.querySelector('#cz-fb');
     fb.style.display = 'block';
-    fb.innerHTML = `<b style="color:${ok === total ? '#15803d' : '#b45309'}">${ok}/${total} corretti</b> ${ok === total ? '🎉' : '— in rosso la risposta giusta.'}`;
+    fb.innerHTML = `<b style="color:${ok === total ? '#15803d' : '#b45309'}">${ok}/${total} corretti</b>${ok === total ? '' : ' — in rosso la risposta giusta.'}`;
     const isLast = CZ._i >= CZ._items.length - 1;
     const btn = modal.querySelector('#cz-check');
     btn.textContent = isLast ? 'Fine' : 'Avanti →';
@@ -200,10 +201,11 @@
     const b = document.createElement('button');
     b.id = 'cz-btn';
     b.title = 'Cloze — completa le definizioni';
-    b.textContent = '📝';
-    b.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #4f46e5;background:#fff;color:#4f46e5;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(79,70,229,.5)';
+    b.innerHTML = '<i data-lucide="pencil-line" style="width:20px;height:20px"></i>';
+    b.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #4f46e5;background:#fff;color:#4f46e5;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(79,70,229,.5)';
     b.onclick = () => CZ.start();
     document.body.appendChild(b);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
   else injectBtn();

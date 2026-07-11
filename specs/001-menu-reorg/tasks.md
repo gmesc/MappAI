@@ -55,7 +55,7 @@ funzionanti; bordo destro senza 📝/🎯/🔥; flag legacy ripristina tutto.
 - [X] T006 [P] [US1] In `public/js/mappai-study-path.js` (~riga 139): `bottom:212px` → ternaria legacy 212:84 (stesso pattern T005).
 - [X] T007 [P] [US1] In `public/js/mappai-palace.js` (~riga 216): `bottom:276px` → ternaria legacy 276:148.
 - [X] T008 [P] [US1] In `public/js/mappai-games.js` (~riga 4063): `bottom:340px` → ternaria legacy 340:212. Aggiornare il commento-mappa delle posizioni in `mappai-effort-view.js` (riga «bottom:404 — colonna destra già occupata…») alla nuova disposizione.
-- [ ] T009 [US1] Verifica quickstart.md §US1 + §Reversibilità in Electron (`npm start`): 3 card funzionanti, flottanti assenti, colonna compattata, flag legacy ripristina posizioni storiche senza sovrapposizioni, mutua esclusione viste preservata.
+- [X] T009 [US1] Verifica quickstart.md §US1 + §Reversibilità in Electron (`npm start`): 3 card funzionanti, flottanti assenti, colonna compattata, flag legacy ripristina posizioni storiche senza sovrapposizioni, mutua esclusione viste preservata.
 
 **Checkpoint**: US1 completa e testabile da sola — MVP.
 
@@ -73,7 +73,7 @@ ogni voce apre il flusso identico a prima.
 ### Implementation for User Story 2
 
 - [X] T010 [US2] In `public/index.html`, blocco `#floating-actions-menu` (~righe 1354-1418): dopo il divider esistente (`<div class="h-px bg-slate-100 my-1"></div>`, ~riga 1385) inserire header di sezione non interattivo: `<div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400" data-i18n="ui_output_materials">Output materiali di studio</div>`. Riordinare le voci della sezione in: Foglio nodi · Sintesi di ramo (AI) (spostata su dalla posizione attuale ~riga 1407) · Stampa dossier · Crea Timeline · Esporta JIGSAW · Ricomponi copie · Revisione lacune. La voce "Studio attivo" scende subito DOPO la sezione (prima di "Annulla"). Nessun attributo `onclick` modificato.
-- [ ] T011 [US2] Verifica quickstart.md §US2 in Electron: sezione visibile, ogni voce apre il modale di prima, azioni file/vault separate sopra.
+- [X] T011 [US2] ~~Verifica quickstart.md §US2~~ SUPERATO (11/7/26): la sezione menu "Output materiali di studio" è stata sostituita dal modale hub «Materiali di studio» (mappai-menu-hubs.js) su richiesta utente — la verifica equivalente è nel nuovo giro hub (vedi CLAUDE.md §11).
 
 **Checkpoint**: US1 e US2 funzionano indipendentemente.
 
@@ -211,4 +211,4 @@ lo stato smontato finiva in localStorage già DURANTE la sessione (autosave
 - [X] T027 `ActiveStudy.emergencyExit()` in `public/js/mappai-active-study.js`: chiusura sincrona senza modali — salva punteggio pendente (`finishSession(null)`), `doExit()` (ripristino snapshot + cleanup UI), fallback `restoreSnapshot()` se doExit fallisce.
 - [X] T028 `emergencyExit()` chiamata prima di ogni sostituzione mappa: `backToLanding` (mappai-ui-canvas.js), `importGraph` (mappai-ui-canvas.js), `loadMapVault` (mappai-vault-io.js), `directLoadVault` (mappai-vault-manager.js).
 - [X] T029 Launcher: Cloze e Palazzo della Memoria spostati nella colonna "Modalità di studio" (sotto le 7 numerate); a destra restano Viste (Heat map, Mappa lavoro) e Strumenti (Cosa studiare ora, Progressi).
-- [ ] T030 Verifica Electron: avvia modo 5 (intruso) → "Torna alla Home" → riapri progetto → gerarchia INTATTA; idem con import JSON e apertura vault a sessione attiva; autosave durante sessione non sporca localStorage.
+- [X] T030 Verifica Electron: avvia modo 5 (intruso) → "Torna alla Home" → riapri progetto → gerarchia INTATTA; idem con import JSON e apertura vault a sessione attiva; autosave durante sessione non sporca localStorage.

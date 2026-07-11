@@ -124,12 +124,13 @@
     modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;padding:16px';
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px">${html}</div>`;
     document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     return modal;
   }
   function header(room) {
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:20px">🏛️</span><b style="color:#0f172a;font-size:16px">Palazzo della Memoria</b><span style="margin-left:auto;color:#94a3b8;font-size:13px">Stanza ${PAL._i + 1} / ${PAL._rooms.length}</span></div>
-      <div style="font-weight:700;color:#7c3aed;font-size:15px;margin-bottom:10px">🚪 ${esc(room.label)}</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i data-lucide="landmark" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:#0f172a;font-size:16px">Palazzo della Memoria</b><span style="margin-left:auto;color:#94a3b8;font-size:13px">Stanza ${PAL._i + 1} / ${PAL._rooms.length}</span></div>
+      <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:#7c3aed;font-size:15px;margin-bottom:10px"><i data-lucide="door-open" style="width:16px;height:16px"></i>${esc(room.label)}</div>`;
   }
 
   function encode() {
@@ -190,10 +191,11 @@
       } catch (e) {}
     });
 
-    const lis = res.result.map(r => `<li style="color:${r.found ? '#15803d' : '#b91c1c'}">${r.found ? '✓' : '✗'} ${esc(r.label)}</li>`).join('');
+    const lis = res.result.map(r => `<li style="color:${r.found ? '#15803d' : '#b91c1c'}"><i data-lucide="${r.found ? 'check' : 'x'}" style="width:13px;height:13px;vertical-align:-1px"></i> ${esc(r.label)}</li>`).join('');
     const fb = modal.querySelector('#pal-fb');
     fb.style.display = 'block';
     fb.innerHTML = `<b style="color:${res.matched === res.total ? '#15803d' : '#b45309'}">${res.matched}/${res.total} ricordati</b><ul style="margin:6px 0 0;padding-left:20px">${lis}</ul>`;
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.querySelector('#pal-ta').disabled = true;
 
     const last = PAL._i >= PAL._rooms.length - 1;
@@ -214,10 +216,11 @@
     const b = document.createElement('button');
     b.id = 'pal-btn';
     b.title = 'Palazzo della Memoria (viaggio per stanze)';
-    b.textContent = '🏛️';
-    b.style.cssText = 'position:fixed;bottom:276px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
+    b.innerHTML = '<i data-lucide="landmark" style="width:20px;height:20px"></i>';
+    b.style.cssText = 'position:fixed;bottom:276px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
     b.onclick = () => PAL.start();
     document.body.appendChild(b);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
   else injectBtn();

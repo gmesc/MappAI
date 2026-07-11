@@ -94,7 +94,7 @@
 
     let inner;
     if (!series.days.length) {
-      inner = '<p style="color:#64748b;margin:0">Nessun dato di studio ancora. Fai qualche esercizio (Cloze, Studio attivo) e torna qui per vedere la tua crescita. 📈</p>';
+      inner = '<p style="color:#64748b;margin:0">Nessun dato di studio ancora. Fai qualche esercizio (Cloze, Studio attivo) e torna qui per vedere la tua crescita.</p>';
     } else {
       const oneDay = series.days.length === 1;
       inner = `<div style="display:flex;gap:14px;font-size:12px;margin-bottom:8px">
@@ -105,10 +105,11 @@
     }
 
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:620px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-size:20px">📈</span><b style="color:#0f172a;font-size:16px">I tuoi progressi</b>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="trending-up" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:#0f172a;font-size:16px">I tuoi progressi</b>
           <button id="cel-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1">×</button></div>
         ${inner}</div>`;
     document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     modal.querySelector('#cel-x').onclick = () => modal.remove();
   };
@@ -120,10 +121,11 @@
     const b = document.createElement('button');
     b.id = 'cel-btn';
     b.title = 'I tuoi progressi nel tempo';
-    b.textContent = '📈';
-    b.style.cssText = 'position:fixed;bottom:148px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #2563eb;background:#fff;color:#2563eb;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(37,99,235,.5)';
+    b.innerHTML = '<i data-lucide="trending-up" style="width:20px;height:20px"></i>';
+    b.style.cssText = 'position:fixed;bottom:148px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #2563eb;background:#fff;color:#2563eb;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(37,99,235,.5)';
     b.onclick = () => CEL.open();
     document.body.appendChild(b);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
   else injectBtn();

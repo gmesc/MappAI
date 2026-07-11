@@ -117,14 +117,15 @@
     modal.id = 'sp-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;padding:16px';
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:20px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-size:20px">🧭</span><b style="color:#0f172a;font-size:16px">Cosa studiare ora</b>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="compass" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:#0f172a;font-size:16px">Cosa studiare ora</b>
           <button id="sp-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1">×</button></div>
-        ${section('▶️ Pronti', 'Prerequisito padroneggiato — inizia da qui', res.ready, false)}
-        ${section('🔄 Da rivedere', 'Deboli o non ripassati da una settimana', res.review, true)}
-        ${section('✅ Padroneggiati', 'Acquisiti e recenti', res.mastered, false)}
-        ${res.locked.length ? `<div style="font-size:11px;color:#94a3b8">🔒 ${res.locked.length} bloccati (studia prima il loro prerequisito)</div>` : ''}
+        ${section('<i data-lucide="play" style="width:14px;height:14px;vertical-align:-2px"></i> Pronti', 'Prerequisito padroneggiato — inizia da qui', res.ready, false)}
+        ${section('<i data-lucide="rotate-cw" style="width:14px;height:14px;vertical-align:-2px"></i> Da rivedere', 'Deboli o non ripassati da una settimana', res.review, true)}
+        ${section('<i data-lucide="circle-check" style="width:14px;height:14px;vertical-align:-2px"></i> Padroneggiati', 'Acquisiti e recenti', res.mastered, false)}
+        ${res.locked.length ? `<div style="font-size:11px;color:#94a3b8"><i data-lucide="lock" style="width:12px;height:12px;vertical-align:-1px"></i> ${res.locked.length} bloccati (studia prima il loro prerequisito)</div>` : ''}
       </div>`;
     document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     modal.querySelector('#sp-x').onclick = () => modal.remove();
     modal.querySelectorAll('.sp-item').forEach(el => el.onclick = () => { modal.remove(); focusNode(el.getAttribute('data-id')); });
@@ -137,10 +138,11 @@
     const b = document.createElement('button');
     b.id = 'sp-btn';
     b.title = 'Cosa studiare ora (percorso + ripasso)';
-    b.textContent = '🧭';
-    b.style.cssText = 'position:fixed;bottom:212px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;font-size:20px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
+    b.innerHTML = '<i data-lucide="compass" style="width:20px;height:20px"></i>';
+    b.style.cssText = 'position:fixed;bottom:212px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
     b.onclick = () => SP.open();
     document.body.appendChild(b);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
   else injectBtn();

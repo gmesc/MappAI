@@ -33,11 +33,11 @@
       ['simulateNodeClick | zoomToNode', 'funzione', false, 'study-path (focus)', () => isFn('simulateNodeClick') || isFn('zoomToNode')],
       ['showToast', 'funzione', false, 'avvisi', () => isFn('showToast')],
       ['MappAIMastery', 'namespace', true, 'keystone', () => hasGlobal('MappAIMastery')],
-      ['MappAIMasteryView', 'namespace', true, '🎯', () => hasGlobal('MappAIMasteryView')],
-      ['MappAICloze', 'namespace', true, '📝', () => hasGlobal('MappAICloze')],
-      ['MappAICeleration', 'namespace', true, '📈', () => hasGlobal('MappAICeleration')],
-      ['MappAIStudyPath', 'namespace', true, '🧭', () => hasGlobal('MappAIStudyPath')],
-      ['MappAIPalace', 'namespace', true, '🏛️', () => hasGlobal('MappAIPalace')],
+      ['MappAIMasteryView', 'namespace', true, 'vista padronanza', () => hasGlobal('MappAIMasteryView')],
+      ['MappAICloze', 'namespace', true, 'esercizio cloze', () => hasGlobal('MappAICloze')],
+      ['MappAICeleration', 'namespace', true, 'progressi', () => hasGlobal('MappAICeleration')],
+      ['MappAIStudyPath', 'namespace', true, 'percorso studio', () => hasGlobal('MappAIStudyPath')],
+      ['MappAIPalace', 'namespace', true, 'palazzo memoria', () => hasGlobal('MappAIPalace')],
       ['MappAIStudyBus', 'namespace', true, 'bus risultati→mastery+sessioni', () => hasGlobal('MappAIStudyBus')],
       ['ActiveStudy', 'namespace', true, '7 modi', () => hasGlobal('ActiveStudy')],
       ['setTutorState', 'funzione', true, 'reset chat a ogni cambio mappa', () => isFn('setTutorState')],
@@ -67,7 +67,7 @@
     return checks().map(([name, kind, crit, need, test]) => {
       let val; try { val = test(); } catch (e) { val = false; }
       const ok = !!val;
-      return { name, kind, crit, need, ok, val: (typeof val === 'number') ? val : (ok ? '✓' : '—') };
+      return { name, kind, crit, need, ok, val: (typeof val === 'number') ? val : ok };
     });
   }
 
@@ -83,7 +83,7 @@
     });
     const missingCrit = rows.filter(r => r.crit && !r.ok).map(r => r.name);
     lines.push('');
-    lines.push('CRITICI MANCANTI: ' + (missingCrit.length ? missingCrit.join(', ') : 'nessuno ✓'));
+    lines.push('CRITICI MANCANTI: ' + (missingCrit.length ? missingCrit.join(', ') : 'nessuno'));
     lines.push('');
     lines.push('--- sonde DOM (cosa c\'è nel grafo) ---');
     Object.keys(pr).forEach(k => lines.push('  ' + k + ' = ' + pr[k]));
@@ -102,7 +102,9 @@
 
     const rowsHtml = rows.map(r => {
       const color = r.ok ? '#16a34a' : (r.crit ? '#dc2626' : '#d97706');
-      const mark = r.ok ? '✓' : (r.crit ? '✗' : '○');
+      const mark = r.ok
+        ? '<i data-lucide="check" style="width:14px;height:14px"></i>'
+        : (r.crit ? '<i data-lucide="x" style="width:14px;height:14px"></i>' : '<i data-lucide="circle" style="width:12px;height:12px"></i>');
       const cnt = (typeof r.val === 'number') ? ` <b>(${r.val})</b>` : '';
       return `<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px">
           <span style="color:${color};font-weight:700;width:14px">${mark}</span>
@@ -112,10 +114,10 @@
     const missingCrit = rows.filter(r => r.crit && !r.ok);
 
     modal.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:20px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:20px">🩺</span><b style="color:#0f172a;font-size:16px">Dev self-test</b>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i data-lucide="stethoscope" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:#0f172a;font-size:16px">Dev self-test</b>
           <button id="dst-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px">×</button></div>
-        <div style="padding:8px 10px;border-radius:10px;margin-bottom:10px;font-size:13px;font-weight:600;background:${missingCrit.length ? '#fef2f2' : '#f0fdf4'};color:${missingCrit.length ? '#b91c1c' : '#15803d'}">
-          ${missingCrit.length ? '✗ ' + missingCrit.length + ' critici mancanti: ' + missingCrit.map(r => r.name).join(', ') : '✓ Tutti i critici presenti'}</div>
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;margin-bottom:10px;font-size:13px;font-weight:600;background:${missingCrit.length ? '#fef2f2' : '#f0fdf4'};color:${missingCrit.length ? '#b91c1c' : '#15803d'}">
+          <i data-lucide="${missingCrit.length ? 'x' : 'check'}" style="width:15px;height:15px"></i>${missingCrit.length ? missingCrit.length + ' critici mancanti: ' + missingCrit.map(r => r.name).join(', ') : 'Tutti i critici presenti'}</div>
         ${rowsHtml}
         <div style="margin-top:10px;font-size:11px;color:#94a3b8">Apri una mappa e premi <b>Ricontrolla</b>: <code>#map-svg</code>/<code>circle.node-circle</code> esistono solo a grafo renderizzato.</div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
@@ -125,13 +127,14 @@
         <textarea id="dst-report" readonly style="width:100%;height:120px;margin-top:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-family:monospace;font-size:11px;color:#334155">${report}</textarea>
       </div>`;
     document.body.appendChild(modal);
+    if (window.safeCreateIcons) window.safeCreateIcons();
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     modal.querySelector('#dst-x').onclick = () => modal.remove();
     modal.querySelector('#dst-recheck').onclick = () => { modal.remove(); openPanel(); };
     modal.querySelector('#dst-copy').onclick = () => {
       const ta = modal.querySelector('#dst-report');
       try { navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand && document.execCommand('copy'); }
-      const btn = modal.querySelector('#dst-copy'); btn.textContent = 'Copiato ✓';
+      const btn = modal.querySelector('#dst-copy'); btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px;vertical-align:-2px"></i> Copiato'; if (window.safeCreateIcons) window.safeCreateIcons();
     };
   }
 
@@ -140,17 +143,18 @@
     const b = document.createElement('button');
     b.id = 'dst-btn';
     b.title = 'Dev self-test (agganci runtime)';
-    b.textContent = '🩺';
-    b.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;width:44px;height:44px;border-radius:50%;border:1.5px solid #64748b;background:#fff;color:#334155;font-size:18px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(15,23,42,.4)';
+    b.innerHTML = '<i data-lucide="stethoscope" style="width:20px;height:20px"></i>';
+    b.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;width:44px;height:44px;border-radius:50%;border:1.5px solid #64748b;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(15,23,42,.4)';
     b.onclick = () => openPanel();
     document.body.appendChild(b);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
   function autolog() {
     const rows = run();
     const miss = rows.filter(r => r.crit && !r.ok).map(r => r.name);
-    if (miss.length) console.warn('[DevSelfTest] CRITICI mancanti:', miss.join(', '), '— premi 🩺 per il report');
-    else console.log('[DevSelfTest] tutti i critici presenti ✓ (premi 🩺 per il report)');
+    if (miss.length) console.warn('[DevSelfTest] CRITICI mancanti:', miss.join(', '), '— apri il pannello dev self-test');
+    else console.log('[DevSelfTest] tutti i critici presenti (pannello dev self-test)');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { injectBtn(); autolog(); });

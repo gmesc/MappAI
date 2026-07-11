@@ -1352,42 +1352,36 @@
             <div class="absolute bottom-8 left-8 z-[40]" id="floating-actions-container">
                 <!-- Popover Menu -->
                 <div id="floating-actions-menu" class="hidden">
-                    <button onclick="window.exportNotesMarkdown()" title="Esporta Appunti MD" data-i18n-title="tt_export_notes_md">
-                        <i data-lucide="file-text"></i> <span data-i18n="ui_export_notes">Esporta Appunti</span>
+                    <!-- Menu asciugato (11/7/26, richiesta utente): 4 hub + azioni di stato.
+                         Le voci vivono nei modali di mappai-menu-hubs.js (card pulite +
+                         tooltip hover). Gli input file restano QUI nascosti: i modali li
+                         attivano via click() programmato. -->
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
+                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
-                    <!-- SOTA: MARKDOWN VAULT ACTIONS -->
-                    <button onclick="window.saveMapVault()" title="Salva come Vault Markdown" data-i18n-title="tt_save_vault">
-                        <i data-lucide="archive"></i> <span data-i18n="ui_export_vault">Esporta nel Vault</span>
+                    <button onclick="window.openStudyMaterialsModal && window.openStudyMaterialsModal()" title="Stampati e attività JIGSAW dalla mappa" data-i18n-title="tt_materials_hub">
+                        <i data-lucide="printer"></i> <span data-i18n="ui_materials_hub">Materiali di studio</span>
                     </button>
-                    <button onclick="window.loadMapVault()" title="Apri Vault Vault Markdown" data-i18n-title="tt_open_vault">
-                        <i data-lucide="folder-open"></i> <span data-i18n="ui_import_vault">Importa dal Vault</span>
+                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
+                        <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
                     </button>
-                    <label for="menu-import-json" id="jigsaw-import-btn" title="Importa una mappa JSON" data-i18n-title="tt_import_json">
-                        <i data-lucide="upload"></i> <span data-i18n="import_json">Importa JSON</span>
-                    </label>
-                    <input type="file" id="menu-import-json" accept=".json" class="hidden"
-                        onchange="window.importGraph(event)">
-                    <!-- Tasto Sincronizzazione (più discreto ed elegante) -->
+                    <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
+                        <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
+                    </button>
+                    <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
+                         mappai-vault-io/manager/storage-lang via getElementById → resta qui -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
                         title="Sincronizza modifiche nel Vault" data-i18n-title="tt_sync_vault">
                         <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
                     </button>
-                    <label for="sidebar-merge" title="Unisci un altro JSON alla mappa corrente" data-i18n-title="tt_merge_json">
-                        <i data-lucide="merge"></i> <span data-i18n="ui_merge_maps">Unisci Mappe</span>
-                    </label>
+                    <!-- input file nascosti (attivati dai modali hub) -->
+                    <input type="file" id="menu-import-json" accept=".json" class="hidden"
+                        onchange="window.importGraph(event)">
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
-                    <label for="menu-import-floorplan" id="menu-import-floorplan-label" title="Importa un piano del Memory Dungeon nel vault" data-i18n-title="tt_import_floorplan">
-                        <i data-lucide="castle"></i> <span data-i18n="ui_import_floorplan">Importa piano Dungeon</span>
-                    </label>
                     <input type="file" id="menu-import-floorplan" accept=".json" class="hidden"
                         onchange="window.MappAIGames && window.MappAIGames.importFloorPlan(event)">
                     <script>
-                        // Pivot Knowledge Garden (10/7/26): dungeon nascosto di default.
-                        // Kill-switch: localStorage.mappai_dungeon_visible='1' ripristina la voce.
-                        if (localStorage.getItem('mappai_dungeon_visible') !== '1') {
-                            document.getElementById('menu-import-floorplan-label').classList.add('hidden');
-                        }
                         // Hub Knowledge Garden = finestra Studio (11/7/26). Il bottone del menu
                         // azioni rapide chiama questa funzione (contratto 001-menu-reorg).
                         window.openKnowledgeGardenHub = function () {
@@ -1399,44 +1393,10 @@
                         };
                     </script>
                     <div class="h-px bg-slate-100 my-1"></div>
-                    <!-- Sezione: Output Materiali di Studio (raggruppa le funzioni di generazione materiali) -->
-                    <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400" data-i18n="ui_output_materials">Output materiali di studio</div>
-                    <button onclick="window.openNodeLabelsPrintModal()" title="Foglio nodi con forbici" data-i18n-title="tt_node_sheet">
-                        <i data-lucide="scissors"></i> <span data-i18n="ui_node_sheet_btn">Foglio nodi</span>
-                    </button>
-                    <button onclick="window.openBranchSynthesisModal()" title="Genera una sintesi narrativa con citazioni di un ramo" data-i18n-title="tt_branch_synthesis">
-                        <i data-lucide="sparkles"></i> <span data-i18n="ui_branch_synth">Sintesi di ramo (AI)</span>
-                    </button>
-                    <button onclick="window.openDossierPrintModal()" title="Stampa dossier" data-i18n-title="tt_print_dossier">
-                        <i data-lucide="files"></i> <span data-i18n="ui_print_dossier_btn">Stampa dossier</span>
-                    </button>
-                    <button onclick="window.openTimelineGeneratorModal()" title="Genera timeline cronologica con AI" data-i18n-title="tt_gen_timeline">
-                        <i data-lucide="gantt-chart"></i> <span data-i18n="ui_create_timeline">Crea Timeline</span>
-                    </button>
-                    <button id="jigsaw-export-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openExportModal()" title="Esporta copie JIGSAW: una per gruppo, editing sbloccato su un solo ramo, studio su tutta la mappa" data-i18n-title="tt_jigsaw_export">
-                        <i data-lucide="users"></i> <span data-i18n="ui_export_jigsaw">Esporta JIGSAW</span>
-                    </button>
-                    <button id="jigsaw-reconcile-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openReconcileModal()" title="Ricomponi le copie dei gruppi nel master: rami lavorati + ponti ratificati" data-i18n-title="tt_jigsaw_merge">
-                        <i data-lucide="git-merge"></i> <span data-i18n="ui_reassemble_copies">Ricomponi copie</span>
-                    </button>
-                    <button id="jigsaw-gap-btn" onclick="window.MappAIJigsaw && window.MappAIJigsaw.openGapModal()" title="Confronta le copie dei gruppi col master: elenco lacune da restituire in revisione privata" data-i18n-title="tt_jigsaw_compare">
-                        <i data-lucide="clipboard-check"></i> <span data-i18n="ui_gap_review">Revisione lacune</span>
-                    </button>
-                    <div class="h-px bg-slate-100 my-1"></div>
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
-                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
-                    </button>
-                    <!-- Hub Knowledge Garden: creazione/condivisione/esplorazione dei giardini
-                         (attività grafiche interdisciplinari). L'hub espone window.openKnowledgeGardenHub;
-                         finché non è caricato il bottone mostra un toast informativo. -->
-                    <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
-                        <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
-                    </button>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
                         <i data-lucide="rotate-ccw"></i> <span data-i18n="ui_undo">Annulla</span><span class="undo-count"></span>
                     </button>
-                    <div class="h-px bg-slate-100 my-1"></div>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto" data-i18n-title="tt_new_project">
                         <i data-lucide="arrow-left"></i> <span data-i18n="back_to_home">Torna alla Home</span>
                     </button>
@@ -3468,6 +3428,7 @@
     <script src="js/mappai-study-bus.js"></script>
     <script src="js/mappai-active-study-core.js"></script>
     <script src="js/mappai-active-study.js"></script>
+    <script src="js/mappai-menu-hubs.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
     <script src="js/mappai-effort-view.js"></script>
     <script src="js/mappai-cloze.js"></script>

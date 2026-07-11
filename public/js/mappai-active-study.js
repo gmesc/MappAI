@@ -597,11 +597,12 @@
         panel.innerHTML = `<div style="font-weight:700;color:#0f172a;font-size:13.5px;margin-bottom:4px">Etichette</div>
             <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;margin-bottom:8px;cursor:pointer">
                 <input type="checkbox" id="as-typed-toggle" ${ActiveStudy._typedMode ? 'checked' : ''}>
-                ✍️ Scrivi tu (senza etichette — più difficile)
+                <i data-lucide="pencil" style="width:13px;height:13px;vertical-align:-1px"></i> Scrivi tu (senza etichette — più difficile)
             </label>
             <div id="as-chip-hint" style="font-size:11.5px;color:#94a3b8;margin-bottom:10px">Trascina o tocca, poi clicca un nodo</div>
             <div id="as-chip-list"></div>`;
         document.body.appendChild(panel);
+        if (window.safeCreateIcons) window.safeCreateIcons();
         ActiveStudy._chipLabels = labels;
         panel.querySelector('#as-typed-toggle').addEventListener('change', function () {
             ActiveStudy._typedMode = this.checked;
@@ -700,7 +701,7 @@
                 window.renderGraph();
                 refreshChipPanel();
                 updatePanelScore();
-                toast(window.t('tst_as_correct', '✓ Esatto!'), 'success');
+                toast(window.t('tst_as_correct', 'Esatto!'), 'success');
             } else {
                 ActiveStudy._typedGuess = ActiveStudy._typedGuess || {};
                 ActiveStudy._typedGuess[d.id] = typed;
@@ -739,13 +740,13 @@
             <div id="as-desc-compare" style="display:none;margin-top:12px">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                     <div style="font-weight:600;color:#334155">Descrizione della fonte:</div>
-                    <button type="button" id="as-desc-tts" title="Leggi ad alta voce" aria-label="Leggi la descrizione ad alta voce" style="background:none;border:0;cursor:pointer;font-size:15px">🔊</button>
+                    <button type="button" id="as-desc-tts" title="Leggi ad alta voce" aria-label="Leggi la descrizione ad alta voce" style="background:none;border:0;cursor:pointer;display:inline-flex;align-items:center"><i data-lucide="volume-2" style="width:16px;height:16px;color:#334155"></i></button>
                 </div>
                 <div style="background:#f1f5f9;border-radius:10px;padding:10px;font-size:14px;color:#334155;line-height:1.5">${escapeHtml(original)}</div>
             </div>
             <div id="as-desc-feedback" style="display:none;margin-top:12px"></div>
         `, [
-            { label: '💡 Suggerimento', id: 'as-desc-hint-btn' },
+            { label: '<i data-lucide="lightbulb" style="width:14px;height:14px;vertical-align:-2px"></i> Suggerimento', id: 'as-desc-hint-btn' },
             { label: window.t('as_compare', 'Confronta'), primary: true, id: 'as-desc-compare-btn' },
             { label: 'Chiudi', id: 'as-desc-close' }
         ]);
@@ -817,12 +818,13 @@
                 fb.innerHTML = `
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
                         <span style="font-weight:700;font-size:18px;color:${barColor}">${res.accuracy}%</span>
-                        <span style="font-weight:600;color:${ok ? '#15803d' : '#b45309'}">${ok ? '✓ Corretta' : '↻ Da rivedere'}</span>
+                        <span style="display:inline-flex;align-items:center;gap:4px;font-weight:600;color:${ok ? '#15803d' : '#b45309'}"><i data-lucide="${ok ? 'check' : 'rotate-cw'}" style="width:15px;height:15px"></i>${ok ? 'Corretta' : 'Da rivedere'}</span>
                     </div>
                     <div style="background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden;margin-bottom:10px">
                         <div style="height:100%;width:${res.accuracy}%;background:${barColor}"></div>
                     </div>
                     <div style="font-size:13.5px;color:#334155;line-height:1.5">${escapeHtml(res.feedback)}</div>`;
+                if (window.safeCreateIcons) window.safeCreateIcons();
             } catch (e) {
                 console.warn('[ActiveStudy] scoreDesc', e);
                 fb.innerHTML = `<div style="color:#64748b;font-size:13px;margin-bottom:8px">Valutazione AI non disponibile. Valuta tu:</div>`;
@@ -838,19 +840,20 @@
         const wrap = document.createElement('div');
         wrap.innerHTML = `<div style="font-size:13.5px;color:#334155;margin-bottom:8px">La tua spiegazione copre i concetti chiave?</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button type="button" id="as-md-ok" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✓ Sì</button>
-                <button type="button" id="as-md-mid" style="background:#f59e0b;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">≈ In parte</button>
-                <button type="button" id="as-md-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">✗ No</button>
+                <button type="button" id="as-md-ok" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600"><i data-lucide="check" style="width:14px;height:14px;vertical-align:-2px"></i> Sì</button>
+                <button type="button" id="as-md-mid" style="background:#f59e0b;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600">In parte</button>
+                <button type="button" id="as-md-ko" style="background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600"><i data-lucide="x" style="width:14px;height:14px;vertical-align:-2px"></i> No</button>
             </div>`;
         container.appendChild(wrap);
+        if (window.safeCreateIcons) window.safeCreateIcons();
         const record = (accuracy, msg, color) => {
             pushEntryDedup({ nodeId: d.id, label: clean(d.label), userText: studentText || '', accuracy, isCorrect: accuracy >= 60, source: source || '', gradedBy: 'self', hintsUsed: hintsUsed || 0 });
             updatePanelScore();
             wrap.innerHTML = `<div style="color:${color};font-weight:600;font-size:13.5px">${msg}</div>`;
         };
-        wrap.querySelector('#as-md-ok').onclick = () => record(100, '✓ Segnato come corretto', '#15803d');
-        wrap.querySelector('#as-md-mid').onclick = () => record(50, '≈ Segnato come parziale', '#b45309');
-        wrap.querySelector('#as-md-ko').onclick = () => record(0, '↻ Segnato da rivedere', '#b45309');
+        wrap.querySelector('#as-md-ok').onclick = () => record(100, 'Segnato come corretto', '#15803d');
+        wrap.querySelector('#as-md-mid').onclick = () => record(50, 'Segnato come parziale', '#b45309');
+        wrap.querySelector('#as-md-ko').onclick = () => record(0, 'Segnato da rivedere', '#b45309');
     }
 
     // Chiede all'AI un punteggio di copertura concettuale (0-100) + feedback breve
@@ -1033,7 +1036,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                 entries.push(entry);
             });
             const tot = targets.length;
-            setPanelResult(`Etichette: <b>${ok}/${tot}</b> al posto giusto (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso sono sbagliati.' : ' 🎉 Perfetto!'));
+            setPanelResult(`Etichette: <b>${ok}/${tot}</b> al posto giusto (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso sono sbagliati.' : ' Perfetto!'));
             summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
             summary.metric = ActiveStudy._typedMode ? 'recall' : 'recognition';
             window.renderGraph();
@@ -1076,7 +1079,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                     if (correct) ok++; else ActiveStudy._wrong.add(String(d.id));
                     entries.push({ nodeId: d.id, label: labelOf(d.id), isCorrect: correct });
                 });
-                let html = `Intrusi ricollocati: <b>${ok}/${disp.length}</b> corretti.` + (ActiveStudy._wrong.size ? ' Quelli in rosso sono ancora nel ramo sbagliato.' : ' 🎉');
+                let html = `Intrusi ricollocati: <b>${ok}/${disp.length}</b> corretti.` + (ActiveStudy._wrong.size ? ' Quelli in rosso sono ancora nel ramo sbagliato.' : '');
                 html += buildStructureHints([...ActiveStudy._wrong], attemptNo);
                 setPanelResult(html);
                 summary = { score: ok, total: disp.length, accuracy: pct(ok, disp.length), scoreText: `${ok}/${disp.length}`, entries: entries };
@@ -1115,7 +1118,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
                     if (correct) ok++; else ActiveStudy._wrong.add(childId);
                     entries.push({ nodeId: childId, label: labelOf(childId), isCorrect: correct });
                 });
-                let html = `Gerarchia: <b>${ok}/${tot}</b> collegamenti corretti (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso hanno il genitore sbagliato.' : ' 🎉 Perfetto!');
+                let html = `Gerarchia: <b>${ok}/${tot}</b> collegamenti corretti (${pct(ok, tot)}%).` + (ActiveStudy._wrong.size ? ' I nodi in rosso hanno il genitore sbagliato.' : ' Perfetto!');
                 html += buildStructureHints([...ActiveStudy._wrong], attemptNo);
                 setPanelResult(html);
                 summary = { score: ok, total: tot, accuracy: pct(ok, tot), scoreText: `${ok}/${tot}`, entries: entries };
@@ -1405,7 +1408,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             const m = avgMastery([...ActiveStudy._verifyIds]);
             if (m != null && m >= 0.6) {
                 ActiveStudy._greyScaffold = true;
-                toast(window.t('tst_as_no_colors', 'Padronanza alta: questa volta senza i colori delle aree 💪'), 'info');
+                toast(window.t('tst_as_no_colors', 'Padronanza alta: questa volta senza i colori delle aree'), 'info');
             }
         }
 
@@ -1543,7 +1546,10 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
                 : 'background:#f1f5f9;color:#334155';
             btnHtml += `<button type="button" id="${b.id}" style="${style};border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600;margin-left:8px">${b.label}</button>`;
         });
-        card.innerHTML = `<h3 style="margin:0 0 14px;font-size:18px;color:#0f172a;font-weight:700">${escapeHtml(title)}</h3>
+        // opts.icon: icona Lucide SVG accanto al titolo (mai emoji — richiesta utente 11/7/26)
+        const iconHtml = (opts && opts.icon)
+            ? `<i data-lucide="${opts.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>` : '';
+        card.innerHTML = `<h3 style="display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:18px;color:#0f172a;font-weight:700">${iconHtml}${escapeHtml(title)}</h3>
             <div>${bodyHtml}</div>
             <div style="display:flex;justify-content:flex-end;margin-top:18px">${btnHtml}</div>`;
         overlay.appendChild(card);
@@ -1551,6 +1557,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         }
         document.body.appendChild(overlay);
+        if (window.safeCreateIcons) window.safeCreateIcons();   // renderizza ogni <i data-lucide> di titolo/body
         overlay.remove = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
         return overlay;
     }
@@ -1566,6 +1573,9 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         if (m < 0.75) return 2;
         return 4;
     }
+
+    // escaping per testi dentro attributi HTML (data-tip)
+    function _escAttr(s) { return String(s || '').replace(/"/g, '&quot;'); }
 
     ActiveStudy.openLauncher = function () {
         const nodes = (S() && S().db && S().db.nodes) || [];
@@ -1590,10 +1600,14 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             if (n === 6 && richEdges < 3) disabled = window.t('as_need_verbs', 'Servono almeno 3 frecce con verbi significativi (attiva le linking words in generazione).');
             const isRec = !disabled && n === recommended;
             const badge = isRec ? '<span style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;border-radius:999px;font-size:10px;font-weight:700;padding:2px 8px;margin-left:6px">⭐ ' + window.t('as_recommended', 'Consigliato') + '</span>' : '';
-            modeCards += `<button type="button" class="as-mode-card" data-mode="${num}" ${disabled ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1px solid ${isRec ? '#4f46e5' : '#e2e8f0'};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${disabled ? 'default' : 'pointer'};transition:border-color .15s;${disabled ? 'opacity:.5' : ''}">
-                <i data-lucide="${m.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
-                <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${num}. ${m.title}${badge}</span>
-                <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${disabled || m.hint}</span></span>
+            // UI pulita (11/7/26): la spiegazione vive nel TOOLTIP hover (data-tip,
+            // sistema globale di mappai-menu-hubs.js). Il testo grigio resta SOLO
+            // per le card disabilitate: il motivo deve essere visibile (un elemento
+            // disabled non emette eventi mouse → il tooltip non uscirebbe mai).
+            modeCards += `<button type="button" class="as-mode-card" data-mode="${num}" ${disabled ? 'disabled' : ''} data-tip="${_escAttr(m.hint)}" style="display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid ${isRec ? '#4f46e5' : '#e2e8f0'};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${disabled ? 'default' : 'pointer'};transition:border-color .15s;${disabled ? 'opacity:.5' : ''}">
+                <i data-lucide="${m.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>
+                <span><span style="display:block;font-weight:700;color:#0f172a">${num}. ${m.title}${badge}</span>
+                ${disabled ? `<span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45;margin-top:2px">${disabled}</span>` : ''}</span>
             </button>`;
         });
 
@@ -1628,28 +1642,32 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
               hint: window.t('as_celeration_hint', 'Grafico di crescita delle tue sessioni (celeration).') }
         ];
         const sectionHeader = txt => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 8px">${txt}</div>`;
-        const extraCard = x => {
+        // num opzionale: Cloze/Palazzo continuano la numerazione delle 7 modalità
+        // (8, 9); viste e strumenti restano senza numero. Spiegazioni nel tooltip
+        // hover (data-tip); testo grigio solo per il motivo delle card disabilitate.
+        const extraCard = (x, num) => {
             const dis = x.ok ? '' : window.t('as_extra_missing', 'Funzione non disponibile.');
             const activeBorder = x.on ? '#4f46e5' : '#e2e8f0';
-            return `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} style="display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
-                <i data-lucide="${x.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto;margin-top:2px"></i>
-                <span><span style="display:block;font-weight:700;color:#0f172a;margin-bottom:2px">${x.title}</span>
-                <span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45">${dis || x.hint}</span></span>
+            const label = num ? `${num}. ${x.title}` : x.title;
+            return `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} data-tip="${_escAttr(x.hint)}" style="display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
+                <i data-lucide="${x.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>
+                <span><span style="display:block;font-weight:700;color:#0f172a">${label}</span>
+                ${dis ? `<span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45;margin-top:2px">${dis}</span>` : ''}</span>
             </button>`;
         };
 
         // Layout landscape a due colonne: modalità a sinistra, viste+strumenti a
         // destra. auto-fit → su finestre strette le colonne si impilano da sole.
         const body = noRoot + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:4px 22px;align-items:start">
-            <div>${sectionHeader(window.t('as_modes_header', 'Modalità di studio'))}${modeCards}${extraModes.map(extraCard).join('')}</div>
+            <div>${sectionHeader(window.t('as_modes_header', 'Modalità di studio'))}${modeCards}${extraModes.map((x, i) => extraCard(x, 8 + i)).join('')}</div>
             <div>
-                ${sectionHeader(window.t('as_views_header', 'Viste ed esercizi rapidi'))}${views.map(extraCard).join('')}
+                ${sectionHeader(window.t('as_views_header', 'Viste ed esercizi rapidi'))}${views.map(x => extraCard(x)).join('')}
                 <div style="height:10px"></div>
-                ${sectionHeader(window.t('as_tools_header', 'Strumenti'))}${tools.map(extraCard).join('')}
+                ${sectionHeader(window.t('as_tools_header', 'Strumenti'))}${tools.map(x => extraCard(x)).join('')}
             </div>
         </div>`;
 
-        const modal = buildModal('🧩 Studio attivo — scegli una modalità', body, [{ label: 'Annulla', id: 'as-launch-cancel' }], { maxWidth: '980px' });
+        const modal = buildModal(window.t('as_title', 'Studio attivo') + ' — ' + window.t('as_pick_mode', 'scegli una modalità'), body, [{ label: 'Annulla', id: 'as-launch-cancel' }], { maxWidth: '980px', icon: 'puzzle' });
         modal.querySelector('#as-launch-cancel').onclick = () => modal.remove();
         modal.querySelectorAll('.as-mode-card').forEach(btn => {
             if (btn.disabled) return;
@@ -1722,7 +1740,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         const scopeLabel = (ActiveStudy.session.scope && ActiveStudy.session.scope.type === 'branch')
             ? `<div style="font-size:11px;color:#4f46e5;background:#eef2ff;border-radius:999px;display:inline-block;padding:2px 10px;margin-bottom:6px">Ramo: ${escapeHtml(ActiveStudy.session.scope.l1Label || '')}</div>` : '';
         const growthBtn = window.MappAICeleration
-            ? '<button type="button" id="as-growth" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px">📈 Crescita</button>' : '';
+            ? '<button type="button" id="as-growth" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:13px"><i data-lucide="trending-up" style="width:14px;height:14px;vertical-align:-2px"></i> Crescita</button>' : '';
         panel.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                 <i data-lucide="${m.icon}" style="width:20px;height:20px;color:#4f46e5"></i>
@@ -1743,6 +1761,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
             </div>
             <div id="as-save-note" style="display:none;font-size:10.5px;color:#94a3b8;margin-top:8px">${window.t('as_save_note', 'Il punteggio si salva quando esci dalla sessione.')}</div>`;
         document.body.appendChild(panel);
+        if (window.safeCreateIcons) window.safeCreateIcons();
         panel.querySelector('#as-close').onclick = () => ActiveStudy.exit();
         panel.querySelector('#as-verify').onclick = () => ActiveStudy.verifica();
         panel.querySelector('#as-reveal').onclick = () => ActiveStudy.rivelaSoluzione();
@@ -1765,7 +1784,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         const mode = ActiveStudy.session.mode;
         if (mode === 4 || mode === 6) {
             const t = tallyFromEntries();
-            el.textContent = `Punteggio: ${t.ok} ✓ / ${t.ko} ✗`;
+            el.textContent = `Punteggio: ${t.ok} giuste / ${t.ko} sbagliate`;
         } else if (mode === 3) {
             const placed = Object.keys(ActiveStudy._placements || {}).length;
             const tot = ActiveStudy._targets ? ActiveStudy._targets.size : 0;

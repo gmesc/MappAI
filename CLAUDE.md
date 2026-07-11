@@ -534,6 +534,45 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### 🧹 FATTO (11/7/26 sera): menu hub + tooltip hover (richiesta utente anti-sovraccarico)
+I docenti poco esperti si spaventano davanti a menu lunghi e testi grigi esplicativi.
+(1) **Menu azioni rapide asciugato a 4 hub**: Studio attivo · **Materiali di studio** ·
+**Graph manager** · Knowledge Garden (+ Sincronizza Vault dinamico, Annulla, Home).
+(2) Nuovo `public/js/mappai-menu-hubs.js` (caricato dopo mappai-active-study.js):
+`window.openStudyMaterialsModal()` (sezioni: Stampati = Foglio nodi/Sintesi ramo/
+Dossier/Timeline; JIGSAW = Esporta/Ricomponi/Lacune) e `window.openGraphManagerModal()`
+(sezioni: Vault = esporta/importa; File JSON = importa/unisci/+dungeon se kill-switch;
+Appunti = esporta MD). Gli input file (`menu-import-json`, `sidebar-merge`,
+`menu-import-floorplan`) restano NASCOSTI nel menu: i modali li attivano via `click()`.
+(3) **Tooltip hover globali** (`window.MappAITips`, delega su document): qualunque
+elemento con `data-tip="..."` mostra il popup — vale per tutti i modali presenti e
+futuri. Card PULITE (icona+titolo); il testo grigio resta SOLO come motivo delle card
+`disabled` (un elemento disabled non emette eventi mouse → il tooltip non uscirebbe).
+Launcher Studio attivo aggiornato allo stesso pattern (hint → tooltip) + numerazione
+8. Cloze / 9. Palazzo. **Gate JIGSAW preservato**: `_syncStudentUI` di mappai-jigsaw.js
+agiva sui bottoni menu rimossi (ora no-op innocuo); il gate vive nei modali hub via
+`mappai_jigsaw_mode` (studente: niente Importa JSON né sezione JIGSAW).
+i18n: `ui_materials_hub`/`tt_materials_hub`/`ui_graph_manager`/`tt_graph_manager` in
+ENTRAMBI i dizionari; `mh_*`/`gm_*`/`hub_fn_missing` solo EN (regola 13). Suite 301/301 ✅.
+⚠️ Da verificare in Electron vivo (T011-bis): 2 hub aprono i modali, ogni card apre il
+flusso di prima, tooltip leggibili, JIGSAW mode nasconde le card docente.
+
+### 🎨 FATTO (11/7/26 sera): emoji → icone Lucide SVG nei modali Studio + hub
+Richiesta utente ("metti solo icone lucide ovunque", scope confermato = modali Studio+hub).
+Tutte le emoji dei titoli/header/bottoni convertite in `<i data-lucide>` SVG; emoji
+decorative (🎉/💪) rimosse. `buildModal` (mappai-active-study.js) accetta `opts.icon`
+e chiama SEMPRE `safeCreateIcons` dopo l'append → ogni lucide inline di titolo/body si
+renderizza. `buildHubModal` (mappai-menu-hubs.js) idem col titolo a icona. File toccati
++ mapping: active-study (puzzle launcher, lightbulb Suggerimento, volume-2 TTS, check/x
+Sì-No, rotate-cw Da rivedere, trending-up Crescita), cloze (pencil-line), celeration
+(trending-up), study-path (compass/play/rotate-cw/circle-check/lock), palace (landmark/
+door-open/check/x), mastery-view (target), effort-view (flame). Bottoni flottanti legacy
+`b.textContent=emoji` → `b.innerHTML='<i data-lucide>'` + flex-center + safeCreateIcons.
+Chiave EN `tst_as_correct` ripulita ("✓ Correct!" → "Correct!"). Verificato in browser:
+tutti e 19 i nomi icona esistono in lucide.min.js e rendono `<svg>`; scan emoji residue
+= 0 nei 7 file. Suite 301/301 ✅. Regola nuova: **nei modali usare SEMPRE `<i data-lucide>`
++ safeCreateIcons, MAI emoji nei titoli/bottoni.**
+
 ### 🌱 PIVOT (10/7/26 sera): Memory Dungeon → Knowledge Garden — Fasi 0-5 IMPLEMENTATE
 Decisione utente: dungeon troppo oneroso per i docenti → l'editor diventa ambiente
 creativo bonus. **Giardino espositivo di classe**: studenti entrano dal browser via QR
