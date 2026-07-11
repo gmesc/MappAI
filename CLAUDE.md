@@ -534,6 +534,27 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (11/7/26): 002-affinamenti-output — PDF vettoriale, sintesi mappa intera, keyword foglie
+Spec-kit (`specs/002-affinamenti-output/`, branch omonimo). Da "Appunti Implementazione" §3.
+(1) **Export PDF VETTORIALE**: `svg2pdf.umd.min.js` v2.2.4 vendored (MIT, 84KB, registra
+`jsPDF.API.svg()` su jsPDF 2.5.1); `exportPDF` (mappai-d3-render.js) clona `#map-svg`
+con CSS inline (`_svgCloneWithStyles`, condiviso con exportSVG), azzera la transform di
+zoom e usa `getBBox()` del g → PDF con l'INTERA mappa come vettori, zero overlay UI per
+costruzione. Percorso raster preservato come `_exportPDFRaster()` = fallback automatico
+su errore (toast `tst_pdf_vector_fallback`). Il vettoriale funziona anche su iPad
+(niente capturePage). (2) **Sintesi "Tutta la mappa"** (mappai-branch-synthesis.js):
+opzione `__ALL__` nel modale; ≤30 nodi = chiamata unica, altrimenti map-reduce —
+`_synthesizeOnce()` per ramo (budget invariato, overlay progresso i/n, ramo fallito =
+segnaposto non bloccante) + chiamata panoramica finale (prompt inline, `mapLangNote()`);
+citazioni numerate PER SEZIONE (rinumerazione globale = fragile, evitata di proposito);
+render modale+stampa multi-sezione via `_wholeBodyHtml`. (3) **Keyword foglie**
+(mappai-print-dossier.js): `_cleanKeywords()` unica per AI e fallback (dedupe, via
+token del titolo, via <3 char, cap 7 — smoke-tested in Node); item batch marcati `leaf`,
+prompt con regola foglie (concetti SOLO dalla desc; desc <15 parole → `[]`);
+`_fallbackKeywords` ritorna `[]` su foglie povere (card col solo titolo, niente rumore).
+i18n: `bs_*`/`tst_pdf_vector_*` in EN (fallback IT inline). Suite **301/301** ✅.
+⚠️ Verifica Electron pendente: T004 (PDF), T009 (sintesi), T013 (keyword).
+
 ### 🧹 FATTO (11/7/26 sera): menu hub + tooltip hover (richiesta utente anti-sovraccarico)
 I docenti poco esperti si spaventano davanti a menu lunghi e testi grigi esplicativi.
 (1) **Menu azioni rapide asciugato a 4 hub**: Studio attivo · **Materiali di studio** ·

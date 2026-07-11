@@ -1102,7 +1102,100 @@ window.exportSnapshot = async function () {
     }
 };
 
+// Clona #map-svg incorporando gli stili CSS rilevanti (nodi/link/testi) in un
+// <style> inline: base comune per l'export SVG e per il PDF vettoriale.
+function _svgCloneWithStyles() {
+    const svgElement = document.getElementById("map-svg");
+    if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
+    const clonedSvg = svgElement.cloneNode(true);
+    clonedSvg.removeAttribute("class");
+    let cssStyles = "";
+    try {
+        for (const sheet of document.styleSheets) {
+            try {
+                const rules = sheet.cssRules || sheet.rules;
+                for (const rule of rules) {
+                    if (rule.cssText && (rule.cssText.includes(".node") || rule.cssText.includes(".link") || rule.cssText.includes("svg") || rule.cssText.includes("text"))) {
+                        cssStyles += rule.cssText + "\n";
+                    }
+                }
+            } catch (e) {
+                // Ignora errori di fogli di stile cross-origin (es. Google Fonts)
+            }
+        }
+    } catch (e) {
+        console.warn("Impossibile leggere alcuni fogli di stile:", e);
+    }
+    const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    styleElem.textContent = cssStyles;
+    clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+    return clonedSvg;
+}
+
+// Export PDF VETTORIALE (svg2pdf su jsPDF): l'intera mappa come vettori — testo
+// nitido a ogni zoom, niente overlay UI (per costruzione: si esporta solo l'SVG).
+// Su qualunque errore ripiega sull'export raster storico (_exportPDFRaster).
 window.exportPDF = async function () {
+    try {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF || !jsPDF.API || typeof jsPDF.API.svg !== 'function') {
+            throw new Error('svg2pdf non caricato');
+        }
+        const svgElement = document.getElementById("map-svg");
+        if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
+        const gEl = svgElement.querySelector('g');
+        if (!gEl) throw new Error('Gruppo mappa non trovato');
+        // bbox del CONTENUTO in coordinate locali del g: getBBox ignora la
+        // transform di zoom → inquadra sempre l'intera mappa, non la viewport.
+        const bbox = gEl.getBBox();
+        if (!bbox || !isFinite(bbox.width) || bbox.width <= 0 || bbox.height <= 0) {
+            throw new Error('Mappa vuota o non misurabile');
+        }
+
+        window.showToast(window.t('tst_pdf_working', "Generazione PDF in corso..."), "info");
+
+        const MARGIN = 40;
+        const w = Math.ceil(bbox.width + MARGIN * 2);
+        const h = Math.ceil(bbox.height + MARGIN * 2);
+
+        const clone = _svgCloneWithStyles();
+        const cloneG = clone.querySelector('g');
+        if (cloneG) cloneG.removeAttribute('transform'); // niente zoom: il viewBox fa l'inquadratura
+        clone.setAttribute('viewBox', (bbox.x - MARGIN) + ' ' + (bbox.y - MARGIN) + ' ' + w + ' ' + h);
+        clone.setAttribute('width', w);
+        clone.setAttribute('height', h);
+
+        const pdf = new jsPDF({
+            orientation: w > h ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [w, h],
+            compress: true
+        });
+        await pdf.svg(clone, { x: 0, y: 0, width: w, height: h });
+
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
+        if (isCapacitor) {
+            const blob = pdf.output('blob');
+            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: "Esporta PDF", text: "Mappa mentale creata con MappAI" });
+                window.showToast(window.t('tst_pdf_shared', "PDF condiviso con successo!"), "success");
+            } else {
+                throw new Error("Condivisione PDF non supportata da questo dispositivo");
+            }
+        } else {
+            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            window.showToast(window.t('tst_pdf_vector_done', "PDF vettoriale esportato!"), "success");
+        }
+    } catch (err) {
+        console.warn('[PDF] Percorso vettoriale fallito, fallback raster:', err);
+        window.showToast(window.t('tst_pdf_vector_fallback', "PDF vettoriale non disponibile — uso la cattura schermo"), "warning");
+        return _exportPDFRaster();
+    }
+};
+
+// Export PDF RASTER storico (screenshot della finestra) — fallback del vettoriale.
+async function _exportPDFRaster() {
     try {
         if (!window.electronAPI || !window.electronAPI.capturePage) {
             throw new Error(window.t('err_pdf_ipad', "La cattura PDF non è supportata su iPadOS. Usa l'esportazione SVG (Vettoriale)!"));
@@ -1163,42 +1256,14 @@ window.exportPDF = async function () {
         console.error("Errore esportazione PDF:", err);
         window.showToast(err.message, "error");
     }
-};
+}
 
 window.exportSVG = async function () {
     try {
         window.showToast(window.t('tst_svg_working', "Generazione SVG in corso..."), "info");
-        const svgElement = document.getElementById("map-svg");
-        if (!svgElement) throw new Error("Mappa SVG non trovata nel documento");
 
-        // Clona l'SVG per non influenzare la vista corrente
-        const clonedSvg = svgElement.cloneNode(true);
-
-        // Rimuove eventuali listener o elementi di controllo inutili se presenti
-        clonedSvg.removeAttribute("class");
-
-        // Estrae tutti gli stili CSS globali e li incorpora nell'SVG per mantenere colori e stili dei nodi/linee
-        let cssStyles = "";
-        try {
-            for (const sheet of document.styleSheets) {
-                try {
-                    const rules = sheet.cssRules || sheet.rules;
-                    for (const rule of rules) {
-                        if (rule.cssText && (rule.cssText.includes(".node") || rule.cssText.includes(".link") || rule.cssText.includes("svg") || rule.cssText.includes("text"))) {
-                            cssStyles += rule.cssText + "\n";
-                        }
-                    }
-                } catch (e) {
-                    // Ignora errori di fogli di stile cross-origin (es. Google Fonts)
-                }
-            }
-        } catch (e) {
-            console.warn("Impossibile leggere alcuni fogli di stile:", e);
-        }
-
-        const styleElem = document.createElementNS("http://www.w3.org/2000/svg", "style");
-        styleElem.textContent = cssStyles;
-        clonedSvg.insertBefore(styleElem, clonedSvg.firstChild);
+        // Clona l'SVG con gli stili CSS inline (helper condiviso col PDF vettoriale)
+        const clonedSvg = _svgCloneWithStyles();
 
         // Serializza l'SVG in formato stringa XML
         const serializer = new XMLSerializer();

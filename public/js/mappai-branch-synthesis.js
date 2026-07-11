@@ -229,6 +229,8 @@
             const label = window.cleanLabel ? window.cleanLabel(n.label) : n.label;
             return `<option value="${n.id}" ${n.id === preselect ? 'selected' : ''}>${_escBS(label)}</option>`;
         }).join('');
+        // Sintesi dell'INTERA mappa (map-reduce per ramo sulle mappe grandi)
+        const allOption = `<option value="__ALL__">${_escBS(window.t('bs_all_map', 'Tutta la mappa'))} (${appState.db.nodes.length} nodi)</option>`;
 
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
 
@@ -256,7 +258,7 @@
                     '<div class="pm-section">' +
                         '<span class="pm-section-title">Ramo da sintetizzare</span>' +
                         '<select id="branch-synthesis-select" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-[12px] font-bold text-slate-700 focus_ring_standard">' +
-                            optionsHtml +
+                            allOption + optionsHtml +
                         '</select>' +
                     '</div>' +
                     '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
@@ -281,75 +283,66 @@
     };
 
     // ── Generazione AI ─────────────────────────────────────────────────────
+    // Una passata di sintesi su un insieme di nodi (un ramo, o l'intera mappa
+    // se piccola). Ritorna { rawText, sourcesArr } o null se niente contenuti.
+    async function _synthesizeOnce(nodes, label, apiKey) {
+        const { nodesListText, sourcesListText, sourcesArr } = _buildSourcesAndContent(nodes);
+        if (!nodesListText) return null;
+
+        const promptText = window.fillPromptTemplate('BRANCH_SYNTHESIS', {
+            branchLabel: label,
+            sourcesList: sourcesListText,
+            nodesList: nodesListText
+        });
+
+        const payload = {
+            contents: [{ role: 'user', parts: [{ text: promptText }] }],
+            generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(3000) : 3000)
+            }
+        };
+
+        const response = await window.fetchModelAPI(payload, apiKey);
+        const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!rawText.trim()) throw new Error('Risposta AI vuota');
+        return { rawText, sourcesArr };
+    }
+
     window.generateBranchSynthesisWithAI = async function () {
         const configModal = document.getElementById('branch-synthesis-config-modal');
         const selectedId = document.getElementById('branch-synthesis-select')?.value;
         if (configModal) configModal.remove();
 
         if (!selectedId) { window.showToast('Seleziona un ramo', 'warning'); return; }
+
+        const apiKey = window.getSystemKey ? window.getSystemKey() : '';
+        if (!apiKey) {
+            window.showToast(window.t('tst_need_key', "Inserisci un'API Key per continuare"), 'error');
+            return;
+        }
+
+        if (selectedId === '__ALL__') return _generateWholeMapSynthesis(apiKey);
+
         const root = appState.db.nodes.find(n => n.id === selectedId);
         if (!root) { window.showToast('Ramo non trovato', 'error'); return; }
-
         const branchLabel = window.cleanLabel ? window.cleanLabel(root.label) : root.label;
 
         window.showLoadingOverlay(true, 'Sintesi del ramo in corso…');
-
         try {
-            const apiKey = window.getSystemKey ? window.getSystemKey() : '';
-            if (!apiKey) {
-                window.showLoadingOverlay(false);
-                window.showToast(window.t('tst_need_key', "Inserisci un'API Key per continuare"), 'error');
-                return;
-            }
-
-            const branchNodes = _collectBranchNodes(selectedId);
-            const { nodesListText, sourcesListText, sourcesArr } = _buildSourcesAndContent(branchNodes);
-
-            if (!nodesListText) {
-                window.showLoadingOverlay(false);
+            const out = await _synthesizeOnce(_collectBranchNodes(selectedId), branchLabel, apiKey);
+            window.showLoadingOverlay(false);
+            if (!out) {
                 window.showToast('Questo ramo non ha contenuti (descrizioni) da sintetizzare', 'warning');
                 return;
             }
-
-            const promptText = window.fillPromptTemplate('BRANCH_SYNTHESIS', {
-                branchLabel: branchLabel,
-                sourcesList: sourcesListText,
-                nodesList: nodesListText
-            });
-
-            const payload = {
-                contents: [{ role: 'user', parts: [{ text: promptText }] }],
-                generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(3000) : 3000)
-                }
-            };
-
-            let response;
-            try {
-                response = await window.fetchModelAPI(payload, apiKey);
-            } catch (apiErr) {
-                window.showLoadingOverlay(false);
-                window.showToast('Errore chiamata AI: ' + (apiErr.message || String(apiErr)), 'error');
-                return;
-            }
-
-            const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            window.showLoadingOverlay(false);
-
-            if (!rawText.trim()) {
-                window.showToast('Risposta AI vuota — riprova', 'warning');
-                return;
-            }
-
             _lastSynthesis = {
                 branchLabel,
                 mapName: window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI',
-                rawText,
-                sourcesArr
+                rawText: out.rawText,
+                sourcesArr: out.sourcesArr
             };
             _openBranchSynthesisResultModal(_lastSynthesis);
-
         } catch (err) {
             window.showLoadingOverlay(false);
             console.error('[BranchSynthesis] Errore:', err);
@@ -357,13 +350,130 @@
         }
     };
 
+    // ── Sintesi dell'INTERA mappa ──────────────────────────────────────────
+    // Mappe piccole (≤ WHOLE_SINGLE_MAX nodi): una chiamata sola. Mappe grandi:
+    // map-reduce — una sintesi per ramo (budget token invariato per chiamata),
+    // poi UNA chiamata di panoramica sulle sintesi accorciate. Le citazioni
+    // restano numerate PER SEZIONE: rinumerarle globalmente è fragile e non
+    // aggiunge nulla per lo studente. Un ramo fallito non azzera gli altri.
+    const WHOLE_SINGLE_MAX = 30;
+
+    async function _generateWholeMapSynthesis(apiKey) {
+        const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
+        const allNodes = appState.db.nodes || [];
+
+        try {
+            if (allNodes.length <= WHOLE_SINGLE_MAX) {
+                window.showLoadingOverlay(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
+                const out = await _synthesizeOnce(
+                    [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey);
+                window.showLoadingOverlay(false);
+                if (!out) {
+                    window.showToast('La mappa non ha contenuti (descrizioni) da sintetizzare', 'warning');
+                    return;
+                }
+                _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr };
+                _openBranchSynthesisResultModal(_lastSynthesis);
+                return;
+            }
+
+            const isMM = appState.extractionMode === 'mindmap';
+            let branches = isMM
+                ? allNodes.filter(n => (n.level || 0) === 1)
+                : allNodes.filter(n => (n.level || 0) <= 1);
+            if (!branches.length) branches = [allNodes[0]];
+
+            const sections = [];
+            for (let i = 0; i < branches.length; i++) {
+                const b = branches[i];
+                const label = window.cleanLabel ? window.cleanLabel(b.label) : b.label;
+                window.showLoadingOverlay(true,
+                    window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
+                try {
+                    const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey);
+                    if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr });
+                } catch (e) {
+                    console.warn('[BranchSynthesis] Ramo fallito:', label, e);
+                    sections.push({ branchLabel: label, failed: true });
+                }
+            }
+
+            if (!sections.some(s => !s.failed)) {
+                window.showLoadingOverlay(false);
+                window.showToast('Nessun ramo è stato sintetizzato — riprova', 'error');
+                return;
+            }
+
+            // Panoramica introduttiva (best-effort: se fallisce, il documento esce senza)
+            let intro = '';
+            try {
+                window.showLoadingOverlay(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
+                const digest = sections.filter(s => !s.failed)
+                    .map(s => '## ' + s.branchLabel + '\n' + s.rawText.slice(0, 900)).join('\n\n');
+                const langNote = window.mapLangNote ? window.mapLangNote() : '';
+                const prompt = 'Queste sono le sintesi dei rami della mappa mentale "' + mapName + '".\n' +
+                    'Scrivi una PANORAMICA introduttiva (150-220 parole) che colleghi i temi dei rami ' +
+                    'in un discorso unico: niente elenchi, niente citazioni numerate, tono da introduzione di dispensa.\n' +
+                    langNote + '\n\n' + digest;
+                const payload = {
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.4,
+                        maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(1200) : 1200)
+                    }
+                };
+                const resp = await window.fetchModelAPI(payload, apiKey);
+                intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+            } catch (e) {
+                console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);
+            }
+
+            window.showLoadingOverlay(false);
+            _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections };
+            _openBranchSynthesisResultModal(_lastSynthesis);
+        } catch (err) {
+            window.showLoadingOverlay(false);
+            console.error('[BranchSynthesis] Errore sintesi mappa:', err);
+            window.showToast('Errore generazione sintesi: ' + (err.message || err), 'error');
+        }
+    }
+
+    // Corpo HTML della sintesi intera: panoramica + una sezione per ramo,
+    // ciascuna con le SUE citazioni (numerazione per-sezione).
+    function _wholeBodyHtml(data, variant) {
+        const H = variant === 'modal'
+            ? (txt) => '<h3 class="text-sm font-extrabold text-indigo-700 mt-5 mb-2 pb-1 border-b border-slate-100">' + _escBS(txt) + '</h3>'
+            : (txt) => '<h3>' + _escBS(txt) + '</h3>';
+        let html = '';
+        if (data.intro) {
+            html += H(window.t('bs_overview', 'Panoramica'));
+            html += _mdToHtml(data.intro, variant);
+        }
+        (data.sections || []).forEach(sec => {
+            html += H(sec.branchLabel);
+            if (sec.failed) {
+                const msg = _escBS(window.t('bs_branch_failed', 'Sintesi di questo ramo non riuscita — riprova sul ramo singolo.'));
+                html += variant === 'modal'
+                    ? '<p class="text-[13px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">' + msg + '</p>'
+                    : '<p style="color:#b45309">' + msg + '</p>';
+                return;
+            }
+            html += _mdToHtml(sec.rawText, variant) + _buildCitationsHtml(sec.sourcesArr, variant);
+        });
+        return html;
+    }
+
     // ── Modale risultato ───────────────────────────────────────────────────
     function _openBranchSynthesisResultModal(data) {
         const existing = document.getElementById('branch-synthesis-modal');
         if (existing) existing.remove();
 
-        const bodyHtml = _mdToHtml(data.rawText, 'modal');
-        const citationsHtml = _buildCitationsHtml(data.sourcesArr, 'modal');
+        const contentHtml = data.whole
+            ? _wholeBodyHtml(data, 'modal')
+            : _mdToHtml(data.rawText, 'modal') + _buildCitationsHtml(data.sourcesArr, 'modal');
+        const titlePrefix = data.whole
+            ? _escBS(window.t('bs_whole_title', 'Sintesi della mappa')) + ': '
+            : 'Sintesi: ';
 
         const modal = document.createElement('div');
         modal.id = 'branch-synthesis-modal';
@@ -377,12 +487,12 @@
                 '<div class="p-8 pb-4 flex items-center gap-3 border-b border-slate-100">' +
                     '<div class="pm-icon-wrap"><i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i></div>' +
                     '<div>' +
-                        '<div class="pm-title">Sintesi: ' + _escBS(data.branchLabel) + '</div>' +
+                        '<div class="pm-title">' + titlePrefix + _escBS(data.branchLabel) + '</div>' +
                         '<div class="pm-subtitle">' + _escBS(data.mapName) + '</div>' +
                     '</div>' +
                 '</div>' +
                 '<div id="branch-synthesis-body" class="p-8 pt-4 overflow-y-auto flex-1">' +
-                    bodyHtml + citationsHtml +
+                    contentHtml +
                 '</div>' +
                 '<div class="flex gap-3 p-6 pt-4 border-t border-slate-100">' +
                     '<button type="button" onclick="document.getElementById(\'branch-synthesis-modal\').remove()" class="pm-btn-cancel">Chiudi</button>' +
@@ -410,8 +520,12 @@
 
         const now = new Date().toLocaleString('it-IT');
         const accentColor = '#4f46e5';
-        const bodyHtml = _mdToHtml(_lastSynthesis.rawText, 'print');
-        const citationsHtml = _buildCitationsHtml(_lastSynthesis.sourcesArr, 'print');
+        const contentHtml = _lastSynthesis.whole
+            ? _wholeBodyHtml(_lastSynthesis, 'print')
+            : _mdToHtml(_lastSynthesis.rawText, 'print') + _buildCitationsHtml(_lastSynthesis.sourcesArr, 'print');
+        const kindLabel = _lastSynthesis.whole
+            ? window.t('bs_whole_title', 'Sintesi della mappa')
+            : 'Sintesi di ramo';
 
         const fullHtml = `<!DOCTYPE html>
 <html lang="it">
@@ -445,7 +559,7 @@
 </head>
 <body>
     <div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;">
-        <span style="font-weight:bold;color:${accentColor};">MappAI · Sintesi di ramo</span>
+        <span style="font-weight:bold;color:${accentColor};">MappAI · ${_escBS(kindLabel)}</span>
         <div style="display:flex;gap:8px;">
             <button onclick="window.print()" style="background:${accentColor};color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">🖶 Stampa / Esporta PDF</button>
             <button onclick="window.close()" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">✕ Chiudi</button>
@@ -455,9 +569,9 @@
 
     <div class="bs-header">
         <div class="bs-title">${_escBS(_lastSynthesis.branchLabel)}</div>
-        <div class="bs-subtitle">${_escBS(_lastSynthesis.mapName)} · Sintesi di ramo · ${now}</div>
+        <div class="bs-subtitle">${_escBS(_lastSynthesis.mapName)} · ${_escBS(kindLabel)} · ${now}</div>
     </div>
-    <div class="bs-body">${bodyHtml}${citationsHtml}</div>
+    <div class="bs-body">${contentHtml}</div>
     <div class="bs-footer">MappAI by insegnai.ch · Generato il ${now}</div>
 </body>
 </html>`;

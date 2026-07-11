@@ -455,10 +455,49 @@ window.printAllNodeLabels = async function () {
 // per 60+ nodi supera maxOutputTokens → i nodi in coda restavano senza keyword).
 var _KW_BATCH = 18;
 
+// Un nodo è FOGLIA se non ha link uscenti (nessun figlio).
+function _kwIsLeaf(node) {
+    var links = appState.db?.links || [];
+    return !links.some(function (l) { return (l.source?.id || l.source) === node.id; });
+}
+
+function _kwDescWordCount(node) {
+    return String(node.desc || node.content || '').split(/\s+/).filter(Boolean).length;
+}
+
+// Soglia sotto la quale la desc di una FOGLIA è troppo povera per keyword
+// sensate: meglio nessuna keyword che rumore (la card esce col solo titolo).
+var _KW_MIN_LEAF_DESC_WORDS = 15;
+
+// Validazione unica per keyword AI e fallback: trim, dedupe case-insensitive,
+// via le keyword fatte solo di parole del titolo, via token < 3 char, cap 7.
+function _cleanKeywords(node, arr) {
+    if (!Array.isArray(arr)) return [];
+    var titleTokens = {};
+    cleanLabel(node.label).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/).forEach(function (w) { if (w) titleTokens[w] = 1; });
+    var seen = {}, out = [];
+    arr.forEach(function (k) {
+        var kw = String(k || '').trim();
+        if (kw.length < 3) return;
+        var low = kw.toLowerCase();
+        if (seen[low]) return;
+        var tokens = low.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+        if (tokens.length && tokens.every(function (t) { return titleTokens[t]; })) return;
+        seen[low] = 1;
+        out.push(kw);
+    });
+    return out.slice(0, 7);
+}
+
 async function _kwCallBatch(nodesChunk, apiKey) {
+    var byId = {};
     var items = nodesChunk.map(function (n) {
+        byId[n.id] = n;
         var d = String(n.desc || n.content || '').replace(/\s+/g, ' ').trim().slice(0, 240);
-        return { id: n.id, label: cleanLabel(n.label), desc: d };
+        var item = { id: n.id, label: cleanLabel(n.label), desc: d };
+        if (_kwIsLeaf(n)) item.leaf = true;
+        return item;
     });
 
     var langNote = (window.mapLangNote ? window.mapLangNote() : '');
@@ -468,7 +507,11 @@ async function _kwCallBatch(nodesChunk, apiKey) {
         'Usa il titolo e la descrizione. Niente frasi intere, solo parole o locuzioni chiave. ' +
         'Solo termini di CONTENUTO (nomi/concetti): niente verbi coniugati, articoli, ' +
         'preposizioni o parole nella lingua della fonte se diversa. ' +
-        'Non ripetere il titolo del nodo come keyword.\n' + langNote + '\n' +
+        'Non ripetere il titolo del nodo come keyword.\n' +
+        'REGOLA NODI FOGLIA (item con "leaf": true): keyword SOLO dai concetti presenti ' +
+        'nella descrizione — mai parole del titolo, mai termini generici inventati. ' +
+        'Se la descrizione ha meno di 15 parole o non contiene concetti veri, rispondi ' +
+        'con un array VUOTO [] per quel nodo: meglio niente che rumore.\n' + langNote + '\n' +
         'Rispondi SOLO con un oggetto JSON { "<id>": ["kw1","kw2",...], ... } ' +
         'usando ESATTAMENTE gli id forniti. Nessun markdown, nessun testo fuori dal JSON.\n\n' +
         'NODI:\n' + JSON.stringify(items);
@@ -496,7 +539,9 @@ async function _kwCallBatch(nodesChunk, apiKey) {
     Object.keys(parsed).forEach(function (id) {
         var v = parsed[id];
         if (Array.isArray(v)) {
-            out[id] = v.map(function (k) { return String(k).trim(); }).filter(Boolean).slice(0, 7);
+            var node = byId[id];
+            out[id] = node ? _cleanKeywords(node, v)
+                : v.map(function (k) { return String(k).trim(); }).filter(Boolean).slice(0, 7);
         }
     });
     return out;
@@ -549,7 +594,11 @@ function _fallbackKeywords(node) {
             return t ? cleanLabel(t.label) : null;
         })
         .filter(Boolean);
-    if (kids.length) return kids.slice(0, 7);
+    if (kids.length) return _cleanKeywords(node, kids);
+
+    // FOGLIA con desc povera: niente keyword — la card esce col solo titolo
+    // (parole grezze estratte da 2 righe di testo = rumore, non concetti).
+    if (_kwDescWordCount(node) < _KW_MIN_LEAF_DESC_WORDS) return [];
 
     var STOP = _KW_STOPWORDS;
     // Escludi le parole del titolo (ripeterle come keyword è inutile)
@@ -562,7 +611,7 @@ function _fallbackKeywords(node) {
         .filter(function (w) { return w.length > 4 && !STOP[w] && !titleTokens[w]; });
     var seen = {}, uniq = [];
     words.forEach(function (w) { if (!seen[w]) { seen[w] = 1; uniq.push(w); } });
-    return uniq.slice(0, 7);
+    return _cleanKeywords(node, uniq);
 }
 
 window.printAllNodeDossiers = function () {
