@@ -18,6 +18,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8139"],
       "port": 8139
+    },
+    {
+      "name": "insegnai-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8144", "--directory", "/Users/giacomomeschini/Claude/insegnai.ch"],
+      "port": 8144
     }
   ]
 }

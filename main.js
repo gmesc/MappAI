@@ -1444,6 +1444,89 @@ ipcMain.handle('export-dungeon-bundle', async (event, { vaultPath, ids, title, a
     }
 });
 
+// ============================================================
+// KNOWLEDGE GARDEN (pivot 10/7/26) — sessione LAN dal PC docente.
+// Lo Studio avvia il server (garden-server.js), gli studenti si collegano
+// dal browser via QR. Archivio: ~/Documents/MappAI - Knowledge Garden/<slug>/
+// ============================================================
+const { createGardenServer } = require('./garden-server');
+let gardenSrv = null;
+let gardenInfo = null;   // { port, urls, token, dir, name }
+
+function gardenBaseDir() {
+    return path.join(app.getPath('documents'), 'MappAI - Knowledge Garden');
+}
+function lanUrls(port) {
+    const urls = [];
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+        for (const i of ifaces[name] || []) {
+            if (i.family === 'IPv4' && !i.internal) urls.push('http://' + i.address + ':' + port);
+        }
+    }
+    if (!urls.length) urls.push('http://localhost:' + port);
+    return urls;
+}
+
+// Avvia (o RIPRENDE) una sessione. Payload dal renderer Studio:
+// { name, plotSize, template (map JSON), libs {textures,materials,assets} }
+ipcMain.handle('garden-start-session', async (event, opts) => {
+    try {
+        if (gardenSrv) { await gardenSrv.stop(); gardenSrv = null; gardenInfo = null; }
+        const name = (opts && opts.name) || 'Knowledge Garden';
+        const slug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sessione';
+        const dir = path.join(gardenBaseDir(), slug);
+        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        gardenSrv = createGardenServer({
+            repoRoot: __dirname,
+            dir,
+            session: { name, plotSize: (opts && opts.plotSize) || 15 },
+            template: opts && opts.template,
+            libs: (opts && opts.libs) || {}
+        });
+        let port = null, lastErr = null;
+        for (let p = 8765; p <= 8775; p++) {
+            try { port = await gardenSrv.listen(p, '0.0.0.0'); break; }
+            catch (e) { lastErr = e; }
+        }
+        if (!port) throw lastErr || new Error('nessuna porta libera 8765-8775');
+        const st = gardenSrv.state();
+        gardenInfo = {
+            port, urls: lanUrls(port), token: st.session.token,
+            adminToken: st.session.adminToken, dir, name, resumed: resuming
+        };
+        console.log('[garden] sessione avviata su :' + port, resuming ? '(RIPRESA)' : '');
+        return Object.assign({ success: true, plots: st.plots.length }, gardenInfo);
+    } catch (err) {
+        console.error('Errore garden-start-session:', err);
+        gardenSrv = null;
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('garden-stop-session', async () => {
+    try {
+        if (gardenSrv) { await gardenSrv.stop(); gardenSrv = null; gardenInfo = null; }
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// Polling della dashboard Studio: claims + consegne
+ipcMain.handle('garden-session-status', async () => {
+    if (!gardenSrv) return { success: false, error: 'nessuna sessione attiva' };
+    return Object.assign({ success: true }, gardenSrv.state(), {
+        port: gardenInfo.port, urls: gardenInfo.urls, dir: gardenInfo.dir
+    });
+});
+
+ipcMain.handle('garden-open-folder', async () => {
+    const dir = gardenInfo ? gardenInfo.dir : gardenBaseDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+    return { success: true, dir };
+});
+
 // MEMORY DUNGEON: scrive un piano validato in Memory Dungeon/piani/piano-N.json.
 // Usato dall'import in-app (la validazione avviene nel renderer, contratto §4).
 ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {

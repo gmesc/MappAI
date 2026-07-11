@@ -58,6 +58,8 @@
 </script>
 <!-- validatore contratto §4 (UMD, stessa fonte di verità del gioco) -->
 <script src="../../public/js/mappai-dungeon-core.js"></script>
+<!-- Knowledge Garden: logica pura parcelle (UMD, condivisa con garden.js e server) -->
+<script src="../../public/js/mappai-garden-core.js"></script>
 </head>
 <body>
 <div id="scene"></div>
@@ -137,6 +139,7 @@
       <button id="m-wall" type="button">Muro</button>
       <button id="m-void" type="button">Vuoto</button>
       <button id="m-bump" type="button">⛰ Rilievo</button>
+      <button id="m-plot" type="button">🌱 Parcella</button>
     </div>
     <div class="field"><label>Quota pavimento <span id="v-mquota">0</span></label><input type="range" id="m-quota" min="-1" max="2" step="0.5" value="0"></div>
     <div class="field"><label>Altezza muro <span id="v-malt">2</span></label><input type="range" id="m-alt" min="1" max="4" step="1" value="2"></div>
@@ -149,6 +152,28 @@
         <button id="m-bump-down" type="button">▼ abbassa</button>
       </div>
       <div class="dim">Trascina per modellare colline: il centro sale di più, i bordi sfumano (pendii dolci). Limite quota ±2.</div>
+    </div>
+    <!-- PARCELLE (Knowledge Garden): il docente disegna le aree in cui gli studenti costruiscono -->
+    <div id="plot-controls" style="display:none">
+      <div class="field"><label>Parcella corrente</label>
+        <select id="m-plot-id"></select>
+      </div>
+      <div class="row">
+        <button id="m-plot-new" type="button">+ Nuova parcella</button>
+        <button id="m-plot-del" type="button">Elimina parcella</button>
+      </div>
+      <div class="row">
+        <button id="m-plot-square" type="button">■ quadrato</button>
+        <button id="m-plot-round" type="button" class="active">● rotondo</button>
+      </div>
+      <div class="field"><label>Raggio pennello <span id="v-mplotr">3</span></label><input type="range" id="m-plot-r" min="1" max="8" step="1" value="3"></div>
+      <div class="row">
+        <button id="m-plot-paint" type="button" class="active">✏ dipingi</button>
+        <button id="m-plot-erase" type="button">⌫ cancella</button>
+      </div>
+      <div id="m-plot-info" class="dim"></div>
+      <div class="dim">Le parcelle si dipingono solo sul pavimento. Ogni studente rivendica una parcella
+        libera nel Knowledge Garden e costruisce SOLO lì dentro. Area consigliata ≥ 25 celle.</div>
     </div>
     <div class="field"><label>Materiale pennello</label><select id="m-mat"><option value="">— nessuno (colori) —</option></select></div>
     <div class="field"><label>…oppure texture/tag</label><select id="m-texref"><option value="">— nessuna —</option></select></div>
@@ -297,6 +322,6 @@
 <div id="toast"></div>
 <!-- ?v= : bump a ogni modifica di editor.js — la memory-cache dei moduli (browser
      e Electron) può servire la versione vecchia anche dopo un reload normale -->
-<script type="module" src="./editor.js?v=e6-quota"></script>
+<script type="module" src="./editor.js?v=e9-crop"></script>
 </body>
 </html>

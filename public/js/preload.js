@@ -55,6 +55,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveDungeonRuleset: (data) => ipcRenderer.invoke('save-dungeon-ruleset', data),
     saveDungeonMaterials: (data) => ipcRenderer.invoke('save-dungeon-materials', data),
     exportDungeonBundle: (data) => ipcRenderer.invoke('export-dungeon-bundle', data),
+    // --- Knowledge Garden (sessione LAN dal PC docente) ---
+    gardenStartSession: (data) => ipcRenderer.invoke('garden-start-session', data),
+    gardenStopSession: () => ipcRenderer.invoke('garden-stop-session'),
+    gardenSessionStatus: () => ipcRenderer.invoke('garden-session-status'),
+    gardenOpenFolder: () => ipcRenderer.invoke('garden-open-folder'),
     launcherChoice: (choice) => ipcRenderer.invoke('launcher-choice', choice),
     launcherReturn: () => ipcRenderer.invoke('launcher-return'),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),

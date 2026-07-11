@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Garden</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #ecebe6; font-family: -apple-system, 'Segoe UI', sans-serif; }
+  #scene { position: absolute; inset: 0; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; z-index: 10;
+    background: rgba(28, 28, 26, 0.82); color: #f0efe9;
+    border-radius: 10px; padding: 10px 14px; font-size: 12.5px; line-height: 1.55;
+    max-width: 250px; user-select: none;
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
+  #panel .dim { color: #b9b7ae; }
+  #panel .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  button.gbtn {
+    background: #3d3c38; color: #f0efe9; border: 1px solid #57554f;
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  button.gbtn:hover { background: #4a4944; }
+  #stats { position: absolute; bottom: 10px; left: 12px; z-index: 10; color: #6b6a64; font-size: 11.5px; }
+  #toast {
+    position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: rgba(28,28,26,0.9); color: #f0efe9; padding: 8px 16px;
+    border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; z-index: 20;
+    pointer-events: none;
+  }
+  /* Messaggio di benvenuto full-screen allo spawn */
+  #intro {
+    position: absolute; inset: 0; z-index: 50;
+    background: rgba(16, 20, 14, 0.92); color: #f0efe9;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #intro .card {
+    max-width: 520px; margin: 20px; padding: 28px 32px;
+    background: #1d241a; border: 1px solid #3b4a35; border-radius: 14px;
+    font-size: 15px; line-height: 1.65;
+  }
+  #intro h1 { font-size: 24px; margin: 0 0 12px; }
+  #intro ul { margin: 10px 0; padding-left: 22px; }
+  #intro li { margin: 6px 0; }
+  #intro .go {
+    margin-top: 16px; width: 100%; padding: 10px; font-size: 16px; cursor: pointer;
+    background: #4a8f43; color: #fff; border: none; border-radius: 8px; font-weight: 600;
+  }
+  #intro .go:hover { background: #57a44f; }
+  /* HUD parcella: stato + azioni (claim / costruisci / consegna) */
+  #plot-hud {
+    position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+    z-index: 15; display: none; text-align: center;
+  }
+  #plot-hud .tag {
+    background: rgba(28,28,26,0.88); color: #f0efe9; padding: 6px 14px;
+    border-radius: 8px; font-size: 13px;
+  }
+  #plot-hud .actions { margin-top: 6px; display: flex; gap: 8px; justify-content: center; }
+  #plot-hud .actions button {
+    padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 8px; color: #fff;
+  }
+  #btn-claim { background: #4a8f43; } #btn-claim:hover { background: #57a44f; }
+  #btn-creator { background: #8a6d3b; } #btn-creator:hover { background: #a08148; }
+  #btn-submit { background: #3b6d8a; } #btn-submit:hover { background: #4881a0; }
+  /* Palette strumenti creator mode */
+  #creator-panel {
+    position: absolute; top: 12px; right: 12px; z-index: 30; display: none;
+    background: rgba(24, 28, 20, 0.94); color: #f0efe9; border: 1px solid #3b4a35;
+    border-radius: 12px; padding: 12px 14px; font-size: 12.5px; width: 230px;
+    max-height: calc(100% - 40px); overflow-y: auto;
+  }
+  #creator-panel h2 { font-size: 13px; margin: 10px 0 6px; color: #b9d29a; }
+  #creator-panel h2:first-child { margin-top: 0; }
+  #creator-panel .trow { display: flex; gap: 5px; flex-wrap: wrap; margin: 4px 0; }
+  #creator-panel .trow button {
+    background: #33392c; color: #f0efe9; border: 1px solid #4c5442;
+    border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer;
+  }
+  #creator-panel .trow button.active { background: #5d7a3f; border-color: #86ab60; }
+  #creator-panel label { display: block; margin: 6px 0 2px; color: #b9b7ae; }
+  #creator-panel select, #creator-panel input[type=range] { width: 100%; }
+  #creator-panel .dim { color: #8f9b84; font-size: 11.5px; margin-top: 8px; }
+  /* Modali (claim / targhetta / cartello) */
+  .gmodal {
+    position: absolute; inset: 0; z-index: 60; display: none;
+    background: rgba(10, 12, 8, 0.75); align-items: center; justify-content: center;
+  }
+  .gmodal .box {
+    background: #1d241a; border: 1px solid #3b4a35; border-radius: 14px;
+    color: #f0efe9; max-width: 440px; margin: 20px; padding: 24px 28px;
+    font-size: 14px; line-height: 1.6; width: 100%;
+  }
+  .gmodal h2 { margin: 0 0 10px; font-size: 18px; }
+  .gmodal label { display: block; margin: 10px 0 4px; color: #b9d29a; font-size: 13px; }
+  .gmodal input, .gmodal textarea {
+    width: 100%; box-sizing: border-box; background: #12160f; color: #f0efe9;
+    border: 1px solid #3b4a35; border-radius: 8px; padding: 8px 10px; font-size: 14px;
+    font-family: inherit;
+  }
+  .gmodal textarea { min-height: 90px; resize: vertical; }
+  .gmodal .err { color: #e88; font-size: 12.5px; min-height: 16px; margin-top: 6px; }
+  .gmodal .btns { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+  .gmodal .btns button { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; }
+  .gmodal .ok { background: #4a8f43; color: #fff; font-weight: 600; }
+  .gmodal .no { background: #3d3c38; color: #f0efe9; }
+</style>
+<!-- three r164 VENDORED (niente CDN: offline + finestra Studio Electron) -->
+<script type="importmap">
+{ "imports": { "three": "../../public/js/vendor/three-r164.module.min.js" } }
+</script>
+<!-- logica pura parcelle (UMD, condivisa con editor e server) -->
+<script src="../../public/js/mappai-garden-core.js"></script>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="intro">
+  <div class="card">
+    <h1>🌱 Knowledge Garden</h1>
+    <p>Benvenutə nel giardino della tua classe: uno spazio dove ogni studente
+      rappresenta <b>un concetto studiato</b> costruendo la propria mostra.</p>
+    <ul>
+      <li>🚶 <b>Esplora</b> il giardino: WASD / frecce, oppure click per camminare. Q / E ruota la vista.</li>
+      <li>🌿 Trova una <b>parcella libera</b> (bordo verde) e rivendicala: diventa il tuo spazio.</li>
+      <li>🧱 Attiva la <b>modalità costruzione</b>: dipingi il terreno, alza muri, piazza oggetti 3D.</li>
+      <li>🪧 Alla consegna scrivi la <b>targhetta</b>: quale concetto rappresenta il tuo giardino.</li>
+    </ul>
+    <p class="dim" style="color:#a9b8a3; font-size:13px">Le parcelle degli altri sono già qui:
+      passeggia e leggi le loro targhette. Il giardino cresce insieme alla classe.</p>
+    <button class="go" id="intro-go" type="button">Entra nel giardino →</button>
+  </div>
+</div>
+
+<div id="panel">
+  <h1>Knowledge Garden</h1>
+  <div class="dim">
+    Click &nbsp;cammina · WASD / frecce &nbsp;muovi · Spazio &nbsp;salta<br>
+    Q / E &nbsp;ruota camera · Rotella &nbsp;zoom
+  </div>
+  <div class="row">
+    <button id="btn-rot-l" class="gbtn" type="button">&#8634; Ruota</button>
+    <button id="btn-rot-r" class="gbtn" type="button">Ruota &#8635;</button>
+    <button id="btn-refresh" class="gbtn" type="button" style="display:none">🔄 Aggiorna</button>
+  </div>
+</div>
+
+<div id="plot-hud">
+  <div class="tag" id="plot-tag"></div>
+  <div class="actions">
+    <button id="btn-claim" type="button" style="display:none">🌿 Coltiva questo giardino</button>
+    <button id="btn-creator" type="button" style="display:none">🧱 Costruisci</button>
+    <button id="btn-editor" type="button" style="display:none;background:#8a6d3b">🛠 Editor completo</button>
+    <button id="btn-submit" type="button" style="display:none">📮 Consegna</button>
+  </div>
+</div>
+
+<!-- Palette strumenti (visibile solo in creator mode, dentro la propria parcella) -->
+<div id="creator-panel">
+  <h2>🧱 Costruzione</h2>
+  <!-- Da telefono la pittura del terreno è scomoda: si creano asset nell'editor
+       (voxel o pixel art) e qui si piazzano. Da PC: bottone «Editor completo». -->
+  <div id="mobile-create" style="display:none">
+    <button id="m-create-voxel" type="button" style="width:100%;margin:2px 0;padding:10px;background:#5d7a3f;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🧊 Crea asset voxel</button>
+    <button id="m-create-pixel" type="button" style="width:100%;margin:2px 0;padding:10px;background:#3f6a7a;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🎨 Crea asset 2D</button>
+  </div>
+  <div class="trow">
+    <button id="t-floor" type="button" class="active">Prato</button>
+    <button id="t-water" type="button">Acqua</button>
+    <button id="t-wall" type="button">Muro</button>
+    <button id="t-bump" type="button">⛰ Rilievo</button>
+    <button id="t-asset" type="button">🌳 Oggetto</button>
+    <button id="t-erase" type="button">⌫ Ripristina</button>
+  </div>
+  <div id="t-mat-row">
+    <label>Texture terreno</label>
+    <select id="t-mat"><option value="">— colore base —</option></select>
+  </div>
+  <div id="t-wall-row" style="display:none">
+    <label>Altezza muro <span id="v-alt">2</span></label>
+    <input type="range" id="t-alt" min="1" max="10" step="1" value="2">
+    <label>Texture muro</label>
+    <select id="t-wallmat"><option value="">— colore base —</option></select>
+  </div>
+  <div id="t-bump-row" style="display:none">
+    <div class="trow">
+      <button id="t-bump-up" type="button" class="active">▲ alza</button>
+      <button id="t-bump-down" type="button">▼ abbassa</button>
+    </div>
+  </div>
+  <div id="t-asset-row" style="display:none">
+    <label>Oggetto dalla libreria</label>
+    <select id="t-asset-sel"></select>
+    <label>Rotazione</label>
+    <select id="t-rot"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+  </div>
+  <div class="dim">Puoi costruire solo nella TUA parcella. «Ripristina» riporta la cella
+    com'era all'inizio. Il lavoro si salva da solo sul tuo dispositivo; con
+    «📮 Consegna» lo esponi a tutta la classe.</div>
+</div>
+
+<!-- Modale claim: nome studente -->
+<div class="gmodal" id="claim-modal">
+  <div class="box">
+    <h2>🌿 Rivendica questa parcella</h2>
+    <p>Diventerà il tuo spazio espositivo. Come ti chiami?</p>
+    <label>Il tuo nome</label>
+    <input id="claim-name" maxlength="40" placeholder="Nome e cognome (o soprannome di classe)">
+    <div class="err" id="claim-err"></div>
+    <div class="btns">
+      <button class="no" id="claim-no" type="button">Annulla</button>
+      <button class="ok" id="claim-ok" type="button">Rivendica</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale targhetta: OBBLIGATORIA alla consegna -->
+<div class="gmodal" id="targhetta-modal">
+  <div class="box">
+    <h2>🪧 La targhetta della tua mostra</h2>
+    <p>Ogni giardino racconta un concetto studiato. La targhetta dice ai visitatori che cosa stanno guardando.</p>
+    <label>Concetto rappresentato (titolo)</label>
+    <input id="tg-title" maxlength="60" placeholder="es. La fotosintesi clorofilliana">
+    <label>Spiegazione (2-3 frasi)</label>
+    <textarea id="tg-text" maxlength="400" placeholder="Che cosa hai costruito e come rappresenta il concetto?"></textarea>
+    <label>Autore</label>
+    <input id="tg-author" maxlength="40">
+    <div class="err" id="tg-err"></div>
+    <div class="btns">
+      <button class="no" id="tg-no" type="button">Non ancora</button>
+      <button class="ok" id="tg-ok" type="button">📮 Consegna la mostra</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay lettura cartello -->
+<div class="gmodal" id="sign-modal">
+  <div class="box">
+    <h2 id="sign-title"></h2>
+    <p id="sign-text"></p>
+    <p class="dim" id="sign-author" style="color:#a9b8a3"></p>
+    <div class="btns"><button class="ok" id="sign-close" type="button">Chiudi</button></div>
+  </div>
+</div>
+
+<div id="stats"></div>
+<div id="toast"></div>
+<script type="module" src="./garden.js?v=g5"></script>
+</body>
+</html>

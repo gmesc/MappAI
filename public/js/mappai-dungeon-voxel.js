@@ -227,6 +227,43 @@
   // mappare WASD screen-relative sui passi di griglia (coerenti dopo Q/E)
   V.yaw = function () { return st ? st.yawT : Math.PI / 4; };
 
+  // Albero voxel low-poly: tronco marrone + 2 blocchi di chioma verdi (tinta dal
+  // seed per varietà). Illuminato dalla lanterna/sole come il resto (non self-lit).
+  function treeMesh(seed) {
+    var g = new T.Group();
+    var trunkH = 0.5 + (seed % 3) * 0.14;
+    var trunk = new T.Mesh(new T.BoxGeometry(0.16, trunkH, 0.16),
+                           new T.MeshLambertMaterial({ color: 0x6b4a2b }));
+    trunk.position.y = trunkH / 2; trunk.castShadow = true; g.add(trunk);
+    var green = new T.Color().setHSL(0.27 + (seed % 5) * 0.012, 0.5, 0.30 + (seed % 4) * 0.03);
+    var f1 = new T.Mesh(new T.BoxGeometry(0.5, 0.46, 0.5), new T.MeshLambertMaterial({ color: green }));
+    f1.position.y = trunkH + 0.2; f1.castShadow = true; g.add(f1);
+    var f2 = new T.Mesh(new T.BoxGeometry(0.34, 0.34, 0.34),
+                        new T.MeshLambertMaterial({ color: green.clone().multiplyScalar(1.18) }));
+    f2.position.set(0.1, trunkH + 0.46, 0.06); f2.castShadow = true; g.add(f2);
+    return g;
+  }
+  // Sparge alberi sulle celle di pavimento libere (no muri/acqua/slot/gate/eroe).
+  // Deterministico (hash x,y) → stesso bosco a ogni rebuild, nessuno sfarfallio.
+  function scatterTrees(DUN, keys) {
+    var excl = {};
+    for (var ek in DUN.sources) excl[ek] = 1;
+    excl[DUN.px + ',' + DUN.py] = 1;
+    if (DUN.boss) excl[DUN.boss.x + ',' + DUN.boss.y] = 1;
+    if (DUN.sx >= 0) excl[DUN.sx + ',' + DUN.sy] = 1;
+    if (DUN.world && DUN.world.gates) DUN.world.gates.forEach(function (g) { excl[g.key] = 1; });
+    keys.forEach(function (key) {
+      if (DUN.map[key] !== 0 || excl[key]) return;
+      if (DUN.gardenWater && DUN.gardenWater[key]) return;
+      var p = key.split(','), x = +p[0], y = +p[1];
+      var hsh = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if ((hsh % 100) >= 14) return;                       // ~14% delle celle
+      var tr = treeMesh(hsh);
+      tr.position.set(x + (((hsh >> 3) % 5) - 2) * 0.06, st.gy(x, y), y + (((hsh >> 7) % 5) - 2) * 0.06);
+      st.group.add(tr);                                    // NON in st.dyn: non deve billboardare
+    });
+  }
+
   // Ricostruisce la scena del piano da DUN.map. Come il proto: 1 tile logico =
   // SUB×SUB mini-voxel con jitter di quota e colore (l'occhio non vede più il
   // modulo del tile). SUB adattivo per tenere basse le istanze sui piani grossi
@@ -251,8 +288,8 @@
       var p = key.split(','); var x = +p[0], y = +p[1];
       if (x < minX) minX = x; if (x > maxX) maxX = x;
       if (y < minZ) minZ = y; if (y > maxZ) maxZ = y;
-      var wall = DUN.map[key] === 1;
       var water = !!(DUN.gardenWater && DUN.gardenWater[key]);
+      var wall = DUN.map[key] === 1 && !water;   // l'acqua è bloccata ma NON è un muro: resta incassata e piatta
       var base = water ? cWater : (wall ? cWall : cFloor);
       var q = (st.quota && st.quota[key]) || 0;   // rialzo reale della cella
       st.cellIdx[key] = [];
@@ -304,11 +341,15 @@
     if (DUN.boss && !DUN.boss.defeated) put(spriteBillboard('boss'), DUN.boss.x, DUN.boss.y, 'boss');
     if (DUN.gateRoom) put(billboard('🔮', 0.8), DUN.gateRoom.bx, DUN.gateRoom.by, 'gate');
     // mappa-mondo (§20): porte di confine tra le zone — spariscono quando aperte (worldRev)
+    // i ponti-fluency (§20) usano 🌉 e si aprono da soli a padronanza
     if (DUN.world && DUN.world.gates) {
       DUN.world.gates.forEach(function (g, gi) {
-        if (!g.open) put(billboard('🚪', 0.8), g.x, g.y, 'wgate:' + gi);
+        if (!g.open) put(billboard(g.bridge ? '🌉' : '🚪', 0.8), g.x, g.y, 'wgate:' + gi);
       });
     }
+    // alberi voxel procedurali (mondo-natura): ~14% delle celle di pavimento libere,
+    // deterministici (hash della cella). Cubi Lambert (illuminati dalla lanterna §19.3).
+    scatterTrees(DUN, keys);
     if (DUN.gardenNpcs) { var nci = 0; for (var nk in DUN.gardenNpcs) {
       var gp = DUN.gardenNpcs[nk];
       // Custode = viola (ultimo file), Sapienti a rotazione sugli altri
@@ -385,6 +426,15 @@
         animateSprite(hero, (Math.abs(dxh) + Math.abs(dzh) > 0.04) ? 'walk' : 'idle');
         // flip orizzontale come nella skin 2D (il foglio LoL guarda a destra)
         if (hero.children[0]) hero.children[0].scale.x = (DUN.facing && DUN.facing[0] < 0) ? -1 : 1;
+      }
+      // compagno-ricompensa (farfalla-guida): segue l'eroe fluttuando (§20 reward)
+      if (DUN.companion) {
+        var cg = st.dyn.companion;
+        if (!cg) { cg = billboard(DUN.companion.emoji || '🦋', 0.42); st.group.add(cg); st.dyn.companion = cg; }
+        var hxw = st.heroW.x, hzw = st.heroW.z, hyw = st.heroW.y || 0;
+        cg.position.x += ((hxw - 0.55) - cg.position.x) * 0.12;
+        cg.position.z += ((hzw - 0.55) - cg.position.z) * 0.12;
+        cg.position.y = hyw + 1.15 + Math.sin(Date.now() / 240) * 0.18;
       }
       if (st.dyn.boss) animateSprite(st.dyn.boss, 'idle');
       // sorgenti estratte → attenuate (il condotto attivo resta luminoso: fast-travel)

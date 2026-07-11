@@ -92,6 +92,7 @@ function loadMapState() {
         if (grid[c.z] && grid[c.z][c.x]) {
           Object.assign(grid[c.z][c.x], { biome: c.biome || 'floor', quota: c.quota || 0, alt: c.alt || 0 });
           if (c.mat) grid[c.z][c.x].mat = c.mat;   // materiale (contratto: campo opzionale)
+          if (c.plot) grid[c.z][c.x].plot = c.plot; // parcella Knowledge Garden (campo opzionale)
         }
       });
       state.map = { size: s.size, grid };
@@ -102,7 +103,93 @@ function loadMapState() {
   state.map = { size: DEFAULT_SIZE, grid: buildDemoMap(SEED, DEFAULT_SIZE) };
   state.props = [];
 }
+// ---------- MODALITÀ STUDENTE (Knowledge Garden, Fase 6) ----------
+// editor.html?s=<token>&plot=<pNN> servito dal server LAN del docente.
+// L'editor mostra SOLO IL CROP della parcella (richiesta utente 11/7/26):
+// bounding box della maschera → mini-mappa locale, fuori maschera = vuoto.
+// Coordinate: LOCALI nell'editor, GLOBALI in bozza/consegna (offset STUDENT.off)
+// → il giardino e il server non cambiano. Palette = quella verde del giardino.
+// Il localStorage qui è quello del DEVICE studente (origin http://ip:porta).
+const _QS = new URLSearchParams(location.search);
+const STUDENT = {
+  on: !!(_QS.get('s') && _QS.get('plot')),
+  token: _QS.get('s'), plotId: _QS.get('plot'),
+  mask: new Set(),           // maschera in coordinate LOCALI (crop)
+  off: { x: 0, z: 0 },       // offset crop→mondo (locale + off = globale)
+  plots: [], sessionTex: {}, sessionMat: {}
+};
+if (STUDENT.on) {
+  try {
+    const res = await fetch('/api/session?s=' + encodeURIComponent(STUDENT.token));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    STUDENT.plots = d.plots || [];
+    STUDENT.sessionTex = (d.libs && d.libs.textures) || {};
+    STUDENT.sessionMat = (d.libs && d.libs.materials) || {};
+    const plot = STUDENT.plots.find(p => p.id === STUDENT.plotId);
+    if (!plot) throw new Error('parcella ' + STUDENT.plotId + ' inesistente');
+    // bbox della maschera → crop quadrato
+    let minX = Infinity, minZ = Infinity, maxX = -1, maxZ = -1;
+    const gmask = new Set();
+    for (const [x, z] of plot.cells) {
+      gmask.add(x + ',' + z);
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    const S = Math.max(maxX - minX + 1, maxZ - minZ + 1);
+    STUDENT.off = { x: minX, z: minZ };
+    for (const [x, z] of plot.cells) STUDENT.mask.add((x - minX) + ',' + (z - minZ));
+    // celle del template DENTRO la maschera → coordinate locali; il resto sparisce
+    const localCells = (d.template.cells || [])
+      .filter(c => gmask.has(c.x + ',' + c.z))
+      .map(c => Object.assign({}, c, { x: c.x - minX, z: c.z - minZ }));
+    // prop del template dentro la parcella (bloccati: non sono dello studente)
+    const localProps = (d.template.props || [])
+      .filter(p => gmask.has(Math.floor(p.x) + ',' + Math.floor(p.z)))
+      .map(p => Object.assign({}, p, { x: p.x - minX, z: p.z - minZ }));
+    localStorage.setItem('voxelproto_map', JSON.stringify({
+      seed: d.template.seed || 1, size: S, sub: 3, cells: localCells, props: localProps
+    }));
+    ['textures', 'materials', 'assets'].forEach(k => {
+      const key = 'voxelproto_' + k;
+      let mine = {};
+      try { mine = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+      localStorage.setItem(key, JSON.stringify(Object.assign(mine, (d.libs || {})[k] || {})));
+    });
+    localStorage.removeItem('voxelproto_plan_ctx');   // niente barra vault per gli studenti
+    // look del giardino, non del dungeon: prato verde (+ palette del template se c'è)
+    Object.assign(state.palette, {
+      floorA: '#b9d29a', floorB: '#93b874', wallA: '#b4b0a5', wallB: '#8e8b82',
+      waterA: '#4795de', waterB: '#1d5fa5', bg: '#e7eedd'
+    }, d.template.palette || {});
+    console.log('[studente] parcella', STUDENT.plotId, '— crop', S + '×' + S,
+      'offset', minX + ',' + minZ, '(' + STUDENT.mask.size + ' celle)');
+  } catch (e) {
+    console.warn('[studente] sessione non raggiungibile', e);
+    alert('Sessione non raggiungibile — torna al giardino e riprova.');
+  }
+}
 loadMapState();
+// bozza condivisa col giardino (stessa chiave, coordinate GLOBALI) → locali
+if (STUDENT.on) {
+  try {
+    const d = JSON.parse(localStorage.getItem('garden_draft::' + STUDENT.token + '::' + STUDENT.plotId) || 'null');
+    if (d) {
+      (d.cells || []).forEach(c => {
+        const lx = c.x - STUDENT.off.x, lz = c.z - STUDENT.off.z;
+        if (!STUDENT.mask.has(lx + ',' + lz)) return;
+        const cell = state.map.grid[lz][lx];
+        Object.assign(cell, { biome: c.biome, quota: c.quota || 0, alt: c.alt || 0 });
+        if (c.mat) cell.mat = c.mat; else delete cell.mat;
+      });
+      (d.props || []).forEach(p => {
+        state.props.push(Object.assign({}, p, {
+          _student: true, x: p.x - STUDENT.off.x, z: p.z - STUDENT.off.z
+        }));
+      });
+    }
+  } catch (e) {}
+}
 
 // ---------- Renderer / camera ----------
 const vw = () => window.innerWidth || 1280;
@@ -167,7 +254,7 @@ function applyGlobalLights() {
 applyGlobalLights();
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
-let solidMesh = null, waterMesh = null, paintPlane = null;
+let solidMesh = null, waterMesh = null, paintPlane = null, plotOverlayGroup = null;
 
 // Props (asset piazzati) — cache geometrie/materiali indipendente dal costruttore
 const propsGroup = new THREE.Group();
@@ -352,6 +439,7 @@ function buildWorld() {
   dir.shadow.camera.updateProjectionMatrix();
   renderer.setClearColor(state.palette.bg);
   buildProps();
+  buildPlotOverlay();   // le parcelle seguono la quota del terreno
 }
 // oscillazione liquidi (±0.1): aggiorna la Y del top di acqua/lava, onde sfasate per cella
 const _liqM = new THREE.Matrix4();
@@ -508,6 +596,15 @@ function paintAt(clientX, clientY) {
   const lz = Math.floor((pt.z + W / 2) / SUB);
   if (lx < 0 || lz < 0 || lx >= state.map.size || lz >= state.map.size) return 'fuori griglia';
   const t = state.mapTool;
+  // studente: si costruisce SOLO nella propria parcella; vuoto e parcelle vietati
+  if (STUDENT.on) {
+    if (t.brush === 'void' || t.brush === 'plot') return 'strumento non disponibile';
+    if (!STUDENT.mask.has(lx + ',' + lz)) {
+      const now = performance.now();
+      if (now - (paintAt._outT || 0) > 900) { paintAt._outT = now; toast('🌿 Fuori dalla tua parcella'); }
+      return 'fuori parcella ' + lx + ',' + lz;
+    }
+  }
   if (t.placing) {
     const name = el('m-asset').value;
     if (!name) { toast('Nessun asset in libreria: creane uno nella scheda Voxel'); return 'no asset'; }
@@ -530,6 +627,7 @@ function paintAt(clientX, clientY) {
     if (meta.billboard) inst.billboard = true;
     if (meta.walkable) inst.walkable = true;
     if (meta.light) inst.light = meta.light;
+    if (STUDENT.on) inst._student = true;   // solo i PROPRI oggetti si consegnano/cancellano
     state.props.push(inst);
     buildProps(); renderPropList();
     return 'asset ' + name;
@@ -544,6 +642,7 @@ function paintAt(clientX, clientY) {
     for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
       const x = lx + dx, z = lz + dz;
       if (x < 0 || z < 0 || x >= state.map.size || z >= state.map.size) continue;
+      if (STUDENT.on && !STUDENT.mask.has(x + ',' + z)) continue;   // rilievo in-parcella
       const c = state.map.grid[z][x];
       if (c.biome !== 'floor') continue;   // il rilievo modella solo il pavimento
       const d = Math.hypot(dx, dz);
@@ -553,6 +652,24 @@ function paintAt(clientX, clientY) {
     }
     buildWorld();
     return 'bump @ ' + lx + ',' + lz;
+  }
+  // PARCELLA (Knowledge Garden): dipinge/cancella la membership sulle celle
+  // pavimento nel raggio del pennello (rotondo o quadrato). Le parcelle sono
+  // maschere di celle: contratto in mappai-garden-core.js.
+  if (t.brush === 'plot') {
+    const pl = t.plot, R = pl.r;
+    let touched = 0;
+    for (let dz = -R + 1; dz <= R - 1; dz++) for (let dx = -R + 1; dx <= R - 1; dx++) {
+      if (pl.shape === 'round' && Math.hypot(dx, dz) > R - 0.5) continue;
+      const x = lx + dx, z = lz + dz;
+      if (x < 0 || z < 0 || x >= state.map.size || z >= state.map.size) continue;
+      const c = state.map.grid[z][x];
+      if (pl.erase) { if (c.plot) { delete c.plot; touched++; } continue; }
+      if (c.biome !== 'floor') continue;   // le parcelle vivono solo sul pavimento
+      if (c.plot !== pl.id) { c.plot = pl.id; touched++; }
+    }
+    if (touched) { buildPlotOverlay(); refreshPlotSelect(); updatePlotInfo(); }
+    return 'parcella ' + (pl.erase ? 'cancella' : pl.id) + ' @ ' + lx + ',' + lz;
   }
   const key = lx + ',' + lz + ',' + t.brush;
   if (key === lastPaintKey) return 'invariato';
@@ -572,6 +689,7 @@ function paintAt(clientX, clientY) {
   if (t.brush === 'floor' && floorMat) cell.mat = floorMat;
   else if (t.brush === 'wall' && brushMat) cell.mat = brushMat;
   else delete cell.mat;
+  if (t.brush !== 'floor' && cell.plot) { delete cell.plot; refreshPlotSelect(); updatePlotInfo(); } // le parcelle vivono solo sul pavimento
   buildWorld();
   return t.brush + ' @ ' + lx + ',' + lz;
 }
@@ -788,14 +906,15 @@ el('l-export').addEventListener('click', () => copyJSON(lightsJSON(), 'JSON luci
 
 // ---------- Scheda MAPPA ----------
 function brushBtnSync() {
-  for (const b of ['floor', 'water', 'wall', 'void', 'bump']) {
+  for (const b of ['floor', 'water', 'wall', 'void', 'bump', 'plot']) {
     el('m-' + b).classList.toggle('active', state.mapTool.brush === b && !state.mapTool.placing);
   }
   el('bump-controls').style.display = (state.mapTool.brush === 'bump' && !state.mapTool.placing) ? 'block' : 'none';
+  el('plot-controls').style.display = (state.mapTool.brush === 'plot' && !state.mapTool.placing) ? 'block' : 'none';
   el('m-place').classList.toggle('active', state.mapTool.placing);
   el('m-place').textContent = state.mapTool.placing ? 'Clicca sulla mappa… (di nuovo per uscire)' : 'Piazza con click';
 }
-for (const b of ['floor', 'water', 'wall', 'void', 'bump']) {
+for (const b of ['floor', 'water', 'wall', 'void', 'bump', 'plot']) {
   el('m-' + b).addEventListener('click', () => { state.mapTool.brush = b; state.mapTool.placing = false; brushBtnSync(); });
 }
 // RILIEVO (bump): parametri + direzione
@@ -806,6 +925,123 @@ el('m-bump-up').addEventListener('click', () => { state.mapTool.bump.dir = 1; el
 el('m-bump-down').addEventListener('click', () => { state.mapTool.bump.dir = -1; el('m-bump-down').classList.add('active'); el('m-bump-up').classList.remove('active'); });
 el('m-quota').addEventListener('input', () => { state.mapTool.quota = +el('m-quota').value; el('v-mquota').textContent = state.mapTool.quota; });
 el('m-alt').addEventListener('input', () => { state.mapTool.alt = +el('m-alt').value; el('v-malt').textContent = state.mapTool.alt; });
+
+// ---------- PARCELLE (Knowledge Garden) ----------
+// Il docente disegna le aree in cui gli studenti costruiranno: maschere di
+// celle (campo `plot` sulla cella), esportate come `plots:[...]` nel map JSON.
+// Logica pura condivisa: window.MappAIGardenCore (mappai-garden-core.js).
+state.mapTool.plot = { id: 'p01', shape: 'round', r: 3, erase: false };
+
+function collectPlotCells() {
+  const out = [];
+  for (let z = 0; z < state.map.size; z++) for (let x = 0; x < state.map.size; x++) {
+    const c = state.map.grid[z][x];
+    if (c.plot) out.push({ x, z, biome: c.biome, plot: c.plot });
+  }
+  return out;
+}
+function currentPlots() {
+  const GC = window.MappAIGardenCore;
+  return GC ? GC.plotsFromCells(collectPlotCells()) : [];
+}
+// colore deterministico per-id (hue dall'hash → parcelle distinguibili a colpo d'occhio)
+function plotColor(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+  return new THREE.Color().setHSL(((h >>> 0) % 360) / 360, 0.75, 0.55);
+}
+function buildPlotOverlay() {
+  if (plotOverlayGroup) {
+    sceneWorld.remove(plotOverlayGroup);
+    if (plotOverlayGroup.userData.quad) plotOverlayGroup.userData.quad.dispose();
+    (plotOverlayGroup.userData.mats || []).forEach(m => m.dispose());
+  }
+  plotOverlayGroup = new THREE.Group();
+  const size = state.map.size, W = size * SUB;
+  const quad = new THREE.PlaneGeometry(SUB * 0.94, SUB * 0.94);
+  plotOverlayGroup.userData.quad = quad;
+  const mats = {}; // un materiale per parcella
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) {
+    const c = state.map.grid[z][x];
+    if (!c.plot) continue;
+    if (!mats[c.plot]) mats[c.plot] = new THREE.MeshBasicMaterial({
+      color: plotColor(c.plot), transparent: true, opacity: 0.30, depthWrite: false
+    });
+    const m = new THREE.Mesh(quad, mats[c.plot]);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x * SUB - W / 2 + SUB / 2, (c.biome === 'floor' ? c.quota : 0) + 0.22, z * SUB - W / 2 + SUB / 2);
+    m.renderOrder = 5;
+    plotOverlayGroup.add(m);
+  }
+  plotOverlayGroup.userData.mats = Object.values(mats);
+  sceneWorld.add(plotOverlayGroup);
+}
+function refreshPlotSelect() {
+  const sel = el('m-plot-id');
+  const cur = state.mapTool.plot.id;
+  const ids = currentPlots().map(p => p.id);
+  if (!ids.includes(cur)) ids.push(cur);
+  ids.sort();
+  sel.innerHTML = '';
+  ids.forEach(id => {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = id;
+    sel.appendChild(o);
+  });
+  sel.value = cur;
+}
+function updatePlotInfo() {
+  const GC = window.MappAIGardenCore;
+  const box = el('m-plot-info');
+  const plots = currentPlots();
+  if (!plots.length) { box.textContent = 'Nessuna parcella disegnata (fallback: griglia automatica).'; return; }
+  const parts = [plots.length + ' parcelle: ' + plots.map(p => p.id + ' (' + p.cells.length + ' celle)').join(' · ')];
+  if (GC) {
+    const v = GC.validatePlots(plots, mapJSON());
+    v.errors.forEach(e => parts.push('✗ ' + e.code + (e.plotId ? ' [' + e.plotId + ']' : '')));
+    v.warnings.forEach(w => parts.push('⚠ ' + w.code + ' [' + w.plotId + '] area ' + (w.area || '')));
+  }
+  box.innerHTML = parts.join('<br>');
+}
+el('m-plot-id').addEventListener('change', () => { state.mapTool.plot.id = el('m-plot-id').value; });
+el('m-plot-new').addEventListener('click', () => {
+  const ids = currentPlots().map(p => p.id);
+  let n = 1;
+  while (ids.includes('p' + String(n).padStart(2, '0'))) n++;
+  state.mapTool.plot.id = 'p' + String(n).padStart(2, '0');
+  state.mapTool.plot.erase = false;
+  el('m-plot-paint').classList.add('active'); el('m-plot-erase').classList.remove('active');
+  refreshPlotSelect();
+  toast('Parcella corrente: ' + state.mapTool.plot.id + ' — dipingi sul pavimento');
+});
+el('m-plot-del').addEventListener('click', () => {
+  const id = state.mapTool.plot.id;
+  let n = 0;
+  for (let z = 0; z < state.map.size; z++) for (let x = 0; x < state.map.size; x++) {
+    const c = state.map.grid[z][x];
+    if (c.plot === id) { delete c.plot; n++; }
+  }
+  buildPlotOverlay(); refreshPlotSelect(); updatePlotInfo();
+  toast(n ? ('Parcella ' + id + ' eliminata (' + n + ' celle)') : 'Parcella già vuota');
+});
+el('m-plot-square').addEventListener('click', () => {
+  state.mapTool.plot.shape = 'square';
+  el('m-plot-square').classList.add('active'); el('m-plot-round').classList.remove('active');
+});
+el('m-plot-round').addEventListener('click', () => {
+  state.mapTool.plot.shape = 'round';
+  el('m-plot-round').classList.add('active'); el('m-plot-square').classList.remove('active');
+});
+el('m-plot-r').addEventListener('input', () => { state.mapTool.plot.r = +el('m-plot-r').value; el('v-mplotr').textContent = state.mapTool.plot.r; });
+el('m-plot-paint').addEventListener('click', () => {
+  state.mapTool.plot.erase = false;
+  el('m-plot-paint').classList.add('active'); el('m-plot-erase').classList.remove('active');
+});
+el('m-plot-erase').addEventListener('click', () => {
+  state.mapTool.plot.erase = true;
+  el('m-plot-erase').classList.add('active'); el('m-plot-paint').classList.remove('active');
+});
+refreshPlotSelect(); updatePlotInfo();
 el('m-size').value = String(state.map.size);
 el('m-size').addEventListener('change', () => {
   const ns = +el('m-size').value;
@@ -815,11 +1051,13 @@ el('m-size').addEventListener('change', () => {
   for (let z = 0; z < overlap; z++) for (let x = 0; x < overlap; x++) {
     const c = old.grid[z][x];
     Object.assign(grid[z][x], { biome: c.biome, quota: c.quota, alt: c.alt });
+    if (c.mat) grid[z][x].mat = c.mat;    // il resize non deve perdere materiali…
+    if (c.plot) grid[z][x].plot = c.plot; // …né parcelle Knowledge Garden
   }
   state.map = { size: ns, grid };
   state.props = state.props.filter(p => p.x < ns && p.z < ns);
   halfH = Math.max(14, ns + 1); updateFrustum();
-  buildWorld(); renderPropList();
+  buildWorld(); renderPropList(); refreshPlotSelect(); updatePlotInfo();
   toast('Griglia ' + ns + '×' + ns + ' (celle nuove: pavimento)');
 });
 el('m-place').addEventListener('click', () => {
@@ -852,10 +1090,17 @@ function renderPropList() {
     const item = document.createElement('div');
     item.className = 'item';
     item.innerHTML = '<span style="flex:1">' + p.name + ' (' + p.x + ', ' + p.z + ')</span>';
-    const del = document.createElement('button');
-    del.type = 'button'; del.textContent = 'X';
-    del.addEventListener('click', () => { state.props.splice(idx, 1); buildProps(); renderPropList(); });
-    item.appendChild(del);
+    // studente: può eliminare solo i PROPRI oggetti (quelli del template/altri sono bloccati)
+    if (!STUDENT.on || p._student) {
+      const del = document.createElement('button');
+      del.type = 'button'; del.textContent = 'X';
+      del.addEventListener('click', () => {
+        state.props.splice(idx, 1);
+        buildProps(); renderPropList();
+        if (STUDENT.on) studentSaveDraft();
+      });
+      item.appendChild(del);
+    }
     box.appendChild(item);
   });
 }
@@ -867,9 +1112,13 @@ function mapJSON() {
     if (c.biome === 'void') continue;
     const out = { x, z, biome: c.biome, quota: c.quota, alt: c.alt };
     if (c.mat) out.mat = c.mat;   // materiale (contratto: campo opzionale)
+    if (c.plot) out.plot = c.plot; // parcella Knowledge Garden (campo opzionale)
     cells.push(out);
   }
-  return { seed: SEED, size: state.map.size, sub: SUB, cells, props: state.props };
+  const json = { seed: SEED, size: state.map.size, sub: SUB, cells, props: state.props };
+  const plots = currentPlots();
+  if (plots.length) json.plots = plots;   // maschere parcella (ignorate da proto.js)
+  return json;
 }
 el('m-save').addEventListener('click', () => {
   localStorage.setItem('voxelproto_map', JSON.stringify(mapJSON()));
@@ -881,7 +1130,7 @@ el('m-reset').addEventListener('click', () => {
   state.props = [];
   el('m-size').value = String(DEFAULT_SIZE);
   halfH = Math.max(14, DEFAULT_SIZE + 1); updateFrustum();
-  buildWorld(); renderPropList();
+  buildWorld(); renderPropList(); refreshPlotSelect(); updatePlotInfo();
   toast('Mappa demo ripristinata');
 });
 el('m-export').addEventListener('click', () => copyJSON(mapJSON(), 'JSON mappa'));
@@ -1715,3 +1964,147 @@ if (window.__editorDebug) Object.assign(window.__editorDebug, { VM, refreshMater
   liquidCounts: () => ({ water: waterAnim.length, lava: lavaAnim.length,
     lavaMeshCount: lavaMesh ? lavaMesh.count : -1, waterMeshCount: waterMesh ? waterMesh.count : -1,
     lavaColor0: (lavaMesh && lavaMesh.instanceColor) ? [lavaMesh.instanceColor.array[0], lavaMesh.instanceColor.array[1], lavaMesh.instanceColor.array[2]] : null }) });
+
+// ============================================================
+// MODALITÀ STUDENTE — UI, bozza, consegna (Knowledge Garden, Fase 6)
+// ============================================================
+function studentSaveDraft() {
+  if (!STUDENT.on) return;
+  // l'editor lavora sul CROP (coordinate locali); bozza e consegna viaggiano
+  // in coordinate GLOBALI del giardino (locale + STUDENT.off)
+  const cells = [];
+  STUDENT.mask.forEach(k => {
+    const p = k.split(','), lx = +p[0], lz = +p[1];
+    const c = state.map.grid[lz] && state.map.grid[lz][lx];
+    if (!c) return;
+    const o = { x: lx + STUDENT.off.x, z: lz + STUDENT.off.z, biome: c.biome, quota: c.quota, alt: c.alt };
+    if (c.mat) o.mat = c.mat;
+    cells.push(o);
+  });
+  const props = state.props
+    .filter(p => p._student && STUDENT.mask.has(Math.floor(p.x) + ',' + Math.floor(p.z)))
+    .map(p => {
+      const q = Object.assign({}, p, { x: +(p.x + STUDENT.off.x).toFixed(2), z: +(p.z + STUDENT.off.z).toFixed(2) });
+      delete q._student;
+      return q;
+    });
+  try {
+    localStorage.setItem('garden_draft::' + STUDENT.token + '::' + STUDENT.plotId,
+      JSON.stringify({ cells, props }));
+  } catch (e) { console.warn('bozza non salvata', e); }
+  return { cells, props };
+}
+
+if (STUDENT.on) {
+  // ── gating UI: niente estetica globale, niente strumenti da docente ──
+  ['tab-colori', 'tab-luci'].forEach(id => { const b = el(id); if (b) b.style.display = 'none'; });
+  ['m-plot', 'm-void'].forEach(id => { const b = el(id); if (b) b.style.display = 'none'; });
+  el('m-size').disabled = true;
+  el('m-alt').max = 10;   // Knowledge Garden: muri fino a 10 (il contratto dungeon si ferma a 4)
+  ['m-save', 'm-reset', 'm-export'].forEach(id => el(id).style.display = 'none');
+  document.querySelector('#panel h1').textContent = '🌱 La tua parcella — ' + STUDENT.plotId;
+  // camera addosso al crop: la parcella riempie la vista
+  halfH = Math.max(7, state.map.size + 2);
+  updateFrustum();
+  // rispetta il salto diretto da telefono («crea asset» → #voxel / #pixel)
+  if (location.hash !== '#voxel' && location.hash !== '#pixel') setTab('mappa');
+
+  // ── bozza a ogni tratto (stessa chiave di garden.js → interop giardino↔editor) ──
+  window.addEventListener('pointerup', () => { if (state.tab === 'mappa') studentSaveDraft(); });
+
+  // ── riga azioni: consegna + ritorno al giardino ──
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML =
+    '<button id="st-submit" type="button" style="background:#3b6d8a;border-color:#3b6d8a;font-weight:600">📮 Consegna la parcella</button>' +
+    '<button id="st-back" type="button">🌱 Torna al giardino</button>';
+  el('m-save').parentElement.appendChild(row);
+  el('st-back').addEventListener('click', () => {
+    studentSaveDraft();
+    location.href = './garden.html?s=' + encodeURIComponent(STUDENT.token);
+  });
+
+  // ── modale targhetta (obbligatoria) ──
+  const modal = document.createElement('div');
+  modal.id = 'st-modal';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:80;background:rgba(10,12,8,.78);align-items:center;justify-content:center';
+  modal.innerHTML =
+    '<div style="background:#1d241a;border:1px solid #3b4a35;border-radius:14px;color:#f0efe9;max-width:440px;margin:20px;padding:24px 28px;font-size:14px;line-height:1.6;width:100%">' +
+    '<h2 style="margin:0 0 10px;font-size:18px">🪧 La targhetta della tua mostra</h2>' +
+    '<label style="display:block;margin:10px 0 4px;color:#b9d29a;font-size:13px">Concetto rappresentato (titolo)</label>' +
+    '<input id="st-title" maxlength="60" style="width:100%;box-sizing:border-box;background:#12160f;color:#f0efe9;border:1px solid #3b4a35;border-radius:8px;padding:8px 10px;font-size:14px">' +
+    '<label style="display:block;margin:10px 0 4px;color:#b9d29a;font-size:13px">Spiegazione (2-3 frasi)</label>' +
+    '<textarea id="st-text" maxlength="400" style="width:100%;box-sizing:border-box;background:#12160f;color:#f0efe9;border:1px solid #3b4a35;border-radius:8px;padding:8px 10px;font-size:14px;min-height:90px"></textarea>' +
+    '<label style="display:block;margin:10px 0 4px;color:#b9d29a;font-size:13px">Autore</label>' +
+    '<input id="st-author" maxlength="40" style="width:100%;box-sizing:border-box;background:#12160f;color:#f0efe9;border:1px solid #3b4a35;border-radius:8px;padding:8px 10px;font-size:14px">' +
+    '<div id="st-err" style="color:#e88;font-size:12.5px;min-height:16px;margin-top:6px"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">' +
+    '<button id="st-no" type="button" style="padding:8px 18px;border-radius:8px;border:none;cursor:pointer;background:#3d3c38;color:#f0efe9">Non ancora</button>' +
+    '<button id="st-ok" type="button" style="padding:8px 18px;border-radius:8px;border:none;cursor:pointer;background:#4a8f43;color:#fff;font-weight:600">📮 Consegna</button>' +
+    '</div></div>';
+  document.body.appendChild(modal);
+
+  el('st-submit').addEventListener('click', () => {
+    const mine = STUDENT.plots.find(p => p.id === STUDENT.plotId);
+    if (mine && mine.concept) {
+      el('st-title').value = mine.concept.title || '';
+      el('st-text').value = mine.concept.text || '';
+      el('st-author').value = mine.concept.author || '';
+    } else {
+      el('st-author').value = localStorage.getItem('garden_name') || '';
+    }
+    el('st-err').textContent = '';
+    modal.style.display = 'flex';
+  });
+  el('st-no').addEventListener('click', () => { modal.style.display = 'none'; });
+  el('st-ok').addEventListener('click', async () => {
+    const GC = window.MappAIGardenCore;
+    const concept = {
+      title: el('st-title').value.trim(),
+      text: el('st-text').value.trim(),
+      author: el('st-author').value.trim()
+    };
+    const tk = GC.validateTarghetta(concept);
+    if (!tk.ok) {
+      const msgs = { 'targhetta-title': 'Titolo: 2-60 caratteri.', 'targhetta-text': 'Spiegazione: almeno 10 caratteri.', 'targhetta-author': 'Autore: 2-40 caratteri.' };
+      el('st-err').textContent = tk.errors.map(e => msgs[e.code] || e.code).join(' ');
+      return;
+    }
+    const draft = studentSaveDraft();
+    // librerie custom (texture dal pixel editor, materiali) → namespaced pNN.*
+    const ns = GC.namespacePlotLibs({
+      plotId: STUDENT.plotId, cells: draft.cells, props: draft.props,
+      texLib: VM.loadTexLib(), matLib: VM.loadMatLib(),
+      sessionTex: STUDENT.sessionTex, sessionMat: STUDENT.sessionMat
+    });
+    let deviceId = localStorage.getItem('garden_device_id');
+    if (!deviceId) {
+      deviceId = 'dev-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem('garden_device_id', deviceId);
+    }
+    try {
+      const res = await fetch('/api/plot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: STUDENT.token, plotId: STUDENT.plotId, deviceId, concept,
+          cells: ns.cells, props: ns.props,
+          libs: { textures: ns.textures, materials: ns.materials }
+        })
+      });
+      if (res.status === 403) {
+        el('st-err').textContent = 'Questa parcella non è tua: rivendicala prima nel giardino.';
+        return;
+      }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        el('st-err').textContent = 'Il server ha rifiutato: ' + ((d.errors || []).map(e => e.code).join(', ') || res.status);
+        return;
+      }
+    } catch (e) {
+      el('st-err').textContent = 'Server non raggiungibile — la bozza resta salvata qui.';
+      return;
+    }
+    modal.style.display = 'none';
+    toast('🪧 Mostra consegnata! Puoi ancora migliorarla e riconsegnare.');
+  });
+}

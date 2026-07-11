@@ -1,8 +1,17 @@
-# Voxel Proto — Memory Dungeon 3D
+# Voxel Proto — Memory Dungeon 3D → Knowledge Garden
 
 Prototipo standalone (6 luglio 2026) per la nuova direzione grafica del Memory Dungeon:
 **ambiente 3D a volumi flat senza texture + characters/NPC/item come sprite 2D billboard**.
 Zero modifiche al gioco attuale — tutto vive in questa cartella.
+
+> **Pivot 10 luglio 2026 — Knowledge Garden.** Il dungeon è accantonato; l'editor
+> vive come ambiente creativo bonus. Nuova pagina **`garden.html` + `garden.js`**
+> (fork di proto.js): giardino espositivo di classe con parcelle disegnate dal
+> docente (pennello 🌱 nell'editor), creator mode in-parcella (texture, muri ≤10,
+> rilievo, oggetti), targhetta obbligatoria, muri cutaway. Sessione LAN dal PC
+> docente (Studio → card 🌱, QR per gli studenti, archivio in cartelle locali).
+> Docs complete: `docs/knowledge-garden.md`. Dev mode senza server:
+> `garden.html?map=maps/giardino_voxel.json&dev=1&plot=5`.
 
 ## Come avviare
 

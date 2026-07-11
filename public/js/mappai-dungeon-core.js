@@ -468,7 +468,9 @@
     var slots = Array.isArray(plan.slots) ? plan.slots : [];
     var gateKeys = {};
     slots.forEach(function (s) {
-      if (s && s.type === 'gate' && Number.isInteger(s.x) && Number.isInteger(s.z)) gateKeys[s.x + ',' + s.z] = s;
+      // 'bridge' = gate che si apre da solo a padronanza (§20 ponte-fluency): taglia
+      // il grafo come un gate, così l'area oltre il ponte resta una zona separata.
+      if (s && (s.type === 'gate' || s.type === 'bridge') && Number.isInteger(s.x) && Number.isInteger(s.z)) gateKeys[s.x + ',' + s.z] = s;
     });
     // flood-fill (4 dir) delle celle camminabili NON-gate — ordine deterministico.
     // Quota-aware (§21): una rupe > STEP_UP_JUMP divide due aree come un muro.
@@ -509,7 +511,8 @@
         if (idx !== undefined && adj.indexOf(idx) < 0 &&
             (grid.map[k] !== 0 || stepKindGrid(grid.map, quota, k, nk) !== 'blocked')) adj.push(idx);
       });
-      return { key: k, req: gateKeys[k].req || null, zoneIdx: adj, onWalkable: grid.map[k] === 0 };
+      return { key: k, req: gateKeys[k].req || null, zoneIdx: adj, onWalkable: grid.map[k] === 0,
+               bridge: gateKeys[k].type === 'bridge', reward: gateKeys[k].reward || null };
     });
     // conteggi slot per zona + spawn/gatekeeper
     var spawnIdx = null, spawnCount = 0, gatekeeperCount = 0, gatekeeperIdx = null;

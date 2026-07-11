@@ -1377,11 +1377,27 @@
                     </label>
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
-                    <label for="menu-import-floorplan" title="Importa un piano del Memory Dungeon nel vault" data-i18n-title="tt_import_floorplan">
+                    <label for="menu-import-floorplan" id="menu-import-floorplan-label" title="Importa un piano del Memory Dungeon nel vault" data-i18n-title="tt_import_floorplan">
                         <i data-lucide="castle"></i> <span data-i18n="ui_import_floorplan">Importa piano Dungeon</span>
                     </label>
                     <input type="file" id="menu-import-floorplan" accept=".json" class="hidden"
                         onchange="window.MappAIGames && window.MappAIGames.importFloorPlan(event)">
+                    <script>
+                        // Pivot Knowledge Garden (10/7/26): dungeon nascosto di default.
+                        // Kill-switch: localStorage.mappai_dungeon_visible='1' ripristina la voce.
+                        if (localStorage.getItem('mappai_dungeon_visible') !== '1') {
+                            document.getElementById('menu-import-floorplan-label').classList.add('hidden');
+                        }
+                        // Hub Knowledge Garden = finestra Studio (11/7/26). Il bottone del menu
+                        // azioni rapide chiama questa funzione (contratto 001-menu-reorg).
+                        window.openKnowledgeGardenHub = function () {
+                            if (window.electronAPI && window.electronAPI.launcherChoice) {
+                                window.electronAPI.launcherChoice('studio');
+                            } else if (window.showToast) {
+                                window.showToast(window.t ? window.t('tst_kg_electron', 'Il Knowledge Garden si apre dall\'app desktop') : 'Solo app desktop', 'info');
+                            }
+                        };
+                    </script>
                     <div class="h-px bg-slate-100 my-1"></div>
                     <!-- Sezione: Output Materiali di Studio (raggruppa le funzioni di generazione materiali) -->
                     <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400" data-i18n="ui_output_materials">Output materiali di studio</div>

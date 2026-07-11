@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Memory Dungeon Studio</title>
+<title>MappAI Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -62,19 +62,23 @@
 </style>
 <!-- validatore contratto §4 (UMD → window.MappAIDungeonCore) -->
 <script src="../../public/js/mappai-dungeon-core.js"></script>
+<!-- QR per il Knowledge Garden (vendored, MIT — Kazuhiko Arase) -->
+<script src="../../public/js/vendor/qrcode-generator.js"></script>
 </head>
 <body>
 <div class="wrap">
   <header>
     <canvas id="logo" width="252" height="192"></canvas>
     <div>
-      <div class="t1">Memory Dungeon</div>
+      <div class="t1">MappAI</div>
       <div class="t2">STUDIO</div>
     </div>
     <div class="back"><span class="linkish" id="go-editor-free">Apri editor libero →</span></div>
   </header>
 
   <div class="cards">
+    <div class="acard" data-panel="p-garden" id="card-garden"><div class="ico">🌱</div><h3>Knowledge Garden</h3>
+      <p>Il giardino espositivo della classe: gli studenti entrano dal browser con un QR, rivendicano una parcella e costruiscono la mostra di un concetto.</p></div>
     <div class="acard" data-panel="p-new"><div class="ico">🆕</div><h3>Nuova mappa</h3>
       <p>Scegli un progetto o un vault: lo Studio ne estrae i requisiti (memorie per livello) e valida mentre disegni.</p></div>
     <div class="acard" data-panel="p-vault"><div class="ico">📂</div><h3>Apri vault</h3>
@@ -91,6 +95,62 @@
       <p>Layout procedurale da un seed come punto di partenza, poi lo ritocchi nell'editor.</p></div>
     <div class="acard" data-panel="p-export"><div class="ico">📦</div><h3>Pacchetto classe</h3>
       <p>Esporta più piani di un vault in un file unico da condividere con la classe.</p></div>
+  </div>
+
+  <!-- ─── KNOWLEDGE GARDEN ─── -->
+  <div class="panel" id="p-garden">
+    <h2>🌱 Knowledge Garden — sessione di classe</h2>
+    <div id="g-setup">
+      <div class="row">
+        <label>Nome sessione: <input type="text" id="g-name" placeholder="es. 4B — La fotosintesi" style="width:220px"></label>
+        <label>Parcella (lato, solo se il template non ha parcelle disegnate):
+          <input type="number" id="g-plotsize" value="15" min="3" max="30" style="width:60px"></label>
+      </div>
+      <div class="row">
+        <label class="ck"><input type="radio" name="g-src" value="editor" checked> Mappa corrente dell'editor</label>
+        <label class="ck"><input type="radio" name="g-src" value="file"> Da file…</label>
+        <input type="file" id="g-file" accept=".json" style="display:none">
+        <span class="dim" id="g-tpl-info"></span>
+      </div>
+      <div class="row"><button type="button" class="primary" id="g-start">▶ Avvia sessione</button></div>
+      <div class="note">Il template si disegna nell'editor: pennelli mappa + pennello <b>🌱 Parcella</b>
+        per le aree degli studenti. Senza parcelle disegnate scatta la griglia automatica.
+        Le texture/materiali/oggetti delle TUE librerie viaggiano con la sessione.</div>
+    </div>
+    <div id="g-live" style="display:none">
+      <div class="row">
+        <div>
+          <h4>QR per gli studenti (stessa rete Wi-Fi)</h4>
+          <canvas id="g-qr" width="220" height="220" style="background:#fff;border-radius:8px;padding:8px"></canvas>
+          <div class="row">
+            <button type="button" id="g-qr-full">🖥 QR a schermo intero</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:260px">
+          <h4>Indirizzi (uno per interfaccia di rete)</h4>
+          <div class="list" id="g-urls"></div>
+          <h4>Parcelle</h4>
+          <div class="list" id="g-dash"></div>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" id="g-open">👁 Apri il giardino</button>
+        <button type="button" id="g-folder">📁 Apri cartella archivio</button>
+        <button type="button" id="g-stop">⏹ Chiudi sessione</button>
+      </div>
+      <div class="note">I lavori si salvano in <span id="g-dir"></span> — <code>merged.json</code> è il
+        giardino unito, riapribile per sempre. Se il QR non funziona: consenti MappAI nel firewall
+        quando macOS/Windows lo chiede; se il Wi-Fi della scuola isola i dispositivi (AP isolation),
+        usa l'hotspot del telefono.</div>
+    </div>
+  </div>
+
+  <!-- QR a schermo intero (per il proiettore) -->
+  <div id="g-qr-overlay" style="display:none;position:fixed;inset:0;z-index:100;background:#fff;color:#111;
+       flex-direction:column;align-items:center;justify-content:center;cursor:pointer">
+    <canvas id="g-qr-big" width="560" height="560"></canvas>
+    <div id="g-qr-url" style="font-size:28px;font-family:monospace;margin-top:18px"></div>
+    <div style="font-size:16px;color:#666;margin-top:10px">Inquadra col tablet o scrivi l'indirizzo nel browser · clic per chiudere</div>
   </div>
 
   <!-- ─── NUOVA MAPPA ─── -->
@@ -213,6 +273,16 @@
  * Senza electronAPI (browser): le sezioni vault sono disabilitate con spiegazione. */
 var API = window.electronAPI || null;
 var CORE = window.MappAIDungeonCore;
+// get-all-vaults (main.js) ritorna { folderName, fullPath, rootNodeLabel, … };
+// la landing legge v.name / v.path → normalizza gli alias (fix nomi "undefined").
+function normVaults(list) {
+  (list || []).forEach(function (v) {
+    if (!v) return;
+    v.name = v.name || v.rootNodeLabel || v.folderName || 'Vault';
+    v.path = v.path || v.fullPath;
+  });
+  return list || [];
+}
 function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast._h); toast._h = setTimeout(function () { t.style.opacity = 0; }, 2600); }
 function el(id) { return document.getElementById(id); }
 
@@ -343,12 +413,12 @@ function mergeVaultMaterials(fl) {
 })();
 
 /* ── pannelli ── */
-var panels = ['p-new', 'p-vault', 'p-resume', 'p-file', 'p-draft', 'p-export'];
+var panels = ['p-garden', 'p-new', 'p-vault', 'p-resume', 'p-file', 'p-draft', 'p-export'];
 document.querySelectorAll('.acard[data-panel]').forEach(function (c) {
   c.addEventListener('click', function () {
     panels.forEach(function (p) { el(p).classList.toggle('open', p === c.dataset.panel); });
     document.querySelectorAll('.acard').forEach(function (a) { a.classList.toggle('active', a === c); });
-    var init = { 'p-vault': initVault, 'p-resume': initResume, 'p-export': initExport, 'p-new': initNew }[c.dataset.panel];
+    var init = { 'p-vault': initVault, 'p-resume': initResume, 'p-export': initExport, 'p-new': initNew, 'p-garden': initGarden }[c.dataset.panel];
     if (init) init();
   });
 });
@@ -403,6 +473,7 @@ el('src-vault').addEventListener('click', function () {
   var box = el('src-list'); box.innerHTML = '';
   if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Vault disponibili solo nell\'app Electron.</div>'; return; }
   API.getAllVaults().then(function (vaults) {
+    vaults = normVaults(vaults);
     if (!vaults || !vaults.length) { box.innerHTML = '<div class="dim">Nessun vault in Documents/MappAI - Vault.</div>'; return; }
     vaults.forEach(function (v) {
       var it = document.createElement('div'); it.className = 'it';
@@ -455,6 +526,7 @@ function initVault() {
   el('vault-detail').style.display = 'none';
   if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Vault disponibili solo nell\'app Electron (npm start → Studio).</div>'; return; }
   API.getAllVaults().then(function (vaults) {
+    vaults = normVaults(vaults);
     if (!vaults || !vaults.length) { box.innerHTML = '<div class="dim">Nessun vault trovato.</div>'; return; }
     vaults.forEach(function (v) {
       var it = document.createElement('div'); it.className = 'it';
@@ -614,7 +686,7 @@ el('file-in').addEventListener('change', function (ev) {
     } else { toast('Né piano né pacchetto Memory Dungeon'); return; }
     var sel = el('file-vault'); sel.innerHTML = '<option value="">— nessun vault (solo modifica) —</option>';
     if (API && API.getAllVaults) API.getAllVaults().then(function (vaults) {
-      (vaults || []).forEach(function (v) {
+      normVaults(vaults).forEach(function (v) {
         var o = document.createElement('option'); o.value = v.path; o.textContent = v.name; sel.appendChild(o);
       });
     });
@@ -662,7 +734,7 @@ function initExport() {
   el('exp-detail').style.display = 'none';
   if (!API || !API.getAllVaults) { box.innerHTML = '<div class="dim">Solo nell\'app Electron.</div>'; return; }
   API.getAllVaults().then(function (vaults) {
-    (vaults || []).forEach(function (v) {
+    normVaults(vaults).forEach(function (v) {
       var it = document.createElement('div'); it.className = 'it';
       it.innerHTML = '<span>' + v.name + '</span><small>scegli →</small>';
       it.addEventListener('click', function () {
@@ -698,6 +770,158 @@ if (localStorage.getItem('voxelproto_map')) {
   el('p-resume').classList.add('open');
   document.querySelector('.acard[data-panel=p-resume]').classList.add('active');
 }
+
+/* ══════════════════════════════════════════════════════════════
+ * KNOWLEDGE GARDEN (pivot 10/7/26) — lo Studio è l'hub docente:
+ * avvia il server LAN (garden-server.js via IPC), genera il QR,
+ * mostra la dashboard e archivia i lavori in cartelle locali.
+ * ══════════════════════════════════════════════════════════════ */
+var gTemplate = null;      // template scelto (map JSON, con eventuali plots)
+var gPollTimer = null;
+var gLive = null;          // risposta di garden-start-session
+
+function gardenLibs() {
+  function ls(k) { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) { return {}; } }
+  return { textures: ls('voxelproto_textures'), materials: ls('voxelproto_materials'), assets: ls('voxelproto_assets') };
+}
+function gTplInfo() {
+  var s = el('g-tpl-info');
+  if (!gTemplate) { s.textContent = '— nessun template caricato —'; return; }
+  var n = (gTemplate.plots || []).length;
+  s.textContent = gTemplate.size + '×' + gTemplate.size + ' · ' +
+    (n ? n + ' parcelle disegnate 🌱' : 'nessuna parcella disegnata → griglia automatica');
+}
+function gLoadEditorTpl() {
+  try { gTemplate = JSON.parse(localStorage.getItem('voxelproto_map') || 'null'); }
+  catch (e) { gTemplate = null; }
+  gTplInfo();
+}
+function initGarden() {
+  if (!API || !API.gardenStartSession) {
+    el('g-setup').innerHTML = '<div class="note">La sessione Knowledge Garden si avvia solo dentro l\'app Electron (serve il server sul PC docente).</div>';
+    return;
+  }
+  gLoadEditorTpl();
+  API.gardenSessionStatus().then(function (st) {
+    if (st && st.success) {   // sessione già attiva (es. riapertura pannello)
+      gLive = { port: st.port, urls: st.urls, token: st.session.token, dir: st.dir, name: st.session.name };
+      gShowLive();
+    }
+  });
+}
+document.querySelectorAll('input[name=g-src]').forEach(function (r) {
+  r.addEventListener('change', function () {
+    el('g-file').style.display = r.value === 'file' && r.checked ? '' : 'none';
+    if (r.value === 'editor' && r.checked) gLoadEditorTpl();
+  });
+});
+el('g-file').addEventListener('change', function () {
+  var f = el('g-file').files[0];
+  if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    try {
+      var d = JSON.parse(rd.result);
+      if (!d || !Array.isArray(d.cells)) throw new Error('cells mancanti');
+      gTemplate = d;
+      gTplInfo();
+    } catch (e) { toast('File mappa non valido: ' + e.message); }
+  };
+  rd.readAsText(f);
+});
+
+function drawQR(canvas, text) {
+  var qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  var n = qr.getModuleCount();
+  var ctx = canvas.getContext('2d');
+  var pad = 2, cell = Math.floor(canvas.width / (n + pad * 2));
+  var off = Math.floor((canvas.width - cell * n) / 2);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#111';
+  for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) {
+    if (qr.isDark(r, c)) ctx.fillRect(off + c * cell, off + r * cell, cell, cell);
+  }
+}
+function gJoinUrl(u) { return u + '/tools/voxel-proto/garden.html?s=' + gLive.token; }
+function gShowLive() {
+  el('g-setup').style.display = 'none';
+  el('g-live').style.display = '';
+  el('g-dir').textContent = gLive.dir;
+  var urls = gLive.urls || [];
+  el('g-urls').innerHTML = '';
+  urls.forEach(function (u, i) {
+    var d = document.createElement('div');
+    d.className = 'item';
+    d.innerHTML = '<code style="flex:1">' + gJoinUrl(u) + '</code>';
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = 'QR';
+    b.addEventListener('click', function () { drawQR(el('g-qr'), gJoinUrl(u)); });
+    d.appendChild(b);
+    el('g-urls').appendChild(d);
+  });
+  if (urls.length) drawQR(el('g-qr'), gJoinUrl(urls[0]));
+  gPoll();
+  clearInterval(gPollTimer);
+  gPollTimer = setInterval(gPoll, 3000);
+}
+function gPoll() {
+  if (!API) return;
+  API.gardenSessionStatus().then(function (st) {
+    if (!st || !st.success) return;
+    var box = el('g-dash');
+    box.innerHTML = '';
+    var ICO = { free: '🟢 libera', claimed: '🟡 al lavoro', submitted: '🪧 consegnata' };
+    (st.plots || []).forEach(function (p) {
+      var d = document.createElement('div');
+      d.className = 'item';
+      var txt = p.id + ' · ' + (ICO[p.status] || p.status);
+      if (p.owner) txt += ' — ' + p.owner;
+      if (p.concept && p.concept.title) txt += ' · «' + p.concept.title + '»';
+      d.innerHTML = '<span style="flex:1">' + txt + '</span>';
+      box.appendChild(d);
+    });
+  });
+}
+el('g-start').addEventListener('click', function () {
+  if (!gTemplate) { toast('Carica prima un template (editor o file)'); return; }
+  var name = el('g-name').value.trim() || 'Knowledge Garden';
+  API.gardenStartSession({
+    name: name,
+    plotSize: +el('g-plotsize').value || 15,
+    template: gTemplate,
+    libs: gardenLibs()
+  }).then(function (r) {
+    if (!r || !r.success) { toast('Avvio fallito: ' + (r && r.error)); return; }
+    gLive = r;
+    gShowLive();
+    toast(r.resumed ? 'Sessione RIPRESA (stesso QR di prima)' : 'Sessione avviata — ' + r.plots + ' parcelle');
+  });
+});
+el('g-qr-full').addEventListener('click', function () {
+  var u = gJoinUrl((gLive.urls || [])[0] || '');
+  drawQR(el('g-qr-big'), u);
+  el('g-qr-url').textContent = u;
+  el('g-qr-overlay').style.display = 'flex';
+});
+el('g-qr-overlay').addEventListener('click', function () {
+  el('g-qr-overlay').style.display = 'none';
+});
+el('g-open').addEventListener('click', function () {
+  var u = 'http://localhost:' + gLive.port + '/tools/voxel-proto/garden.html?s=' + gLive.token;
+  if (API && API.openExternal) API.openExternal(u); else window.open(u);
+});
+el('g-folder').addEventListener('click', function () { API.gardenOpenFolder(); });
+el('g-stop').addEventListener('click', function () {
+  API.gardenStopSession().then(function () {
+    clearInterval(gPollTimer);
+    gLive = null;
+    el('g-live').style.display = 'none';
+    el('g-setup').style.display = '';
+    toast('Sessione chiusa — l\'archivio resta sul disco (riavviala con lo stesso nome per riprenderla)');
+  });
+});
 
 // Uscita segreta: 5 click nell'angolo in alto a sinistra (entro 3s) → launcher.
 // In Electron chiude la finestra Studio e riapre la scelta; nel browser naviga al file.

@@ -534,6 +534,70 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### 🌱 PIVOT (10/7/26 sera): Memory Dungeon → Knowledge Garden — Fasi 0-5 IMPLEMENTATE
+Decisione utente: dungeon troppo oneroso per i docenti → l'editor diventa ambiente
+creativo bonus. **Giardino espositivo di classe**: studenti entrano dal browser via QR
+(server LAN sul PC docente), rivendicano una parcella disegnata dal docente (pennello 🌱
+nell'editor, maschere anche non rettangolari), costruiscono (texture, muri ≤10, rilievo,
+oggetti 3D) e consegnano con **targhetta obbligatoria** (concetto della mappa mentale).
+Fonte di verità: `docs/knowledge-garden.md`. Piano: `~/.claude/plans/devo-chiudere-il-progetto-radiant-wirth.md`.
+- **Core puro**: `public/js/mappai-garden-core.js` (UMD — maschere parcella, validatePlots,
+  validateTarghetta/Submission, applyClaim, mergeGarden, wallVisibility cutaway) +
+  `tests/garden-core.test.js` (38) e `tests/garden-server.test.js` (9) → suite **297/297** ✅.
+- **Editor**: pennello 🌱 Parcella (rotondo/quadrato, overlay colorato, export `plots`
+  in mapJSON, avvisi sovrapposizione/area; il resize ora conserva anche `mat`).
+  Bump cache `editor.js?v=e7-plots`.
+- **Studente**: `tools/voxel-proto/garden.{html,js}` (fork di proto.js, proto INTATTO):
+  intro full-screen, bordi parcella (verde/ambra/blu/menta), **muri cutaway** allo snap
+  Q/E (wallVisibility pura), creator mode con guard maschera + toast, bozza autosalvata,
+  cartelli 🪧 cliccabili, riconsegna permessa.
+  Dev mode: `garden.html?map=maps/giardino_voxel.json&dev=1&plot=5`.
+- **Server LAN**: `garden-server.js` (repo root, Node http puro, static allowlist rigida,
+  API session/claim/plot/status/release, token nel QR + adminToken, crash-safe: riprende
+  da disco con lo stesso token). Archivio `~/Documents/MappAI - Knowledge Garden/<slug>/`
+  (session.json, plots/*.json, merged.json riapribile per sempre).
+- **Docente**: Studio → card 🌱 (template da editor/file, avvia/riprendi sessione, QR
+  anche a schermo intero per proiettore, dashboard polling 3s, apri giardino/cartella).
+  IPC `garden-start/stop-session`, `garden-session-status`, `garden-open-folder` in
+  main.js + preload. QR vendored `public/js/vendor/qrcode-generator.js` (MIT).
+- **Dungeon NASCOSTO, codice+test intatti**: voce menu import dietro
+  `mappai_dungeon_visible` (default nascosta), launcher card → "Knowledge Garden",
+  studio.html → "MappAI Studio". Launcher 🎮 era già OFF di default.
+- ✅ Verificato in browser: editor (pennello, export, persistenza), giardino end-to-end
+  CONTRO SERVER REALE (redirect QR-URL → claim → costruzione → consegna → file su disco →
+  secondo device vede la mostra unita). ✅ Testato in Electron vivo da Giacomo (11/7/26):
+  card 🌱 → sessione :8765 → QR → claim/consegna da device studente OK.
+- **FASE 6 (11/7/26): editor studente device-adaptive** (richiesta utente post-test).
+  PC = **editor full edition** servito dal LAN server in modalità studente
+  (`editor.html?s=<token>&plot=pNN`): boot da /api/session — **CROP della sola
+  parcella** (bbox maschera → mini-mappa locale, fuori maschera = void, palette
+  verde giardino + template, camera addosso; coordinate riconvertite in globale
+  con STUDENT.off in bozza/consegna), guard maschera in paintAt (+bump per-cella),
+  muri slider fino a 10,
+  UI gated (no Colori/Luci/Vuoto/Parcella/resize/save-vault), «📮 Consegna» con
+  targhetta, prop propri marcati `_student`, bozza CONDIVISA col giardino (stessa
+  chiave `garden_draft::token::plot`). Telefono (`IS_MOBILE`, override `?mobile=1`) =
+  solo «🧊 Crea asset voxel» + «🎨 Crea asset 2D» (→ editor #voxel/#pixel) +
+  piazzamento + consegna. **Librerie custom studente**: `namespacePlotLibs` (core,
+  puro) rinomina texture/materiali nuovi in `pNN.*`, riscrive i riferimenti
+  (cells.mat, cubes.m/f, faces), azzera i tag; il server valida (cap 24+24, 64KB/tex,
+  `lib-not-namespaced`) e li unisce alle librerie di sessione. Allowlist statica
+  +mappai-dungeon-core.js; HTML serviti no-cache. FIX: bottone menu MappAI
+  "Knowledge Garden" ora apre la finestra Studio (`openKnowledgeGardenHub` →
+  `launcherChoice('studio')`, definito inline in index.html; chiave EN
+  `tst_kg_electron`). Suite **301/301** ✅. E2E verificato contro server reale
+  (claim → editor studente → muro alt9 da bozza → consegna → merged; mobile flow
+  con ?mobile=1; #voxel diretto). ⚠️ Resta: test 2 dispositivi Wi-Fi reale.
+- **FIX movimento (11/7/26)**: (1) **blocco contro i muri risolto** — la collisione
+  era a 4 punti (`stepKind`): il campione perpendicolare restava nel muro → blocked
+  su entrambi gli assi → incastro. Nuovo `axisKind` DIREZIONALE (solo il fronte +
+  2 spigoli arretrati nella direzione del movimento) → scivolamento lungo i muri.
+  (2) **Salto con Spacebar** (`tryJump` → arco `jumpT`); durante il volo (`airborne`)
+  il tetto di salita passa da STEP_UP_WALK a STEP_UP_JUMP → si superano rialzi
+  1.0-1.6 saltando. Solo in garden.js (proto.js invariato). Verificato in browser
+  (scivola 4u lungo muro, spacebar avvia salto, gradino 1.2 walk in aria).
+- Prossimo: garden template curati (Giacomo) in `tools/voxel-proto/maps/garden_*.json`.
+
 ### ✅ FATTO (10/7/26): 001-menu-reorg — riorganizzazione menu (spec-kit) + addendum
 Prima feature via **spec-kit** (`specs/001-menu-reorg/`, branch omonimo). Riordino UI
 puro, zero cambi di comportamento. (1) TUTTI i flottanti del bordo destro spostati nel

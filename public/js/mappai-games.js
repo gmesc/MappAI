@@ -1192,6 +1192,11 @@
         DUN.world.gates.push({ x: s.x, y: s.z, key: key, req: s.req || defReq, zoneIdx: null, open: false });
         DUN.map[key] = 1;   // chiuso = blocca (si riapre con _gateOpen)
       }
+      // §20 PONTE-FLUENCY: si apre da solo alla padronanza (nessun quiz), poi ricompensa
+      else if (s.type === 'bridge' && DUN.map[key] === 0) {
+        DUN.world.gates.push({ x: s.x, y: s.z, key: key, req: s.req || { mastery: 0.5 }, zoneIdx: null, open: false, bridge: true, reward: s.reward || 'outfit' });
+        DUN.map[key] = 1;
+      }
     });
     // zone adiacenti di ogni gate (per la minimappa e per la zona "di provenienza")
     // §21: il gate collega solo le zone su cui il dislivello è saltabile
@@ -1243,8 +1248,9 @@
       });
     }
     DUN.explored = {}; DUN.visible = {}; DUN.path = null;
-    DUN.theme = THEMES[0];
-    DUN.themeTiles = THEME_TILES[DUN.theme.n] || { floor: [3, 1], wall: [2, 5] };
+    DUN.theme = THEMES[1] || THEMES[0];   // muschio: mondo-natura verde (era pietra)
+    DUN.themeTiles = THEME_TILES[DUN.theme.n] || { floor: [7, 0], wall: [0, 5] };
+    DUN.gardenWater = {}; (W.grid.waterKeys || []).forEach(function (wk) { DUN.gardenWater[wk] = 1; });   // stagni/fiumi → acqua nella skin
     DUN.torches = [];
     _computeFOV();
     _logEv('world_start', { zones: W.zones.length, gates: DUN.world.gates.length, branches: branches.length });
@@ -1319,6 +1325,45 @@
     _msg(_tSafe('dg_wgate_open', '🚪 Il cancello si apre: nuova zona sbloccata!'));
     _snd('pickup');
     _drawWorldMinimap();
+  }
+  // §20 PONTE-FLUENCY (kill-switch: 'mappai_world_bridge'='0'): i ponti si aprono
+  // DA SOLI quando la padronanza (EWMA) della zona di provenienza supera la soglia —
+  // niente quiz, niente click: pura ricompensa di competenza (precision teaching).
+  function _bridgeOn() { try { return localStorage.getItem('mappai_world_bridge') !== '0'; } catch (e) { return true; } }
+  function _worldBridgeTick() {
+    if (!DUN.world || !_bridgeOn()) return;
+    if (Date.now() - (DUN._bridgeAt || 0) < 800) return;   // throttle: non ogni frame
+    DUN._bridgeAt = Date.now();
+    DUN.world.gates.forEach(function (g) {
+      if (!g.bridge || g.open) return;
+      var need = (g.req && g.req.mastery != null) ? g.req.mastery : 0.5;
+      // apre solo se una zona ADIACENTE con un ramo ha mastery ≥ soglia (l'altra è l'isola-reward)
+      var ok = (g.zoneIdx || []).some(function (zi) {
+        var st = _zoneStats(zi);
+        return st && st.branch && st.mastery >= need;
+      });
+      if (ok) _openBridge(g);
+    });
+  }
+  function _openBridge(g) {
+    g.open = true;
+    DUN.map[g.key] = 0;
+    DUN.worldRev = (DUN.worldRev || 0) + 1;   // la skin ricostruisce (il ponte diventa calpestabile)
+    _computeFOV();
+    _snd('powerup');
+    _msg(_tSafe('dg_bridge_open', '🌉 Hai raggiunto la padronanza: un ponte appare sull\'acqua.'));
+    try { _toast(_tSafe('tst_bridge', '🌉 Ponte della Maestria — un sentiero segreto si apre oltre l\'acqua.'), 'success'); } catch (e) {}
+    _drawWorldMinimap();
+    if (g.reward === 'outfit') _bridgeReward();
+  }
+  function _bridgeReward() {
+    if (DUN._rewarded) return; DUN._rewarded = true;
+    DUN.lolOutfit = 3;   // aspetto-ricompensa, distinto dai due iniziali (1=M, 2=F)
+    _lsSet('mappai_hero_outfit', '3');
+    DUN.companion = { x: DUN.px, y: DUN.py, emoji: '🦋' };   // farfalla-guida (resa dalla skin)
+    DUN.worldRev = (DUN.worldRev || 0) + 1;   // la skin ricostruisce l'eroe col nuovo sprite
+    try { _toast(_tSafe('tst_reward_outfit', '✨ Ricompensa: nuovo aspetto dell\'eroe + una farfalla-guida ti accompagna!'), 'success'); } catch (e) {}
+    _logEv('bridge_reward', { outfit: 3 });
   }
   // minimappa a ZONE (§20.5): bolle = zone (colore del ramo), archi = gate, anello = zona corrente
   function _drawWorldMinimap() {
@@ -1969,6 +2014,7 @@
     }
     if (DUN.gardenFloor) _npcTick();   // Slice 2: i Sapienti vivono (pausa automatica: DUN.busy esce prima)
     _mobTick();
+    if (DUN.world) { try { _worldBridgeTick(); } catch (e) {} }   // §20 ponte-fluency (fail-safe: mai bloccare il tick)
   }
   function _checkPickup() {
     var key = DUN.px + ',' + DUN.py, it = DUN.items && DUN.items[key];
