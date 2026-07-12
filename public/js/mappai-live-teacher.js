@@ -358,6 +358,8 @@
     window.electronAPI.liveStartSession(payload).then(function (r) {
       if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return; }
       LT.info = r; closeModal();
+      // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
+      try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'live' }); } catch (e) { }
       if (r.resumed) toast(t('lv_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
       openDashboard();
     });
@@ -554,6 +556,10 @@
 
   // Helper pubblico: pubblica un HTML generato (dossier, sintesi…) come materiale
   window.MappAILive = window.MappAILive || {};
+  // Esposizione per la landing "Insegna" (005): avvio diretto del wizard Studio
+  // attivo live e del pannello Materiali dai quick-start QR.
+  window.MappAILive.openSetup = function () { return openLiveSetup(); };
+  window.MappAILive.openMaterials = function () { return openMaterialsPanel(); };
   window.MappAILive.publishHtml = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
     var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });

@@ -114,6 +114,12 @@
         .input_text_step3 { @apply text-[20px] font-bold text-slate-700 flex items-center gap-1.5; } /* Titolo per le opzioni con interruttore (toggle) come "Generazione HD" */
         .feature_toggle_title { @apply text-[12px] font-bold text-slate-700 flex items-center gap-1.5; } /* Titolo per le opzioni con interruttore (toggle) come "Generazione HD" */
         .feature_toggle_description { @apply text-[14px] text-slate-500 tracking-[0.15em]; } /* Descrizione opzionale sotto i toggle */
+        .landing-mode-seg { @apply text-slate-500 hover:text-slate-700; } /* Segmento inattivo del toggle Costruisci/Insegna (005) */
+        .landing-mode-seg.active { @apply bg-white text-indigo-600 shadow; } /* Segmento attivo del toggle Costruisci/Insegna */
+        .teach-filter-seg { @apply text-slate-400 hover:text-slate-600; } /* Segmento inattivo del filtro classe (005) */
+        .teach-filter-seg.active { @apply bg-white text-indigo-600 shadow; } /* Segmento attivo del filtro classe */
+        .teach-section-card { @apply max-w-2xl mx-auto mb-4 border border-slate-200 rounded-2xl overflow-hidden; } /* Sezione collassabile della modalità Insegna */
+        .teach-qs-btn { @apply flex-1 basis-[180px] flex flex-col items-center justify-center gap-2 px-4 py-5 bg-white border border-indigo-100 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all text-indigo-600 font-bold text-sm; } /* Bottone quick-start QR (005) */
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
         .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
         .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
@@ -620,6 +626,36 @@
                 </div>
             </div>
 
+            <!-- Toggle modalità landing: Costruisci / Insegna (005-landing-insegna).
+                 L'hero sopra resta identica in entrambe le modalità. -->
+            <div id="landing-mode-bar" class="max-w-2xl mx-auto mb-8 flex flex-wrap items-center justify-center gap-3">
+                <div class="inline-flex rounded-full bg-slate-100 p-1 shadow-inner">
+                    <button type="button" id="landing-mode-build" onclick="window.MappAITeach && window.MappAITeach.setMode('build')"
+                        class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="wrench" class="w-4 h-4"></i>
+                        <span data-i18n="ui_landing_build">Costruisci</span>
+                    </button>
+                    <button type="button" id="landing-mode-teach" onclick="window.MappAITeach && window.MappAITeach.setMode('teach')"
+                        class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="presentation" class="w-4 h-4"></i>
+                        <span data-i18n="ui_landing_teach">Insegna</span>
+                    </button>
+                </div>
+                <!-- Filtro classe attiva (solo modalità Insegna; JS lo nasconde in Costruisci) -->
+                <div id="teach-class-filter" class="inline-flex rounded-full bg-slate-100 p-1 shadow-inner hidden">
+                    <button type="button" id="teach-filter-all" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('all')"
+                        class="teach-filter-seg px-4 py-2 rounded-full text-xs font-bold transition-all">
+                        <span data-i18n="ui_teach_filter_all">Mostra tutto</span>
+                    </button>
+                    <button type="button" id="teach-filter-class" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('active')"
+                        class="teach-filter-seg px-4 py-2 rounded-full text-xs font-bold transition-all">
+                        <span data-i18n="ui_teach_filter_class">Solo classe attiva</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===== MODALITÀ COSTRUISCI ===== -->
+            <div id="build-content">
 
             <!-- Form di Setup -->
             <form id="setup-form" class="max-w-2xl mx-auto hidden"
@@ -951,10 +987,31 @@
                         <input type="file" id="landing-import" accept=".json" class="hidden"
                             onchange="window.importGraph(event)">
                     </div>
+                </div><!-- /generation-details-card: chiusura esplicita (era auto-corretta dal browser) -->
             </form>
 
+            <!-- Sezione Progetti collassabile (sostituisce il vecchio drawer #projects-bar).
+                 Chiusa di default. Stesso layout tabellare del drawer. -->
+            <div id="build-projects-section" class="max-w-2xl mx-auto mt-10">
+                <button type="button" id="build-projects-toggle"
+                    onclick="window.MappAITeach && window.MappAITeach.toggleBuildProjects()"
+                    class="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-2xl transition-colors">
+                    <span class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <i data-lucide="folder-open" class="w-4 h-4 text-indigo-400"></i>
+                        <span data-i18n="ui_build_projects">Progetti salvati</span>
+                    </span>
+                    <i id="build-projects-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform"></i>
+                </button>
+                <div id="build-projects-body" class="hidden mt-3 border border-slate-100 rounded-2xl overflow-hidden">
+                    <div id="recent-projects-container" class="flex flex-col pb-1"></div>
+                </div>
+            </div>
 
-        </div>
+            </div>
+            <!-- ===== FINE MODALITÀ COSTRUISCI ===== -->
+
+            <!-- ===== MODALITÀ INSEGNA (popolata da mappai-landing-teach.js) ===== -->
+            <div id="teach-content" class="hidden"></div>
 
 
         <!-- QUICK ACTIONS SOTA -->
@@ -985,36 +1042,16 @@
             </button>
         </div>
 
+        </div><!-- /glass-card: ora racchiude anche quick-actions e meta (come in origine) -->
+
 
     </div>
 
     </div>
     </div>
 
-    <!-- Storico Progetti — Barra fissa in fondo -->
-    <div class="overflow-visible fixed bottom-0 left-0 right-0 z-20 transition-all duration-400" id="projects-bar">
-        <!-- Contenitore Unificato -->
-        <div class="relative w-full bg-white shadow-[0_-10px_30px_rgba(99,102,241,0.08)]">
-            <!-- Pulsante "fuso" con la struttura -->
-            <button onclick="window.toggleProjectsBar()"
-                class="absolute bottom-full mb-[-1px] right-6 bg-white border-t border-l border-r border-indigo-100 px-4 py-2 rounded-t-2xl flex items-center gap-2 drawer_label_text text-[10px] text-indigo-500 shadow-[-5px_-5px_15px_rgba(99,102,241,0.02)] transition-colors hover:text-indigo-700 z-10">
-                <i id="toggle-bar-icon" data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform"></i>
-                <span id="toggle-bar-text" data-i18n="ui_hide_projects">Nascondi Progetti</span>
-            </button>
-
-            <!-- Contenuto a tutta larghezza -->
-            <div class="max-w-full px-0 py-4 border-t border-indigo-100" id="projects-bar-content">
-                <h3 class="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wider ml-8">
-                    <i data-lucide="folder-open" class="w-3.5 h-3.5 text-indigo-400"></i> <span data-i18n="recent_projects">Progetti Recenti</span>
-                </h3>
-                <div id="recent-projects-container" class="flex flex-col pb-1 px-8">
-                    <p class="text-xs text-slate-400 italic" data-i18n="ui_no_projects">Nessun progetto salvato. Crea una nuova mappa per
-                        iniziare.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- (Drawer "Progetti recenti" rimosso in 005-landing-insegna: la lista vive
+         ora nella sezione collassabile #build-projects-section e nella modalità Insegna.) -->
 
 
     <!-- ==========================================
@@ -3440,6 +3477,9 @@
     <script src="js/mappai-live-reports.js"></script>
     <script src="js/mappai-live-classes.js"></script>
     <script src="js/mappai-live-teacher.js"></script>
+    <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
+    <script src="js/mappai-teach-core.js"></script>
+    <script src="js/mappai-landing-teach.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
     <script src="js/mappai-effort-view.js"></script>
     <script src="js/mappai-cloze.js"></script>

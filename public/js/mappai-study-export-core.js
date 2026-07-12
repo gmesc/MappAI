@@ -90,7 +90,9 @@
      * grossi → cap a DOCS_CAP voci e quota-guard (scarta i più vecchi se pieno).
      * (Migrazione futura su disco via IPC se serve capienza — vedi CLAUDE.md.) */
     const DOCS_KEY = 'mappai_saved_documents';
-    const DOCS_CAP = 12;
+    const DOCS_CAP = 30; // 005-landing-insegna: era 12; la landing Insegna ci vive sopra
+    // Tipi di documento archiviabili (005): synthesis/dossier storici + fogli nodi/timeline
+    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline'];
 
     function _docsRead() {
         try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '[]'); }
@@ -117,18 +119,20 @@
         } catch (e) { return null; }
     }
 
-    // save({kind,title,mapName,cls?,html}) → id. Dedup per (kind|title|mapName):
+    // save({kind,title,mapName,cls?,html?,pdf?}) → id. Dedup per (kind|title|mapName):
     // rigenerare lo stesso ramo AGGIORNA la voce invece di duplicare.
+    // pdf = data-URI (Foglio nodi = jsPDF, non HTML): riaperto con window.open.
     function saveDoc(rec) {
         const arr = _docsRead();
         const entry = {
             id: rec.id || ('doc_' + Date.now()),
-            kind: rec.kind === 'synthesis' ? 'synthesis' : 'dossier',
+            kind: DOC_KINDS.indexOf(rec.kind) >= 0 ? rec.kind : 'dossier',
             title: rec.title || 'Documento',
             mapName: rec.mapName || '',
             cls: rec.cls !== undefined ? rec.cls : _activeClassName(),
             date: Date.now(),
-            html: rec.html || ''
+            html: rec.html || '',
+            pdf: rec.pdf || ''
         };
         const key = entry.kind + '|' + entry.title + '|' + entry.mapName;
         const idx = arr.findIndex(d => (d.kind + '|' + d.title + '|' + d.mapName) === key);

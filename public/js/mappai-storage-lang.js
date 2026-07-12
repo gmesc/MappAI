@@ -42,6 +42,10 @@ const StorageManager = {
             date: Date.now(),                                          // ultima modifica
             created: (existing && (existing.created || existing.date)) || Date.now(), // creazione
             cls: existing ? (existing.cls || null) : activeClsName,
+            // Grade del grafo (005-landing-insegna): PRESERVATO dall'esistente —
+            // senza questo ogni autosave lo cancellerebbe (assegnazione in Costruisci
+            // o eredità dal chip in Insegna).
+            grade: existing ? (existing.grade || null) : null,
             nodesCount: appState.db.nodes.length,
             type: appState.extractionMode || 'mindmap',
             // Nome della cartella vault collegata (null = progetto solo-localStorage):
@@ -59,6 +63,20 @@ const StorageManager = {
 
         localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
+
+        // Indice leggero Quiz & flashcard (005): rigenera le voci di QUESTO
+        // progetto da appState.db.studySets (in memoria) — mai riparsando snapshot.
+        // La guardia Studio-attivo in testa a saveCurrentProject copre anche questo.
+        try {
+            if (window.MappAITeachCore && window.MappAITeachCore.buildSetsIndex) {
+                const prevIdx = JSON.parse(localStorage.getItem('mappai_studysets_index') || '[]');
+                const nextIdx = window.MappAITeachCore.buildSetsIndex(
+                    prevIdx, this.currentProjectId, pMeta.name, pMeta.cls,
+                    (appState.db && appState.db.studySets) || []
+                );
+                localStorage.setItem('mappai_studysets_index', JSON.stringify(nextIdx));
+            }
+        } catch (e) { /* indice best-effort: non bloccare il salvataggio */ }
 
         // Salva automaticamente la Mappa come .JSON tramite Electron.
         // NON passare appState raw: dopo la simulazione D3 i nodi contengono
@@ -242,12 +260,28 @@ const StorageManager = {
         return stale.length;
     },
 
-    renderRecentProjects: function () {
-        const container = document.getElementById('recent-projects-container');
+    // renderRecentProjects(containerId?, opts?) — fonte UNICA delle righe progetto
+    // per la modalità Costruisci (default) e per la sezione "Progetti esistenti"
+    // della modalità Insegna (005-landing-insegna).
+    //   containerId : id del contenitore (default 'recent-projects-container')
+    //   opts.gradeMenu : mostra la cella grade cliccabile (menu assegnazione)
+    //   opts.classChips: mostra i chip delle classi attive (dal registro sessioni)
+    // Retrocompatibile: chiamata senza argomenti = comportamento storico.
+    renderRecentProjects: function (containerId, opts) {
+        opts = opts || {};
+        const container = document.getElementById(containerId || 'recent-projects-container');
         if (!container) return;
         const T = window.t || ((k, f) => f);
         const esc = (s) => String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const core = window.MappAITeachCore;
+
+        // Registro sessioni (per i chip): letto una volta, solo se richiesto.
+        let registry = [];
+        if (opts.classChips) {
+            try { registry = JSON.parse(localStorage.getItem('mappai_session_registry') || '[]'); }
+            catch (e) { registry = []; }
+        }
 
         try {
             let projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || "[]");
@@ -258,22 +292,33 @@ const StorageManager = {
                 projects = projects.filter(p => !p.vault || this.validVaultFolders.includes(p.vault));
             }
 
+            // Filtro "Solo classe attiva" (Insegna): la UI passa gli id ammessi.
+            if (Array.isArray(opts.onlyIds)) {
+                const allow = new Set(opts.onlyIds);
+                projects = projects.filter(p => allow.has(p.id));
+            }
+
             if (projects.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nessun progetto salvato in questa App MappAI.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-400 italic px-3 py-3">' +
+                    (opts.emptyMsg || T('ui_no_projects_app', 'Nessun progetto salvato in questa App MappAI.')) + '</p>';
                 return;
             }
 
-            // Layout a righe (tabella): Tipo · Titolo · Classe · Nodi · Creato il · azioni.
-            // Header FUORI dal contenitore scrollabile: position:sticky dentro un
-            // antenato con zoom è renderizzato male da Chromium (righe che sbucano sopra).
-            const GRID = 'grid grid-cols-[56px_minmax(0,1fr)_120px_56px_110px_150px] items-center gap-2 px-3';
+            // Colonne adattive: la 3ª colonna è Classe (default) oppure Chip classi
+            // (Insegna); con gradeMenu si aggiunge una colonna Grade.
+            const col3 = opts.classChips
+                ? T('rp_classes', 'Classi')
+                : T('rp_class', 'Classe');
+            const GRID = opts.gradeMenu
+                ? 'grid grid-cols-[52px_minmax(0,1fr)_110px_96px_48px_150px] items-center gap-2 px-3'
+                : 'grid grid-cols-[56px_minmax(0,1fr)_130px_56px_150px] items-center gap-2 px-3';
             const header = `
                     <div class="rp-header ${GRID} py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 select-none">
                         <span>${T('rp_type', 'Tipo')}</span>
                         <span>${T('rp_title', 'Titolo')}</span>
-                        <span>${T('rp_class', 'Classe')}</span>
+                        <span>${esc(col3)}</span>
+                        ${opts.gradeMenu ? `<span>${T('rp_grade', 'Grado')}</span>` : ''}
                         <span class="text-right">${T('rp_nodes', 'Nodi')}</span>
-                        <span>${T('rp_created', 'Creato il')}</span>
                         <span></span>
                     </div>`;
 
@@ -282,10 +327,27 @@ const StorageManager = {
                 const icon = isKg ? 'network' : 'git-merge';
                 const label = isKg ? 'KG' : 'MM';
                 const labelFull = isKg ? 'Knowledge Graph' : 'Mappa Mentale';
-                const created = new Date(p.created || p.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' });
-                const cls = p.cls
-                    ? `<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500 truncate"><i data-lucide="graduation-cap" class="w-3 h-3 shrink-0"></i>${esc(p.cls)}</span>`
-                    : '<span class="text-slate-300">—</span>';
+
+                // Cella 3: chip classi (Insegna) oppure classe di salvataggio (default)
+                let col3Cell;
+                if (opts.classChips) {
+                    const chips = (core && core.classesForMap)
+                        ? core.classesForMap(registry, { projectId: p.id, map: p.name }) : [];
+                    col3Cell = chips.length
+                        ? '<span class="flex flex-wrap gap-1">' + chips.slice(0, 3).map(c =>
+                            `<span class="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5"><i data-lucide="graduation-cap" class="w-2.5 h-2.5 shrink-0"></i>${esc(c)}</span>`).join('') + '</span>'
+                        : '<span class="text-slate-300">—</span>';
+                } else {
+                    col3Cell = p.cls
+                        ? `<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500 truncate"><i data-lucide="graduation-cap" class="w-3 h-3 shrink-0"></i>${esc(p.cls)}</span>`
+                        : '<span class="text-slate-300">—</span>';
+                }
+
+                // Cella grade (solo gradeMenu): cliccabile → editGrade
+                const gradeCell = opts.gradeMenu
+                    ? `<button type="button" onclick="event.stopPropagation(); window.MappAITeach && window.MappAITeach.editGrade('${p.id}')" class="text-[10px] font-semibold rounded-full px-2 py-0.5 transition ${p.grade ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-slate-400 bg-slate-50 hover:bg-slate-100'}" title="${T('rp_grade_set', 'Assegna grado')}">${p.grade ? esc(p.grade) : '+ ' + T('rp_grade', 'Grado')}</button>`
+                    : '';
+
                 return `
                     <div class="rp-row ${GRID} py-2 border-b border-slate-100 hover:bg-indigo-50 transition cursor-pointer group" onclick="window.loadSavedProject('${p.id}')">
                         <span class="inline-flex items-center gap-1 text-indigo-400" title="${labelFull}">
@@ -293,9 +355,9 @@ const StorageManager = {
                             <span class="text-[9px] font-bold uppercase tracking-tight">${label}</span>
                         </span>
                         <span class="text-[12px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition" title="${esc(p.name)}">${esc(p.name)}</span>
-                        ${cls}
+                        ${col3Cell}
+                        ${gradeCell}
                         <span class="text-[11px] text-slate-500 text-right tabular-nums">${p.nodesCount}</span>
-                        <span class="text-[11px] text-slate-400">${created}</span>
                         <span class="flex justify-end items-center gap-3">
                             <span class="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-3 h-3"></i> ${T('rp_resume', 'Riprendi')}</span>
                             <button type="button" onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition p-1" title="${T('rp_delete', 'Elimina')}"><i data-lucide="trash" class="w-3 h-3"></i></button>
@@ -318,43 +380,11 @@ window.loadSavedProject = function (id) {
     StorageManager.loadProject(id);
 };
 
-// Toggle Recent Projects Bar
-window.toggleProjectsBar = function (forcedState) {
-    const bar = document.getElementById('projects-bar');
-    const icon = document.getElementById('toggle-bar-icon');
-    const text = document.getElementById('toggle-bar-text');
-    if (!bar) return;
-
-    const isCollapsed = forcedState !== undefined ? !forcedState : !bar.classList.contains('projects-collapsed');
-
-    const lang = localStorage.getItem('mappai_language') || 'it';
-    const localTranslations = {
-        it: { show_projects: 'Mostra Progetti', hide_projects: 'Nascondi Progetti' },
-        en: { show_projects: 'Show Projects', hide_projects: 'Hide Projects' }
-    };
-    const t = localTranslations[lang] || localTranslations['it'];
-
-    if (isCollapsed) {
-        bar.classList.add('projects-collapsed');
-        bar.style.transform = 'translateY(calc(100% - 0px))';
-        if (icon) icon.style.transform = 'rotate(180deg)';
-        if (text) text.textContent = t.show_projects || 'Mostra Progetti';
-        localStorage.setItem('mappai_bar_collapsed', 'true');
-    } else {
-        bar.classList.remove('projects-collapsed');
-        bar.style.transform = 'translateY(0)';
-        if (icon) icon.style.transform = 'rotate(0deg)';
-        if (text) text.textContent = t.hide_projects || 'Nascondi Progetti';
-        localStorage.setItem('mappai_bar_collapsed', 'false');
-    }
-};
-
-// Init bar state
-setTimeout(() => {
-    if (localStorage.getItem('mappai_bar_collapsed') === 'true') {
-        window.toggleProjectsBar(false);
-    }
-}, 500);
+// toggleProjectsBar — no-op retrocompatibile. Il drawer #projects-bar è stato
+// rimosso in 005-landing-insegna (la lista vive nella sezione collassabile di
+// Costruisci e nella modalità Insegna). Restano solo chiamanti guardati in
+// mappai-ui-canvas.js che non devono lanciare eccezioni.
+window.toggleProjectsBar = function () { /* drawer rimosso: no-op */ };
 
 setInterval(() => {
     StorageManager.saveCurrentProject();

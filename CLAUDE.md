@@ -534,6 +534,52 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (12/7/26): 005-landing-insegna — landing doppia "Costruisci/Insegna"
+Spec-kit completo (`specs/005-landing-insegna/`, branch omonimo). Boot diretto senza
+launcher + toggle di modalità sotto l'hero (INTATTA); Costruisci = generazione MM/KG
+attuale + sezione progetti collassabile con assegnazione grade; Insegna = cruscotto di
+lezione (3 sezioni collassabili + filtro classe + 3 quick-start QR in ≤4 click).
+- **Avvio**: `main.js` `bootPrimaryWindow()` → `createWindow()` diretto. Kill-switch
+  `<userData>/mappai-settings.json` `{"legacyLauncher":true}` (letto SYNC) ripristina il
+  launcher storico; `launcher.html`, `createLauncherWindow`, IPC `launcher-return` intatti.
+  Studio garden raggiungibile dal menu "Knowledge Garden".
+- **Core puro** `public/js/mappai-teach-core.js` (UMD): `normGrade` (NFKD, ª/°→a),
+  `registryAdd` (cap 400 FIFO immutabile), `classesForMap`, `rankMapsForClass` (3 fasce
+  started/sameGrade/others, totale mai vuoto), `buildSetsIndex`, `filterByClass`.
+  +15 test `tests/teach-core.test.js` → suite **379/379** ✅.
+- **UI** `public/js/mappai-landing-teach.js` (`window.MappAITeach`): toggle modalità
+  (`mappai_landing_mode`), filtro classe (`mappai_teach_class_filter`), sezione progetti
+  Costruisci con menu grade, 3 sezioni Insegna (Progetti con chip classi / Materiali /
+  Quiz&flashcard), quick-start `quickStart('collab'|'live'|'materials')` (picker classe →
+  mappa 3 fasce / documento → loadProject → hub), `editGrade`, `logSession`.
+- **HTML** (`index.html`): toggle bar sotto hero, wrapper `#build-content`/`#teach-content`
+  DENTRO glass-card (racchiude anche quick-actions+meta come in origine), sezione
+  collassabile `#build-projects-section` (chiusa default), drawer `#projects-bar` RIMOSSO.
+  ⚠️ FIX preesistente: `generation-details-card` non chiudeva (bug latente error-corrected
+  dal browser) → aggiunto `</div>` esplicito, altrimenti il wrapper rompeva il nesting.
+- **Store nuovi** (localStorage): `mappai_session_registry` (scritto ad avvio riuscito di
+  Lavagna/Live/Materiali in collab-teacher/live-teacher/quickStart), `mappai_studysets_index`
+  (scritto in `saveCurrentProject` da `appState.db.studySets`, mai riparsando snapshot),
+  `mappai_landing_mode`, `mappai_teach_class_filter`. Campo **`grade`** su `tutor_ai_projects`
+  (PRESERVATO in saveCurrentProject; eredita dal chip in Insegna via `inheritGrade`).
+- **Archivio esteso** (`mappai-study-export-core.js`): `DOCS_CAP` 12→**30**, allowlist kind
+  `synthesis/dossier/nodesheet/timeline`, campo `pdf` (data-URI). Foglio nodi archiviato come
+  PDF (`mappai-print-dossier.js` dopo `doc.save`), Timeline come HTML (`mappai-timeline.js`
+  in `_renderTimeline`). `openSavedDocsModal` (menu-hubs) apre i PDF con window.open.
+- **API esposte**: `MappAILive.openSetup`/`openMaterials` (one-liner in live-teacher),
+  `StorageManager.renderRecentProjects(containerId?, {gradeMenu, classChips, onlyIds, emptyMsg})`.
+- i18n: chiavi statiche `ui_landing_*`/`ui_teach_filter_*`/`ui_build_projects` in ENTRAMBI i
+  dizionari; `ui_teach_*`/`ui_qs_*`/`lt_*`/`rp_grade`/`rp_classes`/`sd_pdf_no_qr` con fallback
+  IT inline + EN in `en_translations.js`. Audit i18n: 0 mancanti nei due versi.
+- ✅ Verificato in browser (static server, license gate bypassato solo lato-DOM per la vista):
+  toggle+persistenza, teach mode (chip classe, quick-start picker classe→mappa 3 fasce,
+  modale grade), build mode (form intatto + sezione progetti collassabile + grade), zero
+  errori console. Suite 379/379.
+  ⚠️ Da testare in Electron vivo (quickstart.md): boot diretto reale, kill-switch, avvio
+  sessioni QR con registro scritto, eredità grade, apertura documenti archiviati, 2 device.
+  US2/US3 flussi live (openCollabHub/openSetup/openMaterials) provati solo a livello di
+  picker (server LAN non attivo nel browser statico).
+
 ### ✅ FATTO (11/7/26): MappAI Live — hub QR (Studio attivo live + Materiali + Account classi)
 Terzo server fratello di garden/collab (stessi pattern: HTTP Node puro via IPC, token
 studente nel QR + adminToken, allowlist statica, autosave + ripresa crash-safe con stesso
