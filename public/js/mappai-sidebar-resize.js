@@ -95,7 +95,24 @@
     });
   }
 
-  window.MappAISidebarResize = { init: init, applyWidth: applyWidth };
+  // Collapse della sidebar (toggleSidebar): l'inline width/min/max con !important
+  // batterebbe la regola .sidebar-collapsed #sidebar {width:0!important}. Quindi
+  // quando si collassa RIMUOVIAMO l'inline (lasciando vincere il CSS del collapse);
+  // quando si riapre, riapplichiamo la larghezza salvata.
+  function setCollapsed(collapsed) {
+    var sb = sidebar();
+    if (!sb) return;
+    if (collapsed) {
+      sb.style.removeProperty('width');
+      sb.style.removeProperty('min-width');
+      sb.style.removeProperty('max-width');
+    } else {
+      var saved = readSaved();
+      if (saved != null && isDesktop()) applyWidth(saved, false);
+    }
+  }
+
+  window.MappAISidebarResize = { init: init, applyWidth: applyWidth, setCollapsed: setCollapsed };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

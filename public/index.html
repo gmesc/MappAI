@@ -3536,9 +3536,14 @@
 
             mapView.classList.toggle('sidebar-collapsed');
 
+            const isCollapsed = mapView.classList.contains('sidebar-collapsed');
             if (icon) {
-                const isCollapsed = mapView.classList.contains('sidebar-collapsed');
                 icon.setAttribute('data-lucide', isCollapsed ? 'panel-left-open' : 'panel-left-close');
+            }
+            // 006: sincronizza il resize — l'inline width !important non deve
+            // impedire il collapse (width:0). Pulisce/ripristina la larghezza.
+            if (window.MappAISidebarResize && window.MappAISidebarResize.setCollapsed) {
+                window.MappAISidebarResize.setCollapsed(isCollapsed);
             }
 
             window.safeCreateIcons();
