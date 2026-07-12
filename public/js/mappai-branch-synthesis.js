@@ -214,12 +214,16 @@
         const existing = document.getElementById('branch-synthesis-config-modal');
         if (existing) existing.remove();
 
+        // Default = "Tutta la mappa" quando si apre il modale dal menu (nessun
+        // nodeId); se invece si arriva da un nodo specifico (es. tasto destro),
+        // resta preselezionato quel ramo.
+        const defaultAll = !nodeId;
         const optionsHtml = branchOptions.map(n => {
             const label = window.cleanLabel ? window.cleanLabel(n.label) : n.label;
-            return `<option value="${n.id}" ${n.id === preselect ? 'selected' : ''}>${_escBS(label)}</option>`;
+            return `<option value="${n.id}" ${(!defaultAll && n.id === preselect) ? 'selected' : ''}>${_escBS(label)}</option>`;
         }).join('');
         // Sintesi dell'INTERA mappa (map-reduce per ramo sulle mappe grandi)
-        const allOption = `<option value="__ALL__">${_escBS(window.t('bs_all_map', 'Tutta la mappa'))} (${appState.db.nodes.length} nodi)</option>`;
+        const allOption = `<option value="__ALL__" ${defaultAll ? 'selected' : ''}>${_escBS(window.t('bs_all_map', 'Tutta la mappa'))} (${appState.db.nodes.length} nodi)</option>`;
 
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
 
