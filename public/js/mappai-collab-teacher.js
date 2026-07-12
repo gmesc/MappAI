@@ -141,6 +141,10 @@
             const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel() });
             if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
             CT.info = r;
+            // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
+            try {
+                if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'lavagna' });
+            } catch (e) { /* registro best-effort */ }
             closeModal();
             if (r.resumed) toast(t('tst_collab_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
             openDashboard();
@@ -320,10 +324,15 @@
             // in focus mostro SOLO il gruppo isolato; altrimenti rispetto il toggle ON/OFF
             if (CT.focusSlug) { if (slug !== CT.focusSlug) return; }
             else if (!lay.visible) return;
-            // collegamenti del gruppo (sotto i suoi nodi), con la keyword al centro
+            // collegamenti del gruppo (sotto i suoi nodi), con la keyword al centro.
+            // Un estremo può essere il ROOT (concetto centrale): non è nei nodi del
+            // gruppo → va risolto al centro (rx,ry), come fa endpoint() lato studente.
+            const endpoint = (id) => id === C.ROOT_ID
+                ? { x: 0, y: 0 }
+                : (grp.nodes || []).find(n => n.id === id);
             (grp.links || []).forEach(l => {
-                const a = (grp.nodes || []).find(n => n.id === l.source);
-                const b = (grp.nodes || []).find(n => n.id === l.target);
+                const a = endpoint(l.source);
+                const b = endpoint(l.target);
                 if (!a || !b) return;
                 const ax = rx + a.x * R, ay = ry + a.y * R;
                 const bx = rx + b.x * R, by = ry + b.y * R;
