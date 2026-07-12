@@ -490,6 +490,9 @@
                 '</div>' +
                 '<div class="flex gap-3 p-6 pt-4 border-t border-slate-100 items-center">' +
                     '<span class="mai-tts-slot" data-tts-body="#branch-synthesis-body" data-tts-sections></span>' +
+                    '<button type="button" onclick="window.generateSynthesisAudio()" class="pm-btn-cancel" title="' + _escBS(window.t('bs_audio_tip', 'Scarica un audio con voce naturale (Google) — utile per allievi dislessici')) + '">' +
+                        '<i data-lucide="headphones" class="w-4 h-4"></i> ' + _escBS(window.t('bs_audio_btn', 'Audio voce naturale')) +
+                    '</button>' +
                     '<button type="button" onclick="document.getElementById(\'branch-synthesis-modal\').remove()" class="pm-btn-cancel">Chiudi</button>' +
                     '<button type="button" onclick="window.printBranchSynthesis()" class="pm-btn-primary">' +
                         '<i data-lucide="printer" class="w-4 h-4"></i> Stampa' +
@@ -549,15 +552,37 @@
         .bs-cite-text { font-size:10px; color:#64748b; line-height:1.6; }
         .bs-cite-text strong { color:#475569; }
         .bs-footer { text-align:center; margin-top:24px; font-size:9px; color:#94a3b8; }
+        /* Lettore audio autonomo (TTS del browser) — accessibilità BES/DSA */
+        #ap-bar { display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0; margin:0 16px; }
+        .ap-chip { display:inline-flex; height:34px; border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
+        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:40px; padding:0 11px; border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 12px 'Space Mono',monospace; border-left:1px solid #eef2ff; }
+        .ap-seg:first-child { border-left:0; }
+        .ap-seg:hover { background:#eef2ff; }
+        .ap-play.on { background:${accentColor}; color:#fff; }
+        .ap-prog { position:relative; flex:1 1 120px; min-width:70px; height:7px; border-radius:9999px; background:#e2e8f0; cursor:pointer; touch-action:none; }
+        .ap-fill { position:absolute; left:0; top:0; height:100%; width:0; border-radius:9999px; background:${accentColor}; pointer-events:none; }
+        .ap-thumb { position:absolute; top:50%; left:0; width:13px; height:13px; border-radius:50%; background:${accentColor}; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(15,23,42,.35); pointer-events:none; }
+        .ap-time { font:700 11px 'Space Mono',monospace; color:#64748b; min-width:32px; text-align:right; }
+        .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 11px 'Space Mono',monospace; line-height:1; }
+        .bs-body-block { background:rgba(253,230,138,.35); border-radius:5px; box-shadow:0 0 0 3px rgba(253,230,138,.35); }
+        ::highlight(ap-read) { background-color:#fde68a; color:#0f172a; }
+        /* Modalità dislessia (attivabile nel documento) */
+        body.ap-dys { background:#f6efdd; }
+        body.ap-dys .bs-body { background:#fffdf6; max-width:none; }
+        body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-family:Verdana,'Trebuchet MS',sans-serif; font-size:15px; line-height:2.05; letter-spacing:.03em; word-spacing:.14em; color:#33312e; text-align:left; margin-bottom:14px; }
+        body.ap-dys .bs-body h3 { font-family:Verdana,sans-serif; font-size:19px; }
+        body.ap-dys .bs-body h4 { font-family:Verdana,sans-serif; font-size:15px; }
         .no-print { display:block; }
         @media print { .no-print { display:none !important; } body { background:white; padding:10px; } }
     </style>
 </head>
 <body>
     <div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;">
-        <span style="font-weight:bold;color:${accentColor};">MappAI · ${_escBS(kindLabel)}</span>
-        <div style="display:flex;gap:8px;">
-            <button onclick="window.print()" style="background:${accentColor};color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">🖶 Stampa / Esporta PDF</button>
+        <span style="font-weight:bold;color:${accentColor};white-space:nowrap;">MappAI · ${_escBS(kindLabel)}</span>
+        <div id="ap-bar"></div>
+        <div style="display:flex;gap:8px;flex:0 0 auto;">
+            <button id="ap-dys-btn" type="button" style="background:#fff;color:${accentColor};border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:bold;">Aa Dislessia</button>
+            <button onclick="window.print()" style="background:${accentColor};color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">🖶 Stampa / PDF</button>
             <button onclick="window.close()" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">✕ Chiudi</button>
         </div>
     </div>
@@ -569,6 +594,103 @@
     </div>
     <div class="bs-body">${contentHtml}</div>
     <div class="bs-footer">MappAI by insegnai.ch · Generato il ${now}</div>
+    <script>
+    (function(){
+      var SPEEDS=[0.75,1,1.25,1.5], ri=1, BACK=10, FWD=5, CPS=14.5;
+      var sup=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window);
+      var body=document.querySelector('.bs-body');
+      var bar=document.getElementById('ap-bar');
+      var dysBtn=document.getElementById('ap-dys-btn');
+      if(dysBtn){ dysBtn.addEventListener('click',function(){ document.body.classList.toggle('ap-dys'); dysBtn.classList.toggle('on'); }); }
+      if(!sup||!body||!bar){ if(bar) bar.style.display='none'; return; }
+      var lang=((document.documentElement.lang||'it').toLowerCase().indexOf('en')===0)?'en-US':'it-IT';
+      var hlOK=false, HL=null;
+      try{ if(window.CSS&&CSS.highlights&&typeof Highlight!=='undefined'){ HL=new Highlight(); CSS.highlights.set('ap-read',HL); hlOK=true; } }catch(e){}
+      function clean(s){ return String(s||'').replace(/\\[\\d+\\]/g,' ').replace(/[*_#]+/g,' ').replace(/\\s+/g,' ').replace(/\\s+([.,;:!?\\u2026\\u00bb)\\]])/g,'$1').trim(); }
+      function pieces(block){
+        var w=document.createTreeWalker(block,NodeFilter.SHOW_TEXT,{acceptNode:function(n){
+          var p=n.parentNode;
+          while(p&&p!==block){ if(p.nodeType===1){ var tg=p.tagName.toLowerCase();
+            if(tg==='sup'||tg==='button'||tg==='style'||tg==='script') return NodeFilter.FILTER_REJECT;
+            if(p.classList&&(p.classList.contains('bs-citations')||p.hasAttribute('data-ap-skip'))) return NodeFilter.FILTER_REJECT; }
+            p=p.parentNode; }
+          return NodeFilter.FILTER_ACCEPT; }});
+        var t='',m=[],n; while((n=w.nextNode())){ var v=n.nodeValue||''; m.push({node:n,start:t.length,len:v.length}); t+=v; }
+        return {text:t,map:m};
+      }
+      function locate(m,pos){ for(var i=0;i<m.length;i++){ var pc=m[i]; if(pos>=pc.start&&pos<=pc.start+pc.len) return {node:pc.node,offset:pos-pc.start}; } var l=m[m.length-1]; return l?{node:l.node,offset:l.len}:null; }
+      function sentRanges(t){ var re=/[.!?\\u2026]+[)\\]"'\\u201d\\u2019\\u00bb]*\\s*/g,res=[],last=0,mm; while((mm=re.exec(t))){ var e=mm.index+mm[0].length; res.push({start:last,end:e}); last=e; } if(last<t.length) res.push({start:last,end:t.length}); if(!res.length) res.push({start:0,end:t.length}); return res; }
+      var chunks=[];
+      function build(){
+        chunks=[]; var blocks=body.querySelectorAll('h3,h4,p,li,blockquote');
+        for(var bi=0;bi<blocks.length;bi++){ var bl=blocks[bi];
+          if(bl.closest&&bl.closest('.bs-citations')) continue;
+          var pc=pieces(bl); if(!pc.text.trim()) continue;
+          var tg=bl.tagName.toLowerCase(), head=(tg==='h3'||tg==='h4'), item=(tg==='li');
+          var rgs=head?[{start:0,end:pc.text.length}]:sentRanges(pc.text);
+          for(var k=0;k<rgs.length;k++){ var rg=rgs[k]; var raw=pc.text.slice(rg.start,rg.end); var spk=clean(raw); if(!spk) continue;
+            var hs=rg.start,he=rg.end; while(he>hs&&/\\s/.test(pc.text.charAt(he-1))) he--; while(hs<he&&/\\s/.test(pc.text.charAt(hs))) hs++;
+            var a=locate(pc.map,hs), b=locate(pc.map,he);
+            var pit=1,pau=200,rm=1;
+            if(head){ rm=0.94; pau=400; } else { if(/[?\\uff1f]\\s*$/.test(raw)){pit=1.09;pau=260;} else if(/[!\\uff01]\\s*$/.test(raw)){pit=1.04;pau=240;} if(item) pau=Math.max(pau,220); if(k===rgs.length-1) pau+=150; }
+            chunks.push({text:spk,head:head,pitch:pit,rateMul:rm,endPause:pau,src:bl,r:(a&&b)?{sN:a.node,sO:a.offset,eN:b.node,eO:b.offset}:null});
+          }
+        }
+      }
+      var idx=0,subChar=0,playing=false,gap=null,utter=null,ticker=null,blockEl=null,drag=false,dur=[],starts=[],total=0,t0=0;
+      function rate(){ return SPEEDS[ri]; }
+      function timing(){ dur=chunks.map(function(c){ var cps=CPS*rate()*(c.rateMul||1); return Math.max(0.35,c.text.length/cps)+(c.endPause||0)/1000; }); starts=[]; var acc=0; for(var i=0;i<dur.length;i++){ starts[i]=acc; acc+=dur[i]; } total=acc; }
+      function nw(){ try{return performance.now();}catch(e){return Date.now();} }
+      function gtime(){ if(!chunks.length) return 0; var base=starts[idx]||0; var el=Math.min(dur[idx]||0,Math.max(0,(nw()-t0)/1000)); return Math.min(total,base+el); }
+      function idxAt(t){ for(var i=0;i<chunks.length;i++){ if(t<(starts[i]||0)+(dur[i]||0)) return i; } return Math.max(0,chunks.length-1); }
+      function clearHL(){ try{ if(HL) HL.clear(); }catch(e){} if(blockEl){ try{blockEl.classList.remove('bs-body-block');}catch(e){} blockEl=null; } }
+      function hl(i){ clearHL(); var c=chunks[i]; if(!c) return; if(c.src&&c.src.classList){ c.src.classList.add('bs-body-block'); blockEl=c.src; } if(hlOK&&c.r){ try{ var r=document.createRange(); r.setStart(c.r.sN,c.r.sO); r.setEnd(c.r.eN,c.r.eO); HL.add(r); }catch(e){} } try{ if(c.src&&c.src.scrollIntoView) c.src.scrollIntoView({block:'nearest'}); }catch(e){} }
+      var bBack,bPlay,bFwd,bRate,fill,thumb,time,prog;
+      function paint(p){ if(bPlay){ bPlay.textContent=p?'\\u23F8':'\\u25B6'; bPlay.classList.toggle('on',!!p); } }
+      function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60),x=s%60; return m+':'+(x<10?'0':'')+x; }
+      function render(rt){ rt=Math.max(0,Math.min(1,rt||0)); if(fill) fill.style.width=(rt*100)+'%'; if(thumb) thumb.style.left=(rt*100)+'%'; if(time) time.textContent=fmt(rt*total); }
+      function startTick(){ stopTick(); ticker=setInterval(function(){ if(!drag) render(total?gtime()/total:0); },100); }
+      function stopTick(){ if(ticker){ clearInterval(ticker); ticker=null; } }
+      function speakCur(){
+        if(idx>=chunks.length){ finish(); return; }
+        var c=chunks[idx];
+        var txt=(subChar>0&&subChar<c.text.length)?c.text.slice(subChar):c.text;
+        var u=new SpeechSynthesisUtterance(txt); u.lang=lang;
+        u.rate=Math.max(0.5,Math.min(2,rate()*(c.rateMul||1))); u.pitch=c.pitch||1;
+        u.onend=function(){ if(!playing||utter!==u) return; if(gap) clearTimeout(gap); gap=setTimeout(function(){ idx++; subChar=0; speakCur(); },c.endPause||180); };
+        u.onerror=function(){ if(playing&&utter===u){ idx++; subChar=0; speakCur(); } };
+        utter=u; t0=nw()-(subChar>0?(subChar/Math.max(1,c.text.length))*(dur[idx]||0)*1000:0);
+        hl(idx); try{ speechSynthesis.cancel(); }catch(e){} try{ speechSynthesis.speak(u); }catch(e){} paint(true);
+      }
+      function finish(){ if(gap) clearTimeout(gap); stopTick(); clearHL(); playing=false; idx=0; subChar=0; paint(false); render(1); }
+      function stop(){ if(gap) clearTimeout(gap); stopTick(); clearHL(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; utter=null; idx=0; subChar=0; paint(false); render(0); }
+      function playFrom(i,sc){ if(gap) clearTimeout(gap); idx=Math.max(0,Math.min(i,chunks.length-1)); subChar=sc||0; playing=true; paint(true); startTick(); speakCur(); }
+      function pause(){ if(gap) clearTimeout(gap); stopTick(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; subChar=0; paint(false); }
+      function ensure(){ if(!chunks.length){ build(); timing(); } }
+      function toggle(){ ensure(); if(playing){ pause(); return; } if(idx>=chunks.length) idx=0; playFrom(idx,subChar); }
+      function seekT(t){ ensure(); t=Math.max(0,Math.min(t,Math.max(0,total-0.05))); var i=idxAt(t); var f=(dur[i]>0)?(t-(starts[i]||0))/dur[i]:0; playFrom(i,Math.floor(f*(chunks[i]?chunks[i].text.length:0))); }
+      function seek(d){ ensure(); seekT(gtime()+d); }
+      function cycleRate(){ ri=(ri+1)%SPEEDS.length; bRate.textContent='\\u00d7'+SPEEDS[ri]; if(chunks.length){ var t=gtime(); timing(); if(playing) seekT(t); else render(total?t/total:0); } }
+      function playFromNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } playFrom(i<0?0:i,0); }
+      function seg(txt,title){ var b=document.createElement('button'); b.type='button'; b.className='ap-seg'; b.textContent=txt; b.title=title; return b; }
+      bBack=seg('\\u21BA10','Indietro 10 secondi'); bPlay=seg('\\u25B6','Ascolta / Pausa'); bPlay.className+=' ap-play'; bFwd=seg('5\\u21BB','Avanti 5 secondi'); bRate=seg('\\u00d71','Velocità di lettura');
+      var chip=document.createElement('span'); chip.className='ap-chip'; chip.appendChild(bBack); chip.appendChild(bPlay); chip.appendChild(bFwd); chip.appendChild(bRate);
+      prog=document.createElement('span'); prog.className='ap-prog'; fill=document.createElement('span'); fill.className='ap-fill'; thumb=document.createElement('span'); thumb.className='ap-thumb'; prog.appendChild(fill); prog.appendChild(thumb);
+      time=document.createElement('span'); time.className='ap-time'; time.textContent='0:00';
+      bar.appendChild(chip); bar.appendChild(prog); bar.appendChild(time);
+      bBack.addEventListener('click',function(){ seek(-BACK); });
+      bPlay.addEventListener('click',toggle);
+      bFwd.addEventListener('click',function(){ seek(FWD); });
+      bRate.addEventListener('click',cycleRate);
+      (function(){ function rat(x){ var bx=prog.getBoundingClientRect(); return bx.width?Math.max(0,Math.min(1,(x-bx.left)/bx.width)):0; }
+        prog.addEventListener('pointerdown',function(e){ ensure(); drag=true; try{prog.setPointerCapture(e.pointerId);}catch(er){} render(rat(e.clientX)); e.preventDefault(); });
+        prog.addEventListener('pointermove',function(e){ if(drag) render(rat(e.clientX)); });
+        prog.addEventListener('pointerup',function(e){ if(!drag) return; drag=false; try{prog.releasePointerCapture(e.pointerId);}catch(er){} seekT(rat(e.clientX)*total); });
+      })();
+      build(); timing(); (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.textContent='\\u25B6'; b.addEventListener('click',function(e){ e.stopPropagation(); playFromNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
+      try{ document.addEventListener('visibilitychange',function(){ if(document.hidden) pause(); }); }catch(e){}
+    })();
+    <\/script>
 </body>
 </html>`;
     }
@@ -596,6 +718,111 @@
             });
         } catch (e) { console.warn('[BranchSynthesis] Salvataggio documento fallito:', e); }
     }
+
+    // ── Audio voce naturale (Gemini TTS → file WAV scaricabile) ────────────
+    // Materiale specifico per allievi dislessici: voce di qualità, non robotica.
+    // Gira SOLO nell'app (serve electronAPI + chiave Google); il contenuto è
+    // didattico, non dati personali dell'allievo.
+    function _cleanPlain(md) {
+        return String(md || '')
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/^#{1,6}\s*/gm, '')
+            .replace(/\[\d+\]/g, '')
+            .replace(/[*_`>#]/g, '')
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+    function _synthesisPlainText(data) {
+        data = data || _lastSynthesis; if (!data) return '';
+        if (data.whole) {
+            const parts = [];
+            if (data.intro) parts.push(_cleanPlain(data.intro));
+            (data.sections || []).forEach(sec => {
+                if (sec.failed) return;
+                const head = _cleanPlain(sec.branchLabel || '');
+                const bodyt = _cleanPlain(sec.rawText || '');
+                if (bodyt) parts.push((head ? head + '. ' : '') + bodyt);
+            });
+            return parts.join('\n\n');
+        }
+        return _cleanPlain(data.rawText || '');
+    }
+    function _b64ToBytes(b64) {
+        const bin = atob(b64); const a = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+        return a;
+    }
+    function _pcmToWav(pcm, sampleRate) {
+        const numCh = 1, bps = 16, blockAlign = numCh * bps / 8, byteRate = sampleRate * blockAlign;
+        const buf = new ArrayBuffer(44 + pcm.length), dv = new DataView(buf);
+        const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+        ws(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+        dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, numCh, true);
+        dv.setUint32(24, sampleRate, true); dv.setUint32(28, byteRate, true);
+        dv.setUint16(32, blockAlign, true); dv.setUint16(34, bps, true);
+        ws(36, 'data'); dv.setUint32(40, pcm.length, true);
+        new Uint8Array(buf, 44).set(pcm);
+        return new Blob([buf], { type: 'audio/wav' });
+    }
+    function _chunkForTts(text, budget) {
+        const sents = text.match(/[^.!?…]+[.!?…]+["'”’)\]]*\s*|[^.!?…]+$/g) || [text];
+        const out = []; let cur = '';
+        sents.forEach(s => { if ((cur + s).length > budget && cur) { out.push(cur.trim()); cur = s; } else cur += s; });
+        if (cur.trim()) out.push(cur.trim());
+        return out;
+    }
+
+    window.generateSynthesisAudio = async function (dataOverride) {
+        const data = dataOverride || _lastSynthesis;
+        if (!data) { window.showToast && window.showToast(window.t('bs_audio_need', 'Genera prima una sintesi'), 'warning'); return; }
+        if (!(window.electronAPI && window.electronAPI.generateGemini)) {
+            window.showToast && window.showToast(window.t('bs_audio_desktop', 'La voce naturale richiede l\'app desktop'), 'warning'); return;
+        }
+        let key = ''; try { key = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
+        if (!key) { window.showToast && window.showToast(window.t('bs_audio_key', 'Serve la chiave API Google (Gemini) per la voce naturale'), 'error'); return; }
+        const text = _synthesisPlainText(data);
+        if (!text) { window.showToast && window.showToast(window.t('bs_audio_empty', 'Nessun testo da leggere'), 'info'); return; }
+        const model = (function () { try { return localStorage.getItem('mappai_tts_model') || 'gemini-2.5-flash-preview-tts'; } catch (e) { return 'gemini-2.5-flash-preview-tts'; } })();
+        const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
+        const chunks = _chunkForTts(text, 1500);
+        const pcmParts = []; let rate = 24000;
+        try {
+            for (let i = 0; i < chunks.length; i++) {
+                window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + chunks.length + '…');
+                const payload = {
+                    contents: [{ parts: [{ text: chunks[i] }] }],
+                    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
+                };
+                const resp = await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
+                const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
+                const inline = part && part.inlineData;
+                if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
+                const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
+                pcmParts.push(_b64ToBytes(inline.data));
+            }
+            const totalLen = pcmParts.reduce((a, b) => a + b.length, 0);
+            const all = new Uint8Array(totalLen); let off = 0;
+            pcmParts.forEach(p => { all.set(p, off); off += p.length; });
+            const blob = _pcmToWav(all, rate);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = ('Sintesi-' + (data.branchLabel || 'mappa')).replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '-') + '.wav';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            window.showLoadingOverlay && window.showLoadingOverlay(false);
+            window.showToast && window.showToast(window.t('bs_audio_done', '✓ Audio scaricato'), 'success');
+        } catch (err) {
+            window.showLoadingOverlay && window.showLoadingOverlay(false);
+            console.error('[BranchSynthesis] audio TTS fallito:', err);
+            window.showToast && window.showToast((window.t('bs_audio_fail', 'Audio non generato') + ': ' + (err && err.message ? err.message : 'errore')), 'error');
+        }
+    };
+
+    // Superficie pubblica: costruzione dell'HTML stampabile/esportabile (usata
+    // anche per la ri-apertura dall'archivio documenti).
+    window.MappAIBranchSynthesis = { buildPrintHtml: _buildSynthesisPrintHtml };
 
     console.log('[MappAI] mappai-branch-synthesis.js caricato ✓');
 })();
