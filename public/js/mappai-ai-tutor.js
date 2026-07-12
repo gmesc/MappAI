@@ -226,6 +226,12 @@ window.sendSidebarTutorMessage = async function () {
         if (tutorState.sidebar.mode) {
             const mi = window.fillPromptTemplate('TUTOR_MODE_' + String(tutorState.sidebar.mode).toUpperCase(), {});
             if (mi) sidebarSys += ' ' + mi;
+            // La modalità è già scelta dai chip: mai rispiegare il menu.
+            const sLang = appState.language === 'en' ? 'en' : 'it';
+            const sLabel = nodeTutorModeLabel(tutorState.sidebar.mode, sLang);
+            sidebarSys += sLang === 'it'
+                ? ` MODALITÀ ATTIVA: «${sLabel}» — già scelta dai pulsanti: NON elencare né rispiegare le modalità, applicala direttamente.`
+                : ` ACTIVE MODE: "${sLabel}" — already picked via the buttons: do NOT list or re-explain the modes, apply it directly.`;
         }
         const payload = window.injectClassTuning({
             systemInstruction: { parts: [{ text: sidebarSys }] },
@@ -303,9 +309,11 @@ window.startNodeTutor = function () {
         };
 
         const lang = appState.language || 'it';
+        // Il chip AVVIA la modalità (kickoff automatico): il saluto non chiede
+        // più di "scrivere" — passa il mouse sui pulsanti per capire le differenze.
         const firstMsg = lang === 'it' ?
-            "Ciao! Scegli una <strong>modalità</strong> qui sotto (Socratico, Spiega tu, Interroga tu, Dubbio, Collega, Ripasso) e scrivimi: lavoriamo insieme su questo nodo." :
-            "Hi! Pick a <strong>mode</strong> below (Socratic, Explain it, You ask, Doubt, Connect, Recall) and write to me: let's work on this node together.";
+            "Ciao! Scegli una <strong>modalità</strong> qui sotto e parto io. Passa il mouse sui pulsanti per scoprire cosa fa ognuna." :
+            "Hi! Pick a <strong>mode</strong> below and I'll start. Hover the buttons to see what each one does.";
 
         let safeRawTextForBtn = firstMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML = `
@@ -337,6 +345,8 @@ window.startNodeTutor = function () {
                 if (text.includes(splitKey)) {
                     visibleText = text.split(splitKey)[1].trim();
                 }
+                // strip del marcatore di modalità (solo per il modello, non per l'utente)
+                visibleText = visibleText.replace(/^\[(MODALITÀ ATTIVA|ACTIVE MODE):[^\]]*\]\s*/, '');
                 chatHistory.innerHTML += `
                     <div class="bg-slate-800 text-white p-3 rounded-lg text-xs rounded-tr-none border border-slate-700 self-end shadow-sm max-w-[90%]">
                         <p>${visibleText}</p>
@@ -359,14 +369,32 @@ window.startNodeTutor = function () {
 }
 
 // Modalità di interazione della chat-nodo (system prompt TUTOR_MODE_* in prompts_config.json).
+// tip*: descrizioni FISSE per i tooltip hover (MappAITips, data-tip) — coerenti coi template,
+// così lo studente capisce la differenza PRIMA di scegliere (e il modello non le rispiega).
 const NODE_TUTOR_MODES = [
-    { id: 'socratic', it: 'Socratico', en: 'Socratic' },
-    { id: 'explain', it: 'Spiega tu', en: 'Explain it' },
-    { id: 'ask', it: 'Interroga tu', en: 'You ask' },
-    { id: 'devil', it: 'Dubbio', en: 'Doubt' },
-    { id: 'connect', it: 'Collega', en: 'Connect' },
-    { id: 'recall', it: 'Ripasso', en: 'Recall' }
+    { id: 'socratic', it: 'Socratico', en: 'Socratic',
+      tipIt: 'Non ti do le risposte: ti guido con una domanda alla volta, così ci arrivi da solo.',
+      tipEn: "I don't give you answers: I guide you one question at a time, so you get there yourself." },
+    { id: 'explain', it: 'Spiega tu', en: 'Explain it',
+      tipIt: 'Spieghi TU il concetto con parole tue, come a un compagno: io ascolto e ti correggo.',
+      tipEn: 'YOU explain the concept in your own words, like teaching a classmate: I listen and correct you.' },
+    { id: 'ask', it: 'Interroga tu', en: 'You ask',
+      tipIt: 'Le domande le fai TU: rispondo in breve e ti spingo verso domande sempre più profonde.',
+      tipEn: 'YOU ask the questions: I answer briefly and push you toward deeper questions.' },
+    { id: 'devil', it: 'Dubbio', en: 'Doubt',
+      tipIt: 'Ti propongo un\'affermazione che sembra giusta ma è sbagliata: tu la smonti.',
+      tipEn: 'I state something that sounds right but is wrong: you take it apart.' },
+    { id: 'connect', it: 'Collega', en: 'Connect',
+      tipIt: 'Colleghi questo concetto ad altri nodi della mappa, spiegando PERCHÉ sono legati.',
+      tipEn: 'You link this concept to other nodes of the map, explaining WHY they are related.' },
+    { id: 'recall', it: 'Ripasso', en: 'Recall',
+      tipIt: 'Domande brevi a memoria, una alla volta, senza vedere prima la risposta.',
+      tipEn: 'Short memory questions, one at a time, without seeing the answer first.' }
 ];
+function nodeTutorModeLabel(modeId, lang) {
+    const m = NODE_TUTOR_MODES.find(x => x.id === modeId);
+    return m ? m[lang === 'en' ? 'en' : 'it'] : modeId;
+}
 window.renderNodeTutorModes = function () {
     const el = document.getElementById('node-tutor-modes');
     if (!el || !editTarget) return;
@@ -375,17 +403,31 @@ window.renderNodeTutorModes = function () {
     const lang = appState.language === 'en' ? 'en' : 'it';
     el.innerHTML = NODE_TUTOR_MODES.map(m => {
         const active = m.id === cur;
-        return `<button type="button" onclick="window.setNodeTutorMode('${m.id}')" title="${m[lang]}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
+        const tip = (lang === 'en' ? m.tipEn : m.tipIt).replace(/"/g, '&quot;');
+        return `<button type="button" onclick="window.setNodeTutorMode('${m.id}')" data-tip="${tip}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
     }).join('');
 };
 window.setNodeTutorMode = function (mode) {
     if (!editTarget) return;
     if (!tutorState.nodes[editTarget.id]) tutorState.nodes[editTarget.id] = { phase: null, mode: 'socratic', turns: 0, history: [] };
-    tutorState.nodes[editTarget.id].mode = mode;
+    const st = tutorState.nodes[editTarget.id];
+    const changed = st.mode !== mode;
+    st.mode = mode;
     window.renderNodeTutorModes();
-    const m = NODE_TUTOR_MODES.find(x => x.id === mode);
     const lang = appState.language === 'en' ? 'en' : 'it';
-    if (window.showToast && m) window.showToast((lang === 'en' ? 'Mode: ' : 'Modalità: ') + m[lang], 'info');
+    // Il chip AVVIA la modalità: parte un turno automatico se la modalità è
+    // cambiata O se la chat non è ancora iniziata (turns===0 — copre il click
+    // sul chip di default già attivo). Il modello riceve la scelta DENTRO la
+    // conversazione (prima viveva solo nella UI → il tutor rispiegava il menu).
+    const chatOpen = !document.getElementById('node-tutor-chat-area')?.classList.contains('hidden');
+    if (chatOpen && st.history.length > 0 && (changed || st.turns === 0)) {
+        const kickoff = lang === 'en'
+            ? `Let's start in "${nodeTutorModeLabel(mode, 'en')}" mode.`
+            : `Iniziamo in modalità «${nodeTutorModeLabel(mode, 'it')}».`;
+        window.sendNodeTutorMessage(kickoff);
+    } else if (window.showToast) {
+        window.showToast((lang === 'en' ? 'Mode: ' : 'Modalità: ') + nodeTutorModeLabel(mode, lang), 'info');
+    }
 };
 
 // Stesse modalità per il Tutor Globale (sidebar) + opzione "Libero" (default = comportamento attuale).
@@ -394,10 +436,12 @@ window.renderSidebarTutorModes = function () {
     if (!el) return;
     const cur = (tutorState.sidebar && tutorState.sidebar.mode) || null;
     const lang = appState.language === 'en' ? 'en' : 'it';
-    const list = [{ id: null, it: 'Libero', en: 'Free' }].concat(NODE_TUTOR_MODES);
+    const free = { id: null, it: 'Libero', en: 'Free', tipIt: 'Chat libera: chiedimi quello che vuoi sulla mappa.', tipEn: 'Free chat: ask me anything about the map.' };
+    const list = [free].concat(NODE_TUTOR_MODES);
     el.innerHTML = list.map(m => {
         const active = (m.id || null) === cur;
-        return `<button type="button" onclick="window.setSidebarTutorMode(${m.id ? "'" + m.id + "'" : 'null'})" title="${m[lang]}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
+        const tip = (lang === 'en' ? m.tipEn : m.tipIt).replace(/"/g, '&quot;');
+        return `<button type="button" onclick="window.setSidebarTutorMode(${m.id ? "'" + m.id + "'" : 'null'})" data-tip="${tip}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
     }).join('');
 };
 window.setSidebarTutorMode = function (mode) {
@@ -410,10 +454,14 @@ window.setSidebarTutorMode = function (mode) {
 };
 document.addEventListener('DOMContentLoaded', () => { try { window.renderSidebarTutorModes(); } catch (e) {} });
 
-window.sendNodeTutorMessage = async function () {
+// presetText (opzionale): messaggio inviato programmaticamente (kickoff del chip
+// modalità). Guard typeof: gli onclick chiamano senza argomenti o con l'Event.
+window.sendNodeTutorMessage = async function (presetText) {
     if (!editTarget) return;
     const inputEl = document.getElementById('node-tutor-input');
-    const customQuery = inputEl.value.trim();
+    const customQuery = (typeof presetText === 'string' && presetText.trim())
+        ? presetText.trim()
+        : inputEl.value.trim();
     if (!customQuery) return;
 
     inputEl.value = '';
@@ -489,6 +537,13 @@ window.sendNodeTutorMessage = async function () {
             ? "Guida lo studente con UNA domanda alla volta per farlo rielaborare da solo."
             : "Guide the student with ONE question at a time to help them re-elaborate on their own.";
     }
+    // La modalità è GIÀ scelta dai chip: dichiararlo evita che il modello
+    // rispieghi il menu o chieda di scegliere (il suo saluto nello storico
+    // invitava a farlo — senza questa riga la conversazione vince sul prompt).
+    const activeModeLabel = nodeTutorModeLabel(currentNodeState.mode || 'socratic', lang);
+    phaseStr += lang === 'it'
+        ? ` MODALITÀ ATTIVA: «${activeModeLabel}» — l'utente l'ha già scelta dai pulsanti. NON elencare né rispiegare le modalità, NON chiedere di sceglierne una: applicala direttamente da subito.`
+        : ` ACTIVE MODE: "${activeModeLabel}" — the user already picked it via the buttons. Do NOT list or re-explain the modes, do NOT ask to choose one: apply it right away.`;
 
     let kgStr = "";
     if (lang === 'it') {
@@ -513,6 +568,13 @@ window.sendNodeTutorMessage = async function () {
     if (currentNodeState.turns === 1) {
         const prefix = appState.language === 'en' ? "The user says:" : "L'utente dice:";
         apiQuery = `${contextStr}\n\n${prefix} ${customQuery}`;
+    }
+    // Marcatore di modalità nel turno: al primo messaggio e a ogni cambio chip
+    // il modello vede la scelta DENTRO la conversazione, non solo nel prompt.
+    if (currentNodeState._sentMode !== currentNodeState.mode) {
+        const mkLabel = nodeTutorModeLabel(currentNodeState.mode, lang);
+        apiQuery = (lang === 'it' ? `[MODALITÀ ATTIVA: ${mkLabel}]\n` : `[ACTIVE MODE: ${mkLabel}]\n`) + apiQuery;
+        currentNodeState._sentMode = currentNodeState.mode;
     }
 
     currentNodeState.history.push({ role: "user", parts: [{ text: apiQuery }], mode: currentNodeState.mode });
