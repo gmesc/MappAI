@@ -798,6 +798,18 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
 
     // ── 8. Apri finestra ─────────────────────────────────────────────────────
 
+    // Archivio documenti (005): timeline riapribile dalla landing Insegna.
+    try {
+        if (window.MappAIStudyDocs) {
+            window.MappAIStudyDocs.save({
+                kind: 'timeline',
+                title: (window.t ? window.t('ui_create_timeline', 'Timeline') : 'Timeline') + ' \u2014 ' + (mapName || 'Progetto'),
+                mapName: mapName || '',
+                html: fullHtml
+            });
+        }
+    } catch (e) { /* archivio best-effort */ }
+
     var win = window.open('', '_blank');
     if (!win) {
         window.showToast('Popup bloccato \u2014 abilita i popup per questo sito', 'warning');

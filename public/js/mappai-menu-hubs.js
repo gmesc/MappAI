@@ -198,10 +198,17 @@
                 '<span>' + esc(t('sd_col_class', 'Classe')) + '</span>' +
                 '<span>' + esc(t('sd_col_date', 'Data')) + '</span>' +
                 '<span style="text-align:right">' + esc(t('sd_col_actions', 'Azioni')) + '</span></div>';
+            const KIND_META = {
+                synthesis: { icon: 'sparkles', label: t('sd_kind_synthesis', 'Sintesi') },
+                dossier:   { icon: 'files',    label: t('sd_kind_dossier', 'Dossier') },
+                nodesheet: { icon: 'scissors', label: t('lt_kind_nodesheet', 'Foglio nodi') },
+                timeline:  { icon: 'gantt-chart', label: t('lt_kind_timeline', 'Timeline') },
+                map:       { icon: 'file-text', label: t('sd_kind_map', 'Mappa PDF') }
+            };
             const rows = docs.map(d => {
-                const isSyn = d.kind === 'synthesis';
-                const icon = isSyn ? 'sparkles' : 'files';
-                const kindLbl = isSyn ? t('sd_kind_synthesis', 'Sintesi') : t('sd_kind_dossier', 'Dossier');
+                const meta = KIND_META[d.kind] || KIND_META.dossier;
+                const icon = meta.icon;
+                const kindLbl = meta.label;
                 const dt = new Date(d.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' });
                 const cls = d.cls
                     ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#4f46e5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i data-lucide="graduation-cap" style="width:13px;height:13px;flex:0 0 auto"></i>' + esc(d.cls) + '</span>'
@@ -225,13 +232,15 @@
         overlay.querySelectorAll('.sd-open').forEach(b => b.onclick = () => {
             hideTip();
             const rec = window.MappAIStudyDocs.get(b.dataset.id);
-            if (!rec || !rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
+            if (!rec) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
+            if (rec.pdf) { window.open(rec.pdf, '_blank'); return; } // Foglio nodi (PDF)
+            if (!rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
             window.MappAIStudyExport.openPrintable(rec.html, { successMsg: t('sd_reopened', '✓ Documento riaperto') });
         });
         overlay.querySelectorAll('.sd-qr').forEach(b => b.onclick = () => {
             hideTip();
             const rec = window.MappAIStudyDocs.get(b.dataset.id);
-            if (!rec || !rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
+            if (!rec || !rec.html) { window.showToast && window.showToast(rec && rec.pdf ? t('sd_pdf_no_qr', 'Il Foglio nodi (PDF) non è condivisibile via QR.') : t('sd_missing', 'Documento non disponibile'), 'warning'); return; }
             if (!(window.MappAILive && window.MappAILive.shareDocQr)) { window.showToast && window.showToast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return; }
             const fname = String(rec.title || 'documento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'documento';
             window.MappAILive.shareDocQr(fname + '.html', rec.html);

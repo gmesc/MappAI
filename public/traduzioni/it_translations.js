@@ -5,6 +5,12 @@ const it_translations = {
     btn_app_guide: "Guida",
     btn_active_study: "Studio",
     recent_projects: "Progetti Recenti",
+    // Landing "Costruisci / Insegna" (005) — chiavi statiche data-i18n
+    ui_landing_build: "Costruisci",
+    ui_landing_teach: "Insegna",
+    ui_teach_filter_all: "Mostra tutto",
+    ui_teach_filter_class: "Solo classe attiva",
+    ui_build_projects: "Progetti salvati",
     new_map_btn: "Genera Mappa",
     new_kg_btn: "Genera Knowledge Graph",
 

@@ -155,14 +155,34 @@ if (!app.isPackaged) {
     app.setPath('userData', path.join(app.getPath('userData'), 'dev'));
 }
 
+// Kill-switch launcher (005-landing-insegna): di default l'avvio va DIRETTO alla
+// landing MappAI (il launcher di scelta MappAI/Studio era illogico per il docente).
+// Lo Studio garden resta raggiungibile dal bottone "Knowledge Garden" nel menu.
+// Per ripristinare il launcher storico: <userData>/mappai-settings.json con
+// { "legacyLauncher": true }. Lettura SYNC + try/catch: assente/illeggibile = {}.
+function legacyLauncherEnabled() {
+    try {
+        const p = path.join(app.getPath('userData'), 'mappai-settings.json');
+        if (!fs.existsSync(p)) return false;
+        const s = JSON.parse(fs.readFileSync(p, 'utf8'));
+        return s && s.legacyLauncher === true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function bootPrimaryWindow() {
+    if (legacyLauncherEnabled()) createLauncherWindow();
+    else createWindow();
+}
+
 app.whenReady().then(() => {
     initDefaultVaultFolder();
-    // Launcher con scelta MappAI / Memory Dungeon Studio — sempre, anche pacchettizzata
-    createLauncherWindow();
+    bootPrimaryWindow();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createLauncherWindow();
+            bootPrimaryWindow();
         }
     });
 });

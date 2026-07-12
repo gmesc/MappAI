@@ -188,28 +188,36 @@ document.addEventListener('click', hideContextMenu);
 window.speakNode = function (data) {
     if (!data) return;
     if (!('speechSynthesis' in window)) { showToast(window.t('tst_no_tts', "Sintesi vocale non supportata su questo dispositivo"), "error"); return; }
-    const synth = window.speechSynthesis;
-    // se sta già leggendo → ferma (toggle)
-    if (synth.speaking || synth.pending) { synth.cancel(); return; }
 
     const title = (cleanLabel ? cleanLabel(data.label) : data.label) || '';
     const body = (data.desc || data.content || '').toString();
-    // pulizia: markdown, LaTeX, simboli → testo leggibile
-    const text = (title + '. ' + body)
-        .replace(/\$\$?[^$]*\$\$?/g, ' ')      // formule LaTeX
-        .replace(/[#*_`>~|]/g, ' ')
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // link markdown → testo
-        .replace(/[\\{}\[\]]/g, ' ')
+    // pulizia: LaTeX + link markdown (i marker [n]/markdown residui li toglie il motore)
+    const spoken = body
+        .replace(/\$\$?[^$]*\$\$?/g, ' ')          // formule LaTeX
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')   // link markdown → testo
+        .replace(/[\\{}]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    if (!text) { showToast(window.t('tst_no_text_tts', "Nessun testo da leggere"), "info"); return; }
+    if (!title && !spoken) { showToast(window.t('tst_no_text_tts', "Nessun testo da leggere"), "info"); return; }
 
-    const u = new SpeechSynthesisUtterance(text);
+    // Preferita: card audio flottante con chip + barra di avanzamento (orientamento BES/DSA).
+    if (window.MappAITTS && window.MappAITTS.playFloating) {
+        if (window.MappAITTS.isFloatingOpen && window.MappAITTS.isFloatingOpen()) { window.MappAITTS.closeFloating(); return; } // toggle
+        window.MappAITTS.playFloating({
+            title: title,
+            text: spoken,
+            lang: (window.currentLanguage === 'en') ? 'en-US' : 'it-IT'
+        });
+        return;
+    }
+
+    // Fallback (motore assente): lettura semplice con toggle stop.
+    const synth = window.speechSynthesis;
+    if (synth.speaking || synth.pending) { synth.cancel(); return; }
+    const u = new SpeechSynthesisUtterance((title + '. ' + spoken).replace(/[#*_`>~|]/g, ' ').trim());
     u.lang = (window.currentLanguage === 'en') ? 'en-US' : 'it-IT';
-    u.rate = 0.95;
-    u.pitch = 1.0;
-    synth.cancel();
-    synth.speak(u);
+    u.rate = 0.95; u.pitch = 1.0;
+    synth.cancel(); synth.speak(u);
 };
 
 window.ctxAction = function (action) {

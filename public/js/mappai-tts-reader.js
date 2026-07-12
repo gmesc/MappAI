@@ -453,8 +453,44 @@
         try { localStorage.setItem(LS_ENABLED, on ? '1' : '0'); } catch (e) {}
         if (!on) _stop();
         _mounted = _mounted.filter(function (h) { return h.wrap.isConnected; });
-        _mounted.forEach(function (h) { h.wrap.style.display = on ? '' : 'none'; });
+        _mounted.forEach(function (h) { if (!h.wrap._floating) h.wrap.style.display = on ? '' : 'none'; });
         document.querySelectorAll('.mai-tts-sec').forEach(function (b) { b.classList.toggle('on', on); });
+    }
+
+    // ── Card audio flottante (TTS avviato dal menu contestuale di un nodo) ──
+    // Mostra titolo + testo del nodo con karaoke, chip a 4 segmenti e barra di
+    // avanzamento, così l'allievo si orienta nell'ascolto. Sempre visibile
+    // (avvio esplicito dall'utente), a prescindere dal toggle compensativo.
+    function _closeFloat() {
+        var f = document.getElementById('mai-tts-float');
+        if (E.wrap && E.wrap._floating) _stop();
+        if (f) f.remove();
+        _mounted = _mounted.filter(function (h) { return h.wrap.isConnected; });
+    }
+    function isFloatingOpen() { return !!document.getElementById('mai-tts-float'); }
+    function playFloating(opts) {
+        opts = opts || {};
+        _closeFloat();
+        var f = document.createElement('div');
+        f.id = 'mai-tts-float'; f.className = 'mai-tts-float';
+        f.setAttribute('lang', (opts.lang === 'en-US' || opts.lang === 'en') ? 'en' : 'it');
+        var close = document.createElement('button');
+        close.type = 'button'; close.className = 'mai-tts-float-close';
+        close.setAttribute('aria-label', _t('tts_close', 'Chiudi')); close.textContent = '✕';
+        close.addEventListener('click', _closeFloat);
+        var bodyEl = document.createElement('div'); bodyEl.className = 'mai-tts-float-body';
+        if (opts.title) { var h = document.createElement('h4'); h.textContent = opts.title; bodyEl.appendChild(h); }
+        var p = document.createElement('p'); p.textContent = opts.text || ''; bodyEl.appendChild(p);
+        var ctrl = document.createElement('div'); ctrl.className = 'mai-tts-float-ctrl';
+        f.appendChild(close); f.appendChild(bodyEl); f.appendChild(ctrl);
+        document.body.appendChild(f);
+        var wrap = _makeControl(function () { return bodyEl; });
+        wrap._floating = true;
+        ctrl.appendChild(wrap);
+        _mounted.push({ slot: ctrl, wrap: wrap });
+        _icons();
+        _stop(); _load(wrap); _playFrom(0, 0); // avvio automatico
+        return f;
     }
     function toggle(btn) {
         var on = !isEnabled();
@@ -488,10 +524,18 @@
             '.mai-tts-sec.on{display:inline-flex}.mai-tts-sec:hover{background:#e0e7ff}.mai-tts-sec i{width:13px;height:13px}' +
             '.mai-tts-block{background:rgba(253,230,138,.30);border-radius:5px;box-shadow:0 0 0 3px rgba(253,230,138,.30)}' +
             '::highlight(mai-tts-read){background-color:#fde68a;color:#0f172a}' +
+            '.mai-tts-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4000;width:min(560px,92vw);background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 18px 44px rgba(15,23,42,.30);padding:16px 18px 14px;font-family:"Space Mono",monospace}' +
+            '.mai-tts-float-close{position:absolute;top:9px;right:12px;border:0;background:transparent;color:#94a3b8;cursor:pointer;font-size:15px;line-height:1;width:22px;height:22px;border-radius:9999px}' +
+            '.mai-tts-float-close:hover{background:#f1f5f9;color:#475569}' +
+            '.mai-tts-float-body{max-height:32vh;overflow:auto;margin:2px 22px 12px 0;padding-right:6px}' +
+            '.mai-tts-float-body h4{font-size:14px;font-weight:800;color:#4338ca;margin:0 0 6px}' +
+            '.mai-tts-float-body p{font-size:13px;line-height:1.75;color:#334155;margin:0}' +
+            '.mai-tts-float-ctrl{display:flex}' +
             '@media (prefers-color-scheme: dark){' +
             '.mai-tts-chip{background:#1e293b;border-color:#334155}.mai-tts-seg{color:#a5b4fc;border-left-color:#334155}.mai-tts-seg:hover{background:#334155}' +
             '.mai-tts-progress{background:#334155}.mai-tts-time{color:#94a3b8}.mai-tts-sec{background:#312e81;color:#c7d2fe}' +
-            '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}}';
+            '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}' +
+            '.mai-tts-float{background:#1e293b;border-color:#334155}.mai-tts-float-body h4{color:#c7d2fe}.mai-tts-float-body p{color:#cbd5e1}.mai-tts-float-close:hover{background:#334155;color:#e2e8f0}}';
         var st = document.createElement('style'); st.id = 'mai-tts-style'; st.textContent = css; document.head.appendChild(st);
     }
 
@@ -520,6 +564,7 @@
         isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
+        playFloating: playFloating, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
         stop: function () { _stop(); }, _speeds: SPEEDS
     };
 

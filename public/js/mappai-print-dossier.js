@@ -472,6 +472,19 @@ window.printAllNodeLabels = async function () {
 
     doc.save(`Label-${projectTitle}.pdf`);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
+
+    // Archivio documenti (005): il Foglio nodi è un PDF → salvato come data-URI,
+    // riapribile dalla landing Insegna senza rigenerare.
+    try {
+        if (window.MappAIStudyDocs) {
+            window.MappAIStudyDocs.save({
+                kind: 'nodesheet',
+                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle,
+                mapName: projectTitle,
+                pdf: doc.output('datauristring')
+            });
+        }
+    } catch (e) { /* archivio best-effort */ }
 };
 
 // ── Keyword per le etichette ──────────────────────────────────────────────────
