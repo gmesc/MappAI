@@ -182,6 +182,45 @@ test('POST /api/nodes: links con keyword + flag done → board li espone', async
   assert.strictEqual(st.body.groups[0].done, true);
 });
 
+test('POST /api/reopen: docente sblocca → done torna false (nodi intatti)', async () => {
+  // "I Leoni" è done=true dal test precedente
+  const r = await api('/api/reopen', {
+    method: 'POST',
+    body: JSON.stringify({ adminToken: admin, nick: 'I Leoni' })
+  });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.body.done, false);
+
+  const board = await api('/api/board?s=' + tok);
+  const g = board.body.groups.find(g => g.nick === 'I Leoni');
+  assert.strictEqual(g.done, false);
+  assert.strictEqual(g.links.length, 1); // link/nodi non toccati
+});
+
+test('POST /api/reopen: senza adminToken → 403', async () => {
+  const r = await api('/api/reopen', {
+    method: 'POST',
+    body: JSON.stringify({ nick: 'I Leoni' })
+  });
+  assert.strictEqual(r.status, 403);
+});
+
+test('POST /api/reopen: idempotente su gruppo già in-corso + nick inesistente no-op', async () => {
+  const again = await api('/api/reopen', {
+    method: 'POST',
+    body: JSON.stringify({ adminToken: admin, nick: 'I Leoni' })
+  });
+  assert.strictEqual(again.status, 200);
+  assert.strictEqual(again.body.done, false);
+
+  const ghost = await api('/api/reopen', {
+    method: 'POST',
+    body: JSON.stringify({ adminToken: admin, nick: 'Nessuno' })
+  });
+  assert.strictEqual(ghost.status, 200);
+  assert.strictEqual(ghost.body.ok, true);
+});
+
 test('POST /api/nodes: link con estremità inesistente → rejected, non salvato', async () => {
   const r = await api('/api/nodes', {
     method: 'POST',

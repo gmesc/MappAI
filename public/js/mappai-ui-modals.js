@@ -542,6 +542,41 @@ window.toggleTreeCollapse = function (nodeId) {
     window.renderTreeView();
 };
 
+// Collassa TUTTI i rami dell'albero di default (006). L'albero è a 2 livelli:
+// solo i nodi radice (L1 in MindMap / hub in KG) hanno la freccia → basta
+// aggiungerli a collapsedTreeNodes. No-op se kill-switch
+// mappai_tree_expanded_default==='1' (albero espanso come in origine).
+// Idempotente: chiamata una sola volta per mappa (flag _treeCollapsedFor).
+window.collapseAllTree = function (opts) {
+    opts = opts || {};
+    try { if (localStorage.getItem('mappai_tree_expanded_default') === '1') return; } catch (e) { }
+    if (typeof appState === 'undefined' || !appState.db || !appState.db.nodes || !appState.db.nodes.length) return;
+
+    // Firma della mappa corrente: evita di ri-collassare ciò che l'utente ha
+    // espanso manualmente sulla stessa mappa (a meno di opts.force).
+    var sig = (appState.rootNodeLabel || '') + '::' + appState.db.nodes.length + '::' + (appState.extractionMode || '');
+    if (!opts.force && window._treeCollapsedFor === sig) return;
+    window._treeCollapsedFor = sig;
+
+    var isMindmap = appState.extractionMode === 'mindmap';
+    var roots;
+    if (isMindmap) {
+        roots = appState.db.nodes.filter(function (n) { return n.level === 1; });
+    } else {
+        var deg = {};
+        appState.db.nodes.forEach(function (n) { deg[n.id] = 0; });
+        appState.db.links.forEach(function (l) {
+            var s = typeof l.source === 'object' ? l.source.id : l.source;
+            var tt = typeof l.target === 'object' ? l.target.id : l.target;
+            if (deg[s] !== undefined) deg[s]++;
+            if (deg[tt] !== undefined) deg[tt]++;
+        });
+        roots = appState.db.nodes.slice().sort(function (a, b) { return (deg[b.id] || 0) - (deg[a.id] || 0); }).slice(0, 8);
+    }
+    roots.forEach(function (n) { window.collapsedTreeNodes.add(n.id); });
+    if (window.renderTreeView) window.renderTreeView();
+};
+
 window.renderTreeView = function () {
     const container = document.getElementById('tree-view-container');
     const titleEl = document.getElementById('tree-view-title');

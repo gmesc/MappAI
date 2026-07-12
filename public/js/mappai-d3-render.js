@@ -122,6 +122,9 @@ function initD3Visualization() {
 
     window.updateDegreeStats();
     renderGraph();
+    // 006: collassa i rami di default al primo render della mappa (no-op se
+    // kill-switch mappai_tree_expanded_default o già collassato per questa mappa)
+    if (window.collapseAllTree) window.collapseAllTree();
     window.renderTreeView();
 
     if (isPinned && simulation && !simulation.alpha()) {
