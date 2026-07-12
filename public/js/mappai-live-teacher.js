@@ -79,12 +79,14 @@
       card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla, cloze o domande tue — con report finali'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.')) +
       card('presentation', t('lv_card_board', 'Lavagna collaborativa'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
       card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
+      card('message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, '560px');
     var cards = ov.querySelectorAll('.lh-card');
     cards[0].onclick = function () { openLiveSetup(); };
     cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Lavagna non disponibile', 'error'); };
     cards[2].onclick = function () { openMaterialsPanel(); };
+    cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chatta e Scrivi non disponibile', 'error'); };
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
 

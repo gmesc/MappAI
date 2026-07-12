@@ -193,6 +193,35 @@ app.on('window-all-closed', () => {
     }
 });
 
+// ── Helper AI condiviso (007) ──────────────────────────────────────────────
+// Chiamata provider SENZA side-effect: usata dagli IPC generate-* (below,
+// comportamento invariato) e dal tutor-server in-process (la chiave API resta
+// confinata al main — mai serializzata verso i telefoni).
+async function callGemini({ apiKey, payload, model }) {
+    const modelName = model || "gemini-2.0-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    try {
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 600000 // 10 minutes timeout for complex maps
+        });
+        return response.data;
+    } catch (error) {
+        let errorMsg = error.message;
+        if (error.response && error.response.data) {
+            errorMsg = JSON.stringify(error.response.data);
+        }
+        const err = new Error(errorMsg);
+        err.status = error.response && error.response.status;
+        throw err;
+    }
+}
+
+async function callModel({ provider, apiKey, payload, model, productId }) {
+    if (provider === 'infomaniak') return callInfomaniakChat({ apiKey, payload, productId });
+    return callGemini({ apiKey, payload, model });
+}
+
 // IPC handler for proxying Gemini requests
 ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
     const statusPath = path.join(__dirname, '.gemini_status.json');
@@ -203,28 +232,19 @@ ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
     const modelName = model || "gemini-2.0-flash";
     updateStatus({ state: 'started', model: modelName, message: 'Richiesta inviata a Google...' });
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
     try {
-        const response = await axios.post(url, payload, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 600000 // 10 minutes timeout for complex maps
-        });
-        
+        const data = await callGemini({ apiKey, payload, model });
         updateStatus({ state: 'completed' });
-        return response.data;
+        return data;
     } catch (error) {
-        let errorMsg = error.message;
-        if (error.response && error.response.data) {
-            errorMsg = JSON.stringify(error.response.data);
-        }
-        updateStatus({ state: 'error', message: errorMsg });
-        throw new Error(errorMsg);
+        updateStatus({ state: 'error', message: error.message });
+        throw new Error(error.message);
     }
 });
 
-// IPC handler for proxying Infomaniak requests
-ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId }) => {
+// Chiamata Infomaniak (stream SSE obbligatorio per bypassare il Gateway Timeout).
+// Estratta dall'IPC per essere riusata dal tutor-server (007).
+async function callInfomaniakChat({ apiKey, payload, productId }) {
     // Infomaniak endpoint: https://api.infomaniak.com/2/ai/{product_id}/openai/v1/chat/completions
     const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/chat/completions`;
 
@@ -319,8 +339,15 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
             }
         }
         console.error("Infomaniak API Error:", errorMsg);
-        throw new Error(errorMsg);
+        const err = new Error(errorMsg);
+        err.status = error.response && error.response.status;
+        throw err;
     }
+}
+
+// IPC handler for proxying Infomaniak requests (delega a callInfomaniakChat)
+ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId }) => {
+    return callInfomaniakChat({ apiKey, payload, productId });
 });
 
 // IPC handler per embeddings Infomaniak (default: bge-multilingual-gemma2).
@@ -1850,6 +1877,75 @@ ipcMain.handle('live-classes-save', async (event, data) => {
         fs.writeFileSync(f, JSON.stringify(data || { schema: 'mappai-classes@1', classes: [] }, null, 2));
         return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// TUTOR AI VIA QR — "Chatta e Scrivi" (007) · porte 8769-8779
+// Sessioni: ~/Documents/MappAI - Tutor/<mappa>-<classe>-<data>/
+// SICUREZZA: apiKey + systemInstruction arrivano dal renderer all'avvio e
+// restano in memoria del main (passate al server come opts.secrets, MAI
+// persistite né servite ai telefoni). Le chiamate AI partono da qui (callModel).
+// ══════════════════════════════════════════════════════════════════════════
+const { createTutorServer } = require('./tutor-server');
+let tutorSrv = null, tutorInfo = null;
+function tutorBaseDir() { return path.join(app.getPath('documents'), 'MappAI - Tutor'); }
+
+ipcMain.handle('tutor-start-session', async (event, opts) => {
+    try {
+        if (tutorSrv) { await tutorSrv.stop(); tutorSrv = null; tutorInfo = null; }
+        const o = opts || {};
+        if (!o.apiKey) return { success: false, error: 'api-key-mancante' };
+        const slug = [slugLive(o.name || 'mappa'), slugLive(o.className || 'classe'), dateStamp()].join('-');
+        const dir = path.join(tutorBaseDir(), slug);
+        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        tutorSrv = createTutorServer({
+            repoRoot: __dirname, dir,
+            session: {
+                name: o.name, className: o.className, topic: o.topic,
+                mode: o.mode, cap: o.cap, writingBrief: o.writingBrief,
+                provider: o.provider, model: o.model, productId: o.productId,
+                maxTokens: o.maxTokens
+            },
+            secrets: { apiKey: o.apiKey, systemInstruction: o.systemInstruction },
+            roster: Array.isArray(o.roster) ? o.roster : [],
+            callModel
+        });
+        let port = null, lastErr = null;
+        for (let p = 8769; p <= 8779; p++) {
+            try { port = await tutorSrv.listen(p, '0.0.0.0'); break; } catch (e) { lastErr = e; }
+        }
+        if (!port) throw lastErr || new Error('nessuna porta libera 8769-8779');
+        const st = tutorSrv.state();
+        tutorInfo = {
+            port, urls: lanUrls(port), token: st.session.token,
+            adminToken: st.session.adminToken, dir, name: o.name, resumed: resuming
+        };
+        console.log('[tutor] sessione Chatta-e-Scrivi avviata su :' + port, resuming ? '(RIPRESA)' : '');
+        return Object.assign({ success: true }, tutorInfo);
+    } catch (err) {
+        console.error('Errore tutor-start-session:', err);
+        tutorSrv = null;
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('tutor-stop-session', async () => {
+    try {
+        if (tutorSrv) { await tutorSrv.stop(); tutorSrv = null; tutorInfo = null; }
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('tutor-session-info', async () => {
+    if (!tutorSrv || !tutorInfo) return { success: false, error: 'nessuna sessione attiva' };
+    return Object.assign({ success: true }, tutorInfo, tutorSrv.state());
+});
+
+ipcMain.handle('tutor-open-folder', async () => {
+    const dir = tutorInfo ? tutorInfo.dir : tutorBaseDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+    return { success: true, dir };
 });
 
 // MEMORY DUNGEON: scrive un piano validato in Memory Dungeon/piani/piano-N.json.

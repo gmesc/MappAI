@@ -534,6 +534,63 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (13/7/26): 007-tutor-qr — Tutor AI via QR, attività "Chatta e Scrivi"
+Spec-kit completo (`specs/007-tutor-qr/`, branch omonimo). QUINTA attività live:
+lo studente entra via QR con le credenziali di classe, chatta col Tutor AI
+sull'argomento assegnato (modalità + CAP SCAMBI del docente), poi redige e
+consegna un testo personale. Report docente = TESTO + TRASCRIZIONE per studente
+(processo, non solo prodotto). Suite **397/397** ✅.
+- **Proxy AI — la chiave NON lascia mai il main**: helper `callModel({provider,
+  apiKey, payload, model|productId})` estratto in `main.js` dagli IPC
+  `generate-gemini`/`generate-infomaniak` (che ora lo richiamano, comportamento
+  invariato; `callGemini`/`callInfomaniakChat` con `err.status` per il backoff).
+  Il tutor-server (stesso processo) lo chiama in-process; apiKey+systemInstruction
+  arrivano via IPC `tutor-start-session` come `opts.secrets` e NON vengono mai
+  persistite né servite ai telefoni (publicState = WHITELIST nel core).
+- **Core puro** `public/js/mappai-tutor-core.js` (UMD): `LIMITS` (msgMax 600,
+  maxTokens 400, cap 1-30), `canSpend`, `validateMessage`, `publicState`,
+  `buildChatPayload` (google systemInstruction/contents · infomaniak messages
+  OpenAI, MAI responseMimeType), `extractText`, `computeTutorResults`
+  (flag `neverChatted` per consegne senza chat). +7 test.
+- **Server** `tutor-server.js`: `createTutorServer` (porte **8769-8779**, cartella
+  `~/Documents/MappAI - Tutor/<mappa>-<classe>-<data>/`, session.json SENZA
+  segreti + students/<id>.json autosave, ripresa crash-safe stesso token).
+  API: session (publicState+emojiSet) / join (409 identity-taken, rientro con
+  chat+bozza) / **tutor** (cap+validazione PRIMA dell'AI → coda `enqueue`
+  SERIALIZZATA con retry su 429 + flag providerSlow; **riserva ottimistica di
+  `used`** con rollback — senza, N invii simultanei bucavano il cap) / draft /
+  submit / status / reopen / close (results.json + report). +8 test (callModel
+  MOCKATO: prova che cap/validazione bloccano senza chiamate AI e che la coda
+  è seriale — max 1 in volo su 5 simultanei).
+- **Pagina studente** `public/tutor/student.html` (self-contained, stile MappAI):
+  login emoji+numero → tab **💬 Esplora** (chat, contatore scambi, cap → chat
+  chiusa + invito a scrivere) / **✍️ Scrivi** (brief del docente, autosave
+  debounce, sempre accessibile) → **📮 Consegna** (riconsegna permessa). Rientro
+  stesso device ritrova chat+bozza dal server.
+- **Docente** `public/js/mappai-tutor-teacher.js` (`window.MappAITutor.open/
+  openSetup/openDashboard`): wizard classe→argomento (L1 MindMap / top-8 hub KG)
+  →modalità (le 6 TUTOR_MODE_*)→cap→consegna; la **systemInstruction è costruita
+  nel renderer** (persona + TUTOR_MODE_* + contesto argomento CAPPATO 900+500
+  char + REGOLA ANTI-REDAZIONE "mai scrivere il testo al posto dello studente" +
+  anti-manipolazione + classTuningPrompt) e passata al main → il telefono non può
+  alterarla. Dashboard QR + griglia stati (polling 3s: fase/used/cap/✓ +
+  "Sblocca" reopen) + "Chiudi e genera report" (apre il report, poi stop server).
+  Registro sessioni: `logSession({activity:'tutor'})` → chip classe in Insegna.
+  Modello/credenziali dal provider ATTIVO (stessa fonte di fetchModelAPI).
+- **Report** `public/js/mappai-tutor-reports.js` (UMD): `buildTutorReportHtml` —
+  scheda per studente con testo consegnato + chat affiancati, badge
+  "0 scambi col tutor" sulle consegne senza processo.
+- **Hub**: 4ª card "Chatta e Scrivi (Tutor AI)" in `openLiveHub`. IPC:
+  `tutor-start/stop-session`, `-session-info`, `-open-folder` (main+preload).
+- i18n: `lv_card_tutor*`/`tq_*` in `en_translations.js` (fallback IT inline).
+- ✅ Verificato E2E in browser CONTRO SERVER REALE (AI mockata): login volpe-03 →
+  3 scambi (contatore 0/3→3/3, cap chiude la chat) → scrittura+autosave →
+  consegna → file su disco (6 turni, phase submitted, ZERO segreti in
+  session/students/report) → close → report con testo+trascrizione. Moduli
+  caricano nell'app senza errori console.
+  ⚠️ Da testare in Electron vivo (quickstart.md): wizard reale, chiamata AI VERA
+  su entrambi i provider (Google + Infomaniak), telefono su LAN, 25 studenti.
+
 ### ✅ FATTO (12/7/26): 006-lavagna-sidebar — dashboard Lavagna in sidebar + sblocca + resize
 Spec-kit completo (`specs/006-lavagna-sidebar/`, branch omonimo). La gestione della
 Lavagna collaborativa esce dal popup che copriva la mappa e vive nel tab Struttura

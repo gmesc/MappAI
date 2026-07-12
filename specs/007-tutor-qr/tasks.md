@@ -1,5 +1,13 @@
 # Tasks: Tutor AI via QR — "Chatta e Scrivi"
 
+> **STATO (13/7/26): implementazione completa, verificata E2E in browser contro server reale.**
+> Fasi 1-6 implementate (callModel, core+7 test, tutor-server+8 test, pagina studente,
+> wizard+dashboard docente, card hub, i18n, doc). Suite **397/397** ✅.
+> E2E con AI mockata: login → chat col cap → scrittura → consegna → report; zero
+> segreti su disco/HTTP; coda seriale provata (max 1 chiamata AI in volo su 5 simultanee).
+> **PENDENTI = debug-run Electron vivo** (T012, T016, T020, T023, T024): wizard reale,
+> chiamata AI VERA su Google e Infomaniak, telefono su LAN.
+
 **Input**: Design documents from `/specs/007-tutor-qr/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/api-and-ai.md, quickstart.md

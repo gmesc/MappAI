@@ -65,6 +65,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     collabStopSession: () => ipcRenderer.invoke('collab-stop-session'),
     collabSessionInfo: () => ipcRenderer.invoke('collab-session-info'),
     collabOpenFolder: () => ipcRenderer.invoke('collab-open-folder'),
+    // --- Tutor AI via QR "Chatta e Scrivi" (007) ---
+    tutorStartSession: (data) => ipcRenderer.invoke('tutor-start-session', data),
+    tutorStopSession: () => ipcRenderer.invoke('tutor-stop-session'),
+    tutorSessionInfo: () => ipcRenderer.invoke('tutor-session-info'),
+    tutorOpenFolder: () => ipcRenderer.invoke('tutor-open-folder'),
     // --- MappAI Live (Studio attivo via QR + Materiali + Classi) ---
     liveStartSession: (data) => ipcRenderer.invoke('live-start-session', data),
     liveStopSession: () => ipcRenderer.invoke('live-stop-session'),
