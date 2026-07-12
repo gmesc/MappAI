@@ -1751,6 +1751,89 @@ ipcMain.handle('live-materials-add-html', async (event, { filename, html }) => {
     return { success: true, file: path.basename(target), files: liveMatSrv.state().files };
 });
 
+// ── Libreria "Condividi da PC" (materiali docente persistenti) ──
+// ~/Documents/MappAI - Materiali docente/ : files/ + index.json (schema
+// mappai-shared-materials@1). I file caricati dal docente restano qui e sono
+// ricondivisibili via QR dalla landing Insegna. Copia servita → cartella sessione.
+function sharedMatDir() { return path.join(app.getPath('documents'), 'MappAI - Materiali docente'); }
+function sharedMatFilesDir() { return path.join(sharedMatDir(), 'files'); }
+function sharedMatIndexFile() { return path.join(sharedMatDir(), 'index.json'); }
+function _smRead() {
+    try { return JSON.parse(fs.readFileSync(sharedMatIndexFile(), 'utf8')).items || []; }
+    catch (e) { return []; }
+}
+function _smWrite(items) {
+    fs.mkdirSync(sharedMatDir(), { recursive: true });
+    fs.writeFileSync(sharedMatIndexFile(), JSON.stringify({ schema: 'mappai-shared-materials@1', items }, null, 2));
+}
+function _smPublic(it) {
+    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null };
+}
+
+ipcMain.handle('sharedmat-list', async () => {
+    try { return { success: true, items: _smRead().map(_smPublic) }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('sharedmat-add', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Condividi da PC — scegli un file', properties: ['openFile', 'multiSelections']
+    });
+    if (result.canceled || !result.filePaths.length) return { success: false, canceled: true };
+    fs.mkdirSync(sharedMatFilesDir(), { recursive: true });
+    const items = _smRead();
+    const added = [];
+    for (const src of result.filePaths) {
+        try {
+            const name = path.basename(src);
+            const ext = path.extname(name).toLowerCase().replace(/^\./, '');
+            const id = 'sm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+            const stored = id + '__' + name.replace(/[^a-zA-Z0-9._-]+/g, '_');
+            fs.copyFileSync(src, path.join(sharedMatFilesDir(), stored));
+            const st = fs.statSync(path.join(sharedMatFilesDir(), stored));
+            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null };
+            items.unshift(entry); added.push(_smPublic(entry));
+        } catch (e) { console.warn('[sharedmat] copia fallita', src, e.message); }
+    }
+    _smWrite(items);
+    return { success: true, added };
+});
+
+ipcMain.handle('sharedmat-remove', async (event, { id }) => {
+    try {
+        const items = _smRead();
+        const it = items.find(x => x.id === id);
+        if (it) { try { fs.unlinkSync(path.join(sharedMatFilesDir(), it.stored)); } catch (e) { } }
+        _smWrite(items.filter(x => x.id !== id));
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('sharedmat-open-folder', async () => {
+    const dir = sharedMatDir();
+    fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+    return { success: true, dir };
+});
+
+// Pubblica un file della libreria nella sessione materiali attiva + registra la classe (chip storico)
+ipcMain.handle('sharedmat-publish', async (event, { id, className }) => {
+    if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+    const items = _smRead();
+    const it = items.find(x => x.id === id);
+    if (!it) return { success: false, error: 'file non trovato' };
+    const src = path.join(sharedMatFilesDir(), it.stored);
+    if (!fs.existsSync(src)) return { success: false, error: 'file mancante su disco' };
+    const publishName = String(it.name).replace(/[^a-zA-Z0-9._-]+/g, '_');
+    try { fs.copyFileSync(src, path.join(liveMatInfo.filesDir, publishName)); }
+    catch (e) { return { success: false, error: e.message }; }
+    const cn = (className || '').trim();
+    if (cn && (it.sharedClasses || []).indexOf(cn) < 0) it.sharedClasses = (it.sharedClasses || []).concat(cn);
+    it.lastSharedAt = Date.now();
+    _smWrite(items);
+    return { success: true, file: publishName, item: _smPublic(it) };
+});
+
 // ── Store classi su disco (roster credenziali) ──
 ipcMain.handle('live-classes-load', async () => {
     try {

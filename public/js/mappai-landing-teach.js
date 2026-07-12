@@ -168,6 +168,7 @@
       quickStartBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
+      sectionShell('teach-sharedmat', 'share-2', _t('ui_teach_sharedmat', 'File condivisi'), 'teach-sharedmat-body') +
       sectionShell('teach-sets', 'layers', _t('ui_teach_sets', 'Quiz & flashcard'), 'teach-sets-body', sets.length);
     // Progetti (renderer unico + filtro classe)
     if (window.StorageManager && StorageManager.renderRecentProjects) {
@@ -178,9 +179,82 @@
       });
     }
     renderMaterials(docs);
+    renderSharedMat();
     renderSets(sets);
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
+
+  // ── File condivisi (libreria "Materiali docente", IPC su disco) ────────────
+  function smIcon(ext) {
+    ext = String(ext || '').toLowerCase();
+    if (ext === 'pdf') return 'file-text';
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].indexOf(ext) >= 0) return 'image';
+    if (['doc', 'docx'].indexOf(ext) >= 0) return 'file-type';
+    if (['xls', 'xlsx', 'csv'].indexOf(ext) >= 0) return 'sheet';
+    if (['ppt', 'pptx'].indexOf(ext) >= 0) return 'presentation';
+    return 'paperclip';
+  }
+  function smHuman(n) { if (n == null) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(0) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
+
+  function renderSharedMat() {
+    var body = document.getElementById('teach-sharedmat-body');
+    if (!body) return;
+    if (!window.electronAPI || !window.electronAPI.sharedmatList) {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+        esc(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.')) + '</p>';
+      return;
+    }
+    var addBar = '<div class="flex items-center gap-2 px-2 pb-2">' +
+      '<button type="button" onclick="window.MappAITeach.shareFromPc()" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg px-3 py-1.5">' +
+      '<i data-lucide="upload" class="w-3.5 h-3.5"></i>' + esc(_t('lt_sm_add', 'Condividi da PC')) + '</button>' +
+      '<button type="button" onclick="window.MappAITeach.openSharedFolder()" title="' + esc(_t('lt_sm_folder', 'Apri cartella')) + '" class="inline-flex items-center text-slate-400 hover:text-indigo-500 rounded-lg p-1.5">' +
+      '<i data-lucide="folder" class="w-4 h-4"></i></button></div>';
+    window.electronAPI.sharedmatList().then(function (r) {
+      var items = (r && r.success && r.items) ? r.items : [];
+      if (!items.length) {
+        body.innerHTML = addBar + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+          esc(_t('lt_sm_empty', 'Nessun file condiviso. Usa “Condividi da PC” per inviare una scheda o un documento agli allievi via QR.')) + '</p>';
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        return;
+      }
+      body.innerHTML = addBar + items.map(function (it) {
+        var chips = (it.sharedClasses || []).map(function (c) {
+          return '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(c) + '</span>';
+        }).join(' ');
+        return '<div class="flex items-center gap-2 px-2 py-2 border-b border-slate-100 hover:bg-indigo-50 rounded-lg">' +
+          '<i data-lucide="' + smIcon(it.ext) + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
+          '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(it.name) + '">' + esc(it.name) + '</span>' +
+          '<span class="block text-[10px] text-slate-400 truncate">' + esc(smHuman(it.size)) + '</span></span>' +
+          chips +
+          '<button type="button" onclick="window.MappAITeach.shareFile(\'' + esc(it.id) + '\')" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" class="inline-flex items-center text-green-600 hover:text-green-700 rounded-lg p-1.5"><i data-lucide="qr-code" class="w-4 h-4"></i></button>' +
+          '<button type="button" onclick="window.MappAITeach.removeSharedFile(\'' + esc(it.id) + '\')" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" class="inline-flex items-center text-slate-300 hover:text-red-500 rounded-lg p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+          '</div>';
+      }).join('');
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    }).catch(function () { body.innerHTML = addBar; if (window.safeCreateIcons) window.safeCreateIcons(); });
+  }
+
+  function shareFromPc() {
+    if (!window.electronAPI || !window.electronAPI.sharedmatAdd) { toast(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
+    window.electronAPI.sharedmatAdd().then(function (r) {
+      if (!r || !r.success) { if (r && !r.canceled) toast((r && r.error) || 'Errore', 'error'); return; }
+      renderSharedMat();
+      if (r.added && r.added.length && window.MappAILive && window.MappAILive.shareFile) {
+        window.MappAILive.shareFile(r.added[0].id).then(function () { renderSharedMat(); });
+      }
+    });
+  }
+  function shareFile(id) {
+    if (window.MappAILive && window.MappAILive.shareFile) window.MappAILive.shareFile(id).then(function () { renderSharedMat(); });
+    else toast(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+  function removeSharedFile(id) {
+    if (!window.electronAPI || !window.electronAPI.sharedmatRemove) return;
+    var go = function () { window.electronAPI.sharedmatRemove({ id: id }).then(function () { renderSharedMat(); }); };
+    if (window.showConfirm) window.showConfirm(_t('lt_sm_del_confirm', 'Eliminare questo file dalla libreria? (la copia inviata agli allievi resta scaricata)'), go);
+    else if (confirm(_t('lt_sm_del_confirm', 'Eliminare questo file dalla libreria?'))) go();
+  }
+  function openSharedFolder() { if (window.electronAPI && window.electronAPI.sharedmatOpenFolder) window.electronAPI.sharedmatOpenFolder(); }
 
   function filterItems(items) {
     if (readFilter() !== 'active') return items;
@@ -478,6 +552,10 @@
     openDoc: openDoc,
     openSet: openSet,
     logSession: logSession,
+    shareFromPc: shareFromPc,
+    shareFile: shareFile,
+    removeSharedFile: removeSharedFile,
+    openSharedFolder: openSharedFolder,
     _regRead: regRead,
     _regWrite: regWrite
   };
@@ -485,6 +563,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   document.addEventListener('mappai-active-class-changed', function () { if (readMode() === 'teach') refresh(); });
+  document.addEventListener('mappai-sharedmat-changed', function () { if (readMode() === 'teach') renderSharedMat(); });
 
   console.log('[MappAITeach] landing Costruisci/Insegna caricata');
 })();
