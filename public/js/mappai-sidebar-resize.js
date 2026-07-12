@@ -36,7 +36,10 @@
     var w = clamp(px);
     sb.style.setProperty('width', w + 'px', 'important');
     sb.style.setProperty('max-width', w + 'px', 'important');
-    sb.style.setProperty('min-width', w + 'px', 'important');
+    // NIENTE min-width inline: la transition anima solo width — un min-width
+    // farebbe SALTARE la larghezza usata alla riapertura (niente animazione).
+    // Il clamp a 320 è già garantito da clamp(); lo stylesheet min-width:320
+    // non disturba perché le nostre larghezze sono sempre ≥ 320.
     if (persist) { try { localStorage.setItem(KEY, String(w)); } catch (e) { } }
     return w;
   }
@@ -107,16 +110,27 @@
   // batterebbe la regola .sidebar-collapsed #sidebar {width:0!important}. Quindi
   // quando si collassa RIMUOVIAMO l'inline (lasciando vincere il CSS del collapse);
   // quando si riapre, riapplichiamo la larghezza salvata.
+  var _expandTimer = null;
   function setCollapsed(collapsed) {
     var sb = sidebar();
     if (!sb) return;
+    if (_expandTimer) { clearTimeout(_expandTimer); _expandTimer = null; }
     if (collapsed) {
       sb.style.removeProperty('width');
       sb.style.removeProperty('min-width');
       sb.style.removeProperty('max-width');
     } else {
+      // Riapertura FLUIDA: la transition anima `width` (0 → target) ma il
+      // min-width dello stylesheet (320px !important) farebbe scattare subito
+      // la larghezza usata a 320. min-width:0 temporaneo per la durata della
+      // transizione (0.6s), poi si rimuove l'override.
+      sb.style.setProperty('min-width', '0', 'important');
       var saved = readSaved();
       if (saved != null && isDesktop()) applyWidth(saved, false);
+      _expandTimer = setTimeout(function () {
+        _expandTimer = null;
+        if (!isCollapsed()) sb.style.removeProperty('min-width');
+      }, 650);
     }
   }
 
