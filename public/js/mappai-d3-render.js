@@ -1197,6 +1197,34 @@ window.exportPDF = async function () {
         // come attributo su ogni testo (doppia difesa: stylesheet + attributo).
         const cloneStyle = clone.querySelector('style');
         if (cloneStyle) cloneStyle.textContent = cloneStyle.textContent.replace(/font-family\s*:[^;}]*/gi, 'font-family:Space Mono');
+
+        // svg2pdf NON onora `paint-order: stroke fill`: disegna la stroke DOPO il
+        // fill → l'alone bianco copre il testo (label illeggibili). Emuliamo il
+        // layering a mano: per ogni label creiamo una copia-alone bianca DIETRO
+        // (solo stroke+fill bianchi) e lasciamo davanti il testo col suo fill,
+        // stroke tolta. Così l'alone sta sotto (z=900) e il testo sopra (z=1000).
+        clone.querySelectorAll('text.node-text').forEach(txt => {
+            const sw = (txt.style && txt.style.strokeWidth) || txt.getAttribute('stroke-width') || '2px';
+            const halo = txt.cloneNode(true);
+            halo.removeAttribute('class');
+            halo.removeAttribute('stroke');
+            halo.style.fill = '#ffffff';
+            halo.style.stroke = '#ffffff';
+            halo.style.strokeWidth = sw;
+            halo.style.strokeLinejoin = 'round';
+            halo.style.paintOrder = '';
+            halo.setAttribute('font-weight', 'bold');
+            // testo in primo piano: fill originale (attributo #0f172a), niente stroke
+            txt.removeAttribute('class');
+            txt.removeAttribute('stroke');
+            txt.style.stroke = 'none';
+            txt.style.paintOrder = '';
+            txt.setAttribute('font-weight', 'bold');
+            txt.parentNode.insertBefore(halo, txt);
+        });
+
+        // font-family "Space Mono" nudo su OGNI testo (incluse le copie-alone):
+        // svg2pdf matcha la chiave esatta di getFontList (la CSS con apici no).
         clone.querySelectorAll('text, tspan').forEach(el => el.setAttribute('font-family', 'Space Mono'));
 
         const pdf = new jsPDF({
