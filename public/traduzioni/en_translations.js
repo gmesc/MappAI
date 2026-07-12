@@ -618,6 +618,7 @@ const en_translations = {
     sd_col_actions: "Actions",
     sd_kind_synthesis: "Synthesis",
     sd_kind_dossier: "Dossier",
+    sd_kind_map: "Map PDF",
     sd_open: "Re-open the document",
     sd_qr: "Share via QR",
     sd_delete: "Remove from archive",

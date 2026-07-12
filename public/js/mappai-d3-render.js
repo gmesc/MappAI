@@ -1158,6 +1158,52 @@ async function _ensureSpaceMonoInPdf(pdf) {
     pdf.addFont('SpaceMono-Bold.ttf', 'Space Mono', 'bold');
 }
 
+// Nome del PDF esportato: "[MM|KG]-[progetto]-[grade]-[NN]".
+//  - MM/KG dalla modalità di estrazione
+//  - progetto = rootNodeLabel
+//  - grade = grado del progetto corrente (tutor_ai_projects) o classe attiva
+//  - NN = numerazione progressiva (quante mappe già archiviate per il progetto)
+// Ritorna { name, proj } (proj serve come mapName nell'archivio documenti).
+function _studyMapPdfName() {
+    const st = appState;
+    const kind = (st && st.extractionMode === 'kg') ? 'KG' : 'MM';
+    const proj = (st && st.db && st.db.rootNodeLabel) || (st && st.rootNodeLabel) || 'Mappa';
+    let grade = '';
+    try {
+        const pid = window.StorageManager && window.StorageManager.currentProjectId;
+        if (pid) {
+            const arr = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]');
+            const p = arr.find(x => x.id === pid);
+            if (p && p.grade) grade = p.grade;
+        }
+        if (!grade && window.MappAIClasses && window.MappAIClasses.getActive) {
+            const c = window.MappAIClasses.getActive();
+            if (c && c.grade) grade = c.grade;
+        }
+    } catch (e) { /* grade opzionale */ }
+    let n = 0;
+    try {
+        if (window.MappAIStudyDocs) {
+            n = window.MappAIStudyDocs.list().filter(d => d.kind === 'map' && d.mapName === proj).length;
+        }
+    } catch (e) { /* archivio opzionale */ }
+    const slug = s => String(s || '').trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    const nn = String(n).padStart(2, '0');
+    return { name: [kind, slug(proj), slug(grade), nn].filter(Boolean).join('-'), proj: proj };
+}
+
+// Archivia il PDF della mappa nei "Documenti di studio" (data-URI, riapribile
+// dal modale Documenti salvati). Best-effort: non blocca l'export su errore.
+function _archiveMapPdf(pdf, meta) {
+    try {
+        if (!window.MappAIStudyDocs) return;
+        window.MappAIStudyDocs.save({
+            kind: 'map', title: meta.name, mapName: meta.proj,
+            pdf: pdf.output('datauristring')
+        });
+    } catch (e) { console.warn('[PDF] archiviazione documento fallita (non bloccante):', e); }
+}
+
 // Export PDF VETTORIALE (svg2pdf su jsPDF): l'intera mappa come vettori — testo
 // nitido a ogni zoom, niente overlay UI (per costruzione: si esporta solo l'SVG).
 // Su qualunque errore ripiega sull'export raster storico (_exportPDFRaster).
@@ -1239,10 +1285,13 @@ window.exportPDF = async function () {
         catch (e) { console.warn('[PDF] Space Mono non caricato, uso il font di ripiego:', e); }
         await pdf.svg(clone, { x: 0, y: 0, width: w, height: h });
 
+        const meta = _studyMapPdfName();
+        _archiveMapPdf(pdf, meta);   // salva nei Documenti di studio
+
         const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
         if (isCapacitor) {
             const blob = pdf.output('blob');
-            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            const file = new File([blob], meta.name + '.pdf', { type: 'application/pdf' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: "Esporta PDF", text: "Mappa mentale creata con MappAI" });
                 window.showToast(window.t('tst_pdf_shared', "PDF condiviso con successo!"), "success");
@@ -1250,7 +1299,7 @@ window.exportPDF = async function () {
                 throw new Error("Condivisione PDF non supportata da questo dispositivo");
             }
         } else {
-            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            pdf.save(meta.name + '.pdf');
             window.showToast(window.t('tst_pdf_vector_done', "PDF vettoriale esportato!"), "success");
         }
     } catch (err) {

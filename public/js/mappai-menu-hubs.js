@@ -202,7 +202,8 @@
                 synthesis: { icon: 'sparkles', label: t('sd_kind_synthesis', 'Sintesi') },
                 dossier:   { icon: 'files',    label: t('sd_kind_dossier', 'Dossier') },
                 nodesheet: { icon: 'scissors', label: t('lt_kind_nodesheet', 'Foglio nodi') },
-                timeline:  { icon: 'gantt-chart', label: t('lt_kind_timeline', 'Timeline') }
+                timeline:  { icon: 'gantt-chart', label: t('lt_kind_timeline', 'Timeline') },
+                map:       { icon: 'file-text', label: t('sd_kind_map', 'Mappa PDF') }
             };
             const rows = docs.map(d => {
                 const meta = KIND_META[d.kind] || KIND_META.dossier;
