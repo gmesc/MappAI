@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MappAI Live — Documento</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
+      font-family: 'Space Mono', ui-monospace, monospace; }
+  html, body { min-height: 100%; }
+  body { background: #fafbff; color: #0f172a; padding: 20px 16px 96px;
+         background-image: radial-gradient(#ddd6fe 1px, transparent 1px); background-size: 24px 24px; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 18px; font-weight: 700; text-align: center; word-break: break-word; }
+  .sz { font-size: 12px; color: #94a3b8; text-align: center; margin: 4px 0 16px; }
+  .preview { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+  .preview iframe { width: 100%; height: 72vh; border: 0; display: block; background: #fff; }
+  .preview img { width: 100%; height: auto; display: block; }
+  .preview pre { margin: 0; padding: 16px; white-space: pre-wrap; word-break: break-word;
+                 font-size: 13px; line-height: 1.5; max-height: 72vh; overflow: auto; }
+  .noprev { text-align: center; padding: 40px 20px; color: #64748b; }
+  .noprev .ico { font-size: 54px; }
+  .noprev p { margin-top: 10px; font-size: 13px; }
+  .err { text-align: center; color: #dc2626; padding: 30px 0; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: #fff;
+             border-top: 1px solid #e2e8f0; box-shadow: 0 -6px 18px rgba(15,23,42,.08);
+             padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+             display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .savebar a { width: 100%; max-width: 420px; text-align: center; text-decoration: none;
+               background: #4f46e5; color: #fff; border-radius: 12px; padding: 14px 18px;
+               font-size: 16px; font-weight: 800; }
+  .savebar a:active { background: #4338ca; }
+  .savebar .hint { font-size: 11.5px; color: #94a3b8; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">Documento</h1>
+  <div class="sz" id="sz"></div>
+  <div id="preview" class="preview"><div class="noprev">Carico…</div></div>
+</div>
+<div class="savebar">
+  <a id="save" href="#">↓ Salva sul dispositivo</a>
+  <div class="hint">Sul telefono scegli “Salva su File” per tenere il documento</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var qs = new URLSearchParams(location.search);
+  var TOKEN = qs.get('s') || '';
+  var FILE = qs.get('f') || '';
+  var box = document.getElementById('preview');
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function human(n) { if (n == null) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(0) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
+  function extOf(f) { var p = String(f).split('.'); return p.length > 1 ? p.pop().toLowerCase() : ''; }
+
+  if (!TOKEN || !FILE) { box.innerHTML = '<div class="err">Link non valido. Riscansiona il QR.</div>'; return; }
+
+  var enc = encodeURIComponent(FILE), tk = encodeURIComponent(TOKEN);
+  var inlineUrl = '/files/' + enc + '?s=' + tk + '&inline=1';
+  var dlUrl = '/files/' + enc + '?s=' + tk;
+  var ext = extOf(FILE);
+
+  document.getElementById('title').textContent = FILE;
+  var save = document.getElementById('save');
+  save.setAttribute('href', dlUrl);
+  save.setAttribute('download', FILE);
+
+  // dimensione (facoltativa) da /api/materials
+  fetch('/api/materials?s=' + tk).then(function (r) { return r.json(); }).then(function (d) {
+    var f = (d.files || []).filter(function (x) { return x.file === FILE; })[0];
+    if (f) document.getElementById('sz').textContent = human(f.size);
+  }).catch(function () { });
+
+  var IMG = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
+  var TXT = ['txt', 'md', 'csv', 'json'];
+  if (ext === 'pdf' || ext === 'html' || ext === 'htm') {
+    box.innerHTML = '<iframe src="' + inlineUrl + '"></iframe>';
+  } else if (IMG.indexOf(ext) >= 0) {
+    box.innerHTML = '<img src="' + inlineUrl + '" alt="' + esc(FILE) + '">';
+  } else if (TXT.indexOf(ext) >= 0) {
+    fetch(inlineUrl).then(function (r) { return r.text(); }).then(function (t) {
+      box.innerHTML = '<pre>' + esc(t) + '</pre>';
+    }).catch(function () { box.innerHTML = '<div class="err">Anteprima non raggiungibile.</div>'; });
+  } else {
+    box.innerHTML = '<div class="noprev"><div class="ico">📎</div>' +
+      '<p>Anteprima non disponibile per questo tipo di file.<br>Premi “Salva” per scaricarlo e aprirlo sul dispositivo.</p></div>';
+  }
+})();
+</script>
+</body>
+</html>

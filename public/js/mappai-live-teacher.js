@@ -536,11 +536,18 @@
       '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
+      actBtn('lv-sharepc', t('lv_share_pc', 'Condividi da PC'), '#16a34a', '#fff') +
       actBtn('lv-madd', t('lv_add_file', 'Aggiungi file…'), '#4f46e5', '#fff') +
       actBtn('lv-mstop', t('lv_mstop', 'Ferma server materiali'), '#f1f5f9', '#64748b') +
       '<span style="flex:1"></span>' + actBtn('lv-mback', t('lv_back', 'Indietro'), '#f1f5f9', '#334155') + '</div>';
     var ov = modal('folder-down', t('lv_mat_title', 'Materiali di studio'), body, '620px');
     var qrImg = ov.querySelector('#lv-mqr'); if (qrImg) qrImg.onclick = function () { openQrFull(url); };
+    ov.querySelector('#lv-sharepc').onclick = function () {
+      window.electronAPI.sharedmatAdd().then(function (r) {
+        if (!r || !r.success) { if (r && !r.canceled) toast((r && r.error) || 'Errore', 'error'); return; }
+        if (r.added && r.added.length) window.MappAILive.shareFile(r.added[0].id);
+      });
+    };
     ov.querySelector('#lv-madd').onclick = function () {
       window.electronAPI.liveMaterialsAdd().then(function (r) {
         if (r && r.success) { LT.matInfo.files = r.files; renderMaterials(); toast(t('lv_added', 'File aggiunti') + ': ' + (r.added || 0), 'success'); }
@@ -615,6 +622,36 @@
     var img = ov.querySelector('#lv-docqr'); if (img) img.onclick = function () { openQrFull(url); };
     ov.querySelector('#lv-docqr-close').onclick = closeModal;
   }
+
+  // Nome della classe attiva (chip storico); null = Generico (nessun chip).
+  function activeClassName() {
+    try { var a = window.MappAIClasses && window.MappAIClasses.getActive(); return a && a.name ? a.name : null; }
+    catch (e) { return null; }
+  }
+
+  // Condivide via QR un file della libreria "Materiali docente": assicura il
+  // server materiali, pubblica il file nella sessione, registra la classe attiva,
+  // mostra il QR alla pagina anteprima (file.html). Usato da "Condividi da PC"
+  // (pannello live) e dalla sezione "File condivisi" della landing Insegna.
+  window.MappAILive = window.MappAILive || {};
+  window.MappAILive.shareFile = function (id) {
+    if (!window.electronAPI || !window.electronAPI.sharedmatPublish) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
+    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo)
+      : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    return ensure.then(function (info) {
+      if (!info || !info.success) { toast((info && info.error) || t('lv_electron', 'Errore'), 'error'); return null; }
+      return window.electronAPI.sharedmatPublish({ id: id, className: activeClassName() });
+    }).then(function (p) {
+      if (!p) return null;
+      if (!p.success) { toast((p && p.error) || t('lv_electron', 'Errore'), 'error'); return p; }
+      var info = LT.matInfo;
+      var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+      var fileUrl = base + '/public/live/file.html?s=' + info.token + '&f=' + encodeURIComponent(p.file);
+      openDocQr(fileUrl, p.file);
+      document.dispatchEvent(new CustomEvent('mappai-sharedmat-changed'));
+      return p;
+    });
+  };
 
   console.log('[MappAILiveTeacher] hub MappAI Live caricato');
 })();

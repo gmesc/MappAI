@@ -435,7 +435,9 @@ function createMaterialsServer(opts) {
       if (!file.startsWith(filesDir) || !fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
       const ext = path.extname(file).toLowerCase();
       const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' };
-      if (ext !== '.html') headers['Content-Disposition'] = 'attachment; filename="' + name.replace(/"/g, '') + '"';
+      // ?inline=1 → anteprima nel browser (pagina file.html); default = download
+      const inline = u.searchParams.get('inline') === '1';
+      if (ext !== '.html' && !inline) headers['Content-Disposition'] = 'attachment; filename="' + name.replace(/"/g, '') + '"';
       res.writeHead(200, headers);
       res.end(fs.readFileSync(file)); return;
     }
