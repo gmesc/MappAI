@@ -67,8 +67,6 @@ function serializeTutorState(state) {
         console.warn('[MappAI] tutorState non serializzabile, uso fallback vuoto:', e);
         return { sidebar: { history: [] }, nodes: {} };
     }
-    if (raw.nodes && typeof raw.nodes === 'object' && !Array.isArray(raw.nodes)) base.nodes = raw.nodes;
-    return base;
 }
 
 /**
@@ -83,6 +81,8 @@ function normalizeTutorState(raw) {
         base.sidebar.history = raw.sidebar.history;
         if (raw.sidebar.mode) base.sidebar.mode = raw.sidebar.mode;
     }
+    if (raw.nodes && typeof raw.nodes === 'object' && !Array.isArray(raw.nodes)) base.nodes = raw.nodes;
+    return base;
 }
 
 /**
