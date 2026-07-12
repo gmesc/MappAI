@@ -16,6 +16,13 @@
 
   function sidebar() { return document.getElementById('sidebar'); }
 
+  // Sidebar nascosta dal toggle? (classe su #map-view). Con sidebar collassata
+  // NON va mai riapplicata la larghezza inline: vincerebbe sul width:0 del CSS.
+  function isCollapsed() {
+    var mv = document.getElementById('map-view');
+    return !!(mv && mv.classList.contains('sidebar-collapsed'));
+  }
+
   function clamp(px) {
     var mx = maxW();
     if (mx < MIN) mx = MIN; // finestra strettissima: non andare sotto il min
@@ -25,6 +32,7 @@
   function applyWidth(px, persist) {
     var sb = sidebar();
     if (!sb) return;
+    if (isCollapsed()) return; // sidebar nascosta: mai reimporre l'inline (bug "area grigia")
     var w = clamp(px);
     sb.style.setProperty('width', w + 'px', 'important');
     sb.style.setProperty('max-width', w + 'px', 'important');
