@@ -24,7 +24,9 @@
   // che partono dal centro della mappa. Non è un nodo studente reale.
   var ROOT_ID = '__root__';
   var PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899'];
-  var SIZES = { s: { w: 120, h: 56 }, m: { w: 160, h: 72 }, l: { w: 200, h: 92 } };
+  // Ladder ricalibrato per il telefono: la vecchia S (120×56) diventa la nuova L;
+  // M e S scendono proporzionalmente (~0.82× e ~0.65×). Aspect ratio ~2.14 costante.
+  var SIZES = { s: { w: 78, h: 36 }, m: { w: 98, h: 46 }, l: { w: 120, h: 56 } };
   var LIMITS = {
     textMax: 80,          // caratteri per nodo
     relMax: 30,           // caratteri per la keyword di collegamento
@@ -32,7 +34,8 @@
     linksPerGroup: 40,    // cap collegamenti per gruppo
     nickMin: 2,
     nickMax: 24,
-    coordMax: 1.5         // coordinate RELATIVE al centro: x,y ∈ [-1.5, 1.5]
+    coordMax: 3.5         // coordinate RELATIVE al centro: x,y ∈ [-3.5, 3.5]
+                          // (area ampia: lo studente naviga con pan/zoom + "Centra")
   };
 
   // ── Sanitizzazione input studente ───────────────────────────────────────

@@ -107,6 +107,11 @@
   #dlg-ok { background: #4f46e5; color: #fff; }
   #dlg-cancel { background: #f1f5f9; color: #334155; }
   #dlg-del { background: #fee2e2; color: #b91c1c; margin-right: auto; display: none; }
+  #center-btn { position: absolute; top: 10px; right: 10px; z-index: 5;
+                background: rgba(255,255,255,.95); border: 1px solid #e2e8f0; border-radius: 999px;
+                padding: 7px 12px; font-size: 12px; font-weight: 700; color: #334155; cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0,0,0,.12); display: flex; align-items: center; gap: 5px; }
+  #center-btn:active { background: #eef2ff; }
 </style>
 </head>
 <body>
@@ -136,6 +141,7 @@
       </defs>
     </svg>
     <div id="mode-hint"></div>
+    <button id="center-btn" type="button" title="Centra la mappa">⤢ Centra</button>
   </div>
   <div id="toolbar">
     <div class="row">
@@ -148,10 +154,10 @@
       <span id="chips"></span>
       <span>
         <button class="size-btn" data-size="s" type="button">S</button>
-        <button class="size-btn sel" data-size="m" type="button">M</button>
-        <button class="size-btn" data-size="l" type="button">L</button>
+        <button class="size-btn" data-size="m" type="button">M</button>
+        <button class="size-btn sel" data-size="l" type="button">L</button>
       </span>
-      <span id="hint">Tocca un tuo nodo per modificarlo · trascina per spostarlo · ⇢ per collegare</span>
+      <span id="hint">Tocca per modificare · trascina per spostare · tieni premuto per il menu · pizzica per zoom, trascina lo sfondo per spostarti (doppio tap = reset)</span>
     </div>
   </div>
 </div>
@@ -190,8 +196,9 @@
     linkFrom: null,             // primo capo in modalità collega
     linkMode: false,
     done: false,
-    curColor: C.PALETTE[5], curSize: 'm',
-    showBoard: false, dirty: false
+    curColor: C.PALETTE[5], curSize: 'l',
+    showBoard: false, dirty: false,
+    view: { k: 1, tx: 0, ty: 0 }   // zoom/pan della mappa (pizzica + trascina sfondo)
   };
 
   function $(id) { return document.getElementById(id); }
@@ -434,9 +441,9 @@
   }
   function px(n, g) { return { x: g.cx + n.x * g.R, y: g.cy + n.y * g.R }; }
 
-  // Font per taglia — più grande, stile viewport app (alone bianco via CSS)
-  var FONT = { s: 13, m: 15, l: 17 };
-  var WRAP = { s: 14, m: 17, l: 20 };
+  // Font per taglia — scalati sul nuovo ladder (L = vecchia S)
+  var FONT = { s: 11, m: 13, l: 15 };
+  var WRAP = { s: 9, m: 11, l: 13 };
 
   function wrapText(textEl, str, maxChars, x) {
     var words = String(str).split(' ');
@@ -479,7 +486,7 @@
     line.setAttribute('class', 'slink');
     if (!mine) line.setAttribute('opacity', '.5');
     line.setAttribute('marker-end', 'url(#arrow)');
-    svg.appendChild(line);
+    layer.appendChild(line);
     var lbl = document.createElementNS(NS, 'text');
     lbl.setAttribute('class', 'slink-label');
     lbl.setAttribute('x', (pa.x + pb.x) / 2);
@@ -487,7 +494,7 @@
     if (!mine) { lbl.setAttribute('opacity', '.5'); lbl.style.pointerEvents = 'none'; }
     lbl.textContent = l.rel;
     if (mine) lbl.addEventListener('pointerup', function (e) { e.stopPropagation(); openLinkDialog(l); });
-    svg.appendChild(lbl);
+    layer.appendChild(lbl);
   }
 
   function drawNode(n, mine, borderColor, g) {
@@ -510,15 +517,42 @@
     wrapText(txt, n.text, WRAP[n.size] || WRAP.m);
     grp.appendChild(txt);
     if (mine) attachDrag(grp, n, g);
-    svg.appendChild(grp);
+    layer.appendChild(grp);
   }
 
+  var layer = null;   // viewport <g>: contiene TUTTO il disegno, riceve zoom/pan
+  function applyView() {
+    if (layer) layer.setAttribute('transform',
+      'translate(' + S.view.tx + ',' + S.view.ty + ') scale(' + S.view.k + ')');
+  }
+
+  // "Centra": inquadra root + tutti i miei nodi (zoom-out per farli entrare;
+  // mai zoom-in oltre 1×). Recupera i nodi finiti fuori vista dopo pan/zoom.
+  function fitView() {
+    var g = geo();
+    var minX = g.cx - 45, maxX = g.cx + 45, minY = g.cy - 45, maxY = g.cy + 45; // root
+    S.myNodes.forEach(function (n) {
+      var sz = C.SIZES[n.size] || C.SIZES.m, p = px(n, g);
+      minX = Math.min(minX, p.x - sz.w / 2); maxX = Math.max(maxX, p.x + sz.w / 2);
+      minY = Math.min(minY, p.y - sz.h / 2); maxY = Math.max(maxY, p.y + sz.h / 2);
+    });
+    var pad = 40, bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    var k = Math.max(0.3, Math.min(1, Math.min((g.w - 2 * pad) / bw, (g.h - 2 * pad) / bh)));
+    S.view.k = k;
+    S.view.tx = g.w / 2 - k * (minX + maxX) / 2;
+    S.view.ty = g.h / 2 - k * (minY + maxY) / 2;
+    applyView();
+  }
   function render() {
     var g = geo();
     // pulisci tutto tranne <defs> (marker freccia)
     Array.prototype.slice.call(svg.childNodes).forEach(function (ch) {
       if (ch.nodeName !== 'defs') svg.removeChild(ch);
     });
+    layer = document.createElementNS(NS, 'g');
+    layer.setAttribute('id', 'cv-viewport');
+    svg.appendChild(layer);
+    applyView();
     // gruppi altrui sotto (ghost): prima i loro link, poi i loro nodi
     S.others.forEach(function (grp) {
       (grp.links || []).forEach(function (l) { drawLink(l, grp.nodes || [], false, g); });
@@ -530,6 +564,7 @@
     S.myLinks.forEach(function (l) { drawLink(l, S.myNodes, true, g); });
     // root = nodo L0 dell'app (cerchio r=45 scuro, label centrata con alone)
     var root = document.createElementNS(NS, 'g');
+    root.setAttribute('class', 'sroot');
     root.setAttribute('transform', 'translate(' + g.cx + ',' + g.cy + ')');
     var rc = document.createElementNS(NS, 'circle');
     rc.setAttribute('class', 'root-circle');
@@ -547,19 +582,32 @@
     wrapText(rl, S.rootLabel, 12);
     root.appendChild(rl);
     if (S.linkMode) root.addEventListener('pointerup', function (e) { e.stopPropagation(); linkTap(ROOT_ID); });
-    svg.appendChild(root);
+    layer.appendChild(root);
     // i miei nodi sopra
     S.myNodes.forEach(function (n) { drawNode(n, true, S.color, g); });
   }
 
-  // ── Drag / tap (pointer events) ─────────────────────────────────────────
+  function clampCoord(v) { return Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, v)); }
+
+  // ── Drag / tap / long-press (pointer events) ────────────────────────────
+  // Delta-based e zoom-aware: lo spostamento tiene conto di S.view.k.
+  // Tieni premuto 500ms senza muovere → menu contestuale del nodo.
   function attachDrag(grp, n, g) {
-    var drag = null;
+    var drag = null, lpTimer = null, lpFired = false;
+    function clearLP() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
     grp.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       grp.setPointerCapture(e.pointerId);
-      var p = px(n, g);
-      drag = { dx: e.clientX - p.x, dy: e.clientY - p.y, sx: e.clientX, sy: e.clientY, moved: false };
+      lpFired = false;
+      drag = { sx: e.clientX, sy: e.clientY, nx0: n.x, ny0: n.y, moved: false };
+      if (!S.linkMode) {
+        var cx0 = e.clientX, cy0 = e.clientY, pid = e.pointerId;
+        lpTimer = setTimeout(function () {
+          lpFired = true; drag = null;
+          try { grp.releasePointerCapture(pid); } catch (_) {}
+          openNodeMenu(n, cx0, cy0);
+        }, 500);
+      }
     });
     grp.addEventListener('pointermove', function (e) {
       if (!drag || S.linkMode) return;
@@ -567,22 +615,144 @@
       // sotto 6px è un tap (→ select), non un trascinamento
       if (!drag.moved) {
         if (Math.abs(e.clientX - drag.sx) < 6 && Math.abs(e.clientY - drag.sy) < 6) return;
-        drag.moved = true;
+        drag.moved = true; clearLP();
       }
-      var nx = (e.clientX - drag.dx - g.cx) / g.R;
-      var ny = (e.clientY - drag.dy - g.cy) / g.R;
-      n.x = Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, nx));
-      n.y = Math.max(-C.LIMITS.coordMax, Math.min(C.LIMITS.coordMax, ny));
+      var k = (S.view && S.view.k) || 1;
+      n.x = clampCoord(drag.nx0 + (e.clientX - drag.sx) / (k * g.R));
+      n.y = clampCoord(drag.ny0 + (e.clientY - drag.sy) / (k * g.R));
       grp.setAttribute('transform', 'translate(' + px(n, g).x + ',' + px(n, g).y + ')');
     });
     grp.addEventListener('pointerup', function () {
+      clearLP();
+      if (lpFired) { lpFired = false; drag = null; return; }
       if (drag && drag.moved) { n.updatedAt = Date.now(); markDirty(); render(); }
       else if (S.linkMode) linkTap(n.id);
       else select(S.selId === n.id ? null : n.id);
       drag = null;
     });
+    grp.addEventListener('pointercancel', function () { clearLP(); drag = null; });
   }
 
+  // ── Menu contestuale del nodo (long-press): figlio / link / modifica ────
+  function closeNodeMenu() {
+    var m = document.getElementById('node-menu');
+    if (m) m.remove();
+    document.removeEventListener('pointerdown', onDocDownMenu, true);
+  }
+  function onDocDownMenu(e) { if (!e.target.closest('#node-menu')) closeNodeMenu(); }
+  function openNodeMenu(n, x, y) {
+    closeNodeMenu();
+    var m = document.createElement('div');
+    m.id = 'node-menu';
+    m.style.cssText = 'position:fixed;z-index:60;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.2);padding:6px;display:flex;flex-direction:column;min-width:170px';
+    [['child', '＋ Crea figlio'], ['link', '⇢ Crea link'], ['edit', '✎ Modifica']].forEach(function (it) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = it[1];
+      b.style.cssText = 'background:none;border:0;text-align:left;padding:11px 12px;font-size:14px;font-weight:700;color:#0f172a;border-radius:8px;cursor:pointer';
+      b.onpointerdown = function (ev) { ev.stopPropagation(); };
+      b.onclick = function () { nodeMenuAction(it[0], n); closeNodeMenu(); };
+      m.appendChild(b);
+    });
+    document.body.appendChild(m);
+    var mw = m.offsetWidth, mh = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(x, window.innerWidth - mw - 8)) + 'px';
+    m.style.top = Math.max(8, Math.min(y, window.innerHeight - mh - 8)) + 'px';
+    setTimeout(function () { document.addEventListener('pointerdown', onDocDownMenu, true); }, 0);
+  }
+  function nodeMenuAction(action, n) {
+    if (action === 'edit') {
+      select(n.id);
+      var inp = $('node-text'); inp.focus(); inp.select();
+    } else if (action === 'link') {
+      setLinkMode(true);
+      S.linkFrom = n.id;
+      $('mode-hint').textContent = 'Ora tocca il SECONDO nodo (o il centro)';
+      render();
+    } else if (action === 'child') {
+      createChild(n);
+    }
+  }
+  function createChild(parent) {
+    if (S.myNodes.length >= C.LIMITS.nodesPerGroup) {
+      var h = $('mode-hint'); h.textContent = 'Hai raggiunto il numero massimo di nodi'; h.style.display = 'block';
+      setTimeout(function () { if (!S.linkMode) h.style.display = 'none'; }, 1800);
+      return;
+    }
+    // spingi il figlio verso l'esterno rispetto al centro; se il padre è al centro, a destra
+    var ang = (parent.x || parent.y) ? Math.atan2(parent.y, parent.x) : 0;
+    var off = 0.55;
+    var child = {
+      id: 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+      text: 'Concetto', color: S.curColor, size: S.curSize,
+      x: clampCoord(parent.x + Math.cos(ang) * off), y: clampCoord(parent.y + Math.sin(ang) * off),
+      updatedAt: Date.now()
+    };
+    S.myNodes.push(child);
+    S.myLinks.push({
+      id: 'l' + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+      source: parent.id, target: child.id, rel: 'collega', updatedAt: Date.now()
+    });
+    markDirty(); select(child.id); render();
+    var inp = $('node-text'); inp.focus(); inp.select();
+  }
+
+  // ── Zoom (pinch) + pan (trascina sfondo) su tutto il canvas ─────────────
+  var pointers = new Map();
+  var gesture = null;
+  var lastBgTap = 0;
+  function distp(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function svgPt(cx, cy) { var r = svg.getBoundingClientRect(); return { x: cx - r.left, y: cy - r.top }; }
+  function startPinch() {
+    var pts = Array.from(pointers.values());
+    var mid = svgPt((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+    gesture = {
+      mode: 'pinch', d0: distp(pts[0], pts[1]) || 1, k0: S.view.k,
+      wx: (mid.x - S.view.tx) / S.view.k, wy: (mid.y - S.view.ty) / S.view.k
+    };
+  }
+  svg.addEventListener('pointerdown', function (e) {
+    if (e.target.closest('.snode') || e.target.closest('.sroot')) return;   // nodo/root gestiscono da soli
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size === 1) {
+      var now = Date.now();
+      if (now - lastBgTap < 300) { S.view = { k: 1, tx: 0, ty: 0 }; applyView(); }  // doppio tap = reset
+      lastBgTap = now;
+      gesture = { mode: 'pan', lastX: e.clientX, lastY: e.clientY };
+    } else if (pointers.size === 2) { startPinch(); }
+  });
+  svg.addEventListener('pointermove', function (e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    var pts = Array.from(pointers.values());
+    if (pts.length >= 2) {
+      if (!gesture || gesture.mode !== 'pinch') startPinch();
+      var d = distp(pts[0], pts[1]);
+      var k = Math.max(0.3, Math.min(4, gesture.k0 * (d / gesture.d0)));
+      var mid = svgPt((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+      S.view.k = k;
+      S.view.tx = mid.x - gesture.wx * k;
+      S.view.ty = mid.y - gesture.wy * k;
+      applyView();
+    } else if (gesture && gesture.mode === 'pan') {
+      S.view.tx += pts[0].x - gesture.lastX;
+      S.view.ty += pts[0].y - gesture.lastY;
+      gesture.lastX = pts[0].x; gesture.lastY = pts[0].y;
+      applyView();
+    }
+  });
+  function bgUp(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    try { svg.releasePointerCapture(e.pointerId); } catch (_) {}
+    var pts = Array.from(pointers.values());
+    if (pts.length === 1) gesture = { mode: 'pan', lastX: pts[0].x, lastY: pts[0].y };
+    else if (pts.length === 0) gesture = null;
+  }
+  svg.addEventListener('pointerup', bgUp);
+  svg.addEventListener('pointercancel', bgUp);
+
+  $('center-btn').onclick = fitView;
   window.addEventListener('resize', render);
   $('node-text').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') $('add-btn').click();
