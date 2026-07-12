@@ -19,7 +19,7 @@ Nessuno — le 3 story sono indipendenti.
 
 - [X] T002 [US1] In `public/js/mappai-d3-render.js`: rinominare il corpo attuale di `exportPDF` in `_exportPDFRaster()` (fallback, invariato); nuova `exportPDF` vettoriale: clone `#map-svg` + CSS inline (riuso logica exportSVG estratta in helper `_svgCloneWithStyles()`), reset transform zoom sul g clonato, viewBox = `getBBox()` del g originale + margine 40px, jsPDF formato [w,h] bbox, `await pdf.svg(clone, {x:0,y:0,width,height})`, save. Su throw → toast avviso + `_exportPDFRaster()`.
 - [X] T003 [US1] `exportSVG` riusa `_svgCloneWithStyles()` (dedup della logica CSS-inline). Comportamento invariato.
-- [ ] T004 [US1] Verifica Electron: PDF vettoriale (zoom nitido), intera mappa, zero UI, fallback su errore simulato.
+- [X] T004 [US1] Verificato in Electron dall'utente (11/7/26): PDF vettoriale ok, font Space Mono (vendorizzato, offline), label leggibili (alone bianco dietro il testo), intera mappa, nome file "[MM|KG]-progetto-grade-NN" + archiviazione nei Documenti di studio.
 
 ## Phase 4: US2 — Sintesi mappa intera (P2)
 

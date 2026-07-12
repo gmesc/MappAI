@@ -252,6 +252,20 @@ function createCollabServer(opts) {
             return json(res, 200, { ok: true });
           }
 
+          if (p === '/api/reopen') {
+            // Docente "sblocca" un gruppo che ha consegnato: azzera done → torna
+            // "in corso". Non tocca nodes/links/deviceId; lo studente continua a
+            // inviare contributi. Gemello di /api/release (stesso gate admin).
+            if (!(body.adminToken && body.adminToken === session.adminToken)) return json(res, 403, { error: 'token' });
+            const slug = CC.slugify(body.nick || '');
+            if (groups[slug]) {
+              groups[slug].done = false;
+              persistGroup(slug);
+              persist();
+            }
+            return json(res, 200, { ok: true, done: false });
+          }
+
           return json(res, 404, { error: 'no-such-api' });
         });
       }

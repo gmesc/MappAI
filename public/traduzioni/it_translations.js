@@ -11,6 +11,7 @@ const it_translations = {
     ui_teach_filter_all: "Mostra tutto",
     ui_teach_filter_class: "Solo classe attiva",
     ui_build_projects: "Progetti salvati",
+    ui_collab_start_qr: "Condividi la Lavagna (QR)",
     new_map_btn: "Genera Mappa",
     new_kg_btn: "Genera Knowledge Graph",
 

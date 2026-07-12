@@ -534,6 +534,46 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (12/7/26): 006-lavagna-sidebar — dashboard Lavagna in sidebar + sblocca + resize
+Spec-kit completo (`specs/006-lavagna-sidebar/`, branch omonimo). La gestione della
+Lavagna collaborativa esce dal popup che copriva la mappa e vive nel tab Struttura
+della sidebar + pannello fluttuante staccabile (LIM). Suite **382/382** ✅.
+- **Renderer riusabile** (`mappai-collab-teacher.js`): `renderCollabPanel(targetEl, opts)`
+  monta QR+URL+gruppi+bottoni in un contenitore qualsiasi; elementi per-host via CLASSI
+  (`.cl-qr/.cl-groups/.cl-stop/.cl-folder/.cl-detach`), non id → più host coesistono.
+  `CT.hosts[]` = contenitori montati; `renderGroupsList` itera tutti gli host (sidebar
+  + floating + modale) allo stesso tick. `showDashboard()` sceglie sidebar (default) o
+  modale (kill-switch `mappai_collab_legacy_modal='1'`). `mountSidebarPanel` →
+  `#collab-sidebar-panel` (nel tab Struttura) + `switchSidebarTab('structure')`.
+  `openFloatingPanel`/`toggleFloatingCollapse`/`closeFloatingPanel` → `#collab-float-panel`
+  (`position:fixed`, collassabile). `openDashboard` RIMOSSO (sostituito da showDashboard).
+- **Sblocca** (US2): endpoint `POST /api/reopen {adminToken,nick}` in `collab-server.js`
+  (gemello di `/api/release`) → `g.done=false` + persist. Bottone "Sblocca" (icona unlock)
+  in `groupsHtml` visibile SOLO se `g.done`; `reopenGroup(slug)` fa la fetch +
+  aggiornamento ottimistico. Lo studente NON è bloccato (nessun lock lato studente):
+  "sblocca" pulisce solo il ✓ lato docente. +3 test in `tests/collab-server.test.js`.
+- **Albero collassato di default** (US4): `window.collapseAllTree(opts)` in
+  `mappai-ui-modals.js` popola `window.collapsedTreeNodes` (Set esistente) coi nodi
+  radice (L1 MindMap / top-8 hub KG — l'albero è a 2 livelli, solo le radici hanno la
+  freccia). Idempotente per-mappa (`_treeCollapsedFor` = firma mappa). Hook in
+  `mappai-d3-render.js` `initD3Visualization` prima di `renderTreeView`. Kill-switch
+  `mappai_tree_expanded_default='1'`. Bottone "Condividi la Lavagna (QR)" in fondo a
+  `#tree-view-container` → `openCollabHub`.
+- **Sidebar ridimensionabile** (US5): nuovo `mappai-sidebar-resize.js`
+  (`MappAISidebarResize`), maniglia `#sidebar-resizer` (bordo destro, `col-resize`,
+  `hidden md:block`). Drag pointer → `width/min/max-width` inline `!important` (batte i
+  `!important` di `.app-sidebar` in style.css senza toccarlo). Clamp **min 320 / max 50%
+  innerWidth**; persist `mappai_sidebar_width`; re-clamp su `window.resize`. `#sidebar`
+  ora ha `relative`.
+- i18n: `ui_collab_start_qr` in ENTRAMBI i dizionari; `cl_reopen`/`cl_reopen_tip`/
+  `cl_detach`/`cl_dock`/`cl_collapse` in `en_translations.js` (fallback IT inline). Audit ok.
+- ✅ Verificato in browser statico: 0 errori console, API/elementi presenti,
+  `renderCollabPanel` costruisce QR+gruppi+bottoni con "Sblocca" SOLO sui gruppi done,
+  SOLO/ON/JSON/rename/Stacca presenti. Suite 382/382.
+  ⚠️ Da testare in Electron vivo (quickstart.md): albero collassato su mappa reale
+  (`collapseAllTree` usa `appState` lessicale, non testabile via `window.appState`),
+  resize drag, pannello fluttuante, sessione end-to-end con sblocca + telefono, 2 device.
+
 ### ✅ FATTO (12/7/26): 005-landing-insegna — landing doppia "Costruisci/Insegna"
 Spec-kit completo (`specs/005-landing-insegna/`, branch omonimo). Boot diretto senza
 launcher + toggle di modalità sotto l'hero (INTATTA); Costruisci = generazione MM/KG

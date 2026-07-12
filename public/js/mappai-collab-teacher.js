@@ -113,7 +113,7 @@
             return;
         }
         const info = await window.electronAPI.collabSessionInfo();
-        if (info && info.success) { CT.info = info; openDashboard(); }
+        if (info && info.success) { CT.info = info; showDashboard(); }
         else openStart();
     };
 
@@ -147,7 +147,7 @@
             } catch (e) { /* registro best-effort */ }
             closeModal();
             if (r.resumed) toast(t('tst_collab_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
-            openDashboard();
+            showDashboard();
         };
     }
 
@@ -164,45 +164,150 @@
         return (CT.info.urls && CT.info.urls[0]) || ('http://localhost:' + CT.info.port);
     }
 
-    // ── Dashboard ───────────────────────────────────────────────────────────
-    function openDashboard() {
+    // ── Dashboard: renderer riusabile su più host (sidebar + floating + modale) ─
+    // I contenuti (QR, gruppi, bottoni) sono montabili in un contenitore qualsiasi.
+    // Gli elementi per-host usano CLASSI (non id) perché più host coesistono.
+    // 006-lavagna-sidebar.
+    CT.hosts = CT.hosts || [];   // contenitori attualmente montati
+
+    function panelBodyHtml(opts) {
+        opts = opts || {};
         const url = studentUrl();
         const qrSrc = qrDataUrl(url);
-        const ov = modal('presentation', t('cl_title', 'Lavagna collaborativa'), `
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
+        const detachBtn = opts.detach
+            ? `<button type="button" class="cl-detach" style="background:#eef2ff;color:#4f46e5;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_detach', 'Stacca pannello')}</button>`
+            : '';
+        return `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;align-items:start">
                 <div style="text-align:center">
-                    ${qrSrc ? `<img id="cl-qr" src="${qrSrc}" alt="QR" style="width:220px;height:220px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">`
+                    ${qrSrc ? `<img class="cl-qr" src="${qrSrc}" alt="QR" style="width:180px;max-width:100%;height:auto;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">`
                             : '<div style="color:#b45309;font-size:12px">QR non disponibile (libreria mancante)</div>'}
-                    <div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">${CT.info.urls.map(esc).join('<br>')}</div>
-                    <div style="font-size:11px;color:#94a3b8;margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
+                    <div style="font-size:11.5px;color:#475569;margin-top:6px;word-break:break-all">${CT.info.urls.map(esc).join('<br>')}</div>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
                 </div>
                 <div>
                     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">${t('cl_groups', 'Gruppi collegati')}</div>
-                    <div id="cl-groups" style="display:flex;flex-direction:column;gap:6px">
+                    <div class="cl-groups" style="display:flex;flex-direction:column;gap:6px">
                         <div style="color:#94a3b8;font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>
                     </div>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
-                <button type="button" id="cl-stop" style="background:#7f1d1d;color:#fecaca;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px">${t('cl_stop', 'Ferma sessione')}</button>
-                <button type="button" id="cl-folder" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
-                <span style="flex:1"></span>
-                <span style="font-size:11px;color:#94a3b8;align-self:center">${t('cl_live_note', 'I layer si aggiornano da soli. Chiudi pure: la sessione resta attiva.')}</span>
-            </div>
-        `);
-        const qrImg = ov.querySelector('#cl-qr');
-        if (qrImg) qrImg.onclick = () => openQrFull(url);
-        ov.querySelector('#cl-stop').onclick = async () => {
-            await window.electronAPI.collabStopSession();
-            if (CT.focusSlug) { CT.focusSlug = null; restoreBaseDepth(); }
-            stopPolling(); removeOverlay();
-            CT.info = null; CT.board = null;
-            closeModal();
-            toast(t('tst_collab_stopped', 'Sessione fermata — i contributi restano su disco'), 'success');
-        };
-        ov.querySelector('#cl-folder').onclick = () => window.electronAPI.collabOpenFolder && window.electronAPI.collabOpenFolder();
+            <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+                <button type="button" class="cl-stop" style="background:#7f1d1d;color:#fecaca;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px">${t('cl_stop', 'Ferma sessione')}</button>
+                <button type="button" class="cl-folder" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
+                ${detachBtn}
+            </div>`;
+    }
+
+    async function stopSession() {
+        if (window.electronAPI && window.electronAPI.collabStopSession) await window.electronAPI.collabStopSession();
+        if (CT.focusSlug) { CT.focusSlug = null; restoreBaseDepth(); }
+        stopPolling(); removeOverlay();
+        CT.info = null; CT.board = null;
+        unmountAllHosts();
+        toast(t('tst_collab_stopped', 'Sessione fermata — i contributi restano su disco'), 'success');
+    }
+
+    function wirePanel(host) {
+        const qrImg = host.querySelector('.cl-qr');
+        if (qrImg) qrImg.onclick = () => openQrFull(studentUrl());
+        const stop = host.querySelector('.cl-stop');
+        if (stop) stop.onclick = stopSession;
+        const folder = host.querySelector('.cl-folder');
+        if (folder) folder.onclick = () => window.electronAPI.collabOpenFolder && window.electronAPI.collabOpenFolder();
+        const detach = host.querySelector('.cl-detach');
+        if (detach) detach.onclick = openFloatingPanel;
+        renderGroupsInto(host);
+    }
+
+    // Monta la dashboard dentro targetEl e la registra tra gli host aggiornati dal polling.
+    function renderCollabPanel(targetEl, opts) {
+        if (!targetEl) return;
+        targetEl.innerHTML = panelBodyHtml(opts);
+        if (CT.hosts.indexOf(targetEl) < 0) CT.hosts.push(targetEl);
+        wirePanel(targetEl);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+    CT.renderCollabPanel = renderCollabPanel;
+
+    // ── Host: sidebar (default) ──────────────────────────────────────────────
+    function mountSidebarPanel() {
+        const panel = document.getElementById('collab-sidebar-panel');
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        renderCollabPanel(panel, { detach: true });
+        // porta l'utente sul tab Struttura per vedere la dashboard
+        if (window.switchSidebarTab) window.switchSidebarTab('structure');
+    }
+    function unmountSidebarPanel() {
+        const panel = document.getElementById('collab-sidebar-panel');
+        if (panel) { panel.innerHTML = ''; panel.classList.add('hidden'); }
+    }
+
+    // ── Host: pannello fluttuante collassabile (stacca per la LIM) ────────────
+    function openFloatingPanel() {
+        let fp = document.getElementById('collab-float-panel');
+        if (!fp) {
+            fp = document.createElement('div');
+            fp.id = 'collab-float-panel';
+            fp.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9985;width:min(360px,90vw);background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 20px 50px -12px rgba(0,0,0,.35);overflow:hidden';
+            fp.innerHTML = `<div class="cl-fp-head" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef2ff;cursor:default">
+                    <i data-lucide="presentation" style="width:16px;height:16px;color:#4f46e5"></i>
+                    <span style="flex:1;font-weight:800;font-size:13px;color:#0f172a">${t('cl_title', 'Lavagna collaborativa')}</span>
+                    <button type="button" class="cl-fp-collapse" title="${t('cl_collapse', 'Collassa')}" style="background:none;border:0;cursor:pointer;color:#64748b;font-size:16px;line-height:1;padding:2px 6px">–</button>
+                    <button type="button" class="cl-fp-close" title="${t('cl_dock', 'Riaggancia alla sidebar')}" style="background:none;border:0;cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 6px">×</button>
+                </div>
+                <div class="cl-fp-body" style="padding:14px 16px"></div>`;
+            document.body.appendChild(fp);
+            fp.querySelector('.cl-fp-collapse').onclick = toggleFloatingCollapse;
+            fp.querySelector('.cl-fp-close').onclick = closeFloatingPanel;
+        }
+        const body = fp.querySelector('.cl-fp-body');
+        body.style.display = '';
+        renderCollabPanel(body, { detach: false });
+    }
+    function toggleFloatingCollapse() {
+        const fp = document.getElementById('collab-float-panel');
+        if (!fp) return;
+        const body = fp.querySelector('.cl-fp-body');
+        const btn = fp.querySelector('.cl-fp-collapse');
+        const collapsed = body.style.display === 'none';
+        body.style.display = collapsed ? '' : 'none';
+        if (btn) btn.textContent = collapsed ? '–' : '+';
+    }
+    function closeFloatingPanel() {
+        const fp = document.getElementById('collab-float-panel');
+        if (!fp) return;
+        const body = fp.querySelector('.cl-fp-body');
+        const i = CT.hosts.indexOf(body);
+        if (i >= 0) CT.hosts.splice(i, 1);
+        fp.remove();
+    }
+
+    // ── Host: modale storico (kill-switch reversibilità) ─────────────────────
+    function openDashboardModal() {
+        const ov = modal('presentation', t('cl_title', 'Lavagna collaborativa'), `<div class="cl-modal-body"></div>`);
+        renderCollabPanel(ov.querySelector('.cl-modal-body'), { detach: false });
+    }
+
+    // Smonta tutti gli host (stop sessione / cambio mappa)
+    function unmountAllHosts() {
+        CT.hosts = [];
+        unmountSidebarPanel();
+        closeFloatingPanel();
+        closeModal();
+    }
+
+    // Decide dove mostrare la dashboard: sidebar (default) o modale (kill-switch).
+    function showDashboard() {
+        CT.hosts = [];
+        let legacy = false;
+        try { legacy = localStorage.getItem('mappai_collab_legacy_modal') === '1'; } catch (e) { }
+        if (legacy) openDashboardModal();
+        else mountSidebarPanel();
         startPolling();
     }
+    CT.showDashboard = showDashboard;
 
     function openQrFull(url) {
         const big = qrDataUrl(url, 14);
@@ -241,28 +346,44 @@
         if (CT._pollTimer) { clearTimeout(CT._pollTimer); CT._pollTimer = null; }
     }
 
+    // Aggiorna la lista gruppi in TUTTI gli host montati (sidebar + floating + modale).
     function renderGroupsList() {
-        const box = document.getElementById('cl-groups');
-        if (!box || !CT.board) return;
-        const groups = CT.board.groups || [];
-        if (!groups.length) return;
-        box.innerHTML = groups.map(g => {
+        // rimuovi gli host non più nel DOM (floating chiuso, ecc.)
+        CT.hosts = (CT.hosts || []).filter(h => h && document.body.contains(h));
+        CT.hosts.forEach(renderGroupsInto);
+    }
+
+    function groupsHtml() {
+        const groups = (CT.board && CT.board.groups) || [];
+        if (!groups.length) return `<div style="color:#94a3b8;font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>`;
+        return groups.map(g => {
             const slug = C.slugify(g.nick);
-            const lay = CT.layers[slug];
+            const lay = CT.layers[slug] || (CT.layers[slug] = { visible: true, label: g.nick });
             const focused = CT.focusSlug === slug;
             const doneBadge = g.done
                 ? `<span title="${t('cl_done_tip', 'Il gruppo ha premuto Fatto')}" style="font-size:10px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 7px">✓</span>`
                 : '';
-            return `<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 10px">
+            // "sblocca": visibile solo se il gruppo ha consegnato (azzera il ✓)
+            const reopenBtn = g.done
+                ? `<button type="button" class="cl-reopen" data-slug="${slug}" title="${t('cl_reopen_tip', 'Rimetti il gruppo «in corso»: azzera il segno di consegna. Gli allievi continuano a costruire.')}" style="background:#fef3c7;color:#92400e;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px"><i data-lucide="unlock" style="width:11px;height:11px"></i>${t('cl_reopen', 'Sblocca')}</button>`
+                : '';
+            return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 10px">
                 <span style="width:12px;height:12px;border-radius:50%;background:${g.color};flex:0 0 auto"></span>
                 <input value="${esc(lay.label)}" data-slug="${slug}" class="cl-rename" style="flex:1;min-width:60px;border:0;background:none;font-weight:700;font-size:12.5px;color:#0f172a;outline:none">
                 ${doneBadge}
                 <span style="font-size:11px;color:#94a3b8">${(g.nodes || []).length}n · ${(g.links || []).length}⇢</span>
                 <button type="button" class="cl-focus" data-slug="${slug}" title="${focused ? t('cl_focus_off_tip', 'Esci dall\'isolamento e ripristina la profondità') : t('cl_focus_tip', 'Isola questo gruppo e porta la mappa base a L0')}" style="background:${focused ? '#f59e0b' : '#f1f5f9'};color:${focused ? '#fff' : '#334155'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${t('cl_focus', 'SOLO')}</button>
                 <button type="button" class="cl-toggle" data-slug="${slug}" title="${t('cl_toggle_tip', 'Mostra/nascondi questo layer sulla mappa')}" style="background:${lay.visible ? '#4f46e5' : '#e2e8f0'};color:${lay.visible ? '#fff' : '#64748b'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${lay.visible ? 'ON' : 'OFF'}</button>
+                ${reopenBtn}
                 <button type="button" class="cl-export" data-slug="${slug}" title="${t('cl_export_tip', 'Scarica il layer come mappa MappAI (JSON importabile)')}" style="background:#f1f5f9;color:#334155;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">JSON</button>
             </div>`;
         }).join('');
+    }
+
+    function renderGroupsInto(host) {
+        const box = host && host.querySelector('.cl-groups');
+        if (!box) return;
+        box.innerHTML = groupsHtml();
         box.querySelectorAll('.cl-toggle').forEach(b => {
             b.onclick = () => {
                 const lay = CT.layers[b.dataset.slug];
@@ -273,12 +394,25 @@
         box.querySelectorAll('.cl-rename').forEach(inp => {
             inp.onchange = () => { CT.layers[inp.dataset.slug].label = inp.value.trim() || inp.dataset.slug; renderOverlay(); };
         });
-        box.querySelectorAll('.cl-focus').forEach(b => {
-            b.onclick = () => toggleFocus(b.dataset.slug);
-        });
-        box.querySelectorAll('.cl-export').forEach(b => {
-            b.onclick = () => exportLayer(b.dataset.slug);
-        });
+        box.querySelectorAll('.cl-focus').forEach(b => { b.onclick = () => toggleFocus(b.dataset.slug); });
+        box.querySelectorAll('.cl-export').forEach(b => { b.onclick = () => exportLayer(b.dataset.slug); });
+        box.querySelectorAll('.cl-reopen').forEach(b => { b.onclick = () => reopenGroup(b.dataset.slug); });
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+
+    // "Sblocca" un gruppo consegnato: azzera done sul server → il ✓ sparisce al
+    // prossimo tick. Lo studente continua a inviare contributi (nessun lock).
+    function reopenGroup(slug) {
+        if (!CT.info) return;
+        const g = (CT.board && CT.board.groups || []).find(x => C.slugify(x.nick) === slug);
+        if (!g) return;
+        fetch('http://127.0.0.1:' + CT.info.port + '/api/reopen', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: CT.info.adminToken, nick: g.nick })
+        }).then(() => {
+            g.done = false;            // aggiornamento ottimistico immediato
+            renderGroupsList();
+        }).catch(() => { /* il prossimo tick riallineerà */ });
     }
 
     // ── Export layer → JSON mappa MappAI (vault-dinamico) ───────────────────
