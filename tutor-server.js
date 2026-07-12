@@ -247,7 +247,10 @@ function createTutorServer(opts) {
               joined: !!(st && st.deviceId),
               phase: st ? st.phase : null,
               used: st ? (st.used || 0) : 0,
-              submitted: !!(st && st.submission && st.submission.text)
+              // il badge ✓ segue la FASE, non la presenza del testo: "sblocca"
+              // (reopen → phase 'writing') pulisce il ✓ pur conservando la
+              // consegna su disco per il report. Ri-consegna → phase 'submitted'.
+              submitted: !!(st && st.phase === 'submitted' && st.submission && st.submission.text)
             };
           }),
           joined: Object.keys(students).length

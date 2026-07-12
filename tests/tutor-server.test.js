@@ -192,6 +192,11 @@ test('draft/submit/reopen/close: ciclo completo con report', async () => {
     body: JSON.stringify({ adminToken: admin, emojiKey: 'volpe', num: '00' })
   });
   assert.strictEqual(ro.status, 200);
+  // il badge ✓ si PULISCE (submitted=false) pur restando la consegna su disco
+  const st2 = await api('/api/status?admin=' + admin);
+  const volpe2 = st2.body.roster.find(r => r.emojiKey === 'volpe');
+  assert.strictEqual(volpe2.submitted, false);
+  assert.strictEqual(volpe2.phase, 'writing');
   const s2 = await api('/api/submit', {
     method: 'POST',
     body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'dev1', text: 'Versione rivista.' })
