@@ -513,9 +513,18 @@
     }
 
     // ── Costruzione HTML stampabile (condiviso da stampa + salvataggio) ──────
-    function _buildSynthesisPrintHtml(data) {
+    function _buildSynthesisPrintHtml(data, opts) {
         data = data || _lastSynthesis;
+        opts = opts || {};
         if (!data) return '';
+        // Voce naturale (Gemini) incorporata come data-URI: viaggia col file HTML.
+        const audioTag = opts.audioDataUri
+            ? '<audio id="ap-audio" preload="auto" style="display:none"><source src="' + opts.audioDataUri + '" type="' + (opts.audioMime || 'audio/wav') + '"></audio>'
+            : '';
+        // Cue map: tempo reale di inizio di ogni blocco → karaoke sincronizzato con la voce.
+        const cuesTag = (opts.cues && opts.cues.length)
+            ? '<script id="ap-cues" type="application/json">' + JSON.stringify(opts.cues) + '<\/script>'
+            : '';
 
         const now = new Date().toLocaleString('it-IT');
         const accentColor = '#4f46e5';
@@ -592,7 +601,7 @@
         <div class="bs-title">${_escBS(data.branchLabel)}</div>
         <div class="bs-subtitle">${_escBS(data.mapName)} · ${_escBS(kindLabel)} · ${now}</div>
     </div>
-    <div class="bs-body">${contentHtml}</div>
+    <div class="bs-body">${audioTag}${cuesTag}${contentHtml}</div>
     <div class="bs-footer">MappAI by insegnai.ch · Generato il ${now}</div>
     <script>
     (function(){
@@ -621,11 +630,13 @@
       function locate(m,pos){ for(var i=0;i<m.length;i++){ var pc=m[i]; if(pos>=pc.start&&pos<=pc.start+pc.len) return {node:pc.node,offset:pos-pc.start}; } var l=m[m.length-1]; return l?{node:l.node,offset:l.len}:null; }
       function sentRanges(t){ var re=/[.!?\\u2026]+[)\\]"'\\u201d\\u2019\\u00bb]*\\s*/g,res=[],last=0,mm; while((mm=re.exec(t))){ var e=mm.index+mm[0].length; res.push({start:last,end:e}); last=e; } if(last<t.length) res.push({start:last,end:t.length}); if(!res.length) res.push({start:0,end:t.length}); return res; }
       var chunks=[];
+      var nBlocks=0;
       function build(){
-        chunks=[]; var blocks=body.querySelectorAll('h3,h4,p,li,blockquote');
-        for(var bi=0;bi<blocks.length;bi++){ var bl=blocks[bi];
+        chunks=[]; nBlocks=0; var blocks=body.querySelectorAll('h3,h4,p,li,blockquote');
+        for(var bx=0;bx<blocks.length;bx++){ var bl=blocks[bx];
           if(bl.closest&&bl.closest('.bs-citations')) continue;
           var pc=pieces(bl); if(!pc.text.trim()) continue;
+          var myBi=nBlocks; nBlocks++;
           var tg=bl.tagName.toLowerCase(), head=(tg==='h3'||tg==='h4'), item=(tg==='li');
           var rgs=head?[{start:0,end:pc.text.length}]:sentRanges(pc.text);
           for(var k=0;k<rgs.length;k++){ var rg=rgs[k]; var raw=pc.text.slice(rg.start,rg.end); var spk=clean(raw); if(!spk) continue;
@@ -633,23 +644,30 @@
             var a=locate(pc.map,hs), b=locate(pc.map,he);
             var pit=1,pau=200,rm=1;
             if(head){ rm=0.94; pau=400; } else { if(/[?\\uff1f]\\s*$/.test(raw)){pit=1.09;pau=260;} else if(/[!\\uff01]\\s*$/.test(raw)){pit=1.04;pau=240;} if(item) pau=Math.max(pau,220); if(k===rgs.length-1) pau+=150; }
-            chunks.push({text:spk,head:head,pitch:pit,rateMul:rm,endPause:pau,src:bl,r:(a&&b)?{sN:a.node,sO:a.offset,eN:b.node,eO:b.offset}:null});
+            chunks.push({text:spk,head:head,pitch:pit,rateMul:rm,endPause:pau,src:bl,bi:myBi,r:(a&&b)?{sN:a.node,sO:a.offset,eN:b.node,eO:b.offset}:null});
           }
         }
       }
       var idx=0,subChar=0,playing=false,gap=null,utter=null,ticker=null,blockEl=null,drag=false,dur=[],starts=[],total=0,t0=0;
+      var audioEl=document.getElementById('ap-audio'); var audioMode=!!audioEl; // voce naturale incorporata (Gemini)
+      var cuesData=null; try{ var _ce=document.getElementById('ap-cues'); if(_ce) cuesData=JSON.parse(_ce.textContent||'null'); }catch(e){ cuesData=null; } // tempi reali di inizio blocco (sync karaoke)
       function rate(){ return SPEEDS[ri]; }
       function timing(){ dur=chunks.map(function(c){ var cps=CPS*rate()*(c.rateMul||1); return Math.max(0.35,c.text.length/cps)+(c.endPause||0)/1000; }); starts=[]; var acc=0; for(var i=0;i<dur.length;i++){ starts[i]=acc; acc+=dur[i]; } total=acc; }
       function nw(){ try{return performance.now();}catch(e){return Date.now();} }
-      function gtime(){ if(!chunks.length) return 0; var base=starts[idx]||0; var el=Math.min(dur[idx]||0,Math.max(0,(nw()-t0)/1000)); return Math.min(total,base+el); }
+      function TOT(){ return (audioMode&&audioEl.duration&&isFinite(audioEl.duration)&&audioEl.duration>0)?audioEl.duration:total; }
+      function gtimeSpeech(){ if(!chunks.length) return 0; var base=starts[idx]||0; var el=Math.min(dur[idx]||0,Math.max(0,(nw()-t0)/1000)); return Math.min(total,base+el); }
+      function CUR(){ return audioMode?(audioEl.currentTime||0):gtimeSpeech(); }
       function idxAt(t){ for(var i=0;i<chunks.length;i++){ if(t<(starts[i]||0)+(dur[i]||0)) return i; } return Math.max(0,chunks.length-1); }
+      function idxAtReal(rt){ var est=total?(rt/(TOT()||1))*total:0; return idxAt(est); } // tempo reale audio → chunk stimato (karaoke)
+      function curBlockAt(t){ if(!cuesData) return 0; var lo=0; for(var i=0;i<cuesData.length;i++){ if(t>=cuesData[i]-0.001) lo=i; else break; } return lo; }
+      function hlByCues(t){ var B=curBlockAt(t); var bStart=cuesData[B]||0, bEnd=(B+1<cuesData.length)?cuesData[B+1]:TOT(); var first=-1,last=-1; for(var i=0;i<chunks.length;i++){ if(chunks[i].bi===B){ if(first<0)first=i; last=i; } } if(first<0){ return; } var sum=0; for(var j=first;j<=last;j++) sum+=dur[j]||0; if(sum<=0||bEnd<=bStart){ hl(first); return; } var acc=bStart,target=first; for(var j2=first;j2<=last;j2++){ var w=(dur[j2]/sum)*(bEnd-bStart); if(t<acc+w){ target=j2; break; } acc+=w; target=j2; } hl(target); } // blocco esatto dai cue + sotto-sync frase nella finestra reale
       function clearHL(){ try{ if(HL) HL.clear(); }catch(e){} if(blockEl){ try{blockEl.classList.remove('bs-body-block');}catch(e){} blockEl=null; } }
       function hl(i){ clearHL(); var c=chunks[i]; if(!c) return; if(c.src&&c.src.classList){ c.src.classList.add('bs-body-block'); blockEl=c.src; } if(hlOK&&c.r){ try{ var r=document.createRange(); r.setStart(c.r.sN,c.r.sO); r.setEnd(c.r.eN,c.r.eO); HL.add(r); }catch(e){} } try{ if(c.src&&c.src.scrollIntoView) c.src.scrollIntoView({block:'nearest'}); }catch(e){} }
       var bBack,bPlay,bFwd,bRate,fill,thumb,time,prog;
       function paint(p){ if(bPlay){ bPlay.textContent=p?'\\u23F8':'\\u25B6'; bPlay.classList.toggle('on',!!p); } }
       function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60),x=s%60; return m+':'+(x<10?'0':'')+x; }
-      function render(rt){ rt=Math.max(0,Math.min(1,rt||0)); if(fill) fill.style.width=(rt*100)+'%'; if(thumb) thumb.style.left=(rt*100)+'%'; if(time) time.textContent=fmt(rt*total); }
-      function startTick(){ stopTick(); ticker=setInterval(function(){ if(!drag) render(total?gtime()/total:0); },100); }
+      function render(rt){ rt=Math.max(0,Math.min(1,rt||0)); if(fill) fill.style.width=(rt*100)+'%'; if(thumb) thumb.style.left=(rt*100)+'%'; if(time) time.textContent=fmt(rt*TOT()); }
+      function startTick(){ stopTick(); ticker=setInterval(function(){ if(!drag) render(total?gtimeSpeech()/total:0); },100); }
       function stopTick(){ if(ticker){ clearInterval(ticker); ticker=null; } }
       function speakCur(){
         if(idx>=chunks.length){ finish(); return; }
@@ -663,32 +681,42 @@
         hl(idx); try{ speechSynthesis.cancel(); }catch(e){} try{ speechSynthesis.speak(u); }catch(e){} paint(true);
       }
       function finish(){ if(gap) clearTimeout(gap); stopTick(); clearHL(); playing=false; idx=0; subChar=0; paint(false); render(1); }
-      function stop(){ if(gap) clearTimeout(gap); stopTick(); clearHL(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; utter=null; idx=0; subChar=0; paint(false); render(0); }
       function playFrom(i,sc){ if(gap) clearTimeout(gap); idx=Math.max(0,Math.min(i,chunks.length-1)); subChar=sc||0; playing=true; paint(true); startTick(); speakCur(); }
       function pause(){ if(gap) clearTimeout(gap); stopTick(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; subChar=0; paint(false); }
       function ensure(){ if(!chunks.length){ build(); timing(); } }
-      function toggle(){ ensure(); if(playing){ pause(); return; } if(idx>=chunks.length) idx=0; playFrom(idx,subChar); }
-      function seekT(t){ ensure(); t=Math.max(0,Math.min(t,Math.max(0,total-0.05))); var i=idxAt(t); var f=(dur[i]>0)?(t-(starts[i]||0))/dur[i]:0; playFrom(i,Math.floor(f*(chunks[i]?chunks[i].text.length:0))); }
-      function seek(d){ ensure(); seekT(gtime()+d); }
-      function cycleRate(){ ri=(ri+1)%SPEEDS.length; bRate.textContent='\\u00d7'+SPEEDS[ri]; if(chunks.length){ var t=gtime(); timing(); if(playing) seekT(t); else render(total?t/total:0); } }
-      function playFromNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } playFrom(i<0?0:i,0); }
+      function seekTspeech(t){ ensure(); t=Math.max(0,Math.min(t,Math.max(0,total-0.05))); var i=idxAt(t); var f=(dur[i]>0)?(t-(starts[i]||0))/dur[i]:0; playFrom(i,Math.floor(f*(chunks[i]?chunks[i].text.length:0))); }
+      // ── Transport unificato: audio incorporato o Web Speech ──
+      function doToggle(){ if(audioMode){ if(audioEl.paused) audioEl.play(); else audioEl.pause(); return; } ensure(); if(playing){ pause(); return; } if(idx>=chunks.length) idx=0; playFrom(idx,subChar); }
+      function doSeekRel(d){ if(audioMode){ audioEl.currentTime=Math.max(0,Math.min((audioEl.currentTime||0)+d,Math.max(0,TOT()-0.1))); return; } ensure(); seekTspeech(gtimeSpeech()+d); }
+      function doSeekRatio(rt){ if(audioMode){ audioEl.currentTime=Math.max(0,Math.min(rt*TOT(),Math.max(0,TOT()-0.05))); return; } ensure(); seekTspeech(rt*total); }
+      function doRate(){ ri=(ri+1)%SPEEDS.length; bRate.textContent='\\u00d7'+SPEEDS[ri]; if(audioMode){ audioEl.playbackRate=rate(); return; } if(chunks.length){ var t=gtimeSpeech(); timing(); if(playing) seekTspeech(t); else render(total?t/total:0); } }
+      function doPlayNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } i=Math.max(0,i); if(audioMode){ var bi=(chunks[i]&&typeof chunks[i].bi==='number')?chunks[i].bi:0; audioEl.currentTime=(cuesData&&cuesData[bi]!=null)?cuesData[bi]:((total?(starts[i]/total):0)*TOT()); audioEl.play(); hl(i); return; } playFrom(i,0); }
       function seg(txt,title){ var b=document.createElement('button'); b.type='button'; b.className='ap-seg'; b.textContent=txt; b.title=title; return b; }
       bBack=seg('\\u21BA10','Indietro 10 secondi'); bPlay=seg('\\u25B6','Ascolta / Pausa'); bPlay.className+=' ap-play'; bFwd=seg('5\\u21BB','Avanti 5 secondi'); bRate=seg('\\u00d71','Velocità di lettura');
       var chip=document.createElement('span'); chip.className='ap-chip'; chip.appendChild(bBack); chip.appendChild(bPlay); chip.appendChild(bFwd); chip.appendChild(bRate);
       prog=document.createElement('span'); prog.className='ap-prog'; fill=document.createElement('span'); fill.className='ap-fill'; thumb=document.createElement('span'); thumb.className='ap-thumb'; prog.appendChild(fill); prog.appendChild(thumb);
       time=document.createElement('span'); time.className='ap-time'; time.textContent='0:00';
       bar.appendChild(chip); bar.appendChild(prog); bar.appendChild(time);
-      bBack.addEventListener('click',function(){ seek(-BACK); });
-      bPlay.addEventListener('click',toggle);
-      bFwd.addEventListener('click',function(){ seek(FWD); });
-      bRate.addEventListener('click',cycleRate);
+      bBack.addEventListener('click',function(){ doSeekRel(-BACK); });
+      bPlay.addEventListener('click',doToggle);
+      bFwd.addEventListener('click',function(){ doSeekRel(FWD); });
+      bRate.addEventListener('click',doRate);
       (function(){ function rat(x){ var bx=prog.getBoundingClientRect(); return bx.width?Math.max(0,Math.min(1,(x-bx.left)/bx.width)):0; }
         prog.addEventListener('pointerdown',function(e){ ensure(); drag=true; try{prog.setPointerCapture(e.pointerId);}catch(er){} render(rat(e.clientX)); e.preventDefault(); });
         prog.addEventListener('pointermove',function(e){ if(drag) render(rat(e.clientX)); });
-        prog.addEventListener('pointerup',function(e){ if(!drag) return; drag=false; try{prog.releasePointerCapture(e.pointerId);}catch(er){} seekT(rat(e.clientX)*total); });
+        prog.addEventListener('pointerup',function(e){ if(!drag) return; drag=false; try{prog.releasePointerCapture(e.pointerId);}catch(er){} doSeekRatio(rat(e.clientX)); });
       })();
-      build(); timing(); (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.textContent='\\u25B6'; b.addEventListener('click',function(e){ e.stopPropagation(); playFromNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
-      try{ document.addEventListener('visibilitychange',function(){ if(document.hidden) pause(); }); }catch(e){}
+      build(); timing();
+      if(cuesData && cuesData.length!==nBlocks) cuesData=null; // disallineamento → torna alla stima proporzionale
+      if(audioMode){ audioEl.playbackRate=rate();
+        audioEl.addEventListener('play',function(){ paint(true); });
+        audioEl.addEventListener('pause',function(){ paint(false); });
+        audioEl.addEventListener('ended',function(){ paint(false); render(1); });
+        audioEl.addEventListener('timeupdate',function(){ if(drag) return; var tot=TOT(); render(tot?CUR()/tot:0); if(cuesData&&cuesData.length) hlByCues(CUR()); else hl(idxAtReal(CUR())); });
+        audioEl.addEventListener('loadedmetadata',function(){ render(0); });
+      }
+      (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.textContent='\\u25B6'; b.addEventListener('click',function(e){ e.stopPropagation(); doPlayNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
+      try{ document.addEventListener('visibilitychange',function(){ if(document.hidden && !audioMode) pause(); }); }catch(e){}
     })();
     <\/script>
 </body>
@@ -733,21 +761,6 @@
             .replace(/\n{3,}/g, '\n\n')
             .trim();
     }
-    function _synthesisPlainText(data) {
-        data = data || _lastSynthesis; if (!data) return '';
-        if (data.whole) {
-            const parts = [];
-            if (data.intro) parts.push(_cleanPlain(data.intro));
-            (data.sections || []).forEach(sec => {
-                if (sec.failed) return;
-                const head = _cleanPlain(sec.branchLabel || '');
-                const bodyt = _cleanPlain(sec.rawText || '');
-                if (bodyt) parts.push((head ? head + '. ' : '') + bodyt);
-            });
-            return parts.join('\n\n');
-        }
-        return _cleanPlain(data.rawText || '');
-    }
     function _b64ToBytes(b64) {
         const bin = atob(b64); const a = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
@@ -765,58 +778,137 @@
         new Uint8Array(buf, 44).set(pcm);
         return new Blob([buf], { type: 'audio/wav' });
     }
-    function _chunkForTts(text, budget) {
-        const sents = text.match(/[^.!?…]+[.!?…]+["'”’)\]]*\s*|[^.!?…]+$/g) || [text];
-        const out = []; let cur = '';
-        sents.forEach(s => { if ((cur + s).length > budget && cur) { out.push(cur.trim()); cur = s; } else cur += s; });
-        if (cur.trim()) out.push(cur.trim());
+    // PCM 16-bit mono → MP3 (lamejs, ~6x più leggero del WAV). Fallback: null se lib assente.
+    function _pcmToMp3(pcm, sampleRate, kbps) {
+        if (!window.lamejs || !window.lamejs.Mp3Encoder) return null;
+        try {
+            const samples = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.length / 2));
+            const enc = new window.lamejs.Mp3Encoder(1, sampleRate, kbps || 64);
+            const out = []; const block = 1152;
+            for (let i = 0; i < samples.length; i += block) {
+                const buf = enc.encodeBuffer(samples.subarray(i, i + block));
+                if (buf.length > 0) out.push(new Uint8Array(buf));
+            }
+            const end = enc.flush();
+            if (end.length > 0) out.push(new Uint8Array(end));
+            return new Blob(out, { type: 'audio/mpeg' });
+        } catch (e) { console.warn('[BranchSynthesis] MP3 encode fallito, uso WAV:', e); return null; }
+    }
+    // Sceglie MP3 se disponibile (piccolo, universale su iOS/Android), altrimenti WAV.
+    function _encodeAudio(pcm, sampleRate) {
+        const mp3 = _pcmToMp3(pcm, sampleRate, 64);
+        if (mp3) return { blob: mp3, mime: 'audio/mpeg', ext: 'mp3' };
+        return { blob: _pcmToWav(pcm, sampleRate), mime: 'audio/wav', ext: 'wav' };
+    }
+
+    function _fnameFor(data) {
+        return (('Sintesi-' + (data.branchLabel || 'mappa')).replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '-')) || 'Sintesi';
+    }
+    function _downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+    function _downloadHtml(html, filename) { _downloadBlob(new Blob([html], { type: 'text/html' }), filename); }
+    function _blobToDataUri(blob) {
+        return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+    }
+
+    // Blocchi leggibili (h3/h4/p/li) NELLO STESSO ORDINE del lettore: base per la
+    // generazione audio per-blocco e per l'allineamento dei cue di sincronizzazione.
+    function _blocksForAudio(data) {
+        const full = _buildSynthesisPrintHtml(data);
+        let doc; try { doc = new DOMParser().parseFromString(full, 'text/html'); } catch (e) { return []; }
+        const bodyEl = doc.querySelector('.bs-body'); if (!bodyEl) return [];
+        bodyEl.querySelectorAll('.bs-citations, sup').forEach(n => n.remove());
+        const out = [];
+        bodyEl.querySelectorAll('h3,h4,p,li,blockquote').forEach(bl => {
+            const txt = _cleanPlain(bl.textContent || '');
+            if (txt) out.push(txt);
+        });
         return out;
+    }
+
+    // Genera l'audio (voce naturale Gemini) UN CLIP PER BLOCCO → { blob WAV, cues }.
+    // cues[i] = tempo REALE di inizio del blocco i (dalla lunghezza PCM del clip) →
+    // karaoke sincronizzato con la voce, non stimato.
+    async function _generateSynthesisAudioWithCues(data) {
+        if (!(window.electronAPI && window.electronAPI.generateGemini)) throw new Error(window.t('bs_audio_desktop', 'La voce naturale richiede l\'app desktop'));
+        let key = ''; try { key = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
+        if (!key) throw new Error(window.t('bs_audio_key', 'Serve la chiave API Google (Gemini) per la voce naturale'));
+        const blocks = _blocksForAudio(data);
+        if (!blocks.length) throw new Error(window.t('bs_audio_empty', 'Nessun testo da leggere'));
+        const model = (function () { try { return localStorage.getItem('mappai_tts_model') || 'gemini-2.5-flash-preview-tts'; } catch (e) { return 'gemini-2.5-flash-preview-tts'; } })();
+        const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
+        const pcmParts = []; let rate = 24000; const cues = []; let cum = 0;
+        for (let i = 0; i < blocks.length; i++) {
+            window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
+            const payload = {
+                contents: [{ parts: [{ text: blocks[i] }] }],
+                generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
+            };
+            const resp = await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
+            const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
+            const inline = part && part.inlineData;
+            if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
+            const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
+            const bytes = _b64ToBytes(inline.data);
+            pcmParts.push(bytes);
+            cues.push(Math.round(cum * 1000) / 1000);
+            cum += (bytes.length / 2) / rate; // durata reale del clip (PCM 16-bit mono)
+        }
+        const totalLen = pcmParts.reduce((a, b) => a + b.length, 0);
+        const all = new Uint8Array(totalLen); let off = 0;
+        pcmParts.forEach(p => { all.set(p, off); off += p.length; });
+        window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_encoding', 'Comprimo l\'audio…'));
+        const enc = _encodeAudio(all, rate); // MP3 se possibile
+        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext };
+    }
+
+    // Menù dopo la generazione: condividi con audio (QR) · scarica HTML+audio · scarica WAV.
+    // L'HTML con audio incorporato si ascolta anche offline: l'allievo lo salva dal telefono.
+    function _audioReadyChooser(res, data) {
+        const blob = res.blob, cues = res.cues, mime = res.mime || 'audio/wav', ext = res.ext || 'wav';
+        const fname = _fnameFor(data);
+        const canShare = !!(window.MappAILive && window.MappAILive.shareDocQr);
+        const esc = _escBS;
+        const modal = document.createElement('div');
+        modal.id = 'bs-audio-chooser';
+        modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3200] flex items-center justify-center p-4';
+        modal.innerHTML =
+            '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[460px] p-7 relative">' +
+                '<button type="button" onclick="document.getElementById(\'bs-audio-chooser\').remove()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>' +
+                '<div class="flex items-center gap-3 mb-2"><div class="pm-icon-wrap"><i data-lucide="headphones" class="w-5 h-5 text-indigo-600"></i></div>' +
+                '<div class="pm-title">' + esc(window.t('bs_audio_ready', 'Voce naturale pronta')) + '</div></div>' +
+                '<p class="pm-body-text mb-4">' + esc(window.t('bs_audio_ready_sub', 'Scegli come consegnare l\'audio. L\'HTML con audio incorporato si ascolta anche offline: l\'allievo lo salva sul telefono.')) + '</p>' +
+                '<div class="flex flex-col gap-2">' +
+                    (canShare ? '<button type="button" id="bsa-share" class="pm-btn-primary" style="justify-content:center"><i data-lucide="qr-code" class="w-4 h-4"></i> ' + esc(window.t('bs_audio_share', 'Condividi sintesi + audio (QR)')) + '</button>' : '') +
+                    '<button type="button" id="bsa-html" class="pm-btn-cancel" style="justify-content:center"><i data-lucide="file-down" class="w-4 h-4"></i> ' + esc(window.t('bs_audio_dl_html', 'Scarica HTML + audio')) + '</button>' +
+                    '<button type="button" id="bsa-wav" class="pm-btn-cancel" style="justify-content:center"><i data-lucide="download" class="w-4 h-4"></i> ' + esc(window.t('bs_audio_dl_file', 'Scarica solo audio') + ' (' + ext.toUpperCase() + ')') + '</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(modal);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        const wavBtn = modal.querySelector('#bsa-wav');
+        if (wavBtn) wavBtn.onclick = function () { _downloadBlob(blob, fname + '.' + ext); modal.remove(); window.showToast && window.showToast(window.t('bs_audio_done', '✓ Audio scaricato'), 'success'); };
+        const htmlBtn = modal.querySelector('#bsa-html');
+        if (htmlBtn) htmlBtn.onclick = async function () { const uri = await _blobToDataUri(blob); _downloadHtml(_buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues }), fname + '.html'); modal.remove(); window.showToast && window.showToast(window.t('bs_audio_html_done', '✓ HTML con audio scaricato'), 'success'); };
+        const shareBtn = modal.querySelector('#bsa-share');
+        if (shareBtn) shareBtn.onclick = async function () { const uri = await _blobToDataUri(blob); modal.remove(); window.MappAILive.shareDocQr(fname + '.html', _buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues })); };
     }
 
     window.generateSynthesisAudio = async function (dataOverride) {
         const data = dataOverride || _lastSynthesis;
         if (!data) { window.showToast && window.showToast(window.t('bs_audio_need', 'Genera prima una sintesi'), 'warning'); return; }
-        if (!(window.electronAPI && window.electronAPI.generateGemini)) {
-            window.showToast && window.showToast(window.t('bs_audio_desktop', 'La voce naturale richiede l\'app desktop'), 'warning'); return;
-        }
-        let key = ''; try { key = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
-        if (!key) { window.showToast && window.showToast(window.t('bs_audio_key', 'Serve la chiave API Google (Gemini) per la voce naturale'), 'error'); return; }
-        const text = _synthesisPlainText(data);
-        if (!text) { window.showToast && window.showToast(window.t('bs_audio_empty', 'Nessun testo da leggere'), 'info'); return; }
-        const model = (function () { try { return localStorage.getItem('mappai_tts_model') || 'gemini-2.5-flash-preview-tts'; } catch (e) { return 'gemini-2.5-flash-preview-tts'; } })();
-        const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
-        const chunks = _chunkForTts(text, 1500);
-        const pcmParts = []; let rate = 24000;
         try {
-            for (let i = 0; i < chunks.length; i++) {
-                window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + chunks.length + '…');
-                const payload = {
-                    contents: [{ parts: [{ text: chunks[i] }] }],
-                    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
-                };
-                const resp = await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
-                const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
-                const inline = part && part.inlineData;
-                if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
-                const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
-                pcmParts.push(_b64ToBytes(inline.data));
-            }
-            const totalLen = pcmParts.reduce((a, b) => a + b.length, 0);
-            const all = new Uint8Array(totalLen); let off = 0;
-            pcmParts.forEach(p => { all.set(p, off); off += p.length; });
-            const blob = _pcmToWav(all, rate);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = ('Sintesi-' + (data.branchLabel || 'mappa')).replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '-') + '.wav';
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            const res = await _generateSynthesisAudioWithCues(data);
             window.showLoadingOverlay && window.showLoadingOverlay(false);
-            window.showToast && window.showToast(window.t('bs_audio_done', '✓ Audio scaricato'), 'success');
+            _audioReadyChooser(res, data);
         } catch (err) {
             window.showLoadingOverlay && window.showLoadingOverlay(false);
             console.error('[BranchSynthesis] audio TTS fallito:', err);
-            window.showToast && window.showToast((window.t('bs_audio_fail', 'Audio non generato') + ': ' + (err && err.message ? err.message : 'errore')), 'error');
+            window.showToast && window.showToast(err && err.message ? err.message : window.t('bs_audio_fail', 'Audio non generato'), 'error');
         }
     };
 

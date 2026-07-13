@@ -114,6 +114,17 @@ function createLiveServer(opts) {
       activity: cfg.activity || 'Quiz',
       className: cfg.className || '',
       durationMin: Number(cfg.durationMin) || 0,
+      // Timeline Live (008): modalità attività, schema di login, indizi.
+      // Default = comportamento storico (quiz / login individuale / indizi su richiesta).
+      mode: cfg.mode === 'build' ? 'build' : 'quiz',
+      loginMode: cfg.loginMode === 'group' ? 'group' : 'individual',
+      hintMode: (['always', 'onrequest', 'never'].indexOf(cfg.hintMode) >= 0) ? cfg.hintMode : 'onrequest',
+      build: (cfg.mode === 'build' && cfg.build) ? {
+        gaps: Array.isArray(cfg.build.gaps) ? cfg.build.gaps : [],
+        freeAllowed: cfg.build.freeAllowed !== false,
+        maxProposals: Number(cfg.build.maxProposals) > 0 ? Number(cfg.build.maxProposals) : 3,
+        sourceYears: Array.isArray(cfg.build.sourceYears) ? cfg.build.sourceYears : []
+      } : null,
       token: token(10),
       adminToken: token(16),
       phase: 'lobby',            // lobby → running → closed
@@ -215,7 +226,14 @@ function createLiveServer(opts) {
           schema: 'mappai-live-session@1',
           name: session.name, activity: session.activity, className: session.className,
           phase: session.phase, questionCount: questions.length,
-          endsAt: session.endsAt, emojiSet: LC.EMOJI_SET
+          endsAt: session.endsAt, emojiSet: LC.EMOJI_SET,
+          // Timeline Live (008): mode/login/hint per il player; build SENZA sourceYears
+          // (mai esposti: servono solo al server per il flag yearNotInSources).
+          mode: session.mode, loginMode: session.loginMode, hintMode: session.hintMode,
+          build: session.build ? {
+            gaps: session.build.gaps, freeAllowed: session.build.freeAllowed,
+            maxProposals: session.build.maxProposals
+          } : null
         });
       }
 

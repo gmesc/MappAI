@@ -206,3 +206,35 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
 
   await srv.stop();
 });
+
+// ── Timeline Live (008): sessione mode/loginMode/hintMode + hintUsed persistito ──
+test('session espone mode/loginMode/hintMode; /api/answer persiste hintUsed', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tl-'));
+  const roster = LC.buildCredentials(2);
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Storia', activity: 'timeline', className: '3A', hintMode: 'onrequest' },
+    roster,
+    questions: [{ kind: 'open', text: 'Nel 1947?', answerText: 'Piano Marshall', hint: 'aiuti', tlYear: 1947, source: 'timeline' }]
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const st = srv.state();
+  const tok = st.session.token, admin = st.session.adminToken;
+
+  const sess = await api('/api/session?s=' + tok);
+  assert.strictEqual(sess.body.mode, 'quiz');            // default storico
+  assert.strictEqual(sess.body.loginMode, 'individual'); // default storico
+  assert.strictEqual(sess.body.hintMode, 'onrequest');
+  // l'indizio (contesto) viaggia; la soluzione no
+  assert.strictEqual(sess.body.build, null);
+
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  const ans = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, text: 'Piano Marshall', ms: 900, hintUsed: true }) });
+  assert.strictEqual(ans.status, 200);
+
+  const stFile = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
+  assert.strictEqual(stFile.answers['0'].hintUsed, true);
+  await srv.stop();
+});

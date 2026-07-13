@@ -115,7 +115,13 @@
       '<span><span class="lr-dot lr-seg-b"></span>In bianco</span>' +
       '<span><span class="lr-dot lr-seg-m"></span>Da correggere a mano</span></div>';
 
-    (r.perQuestion || []).forEach(function (q, i) {
+    // Timeline (008): se le domande hanno un anno (tlYear), ordinale
+    // cronologicamente → la heatmap diventa la heatmap della timeline.
+    var pq = (r.perQuestion || []);
+    if (pq.length && pq.every(function (q) { return q.tlYear != null; })) {
+      pq = pq.slice().sort(function (a, b) { return a.tlYear - b.tlYear; });
+    }
+    pq.forEach(function (q, i) {
       var seg = function (cls, count, p) {
         if (!count) return '';
         return '<div class="lr-seg ' + cls + '" style="flex:' + count + '" title="' + count + '">' +
@@ -124,6 +130,7 @@
       var meta2 = [];
       if (q.l1Label) meta2.push('<span class="lr-tag">' + esc(q.l1Label) + '</span>');
       if (q.source === 'custom') meta2.push('<span class="lr-tag">personalizzata</span>');
+      if (q.hintCount) meta2.push('<span class="lr-tag">💡 ' + q.hintCount + '</span>');
       var proposed = (q.kind === 'tf' && q.proposed) ? ('<div class="lr-q-meta">Affermazione: “' + esc(q.proposed) + '”</div>') : '';
       body += '<div class="lr-q"><div class="lr-q-head"><div class="lr-q-n">' + (i + 1) + '</div>' +
         '<div><div class="lr-q-text">' + esc(q.text || (q.kind === 'cloze' ? '(completamento)' : '')) + '</div>' +
@@ -169,7 +176,8 @@
         '<div class="lr-who-sub">' + esc(s.emoji) + ' ' + esc(s.num) +
         ' · risposte ' + s.answered + '/' + (r.questionCount || (s.items || []).length) +
         (s.blankCount ? ' · ' + s.blankCount + ' in bianco' : '') +
-        (s.manualCount ? ' · ' + s.manualCount + ' da correggere' : '') + '</div></div>' +
+        (s.manualCount ? ' · ' + s.manualCount + ' da correggere' : '') +
+        (s.hintsUsed ? ' · 💡 ' + s.hintsUsed + ' indizi' : '') + '</div></div>' +
         '<div class="lr-metrics"><div class="lr-acc" style="color:' + accColor(s.accuracyPct) + '">' + s.accuracyPct + '%</div>' +
         '<div class="lr-acc-sub">accuratezza · fluenza ' + rate + '</div></div></div>' +
         '<div class="lr-strip">' + strip + '</div>' +

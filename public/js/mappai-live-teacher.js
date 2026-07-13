@@ -80,6 +80,7 @@
       card('presentation', t('lv_card_board', 'Lavagna collaborativa'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
       card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
       card('message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
+      card('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lv_card_timeline_d', 'Completa o costruisci insieme la timeline della mappa'), t('lv_card_timeline_tip', 'Due modalità: Completa (domande autovalutate sulle date) o Costruisci (gli allievi propongono le date mancanti, tu approvi). Zero costi AI.')) +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, '560px');
     var cards = ov.querySelectorAll('.lh-card');
@@ -87,6 +88,7 @@
     cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Lavagna non disponibile', 'error'); };
     cards[2].onclick = function () { openMaterialsPanel(); };
     cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chatta e Scrivi non disponibile', 'error'); };
+    cards[4].onclick = function () { closeModal(); if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
@@ -347,23 +349,32 @@
   }
 
   // ── Avvio sessione ────────────────────────────────────────────────────────
-  function launch(cls, activity, questions, timer) {
+  function launch(cls, activity, questions, timer, extra) {
     if (!window.electronAPI || !window.electronAPI.liveStartSession) {
-      toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return;
+      toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(null);
     }
+    extra = extra || {};
     var payload = {
       name: rootLabel(), activity: activity, className: cls.name,
       durationMin: timer || 0,
       roster: (cls.students || []).map(function (s) { return { emojiKey: s.emojiKey, emoji: s.emoji, num: s.num, name: s.name || '' }; }),
       questions: questions
     };
-    window.electronAPI.liveStartSession(payload).then(function (r) {
-      if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return; }
+    // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico).
+    if (extra.mode) payload.mode = extra.mode;
+    if (extra.loginMode) payload.loginMode = extra.loginMode;
+    if (extra.hintMode) payload.hintMode = extra.hintMode;
+    if (extra.build) payload.build = extra.build;
+    return window.electronAPI.liveStartSession(payload).then(function (r) {
+      if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return null; }
       LT.info = r; closeModal();
       // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
-      try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'live' }); } catch (e) { }
+      try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: extra.logActivity || 'live' }); } catch (e) { }
       if (r.resumed) toast(t('lv_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
-      openDashboard();
+      // La modalità Costruisci ha una sua dashboard (revisione proposte); le altre
+      // usano la dashboard standard con i due report.
+      if (extra.onLaunched) extra.onLaunched(r); else openDashboard();
+      return r;
     });
   }
 
@@ -569,6 +580,13 @@
   // attivo live e del pannello Materiali dai quick-start QR.
   window.MappAILive.openSetup = function () { return openLiveSetup(); };
   window.MappAILive.openMaterials = function () { return openMaterialsPanel(); };
+  // Timeline Live (008): avvia una sessione con domande già pronte (dal pool
+  // timeline) + opzioni extra (mode/loginMode/hintMode/build). Riusa launch →
+  // dashboard standard per Completa; onLaunched custom per Costruisci.
+  window.MappAILive.launchExternal = function (cls, activity, questions, timer, extra) {
+    return launch(cls, activity, questions, timer, extra);
+  };
+  window.MappAILive.openDashboard = function () { return openDashboard(); };
   window.MappAILive.publishHtml = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
     var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
@@ -582,14 +600,29 @@
   // È no-print (non finisce nel PDF) e lascia spazio in fondo per non coprire il testo.
   function _injectStudentSaveBar(html) {
     var label = t('sd_save_pdf', 'Salva come PDF');
-    var hint = t('sd_save_pdf_hint', 'Sul telefono scegli “Salva su File” per tenere il documento');
+    var labelHtml = t('sd_save_html', 'Salva HTML');
+    var hint = t('sd_save_pdf_hint', 'Sul telefono scegli “Salva su File” per tenere PDF o HTML (l\'HTML conserva l\'ascolto)');
+    // window.__maiSaveHtml scarica il documento AUTO-CONTENUTO (lettore + eventuale
+    // audio incorporato) come .html: l'allievo lo tiene sul device e lo riapre offline.
+    var saveScript =
+      '<script>window.__maiSaveHtml=function(){try{' +
+      'var h="<!DOCTYPE html>\\n"+document.documentElement.outerHTML;' +
+      'var b=new Blob([h],{type:"text/html"});var u=URL.createObjectURL(b);' +
+      'var a=document.createElement("a");a.href=u;' +
+      'var ttl=(document.title||"sintesi").replace(/[^a-z0-9\\-_ ]/gi,"").replace(/\\s+/g," ").trim()||"sintesi";' +
+      'a.download=ttl+".html";document.body.appendChild(a);a.click();a.remove();' +
+      'setTimeout(function(){URL.revokeObjectURL(u);},6000);' +
+      '}catch(e){alert("Salvataggio non riuscito");}};<\/script>';
     var bar =
       '<style>@media print{#mai-stu-pdf{display:none!important}}</style>' +
-      '<div id="mai-stu-pdf-spacer" style="height:78px"></div>' +
-      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid #e2e8f0;box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
-      '<button onclick="window.print()" style="width:100%;max-width:420px;background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:14px 18px;font-size:16px;font-weight:800;cursor:pointer">' + esc(label) + '</button>' +
+      '<div id="mai-stu-pdf-spacer" style="height:92px"></div>' +
+      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid #e2e8f0;box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:5px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+      '<div style="display:flex;gap:8px;width:100%;max-width:440px">' +
+      '<button onclick="window.print()" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(label) + '</button>' +
+      '<button onclick="window.__maiSaveHtml()" style="flex:1;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(labelHtml) + '</button>' +
+      '</div>' +
       '<div style="font-size:11.5px;color:#94a3b8;text-align:center">' + esc(hint) + '</div>' +
-      '</div>';
+      '</div>' + saveScript;
     return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, bar + '</body>') : (html + bar);
   }
 

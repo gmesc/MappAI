@@ -534,6 +534,44 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (13/7/26): Sintesi — voce naturale come lettore in-app + condivisione QR + fix font
+Tre richieste utente sulla "Sintesi di ramo/mappa" (`mappai-branch-synthesis.js`).
+- **(3) Font topbar** — la barra fissa del documento stampabile (`_buildSynthesisPrintHtml`)
+  hardcodava `font-family:monospace` (mono di sistema) → cambiato in `'Space Mono',monospace`.
+  Titolo + bottoni ereditano → tutta la topbar in Space Mono. Space Mono era già caricato
+  (link Google Fonts) e usato dal body: solo quel `<div>` sovrascriveva.
+- **(1) Voce Google come LETTORE in-app** (scelta utente: "naturale quando generata", voce di
+  sistema come fallback). Il motore condiviso `mappai-tts-reader.js` ha ora una **modalità
+  naturale** completamente gated dietro `E.isNatural`: `MappAITTS.setNaturalAudio(bodyEl, url)`
+  pilota un `<audio>` con lo stesso chip (play/pausa, ±sec, ×velocità via `playbackRate`,
+  scrub) e karaoke APPROSSIMATO (Gemini non dà timestamp → durate riscalate sulla durata reale
+  dell'audio via `_rescaleToDuration`). Fallback automatico alla voce di sistema se l'audio non
+  carica (`error` handler). Attiva SOLO per il corpo `#branch-synthesis-body` registrato → tutte
+  le altre superfici di studio restano su `speechSynthesis`, invariate. Branch nei punti di
+  controllo: `_load`/`_speakCurrent`/`_playFrom`/`_pause`/`_stop`/`_finish`/`_seekToTime`/
+  `_globalTime`/`_startTicker`/`_cycleRate`. Il pulsante "Audio voce naturale" ora **genera una
+  volta, cachea il WAV su `_lastSynthesis._audioBlob/_audioUrl` e lo aggancia al lettore** (▶
+  suona la voce Google) invece di forzare il download. Ri-registra all'apertura del modale.
+  ⚠️ **Cambio di comportamento**: rimosso il download diretto del WAV (superato da ascolto in-app
+  + QR). `_buildSynthesisWavBlob`/`_ensureSynthesisAudio` estratti come helper riusabili.
+- **(2) Condivisione con la classe via QR** (scelta utente: Materiali QR, file audio separato).
+  Nuovo bottone "Condividi (QR)" → `shareSynthesisWithClass()`: pubblica su MappAI Live →
+  Materiali la pagina HTML della sintesi (lettore integrato + modalità dislessia) e, se c'è la
+  chiave Gemini, il **WAV voce naturale** servito accanto. Gli allievi la aprono via QR, senza
+  login, con player `🔊 Voce naturale`. Senza chiave degrada al solo lettore a voce di sistema.
+  Wiring: IPC `live-materials-add-bytes` (main.js + preload), MIME audio (`.wav/.mp3/.m4a/.ogg`)
+  in `live-server.js`, `MappAILive.shareDocWithAudioQr(htmlName, buildHtml, audioName, audioB64)`
+  in `mappai-live-teacher.js` che **tokenizza l'URL audio** (`?s=<token>&inline=1`, i /files sono
+  gated + `Content-Disposition:attachment` di default). `_buildSynthesisPrintHtml(data, opts)`
+  accetta `opts.audioSrc` per iniettare il player `<audio controls>` in cima (no-arg = invariato,
+  usato da stampa/salvataggio archivio).
+- i18n: chiavi EN nuove (`bs_audio_ready`, `bs_natural_voice`, `bs_share_*`) + `bs_audio_tip`
+  aggiornata; IT è il fallback inline (regola 13). Suite **382/382** ✅, tutti i file parse-clean.
+- ⚠️ **Da testare in Electron vivo** (browser statico non esercita generateGemini/liveMaterials
+  né supera il licensing): genera sintesi → "Audio voce naturale" → ▶ suona voce Google;
+  "Condividi (QR)" → telefono apre la pagina → player naturale in streaming; footer a 4 bottoni
+  sul modale 680px da controllare a occhio; 2 device su Wi-Fi.
+
 ### ✅ FATTO (13/7/26): 007-tutor-qr — Tutor AI via QR, attività "Chatta e Scrivi"
 Spec-kit completo (`specs/007-tutor-qr/`, branch omonimo). QUINTA attività live:
 lo studente entra via QR con le credenziali di classe, chatta col Tutor AI

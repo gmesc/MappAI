@@ -342,9 +342,44 @@
       body.appendChild(wrap);
     } else { // open
       $('qtext').innerHTML = esc(q.text);
-      var ta = document.createElement('textarea'); ta.id = 'qopen'; ta.placeholder = 'Scrivi la tua risposta…';
-      if (a.text) ta.value = a.text;
-      body.appendChild(ta);
+      // Timeline (008): domanda evento→anno → input numerico dedicato.
+      if (q.expects === 'year') {
+        var yi = document.createElement('input'); yi.id = 'qopen'; yi.type = 'text';
+        yi.setAttribute('inputmode', 'numeric'); yi.setAttribute('pattern', '[0-9]*');
+        yi.autocomplete = 'off'; yi.placeholder = 'Anno (es. 1947)';
+        yi.style.cssText = 'width:100%;padding:12px 14px;border-radius:12px;border:2px solid #e2e8f0;font-family:inherit;font-size:16px;';
+        if (a.text) yi.value = a.text;
+        body.appendChild(yi);
+      } else {
+        var ta = document.createElement('textarea'); ta.id = 'qopen'; ta.placeholder = 'Scrivi la tua risposta…';
+        if (a.text) ta.value = a.text;
+        body.appendChild(ta);
+      }
+    }
+
+    // Timeline (008): indizio dalla fonte. 'always' = sempre visibile;
+    // 'onrequest' = bottone 💡 che rivela e registra l'uso; 'never' = niente.
+    if (q.hint && SESS && SESS.hintMode !== 'never') {
+      var hintWrap = document.createElement('div');
+      hintWrap.style.cssText = 'margin-top:12px;';
+      if (SESS.hintMode === 'always') {
+        hintWrap.innerHTML = '<div style="font-size:13px;color:#475569;font-style:italic;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:8px;">💡 ' + esc(q.hint) + '</div>';
+      } else {
+        var already = !!(a.hintUsed);
+        var btn = document.createElement('button');
+        btn.textContent = already ? '💡 Indizio' : '💡 Mostra indizio';
+        btn.style.cssText = 'background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:14px;color:#475569;';
+        var hintText = document.createElement('div');
+        hintText.style.cssText = 'display:' + (already ? 'block' : 'none') + ';margin-top:8px;font-size:13px;color:#475569;font-style:italic;background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 12px;border-radius:8px;';
+        hintText.textContent = q.hint;
+        btn.onclick = function () {
+          hintText.style.display = 'block';
+          var aa = ANSWERS[q.idx] || {}; aa.hintUsed = true; ANSWERS[q.idx] = aa;
+          saveLocal();
+        };
+        hintWrap.appendChild(btn); hintWrap.appendChild(hintText);
+      }
+      body.appendChild(hintWrap);
     }
   }
 
@@ -391,6 +426,7 @@
     else if (a.choice !== undefined) payload.choice = a.choice;
     else if (a.blanks) payload.blanks = a.blanks;
     else if (a.text !== undefined) payload.text = a.text;
+    if (a.hintUsed) payload.hintUsed = true;   // Timeline (008): uso indizio
     setSync('wait');
     post('/api/answer', payload).then(function (r) {
       if (r.status === 200) setSync('ok');

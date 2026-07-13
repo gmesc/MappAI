@@ -1675,7 +1675,13 @@ ipcMain.handle('live-start-session', async (event, opts) => {
         const resuming = fs.existsSync(path.join(dir, 'session.json'));
         liveSrv = createLiveServer({
             repoRoot: __dirname, dir,
-            session: { name, activity: o.activity || 'Quiz', className: o.className || '', durationMin: Number(o.durationMin) || 0 },
+            // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico)
+            session: {
+                name, activity: o.activity || 'Quiz', className: o.className || '',
+                durationMin: Number(o.durationMin) || 0,
+                mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
+                hintMode: o.hintMode || 'onrequest', build: o.build || null
+            },
             roster: Array.isArray(o.roster) ? o.roster : [],
             questions: Array.isArray(o.questions) ? o.questions : []
         });
