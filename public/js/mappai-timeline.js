@@ -969,9 +969,16 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '.tl-footer { text-align: center; margin-top: 40px; font-size: 9pt; color: var(--pdf-text-muted); border-top: 1px solid var(--pdf-border); padding-top: 16px; }',
         '.tl-card-manual { box-shadow: 0 2px 12px rgba(79,70,229,0.20); }',
         '.tl-gap { border: 2px dashed #cbd5e1 !important; }',
-        '.tl-toolbtn { border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font-size:11px; font-weight:bold; font-family:inherit; }',
-        '.tl-addform { position:fixed; top:52px; left:0; right:0; background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:14px 24px; z-index:99; display:none; }',
-        '.tl-addform input, .tl-addform select, .tl-addform textarea { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font-family:inherit; font-size:11pt; }',
+        '.tl-toolbtn { display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:bold; font-family:inherit; }',
+        '.tl-guide { max-width:960px; margin:0 auto 14px; padding:0 4px; font-size:10.5pt; color:#475569; line-height:1.5; }',
+        '.tl-guide b { color:#1e293b; }',
+        '.tl-addform { max-width:960px; margin:0 auto 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px 18px; display:none; }',
+        '.tl-addform input, .tl-addform select, .tl-addform textarea { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px 11px; font-family:inherit; font-size:11pt; background:#fff; }',
+        '.tl-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }',
+        '.tl-field-label { display:block; font-size:9pt; font-weight:700; color:#64748b; margin-bottom:4px; }',
+        '.tl-req { color:#dc2626; } .tl-opt { color:#94a3b8; font-weight:400; }',
+        '.tl-ex-banner { max-width:960px; margin:0 auto 18px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:10px; padding:11px 14px; font-size:10pt; color:#4338ca; line-height:1.5; display:none; }',
+        '.tl-ex-banner .dash { border-bottom:2px dashed #6366f1; }',
         '@media print { body { background: white; padding: 10mm; } .tl-container::before { background: #cbd5e1; } .dossier-card { box-shadow: none; } .tl-event { page-break-inside: avoid; } .tl-gap { display: none !important; } .no-print { display: none !important; } }'
     ].join('\n');
 
@@ -981,30 +988,54 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
                       : ['Politica', 'Economia', 'Militare', 'Diplomatica', 'Sociale', 'Cultura'])
         .map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
 
-    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;gap:12px;flex-wrap:wrap;">' +
+    // Barra fissa (solo azioni) + riga-guida + form + banner esercizio (in flusso,
+    // sotto lo spacer \u2192 non coprono pi\u00F9 il titolo della timeline).
+    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:9px 20px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;gap:12px;flex-wrap:wrap;">' +
         '<span style="font-weight:bold;color:#4f46e5;">MappAI \u00b7 Timeline</span>' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
             '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#ede9fe;color:#4f46e5;">+ Aggiungi data</button>' +
-            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#f1f5f9;border-radius:8px;padding:6px 12px;color:#475569;">' +
-                '<input type="checkbox" id="tl-exercise-toggle" onchange="TL_refresh()" style="cursor:pointer;accent-color:#4f46e5;"> Modalit\u00E0 esercizio' +
+            '<label class="tl-toolbtn" style="background:#f1f5f9;color:#475569;cursor:pointer;" title="Nasconde le date citate dalla fonte ma non ancora inserite: le ritrovi tu o gli studenti">' +
+                '<input type="checkbox" id="tl-exercise-toggle" onchange="TL_refresh()" style="cursor:pointer;accent-color:#4f46e5;margin:0;"> Esercizio' +
             '</label>' +
-            '<button onclick="window.print()" class="tl-toolbtn" style="background:#4f46e5;color:white;">\uD83D\uDDB8 Stampa / PDF</button>' +
+            '<button onclick="TL_live()" class="tl-toolbtn" style="background:#4f46e5;color:white;" title="Lancia l\'attivit\u00E0 con la classe: gli allievi entrano dal telefono col QR">\u25B6 Attivit\u00E0 con la classe</button>' +
+            '<button onclick="window.print()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;">\uD83D\uDDB8 Stampa</button>' +
             '<button onclick="window.close()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;">\u2715 Chiudi</button>' +
         '</div></div>' +
+        '<div style="height:52px;" class="no-print"></div>' +
 
-        '<div class="tl-addform" id="tl-addform">' +
-            '<div style="max-width:960px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">' +
-                '<input id="tl-f-anno"  type="number" placeholder="Anno*" style="width:90px;">' +
-                '<input id="tl-f-fine"  type="number" placeholder="Anno fine" style="width:100px;">' +
-                '<input id="tl-f-ev"    type="text" placeholder="Evento*" style="flex:1;min-width:200px;">' +
-                '<select id="tl-f-cat">' + catOptions + '</select>' +
-                '<input id="tl-f-label" type="text" placeholder="Etichetta data (opz.)" style="min-width:140px;">' +
-                '<textarea id="tl-f-ctx" placeholder="Contesto / spiegazione (opz.)" rows="1" style="flex:1;min-width:220px;resize:vertical;"></textarea>' +
-                '<button onclick="TL_add()" class="tl-toolbtn" style="background:#4f46e5;color:white;padding:8px 16px;">\u2713 Salva</button>' +
-                '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;padding:8px 12px;">Annulla</button>' +
-            '</div>' +
+        // Riga-guida sempre visibile (il titolo scorre via, questa no)
+        '<div class="tl-guide no-print"><b>' + esc(mapName) + '</b> \u00b7 <span id="tl-guide-count">' + eventCount + ' date</span> \u00b7 ' +
+            'cronologia della mappa. Aggiungi le date mancanti, oppure lancia l\u2019attivit\u00E0 con la classe.' +
         '</div>' +
-        '<div style="height:52px;" class="no-print"></div>';
+
+        // Banner esercizio (visibile solo quando la modalit\u00E0 \u00E8 attiva)
+        '<div class="tl-ex-banner no-print" id="tl-ex-banner">' +
+            '\uD83D\uDCA1 <b>Esercizio attivo.</b> Le card <span class="dash">tratteggiate</span> sono anni citati dalla fonte ' +
+            'ma non ancora sulla timeline: scrivi l\u2019evento e premi \u201C\u2713 Aggiungi\u201D per completarle.' +
+        '</div>' +
+
+        // Form "Nuova data" (in flusso, nascosto di default)
+        '<div class="tl-addform" id="tl-addform">' +
+            '<div style="font-weight:bold;color:#1e293b;margin-bottom:12px;font-size:11pt;">Nuova data</div>' +
+            '<div class="tl-form-grid">' +
+                '<div><label class="tl-field-label">Anno <span class="tl-req">*</span></label>' +
+                    '<input id="tl-f-anno" type="number" placeholder="es. 1945"></div>' +
+                '<div><label class="tl-field-label">Anno fine <span class="tl-opt">(per i periodi)</span></label>' +
+                    '<input id="tl-f-fine" type="number" placeholder="es. 1945"></div>' +
+                '<div style="grid-column:span 2;"><label class="tl-field-label">Evento <span class="tl-req">*</span></label>' +
+                    '<input id="tl-f-ev" type="text" placeholder="Cosa \u00E8 successo?"></div>' +
+                '<div><label class="tl-field-label">Categoria</label>' +
+                    '<select id="tl-f-cat">' + catOptions + '</select></div>' +
+                '<div><label class="tl-field-label">Etichetta <span class="tl-opt">(opz.)</span></label>' +
+                    '<input id="tl-f-label" type="text" placeholder="come appare la data"></div>' +
+                '<div style="grid-column:1/-1;"><label class="tl-field-label">Contesto / spiegazione <span class="tl-opt">(opz.)</span></label>' +
+                    '<textarea id="tl-f-ctx" rows="2" placeholder="una frase per spiegare perch\u00E9 \u00E8 importante" style="resize:vertical;"></textarea></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
+                '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;padding:9px 14px;">Annulla</button>' +
+                '<button onclick="TL_add()" class="tl-toolbtn" style="background:#4f46e5;color:white;padding:9px 16px;">\u2713 Salva</button>' +
+            '</div>' +
+        '</div>';
 
     // ── 7. Documento finale ───────────────────────────────────────────────────
 
@@ -1014,8 +1045,9 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         'var SHOW_CONTEXT = ' + (showContext ? 'true' : 'false') + ';\n' +
         'function OP(){ return (window.opener && window.opener.MappAITimeline) ? window.opener.MappAITimeline : null; }\n' +
         'function TL_noOp(){ alert("Per modificare le date tieni aperta la finestra principale di MappAI e riapri la timeline dalla mappa."); }\n' +
-        'function TL_toggleForm(){ var f=document.getElementById("tl-addform"); if(f) f.style.display=(f.style.display==="block")?"none":"block"; }\n' +
-        'function TL_refresh(){ var op=OP(); if(!op){ TL_noOp(); return; } var ex=document.getElementById("tl-exercise-toggle").checked; document.getElementById("tl-container").innerHTML=op.mergedEventsHtml({showContext:SHOW_CONTEXT,exercise:ex}); var c=op._lastMergedCount+" eventi"; if(ex) c+=" \\u00b7 "+op._lastGapCount+" da completare"; document.getElementById("tl-count").textContent=c; }\n' +
+        'function TL_toggleForm(){ var f=document.getElementById("tl-addform"); if(f){ var open=(f.style.display==="block"); f.style.display=open?"none":"block"; if(!open){ f.scrollIntoView({behavior:"smooth",block:"nearest"}); var a=document.getElementById("tl-f-anno"); if(a) a.focus(); } } }\n' +
+        'function TL_live(){ var o=window.opener; if(o && o.MappAITimelineLive && o.MappAITimelineLive.openSetup){ try{ o.focus(); }catch(e){} o.MappAITimelineLive.openSetup(); } else { alert("Per lanciare l\\u2019attivit\\u00e0 con la classe tieni aperta la finestra principale di MappAI (l\\u2019app desktop)."); } }\n' +
+        'function TL_refresh(){ var op=OP(); if(!op){ TL_noOp(); return; } var ex=document.getElementById("tl-exercise-toggle").checked; document.getElementById("tl-container").innerHTML=op.mergedEventsHtml({showContext:SHOW_CONTEXT,exercise:ex}); var c=op._lastMergedCount+" date"; if(ex) c+=" \\u00b7 "+op._lastGapCount+" da completare"; var cc=document.getElementById("tl-count"); if(cc) cc.textContent=c; var gc=document.getElementById("tl-guide-count"); if(gc) gc.textContent=c; var bn=document.getElementById("tl-ex-banner"); if(bn) bn.style.display=ex?"block":"none"; }\n' +
         'function TL_val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }\n' +
         'function TL_add(){ var op=OP(); if(!op){ TL_noOp(); return; } var anno=parseInt(TL_val("tl-f-anno")); var ev=TL_val("tl-f-ev"); if(!anno||!ev){ alert("Inserisci almeno Anno ed Evento."); return; } var r=op.add({anno:anno, annoFine:TL_val("tl-f-fine")||null, dataLabel:TL_val("tl-f-label")||String(anno), evento:ev, macroArea:TL_val("tl-f-cat"), contesto:TL_val("tl-f-ctx"), origin:"manual"}); if(r&&r.ok){ ["tl-f-anno","tl-f-fine","tl-f-label","tl-f-ev","tl-f-ctx"].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=""; }); TL_toggleForm(); TL_refresh(); } else { alert((r&&r.error)||"Aggiunta non riuscita."); } }\n' +
         'function TL_del(id){ var op=OP(); if(!op){ TL_noOp(); return; } if(!confirm("Rimuovere questa data?")) return; op.remove(id); TL_refresh(); }\n' +
@@ -1033,7 +1065,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '<div class="tl-header">' +
             '<div class="tl-title">' + esc(mapName) + '</div>' +
             '<div class="tl-subtitle">Timeline cronologica \u00b7 ' + esc(now) + '</div>' +
-            '<div class="tl-count" id="tl-count">' + eventCount + ' eventi</div>' +
+            '<div class="tl-count" id="tl-count">' + eventCount + ' date</div>' +
         '</div>' +
         '<div class="tl-container" id="tl-container">' + timelineHtml + '</div>' +
         '<div class="tl-footer">MappAI by insegnai.ch</div>' +
