@@ -254,6 +254,7 @@ const it_translations = {
     ui_branch_density: "Densità Diramazioni",
     tt_meta_analysis: "Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)",
     tt_study: "Studio",
+    tt_lim_tab: "LIM",
     tt_embedding_call: "Include 1 chiamata di embedding per rilevare entità duplicate tra rami",
     ui_click_analyze: "Clicca \"Analizza struttura\" per i suggerimenti.",
     ui_no_node_selected: "Nessun nodo selezionato",

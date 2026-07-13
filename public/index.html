@@ -1121,6 +1121,13 @@
                     title="Tutor AI">
                     <i data-lucide="bot" class="w-5 h-5"></i>
                 </button>
+                <!-- Tab LIM (008): attività collaborative da lavagna interattiva.
+                     Kill-switch: localStorage mappai_lim_tab='0' → nascosto (gestito a init). -->
+                <button id="sidebar-tab-lim" onclick="window.switchSidebarTab('lim')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="LIM" data-i18n-title="tt_lim_tab">
+                    <i data-lucide="presentation" class="w-5 h-5"></i>
+                </button>
             </div>
 
             <!-- ═══ TAB: STRUTTURA ═══ -->
@@ -1261,6 +1268,9 @@
                     </p>
                 </div>
             </div>
+
+            <!-- ═══ TAB: LIM (008) — attività collaborative da lavagna interattiva ═══ -->
+            <div id="sidebar-panel-lim" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col p-4"></div>
 
             <!-- ═══ TAB: STUDIO ═══ -->
             <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">

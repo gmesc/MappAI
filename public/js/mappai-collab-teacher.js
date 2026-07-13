@@ -257,6 +257,40 @@
         if (panel) { panel.innerHTML = ''; panel.classList.add('hidden'); }
     }
 
+    // ── Tab LIM (008): casa delle attività collaborative da lavagna ───────────
+    // Elenco attività (Lavagna / Timeline) + dashboard attive montate qui.
+    // La Lavagna resta anche nel tab Struttura (host coesistenti, zero regressioni).
+    function limCard(icon, title, desc) {
+        return '<button type="button" class="lim-card" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
+            '<div style="width:38px;height:38px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="' + icon + '" style="width:19px;height:19px;color:#4f46e5"></i></div>' +
+            '<div style="flex:1"><div style="font-weight:800;color:#0f172a;font-size:13.5px">' + esc(title) + '</div>' +
+            '<div style="font-size:11.5px;color:#94a3b8;margin-top:1px">' + esc(desc) + '</div></div></button>';
+    }
+    CT.renderLimSidebarTab = function () {
+        const panel = document.getElementById('sidebar-panel-lim');
+        if (!panel) return;
+        panel.innerHTML =
+            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:2px 0 10px">' +
+              esc(t('lim_title', 'Attività da LIM')) + '</div>' +
+            '<div id="lim-cards">' +
+              limCard('presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
+              limCard('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
+            '</div>' +
+            '<div id="lim-active" style="margin-top:6px"></div>';
+        const cards = panel.querySelectorAll('.lim-card');
+        cards[0].onclick = function () { if (window.openCollabHub) window.openCollabHub(); };
+        cards[1].onclick = function () { if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else if (window.showToast) window.showToast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
+        // sessione Lavagna attiva → monta la dashboard anche qui (host coesistente)
+        const active = panel.querySelector('#lim-active');
+        if (CT.info) {
+            const host = document.createElement('div');
+            host.style.cssText = 'border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;margin-top:4px';
+            active.appendChild(host);
+            renderCollabPanel(host, { detach: true });
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+
     // ── Host: pannello fluttuante collassabile (stacca per la LIM) ────────────
     function openFloatingPanel() {
         let fp = document.getElementById('collab-float-panel');

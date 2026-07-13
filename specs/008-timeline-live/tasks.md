@@ -120,7 +120,7 @@ Repo Electron a script globali: moduli renderer in `public/js/`, server LAN nell
 - [X] T033 [US5] `live-server.js` loginMode 'group' (contracts §1.2): `/api/join` con `{nick}` (sanitize+slug come collab), identità=slug, displayName=nick, 409 altro-device/ripresa/adozione come da pattern; report labels via displayName. Test in `tests/live-server.test.js` (join group, 409, ripresa; default individual invariato).
 - [X] T034 [P] [US5] `collab-server.js` loginMode 'individual' (contracts §2): opts `loginMode`+`roster`; `/api/join` con `{emojiKey,num}` validato su roster (riuso `identityKey`/`displayName` di live-core — require nel server), 401 not-in-roster, slot-gruppo=identità; default 'group' byte-compatibile. Test in `tests/collab-server.test.js`.
 - [X] T035 [US5] UI: toggle login nel wizard Timeline (T019, default individuale) e scelta login al lancio Lavagna in `public/js/mappai-collab-teacher.js` (default gruppi = storico; individuale → passa roster della classe attiva); dashboard Lavagna mostra displayName. `main.js`: pass-through `loginMode`/`roster` su `collab-start-session`.
-- [ ] T036 [US5] Verifica: Timeline a gruppi con 2 device stesso nick (2° → 409) e report per gruppo; Lavagna individuale join emoji+numero; Lavagna senza opzione = identica a 006. Suite verde.
+- [X] T036 [US5] Verifica: Timeline a gruppi con 2 device stesso nick (2° → 409) e report per gruppo; Lavagna individuale join emoji+numero; Lavagna senza opzione = identica a 006. Suite verde.
 
 ---
 
@@ -130,9 +130,9 @@ Repo Electron a script globali: moduli renderer in `public/js/`, server LAN nell
 
 **Independent Test**: quickstart §6 — tab con card di avvio; dashboard Lavagna in ENTRAMBI i tab allo stesso tick; kill-switch nasconde il tab.
 
-- [ ] T037 [US6] `public/index.html`: bottone `#sidebar-tab-lim` (icona `presentation`, dopo `#sidebar-tab-tutor`, `data-i18n`) + pannello `#sidebar-panel-lim`; chiavi `ui_lim_tab`/`tt_lim_tab` in ENTRAMBI i dizionari `public/traduzioni/*_translations.js`. `public/js/mappai-ui-modals.js`: caso 'lim' in `switchSidebarTab`; kill-switch `mappai_lim_tab==='0'` → bottone nascosto.
-- [ ] T038 [US6] In `public/js/mappai-collab-teacher.js`: `renderLimSidebarTab()` — card attività (Lavagna → `openCollabHub`, Timeline → `MappAITimelineLive.openSetup` con guard) + host mount: sessione Lavagna attiva → `renderCollabPanel(host)` ANCHE nel tab LIM (hosts[] coesistono con Struttura); sessione Timeline attiva → mount mini-dashboard da `mappai-timeline-teacher.js`.
-- [ ] T039 [US6] Verifica in browser: tab visibile e popolato, Lavagna avviata → pannelli sincroni in LIM e Struttura, kill-switch, tab study/notes/finder/tutor intatti. Suite verde.
+- [X] T037 [US6] `public/index.html`: bottone `#sidebar-tab-lim` (icona `presentation`, dopo `#sidebar-tab-tutor`, `data-i18n`) + pannello `#sidebar-panel-lim`; chiavi `ui_lim_tab`/`tt_lim_tab` in ENTRAMBI i dizionari `public/traduzioni/*_translations.js`. `public/js/mappai-ui-modals.js`: caso 'lim' in `switchSidebarTab`; kill-switch `mappai_lim_tab==='0'` → bottone nascosto.
+- [X] T038 [US6] In `public/js/mappai-collab-teacher.js`: `renderLimSidebarTab()` — card attività (Lavagna → `openCollabHub`, Timeline → `MappAITimelineLive.openSetup` con guard) + host mount: sessione Lavagna attiva → `renderCollabPanel(host)` ANCHE nel tab LIM (hosts[] coesistono con Struttura); sessione Timeline attiva → mount mini-dashboard da `mappai-timeline-teacher.js`.
+- [X] T039 [US6] Verifica in browser: tab visibile e popolato, Lavagna avviata → pannelli sincroni in LIM e Struttura, kill-switch, tab study/notes/finder/tutor intatti. Suite verde.
 
 ---
 

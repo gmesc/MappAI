@@ -506,7 +506,7 @@ window.closeUserProfileModal = function () {
 
 // ── Sidebar Tab System ──────────────────────
 window.switchSidebarTab = function (tab) {
-    const tabs = ['structure', 'notes', 'study', 'finder', 'tutor'];
+    const tabs = ['structure', 'notes', 'study', 'finder', 'tutor', 'lim'];
     tabs.forEach(t => {
         const panel = document.getElementById(`sidebar-panel-${t}`);
         const btn = document.getElementById(`sidebar-tab-${t}`);
@@ -528,7 +528,21 @@ window.switchSidebarTab = function (tab) {
     // Refresh tree view when switching to structure tab
     if (tab === 'structure') window.renderTreeView();
     if (tab === 'notes') window.updateUserNotesSidebar();
+    // Tab LIM (008): popola l'elenco attività + eventuali dashboard attive
+    if (tab === 'lim' && window.MappAICollabTeacher && window.MappAICollabTeacher.renderLimSidebarTab) {
+        window.MappAICollabTeacher.renderLimSidebarTab();
+    }
 }
+
+// Tab LIM (008): kill-switch mappai_lim_tab='0' → nasconde il tab.
+(function () {
+    try {
+        if (localStorage.getItem('mappai_lim_tab') === '0') {
+            var b = document.getElementById('sidebar-tab-lim');
+            if (b) b.classList.add('hidden');
+        }
+    } catch (e) { /* no-op */ }
+})();
 
 // Inizializza Set globale per i nodi collassati se non esiste
 window.collapsedTreeNodes = window.collapsedTreeNodes || new Set();
