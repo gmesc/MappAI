@@ -816,6 +816,19 @@ della generazione** al momento della creazione (le schede fonte sono già divers
   sul bottone `data-tab="NPC"`): serviva solo al Memory Dungeon. Dati/gestione NPC restano,
   fuori dalla UI. Le altre 5 tab (Mappe/KG/Tutor/Studio/Discipline) intatte. Suite 361/361.
 
+**Follow-up FATTO: quiz Live = qualità quiz in-app (parità generatore).**
+- Prima il quiz live MC usava `MappAIGames.genQuizForNode` (formato "completamento" del
+  dungeon: incipit + 3 completamenti) → qualità inferiore ai quiz di MappAI.
+- Ora estratto `window.generateDynamicQuiz({nodeLabel, material, quizType, quantity, apiKey})`
+  in `mappai-study-session.js` (stesso motore `DYNAMIC_QUIZ` del quiz di Studio: domande vere
+  con opzioni + spiegazione, `quizType` per MC o V/F nativo; injectClassTuning incluso).
+- Live (`mappai-live-teacher.js`): `generateQuizViaStudy` lo chiama PER-NODO (material = desc
+  del nodo), mappa gli item allo schema live via `dynItemToLive` (MC: indice del corretto per
+  stringa o numero; V/F: `statementTrue` da "Vero/Falso"; scarta se non mappabile), attacca
+  nodeId+l1. Fallback a `genQuizForNode` solo se il nuovo motore non produce nulla.
+- Verificato il mapping in Node (MC stringa→indice, 1-based→0-based, V/F Vero/Falso, scarto
+  non mappabile). Suite **428/428** ✅. ⚠️ Da provare in Electron vivo con AI reale.
+
 ### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
 Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge
 Garden (stessi pattern: server HTTP Node puro via IPC, token nel QR, adminToken,

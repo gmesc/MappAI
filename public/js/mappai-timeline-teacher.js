@@ -193,5 +193,216 @@
     });
   }
 
+  // ── Costruisci: calcola buchi/pool e avvia la sessione build ────────────────
+  function _launchBuild(cls, p, opts) {
+    var c = core();
+    var src = sourceText();
+    var years = c.extractYears(src);
+    var sourceYears = years.map(function (y) { return y.year; });
+    var poolKeys = p.map(function (e) { return c.eventKey(e); });
+    var gaps = (opts.bsrc === 'free') ? [] : c.buildGaps(src, p);
+    var build = {
+      gaps: gaps, freeAllowed: opts.bsrc !== 'gaps',
+      maxProposals: opts.maxProposals, sourceYears: sourceYears, poolKeys: poolKeys
+    };
+    window.MappAILive.launchExternal(cls, 'timeline', [], opts.timer, {
+      mode: 'build', loginMode: opts.loginMode, hintMode: opts.hintMode, logActivity: 'timeline',
+      build: build, onLaunched: function (info) { TL._info = info; _buildDashboard(info); }
+    });
+  }
+  TL._launchBuild = _launchBuild;
+
+  function qrUrl(text, cell) {
+    if (typeof qrcode !== 'function') return null;
+    var qr = qrcode(0, 'M'); qr.addData(text); qr.make(); return qr.createDataURL(cell || 7, 8);
+  }
+  function buildStudentUrl(info) {
+    var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+    return base + '/public/live/timeline-build.html?s=' + info.token;
+  }
+  function adminApi(info, p, opts) {
+    return fetch('http://127.0.0.1:' + info.port + p, opts).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }, function () { return { status: r.status, body: null }; }); });
+  }
+
+  // ── Dashboard di revisione (polling proposte) ───────────────────────────────
+  TL._reviewed = TL._reviewed || {};
+  function _buildDashboard(info) {
+    var url = buildStudentUrl(info);
+    var qr = qrUrl(url);
+    var body =
+      '<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">' +
+        '<div style="text-align:center">' +
+          (qr ? '<img src="' + qr + '" alt="QR" style="width:180px;height:180px;cursor:zoom-in" id="tl-qr">' : '<div class="muted">QR non disponibile</div>') +
+          '<div style="font-size:11px;color:#64748b;margin-top:6px;word-break:break-all;max-width:200px">' + esc(url) + '</div>' +
+          '<div style="display:flex;gap:6px;margin-top:10px;justify-content:center">' +
+            '<button type="button" id="tl-project" class="tl-toolbtn" style="background:#ede9fe;color:#4f46e5;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700">📽 ' + esc(_t('tl_project', 'Proietta sulla LIM')) + '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="flex:1;min-width:280px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+            '<b>' + esc(_t('tl_proposals', 'Proposte')) + '</b><span id="tl-pcount" class="muted"></span></div>' +
+          '<div id="tl-proplist" style="max-height:340px;overflow:auto"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid #f1f5f9;padding-top:14px">' +
+        '<button type="button" id="tl-openfolder" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_openfolder', 'Apri cartella')) + '</button>' +
+        '<button type="button" id="tl-close" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_close_report', 'Chiudi e apri report')) + '</button></div>';
+
+    var ov = modal(_t('tl_build_title', 'Costruisci la timeline'), esc(info.name || ''), body);
+    if (ov.querySelector('#tl-qr')) ov.querySelector('#tl-qr').onclick = function () { _fullscreenQr(url); };
+    ov.querySelector('#tl-project').onclick = function () { TL.openProjection(); };
+    ov.querySelector('#tl-openfolder').onclick = function () { if (window.electronAPI && window.electronAPI.liveOpenFolder) window.electronAPI.liveOpenFolder(); };
+    ov.querySelector('#tl-close').onclick = function () { _closeBuild(info); };
+
+    _pollProposals(info, ov);
+  }
+
+  function _pollProposals(info, ov) {
+    if (TL._poll) clearInterval(TL._poll);
+    var tick = function () {
+      if (!document.getElementById('tl-live-modal')) { clearInterval(TL._poll); TL._poll = null; return; }
+      adminApi(info, '/api/status?admin=' + info.adminToken).then(function (r) {
+        if (!r.body || !Array.isArray(r.body.proposals)) return;
+        _renderProposals(info, r.body.proposals);
+      }).catch(function () {});
+    };
+    tick();
+    TL._poll = setInterval(tick, 3000);
+  }
+
+  function _renderProposals(info, proposals) {
+    var list = document.getElementById('tl-proplist'); if (!list) return;
+    document.getElementById('tl-pcount').textContent = proposals.length + ' · ' +
+      proposals.filter(function (p) { return p.status === 'approved'; }).length + ' ✓';
+    if (!proposals.length) { list.innerHTML = '<div class="muted" style="color:#94a3b8;font-size:12px">' + esc(_t('tl_no_prop', 'Nessuna proposta ancora.')) + '</div>'; return; }
+    list.innerHTML = proposals.slice().sort(function (a, b) { return a.anno - b.anno; }).map(function (p) {
+      var flags = '';
+      if (p.flags && p.flags.duplicate) flags += ' <span style="font-size:9px;background:#f1f5f9;color:#64748b;border-radius:5px;padding:1px 5px">duplicato</span>';
+      if (p.flags && p.flags.yearNotInSources) flags += ' <span style="font-size:9px;background:#fef3c7;color:#b45309;border-radius:5px;padding:1px 5px">anno non nelle fonti</span>';
+      var actions = p.status === 'pending'
+        ? '<button data-approve="' + p.id + '" style="background:#dcfce7;color:#15803d;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:700;font-size:12px">✓</button>' +
+          '<button data-reject="' + p.id + '" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:700;font-size:12px;margin-left:4px">✗</button>'
+        : '<span style="font-size:11px;font-weight:700;color:' + (p.status === 'approved' ? '#15803d' : '#b91c1c') + '">' + (p.status === 'approved' ? '✓ approvata' : '✗ bocciata') + '</span>';
+      return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9">' +
+        '<div style="font-weight:900;color:#4f46e5;min-width:44px">' + esc(p.anno) + '</div>' +
+        '<div style="flex:1;font-size:13px">' + esc(p.evento) + flags + '</div>' + actions + '</div>';
+    }).join('');
+    list.querySelectorAll('[data-approve]').forEach(function (b) { b.onclick = function () { _review(info, b.getAttribute('data-approve'), 'approve', proposals); }; });
+    list.querySelectorAll('[data-reject]').forEach(function (b) { b.onclick = function () { _review(info, b.getAttribute('data-reject'), 'reject', proposals); }; });
+  }
+
+  function _review(info, proposalId, action, proposals) {
+    adminApi(info, '/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: info.adminToken, proposalId: proposalId, action: action }) })
+      .then(function (r) {
+        if (r.status !== 200) { toast(_t('tl_review_err', 'Revisione non riuscita.'), 'error'); return; }
+        // approvata → entra nel progetto (attribuita all'autore) una sola volta
+        if (action === 'approve' && !TL._reviewed[proposalId]) {
+          TL._reviewed[proposalId] = true;
+          var pr = (proposals || []).find(function (x) { return x.id === proposalId; }) || r.body.proposal;
+          if (pr && window.MappAITimeline) window.MappAITimeline.add({ anno: pr.anno, evento: pr.evento, contesto: pr.contesto || '', origin: 'student', author: pr.author });
+        }
+        adminApi(info, '/api/status?admin=' + info.adminToken).then(function (s) { if (s.body && s.body.proposals) _renderProposals(info, s.body.proposals); });
+      });
+  }
+
+  function _closeBuild(info) {
+    if (TL._poll) { clearInterval(TL._poll); TL._poll = null; }
+    adminApi(info, '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: info.adminToken }) })
+      .then(function () {
+        var rep = 'http://127.0.0.1:' + info.port + '/api/report?which=workshop&admin=' + info.adminToken;
+        window.open(rep, '_blank');
+        closeModal();
+        if (window.electronAPI && window.electronAPI.liveStopSession) window.electronAPI.liveStopSession();
+        toast(_t('tl_closed', 'Sessione chiusa — report aperto.'), 'success');
+      });
+  }
+
+  function _fullscreenQr(url) {
+    var big = qrUrl(url, 14); if (!big) return;
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out';
+    ov.innerHTML = '<img src="' + big + '" style="width:min(70vh,70vw);image-rendering:pixelated"><div style="font-size:20px;font-weight:800">' + esc(url) + '</div>';
+    ov.onclick = function () { ov.remove(); };
+    document.body.appendChild(ov);
+  }
+
+  // ── Proiezione LIM (US4): timeline che cresce con le proposte approvate ─────
+  function _poolToBase() {
+    var db = (S() && S().db) || {}; var c = core();
+    return (db.timelineAI || []).map(function (e) {
+      return {
+        year: e.anno, yearEnd: e.annoFine || null, raw: e.dataLabel || String(e.anno),
+        type: e.annoFine ? 'range' : 'year', sortKey: e.anno * 10000, nodeLabel: e.evento,
+        macroLabel: e.macroArea || '', macroColor: c.categoryColor(e.macroArea),
+        chunkText: e.contesto || '', chunkSource: 'Fonte', chunkTitle: 'Evento'
+      };
+    });
+  }
+  TL.openProjection = function () {
+    var info = TL._info;
+    if (!info) { toast(_t('tl_no_session', 'Nessuna sessione attiva.'), 'warning'); return; }
+    // seed della base dal pool AI → la proiezione parte dalla timeline esistente
+    window.MappAITimeline._lastBase = _poolToBase();
+    var url = buildStudentUrl(info);
+    var qr = qrUrl(url, 8);
+    var ov = document.createElement('div');
+    ov.id = 'tl-projection';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10005;background:#f8fafc;overflow:auto;padding:24px 32px';
+    ov.innerHTML =
+      '<div style="position:fixed;top:16px;right:16px;text-align:center;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);z-index:2">' +
+        (qr ? '<img src="' + qr + '" style="width:150px;height:150px">' : '') +
+        '<div style="font-size:11px;color:#4f46e5;font-weight:700;margin-top:4px">' + esc(_t('tl_scan', 'Inquadra per proporre')) + '</div></div>' +
+      '<div style="text-align:center;margin-bottom:8px"><div style="font-size:24px;font-weight:900;color:#0f172a">' + esc(info.name || '') + '</div>' +
+        '<div style="font-size:12px;color:#64748b" id="tl-proj-count"></div></div>' +
+      '<div id="tl-proj-body" style="max-width:960px;margin:0 auto"></div>' +
+      '<div style="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:#94a3b8">ESC ' + esc(_t('tl_exit', 'per uscire')) + '</div>';
+    document.body.appendChild(ov);
+
+    function rerender() {
+      var html = window.MappAITimeline.mergedEventsHtml({ showContext: false, exercise: false });
+      var b = document.getElementById('tl-proj-body'); if (b) b.innerHTML = html;
+      var cnt = document.getElementById('tl-proj-count');
+      if (cnt) cnt.textContent = window.MappAITimeline._lastMergedCount + ' ' + _t('tl_events', 'eventi');
+    }
+    // stili minimi delle card timeline (il popup normale li ha inline nel doc)
+    if (!document.getElementById('tl-proj-style')) {
+      var st = document.createElement('style'); st.id = 'tl-proj-style';
+      st.textContent = '#tl-proj-body .tl-event{display:flex;margin-bottom:22px;position:relative}' +
+        '#tl-proj-body .tl-left{justify-content:flex-end;padding-right:calc(50% + 30px)}' +
+        '#tl-proj-body .tl-right{flex-direction:row-reverse;justify-content:flex-end;padding-left:calc(50% + 30px)}' +
+        '#tl-proj-body .tl-connector{position:absolute;left:50%;top:14px;transform:translateX(-50%)}' +
+        '#tl-proj-body .tl-dot{width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #cbd5e1}' +
+        '#tl-proj-body .dossier-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;max-width:380px;width:100%}' +
+        '#tl-proj-body .dossier-card-header{padding:10px 14px;display:flex;justify-content:space-between;gap:8px}' +
+        '#tl-proj-body .tl-date-label{font-size:18px;font-weight:900;color:#fff}' +
+        '#tl-proj-body .dossier-title{font-size:14px;font-weight:700;color:#fff;margin:2px 0 0}' +
+        '#tl-proj-body .dossier-level-tag{font-size:9px;color:rgba(255,255,255,.8);text-transform:uppercase}' +
+        '#tl-proj-body .tl-event-num,#tl-proj-body .no-print{display:none}' +
+        '#tl-proj-body::before{content:"";position:absolute;left:50%;top:120px;bottom:40px;width:2px;background:#e2e8f0}';
+      document.head.appendChild(st);
+    }
+    rerender();
+
+    var seen = TL._reviewed || (TL._reviewed = {});
+    var poll = setInterval(function () {
+      if (!document.getElementById('tl-projection')) { clearInterval(poll); return; }
+      adminApi(info, '/api/status?admin=' + info.adminToken).then(function (r) {
+        if (!r.body || !Array.isArray(r.body.proposals)) return;
+        var changed = false;
+        r.body.proposals.forEach(function (p) {
+          if (p.status === 'approved' && !seen[p.id]) {
+            seen[p.id] = true;
+            if (window.MappAITimeline) window.MappAITimeline.add({ anno: p.anno, evento: p.evento, contesto: p.contesto || '', origin: 'student', author: p.author });
+            changed = true;
+          }
+        });
+        if (changed) rerender();
+      }).catch(function () {});
+    }, 3000);
+
+    function onEsc(e) { if (e.key === 'Escape') { ov.remove(); clearInterval(poll); document.removeEventListener('keydown', onEsc); } }
+    document.addEventListener('keydown', onEsc);
+  };
+
   console.log('[MappAITimelineLive] modulo Timeline Live caricato ✓');
 })();

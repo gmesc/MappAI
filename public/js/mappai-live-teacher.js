@@ -239,6 +239,57 @@
     return step().then(function () { return out; });
   }
 
+  // MC / V/F con la STESSA qualità del quiz in-app (DYNAMIC_QUIZ per-nodo):
+  // domande vere con opzioni + V/F nativo, ancorate al contenuto del nodo.
+  function clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
+  function norm(s) { return LC.normalize ? LC.normalize(s) : String(s || '').toLowerCase().trim(); }
+
+  function dynItemToLive(it, node, mode) {
+    if (!it || !it.q) return null;
+    var q = LC.sanitizeText(it.q, LC.LIMITS.textMax);
+    if (!q) return null;
+    if (mode === 'tf') {
+      var c = norm(it.correct);
+      var opts0 = Array.isArray(it.options) ? it.options.map(norm) : [];
+      // "vero"/"true"/"corretto" → affermazione VERA; altrimenti falsa
+      var isTrue = /(^|\b)(vero|true|v|si|s|corretto|giusto|esatto)(\b|$)/.test(c) ||
+                   (opts0.length === 2 && c === opts0[0] && /ver|tru/.test(opts0[0]));
+      return { kind: 'tf', text: q, proposed: q, statementTrue: !!isTrue, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+    }
+    var opts = (Array.isArray(it.options) ? it.options : []).map(function (o) { return LC.sanitizeText(o, LC.LIMITS.optionMax); }).filter(Boolean).slice(0, LC.LIMITS.optionsMax);
+    if (opts.length < 2) return null;
+    // indice del corretto: match sulla stringa, poi eventuale indice numerico
+    var ci = -1;
+    for (var i = 0; i < opts.length; i++) { if (norm(opts[i]) === norm(it.correct)) { ci = i; break; } }
+    if (ci < 0) { var nn = parseInt(it.correct, 10); if (!isNaN(nn)) ci = (nn >= 1 && nn <= opts.length) ? nn - 1 : (nn >= 0 && nn < opts.length ? nn : -1); }
+    if (ci < 0) return null;   // non mappabile → scarta (qualità > quantità)
+    return { kind: 'mc', text: q, options: opts, correct: ci, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+  }
+
+  function generateQuizViaStudy(nodes, qty, mode) {
+    if (!window.generateDynamicQuiz) return Promise.resolve([]);
+    var apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    var qt = (mode === 'tf')
+      ? 'Vero o Falso — ogni domanda è un\'AFFERMAZIONE da valutare; il campo "correct" vale "Vero" oppure "Falso"'
+      : 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta';
+    var perNode = qty <= nodes.length ? 1 : Math.ceil(qty / nodes.length);
+    var out = [], idx = 0;
+    function step() {
+      if (out.length >= qty || idx >= nodes.length) return Promise.resolve();
+      var n = nodes[idx++];
+      var material = clean(n.label) + ': ' + (n.desc || n.content || '');
+      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, apiKey: apiKey })
+        .then(function (items) {
+          for (var k = 0; k < items.length && out.length < qty; k++) {
+            var lq = dynItemToLive(items[k], n, mode);
+            if (lq) out.push(lq);
+          }
+          return step();
+        }).catch(function () { return step(); });
+    }
+    return step().then(function () { return out; });
+  }
+
   function generateAndLaunch(cls, mode, scope, qty, timer) {
     var nodes = scopedNodes(scope);
     if (!nodes.length) { toast(t('lv_no_nodes', 'Nessun nodo con abbastanza testo in questa selezione.'), 'error'); return; }
@@ -251,7 +302,12 @@
     var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
     if (!key) { toast(t('lv_need_key', 'Serve una API key per generare i quiz. Impostala in Config AI.'), 'error'); return; }
     showBusy(t('lv_generating', 'Genero le domande dai contenuti…'));
-    generateQuizAI(nodes, qty, mode === 'tf').then(function (qs) {
+    // Stesso motore del quiz in-app (DYNAMIC_QUIZ); fallback al generatore
+    // "completamento" solo se il primo non produce nulla.
+    generateQuizViaStudy(nodes, qty, mode).then(function (qs) {
+      if (qs && qs.length) return qs;
+      return generateQuizAI(nodes, qty, mode === 'tf');
+    }).then(function (qs) {
       hideBusy();
       qs = attachL1(qs);
       if (!qs.length) { toast(t('lv_gen_failed', 'Non sono riuscito a generare domande. Riprova o usa il Cloze.'), 'error'); return; }

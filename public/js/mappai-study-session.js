@@ -73,6 +73,44 @@ window.selectStudyQuantity = function (qty) {
     });
 };
 
+// Generatore quiz riusabile (stesso motore del quiz di Studio, DYNAMIC_QUIZ).
+// Ritorna gli item grezzi { q, options[], correct(string|indice), explanation }.
+// Usato da MappAI Live per avere quiz della STESSA qualità di quelli in-app
+// (domande vere con opzioni + spiegazione), non il formato "completamento".
+// La taratura classe è iniettata come ovunque via injectClassTuning.
+window.generateDynamicQuiz = async function (opts) {
+    opts = opts || {};
+    const nodeLabel = opts.nodeLabel || 'Globale';
+    const material = (opts.material || '').trim();
+    const quizType = opts.quizType || 'Scelta Multipla';
+    const quantity = opts.quantity || 3;
+    const apiKey = opts.apiKey || (window.getSystemKey && window.getSystemKey());
+    if (!apiKey || !material) return [];
+    const prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel });
+    const schema = {
+        type: "ARRAY",
+        items: {
+            type: "OBJECT",
+            properties: {
+                q: { type: "STRING" },
+                options: { type: "ARRAY", items: { type: "STRING" } },
+                correct: { type: "STRING" },
+                explanation: { type: "STRING" }
+            },
+            required: ["q", "correct", "explanation"]
+        }
+    };
+    try {
+        const resp = await window.fetchModelAPI(window.injectClassTuning({
+            contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + material }] }],
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
+        }), apiKey);
+        const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
+        const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { console.warn('[generateDynamicQuiz]', e && e.message); return []; }
+};
+
 window.startStudySession = async function () {
     window.closeStudyConfigModal();
     window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;

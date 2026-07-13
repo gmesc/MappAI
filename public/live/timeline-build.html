@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>MappAI · Costruisci la timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0f172a; --indigo:#4f46e5; --slate:#64748b; --line:#e2e8f0; --emoji:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji'; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Space Mono',var(--emoji),monospace; color:var(--ink);
+    background:#fafbff; background-image:radial-gradient(#ddd6fe 1px,transparent 1px); background-size:22px 22px; min-height:100vh; }
+  section { display:none; padding:20px 16px; max-width:560px; margin:0 auto; }
+  section.on { display:block; }
+  h1 { font-size:19px; margin:6px 0 2px; }
+  .sub { color:var(--slate); font-size:12px; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  label { display:block; font-size:11px; font-weight:700; color:var(--slate); margin:10px 0 4px; }
+  input, textarea, select { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; font:inherit; font-size:16px; }
+  .egrid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .egrid-btn { font-size:30px; padding:8px; border:2px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-family:var(--emoji); }
+  .egrid-btn.sel { border-color:var(--indigo); background:#eef2ff; }
+  .btn { background:var(--indigo); color:#fff; border:0; border-radius:12px; padding:12px 18px; font:inherit; font-weight:700; cursor:pointer; width:100%; font-size:15px; }
+  .btn-sm { width:auto; padding:8px 14px; font-size:13px; }
+  .btn-ghost { background:#f1f5f9; color:#475569; }
+  .err { color:#dc2626; font-size:12px; margin-top:8px; min-height:16px; }
+  .gap-year { font-weight:900; color:var(--indigo); font-size:20px; }
+  .hint { display:none; margin-top:8px; font-size:12px; color:#475569; font-style:italic; background:#f8fafc; border-left:3px solid #cbd5e1; padding:8px 10px; border-radius:8px; }
+  .prop { display:flex; gap:8px; align-items:baseline; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13px; }
+  .st { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .st-pending { background:#fef3c7; color:#b45309; } .st-approved { background:#dcfce7; color:#15803d; } .st-rejected { background:#fee2e2; color:#b91c1c; }
+  .flag { font-size:10px; background:#f1f5f9; color:#64748b; border-radius:6px; padding:1px 6px; }
+  .muted { color:#94a3b8; font-size:12px; }
+</style>
+</head>
+<body>
+  <section id="login" class="on">
+    <h1>Costruisci la timeline</h1>
+    <div class="sub" id="login-activity"></div>
+    <div class="card">
+      <div id="login-individual">
+        <label>Emoji</label>
+        <div class="egrid" id="emoji-grid"></div>
+        <label>Il tuo numero</label>
+        <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="es. 07" autocomplete="off">
+      </div>
+      <div id="login-group" style="display:none">
+        <label>Nome del gruppo</label>
+        <input id="in-nick" maxlength="30" placeholder="es. I Galli" autocomplete="off">
+      </div>
+      <button class="btn" id="btn-join" style="margin-top:14px">Entra</button>
+      <div class="err" id="login-err"></div>
+    </div>
+  </section>
+
+  <section id="build">
+    <h1 id="b-title">Proponi le date</h1>
+    <div class="sub" id="b-sub"></div>
+    <div id="gaps-wrap"></div>
+    <div class="card" id="free-wrap" style="display:none">
+      <div style="font-weight:700;margin-bottom:2px">Proposta libera</div>
+      <div class="muted">Aggiungi un evento con la sua data.</div>
+      <label>Anno</label><input id="f-anno" inputmode="numeric" pattern="[0-9]*" placeholder="es. 1789">
+      <label>Evento</label><input id="f-ev" placeholder="Cosa è successo?">
+      <label>Contesto (facoltativo)</label><textarea id="f-ctx" rows="2" placeholder="Una frase per spiegare"></textarea>
+      <button class="btn btn-sm" id="f-add" style="margin-top:10px">✓ Proponi</button>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:6px">Le tue proposte <span class="muted" id="cap-info"></span></div>
+      <div id="my-props"><div class="muted">Ancora nessuna proposta.</div></div>
+    </div>
+    <div class="err" id="build-err"></div>
+  </section>
+
+<script src="/public/js/mappai-live-core.js"></script>
+<script>
+  var LC = window.MappAILiveCore;
+  var QS = new URLSearchParams(location.search);
+  var TOKEN = QS.get('s') || '';
+  var DEV_KEY = 'mappai_live_device';
+  var deviceId = localStorage.getItem(DEV_KEY);
+  if (!deviceId) { deviceId = 'd_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(DEV_KEY, deviceId); }
+  var $ = function (id) { return document.getElementById(id); };
+  function show(id) { document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === id); }); }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function api(p, opts) { return fetch(p, opts).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }, function () { return { status: r.status, body: null }; }); }); }
+  function post(p, obj) { return api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }); }
+
+  var SESS = null, IDENT = null, chosenEmoji = null, MYPROPS = [], pollTimer = null;
+
+  function boot() {
+    if (!TOKEN) { $('login-err').textContent = 'Link non valido. Riscansiona il QR.'; return; }
+    api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+      if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
+      SESS = r.body;
+      $('login-activity').textContent = (SESS.className ? SESS.className + ' · ' : '') + 'Costruisci la timeline';
+      if (SESS.loginMode === 'group') { $('login-individual').style.display = 'none'; $('login-group').style.display = 'block'; }
+      else buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
+    }).catch(function () { $('login-err').textContent = 'Connessione assente. Sei sulla rete della classe?'; });
+  }
+
+  function buildEmojiGrid(set) {
+    var g = $('emoji-grid'); g.innerHTML = '';
+    set.forEach(function (e) {
+      var b = document.createElement('button'); b.className = 'egrid-btn'; b.textContent = e.emoji; b.setAttribute('data-key', e.key);
+      b.onclick = function () { chosenEmoji = e.key; g.querySelectorAll('.egrid-btn').forEach(function (x) { x.classList.toggle('sel', x === b); }); };
+      g.appendChild(b);
+    });
+  }
+
+  $('btn-join').onclick = function () {
+    var payload = { token: TOKEN, deviceId: deviceId };
+    if (SESS.loginMode === 'group') {
+      var nick = ($('in-nick').value || '').trim();
+      if (!nick) { $('login-err').textContent = 'Scrivi il nome del gruppo.'; return; }
+      payload.nick = nick;
+    } else {
+      var num = ($('in-num').value || '').trim().padStart(2, '0');
+      if (!chosenEmoji || !num) { $('login-err').textContent = 'Scegli emoji e numero.'; return; }
+      payload.emojiKey = chosenEmoji; payload.num = num;
+    }
+    post('/api/join', payload).then(function (r) {
+      if (r.status !== 200) { $('login-err').textContent = r.body && r.body.error === 'identity-taken' ? 'Già in uso su un altro dispositivo.' : (r.body && r.body.error === 'not-in-roster' ? 'Non sei nell\'elenco della classe.' : 'Accesso non riuscito.'); return; }
+      IDENT = payload; MYPROPS = r.body.proposals || [];
+      startBuild();
+    });
+  };
+
+  function startBuild() {
+    show('build');
+    var bld = SESS.build || {};
+    $('b-sub').textContent = 'Proponi gli eventi mancanti. Il/la docente li rivede e li aggiunge alla timeline.';
+    // buchi
+    var gw = $('gaps-wrap'); gw.innerHTML = '';
+    var showGaps = bld.gaps && bld.gaps.length;
+    (bld.gaps || []).forEach(function (g) {
+      var c = document.createElement('div'); c.className = 'card';
+      c.innerHTML = '<div class="gap-year">' + esc(g.year) + '</div>' +
+        '<div class="muted">Quale evento accadde in quest\'anno?</div>' +
+        '<input id="gap-ev-' + g.year + '" placeholder="Nome dell\'evento…">' +
+        '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+        (SESS.hintMode !== 'never' && g.hint ? '<button class="btn btn-sm btn-ghost" data-hint="' + g.year + '">💡 Indizio</button>' : '') +
+        '<button class="btn btn-sm" data-gap="' + g.year + '">✓ Proponi</button></div>' +
+        (g.hint ? '<div class="hint" id="gap-hint-' + g.year + '">' + esc(g.hint) + '</div>' : '');
+      gw.appendChild(c);
+    });
+    if (SESS.hintMode === 'always') (bld.gaps || []).forEach(function (g) { var h = $('gap-hint-' + g.year); if (h) h.style.display = 'block'; });
+    gw.querySelectorAll('[data-hint]').forEach(function (b) { b.onclick = function () { var h = $('gap-hint-' + b.getAttribute('data-hint')); if (h) h.style.display = h.style.display === 'block' ? 'none' : 'block'; }; });
+    gw.querySelectorAll('[data-gap]').forEach(function (b) { b.onclick = function () { var y = b.getAttribute('data-gap'); submit({ anno: parseInt(y, 10), evento: ($('gap-ev-' + y).value || '').trim(), gapYear: parseInt(y, 10) }); }; });
+    // proposta libera
+    if (bld.freeAllowed) $('free-wrap').style.display = 'block';
+    $('f-add').onclick = function () { submit({ anno: parseInt($('f-anno').value, 10), evento: ($('f-ev').value || '').trim(), contesto: ($('f-ctx').value || '').trim() }); };
+    renderMine();
+    if (!pollTimer) pollTimer = setInterval(refresh, 5000);
+  }
+
+  function submit(p) {
+    $('build-err').textContent = '';
+    if (!p.anno || !p.evento) { $('build-err').textContent = 'Servono anno ed evento.'; return; }
+    var body = Object.assign({ token: TOKEN, deviceId: deviceId }, IDENT, p);
+    post('/api/propose', body).then(function (r) {
+      if (r.status === 429) { $('build-err').textContent = 'Hai raggiunto il numero massimo di proposte.'; return; }
+      if (r.status === 422) { $('build-err').textContent = 'Proposta non valida (controlla l\'anno).'; return; }
+      if (r.status !== 200) { $('build-err').textContent = 'Invio non riuscito.'; return; }
+      MYPROPS.push(r.body.proposal);
+      if (p.gapYear) { var el = $('gap-ev-' + p.gapYear); if (el) el.value = ''; }
+      else { $('f-anno').value = ''; $('f-ev').value = ''; $('f-ctx').value = ''; }
+      renderMine();
+    });
+  }
+
+  function refresh() {
+    // re-join è idempotente e ritorna lo stato aggiornato delle proposte
+    post('/api/join', Object.assign({ token: TOKEN, deviceId: deviceId }, IDENT)).then(function (r) {
+      if (r.status === 200 && r.body.proposals) { MYPROPS = r.body.proposals; renderMine(); }
+    });
+  }
+
+  function renderMine() {
+    var max = (SESS.build && SESS.build.maxProposals) || 3;
+    var active = MYPROPS.filter(function (p) { return p.status !== 'rejected'; }).length;
+    $('cap-info').textContent = '(' + active + '/' + max + ')';
+    var wrap = $('my-props');
+    if (!MYPROPS.length) { wrap.innerHTML = '<div class="muted">Ancora nessuna proposta.</div>'; return; }
+    wrap.innerHTML = MYPROPS.slice().sort(function (a, b) { return a.anno - b.anno; }).map(function (p) {
+      var cls = p.status === 'approved' ? 'st-approved' : p.status === 'rejected' ? 'st-rejected' : 'st-pending';
+      var lab = p.status === 'approved' ? '✓ approvata' : p.status === 'rejected' ? '✗ bocciata' : '· in attesa';
+      var flags = '';
+      if (p.flags && p.flags.duplicate) flags += ' <span class="flag">duplicato</span>';
+      if (p.flags && p.flags.yearNotInSources) flags += ' <span class="flag">anno non nelle fonti</span>';
+      return '<div class="prop"><div style="font-weight:900;min-width:44px">' + esc(p.anno) + '</div>' +
+        '<div style="flex:1">' + esc(p.evento) + flags + '</div><span class="st ' + cls + '">' + lab + '</span></div>';
+    }).join('');
+  }
+
+  boot();
+</script>
+</body>
+</html>
