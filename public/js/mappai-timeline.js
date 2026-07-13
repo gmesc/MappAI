@@ -61,6 +61,252 @@ window._extractYearsWithContext = function (text) {
     return out;
 };
 
+// ── DATE MANUALI + ESERCIZIO "TROVA LE DATE MANCANTI" (008) ──────────────────
+// Layer dati persistente per le date aggiunte a mano (docente) o dallo studente
+// come attività di studio. Vive in appState.db.timelineEvents → serializzato col
+// progetto da StorageManager.saveCurrentProject (JSON.stringify(appState)).
+// Le card manuali si FONDONO con quelle estratte dall'AI al render e sopravvivono
+// alla rigenerazione. Logica pura (normalize/dedup/estrazione anni) delegata a
+// window.MappAITimelineCore. Editing dal popup: la finestra timeline (stessa
+// origine) chiama window.opener.MappAITimeline.* e re-inietta mergedEventsHtml().
+window.MappAITimeline = window.MappAITimeline || {};
+
+function _TLC() { return window.MappAITimelineCore; }
+
+MappAITimeline._db = function () {
+    if (!appState.db) appState.db = { nodes: [], links: [] };
+    if (!Array.isArray(appState.db.timelineEvents)) appState.db.timelineEvents = [];
+    return appState.db.timelineEvents;
+};
+
+MappAITimeline._persist = function () {
+    try {
+        if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
+    } catch (e) { console.warn('[Timeline] persist date manuali fallito:', e); }
+};
+
+MappAITimeline.list = function () { return MappAITimeline._db().slice(); };
+
+MappAITimeline.add = function (ev) {
+    var core = _TLC();
+    var norm = core ? core.normalizeEvent(ev) : { ok: !!(ev && ev.anno && ev.evento), clean: ev };
+    if (!norm.ok) return { ok: false, error: (norm.errors || []).join(',') || 'evento non valido' };
+    var rec = norm.clean;
+    rec.id = 'tlm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    rec.origin = ev.origin === 'student' ? 'student' : 'manual';
+    if (ev.author) rec.author = String(ev.author).slice(0, 80);
+    MappAITimeline._db().push(rec);
+    MappAITimeline._persist();
+    return { ok: true, event: rec };
+};
+
+MappAITimeline.remove = function (id) {
+    var list = MappAITimeline._db();
+    var i = list.findIndex(function (e) { return e.id === id; });
+    if (i < 0) return { ok: false };
+    list.splice(i, 1);
+    MappAITimeline._persist();
+    return { ok: true };
+};
+
+// ── Helper HTML (self-contained: girano anche quando chiamati dal popup) ──────
+MappAITimeline._esc = function (s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+MappAITimeline._fmtDate = function (e) {
+    if (e.type === 'full')    return e.raw;
+    if (e.type === 'range')   return e.raw;
+    if (e.type === 'century') return (e.century || '') + ' sec.';
+    return String(e.year);
+};
+MappAITimeline._hl = function (context, dateRaw) {
+    var escd = String(dateRaw || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!escd) return context;
+    return context.replace(new RegExp(escd, 'gi'),
+        '<strong style="color:#1e293b;background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>');
+};
+MappAITimeline._color = function (macroArea) {
+    var core = _TLC();
+    return core ? core.categoryColor(macroArea) : '#6366f1';
+};
+MappAITimeline._key = function (e) {
+    var core = _TLC();
+    return core ? core.eventKey({ anno: e.year != null ? e.year : e.anno, evento: e.nodeLabel != null ? e.nodeLabel : e.evento })
+                : ((e.year || e.anno || 0) + '|' + String(e.nodeLabel || e.evento || '').toLowerCase());
+};
+
+// Testo sorgente ricostruito da appState (per l'esercizio: quali anni cita la fonte).
+MappAITimeline._sourceText = function () {
+    try {
+        var parts = [];
+        ((appState.db && appState.db.nodes) || []).forEach(function (n) {
+            if (n.desc) parts.push(n.desc); else if (n.content) parts.push(n.content);
+        });
+        var sd = (appState.db && appState.db.sourcesDict) || {};
+        Object.values(sd).forEach(function (chunks) {
+            if (Array.isArray(chunks)) chunks.forEach(function (c) { if (c && c.text) parts.push(c.text); });
+        });
+        return parts.filter(Boolean).join('\n\n').slice(0, 60000);
+    } catch (e) { return ''; }
+};
+
+// Normalizza le date manuali nella shape usata dal render.
+MappAITimeline._normalizeManual = function () {
+    return MappAITimeline._db().map(function (e, idx) {
+        return {
+            year: e.anno, yearEnd: e.annoFine || null,
+            raw: e.dataLabel || String(e.anno),
+            type: e.annoFine ? 'range' : 'year',
+            sortKey: e.anno * 10000,
+            nodeLabel: e.evento, nodeLevel: 1,
+            macroLabel: e.macroArea || '',
+            macroColor: MappAITimeline._color(e.macroArea),
+            chunkText: e.contesto || '',
+            chunkSource: e.origin === 'student' ? 'Studente' : 'Aggiunta manuale',
+            chunkTitle: 'Evento aggiunto',
+            chunkIdx: 10000 + idx,
+            _manual: true, _origin: e.origin, _id: e.id
+        };
+    });
+};
+
+// Card di un evento (estratto o manuale). idx 0-based → numero progressivo.
+MappAITimeline._cardHtml = function (e, idx, side, showContext) {
+    var esc = MappAITimeline._esc;
+    var dateLabel = MappAITimeline._fmtDate(e);
+    var ctxH = MappAITimeline._hl(esc(e.chunkText), esc(e.raw));
+    var num = String(idx + 1).padStart(2, '0');
+    var delBtn = e._manual
+        ? '<button type="button" class="no-print" onclick="TL_del(\'' + e._id + '\')" title="Rimuovi data" ' +
+          'style="background:rgba(255,255,255,.28);border:none;color:white;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;">✕</button>'
+        : '';
+    var originTag = e._origin === 'student' ? ' · 🎓 studente'
+                  : e._origin === 'manual'  ? ' · ✏️ aggiunta' : '';
+    return '<div class="tl-event tl-' + side + '">' +
+        '<div class="tl-connector"><div class="tl-dot" style="background:' + e.macroColor + ';"></div></div>' +
+        '<div class="dossier-card tl-card' + (e._manual ? ' tl-card-manual' : '') + '">' +
+            '<div class="dossier-card-header" style="background:' + e.macroColor + ';color:white;">' +
+                '<div class="dossier-card-header-main">' +
+                    '<div class="tl-date-label">' + esc(dateLabel) + '</div>' +
+                    '<h2 class="dossier-title">' + esc(e.nodeLabel) + '</h2>' +
+                    '<span class="dossier-level-tag">' + esc(e.macroLabel) + originTag + '</span>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
+                    '<div class="tl-event-num">' + num + '</div>' + delBtn +
+                '</div>' +
+            '</div>' +
+            (showContext && e.chunkText
+                ? '<div class="dossier-body">' +
+                    '<span class="dossier-section-label">CONTESTO DALLA FONTE</span>' +
+                    '<div class="tl-chunk-source" style="color:' + e.macroColor + ';">' +
+                        '▌ ' + esc(e.chunkTitle) + ' — <em>' + esc(e.chunkSource) + '</em>' +
+                    '</div>' +
+                    '<p class="dossier-desc tl-context-text">“' + ctxH + '”</p>' +
+                  '</div>'
+                : '') +
+        '</div>' +
+    '</div>';
+};
+
+// Card "buco" dell'esercizio: anno citato dalla fonte ma non ancora sulla timeline.
+MappAITimeline._gapCardHtml = function (ry, side) {
+    var esc = MappAITimeline._esc;
+    var y = ry.year;
+    var hint = esc(ry.hint || ry.context || '');
+    var cats = (_TLC() ? _TLC().CATEGORY_KEYS : ['Politica', 'Economia', 'Militare', 'Diplomatica', 'Sociale', 'Cultura']);
+    var optsHtml = cats.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    return '<div class="tl-event tl-' + side + '">' +
+        '<div class="tl-connector"><div class="tl-dot" style="background:#94a3b8;border-style:dashed;"></div></div>' +
+        '<div class="dossier-card tl-card tl-gap" id="gap-' + y + '">' +
+            '<div class="dossier-card-header" style="background:#64748b;color:white;">' +
+                '<div class="dossier-card-header-main">' +
+                    '<div class="tl-date-label">' + esc(ry.raw || String(y)) + '</div>' +
+                    '<h2 class="dossier-title">Data da completare</h2>' +
+                    '<span class="dossier-level-tag">Quale evento accadde?</span>' +
+                '</div>' +
+                '<div class="tl-event-num">?</div>' +
+            '</div>' +
+            '<div class="dossier-body no-print">' +
+                '<input id="gap-ev-' + y + '" type="text" placeholder="Nome dell\'evento…" ' +
+                    'style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:11pt;margin-bottom:8px;">' +
+                '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+                    '<select id="gap-cat-' + y + '" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:10pt;">' + optsHtml + '</select>' +
+                    '<button type="button" onclick="TL_hint(' + y + ')" style="background:#f1f5f9;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:10pt;">💡 Indizio</button>' +
+                    '<button type="button" onclick="TL_fillGap(' + y + ')" style="background:#4f46e5;color:white;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:10pt;font-weight:bold;">✓ Aggiungi</button>' +
+                '</div>' +
+                '<p id="gap-hint-' + y + '" style="display:none;margin-top:8px;font-size:10pt;color:#475569;font-style:italic;background:#f8fafc;border-left:3px solid #cbd5e1;padding:6px 10px;border-radius:4px;">' + hint + '</p>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+};
+
+// HTML degli eventi: base (AI/statico, in _lastBase) + date manuali, deduplicato
+// e ordinato. In modalità esercizio interpola le card "buco". Aggiorna i contatori.
+MappAITimeline.mergedEventsHtml = function (opts) {
+    opts = opts || {};
+    var showContext = opts.showContext !== false;
+
+    var all = (MappAITimeline._lastBase || []).slice().concat(MappAITimeline._normalizeManual());
+    var seen = {}, merged = [];
+    all.forEach(function (e) {
+        var key = MappAITimeline._key(e);
+        if (seen[key]) return;
+        seen[key] = true;
+        merged.push(e);
+    });
+
+    var items = merged.map(function (e) { return { y: (e.sortKey || e.year * 10000), kind: 'event', e: e }; });
+
+    var gapCount = 0;
+    if (opts.exercise) {
+        var core = _TLC();
+        var have = {};
+        merged.forEach(function (e) { have[e.year] = true; });
+        var gaps = core
+            ? core.extractYears(MappAITimeline._sourceText()).filter(function (ry) { return !have[ry.year]; })
+            : [];
+        gaps.forEach(function (ry) { items.push({ y: ry.year * 10000, kind: 'gap', ry: ry }); });
+        gapCount = gaps.length;
+    }
+
+    items.sort(function (a, b) { return a.y - b.y; });
+
+    var html = '', isLeft = true, evNum = 0;
+    items.forEach(function (it) {
+        var side = isLeft ? 'left' : 'right';
+        isLeft = !isLeft;
+        if (it.kind === 'event') { html += MappAITimeline._cardHtml(it.e, evNum, side, showContext); evNum++; }
+        else html += MappAITimeline._gapCardHtml(it.ry, side);
+    });
+
+    MappAITimeline._lastMergedCount = merged.length;
+    MappAITimeline._lastGapCount = gapCount;
+    return html;
+};
+
+// Persiste il POOL di date estratte (R5): mappa gli eventi base (render-shape)
+// nella core-shape e li salva in appState.db.timelineAI (SOVRASCRITTO — ultima
+// generazione vince). Così le attività Live trovano il pool senza rigenerare.
+MappAITimeline._persistPool = function (baseEvents) {
+    try {
+        var core = _TLC();
+        var mapped = (baseEvents || []).map(function (e) {
+            return {
+                anno: e.year, annoFine: e.yearEnd || null,
+                dataLabel: e.raw || String(e.year),
+                evento: e.nodeLabel || '', contesto: e.chunkText || '',
+                macroArea: e.macroLabel || '', origin: 'ai'
+            };
+        }).filter(function (m) {
+            if (!core) return m.anno && m.evento;
+            return core.normalizeEvent(m).ok;
+        });
+        if (!appState.db) appState.db = { nodes: [], links: [] };
+        appState.db.timelineAI = mapped;
+        MappAITimeline._persist();
+    } catch (e) { console.warn('[Timeline] persist pool fallito:', e); }
+};
+
 // ── MODALE CONFIGURAZIONE TIMELINE ───────────────────────────────────────────
 
 window.openTimelineGeneratorModal = function () {
@@ -671,64 +917,20 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
     var showContext = opts.showContext !== false; // default: mostra il contesto
     var now = new Date().toLocaleString('it-IT');
 
-    // Funzioni helper locali
-    function esc(s) {
-        return String(s || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-    function formatDateLabel(event) {
-        if (event.type === 'full')    return event.raw;
-        if (event.type === 'range')   return event.raw;
-        if (event.type === 'century') return event.century + ' sec.';
-        return String(event.year);
-    }
-    function highlightDate(context, dateRaw) {
-        var escaped = dateRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return context.replace(
-            new RegExp(escaped, 'gi'),
-            '<strong style="color:#1e293b;background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>'
-        );
-    }
+    // Helper esc locale (per titolo/header del documento).
+    var esc = window.MappAITimeline._esc;
 
-    var isLeft = true;
-    var timelineHtml = '';
+    // Base = eventi estratti (AI o statici). Salvati per il refresh dal popup:
+    // aggiunta/rimozione date manuali → il popup richiama mergedEventsHtml()
+    // che rifonde questa base con le manuali.
+    window.MappAITimeline._lastBase = (uniqueEvents || []).slice();
 
-    uniqueEvents.forEach(function (e, idx) {
-        var side = isLeft ? 'left' : 'right';
-        isLeft = !isLeft;
+    // Persiste il pool per le attività Live (R5 — zero token al lancio).
+    window.MappAITimeline._persistPool(window.MappAITimeline._lastBase);
 
-        var dateLabel          = formatDateLabel(e);
-        var contextHighlighted = highlightDate(esc(e.chunkText), esc(e.raw));
-        var numLabel           = String(idx + 1).padStart(2, '0');
-
-        timelineHtml += '<div class="tl-event tl-' + side + '">' +
-            '<div class="tl-connector">' +
-                '<div class="tl-dot" style="background:' + e.macroColor + ';"></div>' +
-            '</div>' +
-            '<div class="dossier-card tl-card">' +
-                '<div class="dossier-card-header" style="background:' + e.macroColor + ';color:white;">' +
-                    '<div class="dossier-card-header-main">' +
-                        '<div class="tl-date-label">' + esc(dateLabel) + '</div>' +
-                        '<h2 class="dossier-title">' + esc(e.nodeLabel) + '</h2>' +
-                        '<span class="dossier-level-tag">' + esc(e.macroLabel) + '</span>' +
-                    '</div>' +
-                    '<div class="tl-event-num">' + numLabel + '</div>' +
-                '</div>' +
-                (showContext && e.chunkText
-                    ? '<div class="dossier-body">' +
-                        '<span class="dossier-section-label">CONTESTO DALLA FONTE</span>' +
-                        '<div class="tl-chunk-source" style="color:' + e.macroColor + ';">' +
-                            '▌ ' + esc(e.chunkTitle) + ' — <em>' + esc(e.chunkSource) + '</em>' +
-                        '</div>' +
-                        '<p class="dossier-desc tl-context-text">&ldquo;' + contextHighlighted + '&rdquo;</p>' +
-                      '</div>'
-                    : '') +
-            '</div>' +
-        '</div>';
-    });
+    // HTML iniziale = base + eventuali date manuali già salvate nel progetto.
+    var timelineHtml = window.MappAITimeline.mergedEventsHtml({ showContext: showContext, exercise: false });
+    var eventCount   = window.MappAITimeline._lastMergedCount;
 
     // ── 5. CSS stile dossier + layout timeline ───────────────────────────────
 
@@ -765,20 +967,61 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '.tl-chunk-source { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8pt; border-left: 3pt solid currentColor; padding-left: 8pt; }',
         '.dossier-desc { font-size: 11pt; line-height: 1.7; color: var(--pdf-text-secondary); margin: 0; font-style: italic; }',
         '.tl-footer { text-align: center; margin-top: 40px; font-size: 9pt; color: var(--pdf-text-muted); border-top: 1px solid var(--pdf-border); padding-top: 16px; }',
-        '@media print { body { background: white; padding: 10mm; } .tl-container::before { background: #cbd5e1; } .dossier-card { box-shadow: none; } .tl-event { page-break-inside: avoid; } .no-print { display: none !important; } }'
+        '.tl-card-manual { box-shadow: 0 2px 12px rgba(79,70,229,0.20); }',
+        '.tl-gap { border: 2px dashed #cbd5e1 !important; }',
+        '.tl-toolbtn { border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font-size:11px; font-weight:bold; font-family:inherit; }',
+        '.tl-addform { position:fixed; top:52px; left:0; right:0; background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:14px 24px; z-index:99; display:none; }',
+        '.tl-addform input, .tl-addform select, .tl-addform textarea { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font-family:inherit; font-size:11pt; }',
+        '@media print { body { background: white; padding: 10mm; } .tl-container::before { background: #cbd5e1; } .dossier-card { box-shadow: none; } .tl-event { page-break-inside: avoid; } .tl-gap { display: none !important; } .no-print { display: none !important; } }'
     ].join('\n');
 
     // ── 6. Barra stampa ──────────────────────────────────────────────────────
 
-    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;">' +
+    var catOptions = (window.MappAITimelineCore ? window.MappAITimelineCore.CATEGORY_KEYS
+                      : ['Politica', 'Economia', 'Militare', 'Diplomatica', 'Sociale', 'Cultura'])
+        .map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+
+    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;gap:12px;flex-wrap:wrap;">' +
         '<span style="font-weight:bold;color:#4f46e5;">MappAI \u00b7 Timeline</span>' +
-        '<div style="display:flex;gap:8px;">' +
-            '<button onclick="window.print()" style="background:#4f46e5;color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">\uD83D\uDDB8 Stampa / Esporta PDF</button>' +
-            '<button onclick="window.close()" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">\u2715 Chiudi</button>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+            '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#ede9fe;color:#4f46e5;">+ Aggiungi data</button>' +
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:#f1f5f9;border-radius:8px;padding:6px 12px;color:#475569;">' +
+                '<input type="checkbox" id="tl-exercise-toggle" onchange="TL_refresh()" style="cursor:pointer;accent-color:#4f46e5;"> Modalit\u00E0 esercizio' +
+            '</label>' +
+            '<button onclick="window.print()" class="tl-toolbtn" style="background:#4f46e5;color:white;">\uD83D\uDDB8 Stampa / PDF</button>' +
+            '<button onclick="window.close()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;">\u2715 Chiudi</button>' +
         '</div></div>' +
+
+        '<div class="tl-addform" id="tl-addform">' +
+            '<div style="max-width:960px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">' +
+                '<input id="tl-f-anno"  type="number" placeholder="Anno*" style="width:90px;">' +
+                '<input id="tl-f-fine"  type="number" placeholder="Anno fine" style="width:100px;">' +
+                '<input id="tl-f-ev"    type="text" placeholder="Evento*" style="flex:1;min-width:200px;">' +
+                '<select id="tl-f-cat">' + catOptions + '</select>' +
+                '<input id="tl-f-label" type="text" placeholder="Etichetta data (opz.)" style="min-width:140px;">' +
+                '<textarea id="tl-f-ctx" placeholder="Contesto / spiegazione (opz.)" rows="1" style="flex:1;min-width:220px;resize:vertical;"></textarea>' +
+                '<button onclick="TL_add()" class="tl-toolbtn" style="background:#4f46e5;color:white;padding:8px 16px;">\u2713 Salva</button>' +
+                '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#f1f5f9;color:#475569;padding:8px 12px;">Annulla</button>' +
+            '</div>' +
+        '</div>' +
         '<div style="height:52px;" class="no-print"></div>';
 
     // ── 7. Documento finale ───────────────────────────────────────────────────
+
+    // Script del popup: editing via window.opener.MappAITimeline (stessa origine).
+    // Se l'opener \u00e8 chiuso/navigato, i pulsanti avvisano invece di rompersi.
+    var tlScript = '<scr' + 'ipt>\n' +
+        'var SHOW_CONTEXT = ' + (showContext ? 'true' : 'false') + ';\n' +
+        'function OP(){ return (window.opener && window.opener.MappAITimeline) ? window.opener.MappAITimeline : null; }\n' +
+        'function TL_noOp(){ alert("Per modificare le date tieni aperta la finestra principale di MappAI e riapri la timeline dalla mappa."); }\n' +
+        'function TL_toggleForm(){ var f=document.getElementById("tl-addform"); if(f) f.style.display=(f.style.display==="block")?"none":"block"; }\n' +
+        'function TL_refresh(){ var op=OP(); if(!op){ TL_noOp(); return; } var ex=document.getElementById("tl-exercise-toggle").checked; document.getElementById("tl-container").innerHTML=op.mergedEventsHtml({showContext:SHOW_CONTEXT,exercise:ex}); var c=op._lastMergedCount+" eventi"; if(ex) c+=" \\u00b7 "+op._lastGapCount+" da completare"; document.getElementById("tl-count").textContent=c; }\n' +
+        'function TL_val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }\n' +
+        'function TL_add(){ var op=OP(); if(!op){ TL_noOp(); return; } var anno=parseInt(TL_val("tl-f-anno")); var ev=TL_val("tl-f-ev"); if(!anno||!ev){ alert("Inserisci almeno Anno ed Evento."); return; } var r=op.add({anno:anno, annoFine:TL_val("tl-f-fine")||null, dataLabel:TL_val("tl-f-label")||String(anno), evento:ev, macroArea:TL_val("tl-f-cat"), contesto:TL_val("tl-f-ctx"), origin:"manual"}); if(r&&r.ok){ ["tl-f-anno","tl-f-fine","tl-f-label","tl-f-ev","tl-f-ctx"].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=""; }); TL_toggleForm(); TL_refresh(); } else { alert((r&&r.error)||"Aggiunta non riuscita."); } }\n' +
+        'function TL_del(id){ var op=OP(); if(!op){ TL_noOp(); return; } if(!confirm("Rimuovere questa data?")) return; op.remove(id); TL_refresh(); }\n' +
+        'function TL_hint(y){ var h=document.getElementById("gap-hint-"+y); if(h) h.style.display=(h.style.display==="block")?"none":"block"; }\n' +
+        'function TL_fillGap(y){ var op=OP(); if(!op){ TL_noOp(); return; } var ev=TL_val("gap-ev-"+y); if(!ev){ alert("Scrivi il nome dell\\u2019evento."); return; } var h=document.getElementById("gap-hint-"+y); op.add({anno:y, dataLabel:String(y), evento:ev, macroArea:TL_val("gap-cat-"+y), contesto:h?h.textContent:"", origin:"student"}); TL_refresh(); }\n' +
+        '</scr' + 'ipt>';
 
     var fullHtml = '<!DOCTYPE html><html lang="it"><head>' +
         '<meta charset="UTF-8">' +
@@ -790,10 +1033,11 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '<div class="tl-header">' +
             '<div class="tl-title">' + esc(mapName) + '</div>' +
             '<div class="tl-subtitle">Timeline cronologica \u00b7 ' + esc(now) + '</div>' +
-            '<div class="tl-count">' + uniqueEvents.length + ' eventi datati dalle fonti originali</div>' +
+            '<div class="tl-count" id="tl-count">' + eventCount + ' eventi</div>' +
         '</div>' +
-        '<div class="tl-container">' + timelineHtml + '</div>' +
+        '<div class="tl-container" id="tl-container">' + timelineHtml + '</div>' +
         '<div class="tl-footer">MappAI by insegnai.ch</div>' +
+        tlScript +
         '</body></html>';
 
     // ── 8. Apri finestra ─────────────────────────────────────────────────────
@@ -817,7 +1061,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
     }
     win.document.write(fullHtml);
     win.document.close();
-    window.showToast('\u2713 Timeline aperta \u2014 ' + uniqueEvents.length + ' eventi', 'success');
+    window.showToast('\u2713 Timeline aperta \u2014 ' + eventCount + ' eventi', 'success');
 };
 
 console.log('[MappAI] mappai-timeline.js caricato \u2713');
