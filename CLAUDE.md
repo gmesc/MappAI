@@ -534,6 +534,47 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (13/7/26): 008-timeline-live — Timeline via QR (Completa/Costruisci) + LIM + login flessibile
+Spec-kit completo (`specs/008-timeline-live/`, branch omonimo). La timeline diventa
+attività di classe in MappAI Live. Suite **431/431** ✅. Sei user story:
+- **US1 base in-app** — `window.MappAITimeline` in `mappai-timeline.js` (add/remove/list
+  su `appState.db.timelineEvents`, persistito col progetto; popup toolbar "+ Aggiungi
+  data" + "Modalità esercizio" con card-buco dagli anni citati dalla fonte). Logica pura
+  in **`mappai-timeline-core.js`** (UMD: normalizeEvent/eventKey/buildPool/extractYears/
+  buildGaps/buildQuestions/validateProposal/proposalFlags/countActive). **Pool AI
+  persistito** in `appState.db.timelineAI` (`_persistPool` in `_renderTimeline`, R5 —
+  zero token al lancio). `loadProject` init robusto (progetti legacy → array vuoti).
+- **US2 "Completa"** (autovalutata) — `gradeAnswer` esteso (evento→anno con `answerYear`/
+  tolleranza ±N/periodi; `answerTexts` any-match per anni multi-evento), `cleanAnswer`
+  preserva `hintUsed`, `publicQuestions` passa `hint`/`expects`/`tlYear` (soluzioni
+  strippate), `computeResults` aggrega indizi. `live-server`/`main.js` pass-through
+  `mode`/`loginMode`/`hintMode`/`build`. `student.html`: input anno numerico + 💡
+  indizio tracciato. `mappai-timeline-teacher.js` wizard Completa → `MappAILive.
+  launchExternal`. 5ª card hub "Timeline". Report: domande in ordine cronologico +
+  colonna indizi.
+- **US3 "Costruisci"** (discovery, revisione docente) — `live-server` `mode:'build'`
+  (`/api/propose` con cap+flags duplicato/anno-non-in-fonti, `/api/review` idempotente;
+  proposte in status/close). `timeline-build.html` (pagina studente self-contained).
+  Dashboard revisione (polling 3s; approva → `MappAITimeline.add(origin:'student')` →
+  entra nel progetto). `buildTimelineWorkshopReportHtml` (proposte per allievo + timeline
+  finale). ⚠️ 2 bug catturati dai test: `poolKeys` droppato dal config, `author` mancante
+  sui proposal.
+- **US4 proiezione LIM** — `MappAITimelineLive.openProjection` (fullscreen, QR angolo,
+  timeline che cresce con le approvate ≤3s, ESC per uscire).
+- **US5 login flessibile** — `live-server` `loginMode:'group'` (join per nickname) +
+  `collab-server` `loginMode:'individual'` (join emoji+numero dal roster). Scelta al
+  setup Timeline e all'avvio Lavagna (roster dalla classe attiva). Default storici
+  invariati. FIX `LIMITS`→`LC.LIMITS`.
+- **US6 tab LIM** — `#sidebar-tab-lim` + pannello + `switchSidebarTab('lim')` (kill-switch
+  `mappai_lim_tab='0'`). `renderLimSidebarTab` (card Lavagna/Timeline + dashboard attiva
+  montata via host coesistente → Struttura resta, zero regressioni 006).
+- ✅ Verificato E2E in browser CONTRO SERVER REALE: US1 popup (pool persistito, add/fill/
+  delete, esercizio), US2 (grading ±2/±3, indizi, report, player year-input), US3 (propose
+  gap → approve → "approvata"), US6 (tab+card+moduli). Test: `timeline-core` (21),
+  `live-core` (+8), `live-server` (+3 build/group), `collab-server` (+2 individual).
+  ⚠️ **Da testare in Electron vivo** (quickstart.md): wizard reale + AI-free launch, telefono
+  su LAN, proiezione LIM su mappa reale, tab LIM switch (index.html gated in browser), 2 device.
+
 ### ✅ FATTO (13/7/26): Sintesi — voce naturale come lettore in-app + condivisione QR + fix font
 Tre richieste utente sulla "Sintesi di ramo/mappa" (`mappai-branch-synthesis.js`).
 - **(3) Font topbar** — la barra fissa del documento stampabile (`_buildSynthesisPrintHtml`)

@@ -138,9 +138,9 @@ Repo Electron a script globali: moduli renderer in `public/js/`, server LAN nell
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T040 [P] Audit i18n: ogni chiave `tl_*`/`lv_*` nuova presente in `en_translations.js`; chiavi statiche (`ui_lim_tab`, `tt_lim_tab`) in ENTRAMBI i dizionari; nei core UMD solo `_tSafe`.
-- [ ] T041 [P] Aggiornare `CLAUDE.md` §11 (stato sessione: architettura, kill-switch `mappai_lim_tab`, cosa resta da testare in Electron) e nota in `docs/` solo se serve (nessun contratto vault toccato).
-- [ ] T042 Run completo: `npm test` (tutta la suite verde) + smoke `npm start` (moduli caricano senza errori console). Quickstart Electron+2 device: ESEGUE L'UTENTE (quickstart.md §1-7) — annotare esiti.
+- [X] T040 [P] Audit i18n: ogni chiave `tl_*`/`lv_*` nuova presente in `en_translations.js`; chiavi statiche (`ui_lim_tab`, `tt_lim_tab`) in ENTRAMBI i dizionari; nei core UMD solo `_tSafe`.
+- [X] T041 [P] Aggiornare `CLAUDE.md` §11 (stato sessione: architettura, kill-switch `mappai_lim_tab`, cosa resta da testare in Electron) e nota in `docs/` solo se serve (nessun contratto vault toccato).
+- [X] T042 Run completo: `npm test` (tutta la suite verde) + smoke `npm start` (moduli caricano senza errori console). Quickstart Electron+2 device: ESEGUE L'UTENTE (quickstart.md §1-7) — annotare esiti.
 
 ---
 
