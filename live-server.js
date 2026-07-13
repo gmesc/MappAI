@@ -326,22 +326,34 @@ function createLiveServer(opts) {
           // ── studente: entra nella sessione ──
           if (p === '/api/join') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const rEntry = rosterEntry(body.emojiKey, body.num);
-            if (!rEntry) return json(res, 404, { error: 'not-in-roster' });
             if (!body.deviceId || typeof body.deviceId !== 'string') return json(res, 400, { error: 'bad-device' });
-            const id = LC.identityKey(body.emojiKey, body.num);
-            let st = students[id];
-            if (st && st.deviceId && st.deviceId !== body.deviceId) {
-              return json(res, 409, { error: 'identity-taken' });   // stessa identità, ALTRO device
-            }
-            if (!st) {
-              st = students[id] = {
-                emojiKey: rEntry.emojiKey, num: rEntry.num, name: rEntry.name || '',
-                deviceId: body.deviceId, joinedAt: new Date().toISOString(),
-                finishedAt: null, answers: {}
-              };
+            let id, st;
+            if (session.loginMode === 'group') {
+              // Timeline Live (008): login a gruppi (nickname condiviso, come Lavagna).
+              const nick = LC.sanitizeText(body.nick, LC.LIMITS.nameMax);
+              if (!nick) return json(res, 400, { error: 'bad-nick' });
+              id = LC.slugify(nick);
+              st = students[id];
+              if (st && st.deviceId && st.deviceId !== body.deviceId) return json(res, 409, { error: 'identity-taken' });
+              if (!st) st = students[id] = { group: true, name: nick, deviceId: body.deviceId, joinedAt: new Date().toISOString(), finishedAt: null, answers: {} };
+              else st.deviceId = body.deviceId;
             } else {
-              st.deviceId = body.deviceId;   // adozione dopo release, o rientro stesso device
+              const rEntry = rosterEntry(body.emojiKey, body.num);
+              if (!rEntry) return json(res, 404, { error: 'not-in-roster' });
+              id = LC.identityKey(body.emojiKey, body.num);
+              st = students[id];
+              if (st && st.deviceId && st.deviceId !== body.deviceId) {
+                return json(res, 409, { error: 'identity-taken' });   // stessa identità, ALTRO device
+              }
+              if (!st) {
+                st = students[id] = {
+                  emojiKey: rEntry.emojiKey, num: rEntry.num, name: rEntry.name || '',
+                  deviceId: body.deviceId, joinedAt: new Date().toISOString(),
+                  finishedAt: null, answers: {}
+                };
+              } else {
+                st.deviceId = body.deviceId;   // adozione dopo release, o rientro stesso device
+              }
             }
             persistStudent(id); persist();
             return json(res, 200, {
@@ -403,7 +415,7 @@ function createLiveServer(opts) {
           // ── studente: salva una risposta (autosave, sovrascrivibile) ──
           if (p === '/api/answer') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const id = LC.identityKey(body.emojiKey, body.num);
+            const id = pid(body);
             const st = students[id];
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
@@ -425,7 +437,7 @@ function createLiveServer(opts) {
           // ── studente: consegna (può ancora riaprire fino a chiusura) ──
           if (p === '/api/finish') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const id = LC.identityKey(body.emojiKey, body.num);
+            const id = pid(body);
             const st = students[id];
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });

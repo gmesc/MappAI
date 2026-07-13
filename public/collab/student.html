@@ -120,6 +120,10 @@
   <h1>Lavagna collaborativa</h1>
   <div class="map-name" id="join-map"></div>
   <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off">
+  <div id="join-individual" style="display:none">
+    <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
+    <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Il tuo numero (es. 07)" autocomplete="off">
+  </div>
   <button id="join-btn">Entra</button>
   <div class="err" id="join-err"></div>
 </div>
@@ -213,15 +217,36 @@
     if (r.status !== 200) { $('join-err').textContent = 'Sessione non valida — richiedi un nuovo QR.'; return; }
     S.mapName = r.body.session.name;
     S.rootLabel = r.body.session.rootLabel;
+    S.loginMode = r.body.loginMode || 'group';
     $('join-map').textContent = S.mapName;
     $('hd-title').textContent = S.mapName;
-    if (S.nick) { $('nick').value = S.nick; }
+    // US5: login individuale → emoji + numero dal roster
+    if (S.loginMode === 'individual') {
+      $('nick').style.display = 'none';
+      $('join-individual').style.display = 'block';
+      var g = $('emoji-grid'); g.innerHTML = '';
+      (r.body.emojiSet || []).forEach(function (e) {
+        var b = document.createElement('button');
+        b.textContent = e.emoji; b.setAttribute('data-key', e.key);
+        b.style.cssText = 'font-size:28px;padding:8px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer';
+        b.onclick = function () { S.chosenEmoji = e.key; g.querySelectorAll('button').forEach(function (x) { x.style.borderColor = x === b ? '#4f46e5' : '#e2e8f0'; x.style.background = x === b ? '#eef2ff' : '#fff'; }); };
+        g.appendChild(b);
+      });
+    } else if (S.nick) { $('nick').value = S.nick; }
   }).catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
 
   $('join-btn').onclick = function () {
-    var nick = C.sanitizeNick($('nick').value);
-    if (!nick) { $('join-err').textContent = 'Nome gruppo: da 2 a 24 caratteri.'; return; }
-    api('/api/join', { method: 'POST', body: JSON.stringify({ token: TOKEN, nick: nick, deviceId: deviceId }) })
+    var payload = { token: TOKEN, deviceId: deviceId };
+    if (S.loginMode === 'individual') {
+      var num = ($('in-num').value || '').trim().padStart(2, '0');
+      if (!S.chosenEmoji || !num) { $('join-err').textContent = 'Scegli emoji e numero.'; return; }
+      payload.emojiKey = S.chosenEmoji; payload.num = num;
+    } else {
+      var nick = C.sanitizeNick($('nick').value);
+      if (!nick) { $('join-err').textContent = 'Nome gruppo: da 2 a 24 caratteri.'; return; }
+      payload.nick = nick;
+    }
+    api('/api/join', { method: 'POST', body: JSON.stringify(payload) })
       .then(function (r) {
         if (r.status === 409) { $('join-err').textContent = 'Nome già in uso da un altro gruppo — scegline un altro.'; return; }
         if (r.status !== 200) { $('join-err').textContent = 'Errore di accesso (' + r.status + ').'; return; }

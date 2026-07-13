@@ -1598,7 +1598,9 @@ ipcMain.handle('collab-start-session', async (event, opts) => {
         collabSrv = createCollabServer({
             repoRoot: __dirname,
             dir,
-            session: { name, rootLabel: (opts && opts.rootLabel) || name }
+            // Login flessibile (008 US5): loginMode/roster pass-through (default = gruppi)
+            session: { name, rootLabel: (opts && opts.rootLabel) || name, loginMode: (opts && opts.loginMode) || 'group' },
+            roster: (opts && Array.isArray(opts.roster)) ? opts.roster : []
         });
         let port = null, lastErr = null;
         for (let p = 8766; p <= 8776; p++) {

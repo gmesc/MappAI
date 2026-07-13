@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const CC = require(path.join(__dirname, 'public', 'js', 'mappai-collab-core.js'));
+const LC = require(path.join(__dirname, 'public', 'js', 'mappai-live-core.js'));   // US5: EMOJI_SET login individuale
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -50,6 +51,7 @@ function createCollabServer(opts) {
   // ── Stato: nuovo o RIPRESA da disco (riavvio a metà lezione = zero perdite) ──
   let session;
   let groups = {};   // slug → { nick, color, deviceId, nodes, rev, updatedAt }
+  const roster = Array.isArray(opts.roster) ? opts.roster : [];   // US5: login individuale
   const sessionFile = path.join(dir, 'session.json');
   if (fs.existsSync(sessionFile) && !opts.fresh) {
     const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
@@ -68,6 +70,9 @@ function createCollabServer(opts) {
       schema: 'mappai-collab-session@1',
       name: (opts.session && opts.session.name) || 'Lavagna',
       rootLabel: (opts.session && opts.session.rootLabel) || 'Tema centrale',
+      // Login flessibile (008 US5): 'group' (storico, nickname) o 'individual'
+      // (roster emoji+numero). Default = comportamento storico a gruppi.
+      loginMode: (opts.session && opts.session.loginMode === 'individual') ? 'individual' : 'group',
       token: token(10),
       adminToken: token(16),
       startedAt: new Date().toISOString()
@@ -157,7 +162,8 @@ function createCollabServer(opts) {
         return json(res, 200, {
           schema: 'mappai-collab-session@1',
           session: { name: session.name, rootLabel: session.rootLabel, startedAt: session.startedAt },
-          palette: CC.PALETTE, sizes: CC.SIZES, limits: CC.LIMITS
+          palette: CC.PALETTE, sizes: CC.SIZES, limits: CC.LIMITS,
+          loginMode: session.loginMode, emojiSet: session.loginMode === 'individual' ? LC.EMOJI_SET : undefined
         });
       }
 
@@ -184,9 +190,17 @@ function createCollabServer(opts) {
 
           if (p === '/api/join') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const nick = CC.sanitizeNick(body.nick);
-            if (!nick) return json(res, 400, { error: 'bad-nick' });
             if (!body.deviceId || typeof body.deviceId !== 'string') return json(res, 400, { error: 'bad-device' });
+            let nick;
+            if (session.loginMode === 'individual') {
+              // US5: identità dal roster (emoji + numero). nick = nome allievo o "volpe-03".
+              const rEntry = roster.find(r => r.emojiKey === body.emojiKey && String(r.num) === String(body.num));
+              if (!rEntry) return json(res, 401, { error: 'not-in-roster' });
+              nick = (rEntry.name && String(rEntry.name).trim()) ? String(rEntry.name).trim() : (body.emojiKey + '-' + body.num);
+            } else {
+              nick = CC.sanitizeNick(body.nick);
+              if (!nick) return json(res, 400, { error: 'bad-nick' });
+            }
             const slug = CC.slugify(nick);
             const existing = groups[slug];
             if (existing && existing.deviceId && existing.deviceId !== body.deviceId) {

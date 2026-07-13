@@ -342,3 +342,32 @@ test('build: propose su sessione quiz → 404; ripresa da disco con proposte', a
   assert.ok((rejoin.body.proposals || []).length === 1); // proposta ritrovata
   await s2.stop();
 });
+
+// ── Login flessibile (008 US5): live-server loginMode 'group' ───────────────
+test('live loginMode group: join per nickname, 409 altro device, report per gruppo', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-grp-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Q', activity: 'timeline', className: '3A', loginMode: 'group' },
+    roster: [], questions: [{ kind: 'open', text: 'Nel 1947?', answerText: 'Piano Marshall', tlYear: 1947 }]
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const st = srv.state(); const tok = st.session.token, admin = st.session.adminToken;
+  assert.strictEqual((await api('/api/session?s=' + tok)).body.loginMode, 'group');
+
+  const j1 = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1' }) });
+  assert.strictEqual(j1.status, 200);
+  assert.strictEqual(j1.body.displayName, 'I Galli');
+  // stesso nick altro device → 409
+  assert.strictEqual((await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'dX' }) })).status, 409);
+  // stesso device → ripresa ok
+  assert.strictEqual((await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1' }) })).status, 200);
+
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1', qIdx: 0, text: 'Piano Marshall', ms: 900 }) });
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  const rep = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
+  assert.ok(rep.includes('I Galli'));   // report aggregato per gruppo
+  await srv.stop();
+});

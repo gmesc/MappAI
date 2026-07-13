@@ -237,3 +237,43 @@ test('POST /api/nodes: link con estremità inesistente → rejected, non salvato
   const g = board.body.groups.find(g => g.nick === 'I Leoni');
   assert.strictEqual(g.links.length, 1);   // resta solo l1
 });
+
+// ── Login flessibile (008 US5): collab-server loginMode 'individual' ────────
+test('collab loginMode individual: join per emoji+numero dal roster', async () => {
+  const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-ind-'));
+  const roster = LC.buildCredentials(2);   // volpe-00, panda-00
+  const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav', loginMode: 'individual' }, roster });
+  const pt = await s.listen(0, '127.0.0.1');
+  const a = (p, o) => fetch('http://127.0.0.1:' + pt + p, o).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
+  const stt = s.state ? s.state() : null;
+  const t = JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session.token;
+
+  const sess = await a('/api/session?s=' + t);
+  assert.strictEqual(sess.body.loginMode, 'individual');
+  assert.ok(Array.isArray(sess.body.emojiSet));
+
+  // fuori roster → 401
+  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'unicorno', num: '09', deviceId: 'dX' }) })).status, 401);
+  // dal roster → 200, nick = "volpe-00"
+  const j = await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(j.status, 200);
+  assert.strictEqual(j.body.nick, 'volpe-00');
+  // stesso identità altro device → 409
+  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'volpe', num: '00', deviceId: 'dY' }) })).status, 409);
+  await s.stop();
+});
+
+test('collab default resta a gruppi (nessuna regressione 003/006)', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-grp-'));
+  const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
+  const pt = await s.listen(0, '127.0.0.1');
+  const a = (p, o) => fetch('http://127.0.0.1:' + pt + p, o).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
+  const t = JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session.token;
+  const sess = await a('/api/session?s=' + t);
+  assert.strictEqual(sess.body.loginMode, 'group');
+  const j = await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, nick: 'I Galli', deviceId: 'd1' }) });
+  assert.strictEqual(j.status, 200);
+  assert.strictEqual(j.body.nick, 'I Galli');
+  await s.stop();
+});

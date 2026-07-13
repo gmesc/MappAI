@@ -117,9 +117,9 @@ Repo Electron a script globali: moduli renderer in `public/js/`, server LAN nell
 
 **Independent Test**: quickstart §5 — Timeline a gruppi aggrega per gruppo; Lavagna individuale attribuisce ai singoli; default storici invariati.
 
-- [ ] T033 [US5] `live-server.js` loginMode 'group' (contracts §1.2): `/api/join` con `{nick}` (sanitize+slug come collab), identità=slug, displayName=nick, 409 altro-device/ripresa/adozione come da pattern; report labels via displayName. Test in `tests/live-server.test.js` (join group, 409, ripresa; default individual invariato).
-- [ ] T034 [P] [US5] `collab-server.js` loginMode 'individual' (contracts §2): opts `loginMode`+`roster`; `/api/join` con `{emojiKey,num}` validato su roster (riuso `identityKey`/`displayName` di live-core — require nel server), 401 not-in-roster, slot-gruppo=identità; default 'group' byte-compatibile. Test in `tests/collab-server.test.js`.
-- [ ] T035 [US5] UI: toggle login nel wizard Timeline (T019, default individuale) e scelta login al lancio Lavagna in `public/js/mappai-collab-teacher.js` (default gruppi = storico; individuale → passa roster della classe attiva); dashboard Lavagna mostra displayName. `main.js`: pass-through `loginMode`/`roster` su `collab-start-session`.
+- [X] T033 [US5] `live-server.js` loginMode 'group' (contracts §1.2): `/api/join` con `{nick}` (sanitize+slug come collab), identità=slug, displayName=nick, 409 altro-device/ripresa/adozione come da pattern; report labels via displayName. Test in `tests/live-server.test.js` (join group, 409, ripresa; default individual invariato).
+- [X] T034 [P] [US5] `collab-server.js` loginMode 'individual' (contracts §2): opts `loginMode`+`roster`; `/api/join` con `{emojiKey,num}` validato su roster (riuso `identityKey`/`displayName` di live-core — require nel server), 401 not-in-roster, slot-gruppo=identità; default 'group' byte-compatibile. Test in `tests/collab-server.test.js`.
+- [X] T035 [US5] UI: toggle login nel wizard Timeline (T019, default individuale) e scelta login al lancio Lavagna in `public/js/mappai-collab-teacher.js` (default gruppi = storico; individuale → passa roster della classe attiva); dashboard Lavagna mostra displayName. `main.js`: pass-through `loginMode`/`roster` su `collab-start-session`.
 - [ ] T036 [US5] Verifica: Timeline a gruppi con 2 device stesso nick (2° → 409) e report per gruppo; Lavagna individuale join emoji+numero; Lavagna senza opzione = identica a 006. Suite verde.
 
 ---

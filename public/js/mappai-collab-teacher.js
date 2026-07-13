@@ -134,11 +134,24 @@
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:14px">
                 ${t('cl_net_note', 'Rete: usa l\'hotspot del PC o un router d\'aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.')}
             </div>
-            <div style="font-size:13px;color:#0f172a;margin-bottom:14px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
+            <div style="font-size:13px;color:#0f172a;margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_login', 'Accesso allievi')}</label>
+            <select id="cl-login" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;margin-bottom:14px">
+                <option value="group">${t('cl_login_grp', 'A gruppi (nickname)')}</option>
+                <option value="individual">${t('cl_login_ind', 'Individuale (roster della classe attiva)')}</option>
+            </select>
             <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700">
                 ${t('cl_start', 'Avvia sessione')}</button>
         `, '520px').querySelector('#cl-start').onclick = async () => {
-            const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel() });
+            const loginMode = (document.getElementById('cl-login') || {}).value || 'group';
+            let roster = [];
+            if (loginMode === 'individual') {
+                let cls = null;
+                try { cls = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive(); } catch (e) {}
+                roster = (cls && Array.isArray(cls.students)) ? cls.students.map(s => ({ emojiKey: s.emojiKey, num: s.num, name: s.name || '' })) : [];
+                if (!roster.length) { toast(t('cl_no_roster', 'Nessuna classe attiva col roster. Scegli una classe o usa il login a gruppi.'), 'error'); return; }
+            }
+            const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel(), loginMode, roster });
             if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
             CT.info = r;
             // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
