@@ -300,8 +300,37 @@
         '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(d.title) + '">' + esc(d.title) + '</span>' +
         '<span class="block text-[10px] text-slate-400 truncate">' + esc(_t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label)) + (d.mapName ? ' · ' + esc(d.mapName) : '') + '</span></span>' +
         cls + '<span class="text-[10px] text-slate-400 shrink-0">' + esc(dt) + '</span>' +
-        '<i data-lucide="external-link" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i></div>';
+        (d.kind !== 'nodesheet'
+          ? '<button type="button" onclick="event.stopPropagation();window.MappAITeach.shareDoc(\'' + esc(d.id) + '\')" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" class="inline-flex items-center text-green-600 hover:text-green-700 rounded-lg p-1.5"><i data-lucide="qr-code" class="w-4 h-4"></i></button>'
+          : '') +
+        '<button type="button" onclick="event.stopPropagation();window.MappAITeach.deleteDoc(\'' + esc(d.id) + '\')" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" class="inline-flex items-center text-slate-300 hover:text-red-500 rounded-lg p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+        '</div>';
     }).join('');
+  }
+
+  // Condivide un materiale archiviato via QR (Materiali di MappAI Live). Solo HTML.
+  function shareDoc(id) {
+    var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
+    if (!doc || !doc.html) { toast(_t('lt_doc_no_qr', 'Questo materiale non è condivisibile via QR (solo i documenti HTML lo sono).'), 'warning'); return; }
+    if (!(window.MappAILive && window.MappAILive.publishHtml)) { toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning'); return; }
+    var fname = (doc.title || 'materiale').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.html';
+    Promise.resolve(window.MappAILive.publishHtml(fname, doc.html)).then(function () {
+      logSession({ map: doc.mapName || '', activity: 'materiali' });
+      if (window.MappAILive.openMaterials) window.MappAILive.openMaterials();
+    });
+  }
+
+  // Elimina un materiale archiviato (con conferma).
+  function deleteDoc(id) {
+    var go = function () {
+      if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
+      var docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [];
+      renderMaterials(docs);
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    };
+    var msg = _t('lt_doc_del_confirm', 'Eliminare questo materiale dall\'archivio? (l\'operazione non si può annullare)');
+    if (window.showConfirm) window.showConfirm(msg, go);
+    else if (confirm(msg)) go();
   }
 
   // ── Registro attività di studio + report (010) ────────────────────────────
@@ -502,16 +531,34 @@
     if (!list.length) { toast(_t('lt_no_docs', 'Nessun materiale condivisibile. Genera una Sintesi, un Dossier o una Timeline.'), 'warning'); return; }
     var inner = list.map(function (d) {
       var meta = KIND_META[d.kind] || KIND_META.dossier;
-      return '<button type="button" class="lt-doc" data-id="' + esc(d.id) + '" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;margin-bottom:6px">' +
+      return '<div class="lt-doc-row" data-id="' + esc(d.id) + '" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+        '<button type="button" class="lt-doc" data-id="' + esc(d.id) + '" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" style="flex:1;min-width:0;text-align:left;display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer">' +
         '<i data-lucide="' + meta.icon + '" style="width:16px;height:16px;color:#4f46e5;flex:0 0 auto"></i>' +
         '<span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(d.title) + '</span>' +
-        (d.mapName ? '<span style="display:block;font-size:10px;color:#94a3b8">' + esc(d.mapName) + '</span>' : '') + '</span></button>';
+        (d.mapName ? '<span style="display:block;font-size:10px;color:#94a3b8">' + esc(d.mapName) + '</span>' : '') + '</span>' +
+        '<i data-lucide="qr-code" style="width:15px;height:15px;color:#16a34a;flex:0 0 auto"></i></button>' +
+        '<button type="button" class="lt-doc-del" data-id="' + esc(d.id) + '" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" style="border:1px solid #fecaca;background:#fff;border-radius:10px;padding:9px 10px;cursor:pointer;color:#ef4444;flex:0 0 auto"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>' +
+        '</div>';
     }).join('');
     var ov = makeOverlay('folder-down', _t('lt_pick_doc', 'Scegli il materiale'), inner, '520px');
     ov.querySelectorAll('.lt-doc').forEach(function (b) {
       b.onclick = function () {
         var d = window.MappAIStudyDocs.get(b.dataset.id);
         ov.remove(); cb(d);
+      };
+    });
+    ov.querySelectorAll('.lt-doc-del').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.dataset.id;
+        var go = function () {
+          if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
+          var row = ov.querySelector('.lt-doc-row[data-id="' + id + '"]'); if (row) row.remove();
+          if (!ov.querySelector('.lt-doc-row')) { ov.remove(); toast(_t('lt_docs_empty', 'Nessun materiale rimasto.'), 'info'); }
+          if (window.MappAITeach && window.MappAITeach.refresh) window.MappAITeach.refresh();
+        };
+        var msg = _t('lt_doc_del_confirm', 'Eliminare questo materiale dall\'archivio? (l\'operazione non si può annullare)');
+        if (window.showConfirm) window.showConfirm(msg, go);
+        else if (confirm(msg)) go();
       };
     });
   }
@@ -621,6 +668,8 @@
     quickStart: quickStart,
     editGrade: editGrade,
     openDoc: openDoc,
+    shareDoc: shareDoc,
+    deleteDoc: deleteDoc,
     openSet: openSet,
     openReport: openReport,
     logSession: logSession,
