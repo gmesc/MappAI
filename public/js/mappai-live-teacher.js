@@ -127,6 +127,10 @@
       '<button type="button" data-m="mc">' + t('lv_m_mc', 'Scelta multipla') + '</button>' +
       '<button type="button" data-m="cloze">' + t('lv_m_cloze', 'Cloze') + '</button>' +
       '<button type="button" data-m="custom">' + t('lv_m_custom', 'Domande mie') + '</button></div>' +
+      '<div id="lv-prov-badge" style="margin-top:10px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:8px;padding:7px 10px">' +
+      t('lv_provider_badge', 'Domande generate con:') + ' <b>' +
+      (window.aiProviderLabel ? window.aiProviderLabel((S() && S().aiProvider) || 'google') : 'Google') + '</b></div>' +
+      (window.MappAINetMode ? window.MappAINetMode.fieldHtml('lv') : '') +
       '<div id="lv-mapopts">' +
       '<span class="lv-lab">' + t('lv_scope', 'Da dove') + '</span>' + scopeField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qty', 'Numero domande') + '</span><input id="lv-qty" type="number" class="lv-in" value="8" min="1" max="' + LC.LIMITS.questionsMax + '" inputmode="numeric"></div>' +
@@ -138,6 +142,7 @@
       '<button type="button" id="lv-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
 
     var ov = modal('radio', t('lv_setup_title', 'Studio attivo live'), body, '620px');
+    if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'lv');
     var mode = 'tf';
     var goClass = ov.querySelector('#lv-goclass');
     if (goClass) goClass.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
@@ -159,6 +164,7 @@
       if (mode === 'custom') {
         var qs = readCustomEditor(ov.querySelector('#lv-customwrap'));
         if (!qs.length) { toast(t('lv_no_custom', 'Aggiungi almeno una domanda.'), 'error'); return; }
+        LT._scope = '';   // 010: domande personalizzate = intera mappa
         launch(cls, 'Domande', qs, parseInt(ov.querySelector('#lv-timer2') && ov.querySelector('#lv-timer2').value || '0', 10) || 0);
         return;
       }
@@ -290,7 +296,16 @@
     return step().then(function () { return out; });
   }
 
+  // 010: etichetta leggibile del ramo coperto ('' = tutta la mappa) → session.json.
+  function scopeLabelFor(scope) {
+    if (!scope || scope === 'all') return '';
+    var n = (S().db.nodes || []).find(function (x) { return x.id === scope; });
+    if (!n) return '';
+    return (window.cleanLabel ? window.cleanLabel(n.label) : n.label) || '';
+  }
+
   function generateAndLaunch(cls, mode, scope, qty, timer) {
+    LT._scope = scopeLabelFor(scope);   // 010: coperto dal report registro
     var nodes = scopedNodes(scope);
     if (!nodes.length) { toast(t('lv_no_nodes', 'Nessun nodo con abbastanza testo in questa selezione.'), 'error'); return; }
     if (mode === 'cloze') {
@@ -412,6 +427,7 @@
     extra = extra || {};
     var payload = {
       name: rootLabel(), activity: activity, className: cls.name,
+      scope: LT._scope || '',   // 010: ramo coperto per il registro attività
       durationMin: timer || 0,
       roster: (cls.students || []).map(function (s) { return { emojiKey: s.emojiKey, emoji: s.emoji, num: s.num, name: s.name || '' }; }),
       questions: questions
@@ -421,8 +437,11 @@
     if (extra.loginMode) payload.loginMode = extra.loginMode;
     if (extra.hintMode) payload.hintMode = extra.hintMode;
     if (extra.build) payload.build = extra.build;
+    // Variante WEB: la scelta WiFi/Internet del wizard viaggia nello start IPC
+    if (window.MappAINetMode) payload.netMode = window.MappAINetMode.get();
     return window.electronAPI.liveStartSession(payload).then(function (r) {
       if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return null; }
+      if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
       LT.info = r; closeModal();
       // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
       try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: extra.logActivity || 'live' }); } catch (e) { }
@@ -459,6 +478,7 @@
       (qrSrc ? '<img id="lv-qr" src="' + qrSrc + '" alt="QR" style="width:210px;height:210px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">'
              : '<div style="color:#b45309;font-size:12px">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.info.urls.map(esc).join('<br>') + '</div>' +
+      (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.info) : '') +
       '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_qr_hint', 'Clic sul QR per proiettarlo (LIM)') + '</div></div>' +
       '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
       '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">' + t('lv_roster', 'Allievi') + '</span>' +
@@ -580,14 +600,29 @@
   }
 
   // ── Materiali ─────────────────────────────────────────────────────────────
+  // Avvio (o riuso) del server materiali — punto unico: porta la scelta
+  // WiFi/Internet del toggle e mostra il toast se il relay è in fallback.
+  function ensureMatServer() {
+    if (LT.matInfo) return Promise.resolve(LT.matInfo);
+    var opts = { name: rootLabel() };
+    if (window.MappAINetMode) opts.netMode = window.MappAINetMode.get();
+    return window.electronAPI.liveMaterialsStart(opts).then(function (r) {
+      if (r && r.success) {
+        LT.matInfo = r;
+        if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
+      }
+      return r;
+    });
+  }
+
   async function openMaterialsPanel() {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsStart) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return; }
     var info = await window.electronAPI.liveMaterialsInfo();
-    if (!info || !info.success) {
-      info = await window.electronAPI.liveMaterialsStart({ name: rootLabel() });
+    if (info && info.success) LT.matInfo = info;
+    else {
+      info = await ensureMatServer();
       if (!info || !info.success) { toast((info && info.error) || 'Errore avvio server', 'error'); return; }
     }
-    LT.matInfo = info;
     renderMaterials();
   }
 
@@ -601,6 +636,7 @@
     var body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start">' +
       '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">' : '') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
+      (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.matInfo) : '') +
       '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div></div>' +
       '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
@@ -645,7 +681,7 @@
   window.MappAILive.openDashboard = function () { return openDashboard(); };
   window.MappAILive.publishHtml = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function () { return window.electronAPI.liveMaterialsAddHtml({ filename: filename, html: html }); })
       .then(function (r) { if (r && r.success) { LT.matInfo.files = r.files; toast(t('lv_published', 'Pubblicato') + ': ' + (r.file || filename), 'success'); } return r; });
   };
@@ -687,13 +723,14 @@
   window.MappAILive.shareDocQr = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
     var studentHtml = _injectStudentSaveBar(html);
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function () { return window.electronAPI.liveMaterialsAddHtml({ filename: filename, html: studentHtml }); })
       .then(function (r) {
         if (!r || !r.success) { toast((r && r.error) || t('lv_electron', 'Errore'), 'error'); return r; }
         LT.matInfo.files = r.files;
         var info = LT.matInfo;
-        var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+        // web mode: path espliciti sull'ORIGIN del relay (mai su /j/<code>)
+        var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
         var fileUrl = base + '/files/' + encodeURIComponent(r.file) + '?s=' + info.token;
         openDocQr(fileUrl, r.file);
         return r;
@@ -727,8 +764,7 @@
   window.MappAILive = window.MappAILive || {};
   window.MappAILive.shareFile = function (id) {
     if (!window.electronAPI || !window.electronAPI.sharedmatPublish) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo)
-      : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function (info) {
       if (!info || !info.success) { toast((info && info.error) || t('lv_electron', 'Errore'), 'error'); return null; }
       return window.electronAPI.sharedmatPublish({ id: id, className: activeClassName() });
@@ -736,7 +772,8 @@
       if (!p) return null;
       if (!p.success) { toast((p && p.error) || t('lv_electron', 'Errore'), 'error'); return p; }
       var info = LT.matInfo;
-      var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+      // web mode: path espliciti sull'ORIGIN del relay (mai su /j/<code>)
+      var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
       var fileUrl = base + '/public/live/file.html?s=' + info.token + '&f=' + encodeURIComponent(p.file);
       openDocQr(fileUrl, p.file);
       document.dispatchEvent(new CustomEvent('mappai-sharedmat-changed'));

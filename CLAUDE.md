@@ -534,6 +534,54 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (14/7/26): 010-file-organization — cartella madre unica "MappAI - file" + registro attività/report
+Branch `010-file-organization`. Tre richieste utente. **OPT-IN puro**: finché
+`mappai-settings.json` non ha `filesOrganized:true`, TUTTI i path restano storici
+(~/Documents/MappAI - *) → zero regressioni. Suite **469/469** ✅.
+- **Core puro** `public/js/mappai-files-core.js` (UMD): `ROOT_FOLDER`/`SUB`
+  (Mappe·Attività di studio·File condivisi·Classi·Giardini), `safeName` (FS-safe,
+  conserva accenti/trattini), `isoDate` (AAAA-MM-GG ordinabile), `classFolder`,
+  `activityLabel`, `sessionFolderName`/`sessionRelPath` (gerarchia
+  Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa — ramo>, deterministica →
+  resume idempotente), `LEGACY`/`planMigration` (ribucketing sessioni per classe +
+  flat wholesale), `sessionRecordFrom` (riga registro robusta alle 2 forme
+  live joined/absent · tutor students/roster). +10 test `tests/files-core.test.js`.
+- **(1) main.js — choke point + rewiring**: `readSettings/writeSettings`,
+  `filesOrganized()` (flag+filesRoot), `mappaiRootDir()`/`subDir()` + base-dir helper
+  (`mapsBaseDir`/`sharedBaseDir`/`classesBaseDir`/`gardensBaseDir`/`activityBaseDir`) e
+  `studySessionDir()` (nuova gerarchia se organizzato, slug flat storico altrimenti).
+  TUTTI i ~15 `app.getPath('documents')`+`MappAI - X` reindirizzati (vault/live/tutor/
+  lavagna/garden/classi/materiali). ⚠️ **I vault utente scelti a mano (pickFolder →
+  activeVaultPath assoluto) NON sono toccati**; i progetti referenziano il vault per NOME
+  (basename), risolto live via `get-all-vaults`→`mapsBaseDir()` → dopo la migrazione il
+  nome→path segue da solo a Mappe (nessun rewrite dei path salvati).
+  IPC: `files-root-get/choose`, `files-migrate-preview`, `files-setup` (crea
+  MappAI - file+sub, migra con **rename atomico + fallback copia/EXDEV**, log
+  `migrazione-log.json`, ritorna `vaultMap`), `files-open-root`. preload esposto.
+- **(2) Naming** (scelta utente: per-classe, ISO): sessioni in
+  `Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa (— ramo)>`; report interni
+  con nomi parlati (report-domande/studenti/costruzione/tutor.html) già esistenti.
+  `scope` (ramo L1 coperto) ora PERSISTITO in session.json (live/tutor/collab-server +
+  main.js pass-through); live-teacher passa `LT._scope` (label del ramo o '' = mappa intera).
+- **(3) Registro attività** (rimpiazza "Quiz & flashcard" nella landing Insegna):
+  IPC `study-sessions-list` cammina "Attività di studio" (o le 3 cartelle storiche),
+  legge session.json+results.json+report htmls → `sessionRecordFrom`; `study-report-open`
+  (`shell.openPath`, allowlist path). `mappai-landing-teach.js`: sezione
+  `teach-activities` = una riga per SOMMINISTRAZIONE (attività·mappa · ramo/Tutta la mappa
+  · classe · **partecipanti/totale** · data · **bottoni per ogni report**); saved-sets
+  demoti a sottolista riapribile. Filtro "solo classe attiva". `mappai-files-settings.js`
+  (`window.MappAIFiles.openSettings` + `maybePromptFirstRun` una-volta): sceglie posizione
+  → anteprima migrazione → conferma (checkbox "sposta dati" + warning Obsidian) → setup.
+- i18n: `ui_teach_activities`/`ui_files_folder`/`lt_activities_*`/`lt_whole_map`/`fx_*`
+  con fallback IT inline + EN in `en_translations.js` (regola 13). Audit: 0 mancanti.
+- ✅ Verificato: 469/469, tutti i file parse-clean, **pipeline Part 3 provata sui DATI
+  REALI su disco** (8 sessioni Live/Tutor → righe corrette: Tutor 2/20 + Report tutor,
+  Quiz 12/12 + domande/studenti; materiali-* 0/0 senza report → filtrati).
+  ⚠️ **Da testare in Electron vivo**: prompt primo avvio + scelta posizione (dialog),
+  migrazione reale delle 7 cartelle (rename + vaultMap + Obsidian re-point), che dopo la
+  migrazione i vault si riaprano da Mappe, registro attività con report cliccabili su
+  sessione reale, generazione con `scope` valorizzato.
+
 ### ✅ FATTO (13/7/26): 008-timeline-live — Timeline via QR (Completa/Costruisci) + LIM + login flessibile
 Spec-kit completo (`specs/008-timeline-live/`, branch omonimo). La timeline diventa
 attività di classe in MappAI Live. Suite **431/431** ✅. Sei user story:
@@ -869,6 +917,25 @@ della generazione** al momento della creazione (le schede fonte sono già divers
   nodeId+l1. Fallback a `genQuizForNode` solo se il nuovo motore non produce nulla.
 - Verificato il mapping in Node (MC stringa→indice, 1-based→0-based, V/F Vero/Falso, scarto
   non mappabile). Suite **428/428** ✅. ⚠️ Da provare in Electron vivo con AI reale.
+
+**Follow-up FATTO: badge/toggle provider AI (privacy dati studente).**
+- Motivazione: nel Tutor QR ("Chatta e Scrivi") il testo degli STUDENTI va all'AI a runtime →
+  il docente deve sapere/scegliere su quale provider (Google vs Infomaniak svizzero/GDPR).
+  Quiz/cloze/timeline generano l'AI PRIMA della sessione (contenuto mappa, non PII) → lì basta
+  un badge di trasparenza.
+- Helper globali in `app.js`: `getProviderKey(p)` (chiave del provider SCELTO, non solo
+  l'attivo), `aiProviderLabel(p)` ('🇨🇭 Infomaniak (Svizzera)' / 'Google (Gemini)'),
+  `aiProvidersAvailable()` (provider con chiave configurata).
+- **Tutor QR** (`mappai-tutor-teacher.js`): `providerConfig(override)` legge le credenziali del
+  provider scelto; wizard mostra **selettore** se ≥2 provider configurati (default = attivo,
+  NESSUNA memoria), **badge** se 1 solo; su Avvia usa il provider scelto e blocca se Infomaniak
+  senza Product ID. La chiave viaggia come prima (opts→callModel in-process, MAI ai telefoni).
+- **Live quiz** (`mappai-live-teacher.js`): badge sola lettura "Domande generate con: <provider>"
+  nel wizard (il toggle vero lì = fase 2, richiederebbe override di fetchModelAPI).
+- i18n: `tq_provider`/`tq_provider_badge`/`tq_need_productid`/`lv_provider_badge` (EN + IT inline).
+- Verificato: logica helper in Node (0/1/2 provider), badge Infomaniak reso nel Live setup in
+  harness (nessun errore console). Suite **431/431** ✅. ⚠️ Electron vivo: selettore Tutor con
+  entrambe le chiavi + avvio reale su Infomaniak.
 
 ### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
 Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge

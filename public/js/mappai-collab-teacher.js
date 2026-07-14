@@ -140,9 +140,13 @@
                 <option value="group">${t('cl_login_grp', 'A gruppi (nickname)')}</option>
                 <option value="individual">${t('cl_login_ind', 'Individuale (roster della classe attiva)')}</option>
             </select>
-            <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700">
+            ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('cl') : ''}
+            <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700;margin-top:14px">
                 ${t('cl_start', 'Avvia sessione')}</button>
-        `, '520px').querySelector('#cl-start').onclick = async () => {
+        `, '520px');
+        const ovStart = document.getElementById('collab-hub-modal');
+        if (window.MappAINetMode) window.MappAINetMode.bind(ovStart, 'cl');
+        ovStart.querySelector('#cl-start').onclick = async () => {
             const loginMode = (document.getElementById('cl-login') || {}).value || 'group';
             let roster = [];
             if (loginMode === 'individual') {
@@ -151,8 +155,10 @@
                 roster = (cls && Array.isArray(cls.students)) ? cls.students.map(s => ({ emojiKey: s.emojiKey, num: s.num, name: s.name || '' })) : [];
                 if (!roster.length) { toast(t('cl_no_roster', 'Nessuna classe attiva col roster. Scegli una classe o usa il login a gruppi.'), 'error'); return; }
             }
-            const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel(), loginMode, roster });
+            const netMode = window.MappAINetMode ? window.MappAINetMode.get() : 'lan';
+            const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel(), loginMode, roster, netMode });
             if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
+            if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
             CT.info = r;
             // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
             try {
@@ -196,6 +202,7 @@
                     ${qrSrc ? `<img class="cl-qr" src="${qrSrc}" alt="QR" style="width:180px;max-width:100%;height:auto;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">`
                             : '<div style="color:#b45309;font-size:12px">QR non disponibile (libreria mancante)</div>'}
                     <div style="font-size:11.5px;color:#475569;margin-top:6px;word-break:break-all">${CT.info.urls.map(esc).join('<br>')}</div>
+                    ${window.MappAINetMode ? window.MappAINetMode.lanLineHtml(CT.info) : ''}
                     <div style="font-size:10.5px;color:#94a3b8;margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
                 </div>
                 <div>
@@ -260,26 +267,57 @@
     // ── Tab LIM (008): casa delle attività collaborative da lavagna ───────────
     // Elenco attività (Lavagna / Timeline) + dashboard attive montate qui.
     // La Lavagna resta anche nel tab Struttura (host coesistenti, zero regressioni).
-    function limCard(icon, title, desc) {
-        return '<button type="button" class="lim-card" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
+    // act = chiave nel dispatch di renderLimSidebarTab (evita l'indice fragile)
+    function limCard(act, icon, title, desc) {
+        return '<button type="button" class="lim-card" data-act="' + esc(act) + '" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
             '<div style="width:38px;height:38px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="' + icon + '" style="width:19px;height:19px;color:#4f46e5"></i></div>' +
             '<div style="flex:1"><div style="font-weight:800;color:#0f172a;font-size:13.5px">' + esc(title) + '</div>' +
             '<div style="font-size:11.5px;color:#94a3b8;margin-top:1px">' + esc(desc) + '</div></div></button>';
     }
+    function limSection(title) {
+        return '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:14px 0 8px">' + esc(title) + '</div>';
+    }
     CT.renderLimSidebarTab = function () {
         const panel = document.getElementById('sidebar-panel-lim');
         if (!panel) return;
+        // classe attiva → mostrala nella card dedicata
+        const activeCls = (window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive()) || null;
+        const clsDesc = activeCls
+            ? t('lim_class_active_on', 'Attiva:') + ' ' + (activeCls.name || '')
+            : t('lim_class_active_d', 'Nessuna: la generazione resta generica');
         panel.innerHTML =
-            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:2px 0 10px">' +
+            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:2px 0 4px">' +
               esc(t('lim_title', 'Attività da LIM')) + '</div>' +
-            '<div id="lim-cards">' +
-              limCard('presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
-              limCard('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
-            '</div>' +
+            '<div style="font-size:11.5px;color:#94a3b8;line-height:1.5;margin-bottom:4px">' +
+              esc(t('lim_intro', 'Attività via QR: gli allievi entrano dal telefono sulla rete d\'aula.')) + '</div>' +
+            // ── § Attività live (gli allievi entrano col QR) ─────────────────
+            limSection(t('lim_sec_live', 'Attività live')) +
+            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla, cloze o domande tue')) +
+            limCard('board', 'presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
+            limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
+            limCard('timeline', 'calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
+            // ── § Condivisione ───────────────────────────────────────────────
+            limSection(t('lim_sec_share', 'Condivisione')) +
+            limCard('materials', 'folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)')) +
+            // ── § Classi ─────────────────────────────────────────────────────
+            limSection(t('lim_sec_classes', 'Classi')) +
+            limCard('class-switch', 'graduation-cap', t('lim_class_active', 'Classe attiva'), clsDesc) +
+            limCard('class-accounts', 'users', t('ui_class_accounts', 'Account classi'), t('lim_classes_d', 'Crea e gestisci classi e credenziali')) +
             '<div id="lim-active" style="margin-top:6px"></div>';
-        const cards = panel.querySelectorAll('.lim-card');
-        cards[0].onclick = function () { if (window.openCollabHub) window.openCollabHub(); };
-        cards[1].onclick = function () { if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else if (window.showToast) window.showToast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
+        // dispatch: data-act → azione (guardia + fallback toast per funzioni assenti)
+        const missing = function () { if (window.showToast) window.showToast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
+        const actions = {
+            'live': function () { if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup(); else missing(); },
+            'board': function () { if (window.openCollabHub) window.openCollabHub(); else missing(); },
+            'tutor': function () { if (window.MappAITutor && window.MappAITutor.open) window.MappAITutor.open(); else missing(); },
+            'timeline': function () { if (window.MappAITimelineLive && window.MappAITimelineLive.openSetup) window.MappAITimelineLive.openSetup(); else missing(); },
+            'materials': function () { if (window.MappAILive && window.MappAILive.openMaterials) window.MappAILive.openMaterials(); else missing(); },
+            'class-switch': function () { if (window.openClassSwitcher) window.openClassSwitcher(); else missing(); },
+            'class-accounts': function () { if (window.openClassAccountsModal) window.openClassAccountsModal(); else missing(); }
+        };
+        panel.querySelectorAll('.lim-card').forEach(function (btn) {
+            btn.onclick = function () { const fn = actions[btn.getAttribute('data-act')]; if (fn) fn(); };
+        });
         // sessione Lavagna attiva → monta la dashboard anche qui (host coesistente)
         const active = panel.querySelector('#lim-active');
         if (CT.info) {

@@ -114,6 +114,7 @@ function createLiveServer(opts) {
       name: cfg.name || 'Quiz',
       activity: cfg.activity || 'Quiz',
       className: cfg.className || '',
+      scope: cfg.scope || '',   // 010: ramo L1 coperto ('' = tutta la mappa)
       durationMin: Number(cfg.durationMin) || 0,
       // Timeline Live (008): modalità attività, schema di login, indizi.
       // Default = comportamento storico (quiz / login individuale / indizi su richiesta).

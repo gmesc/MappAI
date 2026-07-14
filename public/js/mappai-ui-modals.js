@@ -532,9 +532,12 @@ window.switchSidebarTab = function (tab) {
     if (tab === 'lim' && window.MappAICollabTeacher && window.MappAICollabTeacher.renderLimSidebarTab) {
         window.MappAICollabTeacher.renderLimSidebarTab();
     }
-}
+};
 
 // Tab LIM (008): kill-switch mappai_lim_tab='0' → nasconde il tab.
+// NB: il ';' su switchSidebarTab qui sopra è OBBLIGATORIO — senza, l'IIFE che
+// segue si aggancia all'espressione-funzione (ASI) e ne provoca l'invocazione
+// immediata → tutto il file dopo questa riga non viene più definito.
 (function () {
     try {
         if (localStorage.getItem('mappai_lim_tab') === '0') {

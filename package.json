@@ -67,7 +67,8 @@
     "docx": "^9.7.1",
     "js-yaml": "^4.1.1",
     "mammoth": "^1.12.0",
-    "node-llama-cpp": "^3.18.1"
+    "node-llama-cpp": "^3.18.1",
+    "ws": "^8.21.0"
   },
   "allowScripts": {
     "node-llama-cpp@3.19.0": true

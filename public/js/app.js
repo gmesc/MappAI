@@ -561,6 +561,31 @@ window.getSystemKey = function () {
     return key;
 };
 
+// Chiave API di UN provider specifico (non solo l'attivo) — serve al toggle
+// provider per-attività del Tutor QR. Stessa fonte di getSystemKey.
+window.getProviderKey = function (provider) {
+    const isInfo = (provider === 'infomaniak');
+    const inputId = isInfo ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
+    const storageKey = isInfo ? 'infomaniak_api_key' : 'gemini_api_key';
+    const inputEl = document.getElementById(inputId);
+    let key = inputEl ? inputEl.value.trim() : "";
+    if (!key) key = (window.secureKeys && window.secureKeys[storageKey]) || localStorage.getItem(storageKey) || "";
+    return key;
+};
+
+// Etichetta leggibile del provider (badge trasparenza: dove passano i dati).
+window.aiProviderLabel = function (p) {
+    return p === 'infomaniak' ? '🇨🇭 Infomaniak (Svizzera)' : 'Google (Gemini)';
+};
+
+// Provider con credenziali configurate (offri il toggle solo se ce n'è più d'uno).
+window.aiProvidersAvailable = function () {
+    const out = [];
+    if (window.getProviderKey('google')) out.push('google');
+    if (window.getProviderKey('infomaniak')) out.push('infomaniak');
+    return out;
+};
+
 // Restituisce il maxOutputTokens ottimale per il modello attivo.
 // Modelli verbosi (Qwen/Kimi su Infomaniak, Gemini 2.5/3.x) producono
 // output più lunghi — scala il budget per evitare troncamenti.

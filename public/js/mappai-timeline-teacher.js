@@ -136,11 +136,14 @@
 
       '<div class="tl-row"><div><span class="tl-lab">' + esc(_t('tl_timer', 'Timer (min, 0 = nessuno)')) + '</span><input id="tl-timer" type="number" class="tl-in" value="0" min="0" inputmode="numeric"></div><div></div></div>' +
 
+      (window.MappAINetMode ? window.MappAINetMode.fieldHtml('tl') : '') +
+
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
         '<button type="button" id="tl-cancel" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_cancel', 'Annulla')) + '</button>' +
         '<button type="button" id="tl-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_go', 'Avvia sessione')) + '</button></div>';
 
     var ov = modal(_t('tl_title', 'Timeline live'), esc(p.length) + ' ' + esc(_t('tl_dates', 'date disponibili')), body);
+    if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'tl');
     var mode = 'complete';
     ov.querySelectorAll('#tl-mode button').forEach(function (b) {
       b.onclick = function () {
@@ -217,6 +220,10 @@
     var qr = qrcode(0, 'M'); qr.addData(text); qr.make(); return qr.createDataURL(cell || 7, 8);
   }
   function buildStudentUrl(info) {
+    // web mode: il QR punta all'ingresso corto /j/<code> — il relay conosce il
+    // mode 'build' e fa il 302 alla pagina giusta (il redirect '/' del server
+    // locale invece va sempre a student.html, per questo in LAN il path è esplicito)
+    if (info.netMode === 'web' && info.urls && info.urls[0]) return info.urls[0];
     var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
     return base + '/public/live/timeline-build.html?s=' + info.token;
   }

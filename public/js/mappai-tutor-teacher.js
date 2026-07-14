@@ -138,18 +138,23 @@
         return si;
     }
 
-    // ── Provider attivo: modello + credenziali (stessa fonte di fetchModelAPI) ─
-    function providerConfig() {
+    // ── Provider: modello + credenziali. Con `override` usa QUEL provider (toggle
+    //    per-attività); senza, l'attivo globale (stessa fonte di fetchModelAPI). ─
+    function providerConfig(override) {
         const st = S();
-        const provider = (st && st.aiProvider) || 'google';
-        const modelEl = document.getElementById('model-select');
-        let model = modelEl ? modelEl.value : null;
+        const active = (st && st.aiProvider) || 'google';
+        const provider = override || active;
+        let model = null;
+        // model-select riflette il provider ATTIVO: usalo solo se non c'è override
+        if (!override) { const el = document.getElementById('model-select'); model = el ? el.value : null; }
         if (!model) {
             const key = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
             try { model = localStorage.getItem(key); } catch (e) { }
         }
         if (!model) model = provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603';
-        const apiKey = window.getSystemKey ? window.getSystemKey() : '';
+        // chiave del provider SCELTO (non solo l'attivo)
+        const apiKey = window.getProviderKey ? window.getProviderKey(provider)
+            : (window.getSystemKey ? window.getSystemKey() : '');
         let productId = '';
         if (provider === 'infomaniak') {
             productId = document.getElementById('infomaniak-product-id')?.value || (st && st.infomaniakProductId) || '';
@@ -169,8 +174,8 @@
             toast(t('tq_electron', 'Chatta e Scrivi richiede l\'app desktop.'), 'warning');
             return;
         }
-        const pc = providerConfig();
-        if (!pc.apiKey) {
+        const avail = window.aiProvidersAvailable ? window.aiProvidersAvailable() : [];
+        if (!avail.length) {
             toast(t('tq_no_key', 'Configura la chiave API (bottone AI in alto) prima di avviare.'), 'error');
             return;
         }
@@ -186,8 +191,16 @@
             return;
         }
         const active = window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+        const activeProv = (st && st.aiProvider) || 'google';
+        let selectedProvider = avail.indexOf(activeProv) >= 0 ? activeProv : avail[0];
         const selStyle = 'width:100%;border:1px solid #c7d2fe;border-radius:10px;padding:9px 11px;font:inherit;background:#fff';
         const lblStyle = 'display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin:12px 0 5px';
+        // Provider AI: selettore se ≥2 configurati (dati studente!), altrimenti badge
+        const provBlock = (avail.length >= 2)
+            ? `<label style="${lblStyle}">${t('tq_provider', 'Provider AI (dove passano le risposte degli studenti)')}</label>
+               <div id="tq-prov" style="display:flex;gap:8px">${avail.map(p =>
+                    `<button type="button" data-p="${p}" class="tq-prov-btn" style="flex:1;border:2px solid ${p === selectedProvider ? '#4f46e5' : '#e2e8f0'};background:${p === selectedProvider ? '#eef2ff' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:12px;color:#334155">${window.aiProviderLabel(p)}</button>`).join('')}</div>`
+            : `<div style="margin-top:12px;font-size:11.5px;color:#475569;background:#f1f5f9;border-radius:10px;padding:9px 11px">${t('tq_provider_badge', 'Le risposte degli studenti passano da:')} <b>${window.aiProviderLabel(selectedProvider)}</b></div>`;
         const body = `
             <label style="${lblStyle}">${t('tq_class', 'Classe')}</label>
             <select id="tq-class" style="${selStyle}">${classes.map(c =>
@@ -202,12 +215,26 @@
             <input id="tq-cap" type="number" min="1" max="30" value="10" style="${selStyle}">
             <label style="${lblStyle}">${t('tq_brief', 'Consegna di scrittura')}</label>
             <textarea id="tq-brief" rows="2" style="${selStyle};resize:vertical" placeholder="${esc(t('tq_brief_ph', 'Es. Scrivi 10 righe su ciò che hai capito, con 2 esempi.'))}"></textarea>
+            ${provBlock}
+            ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('tq') : ''}
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 11px;font-size:11.5px;color:#92400e;margin-top:12px">
                 ${t('tq_cost_note', 'Ogni scambio è una chiamata AI con la TUA chiave: il cap tiene i costi sotto controllo. Il tutor non scriverà mai il testo al posto degli studenti.')}
             </div>
             <button type="button" id="tq-start" style="margin-top:14px;background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:11px 18px;cursor:pointer;font-weight:700;width:100%">
                 ${t('tq_start', 'Avvia sessione')}</button>`;
         const ov = modal('message-circle', t('tq_title', 'Chatta e Scrivi'), body, '520px');
+        if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'tq');
+        // selettore provider (default = attivo, nessuna memoria)
+        ov.querySelectorAll('.tq-prov-btn').forEach(b => {
+            b.onclick = () => {
+                selectedProvider = b.getAttribute('data-p');
+                ov.querySelectorAll('.tq-prov-btn').forEach(x => {
+                    const on = x === b;
+                    x.style.borderColor = on ? '#4f46e5' : '#e2e8f0';
+                    x.style.background = on ? '#eef2ff' : '#fff';
+                });
+            };
+        });
         ov.querySelector('#tq-start').onclick = async () => {
             const cls = classes.find(c => c.id === ov.querySelector('#tq-class').value);
             const topic = topics[Number(ov.querySelector('#tq-topic').value)] || topics[0];
@@ -218,6 +245,13 @@
             const roster = (cls.students || []).map(s => ({ emojiKey: s.emojiKey, num: s.num, name: s.name || '' }));
             if (!roster.length) { toast(t('tq_empty_class', 'Questa classe non ha credenziali.'), 'error'); return; }
 
+            // credenziali del provider SCELTO per questa attività
+            const pc = providerConfig(selectedProvider);
+            if (!pc.apiKey) { toast(t('tq_no_key', 'Configura la chiave API (bottone AI in alto) prima di avviare.'), 'error'); return; }
+            if (pc.provider === 'infomaniak' && !pc.productId) {
+                toast(t('tq_need_productid', 'Imposta il Product ID di Infomaniak in Config AI per usarlo qui.'), 'error'); return;
+            }
+
             const r = await window.electronAPI.tutorStartSession({
                 name: st.rootNodeLabel || 'Mappa',
                 className: cls.name, topic, mode, cap, writingBrief: brief,
@@ -225,9 +259,11 @@
                 apiKey: pc.apiKey,
                 systemInstruction: buildSystemInstruction(topic, mode, brief),
                 maxTokens: 400,
-                roster
+                roster,
+                netMode: window.MappAINetMode ? window.MappAINetMode.get() : 'lan'
             });
             if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
+            if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
             TT.info = r;
             // registro sessioni (005): chip classe sulla landing Insegna
             try { if (window.MappAITeach) window.MappAITeach.logSession({ map: st.rootNodeLabel || '', cls: cls.name, activity: 'tutor' }); } catch (e) { }
@@ -246,6 +282,7 @@
                 <div style="text-align:center">
                     ${qrSrc ? `<img id="tq-qr" src="${qrSrc}" alt="QR" style="width:190px;height:190px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">` : ''}
                     <div style="font-size:11.5px;color:#475569;margin-top:6px;word-break:break-all">${TT.info.urls.map(esc).join('<br>')}</div>
+                    ${window.MappAINetMode ? window.MappAINetMode.lanLineHtml(TT.info) : ''}
                     <div style="font-size:10.5px;color:#94a3b8;margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
                     <div id="tq-slow" class="hidden" style="margin-top:8px;font-size:11px;color:#92400e;background:#fef3c7;border-radius:8px;padding:5px 9px">${t('tq_slow', 'Il provider AI sta rallentando (coda attiva)…')}</div>
                 </div>

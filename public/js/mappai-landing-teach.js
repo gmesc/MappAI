@@ -165,11 +165,11 @@
     var sets = setsRead();
     var docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list()) ? window.MappAIStudyDocs.list() : [];
     host.innerHTML =
-      quickStartBar() +
+      quickStartBar() + filesBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
       sectionShell('teach-sharedmat', 'share-2', _t('ui_teach_sharedmat', 'File condivisi'), 'teach-sharedmat-body') +
-      sectionShell('teach-sets', 'layers', _t('ui_teach_sets', 'Quiz & flashcard'), 'teach-sets-body', sets.length);
+      sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
     // Progetti (renderer unico + filtro classe)
     if (window.StorageManager && StorageManager.renderRecentProjects) {
       StorageManager.renderRecentProjects('teach-projects-body', {
@@ -180,8 +180,16 @@
     }
     renderMaterials(docs);
     renderSharedMat();
-    renderSets(sets);
+    renderActivities(sets);
     if (window.safeCreateIcons) window.safeCreateIcons();
+  }
+
+  // Barra "Cartella documenti" (010): entra nelle impostazioni di organizzazione file.
+  function filesBar() {
+    if (!window.MappAIFiles) return '';
+    return '<div class="max-w-2xl mx-auto mb-4 flex justify-end">' +
+      '<button type="button" onclick="window.MappAIFiles.openSettings()" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-500 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 rounded-lg px-3 py-1.5 bg-white">' +
+      '<i data-lucide="folder-cog" class="w-3.5 h-3.5"></i>' + esc(_t('ui_files_folder', 'Cartella documenti')) + '</button></div>';
   }
 
   // ── File condivisi (libreria "Materiali docente", IPC su disco) ────────────
@@ -296,29 +304,92 @@
     }).join('');
   }
 
-  function renderSets(sets) {
-    var body = document.getElementById('teach-sets-body');
+  // ── Registro attività di studio + report (010) ────────────────────────────
+  // Una riga per SOMMINISTRAZIONE: attività · ramo/mappa · data · partecipanti/
+  // totale · link a ogni report. Fonte = disco (IPC), sopravvive a clear localStorage.
+  function activeClassName() { var ac = activeClass(); return ac && ac.name ? ac.name : null; }
+  function normName(s) { return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+  function renderActivities(sets) {
+    var body = document.getElementById('teach-activities-body');
     if (!body) return;
-    var list = filterItems(sets.slice());
-    if (!list.length) {
+    var setsHtml = savedSetsHtml(sets);
+    if (!window.electronAPI || !window.electronAPI.studySessionsList) {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
-        esc(_t('lt_no_sets', 'Nessun quiz o flashcard. Generali su una mappa e risalva il progetto: compariranno qui.')) + '</p>';
+        esc(_t('lt_activities_desktop', 'Il registro delle attività somministrate è disponibile nell\'app desktop.')) + '</p>' + setsHtml;
+      if (window.safeCreateIcons) window.safeCreateIcons();
       return;
     }
-    body.innerHTML = list.map(function (s) {
+    body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_activities_loading', 'Carico le attività…')) + '</p>';
+    window.electronAPI.studySessionsList().then(function (res) {
+      var rows = (res && res.success && res.rows) ? res.rows : [];
+      // filtro "solo classe attiva"
+      if (readFilter() === 'active') {
+        var acn = normName(activeClassName());
+        if (acn) rows = rows.filter(function (r) { return normName(r.className) === acn; });
+      }
+      if (!rows.length) {
+        body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+          esc(_t('lt_no_activities', 'Nessuna attività somministrata. Avvia un quiz, un tutor o una timeline con una classe: qui compariranno le somministrazioni con i loro report.')) + '</p>' + setsHtml;
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        return;
+      }
+      body.innerHTML = rows.map(activityRow).join('') + setsHtml;
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    }).catch(function () {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_activities', 'Nessuna attività somministrata.')) + '</p>' + setsHtml;
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    });
+  }
+
+  var ACT_ICON = { Quiz: 'help-circle', 'Vero-Falso': 'check-circle', Cloze: 'pencil-line', Domande: 'message-circle-question', 'Tutor AI': 'message-square', Timeline: 'gantt-chart', Lavagna: 'presentation' };
+  function activityRow(r) {
+    var dt = r.date ? new Date(r.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    var scope = r.scope ? esc(r.scope) : esc(_t('lt_whole_map', 'Tutta la mappa'));
+    var icon = ACT_ICON[r.activity] || 'clipboard-list';
+    var cls = r.className
+      ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(r.className) + '</span>' : '';
+    var partic = (r.total > 0 || r.participants > 0)
+      ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500"><i data-lucide="users" class="w-3 h-3"></i>' + r.participants + '/' + r.total + '</span>' : '';
+    var reports = (r.reports && r.reports.length)
+      ? r.reports.map(function (rep) {
+          return '<button type="button" onclick="window.MappAITeach.openReport(\'' + esc(encodeURIComponent(rep.file)) + '\')" class="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-600 hover:text-white hover:bg-indigo-500 border border-indigo-200 rounded-md px-2 py-1 transition-colors">' +
+            '<i data-lucide="file-text" class="w-3 h-3"></i>' + esc(rep.label) + '</button>';
+        }).join(' ')
+      : '<span class="text-[10px] text-slate-400 italic">' + esc(_t('lt_no_report', 'Nessun report')) + '</span>';
+    return '<div class="px-2 py-2.5 border-b border-slate-100">' +
+      '<div class="flex items-center gap-2">' +
+      '<i data-lucide="' + icon + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
+      '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(r.activity) + ' · ' + esc(r.map) + '">' + esc(r.activity) + (r.map ? ' · ' + esc(r.map) : '') + '</span>' +
+      '<span class="block text-[10px] text-slate-400 truncate"><i data-lucide="target" class="w-2.5 h-2.5 inline align-middle"></i> ' + scope + '</span></span>' +
+      cls + partic + '<span class="text-[10px] text-slate-400 shrink-0">' + esc(dt) + '</span></div>' +
+      '<div class="flex flex-wrap gap-1.5 mt-1.5 pl-6">' + reports + '</div></div>';
+  }
+
+  // Sottolista muta: quiz/flashcard SALVATI ma non somministrati (riapribili).
+  function savedSetsHtml(sets) {
+    var list = filterItems((sets || []).slice());
+    if (!list.length) return '';
+    var rows = list.map(function (s) {
       var icon = s.type === 'flashcards' ? 'copy' : 'help-circle';
       var typeLbl = s.type === 'flashcards' ? _t('lt_type_flashcards', 'Flashcard') : _t('lt_type_quiz', 'Quiz');
-      var dt = s.date ? new Date(s.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-      var cls = s.cls
-        ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(s.cls) + '</span>'
-        : '';
-      return '<div class="flex items-center gap-2 px-2 py-2 border-b border-slate-100 hover:bg-indigo-50 rounded-lg cursor-pointer" onclick="window.MappAITeach.openSet(\'' + esc(s.projectId) + '\')">' +
-        '<i data-lucide="' + icon + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
-        '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(s.name) + '">' + esc(s.name) + '</span>' +
-        '<span class="block text-[10px] text-slate-400 truncate">' + esc(typeLbl) + (s.mapName ? ' · ' + esc(s.mapName) : '') + '</span></span>' +
-        cls + '<span class="text-[10px] text-slate-400 shrink-0">' + esc(dt) + '</span>' +
-        '<i data-lucide="play-circle" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i></div>';
+      return '<div class="flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 rounded-lg cursor-pointer" onclick="window.MappAITeach.openSet(\'' + esc(s.projectId) + '\')">' +
+        '<i data-lucide="' + icon + '" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>' +
+        '<span class="flex-1 min-w-0 text-[12px] font-semibold text-slate-600 truncate" title="' + esc(s.name) + '">' + esc(s.name) + '</span>' +
+        '<span class="text-[10px] text-slate-400">' + esc(typeLbl) + (s.mapName ? ' · ' + esc(s.mapName) : '') + '</span>' +
+        '<i data-lucide="play-circle" class="w-3.5 h-3.5 text-indigo-300 shrink-0"></i></div>';
     }).join('');
+    return '<div class="mt-2 pt-2 border-t border-slate-100">' +
+      '<div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 px-2 mb-1">' + esc(_t('lt_saved_sets', 'Quiz e flashcard salvati (riapribili)')) + '</div>' + rows + '</div>';
+  }
+
+  function openReport(fileEnc) {
+    var file = decodeURIComponent(fileEnc);
+    if (window.electronAPI && window.electronAPI.studyReportOpen) {
+      window.electronAPI.studyReportOpen(file).then(function (r) {
+        if (!r || !r.success) toast(_t('lt_report_missing', 'Report non disponibile.'), 'warning');
+      });
+    } else { toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); }
   }
 
   function openDoc(id) {
@@ -551,6 +622,7 @@
     editGrade: editGrade,
     openDoc: openDoc,
     openSet: openSet,
+    openReport: openReport,
     logSession: logSession,
     shareFromPc: shareFromPc,
     shareFile: shareFile,

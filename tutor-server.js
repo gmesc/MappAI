@@ -118,6 +118,7 @@ function createTutorServer(opts) {
       schema: 'mappai-tutor-session@1',
       name: cfg.name || 'Mappa',
       className: cfg.className || '',
+      scope: cfg.scope || '',                      // 010: argomento/ramo coperto ('' = tutta la mappa)
       topic: cfg.topic || null,                    // { kind, id, label }
       mode: cfg.mode || 'socratic',
       cap: Number(cfg.cap) || TC.LIMITS.capDefault,

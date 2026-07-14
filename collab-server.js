@@ -70,6 +70,9 @@ function createCollabServer(opts) {
       schema: 'mappai-collab-session@1',
       name: (opts.session && opts.session.name) || 'Lavagna',
       rootLabel: (opts.session && opts.session.rootLabel) || 'Tema centrale',
+      activity: 'lavagna',   // 010: per il registro attività
+      className: (opts.session && opts.session.className) || '',
+      scope: (opts.session && opts.session.scope) || '',
       // Login flessibile (008 US5): 'group' (storico, nickname) o 'individual'
       // (roster emoji+numero). Default = comportamento storico a gruppi.
       loginMode: (opts.session && opts.session.loginMode === 'individual') ? 'individual' : 'group',
