@@ -92,10 +92,13 @@ function createWindow() {
     // così `npm start 2>&1 | tee run.log` cattura l'intera pipeline da terminale.
     // Off di default (zero impatto). Reversibile.
     if (process.env.MAPPAI_TRACE) {
-        const _lvl = ['LOG', 'WARN', 'ERR', 'INFO'];
-        mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-            const src = (sourceId || '').split('/').pop();
-            console.log(`[renderer:${_lvl[level] || level}] ${message}${src ? '  (' + src + ':' + line + ')' : ''}`);
+        // Electron ≥32: 'console-message' passa un solo oggetto evento
+        // ({ level: stringa, message, lineNumber, sourceId }) — la firma
+        // posizionale (level numerico, message, line, sourceId) è deprecata.
+        mainWindow.webContents.on('console-message', (e) => {
+            const lvl = String(e.level || 'log').toUpperCase();
+            const src = (e.sourceId || '').split('/').pop();
+            console.log(`[renderer:${lvl}] ${e.message}${src ? '  (' + src + ':' + e.lineNumber + ')' : ''}`);
         });
     }
 

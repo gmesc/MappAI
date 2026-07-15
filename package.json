@@ -53,7 +53,7 @@
   ],
   "license": "ISC",
   "devDependencies": {
-    "electron": "^30.0.0",
+    "electron": "^39.8.10",
     "electron-builder": "^24.13.3",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
@@ -71,6 +71,7 @@
     "ws": "^8.21.0"
   },
   "allowScripts": {
-    "node-llama-cpp@3.19.0": true
+    "node-llama-cpp@3.19.0": true,
+    "electron@39.8.10": true
   }
 }
