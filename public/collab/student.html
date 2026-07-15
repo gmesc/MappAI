@@ -7,8 +7,10 @@
 <!-- Stesso font della viewport mappa dell'app (fallback monospace se la LAN è offline) -->
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+  /* emoji Android (Noto) prima del fallback di sistema — regola globale MappAI */
+  :root { --emoji: 'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
   * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
-      font-family: 'Space Mono', ui-monospace, monospace; }
+      font-family: 'Space Mono', var(--emoji), ui-monospace, monospace; }
   html, body { height: 100%; }
   body { background: #fafbff; color: #0f172a; display: flex; flex-direction: column; overflow: hidden; }
   button { cursor: pointer; border: 0; }

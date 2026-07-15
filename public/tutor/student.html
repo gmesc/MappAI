@@ -12,10 +12,12 @@
   Stile MappAI (Space Mono, indigo/slate, sfondo puntinato), zero dipendenze.
 -->
 <style>
+  /* emoji Android (Noto) prima del fallback di sistema — regola globale MappAI */
+  :root { --emoji: 'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
   body {
-    font-family: 'Space Mono', ui-monospace, Menlo, monospace;
+    font-family: 'Space Mono', var(--emoji), ui-monospace, Menlo, monospace;
     background: #fafbff;
     background-image: radial-gradient(#ddd6fe 1px, transparent 1px);
     background-size: 22px 22px;

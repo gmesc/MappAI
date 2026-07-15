@@ -35,11 +35,13 @@ html {
 }
 
 * {
-    font-family: 'Space Mono', monospace !important;
+    /* Space Mono per il testo; le emoji cadono su Noto Color Emoji (Android)
+       PRIMA di monospace/sistema — regola globale emoji Android di MappAI. */
+    font-family: 'Space Mono', var(--emoji-font), monospace !important;
 }
 
 body.font-dyslexic *:not(button):not(button *):not(.source-type-btn):not(.source-type-btn *):not(.mode-btn):not(.mode-btn *):not(.generate-btn):not(.generate-btn *):not(#projects-bar):not(#projects-bar *):not(#insegnai-drawer):not(#insegnai-drawer *) {
-    font-family: 'OpenDyslexic', sans-serif !important;
+    font-family: 'OpenDyslexic', var(--emoji-font), sans-serif !important;
     line-height: 1.65 !important;
 }
 
