@@ -18,6 +18,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     filesSetup: (opts) => ipcRenderer.invoke('files-setup', opts),
     filesOpenRoot: () => ipcRenderer.invoke('files-open-root'),
     studySessionsList: () => ipcRenderer.invoke('study-sessions-list'),
+    // Registro consumi AI
+    usageLogAppend: (rec) => ipcRenderer.invoke('usage-log-append', rec),
+    usageLogRead: () => ipcRenderer.invoke('usage-log-read'),
+    usageOpenFolder: () => ipcRenderer.invoke('usage-open-folder'),
     studyReportOpen: (filePath) => ipcRenderer.invoke('study-report-open', filePath),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
     getPathForFile: (file) => webUtils.getPathForFile(file),

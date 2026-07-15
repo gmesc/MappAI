@@ -875,6 +875,7 @@ Valuta da 0 a 100 quanto la spiegazione dello studente copre i concetti chiave d
             systemInstruction: { parts: [{ text: sys }] },
             generationConfig: { temperature: 0.2, maxOutputTokens: 512 }
         };
+        if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'active_modes');
         const resp = await window.fetchModelAPI(payload, apiKey);
         const txt = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         const parsed = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(txt) : JSON.parse(txt);
@@ -1179,6 +1180,7 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 generationConfig: { temperature: 0.2, maxOutputTokens: 512 }
             };
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'active_modes');
             const resp = await window.fetchModelAPI(payload, apiKey);
             const txt = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             const parsed = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(txt) : JSON.parse(txt);

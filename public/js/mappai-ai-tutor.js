@@ -233,6 +233,7 @@ window.sendSidebarTutorMessage = async function () {
             contents: tutorState.sidebar.history.map(m => ({ role: m.role, parts: m.parts }))
         });
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('tutor', 'sidebar');
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
 
@@ -526,6 +527,7 @@ window.sendNodeTutorMessage = async function () {
             ...(isInfomaniakTutor && { generationConfig: { maxOutputTokens: 400 } })
         });
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('tutor', 'node');
         const data = await window.fetchModelAPI(payload, apiKey);
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
 
@@ -595,6 +597,7 @@ window.generateAIQuiz = async function () {
             }
         });
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('tutor', 'quiz');
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text || "";
         let cleanJson = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();

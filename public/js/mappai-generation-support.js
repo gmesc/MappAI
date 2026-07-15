@@ -878,6 +878,7 @@ Se non trovi nodi mal classificati, restituisci una sola riga:
 //   2. Aggiunge il link nuovo_L1 → node
 //   3. Aggiorna il group del nodo (e propaga al sottoalbero se serve)
 window.executePhase5Reclassification = async function () {
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase5');
     const report = { applied: 0, skipped: 0, errors: [], parser: null };
 
     const apiKey = window.getSystemKey ? window.getSystemKey() : null;
@@ -1040,6 +1041,7 @@ window.executePhase5Reclassification = async function () {
 // un nodo ha ancora il desc placeholder (cioè il modello non l'ha generato da solo).
 window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
     if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return;
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'enrich');
     const needsEnrich = l1NodesData.some(
         n => !n.confini || n.desc.startsWith('Categoria principale:')
     );
@@ -1146,6 +1148,7 @@ window._descWordCount = function (s) {
 window.enrichThinDescs = async function (textParts, apiKey) {
     if (!window.isEnrichDescsEnabled || !window.isEnrichDescsEnabled()) return;
     if (!apiKey) return;
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'enrich');
 
     const THRESHOLD = 35;       // parole minime perché una desc sia "ricca"
     const BATCH = 6;            // nodi per chiamata
@@ -1239,6 +1242,7 @@ window.enrichThinDescs = async function (textParts, apiKey) {
 
 window.validateL1Categories = async function (l1Data, rootLabel) {
     if (!Array.isArray(l1Data) || l1Data.length < 3) return l1Data;
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'l1_validation');
     const apiKey = window.getSystemKey ? window.getSystemKey() : null;
     if (!apiKey) return l1Data;
 
@@ -1375,6 +1379,7 @@ window._isCompoundLabel = function (label) {
 // originale. Rispetta il tetto massimo di macro-aree (MAX_L1 = 7).
 window.splitCompoundL1s = async function (l1Data, rootLabel) {
     if (!Array.isArray(l1Data) || l1Data.length === 0) return l1Data;
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'l1_split');
     const MAX_L1 = 7;
     const compounds = l1Data.filter(c => c && window._isCompoundLabel(c.label));
     if (compounds.length === 0) {
@@ -1535,6 +1540,7 @@ ${compact}`;
 // Esegue la Fase 4: chiama l'AI, parse, applica merge e cross-link.
 // Restituisce un report con cosa è stato applicato e cosa scartato.
 window.executePhase4Consolidation = async function () {
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase4');
     const report = { merges: { applied: 0, skipped: 0, errors: [] },
                      crosslinks: { applied: 0, skipped: 0, errors: [] },
                      parser: null };
@@ -1715,6 +1721,7 @@ window.computeBranchDepths = function () {
 window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
     if (!window.isDeepeningEnabled()) return;
     if (!apiKey || appState.extractionMode === 'kg') return;
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'deepen');
     const target = parseInt(maxMapLevel);
     if (isNaN(target) || target < 3) return;
 

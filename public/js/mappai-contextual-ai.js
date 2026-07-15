@@ -77,6 +77,7 @@ window.executeContextualAIExtension = async function () {
             targetGroup: contextualAITargetNode.group || 0
         });
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'expand');
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
             systemInstruction: { parts: [{ text: buildSystemInstruction(appState.extractionMode === 'mindmap' ? MIND_MAP_SYSTEM_INSTRUCTION : KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },

@@ -2012,6 +2012,42 @@ ipcMain.handle('live-classes-save', async (event, data) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+// REGISTRO CONSUMI AI — JSONL append-only su disco (una riga per chiamata AI).
+// I record contengono SOLO token/modello/provider/contesto: i costi si
+// calcolano a display-time nella dashboard (MODEL_KB + tasso USD→CHF).
+// ══════════════════════════════════════════════════════════════════════════
+function usageBaseDir() {
+    return filesOrganized()
+        ? path.join(mappaiRootDir(), 'Registro consumi AI')
+        : path.join(documentsDir(), 'MappAI - Consumi AI');
+}
+function usageLogFile() { return path.join(usageBaseDir(), 'consumi-ai.jsonl'); }
+function usageAppend(rec) {
+    try {
+        fs.mkdirSync(usageBaseDir(), { recursive: true });
+        fs.appendFileSync(usageLogFile(), JSON.stringify(rec) + '\n', 'utf8');
+        return true;
+    } catch (e) { console.error('[usage] append fallito:', e.message); return false; }
+}
+ipcMain.handle('usage-log-append', (event, rec) => ({ success: usageAppend(rec || {}) }));
+ipcMain.handle('usage-log-read', () => {
+    try {
+        if (!fs.existsSync(usageLogFile())) return { success: true, records: [] };
+        const records = [];
+        fs.readFileSync(usageLogFile(), 'utf8').split('\n').forEach(ln => {
+            const t = ln.trim();
+            if (!t) return;
+            try { records.push(JSON.parse(t)); } catch (e) { /* riga corrotta: skip */ }
+        });
+        return { success: true, records };
+    } catch (err) { return { success: false, error: err.message, records: [] }; }
+});
+ipcMain.handle('usage-open-folder', () => {
+    try { fs.mkdirSync(usageBaseDir(), { recursive: true }); shell.openPath(usageBaseDir()); return { success: true }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 // TUTOR AI VIA QR — "Chatta e Scrivi" (007) · porte 8769-8779
 // Sessioni: ~/Documents/MappAI - Tutor/<mappa>-<classe>-<data>/
 // SICUREZZA: apiKey + systemInstruction arrivano dal renderer all'avvio e
@@ -2046,7 +2082,24 @@ ipcMain.handle('tutor-start-session', async (event, opts) => {
             },
             secrets: { apiKey: o.apiKey, systemInstruction: o.systemInstruction },
             roster: Array.isArray(o.roster) ? o.roster : [],
-            callModel
+            // Wrapper: registra i token di ogni scambio nel registro consumi
+            // (il tutor QR non passa da fetchModelAPI del renderer).
+            callModel: async (args) => {
+                const resp = await callModel(args);
+                try {
+                    const um = resp && resp.usageMetadata, iu = resp && resp.usage;
+                    const inTok = (um && um.promptTokenCount) || (iu && iu.prompt_tokens) || 0;
+                    const outTok = (um && um.candidatesTokenCount) || (iu && iu.completion_tokens) || 0;
+                    if (inTok || outTok) usageAppend({
+                        ts: new Date().toISOString(),
+                        provider: o.provider === 'infomaniak' ? 'infomaniak' : 'google',
+                        model: o.model || '?', inTok, outTok,
+                        cat: 'tutor', sub: 'qr',
+                        project: o.name || 'Senza titolo', projectId: null
+                    });
+                } catch (e) { /* il tracking non deve mai rompere la chat */ }
+                return resp;
+            }
         });
         let port = null, lastErr = null;
         for (let p = 8769; p <= 8779; p++) {

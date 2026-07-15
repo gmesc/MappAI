@@ -716,6 +716,10 @@ window.fetchModelAPI = async function (payload, apiKey) {
     // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
     const requestedMax = payload?.generationConfig?.maxOutputTokens || null;
 
+    // Registro consumi: snapshot del contesto ALL'ENTRATA (non dopo l'await:
+    // un altro flusso potrebbe cambiare il contesto mentre la risposta arriva)
+    const _usageCtx = (window.MappAIUsage && window.MappAIUsage.current()) || null;
+
     if (window.electronAPI) {
         try {
             let response;
@@ -744,6 +748,14 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 appState.generationUsage.candidateTokens += (response.usageMetadata.candidatesTokenCount || 0);
                 appState.generationUsage.totalTokens += (response.usageMetadata.totalTokenCount || 0);
                 window.updateCostDisplay();
+                // Registro consumi AI (riga JSONL su disco, categoria dal contesto)
+                if (window.MappAIUsage) window.MappAIUsage.record({
+                    provider: appState.aiProvider,
+                    model,
+                    inTok: response.usageMetadata.promptTokenCount || 0,
+                    outTok: response.usageMetadata.candidatesTokenCount || 0,
+                    ctx: _usageCtx
+                });
             }
 
             // Strategia 0 — rilevamento troncamento finishReason

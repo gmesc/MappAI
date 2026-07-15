@@ -234,6 +234,7 @@ window.aiCrossLink = async function (existingIds, newIds) {
     });
 
     try {
+        if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'crosslink');
         const response = await window.fetchModelAPI({
             contents: [{ parts: [{ text: promptText }] }],
             generationConfig: { temperature: 0.3, responseMimeType: "application/json" }

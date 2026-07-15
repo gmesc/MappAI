@@ -565,6 +565,7 @@ async function _kwCallBatch(nodesChunk, apiKey) {
         }
     };
 
+    if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'nodesheet');
     var response = await window.fetchModelAPI(payload, apiKey);
     var raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!raw) return {};

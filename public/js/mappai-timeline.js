@@ -515,6 +515,7 @@ window.generateTimelineWithAI = async function () {
         };
 
         // ── 5. Chiama l'AI — try/catch separato per errori IPC ─────────────────
+        if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'timeline');
         var response;
         try {
             response = await window.fetchModelAPI(window.injectClassTuning(payload), apiKey);
