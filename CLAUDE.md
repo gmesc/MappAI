@@ -534,6 +534,190 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (14/7/26): 010-file-organization — cartella madre unica "MappAI - file" + registro attività/report
+Branch `010-file-organization`. Tre richieste utente. **OPT-IN puro**: finché
+`mappai-settings.json` non ha `filesOrganized:true`, TUTTI i path restano storici
+(~/Documents/MappAI - *) → zero regressioni. Suite **469/469** ✅.
+- **Core puro** `public/js/mappai-files-core.js` (UMD): `ROOT_FOLDER`/`SUB`
+  (Mappe·Attività di studio·File condivisi·Classi·Giardini), `safeName` (FS-safe,
+  conserva accenti/trattini), `isoDate` (AAAA-MM-GG ordinabile), `classFolder`,
+  `activityLabel`, `sessionFolderName`/`sessionRelPath` (gerarchia
+  Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa — ramo>, deterministica →
+  resume idempotente), `LEGACY`/`planMigration` (ribucketing sessioni per classe +
+  flat wholesale), `sessionRecordFrom` (riga registro robusta alle 2 forme
+  live joined/absent · tutor students/roster). +10 test `tests/files-core.test.js`.
+- **(1) main.js — choke point + rewiring**: `readSettings/writeSettings`,
+  `filesOrganized()` (flag+filesRoot), `mappaiRootDir()`/`subDir()` + base-dir helper
+  (`mapsBaseDir`/`sharedBaseDir`/`classesBaseDir`/`gardensBaseDir`/`activityBaseDir`) e
+  `studySessionDir()` (nuova gerarchia se organizzato, slug flat storico altrimenti).
+  TUTTI i ~15 `app.getPath('documents')`+`MappAI - X` reindirizzati (vault/live/tutor/
+  lavagna/garden/classi/materiali). ⚠️ **I vault utente scelti a mano (pickFolder →
+  activeVaultPath assoluto) NON sono toccati**; i progetti referenziano il vault per NOME
+  (basename), risolto live via `get-all-vaults`→`mapsBaseDir()` → dopo la migrazione il
+  nome→path segue da solo a Mappe (nessun rewrite dei path salvati).
+  IPC: `files-root-get/choose`, `files-migrate-preview`, `files-setup` (crea
+  MappAI - file+sub, migra con **rename atomico + fallback copia/EXDEV**, log
+  `migrazione-log.json`, ritorna `vaultMap`), `files-open-root`. preload esposto.
+- **(2) Naming** (scelta utente: per-classe, ISO): sessioni in
+  `Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa (— ramo)>`; report interni
+  con nomi parlati (report-domande/studenti/costruzione/tutor.html) già esistenti.
+  `scope` (ramo L1 coperto) ora PERSISTITO in session.json (live/tutor/collab-server +
+  main.js pass-through); live-teacher passa `LT._scope` (label del ramo o '' = mappa intera).
+- **(3) Registro attività** (rimpiazza "Quiz & flashcard" nella landing Insegna):
+  IPC `study-sessions-list` cammina "Attività di studio" (o le 3 cartelle storiche),
+  legge session.json+results.json+report htmls → `sessionRecordFrom`; `study-report-open`
+  (`shell.openPath`, allowlist path). `mappai-landing-teach.js`: sezione
+  `teach-activities` = una riga per SOMMINISTRAZIONE (attività·mappa · ramo/Tutta la mappa
+  · classe · **partecipanti/totale** · data · **bottoni per ogni report**); saved-sets
+  demoti a sottolista riapribile. Filtro "solo classe attiva". `mappai-files-settings.js`
+  (`window.MappAIFiles.openSettings` + `maybePromptFirstRun` una-volta): sceglie posizione
+  → anteprima migrazione → conferma (checkbox "sposta dati" + warning Obsidian) → setup.
+- i18n: `ui_teach_activities`/`ui_files_folder`/`lt_activities_*`/`lt_whole_map`/`fx_*`
+  con fallback IT inline + EN in `en_translations.js` (regola 13). Audit: 0 mancanti.
+- ✅ Verificato: 469/469, tutti i file parse-clean, **pipeline Part 3 provata sui DATI
+  REALI su disco** (8 sessioni Live/Tutor → righe corrette: Tutor 2/20 + Report tutor,
+  Quiz 12/12 + domande/studenti; materiali-* 0/0 senza report → filtrati).
+  ⚠️ **Da testare in Electron vivo**: prompt primo avvio + scelta posizione (dialog),
+  migrazione reale delle 7 cartelle (rename + vaultMap + Obsidian re-point), che dopo la
+  migrazione i vault si riaprano da Mappe, registro attività con report cliccabili su
+  sessione reale, generazione con `scope` valorizzato.
+
+### ✅ FATTO (13/7/26): 008-timeline-live — Timeline via QR (Completa/Costruisci) + LIM + login flessibile
+Spec-kit completo (`specs/008-timeline-live/`, branch omonimo). La timeline diventa
+attività di classe in MappAI Live. Suite **431/431** ✅. Sei user story:
+- **US1 base in-app** — `window.MappAITimeline` in `mappai-timeline.js` (add/remove/list
+  su `appState.db.timelineEvents`, persistito col progetto; popup toolbar "+ Aggiungi
+  data" + "Modalità esercizio" con card-buco dagli anni citati dalla fonte). Logica pura
+  in **`mappai-timeline-core.js`** (UMD: normalizeEvent/eventKey/buildPool/extractYears/
+  buildGaps/buildQuestions/validateProposal/proposalFlags/countActive). **Pool AI
+  persistito** in `appState.db.timelineAI` (`_persistPool` in `_renderTimeline`, R5 —
+  zero token al lancio). `loadProject` init robusto (progetti legacy → array vuoti).
+- **US2 "Completa"** (autovalutata) — `gradeAnswer` esteso (evento→anno con `answerYear`/
+  tolleranza ±N/periodi; `answerTexts` any-match per anni multi-evento), `cleanAnswer`
+  preserva `hintUsed`, `publicQuestions` passa `hint`/`expects`/`tlYear` (soluzioni
+  strippate), `computeResults` aggrega indizi. `live-server`/`main.js` pass-through
+  `mode`/`loginMode`/`hintMode`/`build`. `student.html`: input anno numerico + 💡
+  indizio tracciato. `mappai-timeline-teacher.js` wizard Completa → `MappAILive.
+  launchExternal`. 5ª card hub "Timeline". Report: domande in ordine cronologico +
+  colonna indizi.
+- **US3 "Costruisci"** (discovery, revisione docente) — `live-server` `mode:'build'`
+  (`/api/propose` con cap+flags duplicato/anno-non-in-fonti, `/api/review` idempotente;
+  proposte in status/close). `timeline-build.html` (pagina studente self-contained).
+  Dashboard revisione (polling 3s; approva → `MappAITimeline.add(origin:'student')` →
+  entra nel progetto). `buildTimelineWorkshopReportHtml` (proposte per allievo + timeline
+  finale). ⚠️ 2 bug catturati dai test: `poolKeys` droppato dal config, `author` mancante
+  sui proposal.
+- **US4 proiezione LIM** — `MappAITimelineLive.openProjection` (fullscreen, QR angolo,
+  timeline che cresce con le approvate ≤3s, ESC per uscire).
+- **US5 login flessibile** — `live-server` `loginMode:'group'` (join per nickname) +
+  `collab-server` `loginMode:'individual'` (join emoji+numero dal roster). Scelta al
+  setup Timeline e all'avvio Lavagna (roster dalla classe attiva). Default storici
+  invariati. FIX `LIMITS`→`LC.LIMITS`.
+- **US6 tab LIM** — `#sidebar-tab-lim` + pannello + `switchSidebarTab('lim')` (kill-switch
+  `mappai_lim_tab='0'`). `renderLimSidebarTab` (card Lavagna/Timeline + dashboard attiva
+  montata via host coesistente → Struttura resta, zero regressioni 006).
+- ✅ Verificato E2E in browser CONTRO SERVER REALE: US1 popup (pool persistito, add/fill/
+  delete, esercizio), US2 (grading ±2/±3, indizi, report, player year-input), US3 (propose
+  gap → approve → "approvata"), US6 (tab+card+moduli). Test: `timeline-core` (21),
+  `live-core` (+8), `live-server` (+3 build/group), `collab-server` (+2 individual).
+  ⚠️ **Da testare in Electron vivo** (quickstart.md): wizard reale + AI-free launch, telefono
+  su LAN, proiezione LIM su mappa reale, tab LIM switch (index.html gated in browser), 2 device.
+
+### ✅ FATTO (13/7/26): Sintesi — voce naturale come lettore in-app + condivisione QR + fix font
+Tre richieste utente sulla "Sintesi di ramo/mappa" (`mappai-branch-synthesis.js`).
+- **(3) Font topbar** — la barra fissa del documento stampabile (`_buildSynthesisPrintHtml`)
+  hardcodava `font-family:monospace` (mono di sistema) → cambiato in `'Space Mono',monospace`.
+  Titolo + bottoni ereditano → tutta la topbar in Space Mono. Space Mono era già caricato
+  (link Google Fonts) e usato dal body: solo quel `<div>` sovrascriveva.
+- **(1) Voce Google come LETTORE in-app** (scelta utente: "naturale quando generata", voce di
+  sistema come fallback). Il motore condiviso `mappai-tts-reader.js` ha ora una **modalità
+  naturale** completamente gated dietro `E.isNatural`: `MappAITTS.setNaturalAudio(bodyEl, url)`
+  pilota un `<audio>` con lo stesso chip (play/pausa, ±sec, ×velocità via `playbackRate`,
+  scrub) e karaoke APPROSSIMATO (Gemini non dà timestamp → durate riscalate sulla durata reale
+  dell'audio via `_rescaleToDuration`). Fallback automatico alla voce di sistema se l'audio non
+  carica (`error` handler). Attiva SOLO per il corpo `#branch-synthesis-body` registrato → tutte
+  le altre superfici di studio restano su `speechSynthesis`, invariate. Branch nei punti di
+  controllo: `_load`/`_speakCurrent`/`_playFrom`/`_pause`/`_stop`/`_finish`/`_seekToTime`/
+  `_globalTime`/`_startTicker`/`_cycleRate`. Il pulsante "Audio voce naturale" ora **genera una
+  volta, cachea il WAV su `_lastSynthesis._audioBlob/_audioUrl` e lo aggancia al lettore** (▶
+  suona la voce Google) invece di forzare il download. Ri-registra all'apertura del modale.
+  ⚠️ **Cambio di comportamento**: rimosso il download diretto del WAV (superato da ascolto in-app
+  + QR). `_buildSynthesisWavBlob`/`_ensureSynthesisAudio` estratti come helper riusabili.
+- **(2) Condivisione con la classe via QR** (scelta utente: Materiali QR, file audio separato).
+  Nuovo bottone "Condividi (QR)" → `shareSynthesisWithClass()`: pubblica su MappAI Live →
+  Materiali la pagina HTML della sintesi (lettore integrato + modalità dislessia) e, se c'è la
+  chiave Gemini, il **WAV voce naturale** servito accanto. Gli allievi la aprono via QR, senza
+  login, con player `🔊 Voce naturale`. Senza chiave degrada al solo lettore a voce di sistema.
+  Wiring: IPC `live-materials-add-bytes` (main.js + preload), MIME audio (`.wav/.mp3/.m4a/.ogg`)
+  in `live-server.js`, `MappAILive.shareDocWithAudioQr(htmlName, buildHtml, audioName, audioB64)`
+  in `mappai-live-teacher.js` che **tokenizza l'URL audio** (`?s=<token>&inline=1`, i /files sono
+  gated + `Content-Disposition:attachment` di default). `_buildSynthesisPrintHtml(data, opts)`
+  accetta `opts.audioSrc` per iniettare il player `<audio controls>` in cima (no-arg = invariato,
+  usato da stampa/salvataggio archivio).
+- i18n: chiavi EN nuove (`bs_audio_ready`, `bs_natural_voice`, `bs_share_*`) + `bs_audio_tip`
+  aggiornata; IT è il fallback inline (regola 13). Suite **382/382** ✅, tutti i file parse-clean.
+- ⚠️ **Da testare in Electron vivo** (browser statico non esercita generateGemini/liveMaterials
+  né supera il licensing): genera sintesi → "Audio voce naturale" → ▶ suona voce Google;
+  "Condividi (QR)" → telefono apre la pagina → player naturale in streaming; footer a 4 bottoni
+  sul modale 680px da controllare a occhio; 2 device su Wi-Fi.
+
+### ✅ FATTO (13/7/26): 007-tutor-qr — Tutor AI via QR, attività "Chatta e Scrivi"
+Spec-kit completo (`specs/007-tutor-qr/`, branch omonimo). QUINTA attività live:
+lo studente entra via QR con le credenziali di classe, chatta col Tutor AI
+sull'argomento assegnato (modalità + CAP SCAMBI del docente), poi redige e
+consegna un testo personale. Report docente = TESTO + TRASCRIZIONE per studente
+(processo, non solo prodotto). Suite **397/397** ✅.
+- **Proxy AI — la chiave NON lascia mai il main**: helper `callModel({provider,
+  apiKey, payload, model|productId})` estratto in `main.js` dagli IPC
+  `generate-gemini`/`generate-infomaniak` (che ora lo richiamano, comportamento
+  invariato; `callGemini`/`callInfomaniakChat` con `err.status` per il backoff).
+  Il tutor-server (stesso processo) lo chiama in-process; apiKey+systemInstruction
+  arrivano via IPC `tutor-start-session` come `opts.secrets` e NON vengono mai
+  persistite né servite ai telefoni (publicState = WHITELIST nel core).
+- **Core puro** `public/js/mappai-tutor-core.js` (UMD): `LIMITS` (msgMax 600,
+  maxTokens 400, cap 1-30), `canSpend`, `validateMessage`, `publicState`,
+  `buildChatPayload` (google systemInstruction/contents · infomaniak messages
+  OpenAI, MAI responseMimeType), `extractText`, `computeTutorResults`
+  (flag `neverChatted` per consegne senza chat). +7 test.
+- **Server** `tutor-server.js`: `createTutorServer` (porte **8769-8779**, cartella
+  `~/Documents/MappAI - Tutor/<mappa>-<classe>-<data>/`, session.json SENZA
+  segreti + students/<id>.json autosave, ripresa crash-safe stesso token).
+  API: session (publicState+emojiSet) / join (409 identity-taken, rientro con
+  chat+bozza) / **tutor** (cap+validazione PRIMA dell'AI → coda `enqueue`
+  SERIALIZZATA con retry su 429 + flag providerSlow; **riserva ottimistica di
+  `used`** con rollback — senza, N invii simultanei bucavano il cap) / draft /
+  submit / status / reopen / close (results.json + report). +8 test (callModel
+  MOCKATO: prova che cap/validazione bloccano senza chiamate AI e che la coda
+  è seriale — max 1 in volo su 5 simultanei).
+- **Pagina studente** `public/tutor/student.html` (self-contained, stile MappAI):
+  login emoji+numero → tab **💬 Esplora** (chat, contatore scambi, cap → chat
+  chiusa + invito a scrivere) / **✍️ Scrivi** (brief del docente, autosave
+  debounce, sempre accessibile) → **📮 Consegna** (riconsegna permessa). Rientro
+  stesso device ritrova chat+bozza dal server.
+- **Docente** `public/js/mappai-tutor-teacher.js` (`window.MappAITutor.open/
+  openSetup/openDashboard`): wizard classe→argomento (L1 MindMap / top-8 hub KG)
+  →modalità (le 6 TUTOR_MODE_*)→cap→consegna; la **systemInstruction è costruita
+  nel renderer** (persona + TUTOR_MODE_* + contesto argomento CAPPATO 900+500
+  char + REGOLA ANTI-REDAZIONE "mai scrivere il testo al posto dello studente" +
+  anti-manipolazione + classTuningPrompt) e passata al main → il telefono non può
+  alterarla. Dashboard QR + griglia stati (polling 3s: fase/used/cap/✓ +
+  "Sblocca" reopen) + "Chiudi e genera report" (apre il report, poi stop server).
+  Registro sessioni: `logSession({activity:'tutor'})` → chip classe in Insegna.
+  Modello/credenziali dal provider ATTIVO (stessa fonte di fetchModelAPI).
+- **Report** `public/js/mappai-tutor-reports.js` (UMD): `buildTutorReportHtml` —
+  scheda per studente con testo consegnato + chat affiancati, badge
+  "0 scambi col tutor" sulle consegne senza processo.
+- **Hub**: 4ª card "Chatta e Scrivi (Tutor AI)" in `openLiveHub`. IPC:
+  `tutor-start/stop-session`, `-session-info`, `-open-folder` (main+preload).
+- i18n: `lv_card_tutor*`/`tq_*` in `en_translations.js` (fallback IT inline).
+- ✅ Verificato E2E in browser CONTRO SERVER REALE (AI mockata): login volpe-03 →
+  3 scambi (contatore 0/3→3/3, cap chiude la chat) → scrittura+autosave →
+  consegna → file su disco (6 turni, phase submitted, ZERO segreti in
+  session/students/report) → close → report con testo+trascrizione. Moduli
+  caricano nell'app senza errori console.
+  ⚠️ Da testare in Electron vivo (quickstart.md): wizard reale, chiamata AI VERA
+  su entrambi i provider (Google + Infomaniak), telefono su LAN, 25 studenti.
+
 ### ✅ FATTO (12/7/26): 006-lavagna-sidebar — dashboard Lavagna in sidebar + sblocca + resize
 Spec-kit completo (`specs/006-lavagna-sidebar/`, branch omonimo). La gestione della
 Lavagna collaborativa esce dal popup che copriva la mappa e vive nel tab Struttura
@@ -720,6 +904,38 @@ della generazione** al momento della creazione (le schede fonte sono già divers
 - **Tab "NPC" (Sapienti) nascosta** nel pannello admin prompt (`index.html`, classe `hidden`
   sul bottone `data-tab="NPC"`): serviva solo al Memory Dungeon. Dati/gestione NPC restano,
   fuori dalla UI. Le altre 5 tab (Mappe/KG/Tutor/Studio/Discipline) intatte. Suite 361/361.
+
+**Follow-up FATTO: quiz Live = qualità quiz in-app (parità generatore).**
+- Prima il quiz live MC usava `MappAIGames.genQuizForNode` (formato "completamento" del
+  dungeon: incipit + 3 completamenti) → qualità inferiore ai quiz di MappAI.
+- Ora estratto `window.generateDynamicQuiz({nodeLabel, material, quizType, quantity, apiKey})`
+  in `mappai-study-session.js` (stesso motore `DYNAMIC_QUIZ` del quiz di Studio: domande vere
+  con opzioni + spiegazione, `quizType` per MC o V/F nativo; injectClassTuning incluso).
+- Live (`mappai-live-teacher.js`): `generateQuizViaStudy` lo chiama PER-NODO (material = desc
+  del nodo), mappa gli item allo schema live via `dynItemToLive` (MC: indice del corretto per
+  stringa o numero; V/F: `statementTrue` da "Vero/Falso"; scarta se non mappabile), attacca
+  nodeId+l1. Fallback a `genQuizForNode` solo se il nuovo motore non produce nulla.
+- Verificato il mapping in Node (MC stringa→indice, 1-based→0-based, V/F Vero/Falso, scarto
+  non mappabile). Suite **428/428** ✅. ⚠️ Da provare in Electron vivo con AI reale.
+
+**Follow-up FATTO: badge/toggle provider AI (privacy dati studente).**
+- Motivazione: nel Tutor QR ("Chatta e Scrivi") il testo degli STUDENTI va all'AI a runtime →
+  il docente deve sapere/scegliere su quale provider (Google vs Infomaniak svizzero/GDPR).
+  Quiz/cloze/timeline generano l'AI PRIMA della sessione (contenuto mappa, non PII) → lì basta
+  un badge di trasparenza.
+- Helper globali in `app.js`: `getProviderKey(p)` (chiave del provider SCELTO, non solo
+  l'attivo), `aiProviderLabel(p)` ('🇨🇭 Infomaniak (Svizzera)' / 'Google (Gemini)'),
+  `aiProvidersAvailable()` (provider con chiave configurata).
+- **Tutor QR** (`mappai-tutor-teacher.js`): `providerConfig(override)` legge le credenziali del
+  provider scelto; wizard mostra **selettore** se ≥2 provider configurati (default = attivo,
+  NESSUNA memoria), **badge** se 1 solo; su Avvia usa il provider scelto e blocca se Infomaniak
+  senza Product ID. La chiave viaggia come prima (opts→callModel in-process, MAI ai telefoni).
+- **Live quiz** (`mappai-live-teacher.js`): badge sola lettura "Domande generate con: <provider>"
+  nel wizard (il toggle vero lì = fase 2, richiederebbe override di fetchModelAPI).
+- i18n: `tq_provider`/`tq_provider_badge`/`tq_need_productid`/`lv_provider_badge` (EN + IT inline).
+- Verificato: logica helper in Node (0/1/2 provider), badge Infomaniak reso nel Live setup in
+  harness (nessun errore console). Suite **431/431** ✅. ⚠️ Electron vivo: selettore Tutor con
+  entrambe le chiavi + avvio reale su Infomaniak.
 
 ### ✅ FATTO (11/7/26): 003-lavagna-collaborativa — Kahoot/Slido su LAN + motore layer
 Spec-kit (`specs/003-lavagna-collaborativa/`). Fratello architetturale del Knowledge

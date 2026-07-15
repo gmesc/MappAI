@@ -208,7 +208,21 @@
       });
     } else if (kind === 'open') {
       clean.answerText = sanitizeText(q.answerText, LIMITS.answerMax) || null;
+      // Timeline Live (008): campi opzionali per l'autovalutazione avanzata.
+      // Domande senza questi campi → comportamento invariato.
+      if (Array.isArray(q.answerTexts)) {
+        clean.answerTexts = q.answerTexts.map(function (t) { return sanitizeText(t, LIMITS.answerMax); }).filter(Boolean);
+      }
+      if (q.answerYear != null && Number.isInteger(Number(q.answerYear))) {
+        clean.answerYear = Number(q.answerYear);
+        if (q.answerYearEnd != null && Number.isInteger(Number(q.answerYearEnd))) clean.answerYearEnd = Number(q.answerYearEnd);
+        clean.yearTolerance = [0, 2, 5].indexOf(Number(q.yearTolerance)) >= 0 ? Number(q.yearTolerance) : 0;
+      }
+      if (q.expects === 'year') clean.expects = 'year';
     }
+    // Timeline: metadati non-soluzione (visibili anche al pubblico).
+    if (q.hint != null) clean.hint = sanitizeText(q.hint, LIMITS.textMax) || null;
+    if (q.tlYear != null && Number.isInteger(Number(q.tlYear))) clean.tlYear = Number(q.tlYear);
     return { ok: errors.length === 0, errors: errors, clean: errors.length === 0 ? clean : null };
   }
 
@@ -219,6 +233,12 @@
         idx: (q.idx != null ? q.idx : i), kind: q.kind, text: q.text,
         nodeLabel: q.nodeLabel || null
       };
+      // Timeline (008): l'indizio è CONTESTO della fonte, non la soluzione → può
+      // viaggiare; expects guida l'input numerico degli anni. answerYear/answerText(s)
+      // restano strippati (non copiati qui).
+      if (q.hint != null) pub.hint = q.hint;
+      if (q.expects === 'year') pub.expects = 'year';
+      if (q.tlYear != null) pub.tlYear = q.tlYear;
       if (q.kind === 'mc') pub.options = (q.options || []).slice();
       if (q.kind === 'tf') pub.proposed = q.proposed || null;
       if (q.kind === 'cloze') {
@@ -296,8 +316,10 @@
   function cleanAnswer(question, raw) {
     if (!question || !raw || typeof raw !== 'object') return null;
     var ms = Math.max(0, Math.min(Number(raw.ms) || 0, LIMITS.msMax));
-    if (raw.skipped === true) return { skipped: true, ms: ms };
+    // Timeline (008): traccia l'uso dell'indizio SOLO se presente (shape legacy invariata).
+    if (raw.skipped === true) { var s = { skipped: true, ms: ms }; if (raw.hintUsed === true) s.hintUsed = true; return s; }
     var a = { ms: ms };
+    if (raw.hintUsed === true) a.hintUsed = true;
     if (question.kind === 'tf') {
       if (typeof raw.choice !== 'boolean') return null;
       a.choice = raw.choice;
@@ -345,6 +367,21 @@
     if (question.kind === 'open') {
       var txt = String(answer.text || '').trim();
       if (!txt) return { score: 0, outcome: 'blank' };
+      // Timeline (008): domanda evento→anno → confronto numerico con tolleranza.
+      if (question.answerYear != null) {
+        var guess = parseInt(txt.replace(/[^0-9-]/g, ''), 10);
+        if (!Number.isInteger(guess)) return { score: 0, outcome: 'wrong' };
+        var tol = [0, 2, 5].indexOf(question.yearTolerance) >= 0 ? question.yearTolerance : 0;
+        var lo = question.answerYear - tol;
+        var hi = (question.answerYearEnd || question.answerYear) + tol;
+        var okY = guess >= lo && guess <= hi;
+        return { score: okY ? 1 : 0, outcome: okY ? 'right' : 'wrong' };
+      }
+      // Timeline: più eventi per lo stesso anno → corretto se ne indovina UNO.
+      if (Array.isArray(question.answerTexts) && question.answerTexts.length) {
+        var okAny = question.answerTexts.some(function (a) { return answerMatches(txt, a); });
+        return { score: okAny ? 1 : 0, outcome: okAny ? 'right' : 'wrong' };
+      }
       if (!question.answerText) return { score: null, outcome: 'manual' };
       var okOpen = answerMatches(txt, question.answerText);
       return { score: okOpen ? 1 : 0, outcome: okOpen ? 'right' : 'wrong' };
@@ -395,7 +432,8 @@
         proposed: q.proposed || null,
         nodeLabel: q.nodeLabel || null, l1Label: q.l1Label || null,
         source: q.source || 'map',
-        right: 0, wrong: 0, blank: 0, manual: 0,
+        tlYear: (q.tlYear != null ? q.tlYear : null),   // Timeline (008): ordine cronologico report
+        right: 0, wrong: 0, blank: 0, manual: 0, hintCount: 0,
         scoreSum: 0, scoreN: 0
       };
     });
@@ -403,7 +441,7 @@
     var perStudent = sts.map(function (st) {
       var answers = st.answers || {};
       var items = [];
-      var rightCount = 0, wrongCount = 0, blankCount = 0, manualCount = 0;
+      var rightCount = 0, wrongCount = 0, blankCount = 0, manualCount = 0, hintsUsed = 0;
       var scoreSum = 0, attemptedN = 0;   // accuratezza SOLO su right+wrong (attempted)
       var rates = [];
       // nodeId → EWMA su attempted + conteggi; blank tracciati a parte (non abbassano l'acc)
@@ -416,6 +454,8 @@
         var attempted = (g.outcome === 'right' || g.outcome === 'wrong');
         var rate = attempted ? rateFromMs(ms) : null;
         items.push({ idx: idx, outcome: g.outcome, score: g.score, ms: ms, rate: rate });
+
+        if (answers[idx] && answers[idx].hintUsed) { hintsUsed++; perQuestion[i].hintCount++; }
 
         var pq = perQuestion[i];
         if (g.outcome === 'right') { rightCount++; pq.right++; }
@@ -477,7 +517,7 @@
         items: items,
         answered: rightCount + wrongCount + manualCount,
         rightCount: rightCount, wrongCount: wrongCount,
-        blankCount: blankCount, manualCount: manualCount,
+        blankCount: blankCount, manualCount: manualCount, hintsUsed: hintsUsed,
         accuracyPct: attemptedN ? Math.round(100 * scoreSum / attemptedN) : 0,
         medianRate: median(rates),
         topics: topics, strengths: strengths, weaknesses: weaknesses

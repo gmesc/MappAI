@@ -115,7 +115,13 @@
       '<span><span class="lr-dot lr-seg-b"></span>In bianco</span>' +
       '<span><span class="lr-dot lr-seg-m"></span>Da correggere a mano</span></div>';
 
-    (r.perQuestion || []).forEach(function (q, i) {
+    // Timeline (008): se le domande hanno un anno (tlYear), ordinale
+    // cronologicamente → la heatmap diventa la heatmap della timeline.
+    var pq = (r.perQuestion || []);
+    if (pq.length && pq.every(function (q) { return q.tlYear != null; })) {
+      pq = pq.slice().sort(function (a, b) { return a.tlYear - b.tlYear; });
+    }
+    pq.forEach(function (q, i) {
       var seg = function (cls, count, p) {
         if (!count) return '';
         return '<div class="lr-seg ' + cls + '" style="flex:' + count + '" title="' + count + '">' +
@@ -124,6 +130,7 @@
       var meta2 = [];
       if (q.l1Label) meta2.push('<span class="lr-tag">' + esc(q.l1Label) + '</span>');
       if (q.source === 'custom') meta2.push('<span class="lr-tag">personalizzata</span>');
+      if (q.hintCount) meta2.push('<span class="lr-tag">💡 ' + q.hintCount + '</span>');
       var proposed = (q.kind === 'tf' && q.proposed) ? ('<div class="lr-q-meta">Affermazione: “' + esc(q.proposed) + '”</div>') : '';
       body += '<div class="lr-q"><div class="lr-q-head"><div class="lr-q-n">' + (i + 1) + '</div>' +
         '<div><div class="lr-q-text">' + esc(q.text || (q.kind === 'cloze' ? '(completamento)' : '')) + '</div>' +
@@ -169,7 +176,8 @@
         '<div class="lr-who-sub">' + esc(s.emoji) + ' ' + esc(s.num) +
         ' · risposte ' + s.answered + '/' + (r.questionCount || (s.items || []).length) +
         (s.blankCount ? ' · ' + s.blankCount + ' in bianco' : '') +
-        (s.manualCount ? ' · ' + s.manualCount + ' da correggere' : '') + '</div></div>' +
+        (s.manualCount ? ' · ' + s.manualCount + ' da correggere' : '') +
+        (s.hintsUsed ? ' · 💡 ' + s.hintsUsed + ' indizi' : '') + '</div></div>' +
         '<div class="lr-metrics"><div class="lr-acc" style="color:' + accColor(s.accuracyPct) + '">' + s.accuracyPct + '%</div>' +
         '<div class="lr-acc-sub">accuratezza · fluenza ' + rate + '</div></div></div>' +
         '<div class="lr-strip">' + strip + '</div>' +
@@ -198,11 +206,56 @@
     return docShell('Credenziali — ' + (k.name || 'classe'), 'Credenziali', body);
   }
 
+  // ── Timeline Costruisci (008): report proposte + timeline finale di classe ──
+  // results = { byAuthor:{id:{displayName,proposals:[{anno,evento,contesto,status,flags}]}},
+  //             approved:[...], counts:{total,approved,rejected,pending}, joined }
+  function buildTimelineWorkshopReportHtml(meta, results) {
+    var r = results || {}, c = r.counts || {};
+    var extra = 'Proposte: <b>' + (c.total || 0) + '</b> · Approvate <b>' + (c.approved || 0) +
+      '</b> · Bocciate ' + (c.rejected || 0) + ' · In attesa ' + (c.pending || 0);
+    var body = headerBlock(meta, extra);
+
+    // Timeline finale di classe (solo approvate, cronologiche)
+    var approved = (r.approved || []).slice().sort(function (a, b) { return a.anno - b.anno; });
+    body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">Timeline finale della classe</div>';
+    if (!approved.length) body += '<div style="color:#94a3b8;font-size:11px">Nessuna proposta approvata.</div>';
+    approved.forEach(function (p) {
+      body += '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">' +
+        '<div style="font-weight:900;color:#4f46e5;min-width:52px">' + esc(p.anno) + '</div>' +
+        '<div><div style="font-weight:700">' + esc(p.evento) + '</div>' +
+        (p.contesto ? '<div style="font-size:10px;color:#94a3b8">' + esc(p.contesto) + '</div>' : '') + '</div></div>';
+    });
+    body += '</div>';
+
+    // Proposte per allievo
+    var status = { approved: ['#16a34a', '✓ approvata'], rejected: ['#dc2626', '✗ bocciata'], pending: ['#d97706', '· in attesa'] };
+    Object.keys(r.byAuthor || {}).forEach(function (id) {
+      var a = r.byAuthor[id];
+      body += '<div class="lr-card"><div class="lr-card-head"><div class="lr-who">' + esc(a.displayName || id) + '</div>' +
+        '<div class="lr-metrics"><div class="lr-acc-sub">' + (a.proposals || []).length + ' proposte</div></div></div>';
+      if (!(a.proposals || []).length) body += '<div style="color:#cbd5e1;font-size:11px">—</div>';
+      (a.proposals || []).forEach(function (p) {
+        var s = status[p.status] || status.pending;
+        var flags = [];
+        if (p.flags && p.flags.duplicate) flags.push('<span class="lr-tag">duplicato</span>');
+        if (p.flags && p.flags.yearNotInSources) flags.push('<span class="lr-tag">anno non nelle fonti</span>');
+        body += '<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid #f8fafc">' +
+          '<div style="font-weight:900;min-width:48px">' + esc(p.anno) + '</div>' +
+          '<div style="flex:1"><span style="font-weight:700">' + esc(p.evento) + '</span> ' + flags.join(' ') + '</div>' +
+          '<div style="color:' + s[0] + ';font-size:11px;font-weight:700">' + s[1] + '</div></div>';
+      });
+      body += '</div>';
+    });
+
+    return docShell((meta && meta.mapTitle || 'Report') + ' — costruzione', 'Report costruzione', body);
+  }
+
   var REPORTS = {
     escapeHtml: esc,
     buildQuestionsReportHtml: buildQuestionsReportHtml,
     buildStudentsReportHtml: buildStudentsReportHtml,
-    buildCredentialCardsHtml: buildCredentialCardsHtml
+    buildCredentialCardsHtml: buildCredentialCardsHtml,
+    buildTimelineWorkshopReportHtml: buildTimelineWorkshopReportHtml
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = REPORTS;

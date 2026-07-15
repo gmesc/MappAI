@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Chatta e Scrivi — MappAI</title>
+<!--
+  Pagina studente "Chatta e Scrivi" (007) — self-contained, servita dal
+  tutor-server sulla rete di classe. Tre fasi: Esplora (chat col tutor AI,
+  cap scambi del docente) → Scrivi (testo personale, autosave) → Consegna.
+  Nessuna chiave AI qui: il telefono parla SOLO col PC del docente.
+  Stile MappAI (Space Mono, indigo/slate, sfondo puntinato), zero dipendenze.
+-->
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: 'Space Mono', ui-monospace, Menlo, monospace;
+    background: #fafbff;
+    background-image: radial-gradient(#ddd6fe 1px, transparent 1px);
+    background-size: 22px 22px;
+    color: #0f172a; font-size: 14px;
+    display: flex; flex-direction: column; min-height: 100dvh;
+  }
+  .hidden { display: none !important; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+          box-shadow: 0 10px 30px rgba(15,23,42,.06); padding: 18px; }
+  .btn { border: 0; border-radius: 12px; padding: 12px 18px; font: inherit;
+         font-weight: 700; cursor: pointer; }
+  .btn-primary { background: #4f46e5; color: #fff; }
+  .btn-ghost { background: #f1f5f9; color: #334155; }
+  .btn-ok { background: #16a34a; color: #fff; }
+  .btn[disabled] { opacity: .45; cursor: default; }
+
+  /* ── login ── */
+  #login { max-width: 420px; margin: 24px auto; padding: 0 14px; width: 100%; }
+  #login h1 { font-size: 19px; margin: 8px 0 2px; }
+  #login .sub { color: #64748b; font-size: 12px; margin-bottom: 14px; }
+  .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0; }
+  .emoji-cell { font-size: 26px; text-align: center; padding: 8px 0; border: 2px solid #e2e8f0;
+                border-radius: 12px; background: #fff; cursor: pointer; }
+  .emoji-cell.sel { border-color: #4f46e5; background: #eef2ff; }
+  #num-input { width: 100%; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px;
+               font: inherit; font-size: 18px; text-align: center; letter-spacing: .3em; }
+  #login-err { color: #b91c1c; font-size: 12px; min-height: 18px; margin-top: 8px; }
+
+  /* ── header attività ── */
+  #topbar { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid #e2e8f0;
+            padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  #topbar .who { font-weight: 700; font-size: 13px; }
+  #topbar .topic { flex: 1; min-width: 0; font-size: 11px; color: #64748b;
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #counter { font-size: 11px; font-weight: 700; color: #4f46e5; background: #eef2ff;
+             border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  #counter.done { color: #92400e; background: #fef3c7; }
+
+  /* ── tab fasi ── */
+  #tabs { display: flex; gap: 8px; padding: 10px 14px 0; max-width: 660px; margin: 0 auto; width: 100%; }
+  .tab { flex: 1; text-align: center; padding: 10px; border-radius: 12px 12px 0 0; font-weight: 700;
+         font-size: 13px; background: #eef2ff88; color: #64748b; cursor: pointer; border: 1px solid #e2e8f0; border-bottom: 0; }
+  .tab.on { background: #fff; color: #4f46e5; }
+
+  #stage { flex: 1; max-width: 660px; margin: 0 auto; width: 100%; padding: 0 14px 90px; }
+
+  /* ── chat ── */
+  #chat-list { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; }
+  .turn { max-width: 88%; padding: 10px 13px; border-radius: 14px; line-height: 1.5; font-size: 13.5px; white-space: pre-wrap; }
+  .turn.u { align-self: flex-end; background: #dcfce7; border: 1px solid #bbf7d0; border-bottom-right-radius: 4px; }
+  .turn.t { align-self: flex-start; background: #eef2ff; border: 1px solid #e0e7ff; border-bottom-left-radius: 4px; }
+  .turn .role { display: block; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 3px; }
+  #chat-hint { text-align: center; color: #94a3b8; font-size: 12px; padding: 8px; }
+  #composer { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #e2e8f0;
+              padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+  #composer .inner { display: flex; gap: 8px; max-width: 660px; margin: 0 auto; width: 100%; }
+  #msg-input { flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 11px 12px; font: inherit; font-size: 14px; }
+  #msg-input:focus { outline: none; border-color: #4f46e5; }
+
+  /* ── scrittura ── */
+  #write-wrap { padding: 14px 0; }
+  #brief { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 10px 12px;
+           font-size: 12.5px; color: #92400e; margin-bottom: 10px; }
+  #draft { width: 100%; min-height: 44vh; border: 2px solid #e2e8f0; border-radius: 14px; padding: 12px;
+           font: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
+  #draft:focus { outline: none; border-color: #4f46e5; }
+  #write-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #save-dot { font-size: 11px; color: #94a3b8; flex: 1; }
+  #submitted-banner { background: #dcfce7; border: 1px solid #bbf7d0; border-radius: 12px;
+                      padding: 10px 12px; font-size: 12.5px; color: #166534; margin-bottom: 10px; }
+  #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 84px; background: #0f172a;
+           color: #f8fafc; border-radius: 12px; padding: 10px 16px; font-size: 12.5px; opacity: 0;
+           transition: opacity .2s; pointer-events: none; max-width: 90vw; z-index: 50; }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login">
+  <div class="card">
+    <h1 id="login-title">Chatta e Scrivi</h1>
+    <div class="sub" id="login-sub">Scegli il tuo animale e scrivi il tuo numero.</div>
+    <div class="emoji-grid" id="emoji-grid"></div>
+    <input id="num-input" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="numero (es. 03)">
+    <div id="login-err"></div>
+    <button class="btn btn-primary" id="join-btn" type="button" style="width:100%;margin-top:8px">Entra</button>
+  </div>
+</div>
+
+<!-- ══ ATTIVITÀ ══ -->
+<div id="app" class="hidden" style="display:flex;flex-direction:column;flex:1">
+  <div id="topbar">
+    <span class="who" id="who">🦊 03</span>
+    <span class="topic" id="topic"></span>
+    <span id="counter">0/10</span>
+  </div>
+  <div id="tabs">
+    <div class="tab on" id="tab-chat">💬 Esplora</div>
+    <div class="tab" id="tab-write">✍️ Scrivi</div>
+  </div>
+  <div id="stage">
+    <div id="chat-view">
+      <div id="chat-list"></div>
+      <div id="chat-hint" class="hidden"></div>
+    </div>
+    <div id="write-view" class="hidden">
+      <div id="write-wrap">
+        <div id="submitted-banner" class="hidden">✓ Consegnato! Puoi ancora migliorare il testo e riconsegnare.</div>
+        <div id="brief"></div>
+        <textarea id="draft" placeholder="Scrivi qui il tuo testo…"></textarea>
+        <div id="write-meta">
+          <span id="save-dot"></span>
+          <button class="btn btn-ok" id="submit-btn" type="button">📮 Consegna</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="composer">
+    <div class="inner">
+      <input id="msg-input" placeholder="Scrivi al tutor…" maxlength="600">
+      <button class="btn btn-primary" id="send-btn" type="button">➤</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  var qs = new URLSearchParams(location.search);
+  var TOKEN = qs.get('s') || '';
+
+  var S = {
+    session: null,        // publicState + emojiSet
+    emojiKey: null, num: null, deviceId: null,
+    used: 0, cap: 10, submitted: false, closed: false,
+    sending: false, draftTimer: null
+  };
+
+  // deviceId stabile per il rientro
+  try {
+    S.deviceId = localStorage.getItem('tutorq_device');
+    if (!S.deviceId) { S.deviceId = 'd' + Math.random().toString(36).slice(2, 12); localStorage.setItem('tutorq_device', S.deviceId); }
+  } catch (e) { S.deviceId = 'd' + Math.random().toString(36).slice(2, 12); }
+
+  function toast(msg) {
+    var el = $('toast'); el.textContent = msg; el.style.opacity = '1';
+    clearTimeout(el._t); el._t = setTimeout(function () { el.style.opacity = '0'; }, 2400);
+  }
+
+  function api(path, body) {
+    return fetch(path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({
+        token: TOKEN, emojiKey: S.emojiKey, num: S.num, deviceId: S.deviceId
+      }, body || {}))
+    }).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); });
+  }
+
+  // ── boot: sessione pubblica ──
+  fetch('/api/session?s=' + encodeURIComponent(TOKEN))
+    .then(function (r) { if (!r.ok) throw new Error('token'); return r.json(); })
+    .then(function (sess) {
+      S.session = sess;
+      S.cap = sess.cap || 10;
+      $('login-title').textContent = 'Chatta e Scrivi — ' + (sess.name || '');
+      $('topic').textContent = (sess.topic ? sess.topic.label : '') + (sess.className ? ' · ' + sess.className : '');
+      $('brief').textContent = sess.writingBrief || 'Scrivi il tuo testo personale su quello che hai capito.';
+      $('msg-input').maxLength = sess.msgMax || 600;
+      // griglia emoji
+      var grid = $('emoji-grid');
+      (sess.emojiSet || []).forEach(function (e) {
+        var c = document.createElement('div');
+        c.className = 'emoji-cell'; c.textContent = e.emoji; c.dataset.key = e.key;
+        c.onclick = function () {
+          grid.querySelectorAll('.emoji-cell').forEach(function (x) { x.classList.remove('sel'); });
+          c.classList.add('sel'); S.emojiKey = e.key;
+        };
+        grid.appendChild(c);
+      });
+      // rientro rapido: identità salvata per questo token
+      try {
+        var saved = JSON.parse(localStorage.getItem('tutorq_id::' + TOKEN) || 'null');
+        if (saved && saved.emojiKey) {
+          S.emojiKey = saved.emojiKey;
+          var cell = grid.querySelector('[data-key="' + saved.emojiKey + '"]');
+          if (cell) cell.classList.add('sel');
+          $('num-input').value = saved.num || '';
+        }
+      } catch (e) { }
+    })
+    .catch(function () {
+      $('login').innerHTML = '<div class="card">Link non valido o sessione terminata. Inquadra di nuovo il QR del docente.</div>';
+    });
+
+  // ── join ──
+  $('join-btn').onclick = function () {
+    var num = ($('num-input').value || '').trim();
+    if (num.length === 1) num = '0' + num;
+    if (!S.emojiKey) { $('login-err').textContent = 'Scegli il tuo animale.'; return; }
+    if (!/^\d{2}$/.test(num)) { $('login-err').textContent = 'Scrivi il tuo numero (due cifre, es. 03).'; return; }
+    S.num = num;
+    api('/api/join').then(function (r) {
+      if (r.status === 409) { $('login-err').textContent = 'Questa identità è già usata da un altro telefono. Chiedi al docente.'; return; }
+      if (r.status === 404) { $('login-err').textContent = 'Credenziale non trovata: controlla animale e numero.'; return; }
+      if (r.status !== 200) { $('login-err').textContent = 'Errore di rete: riprova.'; return; }
+      try { localStorage.setItem('tutorq_id::' + TOKEN, JSON.stringify({ emojiKey: S.emojiKey, num: S.num })); } catch (e) { }
+      enterApp(r.body);
+    }).catch(function () { $('login-err').textContent = 'Rete assente: controlla il Wi-Fi di classe.'; });
+  };
+
+  function enterApp(joined) {
+    S.used = joined.used || 0;
+    S.submitted = !!joined.submitted;
+    S.closed = joined.sessionPhase === 'closed';
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    var em = (S.session.emojiSet || []).find(function (e) { return e.key === S.emojiKey; });
+    $('who').textContent = (em ? em.emoji : '?') + ' ' + S.num;
+    // ripristina chat + bozza dal server (rientro)
+    (joined.transcript || []).forEach(function (t) { addTurn(t.role, t.text); });
+    $('draft').value = joined.draft || '';
+    if (S.submitted) $('submitted-banner').classList.remove('hidden');
+    updateCounter();
+    if (S.closed) { chatClosed('La sessione è terminata.'); $('submit-btn').disabled = true; $('draft').disabled = true; }
+    else if ((joined.transcript || []).length === 0) {
+      addTurn('tutor', 'Ciao! Sono il tuo tutor per «' + (S.session.topic ? S.session.topic.label : S.session.name) + '». Scrivimi cosa sai già o cosa ti incuriosisce, e partiamo.');
+    }
+  }
+
+  // ── tab fasi ──
+  $('tab-chat').onclick = function () { switchTab('chat'); };
+  $('tab-write').onclick = function () { switchTab('write'); };
+  function switchTab(which) {
+    var chat = which === 'chat';
+    $('tab-chat').classList.toggle('on', chat);
+    $('tab-write').classList.toggle('on', !chat);
+    $('chat-view').classList.toggle('hidden', !chat);
+    $('write-view').classList.toggle('hidden', chat);
+    $('composer').style.display = chat ? '' : 'none';
+    if (!chat) $('draft').focus();
+  }
+
+  // ── chat ──
+  function addTurn(role, text) {
+    var d = document.createElement('div');
+    d.className = 'turn ' + (role === 'tutor' ? 't' : 'u');
+    d.innerHTML = '<span class="role">' + (role === 'tutor' ? 'Tutor' : 'Tu') + '</span>';
+    d.appendChild(document.createTextNode(text));
+    $('chat-list').appendChild(d);
+    d.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }
+  function updateCounter() {
+    var c = $('counter');
+    c.textContent = S.used + '/' + S.cap;
+    if (S.used >= S.cap) {
+      c.classList.add('done');
+      chatClosed('Hai usato tutti gli scambi: ora tocca a te! Passa a «✍️ Scrivi».');
+    }
+  }
+  function chatClosed(msg) {
+    $('msg-input').disabled = true; $('send-btn').disabled = true;
+    var h = $('chat-hint'); h.textContent = msg; h.classList.remove('hidden');
+  }
+
+  function send() {
+    if (S.sending) return;
+    var text = ($('msg-input').value || '').trim();
+    if (!text) return;
+    S.sending = true; $('send-btn').disabled = true;
+    addTurn('user', text);
+    $('msg-input').value = '';
+    var thinking = document.createElement('div');
+    thinking.className = 'turn t'; thinking.textContent = '…';
+    $('chat-list').appendChild(thinking);
+    api('/api/tutor', { text: text }).then(function (r) {
+      thinking.remove();
+      if (r.status === 200) {
+        S.used = r.body.used; addTurn('tutor', r.body.reply); updateCounter();
+      } else if (r.status === 429 && r.body && r.body.error === 'cap-reached') {
+        S.used = r.body.used || S.cap; updateCounter();
+      } else if (r.status === 503) {
+        addTurn('tutor', 'Il tutor è momentaneamente occupato… riprova tra qualche secondo.');
+      } else if (r.status === 409) {
+        chatClosed('La sessione è terminata.');
+      } else {
+        toast('Messaggio non inviato: riprova.');
+      }
+    }).catch(function () {
+      thinking.remove();
+      toast('Rete assente: controlla il Wi-Fi e riprova.');
+    }).then(function () {
+      // reset in ogni caso (then dopo catch = "finally" compatibile ovunque)
+      S.sending = false;
+      if (S.used < S.cap && !S.closed) $('send-btn').disabled = false;
+    });
+  }
+  $('send-btn').onclick = send;
+  $('msg-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+
+  // ── scrittura: autosave (debounce) + consegna ──
+  $('draft').addEventListener('input', function () {
+    $('save-dot').textContent = '…';
+    clearTimeout(S.draftTimer);
+    S.draftTimer = setTimeout(function () {
+      api('/api/draft', { text: $('draft').value }).then(function (r) {
+        $('save-dot').textContent = r.status === 200 ? '✓ salvato' : 'non salvato (offline?)';
+      }).catch(function () { $('save-dot').textContent = 'non salvato (offline?)'; });
+    }, 1200);
+  });
+
+  $('submit-btn').onclick = function () {
+    var text = ($('draft').value || '').trim();
+    if (!text) { toast('Scrivi il tuo testo prima di consegnare.'); return; }
+    $('submit-btn').disabled = true;
+    api('/api/submit', { text: text }).then(function (r) {
+      $('submit-btn').disabled = false;
+      if (r.status === 200) {
+        S.submitted = true;
+        $('submitted-banner').classList.remove('hidden');
+        toast('Consegnato! ✓');
+      } else if (r.status === 409) { toast('La sessione è terminata.'); }
+      else { toast('Consegna non riuscita: riprova.'); }
+    }).catch(function () { $('submit-btn').disabled = false; toast('Rete assente: riprova.'); });
+  };
+})();
+</script>
+</body>
+</html>

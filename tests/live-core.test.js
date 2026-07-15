@@ -252,3 +252,68 @@ test('cleanAnswer: sanifica per tipo, respinge choice fuori range', () => {
   assert.strictEqual(LC.cleanAnswer(tf, { choice: 'sì' }), null);
   assert.deepStrictEqual(LC.cleanAnswer(tf, { choice: false, ms: 500 }), { ms: 500, choice: false });
 });
+
+// ── Timeline Live (008): grading anni, answerTexts, hint ────────────────────
+test('gradeAnswer open answerYear: esatto/±tol/oltre/non-numerico', () => {
+  const q = { kind: 'open', answerYear: 1947, yearTolerance: 2 };
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1947' }).outcome, 'right');
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1949' }).outcome, 'right'); // dist 2 ≤ tol
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1945' }).outcome, 'right'); // dist 2
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1950' }).outcome, 'wrong'); // dist 3
+  assert.strictEqual(LC.gradeAnswer(q, { text: 'boh' }).outcome, 'wrong');
+  assert.strictEqual(LC.gradeAnswer(q, { text: '' }).outcome, 'blank');
+});
+
+test('gradeAnswer open periodo: dentro [inizio-tol, fine+tol]', () => {
+  const q = { kind: 'open', answerYear: 1939, answerYearEnd: 1945, yearTolerance: 0 };
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1942' }).outcome, 'right'); // dentro il periodo
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1945' }).outcome, 'right');
+  assert.strictEqual(LC.gradeAnswer(q, { text: '1946' }).outcome, 'wrong');
+});
+
+test('gradeAnswer open answerTexts: corretto se indovina UNO qualsiasi', () => {
+  const q = { kind: 'open', answerTexts: ['Crisi di Cuba', 'Concilio Vaticano II'] };
+  assert.strictEqual(LC.gradeAnswer(q, { text: 'Crisi di Cuba' }).outcome, 'right');
+  assert.strictEqual(LC.gradeAnswer(q, { text: 'concilio vaticano II' }).outcome, 'right'); // fuzzy sul secondo
+  assert.strictEqual(LC.gradeAnswer(q, { text: 'Rivoluzione francese' }).outcome, 'wrong');
+});
+
+test('open senza campi timeline → comportamento identico a prima (answerText / manual)', () => {
+  assert.strictEqual(LC.gradeAnswer({ kind: 'open', answerText: 'Roma' }, { text: 'roma' }).outcome, 'right');
+  assert.strictEqual(LC.gradeAnswer({ kind: 'open' }, { text: 'x' }).outcome, 'manual');
+});
+
+test('cleanAnswer: hintUsed preservato solo se true (shape legacy invariata)', () => {
+  const q = { kind: 'open' };
+  assert.deepStrictEqual(LC.cleanAnswer(q, { text: 'x', ms: 100 }), { ms: 100, text: 'x' });
+  assert.deepStrictEqual(LC.cleanAnswer(q, { text: 'x', ms: 100, hintUsed: true }), { ms: 100, hintUsed: true, text: 'x' });
+});
+
+test('publicQuestions timeline: passa hint/expects/tlYear, strippa answerYear/answerTexts/answerText', () => {
+  const pub = LC.publicQuestions([{
+    kind: 'open', text: 'In che anno?', hint: 'contesto', expects: 'year', tlYear: 1947,
+    answerYear: 1947, answerTexts: ['x'], answerText: 'x'
+  }])[0];
+  assert.strictEqual(pub.hint, 'contesto');
+  assert.strictEqual(pub.expects, 'year');
+  assert.strictEqual(pub.tlYear, 1947);
+  assert.strictEqual(pub.answerYear, undefined);
+  assert.strictEqual(pub.answerTexts, undefined);
+  assert.strictEqual(pub.answerText, undefined);
+});
+
+test('computeResults: aggrega hintsUsed per studente e hintCount per domanda', () => {
+  const qs = [
+    { idx: 0, kind: 'open', answerText: 'A', tlYear: 1900 },
+    { idx: 1, kind: 'open', answerYear: 1950, yearTolerance: 0, tlYear: 1950 }
+  ];
+  const students = [{ emojiKey: 'volpe', num: '01', answers: {
+    0: { text: 'A', ms: 1000, hintUsed: true },
+    1: { text: '1950', ms: 1000 }
+  } }];
+  const r = LC.computeResults(qs, students, [{ emojiKey: 'volpe', num: '01' }]);
+  assert.strictEqual(r.perStudent[0].hintsUsed, 1);
+  assert.strictEqual(r.perQuestion[0].hintCount, 1);
+  assert.strictEqual(r.perQuestion[1].hintCount, 0);
+  assert.strictEqual(r.perQuestion[0].tlYear, 1900);
+});

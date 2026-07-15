@@ -27,6 +27,7 @@ const path = require('path');
 const crypto = require('crypto');
 const LC = require(path.join(__dirname, 'public', 'js', 'mappai-live-core.js'));
 const LR = require(path.join(__dirname, 'public', 'js', 'mappai-live-reports.js'));
+const TC = require(path.join(__dirname, 'public', 'js', 'mappai-timeline-core.js'));   // Timeline Live (008)
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -113,7 +114,20 @@ function createLiveServer(opts) {
       name: cfg.name || 'Quiz',
       activity: cfg.activity || 'Quiz',
       className: cfg.className || '',
+      scope: cfg.scope || '',   // 010: ramo L1 coperto ('' = tutta la mappa)
       durationMin: Number(cfg.durationMin) || 0,
+      // Timeline Live (008): modalità attività, schema di login, indizi.
+      // Default = comportamento storico (quiz / login individuale / indizi su richiesta).
+      mode: cfg.mode === 'build' ? 'build' : 'quiz',
+      loginMode: cfg.loginMode === 'group' ? 'group' : 'individual',
+      hintMode: (['always', 'onrequest', 'never'].indexOf(cfg.hintMode) >= 0) ? cfg.hintMode : 'onrequest',
+      build: (cfg.mode === 'build' && cfg.build) ? {
+        gaps: Array.isArray(cfg.build.gaps) ? cfg.build.gaps : [],
+        freeAllowed: cfg.build.freeAllowed !== false,
+        maxProposals: Number(cfg.build.maxProposals) > 0 ? Number(cfg.build.maxProposals) : 3,
+        sourceYears: Array.isArray(cfg.build.sourceYears) ? cfg.build.sourceYears : [],
+        poolKeys: Array.isArray(cfg.build.poolKeys) ? cfg.build.poolKeys : []   // dedup lato server
+      } : null,
       token: token(10),
       adminToken: token(16),
       phase: 'lobby',            // lobby → running → closed
@@ -146,6 +160,22 @@ function createLiveServer(opts) {
   function rosterEntry(emojiKey, num) {
     const key = LC.identityKey(emojiKey, num);
     return roster.find(r => LC.identityKey(r.emojiKey, r.num) === key) || null;
+  }
+
+  // Timeline Live (008): identità dello studente secondo lo schema di login.
+  // Individuale → emoji+numero (roster); a gruppi → slug del nickname.
+  function pid(body) {
+    return session.loginMode === 'group'
+      ? LC.slugify(String(body.nick || ''))
+      : LC.identityKey(body.emojiKey, body.num);
+  }
+  // Tutte le proposte (modalità Costruisci), con autore.
+  function allProposals() {
+    const out = [];
+    Object.keys(students).forEach(id => {
+      (students[id].proposals || []).forEach(pr => out.push(Object.assign({ author: id }, pr)));
+    });
+    return out;
   }
 
   // guardia lazy: se il timer è scaduto (o è stato perso), chiudi ora
@@ -184,10 +214,36 @@ function createLiveServer(opts) {
     if (session.phase === 'closed') return;   // idempotente
     session.phase = 'closed';
     session.closedAt = new Date().toISOString();
-    const results = LC.computeResults(questions, Object.values(students), roster);
-    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
-    fs.writeFileSync(path.join(dir, 'report-domande.html'), LR.buildQuestionsReportHtml(meta(), results));
-    fs.writeFileSync(path.join(dir, 'report-studenti.html'), LR.buildStudentsReportHtml(meta(), results));
+    if (session.mode === 'build') {
+      // Timeline Costruisci: report proposte per allievo + timeline finale.
+      const proposals = allProposals();
+      const byAuthor = {};
+      Object.keys(students).forEach(id => {
+        const st = students[id];
+        byAuthor[id] = {
+          displayName: LC.displayName(st) || id,
+          proposals: (st.proposals || []).slice()
+        };
+      });
+      const approved = proposals.filter(p => p.status === 'approved');
+      const results = {
+        mode: 'build', joined: Object.keys(students).length,
+        proposals, byAuthor, approved,
+        counts: {
+          total: proposals.length,
+          approved: approved.length,
+          rejected: proposals.filter(p => p.status === 'rejected').length,
+          pending: proposals.filter(p => p.status === 'pending').length
+        }
+      };
+      fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
+      fs.writeFileSync(path.join(dir, 'report-costruzione.html'), LR.buildTimelineWorkshopReportHtml(meta(), results));
+    } else {
+      const results = LC.computeResults(questions, Object.values(students), roster);
+      fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
+      fs.writeFileSync(path.join(dir, 'report-domande.html'), LR.buildQuestionsReportHtml(meta(), results));
+      fs.writeFileSync(path.join(dir, 'report-studenti.html'), LR.buildStudentsReportHtml(meta(), results));
+    }
     persist();
     console.log('[live-server] sessione CHIUSA:', session.name, '· report generati');
   }
@@ -215,7 +271,14 @@ function createLiveServer(opts) {
           schema: 'mappai-live-session@1',
           name: session.name, activity: session.activity, className: session.className,
           phase: session.phase, questionCount: questions.length,
-          endsAt: session.endsAt, emojiSet: LC.EMOJI_SET
+          endsAt: session.endsAt, emojiSet: LC.EMOJI_SET,
+          // Timeline Live (008): mode/login/hint per il player; build SENZA sourceYears
+          // (mai esposti: servono solo al server per il flag yearNotInSources).
+          mode: session.mode, loginMode: session.loginMode, hintMode: session.hintMode,
+          build: session.build ? {
+            gaps: session.build.gaps, freeAllowed: session.build.freeAllowed,
+            maxProposals: session.build.maxProposals
+          } : null
         });
       }
 
@@ -239,13 +302,18 @@ function createLiveServer(opts) {
               finished: !!(st && st.finishedAt), present: !!st
             };
           }),
-          joined: Object.keys(students).length
+          joined: Object.keys(students).length,
+          // Timeline Costruisci: proposte per la dashboard di revisione + proiezione LIM
+          proposals: session.mode === 'build' ? allProposals() : undefined
         });
       }
 
       if (p === '/api/report' && req.method === 'GET') {
         if (!isAdmin(u.searchParams.get('admin'))) { res.writeHead(403); res.end('forbidden'); return; }
-        const which = u.searchParams.get('which') === 'students' ? 'report-studenti.html' : 'report-domande.html';
+        const w = u.searchParams.get('which');
+        const which = w === 'students' ? 'report-studenti.html'
+          : w === 'workshop' ? 'report-costruzione.html'
+          : 'report-domande.html';
         const f = path.join(dir, which);
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('report non ancora generato'); return; }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -259,34 +327,96 @@ function createLiveServer(opts) {
           // ── studente: entra nella sessione ──
           if (p === '/api/join') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const rEntry = rosterEntry(body.emojiKey, body.num);
-            if (!rEntry) return json(res, 404, { error: 'not-in-roster' });
             if (!body.deviceId || typeof body.deviceId !== 'string') return json(res, 400, { error: 'bad-device' });
-            const id = LC.identityKey(body.emojiKey, body.num);
-            let st = students[id];
-            if (st && st.deviceId && st.deviceId !== body.deviceId) {
-              return json(res, 409, { error: 'identity-taken' });   // stessa identità, ALTRO device
-            }
-            if (!st) {
-              st = students[id] = {
-                emojiKey: rEntry.emojiKey, num: rEntry.num, name: rEntry.name || '',
-                deviceId: body.deviceId, joinedAt: new Date().toISOString(),
-                finishedAt: null, answers: {}
-              };
+            let id, st;
+            if (session.loginMode === 'group') {
+              // Timeline Live (008): login a gruppi (nickname condiviso, come Lavagna).
+              const nick = LC.sanitizeText(body.nick, LC.LIMITS.nameMax);
+              if (!nick) return json(res, 400, { error: 'bad-nick' });
+              id = LC.slugify(nick);
+              st = students[id];
+              if (st && st.deviceId && st.deviceId !== body.deviceId) return json(res, 409, { error: 'identity-taken' });
+              if (!st) st = students[id] = { group: true, name: nick, deviceId: body.deviceId, joinedAt: new Date().toISOString(), finishedAt: null, answers: {} };
+              else st.deviceId = body.deviceId;
             } else {
-              st.deviceId = body.deviceId;   // adozione dopo release, o rientro stesso device
+              const rEntry = rosterEntry(body.emojiKey, body.num);
+              if (!rEntry) return json(res, 404, { error: 'not-in-roster' });
+              id = LC.identityKey(body.emojiKey, body.num);
+              st = students[id];
+              if (st && st.deviceId && st.deviceId !== body.deviceId) {
+                return json(res, 409, { error: 'identity-taken' });   // stessa identità, ALTRO device
+              }
+              if (!st) {
+                st = students[id] = {
+                  emojiKey: rEntry.emojiKey, num: rEntry.num, name: rEntry.name || '',
+                  deviceId: body.deviceId, joinedAt: new Date().toISOString(),
+                  finishedAt: null, answers: {}
+                };
+              } else {
+                st.deviceId = body.deviceId;   // adozione dopo release, o rientro stesso device
+              }
             }
             persistStudent(id); persist();
             return json(res, 200, {
               ok: true, displayName: LC.displayName(st), phase: session.phase,
-              questions: LC.publicQuestions(questions), answers: st.answers || {}
+              questions: LC.publicQuestions(questions), answers: st.answers || {},
+              proposals: st.proposals || []   // Timeline Costruisci: ripresa proposte
             });
+          }
+
+          // ── studente (Costruisci): invia una proposta di data ──
+          if (p === '/api/propose') {
+            if (session.mode !== 'build') return json(res, 404, { error: 'not-build' });
+            if (body.token !== session.token) return json(res, 403, { error: 'token' });
+            const id = pid(body);
+            const st = students[id];
+            if (!st) return json(res, 404, { error: 'not-joined' });
+            if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
+            if (session.phase === 'closed') return json(res, 409, { error: 'closed' });
+            const v = TC.validateProposal(body);
+            if (!v.ok) return json(res, 422, { error: 'bad-proposal', details: v.errors });
+            st.proposals = st.proposals || [];
+            if (TC.countActive(st.proposals, id) >= (session.build ? session.build.maxProposals : 3)) {
+              return json(res, 429, { error: 'proposal-cap' });
+            }
+            const bld = session.build || {};
+            const flags = {};
+            const key = TC.eventKey(v.clean);
+            const dupPool = (bld.poolKeys || []).indexOf(key) >= 0;
+            const dupProp = allProposals().some(pr => pr.status !== 'rejected' && TC.eventKey(pr) === key);
+            if (dupPool || dupProp) flags.duplicate = true;
+            if (Array.isArray(bld.sourceYears) && bld.sourceYears.indexOf(v.clean.anno) < 0) flags.yearNotInSources = true;
+            const proposal = {
+              id: 'pr_' + token(8), author: id, anno: v.clean.anno, evento: v.clean.evento,
+              contesto: v.clean.contesto, gapYear: v.clean.gapYear,
+              status: 'pending', flags: flags, ts: Date.now()
+            };
+            st.proposals.push(proposal);
+            persistStudent(id);
+            return json(res, 200, { ok: true, proposal: proposal });
+          }
+
+          // ── docente (Costruisci): approva/boccia una proposta ──
+          if (p === '/api/review') {
+            if (session.mode !== 'build') return json(res, 404, { error: 'not-build' });
+            if (!isAdmin(body.adminToken)) return json(res, 403, { error: 'token' });
+            const action = body.action === 'approve' ? 'approved' : body.action === 'reject' ? 'rejected' : null;
+            if (!action) return json(res, 400, { error: 'bad-action' });
+            let found = null, ownerId = null;
+            Object.keys(students).forEach(sid => {
+              (students[sid].proposals || []).forEach(pr => { if (pr.id === body.proposalId) { found = pr; ownerId = sid; } });
+            });
+            if (!found) return json(res, 404, { error: 'no-proposal' });
+            if (found.status !== 'pending' && found.status !== action) return json(res, 409, { error: 'already-reviewed' });
+            found.status = action;
+            persistStudent(ownerId);
+            return json(res, 200, { ok: true, proposal: Object.assign({ author: ownerId }, found) });
           }
 
           // ── studente: salva una risposta (autosave, sovrascrivibile) ──
           if (p === '/api/answer') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const id = LC.identityKey(body.emojiKey, body.num);
+            const id = pid(body);
             const st = students[id];
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
@@ -308,7 +438,7 @@ function createLiveServer(opts) {
           // ── studente: consegna (può ancora riaprire fino a chiusura) ──
           if (p === '/api/finish') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
-            const id = LC.identityKey(body.emojiKey, body.num);
+            const id = pid(body);
             const st = students[id];
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });

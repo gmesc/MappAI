@@ -206,3 +206,168 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
 
   await srv.stop();
 });
+
+// ── Timeline Live (008): sessione mode/loginMode/hintMode + hintUsed persistito ──
+test('session espone mode/loginMode/hintMode; /api/answer persiste hintUsed', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tl-'));
+  const roster = LC.buildCredentials(2);
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Storia', activity: 'timeline', className: '3A', hintMode: 'onrequest' },
+    roster,
+    questions: [{ kind: 'open', text: 'Nel 1947?', answerText: 'Piano Marshall', hint: 'aiuti', tlYear: 1947, source: 'timeline' }]
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const st = srv.state();
+  const tok = st.session.token, admin = st.session.adminToken;
+
+  const sess = await api('/api/session?s=' + tok);
+  assert.strictEqual(sess.body.mode, 'quiz');            // default storico
+  assert.strictEqual(sess.body.loginMode, 'individual'); // default storico
+  assert.strictEqual(sess.body.hintMode, 'onrequest');
+  // l'indizio (contesto) viaggia; la soluzione no
+  assert.strictEqual(sess.body.build, null);
+
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  const ans = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, text: 'Piano Marshall', ms: 900, hintUsed: true }) });
+  assert.strictEqual(ans.status, 200);
+
+  const stFile = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
+  assert.strictEqual(stFile.answers['0'].hintUsed, true);
+  await srv.stop();
+});
+
+// ── Timeline Costruisci (008): propose / review / cap / report ──────────────
+function buildSrv(dir, roster) {
+  return createLiveServer({
+    repoRoot, dir,
+    session: {
+      name: 'Storia', activity: 'timeline', className: '3A', mode: 'build', loginMode: 'individual',
+      build: { gaps: [{ year: 1962, hint: 'missili' }], freeAllowed: true, maxProposals: 2, sourceYears: [1962, 1989], poolKeys: ['1947|piano marshall'] }
+    },
+    roster, questions: []
+  });
+}
+
+test('build: propose ok/422/429, review idempotenza/409, flags, close report', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-build-'));
+  const roster = LC.buildCredentials(2);
+  const srv = buildSrv(dir, roster);
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const st = srv.state();
+  const tok = st.session.token, admin = st.session.adminToken;
+
+  const sess = await api('/api/session?s=' + tok);
+  assert.strictEqual(sess.body.mode, 'build');
+  assert.ok(sess.body.build && sess.body.build.gaps.length === 1);
+  assert.strictEqual(sess.body.build.sourceYears, undefined); // MAI esposti
+
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+
+  // proposta valida per un buco
+  const p1 = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1962, evento: 'Crisi di Cuba', gapYear: 1962 }) });
+  assert.strictEqual(p1.status, 200);
+  // proposta con anno non nelle fonti (in range 1000..2100 ma non in sourceYears) → flag
+  const p2 = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1800, evento: 'Anno non citato' }) });
+  assert.ok(p2.body.proposal.flags.yearNotInSources);
+  // duplicato del pool (poolKeys) → flag
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'panda', num: '00', deviceId: 'd2' }) });
+  const p3 = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'panda', num: '00', deviceId: 'd2', anno: 1947, evento: 'Piano Marshall' }) });
+  assert.ok(p3.body.proposal.flags.duplicate);
+  // proposta malformata → 422
+  const bad = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'panda', num: '00', deviceId: 'd2', anno: 50, evento: '' }) });
+  assert.strictEqual(bad.status, 422);
+  // cap: volpe ha già 2 (max 2) → 429
+  const cap = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1500, evento: 'Terza' }) });
+  assert.strictEqual(cap.status, 429);
+
+  // propose su sessione quiz → 404
+  // review: approva p1
+  const rev = await api('/api/review', { method: 'POST', body: JSON.stringify({ adminToken: admin, proposalId: p1.body.proposal.id, action: 'approve' }) });
+  assert.strictEqual(rev.status, 200);
+  assert.strictEqual(rev.body.proposal.status, 'approved');
+  // ripetere stessa action → ok idempotente
+  assert.strictEqual((await api('/api/review', { method: 'POST', body: JSON.stringify({ adminToken: admin, proposalId: p1.body.proposal.id, action: 'approve' }) })).status, 200);
+  // cambiare dopo review → 409
+  assert.strictEqual((await api('/api/review', { method: 'POST', body: JSON.stringify({ adminToken: admin, proposalId: p1.body.proposal.id, action: 'reject' }) })).status, 409);
+
+  // cap liberato: bocciamo p2 poi volpe può riproporre
+  await api('/api/review', { method: 'POST', body: JSON.stringify({ adminToken: admin, proposalId: p2.body.proposal.id, action: 'reject' }) });
+  const again = await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1500, evento: 'Ora ci sta' }) });
+  assert.strictEqual(again.status, 200);
+
+  // status espone le proposte
+  const status = await api('/api/status?admin=' + admin);
+  assert.ok(Array.isArray(status.body.proposals) && status.body.proposals.length >= 3);
+
+  // close → report costruzione con timeline finale
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  assert.ok(fs.existsSync(path.join(dir, 'report-costruzione.html')));
+  const rep = fs.readFileSync(path.join(dir, 'report-costruzione.html'), 'utf8');
+  assert.ok(rep.includes('Timeline finale della classe'));
+  assert.ok(rep.includes('Crisi di Cuba')); // approvata in timeline finale
+  await srv.stop();
+});
+
+test('build: propose su sessione quiz → 404; ripresa da disco con proposte', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-quiz-'));
+  const roster = LC.buildCredentials(1);
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'Q', activity: 'Quiz' }, roster, questions: [{ kind: 'open', text: 'x', answerText: 'y' }] });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual((await api('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1900, evento: 'X' }) })).status, 404);
+  await srv.stop();
+
+  // ripresa build con proposte su disco
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'live-b2-'));
+  const roster2 = LC.buildCredentials(1);
+  const s1 = buildSrv(dir2, roster2);
+  const port2 = await s1.listen(0, '127.0.0.1');
+  const api2 = apiFactory(port2);
+  const tok2 = s1.state().session.token;
+  await api2('/api/join', { method: 'POST', body: JSON.stringify({ token: tok2, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api2('/api/propose', { method: 'POST', body: JSON.stringify({ token: tok2, emojiKey: 'volpe', num: '00', deviceId: 'd1', anno: 1962, evento: 'Crisi' }) });
+  await s1.stop();
+  const s2 = buildSrv(dir2, roster2);          // stesso dir → RIPRESA
+  const port3 = await s2.listen(0, '127.0.0.1');
+  const api3 = apiFactory(port3);
+  const tok3 = s2.state().session.token;
+  assert.strictEqual(tok3, tok2);              // stesso token
+  const rejoin = await api3('/api/join', { method: 'POST', body: JSON.stringify({ token: tok3, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.ok((rejoin.body.proposals || []).length === 1); // proposta ritrovata
+  await s2.stop();
+});
+
+// ── Login flessibile (008 US5): live-server loginMode 'group' ───────────────
+test('live loginMode group: join per nickname, 409 altro device, report per gruppo', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-grp-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Q', activity: 'timeline', className: '3A', loginMode: 'group' },
+    roster: [], questions: [{ kind: 'open', text: 'Nel 1947?', answerText: 'Piano Marshall', tlYear: 1947 }]
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const st = srv.state(); const tok = st.session.token, admin = st.session.adminToken;
+  assert.strictEqual((await api('/api/session?s=' + tok)).body.loginMode, 'group');
+
+  const j1 = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1' }) });
+  assert.strictEqual(j1.status, 200);
+  assert.strictEqual(j1.body.displayName, 'I Galli');
+  // stesso nick altro device → 409
+  assert.strictEqual((await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'dX' }) })).status, 409);
+  // stesso device → ripresa ok
+  assert.strictEqual((await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1' }) })).status, 200);
+
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1', qIdx: 0, text: 'Piano Marshall', ms: 900 }) });
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  const rep = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
+  assert.ok(rep.includes('I Galli'));   // report aggregato per gruppo
+  await srv.stop();
+});

@@ -117,6 +117,9 @@ const StorageManager = {
             if (!loadedState.db.links) loadedState.db.links = [];
             if (!loadedState.db.sourcesDict) loadedState.db.sourcesDict = {};
             if (!loadedState.db.customColors) loadedState.db.customColors = {};
+            // Timeline Live (008): pool AI + date manuali — progetti legacy → vuoti (FR-063)
+            if (!Array.isArray(loadedState.db.timelineEvents)) loadedState.db.timelineEvents = [];
+            if (!Array.isArray(loadedState.db.timelineAI)) loadedState.db.timelineAI = [];
             if (!loadedState.extractionMode) loadedState.extractionMode = 'mindmap';
 
             // Overwrite global appState

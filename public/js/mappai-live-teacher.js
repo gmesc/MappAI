@@ -79,12 +79,16 @@
       card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla, cloze o domande tue — con report finali'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.')) +
       card('presentation', t('lv_card_board', 'Lavagna collaborativa'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
       card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
+      card('message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
+      card('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lv_card_timeline_d', 'Completa o costruisci insieme la timeline della mappa'), t('lv_card_timeline_tip', 'Due modalità: Completa (domande autovalutate sulle date) o Costruisci (gli allievi propongono le date mancanti, tu approvi). Zero costi AI.')) +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, '560px');
     var cards = ov.querySelectorAll('.lh-card');
     cards[0].onclick = function () { openLiveSetup(); };
     cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Lavagna non disponibile', 'error'); };
     cards[2].onclick = function () { openMaterialsPanel(); };
+    cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chatta e Scrivi non disponibile', 'error'); };
+    cards[4].onclick = function () { closeModal(); if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
@@ -123,6 +127,10 @@
       '<button type="button" data-m="mc">' + t('lv_m_mc', 'Scelta multipla') + '</button>' +
       '<button type="button" data-m="cloze">' + t('lv_m_cloze', 'Cloze') + '</button>' +
       '<button type="button" data-m="custom">' + t('lv_m_custom', 'Domande mie') + '</button></div>' +
+      '<div id="lv-prov-badge" style="margin-top:10px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:8px;padding:7px 10px">' +
+      t('lv_provider_badge', 'Domande generate con:') + ' <b>' +
+      (window.aiProviderLabel ? window.aiProviderLabel((S() && S().aiProvider) || 'google') : 'Google') + '</b></div>' +
+      (window.MappAINetMode ? window.MappAINetMode.fieldHtml('lv') : '') +
       '<div id="lv-mapopts">' +
       '<span class="lv-lab">' + t('lv_scope', 'Da dove') + '</span>' + scopeField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qty', 'Numero domande') + '</span><input id="lv-qty" type="number" class="lv-in" value="8" min="1" max="' + LC.LIMITS.questionsMax + '" inputmode="numeric"></div>' +
@@ -134,6 +142,7 @@
       '<button type="button" id="lv-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
 
     var ov = modal('radio', t('lv_setup_title', 'Studio attivo live'), body, '620px');
+    if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'lv');
     var mode = 'tf';
     var goClass = ov.querySelector('#lv-goclass');
     if (goClass) goClass.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
@@ -155,6 +164,7 @@
       if (mode === 'custom') {
         var qs = readCustomEditor(ov.querySelector('#lv-customwrap'));
         if (!qs.length) { toast(t('lv_no_custom', 'Aggiungi almeno una domanda.'), 'error'); return; }
+        LT._scope = '';   // 010: domande personalizzate = intera mappa
         launch(cls, 'Domande', qs, parseInt(ov.querySelector('#lv-timer2') && ov.querySelector('#lv-timer2').value || '0', 10) || 0);
         return;
       }
@@ -235,7 +245,67 @@
     return step().then(function () { return out; });
   }
 
+  // MC / V/F con la STESSA qualità del quiz in-app (DYNAMIC_QUIZ per-nodo):
+  // domande vere con opzioni + V/F nativo, ancorate al contenuto del nodo.
+  function clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
+  function norm(s) { return LC.normalize ? LC.normalize(s) : String(s || '').toLowerCase().trim(); }
+
+  function dynItemToLive(it, node, mode) {
+    if (!it || !it.q) return null;
+    var q = LC.sanitizeText(it.q, LC.LIMITS.textMax);
+    if (!q) return null;
+    if (mode === 'tf') {
+      var c = norm(it.correct);
+      var opts0 = Array.isArray(it.options) ? it.options.map(norm) : [];
+      // "vero"/"true"/"corretto" → affermazione VERA; altrimenti falsa
+      var isTrue = /(^|\b)(vero|true|v|si|s|corretto|giusto|esatto)(\b|$)/.test(c) ||
+                   (opts0.length === 2 && c === opts0[0] && /ver|tru/.test(opts0[0]));
+      return { kind: 'tf', text: q, proposed: q, statementTrue: !!isTrue, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+    }
+    var opts = (Array.isArray(it.options) ? it.options : []).map(function (o) { return LC.sanitizeText(o, LC.LIMITS.optionMax); }).filter(Boolean).slice(0, LC.LIMITS.optionsMax);
+    if (opts.length < 2) return null;
+    // indice del corretto: match sulla stringa, poi eventuale indice numerico
+    var ci = -1;
+    for (var i = 0; i < opts.length; i++) { if (norm(opts[i]) === norm(it.correct)) { ci = i; break; } }
+    if (ci < 0) { var nn = parseInt(it.correct, 10); if (!isNaN(nn)) ci = (nn >= 1 && nn <= opts.length) ? nn - 1 : (nn >= 0 && nn < opts.length ? nn : -1); }
+    if (ci < 0) return null;   // non mappabile → scarta (qualità > quantità)
+    return { kind: 'mc', text: q, options: opts, correct: ci, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+  }
+
+  function generateQuizViaStudy(nodes, qty, mode) {
+    if (!window.generateDynamicQuiz) return Promise.resolve([]);
+    var apiKey = window.getSystemKey ? window.getSystemKey() : null;
+    var qt = (mode === 'tf')
+      ? 'Vero o Falso — ogni domanda è un\'AFFERMAZIONE da valutare; il campo "correct" vale "Vero" oppure "Falso"'
+      : 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta';
+    var perNode = qty <= nodes.length ? 1 : Math.ceil(qty / nodes.length);
+    var out = [], idx = 0;
+    function step() {
+      if (out.length >= qty || idx >= nodes.length) return Promise.resolve();
+      var n = nodes[idx++];
+      var material = clean(n.label) + ': ' + (n.desc || n.content || '');
+      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, apiKey: apiKey })
+        .then(function (items) {
+          for (var k = 0; k < items.length && out.length < qty; k++) {
+            var lq = dynItemToLive(items[k], n, mode);
+            if (lq) out.push(lq);
+          }
+          return step();
+        }).catch(function () { return step(); });
+    }
+    return step().then(function () { return out; });
+  }
+
+  // 010: etichetta leggibile del ramo coperto ('' = tutta la mappa) → session.json.
+  function scopeLabelFor(scope) {
+    if (!scope || scope === 'all') return '';
+    var n = (S().db.nodes || []).find(function (x) { return x.id === scope; });
+    if (!n) return '';
+    return (window.cleanLabel ? window.cleanLabel(n.label) : n.label) || '';
+  }
+
   function generateAndLaunch(cls, mode, scope, qty, timer) {
+    LT._scope = scopeLabelFor(scope);   // 010: coperto dal report registro
     var nodes = scopedNodes(scope);
     if (!nodes.length) { toast(t('lv_no_nodes', 'Nessun nodo con abbastanza testo in questa selezione.'), 'error'); return; }
     if (mode === 'cloze') {
@@ -247,7 +317,12 @@
     var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
     if (!key) { toast(t('lv_need_key', 'Serve una API key per generare i quiz. Impostala in Config AI.'), 'error'); return; }
     showBusy(t('lv_generating', 'Genero le domande dai contenuti…'));
-    generateQuizAI(nodes, qty, mode === 'tf').then(function (qs) {
+    // Stesso motore del quiz in-app (DYNAMIC_QUIZ); fallback al generatore
+    // "completamento" solo se il primo non produce nulla.
+    generateQuizViaStudy(nodes, qty, mode).then(function (qs) {
+      if (qs && qs.length) return qs;
+      return generateQuizAI(nodes, qty, mode === 'tf');
+    }).then(function (qs) {
       hideBusy();
       qs = attachL1(qs);
       if (!qs.length) { toast(t('lv_gen_failed', 'Non sono riuscito a generare domande. Riprova o usa il Cloze.'), 'error'); return; }
@@ -345,23 +420,36 @@
   }
 
   // ── Avvio sessione ────────────────────────────────────────────────────────
-  function launch(cls, activity, questions, timer) {
+  function launch(cls, activity, questions, timer, extra) {
     if (!window.electronAPI || !window.electronAPI.liveStartSession) {
-      toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return;
+      toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(null);
     }
+    extra = extra || {};
     var payload = {
       name: rootLabel(), activity: activity, className: cls.name,
+      scope: LT._scope || '',   // 010: ramo coperto per il registro attività
       durationMin: timer || 0,
       roster: (cls.students || []).map(function (s) { return { emojiKey: s.emojiKey, emoji: s.emoji, num: s.num, name: s.name || '' }; }),
       questions: questions
     };
-    window.electronAPI.liveStartSession(payload).then(function (r) {
-      if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return; }
+    // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico).
+    if (extra.mode) payload.mode = extra.mode;
+    if (extra.loginMode) payload.loginMode = extra.loginMode;
+    if (extra.hintMode) payload.hintMode = extra.hintMode;
+    if (extra.build) payload.build = extra.build;
+    // Variante WEB: la scelta WiFi/Internet del wizard viaggia nello start IPC
+    if (window.MappAINetMode) payload.netMode = window.MappAINetMode.get();
+    return window.electronAPI.liveStartSession(payload).then(function (r) {
+      if (!r || !r.success) { toast((r && r.error) || t('lv_start_err', 'Errore avvio server'), 'error'); return null; }
+      if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
       LT.info = r; closeModal();
       // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
-      try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'live' }); } catch (e) { }
+      try { if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: extra.logActivity || 'live' }); } catch (e) { }
       if (r.resumed) toast(t('lv_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
-      openDashboard();
+      // La modalità Costruisci ha una sua dashboard (revisione proposte); le altre
+      // usano la dashboard standard con i due report.
+      if (extra.onLaunched) extra.onLaunched(r); else openDashboard();
+      return r;
     });
   }
 
@@ -390,6 +478,7 @@
       (qrSrc ? '<img id="lv-qr" src="' + qrSrc + '" alt="QR" style="width:210px;height:210px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">'
              : '<div style="color:#b45309;font-size:12px">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.info.urls.map(esc).join('<br>') + '</div>' +
+      (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.info) : '') +
       '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_qr_hint', 'Clic sul QR per proiettarlo (LIM)') + '</div></div>' +
       '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
       '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">' + t('lv_roster', 'Allievi') + '</span>' +
@@ -511,14 +600,29 @@
   }
 
   // ── Materiali ─────────────────────────────────────────────────────────────
+  // Avvio (o riuso) del server materiali — punto unico: porta la scelta
+  // WiFi/Internet del toggle e mostra il toast se il relay è in fallback.
+  function ensureMatServer() {
+    if (LT.matInfo) return Promise.resolve(LT.matInfo);
+    var opts = { name: rootLabel() };
+    if (window.MappAINetMode) opts.netMode = window.MappAINetMode.get();
+    return window.electronAPI.liveMaterialsStart(opts).then(function (r) {
+      if (r && r.success) {
+        LT.matInfo = r;
+        if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
+      }
+      return r;
+    });
+  }
+
   async function openMaterialsPanel() {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsStart) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return; }
     var info = await window.electronAPI.liveMaterialsInfo();
-    if (!info || !info.success) {
-      info = await window.electronAPI.liveMaterialsStart({ name: rootLabel() });
+    if (info && info.success) LT.matInfo = info;
+    else {
+      info = await ensureMatServer();
       if (!info || !info.success) { toast((info && info.error) || 'Errore avvio server', 'error'); return; }
     }
-    LT.matInfo = info;
     renderMaterials();
   }
 
@@ -532,6 +636,7 @@
     var body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start">' +
       '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">' : '') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
+      (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.matInfo) : '') +
       '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div></div>' +
       '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
@@ -567,9 +672,16 @@
   // attivo live e del pannello Materiali dai quick-start QR.
   window.MappAILive.openSetup = function () { return openLiveSetup(); };
   window.MappAILive.openMaterials = function () { return openMaterialsPanel(); };
+  // Timeline Live (008): avvia una sessione con domande già pronte (dal pool
+  // timeline) + opzioni extra (mode/loginMode/hintMode/build). Riusa launch →
+  // dashboard standard per Completa; onLaunched custom per Costruisci.
+  window.MappAILive.launchExternal = function (cls, activity, questions, timer, extra) {
+    return launch(cls, activity, questions, timer, extra);
+  };
+  window.MappAILive.openDashboard = function () { return openDashboard(); };
   window.MappAILive.publishHtml = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function () { return window.electronAPI.liveMaterialsAddHtml({ filename: filename, html: html }); })
       .then(function (r) { if (r && r.success) { LT.matInfo.files = r.files; toast(t('lv_published', 'Pubblicato') + ': ' + (r.file || filename), 'success'); } return r; });
   };
@@ -580,14 +692,29 @@
   // È no-print (non finisce nel PDF) e lascia spazio in fondo per non coprire il testo.
   function _injectStudentSaveBar(html) {
     var label = t('sd_save_pdf', 'Salva come PDF');
-    var hint = t('sd_save_pdf_hint', 'Sul telefono scegli “Salva su File” per tenere il documento');
+    var labelHtml = t('sd_save_html', 'Salva HTML');
+    var hint = t('sd_save_pdf_hint', 'Sul telefono scegli “Salva su File” per tenere PDF o HTML (l\'HTML conserva l\'ascolto)');
+    // window.__maiSaveHtml scarica il documento AUTO-CONTENUTO (lettore + eventuale
+    // audio incorporato) come .html: l'allievo lo tiene sul device e lo riapre offline.
+    var saveScript =
+      '<script>window.__maiSaveHtml=function(){try{' +
+      'var h="<!DOCTYPE html>\\n"+document.documentElement.outerHTML;' +
+      'var b=new Blob([h],{type:"text/html"});var u=URL.createObjectURL(b);' +
+      'var a=document.createElement("a");a.href=u;' +
+      'var ttl=(document.title||"sintesi").replace(/[^a-z0-9\\-_ ]/gi,"").replace(/\\s+/g," ").trim()||"sintesi";' +
+      'a.download=ttl+".html";document.body.appendChild(a);a.click();a.remove();' +
+      'setTimeout(function(){URL.revokeObjectURL(u);},6000);' +
+      '}catch(e){alert("Salvataggio non riuscito");}};<\/script>';
     var bar =
       '<style>@media print{#mai-stu-pdf{display:none!important}}</style>' +
-      '<div id="mai-stu-pdf-spacer" style="height:78px"></div>' +
-      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid #e2e8f0;box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
-      '<button onclick="window.print()" style="width:100%;max-width:420px;background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:14px 18px;font-size:16px;font-weight:800;cursor:pointer">' + esc(label) + '</button>' +
+      '<div id="mai-stu-pdf-spacer" style="height:92px"></div>' +
+      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid #e2e8f0;box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:5px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+      '<div style="display:flex;gap:8px;width:100%;max-width:440px">' +
+      '<button onclick="window.print()" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(label) + '</button>' +
+      '<button onclick="window.__maiSaveHtml()" style="flex:1;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(labelHtml) + '</button>' +
+      '</div>' +
       '<div style="font-size:11.5px;color:#94a3b8;text-align:center">' + esc(hint) + '</div>' +
-      '</div>';
+      '</div>' + saveScript;
     return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, bar + '</body>') : (html + bar);
   }
 
@@ -596,13 +723,14 @@
   window.MappAILive.shareDocQr = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
     var studentHtml = _injectStudentSaveBar(html);
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo) : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function () { return window.electronAPI.liveMaterialsAddHtml({ filename: filename, html: studentHtml }); })
       .then(function (r) {
         if (!r || !r.success) { toast((r && r.error) || t('lv_electron', 'Errore'), 'error'); return r; }
         LT.matInfo.files = r.files;
         var info = LT.matInfo;
-        var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+        // web mode: path espliciti sull'ORIGIN del relay (mai su /j/<code>)
+        var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
         var fileUrl = base + '/files/' + encodeURIComponent(r.file) + '?s=' + info.token;
         openDocQr(fileUrl, r.file);
         return r;
@@ -636,8 +764,7 @@
   window.MappAILive = window.MappAILive || {};
   window.MappAILive.shareFile = function (id) {
     if (!window.electronAPI || !window.electronAPI.sharedmatPublish) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
-    var ensure = LT.matInfo ? Promise.resolve(LT.matInfo)
-      : window.electronAPI.liveMaterialsStart({ name: rootLabel() }).then(function (r) { LT.matInfo = r; return r; });
+    var ensure = ensureMatServer();
     return ensure.then(function (info) {
       if (!info || !info.success) { toast((info && info.error) || t('lv_electron', 'Errore'), 'error'); return null; }
       return window.electronAPI.sharedmatPublish({ id: id, className: activeClassName() });
@@ -645,7 +772,8 @@
       if (!p) return null;
       if (!p.success) { toast((p && p.error) || t('lv_electron', 'Errore'), 'error'); return p; }
       var info = LT.matInfo;
-      var base = (info.urls && info.urls[0]) || ('http://localhost:' + info.port);
+      // web mode: path espliciti sull'ORIGIN del relay (mai su /j/<code>)
+      var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
       var fileUrl = base + '/public/live/file.html?s=' + info.token + '&f=' + encodeURIComponent(p.file);
       openDocQr(fileUrl, p.file);
       document.dispatchEvent(new CustomEvent('mappai-sharedmat-changed'));

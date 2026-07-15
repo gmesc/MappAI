@@ -26,6 +26,9 @@
     <!-- svg2pdf (Local, MIT) — export PDF vettoriale: registra jsPDF.API.svg() -->
     <script src="js/vendor/svg2pdf.umd.min.js"></script>
 
+    <!-- lamejs (Local, MIT) — encoder MP3 puro-JS: audio voce naturale compatto (sintesi) -->
+    <script src="js/vendor/lame.min.js"></script>
+
     <!-- Space Mono vendorizzato (base64, SIL OFL) — export PDF offline in font mappa -->
     <script src="js/vendor/spacemono-font.js"></script>
 
@@ -1118,6 +1121,13 @@
                     title="Tutor AI">
                     <i data-lucide="bot" class="w-5 h-5"></i>
                 </button>
+                <!-- Tab LIM (008): attività collaborative da lavagna interattiva.
+                     Kill-switch: localStorage mappai_lim_tab='0' → nascosto (gestito a init). -->
+                <button id="sidebar-tab-lim" onclick="window.switchSidebarTab('lim')"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="LIM" data-i18n-title="tt_lim_tab">
+                    <i data-lucide="presentation" class="w-5 h-5"></i>
+                </button>
             </div>
 
             <!-- ═══ TAB: STRUTTURA ═══ -->
@@ -1258,6 +1268,9 @@
                     </p>
                 </div>
             </div>
+
+            <!-- ═══ TAB: LIM (008) — attività collaborative da lavagna interattiva ═══ -->
+            <div id="sidebar-panel-lim" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col p-4"></div>
 
             <!-- ═══ TAB: STUDIO ═══ -->
             <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
@@ -3458,6 +3471,8 @@
     <script src="js/mappai-latex.js"></script>
     <script src="js/mappai-lenses.js"></script>
     <script src="js/mappai-disciplines.js"></script>
+    <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
+    <script src="js/mappai-timeline-core.js"></script>
     <script src="js/mappai-timeline.js"></script>
     <script src="js/mappai-glossary.js"></script>
     <script src="js/mappai-quiz-print.js"></script>
@@ -3486,6 +3501,8 @@
     <script src="js/mappai-menu-hubs.js"></script>
     <!-- Lavagna Collaborativa (003): QR vendored + core puro + lato docente -->
     <script src="js/vendor/qrcode-generator.js"></script>
+    <!-- Variante WEB: toggle rete WiFi aula / Internet condiviso dai wizard QR -->
+    <script src="js/mappai-net-mode.js"></script>
     <script src="js/mappai-collab-core.js"></script>
     <script src="js/mappai-collab-teacher.js"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
@@ -3493,8 +3510,17 @@
     <script src="js/mappai-live-reports.js"></script>
     <script src="js/mappai-live-classes.js"></script>
     <script src="js/mappai-live-teacher.js"></script>
+    <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
+    <script src="js/mappai-timeline-teacher.js"></script>
+    <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
+    <script src="js/mappai-tutor-core.js"></script>
+    <script src="js/mappai-tutor-reports.js"></script>
+    <script src="js/mappai-tutor-teacher.js"></script>
     <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
     <script src="js/mappai-teach-core.js"></script>
+    <!-- Organizzazione file (010): core puro + impostazioni cartella + registro attività -->
+    <script src="js/mappai-files-core.js"></script>
+    <script src="js/mappai-files-settings.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
