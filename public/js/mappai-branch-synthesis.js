@@ -296,6 +296,7 @@
             }
         };
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
         const response = await window.fetchModelAPI(payload, apiKey);
         const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (!rawText.trim()) throw new Error('Risposta AI vuota');
@@ -415,6 +416,7 @@
                         maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(1200) : 1200)
                     }
                 };
+                if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
                 const resp = await window.fetchModelAPI(payload, apiKey);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
             } catch (e) {
@@ -849,6 +851,11 @@
                 generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
             };
             const resp = await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
+            // Registro consumi: il TTS bypassa fetchModelAPI → record manuale
+            try {
+                const um = resp && resp.usageMetadata;
+                if (um && window.MappAIUsage) window.MappAIUsage.record({ provider: 'google', model: model, inTok: um.promptTokenCount || 0, outTok: um.candidatesTokenCount || 0, ctx: { cat: 'materials', sub: 'tts' } });
+            } catch (uerr) { /* non bloccante */ }
             const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
             const inline = part && part.inlineData;
             if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));

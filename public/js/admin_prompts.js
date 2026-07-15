@@ -331,6 +331,7 @@ window.runAIPromptTest = async function() {
     };
     
     try {
+        if (window.MappAIUsage) window.MappAIUsage.setContext('other', 'admin_test');
         const res = await window.fetchModelAPI(payload, apiKey);
         if (res && res.candidates && res.candidates[0]) {
             outputEl.value = res.candidates[0].content.parts[0].text;

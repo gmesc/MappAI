@@ -36,6 +36,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
     const payload = window.injectClassTuning({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema } });
 
     try {
+        if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
         const data = await window.fetchModelAPI(payload, apiKey);
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();

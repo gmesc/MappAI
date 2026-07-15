@@ -284,7 +284,7 @@
       if (out.length >= qty || idx >= nodes.length) return Promise.resolve();
       var n = nodes[idx++];
       var material = clean(n.label) + ': ' + (n.desc || n.content || '');
-      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, apiKey: apiKey })
+      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, apiKey: apiKey, usageCat: 'live', usageSub: 'quiz' })
         .then(function (items) {
           for (var k = 0; k < items.length && out.length < qty; k++) {
             var lq = dynItemToLive(items[k], n, mode);

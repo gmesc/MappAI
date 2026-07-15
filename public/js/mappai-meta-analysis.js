@@ -241,6 +241,7 @@
             generationConfig: { temperature: 0.4, maxOutputTokens: 700 }
         };
         try {
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'progress');
             const res = await window.fetchModelAPI(payload, apiKey);
             return res && res.candidates && res.candidates[0] && res.candidates[0].content.parts[0].text || null;
         } catch (e) { console.warn('[MetaAnalysis] neurofeedback', e); return null; }
@@ -273,6 +274,7 @@
             generationConfig: { temperature: 0.4, maxOutputTokens: 550 }
         };
         try {
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'progress');
             const res = await window.fetchModelAPI(payload, apiKey);
             return res && res.candidates && res.candidates[0] && res.candidates[0].content.parts[0].text || null;
         } catch (e) { console.warn('[MetaAnalysis] chatAnalysis', e); return null; }

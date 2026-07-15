@@ -534,6 +534,59 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (15/7/26): Consumi AI — registro token/costi + dashboard ciambelle drill-down
+Richiesta utente (scelte confermate: persistenza su DISCO · documento=progetto/mappa ·
+vista IN-APP + stampa · valuta unica CHF con tasso configurabile). Suite **477/477** ✅
+(469 storici + 8 nuovi). Retroattività impossibile: il registro parte dalla prima
+generazione post-feature.
+- **Core puro** `public/js/mappai-usage-core.js` (UMD, +8 test `tests/usage-core.test.js`):
+  tassonomia `CATS` (map/materials/study/tutor/live/other + sottovoci), `normalizeRecord`
+  (tollerante a righe legacy), `costOf` (Google=USD×tasso→CHF, Infomaniak=CHF diretto),
+  `aggregate` (totals/byCat/bySub/byModel/byProvider/unknownModels, una passata),
+  `listProjects`/`filterByProject` (chiave `projectId||label`), `donutBy*`, `fmtChf/fmtTok`.
+  ⚠️ **I record NON contengono costi** — solo token+modello+provider+contesto+progetto;
+  i costi si calcolano a display-time da MODEL_KB + tasso (`mappai_usd_chf_rate`, default
+  0.90) → prezzi aggiornabili senza sporcare lo storico.
+- **Tracker** `public/js/mappai-usage-tracker.js` (`window.MappAIUsage`): `setContext(cat,
+  sub)` sticky + `record()` → IPC `usage-log-append` (fallback localStorage cap 4000 in
+  browser). Hook nel choke point `fetchModelAPI` (app.js): snapshot `_usageCtx`
+  ALL'ENTRATA (non dopo l'await — flussi concorrenti) + record nel blocco usageMetadata.
+  **~30 tag `setContext` nei call site**: mm-extraction (iterativa/phase1/phase3),
+  generation-support (phase4/5, enrich×2, validate, split, deepen — alle entry funzione),
+  kg-extraction (single/community/multipass), contextual-ai (expand), merge-validate
+  (crosslink), branch-synthesis (synthesis×2), print-dossier (nodesheet), timeline,
+  study-session (sub dinamica da quizType: quiz_mc/tf/open/flashcards + `opts.usageCat/
+  usageSub` override), flashcards-sr (node_quiz), active-study (active_modes),
+  meta-analysis (progress), games (dungeon×3), ai-tutor (sidebar/node/quiz),
+  admin_prompts (admin_test); live-teacher passa `usageCat:'live'` a generateDynamicQuiz.
+- **2 percorsi fuori dal choke point**: TTS voce naturale (branch-synthesis chiama
+  generateGemini diretto → record manuale `materials/tts`); **Tutor QR** (main process):
+  wrapper su `callModel` in `tutor-start-session` → `usageAppend` cat tutor/qr (estrae
+  usageMetadata Gemini O usage OpenAI-shape Infomaniak). Cloze/analisi strutturale =
+  zero AI → mai nel registro.
+- **main.js**: `usageBaseDir()` (organizzato → `<MappAI - file>/Registro consumi AI/`,
+  storico → `~/Documents/MappAI - Consumi AI/`), `consumi-ai.jsonl` append-only, IPC
+  `usage-log-append`/`usage-log-read` (parse tolerante riga-per-riga)/`usage-open-folder`;
+  preload esposto (`usageLogAppend/usageLogRead/usageOpenFolder`).
+- **Dashboard** `public/js/mappai-usage-dashboard.js` (`window.MappAIUsageDash.open()`,
+  bottone "Consumi AI" accanto ad "Analisi (docente)" in fondo alla landing): overlay
+  1160px, sidebar documenti ("Tutte le mappe" + per-progetto con totale CHF), 6 tile
+  (chiamate·token in/out·costo in/out·totale), riga provider+modelli, **2 ciambelle SVG
+  pure (zero librerie)**: per categoria (click fetta/legenda → sotto-ciambella con
+  breadcrumb "← Tutte le categorie") e per modello; tabella dettaglio accessibile
+  (alternativa BES/DSA ai grafici); input tasso USD→CHF (re-render live); avviso ambra
+  per modelli fuori MODEL_KB; **report stampabile** (window.open, Space Mono, ciambella +
+  tabelle per categoria/modello). Stato vuoto con invito.
+- i18n: `ui_usage_dash`/`tt_usage_dash` in ENTRAMBI i dizionari (statiche); `ud_*` EN +
+  fallback IT inline (regola 13, audit 0 mancanti). Script in index.html dopo
+  mappai-landing-teach.
+- ✅ Verificato in browser statico (server reale, licensing bypassato solo lato-DOM):
+  seed 21 record finti → tiles corrette, ciambelle, drill-down, filtro documento
+  (16 chiamate Fotosintesi), tasso 0.9→1.8 raddoppia i costi Google, report stampa
+  11KB con SVG, tracker record+zero-skip, stato vuoto, 0 errori console.
+  ⚠️ **Da testare in Electron vivo**: generazione reale → righe nel JSONL su disco,
+  IPC read/append, "apri cartella", Tutor QR con chiamate AI vere, TTS.
+
 ### ✅ FATTO (14/7/26): 010-file-organization — cartella madre unica "MappAI - file" + registro attività/report
 Branch `010-file-organization`. Tre richieste utente. **OPT-IN puro**: finché
 `mappai-settings.json` non ha `filesOrganized:true`, TUTTI i path restano storici

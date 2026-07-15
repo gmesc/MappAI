@@ -1036,12 +1036,17 @@
             </div>
         </div>
 
-        <!-- Meta-analisi docente (discreto, in fondo) -->
-        <div class="max-w-2xl mx-auto mb-16 text-center">
+        <!-- Meta-analisi docente + Consumi AI (discreti, in fondo) -->
+        <div class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
             <button onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
                 title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
                 <i data-lucide="line-chart" class="w-4 h-4"></i> <span data-i18n="ui_teacher_analysis">Analisi (docente)</span>
+            </button>
+            <button type="button" onclick="window.MappAIUsageDash && window.MappAIUsageDash.open()"
+                class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
+                title="Dashboard dei consumi AI — token e costi per documento e categoria" data-i18n-title="tt_usage_dash">
+                <i data-lucide="coins" class="w-4 h-4"></i> <span data-i18n="ui_usage_dash">Consumi AI</span>
             </button>
         </div>
 
@@ -3522,6 +3527,9 @@
     <script src="js/mappai-files-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
+    <script src="js/mappai-usage-core.js"></script>
+    <script src="js/mappai-usage-tracker.js"></script>
+    <script src="js/mappai-usage-dashboard.js"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
     <script src="js/mappai-mastery-view.js"></script>

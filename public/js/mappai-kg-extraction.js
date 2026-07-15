@@ -53,6 +53,7 @@ function _kgGenerationConfig(base, schema, phase = null) {
 
 async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     window.resetVaultState();
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_single');
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
 
     let userProfileStr = '';
@@ -232,6 +233,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 // ============================================================================
 async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
     window.resetVaultState();
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_community');
 
     const maxNodesVal = parseInt(document.getElementById('kg-nodes-slider').value) || 20;
     const minNodesVal = Math.max(10, maxNodesVal - 5);
@@ -437,6 +439,7 @@ REGOLE:
 
 async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
     window.resetVaultState();
+    if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_multipass');
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
 
     let userProfileStr = '';

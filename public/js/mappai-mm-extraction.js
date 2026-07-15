@@ -26,6 +26,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             customColors: {}
         };
 
+        if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_iterative');
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi introduttiva dell'argomento principale...`);
         try {
             const payloadL0 = {
@@ -532,6 +533,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         };
 
         // Fase 1: Introduzione L0
+        if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase1');
         window.showLoadingOverlay(true, "Mappa HD - Fase 1/3: Analisi introduttiva dell'argomento principale...");
         try {
             const payloadL0 = {
@@ -857,6 +859,7 @@ ${textParts.join('\n\n')}`;
                   };
 
             try {
+                if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase3');
                 const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
                 const cand = dataBranch.candidates && dataBranch.candidates[0];
                 if (cand && cand.content && cand.content.parts) {

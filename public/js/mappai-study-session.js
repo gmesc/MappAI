@@ -86,6 +86,11 @@ window.generateDynamicQuiz = async function (opts) {
     const quantity = opts.quantity || 3;
     const apiKey = opts.apiKey || (window.getSystemKey && window.getSystemKey());
     if (!apiKey || !material) return [];
+    if (window.MappAIUsage) {
+        const qt = String(quizType).toLowerCase();
+        window.MappAIUsage.setContext(opts.usageCat || 'study',
+            opts.usageSub || (qt.indexOf('vero') >= 0 ? 'quiz_tf' : (qt.indexOf('apert') >= 0 ? 'quiz_open' : 'quiz_mc')));
+    }
     const prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel });
     const schema = {
         type: "ARRAY",
@@ -147,6 +152,12 @@ window.startStudySession = async function () {
     window.showLoadingOverlay(true, window.t('lo_study_gen', "Generazione materiale di studio in corso..."), window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
 
     try {
+        if (window.MappAIUsage) {
+            const qt = String(window.studyConfig.quizType || '').toLowerCase();
+            window.MappAIUsage.setContext('study', window.studyConfig.mode === 'quiz'
+                ? (qt.indexOf('vero') >= 0 ? 'quiz_tf' : (qt.indexOf('apert') >= 0 ? 'quiz_open' : 'quiz_mc'))
+                : 'flashcards');
+        }
         let schema, prompt;
         if (window.studyConfig.mode === 'quiz') {
             prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", {

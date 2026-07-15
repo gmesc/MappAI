@@ -423,6 +423,8 @@ const it_translations = {
     ui_kg_density_desc: "Numero di concetti/entità da generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).",
     ui_multipass_desc: "Genera rami e nodi in fasi sequenziali per evitare di saturare la memoria.",
     ui_teacher_analysis: "Analisi (docente)",
+    ui_usage_dash: "Consumi AI",
+    tt_usage_dash: "Dashboard dei consumi AI — token e costi per documento e categoria",
     ui_no_projects: "Nessun progetto salvato. Crea una nuova mappa per iniziare.",
     ui_struct_suggestions: "Suggerimenti strutturali",
     ui_analyze_structure: "Analizza struttura",
