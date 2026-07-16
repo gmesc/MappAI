@@ -84,7 +84,7 @@
     var lines = [];
     var head = [];
     if (c.grade) head.push(String(c.grade).trim());
-    if (c.system) head.push(t('cls_system_of', 'sistema: ') + c.system);
+    if (c.system) head.push(t('cls_system_of', 'livello: ') + c.system);
     if (head.length) lines.push(t('cls_tune_class', 'Classe: ') + head.join(' · ') + '.');
     var reg = c.register && REGISTERS[c.register];
     if (reg) lines.push(reg.prompt);
@@ -97,6 +97,32 @@
   STORE.tuningForPrompt = function () { return STORE.buildTuningBlock(null); };
 
   function newId() { return 'cls_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
+
+  // Numero romano (1..13) → intero; null se non valido
+  function romanToInt(s) {
+    var map = { i: 1, v: 5, x: 10, l: 50, c: 100 };
+    var str = String(s || '').toLowerCase(), total = 0, prev = 0;
+    for (var i = str.length - 1; i >= 0; i--) {
+      var v = map[str[i]];
+      if (!v) return null;
+      if (v < prev) total -= v; else { total += v; prev = v; }
+    }
+    return total > 0 && total <= 13 ? total : null;
+  }
+
+  // Valida il nome classe: numero arabo o romano + sezione (es. "1° A", "1a A", "II B").
+  // Ritorna { ok, grade, section } oppure { ok:false, reason }.
+  function validateClassName(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return { ok: false, reason: 'empty' };
+    var m = s.match(/^([0-9]{1,2}|[ivxlcIVXLC]+)\s*([°ºªao\.]*)\s*(.+)$/);
+    if (!m) return { ok: false, reason: 'format' };
+    var num = m[1], rest = (m[3] || '').trim();
+    var grade = /^[0-9]+$/.test(num) ? parseInt(num, 10) : romanToInt(num);
+    if (grade == null || grade < 1 || grade > 13) return { ok: false, reason: 'grade' };
+    if (!/[a-zA-Z]/.test(rest)) return { ok: false, reason: 'section' };
+    return { ok: true, grade: grade, section: rest };
+  }
 
   // ── Modale ────────────────────────────────────────────────────────────────
   function overlay(bodyHtml, maxWidth) {
@@ -149,9 +175,11 @@
 
   // Form nuova classe
   function renderCreate() {
+    var thisYear = new Date().getFullYear();
     var body = '<div style="display:flex;flex-direction:column;gap:12px">' +
       field('cls-name', t('cls_name', 'Nome classe'), 'text', 'es. 2ª A') +
-      field('cls-year', t('cls_year', 'Anno scolastico'), 'text', 'es. 2025/2026') +
+      '<div id="cls-name-hint" style="font-size:11px;font-weight:600;margin-top:-6px;min-height:14px"></div>' +
+      yearField(thisYear) +
       field('cls-count', t('cls_count', 'Numero allievi'), 'number', 'es. 18') +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">' +
       btn(t('cls_cancel', 'Annulla'), GHOST).replace('<button', '<button data-back="1"') +
@@ -159,18 +187,60 @@
       '</div></div>';
     var ov = overlay(body, '480px');
     ov.querySelector('[data-back]').onclick = renderList;
+
+    // Nome: hint live (verde valido / ambra formato errato)
+    var nameInput = ov.querySelector('#cls-name');
+    var nameHint = ov.querySelector('#cls-name-hint');
+    function refreshNameHint() {
+      var v = (nameInput.value || '').trim();
+      if (!v) { nameHint.textContent = ''; return; }
+      if (validateClassName(v).ok) {
+        nameHint.textContent = '✓ ' + t('cls_name_ok', 'Formato valido');
+        nameHint.style.color = '#16a34a';
+      } else {
+        nameHint.textContent = '⚠ ' + t('cls_name_bad', 'Usa numero + sezione, es. «2ª A» o «II B».');
+        nameHint.style.color = '#d97706';
+      }
+    }
+    nameInput.addEventListener('input', refreshNameHint);
+
+    // Anno scolastico: [anno1] / [anno2] con auto-riempimento dell'anno successivo
+    var y1 = ov.querySelector('#cls-year1'), y2 = ov.querySelector('#cls-year2');
+    var y2Auto = true;
+    y2.addEventListener('input', function () { y2Auto = false; });
+    y1.addEventListener('input', function () {
+      var v = parseInt(y1.value, 10);
+      if (y2Auto && v >= 1900 && v <= 2200) y2.value = String(v + 1);
+    });
+
     ov.querySelector('[data-save]').onclick = function () {
-      var name = (ov.querySelector('#cls-name').value || '').trim();
-      var year = (ov.querySelector('#cls-year').value || '').trim();
+      var name = (nameInput.value || '').trim();
+      var y1v = (y1.value || '').trim(), y2v = (y2.value || '').trim();
+      var year = y1v && y2v ? (y1v + '/' + y2v) : (y1v || y2v || '');
       var count = parseInt(ov.querySelector('#cls-count').value, 10) || 0;
       if (!name) { toast(t('cls_need_name', 'Inserisci il nome della classe.'), 'error'); return; }
+      if (!validateClassName(name).ok) {
+        toast(t('cls_name_bad', 'Nome classe: usa numero + sezione, es. «2ª A» o «II B».'), 'error');
+        refreshNameHint(); nameInput.focus(); return;
+      }
       if (count < 1) { toast(t('cls_need_count', 'Inserisci il numero di allievi.'), 'error'); return; }
       if (count > LC.MAX_IDENTITIES) { toast(t('cls_too_many', 'Numero allievi troppo alto') + ' (max ' + LC.MAX_IDENTITIES + ').', 'error'); return; }
-      var cls = { id: newId(), name: name, year: year, students: LC.buildCredentials(count) };
+      var cls = { id: newId(), name: name, grade: name, year: year, students: LC.buildCredentials(count) };
       STORE.data.classes.push(cls);
       STORE.save();
       renderEdit(cls.id);
     };
+  }
+
+  // Campo "Anno scolastico": due input numerici separati da "/"
+  function yearField(thisYear) {
+    var inStyle = 'flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff;text-align:center';
+    return '<label style="display:block"><span style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">' + esc(t('cls_year', 'Anno scolastico')) + '</span>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<input id="cls-year1" type="number" inputmode="numeric" min="1900" max="2200" placeholder="' + thisYear + '" style="' + inStyle + '">' +
+      '<span style="font-weight:800;color:#94a3b8;font-size:16px">/</span>' +
+      '<input id="cls-year2" type="number" inputmode="numeric" min="1900" max="2200" placeholder="' + (thisYear + 1) + '" style="' + inStyle + '">' +
+      '</div></label>';
   }
 
   function field(id, label, type, ph) {
@@ -191,18 +261,29 @@
         'style="flex:1;border:none;border-bottom:1px dashed #cbd5e1;background:transparent;padding:4px 2px;font:inherit;color:#0f172a"></div>';
     }).join('');
 
-    var sysOpts = ['', 'Ticino', 'Italia', 'Liceo Ticino', 'Liceo Italia'].map(function (s) {
-      return '<option value="' + esc(s) + '"' + (c.system === s ? ' selected' : '') + '>' + (s || t('cls_sys_none', '— sistema —')) + '</option>';
+    var sysOpts = ['', 'Scuola Media', 'Scuola Media Superiore'].map(function (s) {
+      return '<option value="' + esc(s) + '"' + (c.system === s ? ' selected' : '') + '>' + (s || t('cls_level_none', '— livello —')) + '</option>';
     }).join('');
     var regOpts = ['', 'semplice', 'medio', 'ricco'].map(function (r) {
       var lbl = r ? REGISTERS[r].label : t('cls_reg_none', '— registro —');
       return '<option value="' + r + '"' + (c.register === r ? ' selected' : '') + '>' + esc(lbl) + '</option>';
     }).join('');
     var tuning = '<div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:12px 14px;margin-bottom:12px">' +
-      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#4f46e5;margin-bottom:8px">' + t('cls_tuning_title', '🎯 Taratura AI') + '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
+      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#4f46e5">' + t('cls_tuning_title', '🎯 Taratura AI') + '</div>' +
+      '<button type="button" id="cls-tuning-help" title="' + esc(t('cls_tuning_help_tip', 'Come funziona la taratura?')) + '" style="width:18px;height:18px;border-radius:50%;border:1px solid #a5b4fc;background:#fff;color:#4f46e5;font-weight:800;font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;padding:0">?</button>' +
+      '</div>' +
       '<div style="font-size:11px;color:#64748b;margin-bottom:10px">' + t('cls_tuning_hint', 'Guida la generazione AI (mappe, quiz, cloze) al livello di questa classe. Adatta il linguaggio, non i fatti.') + '</div>' +
+      '<div id="cls-tuning-explain" style="display:none;background:#fff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#334155">' +
+      t('cls_tuning_explain', 'La taratura non cambia i <b>fatti</b>: cambia solo <b>come</b> l\'AI li spiega, per calibrarli su questa classe.<br><br>' +
+        '<b>Classe</b> — a chi ti rivolgi (ereditato dal nome della classe; puoi affinarlo).<br>' +
+        '<b>Livello</b> — Scuola Media o Superiore: regola profondità e complessità dei contenuti.<br>' +
+        '<b>Registro</b> — quanto è semplice o ricco il linguaggio (lunghezza frasi, lessico).<br>' +
+        '<b>Note</b> — indicazioni libere (es. «3 DSA», «esempi dallo sport», «evita metafore astratte»).<br><br>' +
+        'Vale per mappe, quiz, cloze e tutor generati quando questa classe è la <b>classe attiva</b>. Le mappe già create non vengono ri-tradotte.') +
+      '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">' +
-      '<input id="cls-grade" value="' + esc(c.grade || '') + '" placeholder="' + t('cls_grade_ph', 'Classe/livello (es. 1ª media)') + '" style="flex:1;min-width:150px;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;font:inherit;background:#fff">' +
+      '<input id="cls-grade" value="' + esc(c.grade || c.name || '') + '" placeholder="' + t('cls_grade_ph', 'Classe (es. 1ª media)') + '" style="flex:1;min-width:150px;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;font:inherit;background:#fff">' +
       '<select id="cls-system" style="flex:1;min-width:130px;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;font:inherit;background:#fff">' + sysOpts + '</select>' +
       '<select id="cls-register" style="flex:1;min-width:160px;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;font:inherit;background:#fff">' + regOpts + '</select></div>' +
       '<textarea id="cls-notes" placeholder="' + t('cls_notes_ph', 'Note di taratura (es. 3 DSA, 2 alloglotti; esempi dallo sport; evita metafore astratte)') + '" style="width:100%;min-height:56px;border:1px solid #c7d2fe;border-radius:8px;padding:8px 10px;font:inherit;background:#fff;resize:vertical">' + esc(c.notes || '') + '</textarea></div>';
@@ -223,6 +304,11 @@
 
     var ov = overlay(body);
     ov.querySelector('[data-back]').onclick = renderList;
+    var helpBtn = ov.querySelector('#cls-tuning-help');
+    if (helpBtn) helpBtn.onclick = function () {
+      var ex = ov.querySelector('#cls-tuning-explain');
+      if (ex) ex.style.display = ex.style.display === 'none' ? 'block' : 'none';
+    };
     ov.querySelector('[data-savenames]').onclick = function () {
       ov.querySelectorAll('[data-name]').forEach(function (inp) {
         var idx = parseInt(inp.getAttribute('data-name'), 10);

@@ -190,6 +190,8 @@ const en_translations = {
     cls_cancel: "Cancel",
     cls_create: "Create class",
     cls_need_name: "Enter the class name.",
+    cls_name_ok: "Valid format",
+    cls_name_bad: "Class name: use number + section, e.g. «2ª A» or «II B».",
     cls_need_count: "Enter the number of students.",
     cls_too_many: "Too many students",
     cls_name_opt: "Name (optional)",
@@ -205,9 +207,17 @@ const en_translations = {
     // ── MappAI Live — taratura classe + classe attiva ──
     cls_tuning_title: "🎯 AI tuning",
     cls_tuning_hint: "Guides AI generation (maps, quizzes, cloze) to this class's level. Adapts the language, not the facts.",
-    cls_grade_ph: "Class/level (e.g. grade 6)",
+    cls_grade_ph: "Class (e.g. grade 6)",
     cls_notes_ph: "Tuning notes (e.g. 3 SEN, 2 L2 learners; sports examples; avoid abstract metaphors)",
     cls_sys_none: "— system —",
+    cls_level_none: "— level —",
+    cls_tuning_help_tip: "How does tuning work?",
+    cls_tuning_explain: "Tuning does not change the <b>facts</b>: it only changes <b>how</b> the AI explains them, to calibrate them for this class.<br><br>" +
+      "<b>Class</b> — who you're addressing (inherited from the class name; you can refine it).<br>" +
+      "<b>Level</b> — Middle or Upper school: sets the depth and complexity of the content.<br>" +
+      "<b>Register</b> — how simple or rich the language is (sentence length, vocabulary).<br>" +
+      "<b>Notes</b> — free hints (e.g. \"3 SEN\", \"sports examples\", \"avoid abstract metaphors\").<br><br>" +
+      "Applies to maps, quizzes, cloze and tutor generated while this class is the <b>active class</b>. Maps already created are not re-translated.",
     cls_reg_none: "— register —",
     cls_generic: "Generic",
     cls_generic_d: "No tuning: standard AI content",
@@ -218,7 +228,7 @@ const en_translations = {
     cls_switch_intro: "Pick the class you're working with now: maps, quizzes and cloze will be generated at its level.",
     cls_switch_empty: "No classes yet. Create one in Class accounts.",
     cls_manage_all: "Manage classes",
-    cls_system_of: "system: ",
+    cls_system_of: "level: ",
     cls_tune_class: "Class: ",
     cls_tune_notes: "Class notes: ",
     cls_tune_fidelity: "Stay faithful to the source: do NOT change the facts, adapt only HOW you express them (register, examples, sentence length).",
@@ -334,7 +344,7 @@ const en_translations = {
     src_docs: "Documents",
     src_text: "Text",
     prompt_title: "Enter value",
-    prompt_hint: "Press Enter to save, Shift+Enter for new line.",
+    prompt_hint: "Press Enter to save.",
     btn_cancel: "Cancel",
     btn_save: "Save",
     btn_save_changes: "Save Changes",
