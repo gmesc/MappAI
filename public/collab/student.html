@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>MappAI — Lavagna collaborativa</title>
-<!-- Stesso font della viewport mappa dell'app (fallback monospace se la LAN è offline) -->
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Stesso font della viewport mappa dell'app + emoji Android (Noto) come le altre pagine LAN
+     (fallback monospace / emoji di sistema se la LAN è offline) -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 <style>
   /* emoji Android (Noto) prima del fallback di sistema — regola globale MappAI */
   :root { --emoji: 'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
@@ -28,6 +29,14 @@
   #join button { width: min(320px, 84vw); padding: 13px; border-radius: 12px;
                  background: #4f46e5; color: #fff; font-size: 16px; font-weight: 700; }
   #join .err { color: #dc2626; font-size: 13px; min-height: 18px; }
+  /* Login individuale: griglia emoji compatta, chip quadrati touch-friendly (≥44px).
+     Prefisso #join per battere la specificità di `#join button` (stile del bottone Entra). */
+  #emoji-grid { display: grid; grid-template-columns: repeat(4, 60px); gap: 10px;
+                justify-content: center; width: min(320px, 84vw); margin: 0 auto 10px; }
+  #join .emoji-btn { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;
+               padding: 0; font-size: 30px; line-height: 1; border: 2px solid #e2e8f0;
+               border-radius: 14px; background: #fff; color: #0f172a; font-family: var(--emoji); }
+  #join .emoji-btn.sel { border-color: #4f46e5; background: #eef2ff; }
 
   /* ── Editor ── */
   #editor { flex: 1; display: none; flex-direction: column; min-height: 0; }
@@ -123,7 +132,7 @@
   <div class="map-name" id="join-map"></div>
   <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off">
   <div id="join-individual" style="display:none">
-    <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
+    <div id="emoji-grid"></div>
     <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Il tuo numero (es. 07)" autocomplete="off">
   </div>
   <button id="join-btn">Entra</button>
@@ -229,9 +238,12 @@
       var g = $('emoji-grid'); g.innerHTML = '';
       (r.body.emojiSet || []).forEach(function (e) {
         var b = document.createElement('button');
+        b.type = 'button'; b.className = 'emoji-btn';
         b.textContent = e.emoji; b.setAttribute('data-key', e.key);
-        b.style.cssText = 'font-size:28px;padding:8px;border:2px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer';
-        b.onclick = function () { S.chosenEmoji = e.key; g.querySelectorAll('button').forEach(function (x) { x.style.borderColor = x === b ? '#4f46e5' : '#e2e8f0'; x.style.background = x === b ? '#eef2ff' : '#fff'; }); };
+        b.onclick = function () {
+          S.chosenEmoji = e.key;
+          g.querySelectorAll('.emoji-btn').forEach(function (x) { x.classList.toggle('sel', x === b); });
+        };
         g.appendChild(b);
       });
     } else if (S.nick) { $('nick').value = S.nick; }
