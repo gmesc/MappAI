@@ -59,6 +59,30 @@ test('sessionFolderName: deterministico (resume idempotente)', () => {
   assert.strictEqual(a, b);  // stesso giorno → stessa cartella
 });
 
+test('sessionSeq: progressivo somministrazioni (00 → 01 → …)', () => {
+  const base = '2026-07-15 · Quiz · Fotosintesi';
+  // nessuna cartella ancora → prima somministrazione = "00"
+  let r = FC.sessionSeq([], base, ' · ');
+  assert.strictEqual(r.next, '00');
+  assert.strictEqual(r.last, null);
+  assert.strictEqual(r.maxSeq, -1);
+  // esiste la 00 → prossima 01, last = la 00
+  r = FC.sessionSeq([base + ' · 00'], base, ' · ');
+  assert.strictEqual(r.next, '01');
+  assert.strictEqual(r.last, base + ' · 00');
+  // 00 e 02 presenti (buco) → prossima 03 (max+1, non riempie i buchi), last = la 02
+  r = FC.sessionSeq([base + ' · 02', base + ' · 00'], base, ' · ');
+  assert.strictEqual(r.next, '03');
+  assert.strictEqual(r.last, base + ' · 02');
+  // separatore storico a trattino
+  const slug = 'fotosintesi-quiz-1a-15-07-2026';
+  assert.strictEqual(FC.sessionSeq([slug + '-00'], slug, '-').next, '01');
+  // cartelle di ALTRE attività/mappe non interferiscono
+  r = FC.sessionSeq(['2026-07-15 · Quiz · Altra · 00', '2026-07-15 · Cloze · Fotosintesi · 00'], base, ' · ');
+  assert.strictEqual(r.next, '00');
+  assert.strictEqual(r.last, null);
+});
+
 test('sessionRelPath: Attività di studio/<Classe>/<sessione>', () => {
   const segs = FC.sessionRelPath({ className: '1ª A', date: new Date(2026, 6, 12), activity: 'quiz', map: 'Fotosintesi' });
   assert.deepStrictEqual(segs, ['Attività di studio', '1ª A', '2026-07-12 · Quiz · Fotosintesi']);

@@ -150,24 +150,38 @@
             const loginMode = (document.getElementById('cl-login') || {}).value || 'group';
             let roster = [];
             if (loginMode === 'individual') {
-                let cls = null;
-                try { cls = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive(); } catch (e) {}
-                roster = (cls && Array.isArray(cls.students)) ? cls.students.map(s => ({ emojiKey: s.emojiKey, num: s.num, name: s.name || '' })) : [];
-                if (!roster.length) { toast(t('cl_no_roster', 'Nessuna classe attiva col roster. Scegli una classe o usa il login a gruppi.'), 'error'); return; }
+                roster = rosterFromClass();
+                if (!roster) return;
             }
             const netMode = window.MappAINetMode ? window.MappAINetMode.get() : 'lan';
-            const r = await window.electronAPI.collabStartSession({ name, rootLabel: rootLabel(), loginMode, roster, netMode });
-            if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
-            if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
-            CT.info = r;
-            // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
-            try {
-                if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'lavagna' });
-            } catch (e) { /* registro best-effort */ }
-            closeModal();
-            if (r.resumed) toast(t('tst_collab_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
-            showDashboard();
+            await doStart({ name, rootLabel: rootLabel(), loginMode, roster, netMode });
         };
+    }
+
+    // Roster della classe attiva (login individuale) — null + toast se assente
+    function rosterFromClass() {
+        let cls = null;
+        try { cls = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive(); } catch (e) {}
+        const roster = (cls && Array.isArray(cls.students)) ? cls.students.map(s => ({ emojiKey: s.emojiKey, num: s.num, name: s.name || '' })) : [];
+        if (!roster.length) { toast(t('cl_no_roster', 'Nessuna classe attiva col roster. Scegli una classe o usa il login a gruppi.'), 'error'); return null; }
+        return roster;
+    }
+
+    // Avvio sessione. Il naming progressivo lato main (…-00, …-01) garantisce che ogni
+    // avvio parta pulito; una sessione precedente viene ripresa solo se ancora aperta e
+    // con la stessa modalità login (crash-safety) → nessuna scelta da chiedere qui.
+    async function doStart(payload) {
+        const r = await window.electronAPI.collabStartSession(payload);
+        if (!r || !r.success) { toast((r && r.error) || 'Errore avvio server', 'error'); return; }
+        if (window.MappAINetMode) window.MappAINetMode.checkFallback(r);
+        CT.info = r;
+        // Registro sessioni (005): la mappa risulta "avviata" su questa classe.
+        try {
+            if (window.MappAITeach) window.MappAITeach.logSession({ map: rootLabel(), activity: 'lavagna' });
+        } catch (e) { /* registro best-effort */ }
+        closeModal();
+        if (r.resumed) toast(t('tst_collab_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
+        showDashboard();
     }
 
     // ── QR ──────────────────────────────────────────────────────────────────
