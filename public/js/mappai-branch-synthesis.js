@@ -227,6 +227,15 @@
 
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
 
+        // Toggle "Taratura AI" — solo se il contesto attivo ha un profilo SPECIALE (pallino verde)
+        const _bsSpecial = !!(window.MappAITune && window.MappAITune.isSpecialActive && window.MappAITune.isSpecialActive());
+        const _bsCtx = (window.MappAITune && window.MappAITune.activeContextName) ? window.MappAITune.activeContextName() : '';
+        const tuneRow = _bsSpecial ?
+            ('<label class="pm-section" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="' + _escBS(window.t('bs_tune_tip', 'Genera una versione adattata al profilo (registro, note) del contesto attivo. Il file avrà il suffisso [VERDE].')) + '">' +
+                '<input type="checkbox" id="bs-tune-toggle" style="width:16px;height:16px;accent-color:#16a34a">' +
+                '<span class="pm-section-title" style="margin:0">' + _escBS(window.t('bs_tune_label', 'Taratura AI')) + ' · <span style="color:#16a34a;font-weight:800">' + _escBS(_bsCtx) + '</span></span>' +
+            '</label>') : '';
+
         const modal = document.createElement('div');
         modal.id = 'branch-synthesis-config-modal';
         modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
@@ -254,6 +263,7 @@
                             allOption + optionsHtml +
                         '</select>' +
                     '</div>' +
+                    tuneRow +
                     '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
                         '<button type="button" onclick="document.getElementById(\'branch-synthesis-config-modal\').remove()" class="pm-btn-cancel">Annulla</button>' +
                         '<button type="button" onclick="window.generateBranchSynthesisWithAI()" class="pm-btn-primary">' +
@@ -282,11 +292,22 @@
         const { nodesListText, sourcesListText, sourcesArr } = _buildSourcesAndContent(nodes);
         if (!nodesListText) return null;
 
+        // «Catena dei perché» (19/7/26): nessi causa-effetto DETERMINISTICI del ramo
+        // (link con verbi di ragionamento + connettivi nelle desc). Doppio uso:
+        // scaffold nel prompt (l'AI collega senza inventare i nessi) + box nel
+        // documento stampabile. '' / [] se il modulo manca o non trova nulla.
+        let causalTriples = [];
+        try {
+            if (window.MappAICausal && window.MappAICausal.triplesFor) causalTriples = window.MappAICausal.triplesFor(nodes) || [];
+        } catch (e) { causalTriples = []; }
+        const causalScaffold = (causalTriples.length && window.MappAICausal.promptBlockFromTriples)
+            ? window.MappAICausal.promptBlockFromTriples(causalTriples) : '';
+
         const promptText = window.fillPromptTemplate('BRANCH_SYNTHESIS', {
             branchLabel: label,
             sourcesList: sourcesListText,
             nodesList: nodesListText
-        });
+        }) + causalScaffold;
 
         const payload = {
             contents: [{ role: 'user', parts: [{ text: promptText }] }],
@@ -297,15 +318,17 @@
         };
 
         if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
+        if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se MappAITune non armato
         const response = await window.fetchModelAPI(payload, apiKey);
         const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (!rawText.trim()) throw new Error('Risposta AI vuota');
-        return { rawText, sourcesArr };
+        return { rawText, sourcesArr, causalTriples };
     }
 
     window.generateBranchSynthesisWithAI = async function () {
         const configModal = document.getElementById('branch-synthesis-config-modal');
         const selectedId = document.getElementById('branch-synthesis-select')?.value;
+        const tuneOn = !!(document.getElementById('bs-tune-toggle') && document.getElementById('bs-tune-toggle').checked);
         if (configModal) configModal.remove();
 
         if (!selectedId) { window.showToast('Seleziona un ramo', 'warning'); return; }
@@ -316,14 +339,17 @@
             return;
         }
 
-        if (selectedId === '__ALL__') return _generateWholeMapSynthesis(apiKey);
-
-        const root = appState.db.nodes.find(n => n.id === selectedId);
-        if (!root) { window.showToast('Ramo non trovato', 'error'); return; }
-        const branchLabel = window.cleanLabel ? window.cleanLabel(root.label) : root.label;
-
-        window.showLoadingOverlay(true, 'Sintesi del ramo in corso…');
+        // Arma la taratura piena per QUESTA generazione (materiale [VERDE]); ripristina in finally.
+        const _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
+        if (window.MappAITune) window.MappAITune.armed = tuneOn;
         try {
+            if (selectedId === '__ALL__') { await _generateWholeMapSynthesis(apiKey); return; }
+
+            const root = appState.db.nodes.find(n => n.id === selectedId);
+            if (!root) { window.showToast('Ramo non trovato', 'error'); return; }
+            const branchLabel = window.cleanLabel ? window.cleanLabel(root.label) : root.label;
+
+            window.showLoadingOverlay(true, 'Sintesi del ramo in corso…');
             const out = await _synthesizeOnce(_collectBranchNodes(selectedId), branchLabel, apiKey);
             window.showLoadingOverlay(false);
             if (!out) {
@@ -334,13 +360,17 @@
                 branchLabel,
                 mapName: window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI',
                 rawText: out.rawText,
-                sourcesArr: out.sourcesArr
+                sourcesArr: out.sourcesArr,
+                causalTriples: out.causalTriples || [],
+                tuned: tuneOn
             };
             _openBranchSynthesisResultModal(_lastSynthesis);
         } catch (err) {
             window.showLoadingOverlay(false);
             console.error('[BranchSynthesis] Errore:', err);
             window.showToast('Errore generazione sintesi: ' + (err.message || err), 'error');
+        } finally {
+            if (window.MappAITune) window.MappAITune.armed = _prevArmed;
         }
     };
 
@@ -366,7 +396,7 @@
                     window.showToast('La mappa non ha contenuti (descrizioni) da sintetizzare', 'warning');
                     return;
                 }
-                _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr };
+                _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr, causalTriples: out.causalTriples || [], tuned: !!(window.MappAITune && window.MappAITune.armed) };
                 _openBranchSynthesisResultModal(_lastSynthesis);
                 return;
             }
@@ -385,7 +415,7 @@
                     window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
                 try {
                     const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey);
-                    if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr });
+                    if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr, causalTriples: out.causalTriples || [] });
                 } catch (e) {
                     console.warn('[BranchSynthesis] Ramo fallito:', label, e);
                     sections.push({ branchLabel: label, failed: true });
@@ -417,6 +447,7 @@
                     }
                 };
                 if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
+                if (window.injectClassTuning) window.injectClassTuning(payload);
                 const resp = await window.fetchModelAPI(payload, apiKey);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
             } catch (e) {
@@ -424,7 +455,7 @@
             }
 
             window.showLoadingOverlay(false);
-            _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections };
+            _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
             _openBranchSynthesisResultModal(_lastSynthesis);
         } catch (err) {
             window.showLoadingOverlay(false);
@@ -453,9 +484,21 @@
                     : '<p style="color:#b45309">' + msg + '</p>';
                 return;
             }
-            html += _mdToHtml(sec.rawText, variant) + _buildCitationsHtml(sec.sourcesArr, variant);
+            html += _mdToHtml(sec.rawText, variant)
+                + (variant === 'print' ? _causalBoxHtml(sec.causalTriples) : '')
+                + _buildCitationsHtml(sec.sourcesArr, variant);
         });
         return html;
+    }
+
+    // Box «La catena dei perché» nel documento STAMPABILE (non nel modale:
+    // il lettore TTS legge tutto #branch-synthesis-body e le triple ad alta
+    // voce sarebbero rumore). '' se modulo assente o nessun nesso.
+    function _causalBoxHtml(triples) {
+        try {
+            return (triples && triples.length && window.MappAICausal && window.MappAICausal.htmlBlock)
+                ? window.MappAICausal.htmlBlock(triples) : '';
+        } catch (e) { return ''; }
     }
 
     // ── Modale risultato ───────────────────────────────────────────────────
@@ -532,7 +575,7 @@
         const accentColor = '#4f46e5';
         const contentHtml = data.whole
             ? _wholeBodyHtml(data, 'print')
-            : _mdToHtml(data.rawText, 'print') + _buildCitationsHtml(data.sourcesArr, 'print');
+            : _mdToHtml(data.rawText, 'print') + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr, 'print');
         const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';
@@ -740,9 +783,10 @@
         if (!window.MappAIStudyDocs) return;
         try {
             const kindTitle = data.whole ? window.t('bs_whole_title', 'Sintesi della mappa') : 'Sintesi';
+            const verde = data.tuned ? ' [VERDE]' : '';
             window.MappAIStudyDocs.save({
                 kind: 'synthesis',
-                title: kindTitle + ': ' + (data.branchLabel || ''),
+                title: kindTitle + ': ' + (data.branchLabel || '') + verde,
                 mapName: data.mapName || '',
                 html: _buildSynthesisPrintHtml(data)
             });
@@ -804,7 +848,8 @@
     }
 
     function _fnameFor(data) {
-        return (('Sintesi-' + (data.branchLabel || 'mappa')).replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '-')) || 'Sintesi';
+        var base = (('Sintesi-' + (data.branchLabel || 'mappa')).replace(/[^a-zA-Z0-9\-_ ]/g, '').trim().replace(/\s+/g, '-')) || 'Sintesi';
+        return (data && data.tuned) ? base + '-[VERDE]' : base;
     }
     function _downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);

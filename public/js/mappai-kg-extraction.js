@@ -57,7 +57,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
 
     let userProfileStr = '';
-    if (appState.userProfile) {
+    if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
         userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
     }
 
@@ -239,7 +239,7 @@ async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
     const minNodesVal = Math.max(10, maxNodesVal - 5);
 
     let userProfileStr = '';
-    if (appState.userProfile) {
+    if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
         userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO: Età ${appState.userProfile.age} anni, scuola ${appState.userProfile.grade} (${appState.userProfile.system}). ADATTA IL LINGUAGGIO a questa età: frasi brevi, parole semplici, esempi concreti. Evita linguaggio accademico.`;
     }
     if (appState.studentMode) {
@@ -312,7 +312,9 @@ REGOLE:
 
     const payload = {
         contents: [{ parts: [...fileParts, { text: userText }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
+        // Community non passa da buildSystemInstruction → accoda qui le regole
+        // di accessibilità desc (glossa tecnicismi, causa-effetto; '' se registro ricco o kill-switch).
+        systemInstruction: { parts: [{ text: systemPrompt + (window.accessibleDescRules ? window.accessibleDescRules() : '') }] },
         // phase=1 → schema ON anche su Infomaniak: in single-pass la pulizia JSON è prioritaria.
         generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
     };
@@ -443,7 +445,7 @@ async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
 
     let userProfileStr = '';
-    if (appState.userProfile) {
+    if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
         userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
     }
 

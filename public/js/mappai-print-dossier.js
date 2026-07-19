@@ -58,6 +58,16 @@ window.openNodeLabelsPrintModal = function () {
     const maxLevelPresent = Math.max(...Object.keys(levelCounts).map(Number));
     const mapName = appState.db?.rootNodeLabel || appState.rootNodeLabel || 'Progetto MappAI';
 
+    // Toggle "Taratura AI" — solo con contesto SPECIALE (pallino verde). Tara le
+    // PAROLE CHIAVE AI (layout «Titolo + parole chiave»); il file avrà [VERDE].
+    var _nlSpecial = !!(window.MappAITune && window.MappAITune.isSpecialActive && window.MappAITune.isSpecialActive());
+    var _nlCtx = ((window.MappAITune && window.MappAITune.activeContextName) ? window.MappAITune.activeContextName() : '').replace(/[<>&]/g, '');
+    var nlTuneRow = _nlSpecial ?
+        ('<label class="pm-section" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="' + window.t('bs_tune_tip_kw', 'Tara le parole chiave AI sul profilo del contesto attivo (solo layout «Titolo + parole chiave»). Il file avrà il suffisso [VERDE].') + '">' +
+            '<input type="checkbox" id="nl-tune-toggle" style="width:16px;height:16px;accent-color:#16a34a">' +
+            '<span class="pm-section-title" style="margin:0">' + window.t('bs_tune_label', 'Taratura AI') + ' · <span style="color:#16a34a;font-weight:800">' + _nlCtx + '</span></span>' +
+        '</label>') : '';
+
     // Costruisci le opzioni di livello (tutte + singoli livelli)
     function countUpTo(maxLv) {
         return allNodes.filter(function (n) { return (n.level || 0) <= maxLv; }).length;
@@ -180,6 +190,13 @@ window.openNodeLabelsPrintModal = function () {
                     '</div>' +
                 '</div>' +
 
+                nlTuneRow +
+
+                '<label class="pm-section" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="' + window.t('cc_nl_tip', 'Aggiunge in coda al PDF le pagine «Catena dei perché»: i nessi causa-effetto della mappa (dai link e dalle descrizioni, senza AI).') + '">' +
+                    '<input type="checkbox" id="nl-causal-toggle" style="width:16px;height:16px;accent-color:#4f46e5">' +
+                    '<span class="pm-section-title" style="margin:0">' + window.t('cc_nl_toggle', 'Includi «Catena dei perché»') + '</span>' +
+                '</label>' +
+
                 '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
                     '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
                         'class="pm-btn-cancel">Annulla</button>' +
@@ -243,6 +260,13 @@ window.printAllNodeLabels = async function () {
     var selectedBgEl = document.querySelector('input[name="nl-bg"]:checked');
     var pageBg = selectedBgEl ? selectedBgEl.value : 'none';
 
+    // Taratura AI (solo se layout keyword): leggi PRIMA di chiudere il modale
+    var nlTuneOn = !!(document.getElementById('nl-tune-toggle') && document.getElementById('nl-tune-toggle').checked);
+    var tuned = false;
+
+    // «Catena dei perché»: pagine extra in coda al PDF (deterministico, zero AI)
+    var nlCausalOn = !!(document.getElementById('nl-causal-toggle') && document.getElementById('nl-causal-toggle').checked);
+
     var modal = document.getElementById('node-labels-print-modal');
     if (modal) modal.remove();
 
@@ -265,10 +289,15 @@ window.printAllNodeLabels = async function () {
         var kwApiKey = window.getSystemKey ? window.getSystemKey() : '';
         if (kwApiKey) {
             window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi…');
+            var _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
+            if (window.MappAITune) window.MappAITune.armed = nlTuneOn;
             try {
                 keywordsMap = await _generateNodeKeywords(nodes, kwApiKey) || {};
+                tuned = nlTuneOn; // keyword generate con taratura → file [VERDE]
             } catch (kwErr) {
                 console.warn('[Labels] Generazione keyword AI fallita, uso fallback:', kwErr);
+            } finally {
+                if (window.MappAITune) window.MappAITune.armed = _prevArmed;
             }
             window.showLoadingOverlay(false);
         }
@@ -470,7 +499,19 @@ window.printAllNodeLabels = async function () {
         }
     }
 
-    doc.save(`Label-${projectTitle}.pdf`);
+    // Pagine «Catena dei perché» in coda (opt-in dalla checkbox; zero AI)
+    if (nlCausalOn) {
+        try {
+            const added = window.MappAICausal && window.MappAICausal.appendPdfPages
+                && window.MappAICausal.appendPdfPages(doc, fontName);
+            if (!added) window.showToast(window.t('cc_empty_pdf', 'Nessun nesso causa-effetto trovato: PDF generato senza pagine catena.'), 'info');
+        } catch (ccErr) {
+            console.warn('[Labels] Catena dei perché non aggiunta:', ccErr);
+        }
+    }
+
+    const verde = tuned ? '-[VERDE]' : '';
+    doc.save(`Label-${projectTitle}${verde}.pdf`);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 
     // Archivio documenti (005): il Foglio nodi è un PDF → salvato come data-URI,
@@ -479,7 +520,7 @@ window.printAllNodeLabels = async function () {
         if (window.MappAIStudyDocs) {
             window.MappAIStudyDocs.save({
                 kind: 'nodesheet',
-                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle,
+                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle + (tuned ? ' [VERDE]' : ''),
                 mapName: projectTitle,
                 pdf: doc.output('datauristring')
             });
@@ -566,6 +607,7 @@ async function _kwCallBatch(nodesChunk, apiKey) {
     };
 
     if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'nodesheet');
+    if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se non armato
     var response = await window.fetchModelAPI(payload, apiKey);
     var raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!raw) return {};

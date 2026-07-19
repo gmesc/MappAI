@@ -738,7 +738,17 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 // Translate back to Gemini format for app compatibility
                 response = window.InfomaniakBridge.translateResponse(rawResponse);
             } else {
-                response = await window.electronAPI.generateGemini({ apiKey, payload, model });
+                // Rimuove i marker interni (_respectTemp e altri "_"-prefissi) da
+                // generationConfig prima dell'invio a Google: l'API Gemini rifiuta i campi
+                // sconosciuti (400). Qui a monte → copre sia il path IPC Electron sia il
+                // polyfill browser/Capacitor di storageAdapter (che NON strippa).
+                let gPayload = payload;
+                const _g = payload && payload.generationConfig;
+                if (_g && Object.keys(_g).some(k => k[0] === '_')) {
+                    const gc = {}; for (const k of Object.keys(_g)) { if (k[0] !== '_') gc[k] = _g[k]; }
+                    gPayload = { ...payload, generationConfig: gc };
+                }
+                response = await window.electronAPI.generateGemini({ apiKey, payload: gPayload, model });
             }
 
             // Tracking Usage
@@ -1135,6 +1145,16 @@ window.handleFileUpload = async function (input, type) {
 }
 
 window.startGeneration = async function () {
+    // Toggle «Adatta al livello» (Costruisci): arma la riga livello per questa
+    // generazione (e per i successivi Espandi/sotto-concetti della sessione).
+    if (window.MappAITune) {
+        const lt = document.getElementById('level-tune-toggle');
+        window.MappAITune.levelArmed = !!(lt && lt.checked && !lt.disabled);
+    }
+    // Bollino «Progetti esistenti» (19/7): marca QUESTA mappa come «generazione
+    // tarata» se la taratura livello è attiva. Persiste nello snapshot appState
+    // (sopravvive a load/reload); letto da saveCurrentProject → pMeta.tuned.
+    try { appState.generationTuned = !!(window.MappAITune && window.MappAITune.levelArmed); } catch (e) { }
     // ========== PIPELINE A/B SELECTION ==========
     const activePipeline = window.getPipeline();
     appState.generationPipeline = activePipeline;
@@ -1427,18 +1447,114 @@ function buildSystemInstruction(base) {
     // Taratura sulla CLASSE ATTIVA (registro/livello/note): adatta il linguaggio,
     // non i fatti. '' se nessuna classe attiva → comportamento generico invariato.
     out += window.classTuningPrompt();
+    // Accessibilità desc (glossa tecnicismi, causa-effetto): entra SOLO qui
+    // perché tutte le chiamanti di questa funzione producono prosa per lo
+    // studente (Fase 3, albero iterativo, KG single-pass, sotto-concetti,
+    // Espandi con AI). Le fasi strutturali (1/1.5/1.6/4/5, KG multi-pass)
+    // costruiscono i propri systemInstruction e restano intatte.
+    if (window.accessibleDescRules) out += window.accessibleDescRules();
     return out;
 }
 
-// Blocco "PROFILO CLASSE" della classe attiva (o '' se generica). Usato da
-// buildSystemInstruction e da injectClassTuning per i generatori che NON passano
-// da lì (quiz, flashcard, tutor, timeline, arricchimento desc).
+// ── Taratura AI: interruttore unico (base = OFF/standard) ──────────────────
+// Il grafo si genera SEMPRE standard. La taratura si "arma" SOLO quando un
+// materiale di studio (sintesi, foglio label, ...) chiede la versione tarata.
+// Fonte = CONTESTO ATTIVO: studente attivo → suo profilo; altrimenti classe attiva.
+window.MappAITune = {
+    armed: false,
+    // Modalità "solo livello": inietta UNA riga (grado + ordine scolastico) nella
+    // generazione del grafo. Per fonti ESTERNE (articoli, video) non già tarate
+    // dal docente. Opt-in via toggle in Costruisci, default OFF.
+    levelArmed: false,
+    arm: function () { this.armed = true; return this; },
+    disarm: function () { this.armed = false; return this; },
+    armLevel: function () { this.levelArmed = true; return this; },
+    disarmLevel: function () { this.levelArmed = false; return this; },
+    // Nome del contesto attivo ('' se generico) — per la UI del toggle
+    activeContextName: function () {
+        try {
+            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            if (a && a.userProfile && a.userProfile.nickname) return a.userProfile.nickname;
+            var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+            return c ? c.name : '';
+        } catch (e) { return ''; }
+    },
+    // Riga "livello di lettura" dal contesto attivo (studente prioritario). '' se generico.
+    levelBlock: function () {
+        try {
+            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var grade = '', system = '';
+            var up = a && a.userProfile;
+            if (up && up.nickname) { grade = up.grade || ''; system = up.system || ''; }
+            else {
+                var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+                if (c) { grade = c.grade || c.name || ''; system = c.system || ''; }
+            }
+            if (!grade && !system) return '';
+            var dest = [grade, system].filter(Boolean).join(' · ');
+            return '\n\n--- LIVELLO DI LETTURA ---\nDestinatari: studenti di ' + dest + '. Le descrizioni devono essere comprensibili a questo livello: frasi chiare, lessico adeguato all\'età. Resta fedele ai fatti della fonte; adatta solo il linguaggio.';
+        } catch (e) { return ''; }
+    },
+    // Esegue fn con la taratura armata, ripristinando lo stato precedente.
+    withTuning: function (fn) { var prev = this.armed; this.armed = true; try { return fn(); } finally { this.armed = prev; } },
+    // C'è un contesto attivo con taratura SPECIALE? (governa il suffisso [VERDE])
+    isSpecialActive: function () {
+        try {
+            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var up = a && a.userProfile;
+            if (up && up.nickname) return !!(up.notes && String(up.notes).trim());
+            var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+            return !!(c && ((c.notes && String(c.notes).trim()) || c.register === 'semplice' || c.register === 'ricco'));
+        } catch (e) { return false; }
+    },
+    // Blocco taratura del contesto attivo (studente ha priorità, poi classe). '' se generico.
+    activeTuningBlock: function () {
+        try {
+            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var up = a && a.userProfile;
+            if (up && up.nickname) {
+                var bits = [];
+                var head = 'Adatta il linguaggio a uno studente';
+                if (up.age) head += ' di ' + up.age + ' anni';
+                if (up.grade) head += ', classe ' + up.grade;
+                if (up.system) head += ' (' + up.system + ')';
+                bits.push(head + '.');
+                if (up.notes && String(up.notes).trim()) bits.push('Note sull\'allievo: ' + String(up.notes).trim() + '.');
+                bits.push('Usa frasi brevi, lessico concreto ed esempi adatti; resta fedele ai fatti, adatta solo COME li esprimi.');
+                return '\n\n--- TARATURA STUDENTE (adatta linguaggio ed esempi a questo allievo) ---\n' + bits.join(' ');
+            }
+            return (window.MappAIClasses && window.MappAIClasses.tuningForPrompt) ? (window.MappAIClasses.tuningForPrompt() || '') : '';
+        } catch (e) { return ''; }
+    }
+};
+
+// Blocco taratura iniettato nei prompt SOLO quando armato (base = standard).
+// armed (pieno, materiali [VERDE]) ha priorità; levelArmed (solo livello, toggle
+// Costruisci per fonti esterne) inietta la sola riga grado+ordine.
+// Usato da buildSystemInstruction e da injectClassTuning (quiz, tutor, timeline, enrich).
 window.classTuningPrompt = function () {
     try {
-        return (window.MappAIClasses && window.MappAIClasses.tuningForPrompt)
-            ? (window.MappAIClasses.tuningForPrompt() || '') : '';
+        if (!window.MappAITune) return '';
+        if (window.MappAITune.armed) return window.MappAITune.activeTuningBlock();
+        if (window.MappAITune.levelArmed) return window.MappAITune.levelBlock();
+        return '';
     } catch (e) { return ''; }
 };
+
+// Toggle «Adatta al livello» in Costruisci: abilitato solo con contesto attivo.
+// Chiamato all'init, al cambio classe attiva (evento) e da _setActiveStudent.
+window.refreshLevelTuneRow = function () {
+    var row = document.getElementById('level-tune-row');
+    var cb = document.getElementById('level-tune-toggle');
+    var ctxEl = document.getElementById('level-tune-ctx');
+    if (!row || !cb) return;
+    var ctx = window.MappAITune ? window.MappAITune.activeContextName() : '';
+    if (ctxEl) ctxEl.textContent = ctx ? ctx : window.t('ui_level_tune_none', 'nessun contesto attivo');
+    cb.disabled = !ctx;
+    if (!ctx) { cb.checked = false; if (window.MappAITune) window.MappAITune.disarmLevel(); }
+    row.style.opacity = ctx ? '1' : '0.5';
+};
+document.addEventListener('mappai-active-class-changed', function () { window.refreshLevelTuneRow(); });
 
 // Inietta la taratura classe in un payload AI: la accoda al systemInstruction se
 // esiste, altrimenti ne crea uno. Ritorna il payload (mutato) per l'uso inline.
@@ -1453,6 +1569,39 @@ window.injectClassTuning = function (payload) {
         payload.systemInstruction = { parts: [{ text: ct.replace(/^\n+/, '') }] };
     }
     return payload;
+};
+
+// ── Accessibilità delle descrizioni (regola base, indipendente dalla taratura) ──
+// Tecnica emersa dal confronto A/B "la CARTA" 1A/1B (19/7/26): glossare i
+// tecnicismi alla prima occorrenza, esplicitare i nessi causa-effetto, ancorare
+// ad azioni/dettagli concreti della fonte. Vale per TUTTE le mappe (anche senza
+// classe attiva); il REGISTRO della classe attiva ne modula solo l'intensità:
+//   'ricco'    → nessuna regola (registro accademico voluto dal docente)
+//   'medio'/nessuna classe → regola leggera (glossa + causa-effetto)
+//   'semplice' → regola piena (+ dettagli concreti, frasi brevi)
+// Iniettata SOLO nelle fasi che scrivono prosa (via buildSystemInstruction,
+// enrich, KG Community) — mai nelle fasi strutturali del multi-pass.
+// Kill-switch: localStorage mappai_accessible_descs = '0'.
+window.accessibleDescRules = function () {
+    try {
+        if (localStorage.getItem('mappai_accessible_descs') === '0') return '';
+        var reg = 'medio';
+        var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+        if (c && c.register) reg = c.register;
+        if (reg === 'ricco') return '';
+        var full = (reg === 'semplice');
+        var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+        if (en) {
+            var r = '\n\n--- DESCRIPTION ACCESSIBILITY ---\nIn each "desc": explain every technical term the first time it appears (e.g. "cellulose, the fiber that holds plants upright"); make the cause-effect links of the source explicit (because, therefore, instead of).';
+            if (full) r += ' Anchor concepts to concrete actions and details present in the source. Short, linear sentences.';
+            r += ' Stay faithful to the source facts and within the requested word limit.';
+            return r;
+        }
+        var ri = '\n\n--- ACCESSIBILITÀ DESCRIZIONI ---\nIn ogni "desc": spiega ogni termine tecnico la prima volta che compare (es. "la cellulosa, la fibra che sostiene le piante"); esplicita i nessi causa-effetto presenti nella fonte (perché, quindi, invece di).';
+        if (full) ri += ' Ancora i concetti ad azioni e dettagli concreti presenti nella fonte. Frasi brevi e lineari.';
+        ri += ' Resta fedele ai fatti della fonte e nel limite di parole richiesto.';
+        return ri;
+    } catch (e) { return ''; }
 };
 
 // MM EXTRACTION (extractMindMapIterative, extractMindMapMultiPass)
