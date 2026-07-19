@@ -53,6 +53,14 @@
     ".lr-strip{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}",
     ".lr-pill{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#fff}",
     ".lr-pill-r{background:#16a34a}.lr-pill-w{background:#dc2626}.lr-pill-b{background:#cbd5e1;color:#475569}.lr-pill-m{background:#7c3aed}",
+    ".lr-detail{margin:8px 0 4px;border-top:1px solid #f1f5f9;padding-top:8px}",
+    ".lr-di-row{display:flex;gap:7px;align-items:baseline;padding:4px 0;border-bottom:1px dashed #f1f5f9}",
+    ".lr-di-mark{flex:0 0 auto;width:16px;text-align:center;font-weight:bold}",
+    ".lr-di-right{color:#16a34a}.lr-di-wrong{color:#dc2626}.lr-di-blank{color:#94a3b8}.lr-di-manual{color:#7c3aed}",
+    ".lr-di-body{flex:1;min-width:0}",
+    ".lr-di-q{font-size:11px;color:#334155;line-height:1.5}",
+    ".lr-di-your{font-size:11px;color:#475569;margin-top:1px}",
+    ".lr-di-correct{font-size:11px;color:#15803d;margin-top:1px}",
     ".lr-topics{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}",
     ".lr-topic-col{flex:1;min-width:180px}",
     ".lr-topic-h{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:4px}",
@@ -157,10 +165,26 @@
     var pillClass = { right: 'lr-pill-r', wrong: 'lr-pill-w', blank: 'lr-pill-b', manual: 'lr-pill-m' };
     var pillMark = { right: '✓', wrong: '✗', blank: '·', manual: '?' };
 
+    var outLabel = { right: 'Corretta', wrong: 'Errata', blank: 'In bianco', manual: 'Da correggere' };
     (r.perStudent || []).slice().sort(function (a, b) { return b.accuracyPct - a.accuracyPct; }).forEach(function (s) {
       var strip = (s.items || []).map(function (it, i) {
         return '<div class="lr-pill ' + (pillClass[it.outcome] || 'lr-pill-b') + '" title="Domanda ' + (i + 1) + '">' +
           (pillMark[it.outcome] || '·') + '</div>';
+      }).join('');
+      // Dettaglio per-domanda (issue 3): n°, esito, risposta allievo, risposta giusta
+      // se non corretta, + mezzo punto/complemento mancante sui cloze incompleti.
+      var detail = (s.items || []).map(function (it, i) {
+        var half = (it.missing && it.missing.length);
+        var badge = half ? '<span style="color:#d97706;font-weight:700">½</span> '
+          : '<span class="lr-di-mark lr-di-' + (it.outcome || 'blank') + '">' + (pillMark[it.outcome] || '·') + '</span> ';
+        var yours = it.yourText ? esc(it.yourText) : '<span style="color:#cbd5e1">— vuoto</span>';
+        var right = (it.outcome !== 'right' && it.correctText)
+          ? '<div class="lr-di-correct">Corretta: ' + esc(it.correctText) + '</div>' : '';
+        var miss = half ? '<div class="lr-di-correct" style="color:#92400e">manca: ' + esc(it.missing.join(', ')) + ' (½ punto)</div>' : '';
+        var head = it.text ? esc(it.text) : (it.label ? esc(it.label) : (outLabel[it.outcome] || ''));
+        return '<div class="lr-di-row">' + badge +
+          '<div class="lr-di-body"><div class="lr-di-q"><b>D' + (i + 1) + '.</b> ' + head + '</div>' +
+          '<div class="lr-di-your">Risposta: ' + yours + '</div>' + right + miss + '</div></div>';
       }).join('');
       var rate = s.medianRate != null ? (s.medianRate.toFixed(1) + '/min') : '—';
       var strengths = (s.strengths || []).length
@@ -181,6 +205,7 @@
         '<div class="lr-metrics"><div class="lr-acc" style="color:' + accColor(s.accuracyPct) + '">' + s.accuracyPct + '%</div>' +
         '<div class="lr-acc-sub">accuratezza · fluenza ' + rate + '</div></div></div>' +
         '<div class="lr-strip">' + strip + '</div>' +
+        '<div class="lr-detail">' + detail + '</div>' +
         '<div class="lr-topics"><div class="lr-topic-col"><div class="lr-topic-h">Punti di forza</div>' + strengths + '</div>' +
         '<div class="lr-topic-col"><div class="lr-topic-h">Punti deboli</div>' + weaks + '</div></div></div>';
     });

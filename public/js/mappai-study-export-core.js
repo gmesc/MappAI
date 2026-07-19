@@ -92,7 +92,8 @@
     const DOCS_KEY = 'mappai_saved_documents';
     const DOCS_CAP = 30; // 005-landing-insegna: era 12; la landing Insegna ci vive sopra
     // Tipi di documento archiviabili (005): synthesis/dossier storici + fogli nodi/timeline
-    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map'];
+    // + 'causal' (Catena dei perché, deterministico — 19/7/26)
+    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map', 'causal'];
 
     function _docsRead() {
         try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '[]'); }

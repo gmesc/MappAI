@@ -2,7 +2,12 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- «Aggiungi a Home» → l'app si apre senza barre del browser (schermo intero su iPhone) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MappAI">
 <title>MappAI Live — Quiz</title>
 <!-- Stesso font dell'app (fallback monospace se la LAN è offline) + emoji Android -->
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
@@ -51,7 +56,10 @@
 
   /* ── Player ── */
   #player { }
-  #pbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  /* safe-area: con viewport-fit=cover il contenuto va sotto notch/bordi arrotondati
+     → padding minimo garantito + inset del dispositivo (iPhone con notch/isola) */
+  #pbar { display: flex; align-items: center; gap: 10px;
+          padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
           background: #fff; border-bottom: 1px solid #e2e8f0; }
   #pcount { font-size: 13px; font-weight: 700; color: #334155; }
   #pprogress { flex: 1; height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
@@ -61,27 +69,67 @@
   #sync { font-size: 16px; }
   #sync.ok { color: #16a34a; } #sync.wait { color: #d97706; } #sync.err { color: #dc2626; }
 
-  #qwrap { flex: 1; overflow-y: auto; padding: 20px 18px; }
-  #qtag { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;
-          letter-spacing: .06em; margin-bottom: 6px; }
-  #qtext { font-size: 19px; font-weight: 700; line-height: 1.4; margin-bottom: 18px; }
-  .opt { display: block; width: 100%; text-align: left; padding: 15px 16px; margin-bottom: 10px;
-         border-radius: 12px; border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
-         font-size: 16px; }
+  #qwrap { flex: 1; overflow-y: auto;
+           padding: 26px max(24px, env(safe-area-inset-right)) 26px max(24px, env(safe-area-inset-left)); }
+  /* domanda + bottone Ascolta accanto */
+  .q-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 22px; }
+  #qtext { font-size: 24px; font-weight: 700; line-height: 1.45; flex: 1; }
+  #qtext:empty { display: none; }
+  /* bottone TTS (altoparlante) — grande, area tap comoda */
+  .tts { flex: 0 0 auto; width: 56px; min-height: 56px; border-radius: 14px; border: 2px solid #e2e8f0;
+         background: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; color: #4f46e5; }
+  .tts:active, .tts.on { background: #eef2ff; border-color: #4f46e5; }
+  #qread { align-self: flex-start; }
+  /* opzione = riga: bottone-testo (seleziona) + bottone Ascolta */
+  .opt-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
+  .opt { flex: 1; text-align: left; padding: 18px 18px; border-radius: 14px; border: 2px solid #e2e8f0;
+         background: #fff; color: #0f172a; font-size: 20px; line-height: 1.35; }
   .opt.sel { border-color: #4f46e5; background: #eef2ff; }
   .tf-row { display: flex; gap: 12px; }
-  .tf-btn { flex: 1; padding: 22px 8px; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
-            font-size: 18px; font-weight: 800; }
+  .tf-btn { flex: 1; padding: 26px 8px; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+            font-size: 22px; font-weight: 800; }
   .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
   .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
-  .cloze-text { font-size: 17px; line-height: 2.1; }
+  .cloze-text { font-size: 20px; line-height: 2.2; }
   .cloze-in { display: inline-block; border: none; border-bottom: 2px solid #6366f1; background: #eef2ff;
               border-radius: 4px; padding: 2px 8px; font: inherit; color: #3730a3; margin: 0 3px; }
-  #qopen { width: 100%; min-height: 120px; padding: 12px 14px; border-radius: 12px; border: 2px solid #e2e8f0;
-           font-size: 16px; outline: none; resize: vertical; }
+  .cloze-in.cloze-conn { border-bottom-color: #d97706; background: #fef3c7; }
+  .cloze-hint { font-size: 14px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a;
+                border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+  /* Cloze A SCELTA: slot nella frase + pannelli opzioni a tocco */
+  .cloze-slot { display: inline-block; min-width: 96px; text-align: center; border-bottom: 2px solid #6366f1;
+                background: #eef2ff; border-radius: 4px; padding: 1px 10px; color: #3730a3; font-weight: 700; margin: 0 3px; }
+  .cloze-slot.cloze-conn { border-bottom-color: #d97706; background: #fef3c7; }
+  .cloze-slot.cloze-empty { color: #a5b4fc; font-weight: 400; letter-spacing: 2px; }
+  .cloze-opts { margin: 16px 0 4px; }
+  .cloze-opts-lab { font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 7px; }
+  .cloze-opt { flex: 1; text-align: left; border: 2px solid #e2e8f0; background: #fff;
+               border-radius: 12px; padding: 16px 18px; font: inherit; font-size: 20px; color: #0f172a;
+               cursor: pointer; min-height: 54px; }
+  .cloze-opt.sel { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; font-weight: 700; }
+  #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid #e2e8f0;
+           font-size: 19px; outline: none; resize: vertical; }
   #qopen:focus { border-color: #6366f1; }
+  /* bottone schermo intero nella barra */
+  #pfull { flex: 0 0 auto; background: none; color: #64748b; font-size: 19px; padding: 2px 6px; }
+  /* Landscape (telefono coricato): comprime l'altezza ma tiene margini laterali
+     ampi (con notch/isola sul lato → safe-area sinistra/destra abbondante) */
+  @media (orientation: landscape) and (max-height: 560px) {
+    #qwrap { padding: 14px max(34px, env(safe-area-inset-right)) 14px max(34px, env(safe-area-inset-left)); }
+    .q-head { margin-bottom: 12px; }
+    #qtext { font-size: 21px; }
+    .opt { font-size: 18px; padding: 13px 15px; }
+    .opt-row { margin-bottom: 8px; }
+    .cloze-opt { font-size: 18px; padding: 12px 15px; min-height: 46px; }
+    .tf-btn { padding: 16px 8px; }
+    #pbar { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 8px; }
+    #pfoot { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    #pfoot button { padding: 10px 10px; }
+  }
 
-  #pfoot { display: flex; gap: 10px; padding: 12px 14px; background: #fff; border-top: 1px solid #e2e8f0; }
+  #pfoot { display: flex; gap: 10px;
+           padding: 12px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+           background: #fff; border-top: 1px solid #e2e8f0; }
   #pfoot button { border-radius: 12px; padding: 14px 10px; font-weight: 800; font-size: 15px; }
   #back { background: #f1f5f9; color: #334155; flex: 0 0 auto; padding-left: 18px; padding-right: 18px; }
   #back:disabled { opacity: .4; }
@@ -143,12 +191,15 @@
   <div id="pbar">
     <span id="pcount">1 / 1</span>
     <div id="pprogress"><i></i></div>
+    <button id="pfull" type="button" aria-label="Schermo intero" title="Schermo intero">⛶</button>
     <span id="ptimer"></span>
     <span id="sync" class="ok">●</span>
   </div>
   <div id="qwrap">
-    <div id="qtag"></div>
-    <div id="qtext"></div>
+    <div class="q-head">
+      <div id="qtext"></div>
+      <button id="qread" class="tts" type="button" aria-label="Ascolta la domanda">🔊</button>
+    </div>
     <div id="qbody"></div>
   </div>
   <div id="pfoot">
@@ -188,6 +239,42 @@
   var $ = function (id) { return document.getElementById(id); };
   function show(id) { document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === id); }); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  // ── Sintesi vocale (TTS del browser, offline, zero server) ────────────────
+  var _ttsOn = null;
+  function speak(text) {
+    try {
+      if (!('speechSynthesis' in window)) return;
+      var t = String(text || '').trim(); if (!t) return;
+      speechSynthesis.cancel();               // interrompe la lettura precedente
+      var u = new SpeechSynthesisUtterance(t);
+      u.lang = 'it-IT'; u.rate = 0.95;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  // bottone altoparlante: legge `getText()` (o la stringa), senza far scattare
+  // la selezione dell'opzione (stopPropagation).
+  function ttsBtn(getText) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tts'; b.setAttribute('aria-label', 'Ascolta'); b.textContent = '🔊';
+    b.onclick = function (ev) { ev.stopPropagation(); speak(typeof getText === 'function' ? getText() : getText); };
+    return b;
+  }
+  // riga opzione = bottone-testo (seleziona) + bottone Ascolta accanto
+  function optionRow(cls, text, onSelect) {
+    var row = document.createElement('div'); row.className = 'opt-row';
+    var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text;
+    b.onclick = onSelect;
+    row.appendChild(b); row.appendChild(ttsBtn(text));
+    return row;
+  }
+  // testo da leggere per la domanda corrente (cloze → frase con «spazio» nei buchi)
+  function questionSpeech(q) {
+    if (!q) return '';
+    if (q.kind === 'cloze') return (q.segments || []).map(function (s) { return s.blank ? ' spazio ' : (s.text || ''); }).join('').replace(/\s+/g, ' ').trim();
+    if (q.kind === 'tf') return q.proposed || q.text || '';
+    return q.text || '';
+  }
 
   var SESS = null;          // meta sessione
   var IDENT = null;         // { emojiKey, num }
@@ -326,8 +413,9 @@
     qStart = Date.now();
     $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length;
     $('pprogress').firstElementChild.style.width = Math.round((i) / QUESTIONS.length * 100) + '%';
-    $('qtag').textContent = q.nodeLabel || '';
     $('back').disabled = (i === 0);
+    // bottone «Ascolta la domanda» → legge testo/frase della domanda corrente
+    $('qread').onclick = function () { speak(questionSpeech(q)); };
     var body = $('qbody');
     body.innerHTML = '';
     var a = ANSWERS[q.idx] || {};
@@ -335,10 +423,7 @@
     if (q.kind === 'mc') {
       $('qtext').innerHTML = esc(q.text);
       (q.options || []).forEach(function (opt, oi) {
-        var b = document.createElement('button');
-        b.className = 'opt' + (a.choice === oi ? ' sel' : ''); b.textContent = opt;
-        b.onclick = function () { setChoice(oi); };
-        body.appendChild(b);
+        body.appendChild(optionRow('opt' + (a.choice === oi ? ' sel' : ''), opt, function () { setChoice(oi); }));
       });
     } else if (q.kind === 'tf') {
       $('qtext').innerHTML = esc(q.proposed || q.text);
@@ -349,18 +434,71 @@
       row.appendChild(bt); row.appendChild(bf); body.appendChild(row);
     } else if (q.kind === 'cloze') {
       $('qtext').textContent = '';
+      var isChoice = (q.segments || []).some(function (s) { return s.blank && Array.isArray(s.blank.choices) && s.blank.choices.length; });
+      var hasConn = (q.segments || []).some(function (s) { return s.blank && s.blank.conn; });
+      if (hasConn && !isChoice) {
+        var hint = document.createElement('div'); hint.className = 'cloze-hint';
+        hint.textContent = 'Nel riquadro ambra va la PAROLA-LEGAME: valgono anche i sinonimi (es. «poiché» per «perché»).';
+        body.appendChild(hint);
+      }
       var wrap = document.createElement('div'); wrap.className = 'cloze-text';
       var bi = 0; var saved = a.blanks || [];
       (q.segments || []).forEach(function (seg) {
         if (seg.blank) {
-          var inp = document.createElement('input'); inp.className = 'cloze-in'; inp.setAttribute('data-bi', bi);
-          var len = (seg.blank && seg.blank.len) || 6; inp.style.width = Math.max(60, len * 11) + 'px';
-          inp.autocomplete = 'off'; inp.spellcheck = false;
-          if (saved[bi] != null) inp.value = saved[bi];
-          wrap.appendChild(inp); bi++;
+          var isConn = !!seg.blank.conn;
+          if (Array.isArray(seg.blank.choices) && seg.blank.choices.length) {
+            // A SCELTA: chip «___» che apre le 3 opzioni sotto; tocca per riempire.
+            var slot = document.createElement('span'); slot.className = 'cloze-slot' + (isConn ? ' cloze-conn' : '');
+            slot.setAttribute('data-bi', bi); slot.setAttribute('role', 'group');
+            slot.setAttribute('aria-label', 'Spazio da completare ' + (bi + 1));
+            var picked = saved[bi];
+            slot.textContent = (picked != null && picked !== '') ? picked : '_____';
+            if (picked == null || picked === '') slot.classList.add('cloze-empty');
+            wrap.appendChild(slot); bi++;
+          } else {
+            var isc = bi;
+            var inp = document.createElement('input'); inp.className = 'cloze-in' + (isConn ? ' cloze-conn' : '');
+            inp.setAttribute('data-bi', bi); inp.setAttribute('aria-label', 'Spazio da completare ' + (bi + 1));
+            var len = (seg.blank && seg.blank.len) || 6;
+            inp.style.width = (isConn ? Math.max(150, len * 11) : Math.max(60, len * 11)) + 'px';
+            inp.autocomplete = 'off'; inp.spellcheck = false;
+            if (saved[bi] != null) inp.value = saved[bi];
+            wrap.appendChild(inp); bi++;
+          }
         } else { wrap.appendChild(document.createTextNode(seg.text || '')); }
       });
       body.appendChild(wrap);
+      if (isChoice) {
+        // pannello opzioni per ogni buco (sotto la frase): bottoni grandi da toccare
+        var bi2 = 0;
+        (q.segments || []).forEach(function (seg) {
+          if (!seg.blank) return;
+          var myBi = bi2++;
+          if (!(Array.isArray(seg.blank.choices) && seg.blank.choices.length)) return;
+          var opts = document.createElement('div'); opts.className = 'cloze-opts';
+          opts.setAttribute('role', 'group');
+          opts.setAttribute('aria-label', 'Opzioni per lo spazio ' + (myBi + 1));
+          opts.appendChild(Object.assign(document.createElement('div'), { className: 'cloze-opts-lab', textContent: 'Spazio ' + (myBi + 1) + (seg.blank.conn ? ' — parola-legame' : '') }));
+          seg.blank.choices.forEach(function (opt) {
+            var row = document.createElement('div'); row.className = 'opt-row';
+            var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'cloze-opt'; ob.textContent = opt;
+            if ((saved[myBi] || '') === opt) { ob.classList.add('sel'); ob.setAttribute('aria-pressed', 'true'); }
+            ob.onclick = function () {
+              accumMs();   // conta il tempo sull'item (fluenza) come mc/tf
+              var cur = ANSWERS[q.idx] || {}; var blanks = cur.blanks || [];
+              blanks[myBi] = opt; cur.blanks = blanks; delete cur.skipped; ANSWERS[q.idx] = cur;
+              // aggiorna slot + evidenzia bottone scelto nel gruppo
+              var slotEl = wrap.querySelector('.cloze-slot[data-bi="' + myBi + '"]');
+              if (slotEl) { slotEl.textContent = opt; slotEl.classList.remove('cloze-empty'); }
+              opts.querySelectorAll('.cloze-opt').forEach(function (x) { var on = x === ob; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+              saveAnswer(q.idx);   // persiste subito (localStorage + POST), come mc/tf
+            };
+            row.appendChild(ob); row.appendChild(ttsBtn(opt));
+            opts.appendChild(row);
+          });
+          body.appendChild(opts);
+        });
+      }
     } else { // open
       $('qtext').innerHTML = esc(q.text);
       // Timeline (008): domanda evento→anno → input numerico dedicato.
@@ -421,9 +559,13 @@
   function collectCurrent() {
     var q = QUESTIONS[i]; var a = ANSWERS[q.idx] || {};
     if (q.kind === 'cloze') {
-      var vals = []; $('qbody').querySelectorAll('.cloze-in').forEach(function (inp) { vals.push(inp.value || ''); });
-      if (vals.some(function (v) { return v.trim(); })) { a.blanks = vals; delete a.skipped; ANSWERS[q.idx] = a; }
-      else if (a.blanks) { a.blanks = vals; ANSWERS[q.idx] = a; }
+      var ins = $('qbody').querySelectorAll('.cloze-in');
+      if (ins.length) {   // modalità SCRIVI: leggi i campi
+        var vals = []; ins.forEach(function (inp) { vals.push(inp.value || ''); });
+        if (vals.some(function (v) { return v.trim(); })) { a.blanks = vals; delete a.skipped; ANSWERS[q.idx] = a; }
+        else if (a.blanks) { a.blanks = vals; ANSWERS[q.idx] = a; }
+      }
+      // modalità SCEGLI: a.blanks è già popolato dai bottoni (onclick) → nulla da fare
     } else if (q.kind === 'open') {
       var ta = $('qopen'); if (ta && ta.value.trim()) { a.text = ta.value; delete a.skipped; ANSWERS[q.idx] = a; }
       else if (ta && a.text) { a.text = ta.value; ANSWERS[q.idx] = a; }
@@ -482,6 +624,29 @@
     if (i < QUESTIONS.length - 1) { i++; renderQuestion(); } else showDone(false);
   };
 
+  // ── Schermo intero (concentrazione) ──────────────────────────────────────
+  // Fullscreen API dove supportata (Android/iPad/desktop). Su iPhone Safari NON
+  // è supportata → suggerisce «Aggiungi a Home» (i meta apple-* aprono l'app
+  // senza barre del browser). Interruttore nella barra del player.
+  (function () {
+    var btn = $('pfull'); if (!btn) return;
+    var docEl = document.documentElement;
+    var canFs = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+    function inFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    btn.onclick = function () {
+      if (canFs) {
+        try {
+          if (!inFs()) { (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl); }
+          else { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+        } catch (e) {}
+      } else {
+        // iPhone: nessun fullscreen web → istruzione una-tantum
+        alert('Per lo schermo intero: tocca Condividi ⬆︎ nel browser → «Aggiungi a Home», poi apri MappAI dall\'icona. Si aprirà senza le barre del browser.');
+      }
+    };
+    document.addEventListener('fullscreenchange', function () { btn.textContent = inFs() ? '⛶' : '⛶'; });
+  })();
+
   // ── Done ──
   function showDone(closed) {
     clearInterval(pollTimer); clearInterval(timerTimer);
@@ -529,18 +694,35 @@
     $('result-score').innerHTML =
       '<div class="pct" style="color:' + col + '">' + acc + '%</div>' +
       '<div class="sub">' + res.right + ' giuste su ' + res.attempted + ' date' +
+      (res.halfCount ? ' · ' + res.halfCount + ' mezzo punto' : '') +
       (res.blank ? ' · ' + res.blank + ' in bianco' : '') +
       (res.manual ? ' · ' + res.manual + ' da correggere' : '') + '</div>';
     var list = '';
     var reveal = data.revealAnswers && Array.isArray(res.perQuestion) && res.perQuestion.length && res.perQuestion[0].text !== undefined;
     if (reveal) {
       res.perQuestion.forEach(function (q, n) {
-        var ic = q.outcome === 'right' ? '✅' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
+        var half = (q.missing && q.missing.length);
+        var ic = q.outcome === 'right' ? '✅' : half ? '½' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
+        var bodyHtml;
+        if (q.kind === 'cloze' && Array.isArray(q.blanks) && q.blanks.length) {
+          // Dettaglio PER-BUCO allineato (issue 7): un rigo per buco, risposta data
+          // e — se non piena — la giusta o il complemento mancante. Niente più
+          // «sole, e, luna» da rimappare a mano sulla frase.
+          bodyHtml = q.blanks.map(function (b, k) {
+            var given = b.given && b.given.trim() ? '<b>' + esc(b.given) + '</b>' : '<span style="color:#94a3b8">vuoto</span>';
+            var tail = b.score === 1 ? '<span style="color:#16a34a"> ✓</span>'
+              : b.score === 0.5 ? '<span style="color:#92400e"> ✎ manca: <b>' + esc(b.missing) + '</b></span>'
+                : '<span style="color:#991b1b"> ✗ giusto: <b>' + esc(b.expected) + '</b></span>';
+            return '<div class="rq-a">Buco ' + (k + 1) + ': ' + given + tail + '</div>';
+          }).join('');
+        } else {
+          bodyHtml = (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
+                                 : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
+            (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '');
+        }
         list += '<div class="rq">' +
           '<div class="rq-q">' + ic + ' ' + esc(q.text || ('Domanda ' + (n + 1))) + '</div>' +
-          (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
-                      : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
-          (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '') +
+          bodyHtml +
           (q.explanation ? '<div class="rq-e">' + esc(q.explanation) + '</div>' : '') +
           '</div>';
       });

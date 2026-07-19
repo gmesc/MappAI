@@ -116,6 +116,10 @@
     var scopeField = '<select id="lv-scope" class="lv-in"><option value="all">' + t('lv_scope_all', 'Tutta la mappa') + '</option>' +
       l1nodes.map(function (n) { return '<option value="' + esc(n.id) + '">' + t('lv_scope_branch', 'Ramo') + ': ' + esc(window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '</option>'; }).join('') + '</select>';
 
+    // Cloze NASCOSTO per ora (scelta utente 20/7): il cloze deterministico da desc
+    // dà distrattori/testi deboli → si usa la Scelta multipla (AI). Riattivabile con
+    // localStorage mappai_cloze_enabled='1'. Il codice cloze resta intatto.
+    var clozeOn = (function () { try { return localStorage.getItem('mappai_cloze_enabled') === '1'; } catch (e) { return false; } })();
     var body = '<style>.lv-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff}' +
       '.lv-lab{display:block;font-size:11px;font-weight:700;color:#475569;margin:12px 0 4px}' +
       '.lv-mode{display:flex;gap:8px;flex-wrap:wrap}.lv-mode button{flex:1;min-width:120px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:12.5px;color:#334155}' +
@@ -125,13 +129,18 @@
       '<div class="lv-mode" id="lv-mode">' +
       '<button type="button" data-m="tf" class="sel">' + t('lv_m_tf', 'Vero / Falso') + '</button>' +
       '<button type="button" data-m="mc">' + t('lv_m_mc', 'Scelta multipla') + '</button>' +
-      '<button type="button" data-m="cloze">' + t('lv_m_cloze', 'Cloze') + '</button>' +
+      (clozeOn ? '<button type="button" data-m="cloze">' + t('lv_m_cloze', 'Cloze') + '</button>' : '') +
       '<button type="button" data-m="custom">' + t('lv_m_custom', 'Domande mie') + '</button></div>' +
       '<div id="lv-prov-badge" style="margin-top:10px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:8px;padding:7px 10px">' +
       t('lv_provider_badge', 'Domande generate con:') + ' <b>' +
       (window.aiProviderLabel ? window.aiProviderLabel((S() && S().aiProvider) || 'google') : 'Google') + '</b></div>' +
       (window.MappAINetMode ? window.MappAINetMode.fieldHtml('lv') : '') +
       '<div id="lv-mapopts">' +
+      '<div id="lv-cloze-answer" style="display:none"><span class="lv-lab">' + t('lv_cloze_answer', 'Come risponde l\'allievo') + '</span>' +
+      '<div class="lv-mode" id="lv-cansw">' +
+      '<button type="button" data-c="choice" class="sel">' + t('lv_cloze_choice', '👆 Scegli fra 3 (tocca)') + '</button>' +
+      '<button type="button" data-c="type">' + t('lv_cloze_type', '⌨️ Scrivi') + '</button></div>' +
+      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_cloze_choice_hint', '«Scegli» toglie lo stress della tastiera (consigliato su telefono/BES-DSA).') + '</div></div>' +
       '<span class="lv-lab">' + t('lv_scope', 'Da dove') + '</span>' + scopeField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qty', 'Numero domande') + '</span><input id="lv-qty" type="number" class="lv-in" value="8" min="1" max="' + LC.LIMITS.questionsMax + '" inputmode="numeric"></div>' +
       '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lv-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
@@ -150,6 +159,7 @@
     var goClass = ov.querySelector('#lv-goclass');
     if (goClass) goClass.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
 
+    var clozeAnswer = 'choice';   // default: a scelta (meno stress tastiera)
     ov.querySelectorAll('#lv-mode button').forEach(function (b) {
       b.onclick = function () {
         mode = b.getAttribute('data-m');
@@ -157,7 +167,15 @@
         var custom = (mode === 'custom');
         ov.querySelector('#lv-mapopts').style.display = custom ? 'none' : '';
         ov.querySelector('#lv-customwrap').style.display = custom ? '' : 'none';
+        // il sotto-toggle «scrivi/scegli» solo per il Cloze
+        var ca = ov.querySelector('#lv-cloze-answer'); if (ca) ca.style.display = (mode === 'cloze') ? '' : 'none';
         if (custom) buildCustomEditor(ov.querySelector('#lv-customwrap'));
+      };
+    });
+    ov.querySelectorAll('#lv-cansw button').forEach(function (b) {
+      b.onclick = function () {
+        clozeAnswer = b.getAttribute('data-c');
+        ov.querySelectorAll('#lv-cansw button').forEach(function (x) { x.classList.toggle('sel', x === b); });
       };
     });
     ov.querySelector('#lv-back').onclick = openHubMenu;
@@ -176,7 +194,7 @@
       var scope = ov.querySelector('#lv-scope').value;
       var qty = Math.max(1, Math.min(parseInt(ov.querySelector('#lv-qty').value, 10) || 8, LC.LIMITS.questionsMax));
       var timer = Math.max(0, parseInt(ov.querySelector('#lv-timer').value, 10) || 0);
-      generateAndLaunch(cls, mode, scope, qty, timer);
+      generateAndLaunch(cls, mode, scope, qty, timer, { clozeAnswer: clozeAnswer });
     };
   }
 
@@ -203,23 +221,45 @@
     return questions;
   }
 
-  // Cloze: riusa makeCloze scoped (zero AI)
-  function generateCloze(nodes, qty) {
+  // Cloze: riusa makeCloze scoped (zero AI). Allineato al Cloze di Studio attivo
+  // (19/7/26): buchi-RELAZIONE («perché/quindi/invece di») + concetti. Il grading
+  // avviene lato SERVER (live-core, senza window/causal-core) → precalcolo QUI la
+  // lista `accept` degli equivalenti e la attacco al blank; resta lato server
+  // (publicQuestions non la copia), come il termine-soluzione.
+  function generateCloze(nodes, qty, choiceMode) {
     var CC = window.MappAIClozeCore;
     if (!CC) return [];
+    var CZC = window.MappAICausalCore; // per connEquivalents (equivalenti del gruppo)
     var labels = (S().db.nodes || []).map(function (n) { return { id: n.id, label: window.cleanLabel ? window.cleanLabel(n.label) : n.label }; })
       .filter(function (x) { return x.label && x.label.length >= 4; });
     // Seed di somministrazione → buchi diversi tra sessioni (ma stabili entro la sessione)
     var seed = (window.quizNonce ? window.quizNonce() : String(Date.now()));
     var out = [];
+    var seenBlanks = {};   // dedup: due nodi che oscurano gli STESSI termini → 1 volta
     nodes.forEach(function (n) {
       if (out.length >= qty) return;
       var desc = (n.desc || n.content || '').trim();
       var others = labels.filter(function (x) { return x.id !== n.id; }).map(function (x) { return x.label; });
-      var cz = CC.makeCloze(desc, others, { max: 3, seed: seed + ':' + n.id });
-      if (cz.blanks.length >= 1) {
-        out.push({ kind: 'cloze', text: '', segments: cz.segments, nodeId: n.id, nodeLabel: window.cleanLabel ? window.cleanLabel(n.label) : n.label, source: 'map' });
-      }
+      var cz = CC.makeCloze(desc, others, { max: 3, seed: seed + ':' + n.id, connectives: true, choices: !!choiceMode });
+      // Gate: almeno UN buco-concetto (in modalità scelta i buchi senza 2 distrattori
+      // sono già stati scartati dal core → conta i concetti rimasti).
+      if ((cz.blanks.length - (cz.connCount || 0)) < 1) return;
+      var sig = cz.blanks.map(function (b) { return CC.normalize(b); }).sort().join('|');
+      if (seenBlanks[sig]) return;   // stesso set di buchi già presente → doppione
+      seenBlanks[sig] = 1;
+      var segments = cz.segments.map(function (s) {
+        if (s.text != null) return { text: s.text };
+        var seg;
+        if (s.isConn) {
+          // in modalità scelta i sinonimi non servono (opzioni fisse) → niente accept
+          seg = choiceMode ? { blank: s.blank, conn: true } : { blank: s.blank, conn: true, accept: (CZC && CZC.connEquivalents) ? CZC.connEquivalents(s.blank) : [] };
+        } else {
+          seg = { blank: s.blank };
+        }
+        if (s.choices) seg.choices = s.choices;
+        return seg;
+      });
+      out.push({ kind: 'cloze', text: '', segments: segments, choice: !!choiceMode, nodeId: n.id, nodeLabel: window.cleanLabel ? window.cleanLabel(n.label) : n.label, source: 'map' });
     });
     return out;
   }
@@ -313,13 +353,20 @@
     return (window.cleanLabel ? window.cleanLabel(n.label) : n.label) || '';
   }
 
-  function generateAndLaunch(cls, mode, scope, qty, timer) {
+  function generateAndLaunch(cls, mode, scope, qty, timer, extra) {
     LT._scope = scopeLabelFor(scope);   // 010: coperto dal report registro
     var nodes = scopedNodes(scope);
     if (!nodes.length) { toast(t('lv_no_nodes', 'Nessun nodo con abbastanza testo in questa selezione.'), 'error'); return; }
     if (mode === 'cloze') {
-      var cz = attachL1(generateCloze(nodes, qty));
+      var choiceMode = !extra || extra.clozeAnswer !== 'type';   // default: a scelta
+      var cz = attachL1(generateCloze(nodes, qty, choiceMode));
       if (!cz.length) { toast(t('lv_no_cloze', 'Nessuna descrizione con concetti collegati da oscurare.'), 'error'); return; }
+      // Avviso se lo scope (spesso un ramo piccolo) rende meno domande del richiesto:
+      // il cloze è deterministico e i doppioni vengono scartati (issue 2/5).
+      if (cz.length < qty) {
+        toast(t('lv_few_cloze', 'Solo {n} domande cloze disponibili per questa selezione (poche descrizioni o concetti ripetuti). Allarga lo scope per averne di più.')
+          .replace('{n}', cz.length), 'info');
+      }
       launch(cls, 'Cloze', cz, timer); return;
     }
     // mc / tf → AI
