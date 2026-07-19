@@ -335,3 +335,84 @@ test('computeResults: aggrega hintsUsed per studente e hintCount per domanda', (
   assert.strictEqual(r.perQuestion[1].hintCount, 0);
   assert.strictEqual(r.perQuestion[0].tlYear, 1900);
 });
+
+test('shuffleOptions: l\'indice corretto SEGUE il valore dopo lo shuffle', () => {
+  // rnd deterministico che forza una permutazione precisa (Fisher-Yates)
+  // opts = [A,B,C,D], correct=2 (C). Con rnd fisso verifichiamo che correct punti ancora a C.
+  const seq = [0, 0, 0]; let i = 0;
+  const rnd = () => seq[i++ % seq.length];   // j sempre 0 → inverte progressivamente
+  const r = LC.shuffleOptions(['A', 'B', 'C', 'D'], 2, rnd);
+  assert.strictEqual(r.options[r.correct], 'C', 'correct deve indicare ancora "C"');
+  assert.strictEqual(r.options.length, 4);
+  assert.deepStrictEqual([...r.options].sort(), ['A', 'B', 'C', 'D'], 'stesse opzioni, solo riordinate');
+});
+
+test('shuffleOptions: n<2 → no-op; correct fuori range → invariato', () => {
+  assert.deepStrictEqual(LC.shuffleOptions(['solo'], 0), { options: ['solo'], correct: 0 });
+  assert.deepStrictEqual(LC.shuffleOptions([], -1), { options: [], correct: -1 });
+  const r = LC.shuffleOptions(['A', 'B'], 5);   // indice invalido → correct resta 5, opzioni mescolate
+  assert.strictEqual(r.correct, 5);
+  assert.deepStrictEqual([...r.options].sort(), ['A', 'B']);
+});
+
+test('shuffleOptions: su molte permutazioni il valore corretto è sempre coerente', () => {
+  for (let k = 0; k < 200; k++) {
+    const opts = ['a', 'b', 'c', 'd'];
+    const correct = k % 4;
+    const val = opts[correct];
+    const r = LC.shuffleOptions(opts, correct);
+    assert.strictEqual(r.options[r.correct], val);
+  }
+});
+
+test('computeStudentResult: % su risposte date, dettaglio per-domanda con reveal', () => {
+  const questions = [
+    { idx: 0, kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano', 'Napoli'], correct: 0, explanation: 'Roma è la capitale.' },
+    { idx: 1, kind: 'tf', text: 'Il Sole è una stella', statementTrue: true, explanation: 'Sì, è una stella.' },
+    { idx: 2, kind: 'mc', text: 'Fiume?', options: ['Po', 'Etna'], correct: 0 }
+  ];
+  const student = { answers: {
+    0: { choice: 0 },          // giusta
+    1: { choice: false },      // sbagliata
+    2: { skipped: true }       // bianca
+  } };
+  const r = LC.computeStudentResult(questions, student, { reveal: true });
+  assert.strictEqual(r.right, 1);
+  assert.strictEqual(r.wrong, 1);
+  assert.strictEqual(r.blank, 1);
+  assert.strictEqual(r.attempted, 2);
+  assert.strictEqual(r.accuracyPct, 50);        // 1 giusta su 2 date (bianca esclusa)
+  assert.strictEqual(r.perQuestion.length, 3);
+  // reveal → testi presenti
+  assert.strictEqual(r.perQuestion[0].outcome, 'right');
+  assert.strictEqual(r.perQuestion[0].yourText, 'Roma');
+  assert.strictEqual(r.perQuestion[0].correctText, 'Roma');
+  assert.strictEqual(r.perQuestion[0].explanation, 'Roma è la capitale.');
+  assert.strictEqual(r.perQuestion[1].outcome, 'wrong');
+  assert.strictEqual(r.perQuestion[1].yourText, 'Falso');
+  assert.strictEqual(r.perQuestion[1].correctText, 'Vero');
+});
+
+test('computeStudentResult: reveal=false strippa i testi/soluzioni', () => {
+  const questions = [{ idx: 0, kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'x' }];
+  const r = LC.computeStudentResult(questions, { answers: { 0: { choice: 1 } } }, { reveal: false });
+  assert.strictEqual(r.wrong, 1);
+  assert.strictEqual(r.accuracyPct, 0);
+  // niente testo/soluzioni quando reveal è OFF
+  assert.strictEqual(r.perQuestion[0].text, undefined);
+  assert.strictEqual(r.perQuestion[0].correctText, undefined);
+  assert.strictEqual(r.perQuestion[0].explanation, undefined);
+  assert.strictEqual(r.perQuestion[0].outcome, 'wrong');   // l'esito sì (per il conteggio)
+});
+
+test('publicQuestions: NON espone explanation (anti-copiatura durante il gioco)', () => {
+  const pub = LC.publicQuestions([{ idx: 0, kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'segreto' }]);
+  assert.strictEqual(pub[0].explanation, undefined);
+  assert.strictEqual(pub[0].correct, undefined);
+});
+
+test('validateQuestion: preserva explanation lato server', () => {
+  const v = LC.validateQuestion({ kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'perché A' });
+  assert.ok(v.ok);
+  assert.strictEqual(v.clean.explanation, 'perché A');
+});

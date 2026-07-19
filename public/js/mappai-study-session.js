@@ -77,6 +77,18 @@ window.selectStudyQuantity = function (qty) {
 // Ritorna gli item grezzi { q, options[], correct(string|indice), explanation }.
 // Usato da MappAI Live per avere quiz della STESSA qualità di quelli in-app
 // (domande vere con opzioni + spiegazione), non il formato "completamento".
+// Nonce di variazione: codice breve unico per somministrazione, iniettato nel prompt
+// ({{nonce}}) per rompere il determinismo del campionamento (stesso materiale + temp bassa
+// → altrimenti domande quasi identiche tra sessioni). Vedi diagnosi varietà quiz.
+window.quizNonce = function () {
+    try { return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); }
+    catch (e) { return 'v' + (Date.now() % 1000000); }
+};
+// Temperature dedicata ai quiz: più alta della generazione mappe (0.3) per diversificare
+// le formulazioni a parità di materiale. `_respectTemp` segnala al bridge Infomaniak di
+// NON forzare 0.3 (di default il bridge ignora la temperature del payload — vedi CLAUDE.md §3).
+window.QUIZ_TEMPERATURE = 0.7;
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
@@ -91,7 +103,8 @@ window.generateDynamicQuiz = async function (opts) {
         window.MappAIUsage.setContext(opts.usageCat || 'study',
             opts.usageSub || (qt.indexOf('vero') >= 0 ? 'quiz_tf' : (qt.indexOf('apert') >= 0 ? 'quiz_open' : 'quiz_mc')));
     }
-    const prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel });
+    const nonce = opts.nonce || window.quizNonce();
+    const prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce });
     const schema = {
         type: "ARRAY",
         items: {
@@ -108,7 +121,7 @@ window.generateDynamicQuiz = async function (opts) {
     try {
         const resp = await window.fetchModelAPI(window.injectClassTuning({
             contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + material }] }],
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
+            generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
         }), apiKey);
         const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
         const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
@@ -152,38 +165,27 @@ window.startStudySession = async function () {
     window.showLoadingOverlay(true, window.t('lo_study_gen', "Generazione materiale di studio in corso..."), window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
 
     try {
-        if (window.MappAIUsage) {
-            const qt = String(window.studyConfig.quizType || '').toLowerCase();
-            window.MappAIUsage.setContext('study', window.studyConfig.mode === 'quiz'
-                ? (qt.indexOf('vero') >= 0 ? 'quiz_tf' : (qt.indexOf('apert') >= 0 ? 'quiz_open' : 'quiz_mc'))
-                : 'flashcards');
-        }
-        let schema, prompt;
+        let items;
         if (window.studyConfig.mode === 'quiz') {
-            prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", {
-                quantity: window.studyConfig.quantity,
+            // Motore CONDIVISO con MappAI Live: un solo punto per il prompt DYNAMIC_QUIZ,
+            // nonce, temperature e schema (window.generateDynamicQuiz). Imposta da sé il
+            // contesto consumi (study/quiz_*) e ritorna [] su errore.
+            items = await window.generateDynamicQuiz({
+                nodeLabel: targetLabel,
+                material: studyText,
                 quizType: window.studyConfig.quizType,
-                nodeLabel: targetLabel
-            });
-            schema = {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        q: { type: "STRING" },
-                        options: { type: "ARRAY", items: { type: "STRING" } },
-                        correct: { type: "STRING" },
-                        explanation: { type: "STRING" }
-                    },
-                    required: ["q", "correct", "explanation"]
-                }
-            };
-        } else {
-            prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
                 quantity: window.studyConfig.quantity,
-                nodeLabel: targetLabel
+                apiKey: apiKey
             });
-            schema = {
+        } else {
+            // Flashcard: template diverso (FLASHCARD_GENERATOR, schema front/back), resta qui.
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'flashcards');
+            const prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
+                quantity: window.studyConfig.quantity,
+                nodeLabel: targetLabel,
+                nonce: window.quizNonce()
+            });
+            const schema = {
                 type: "ARRAY",
                 items: {
                     type: "OBJECT",
@@ -191,26 +193,36 @@ window.startStudySession = async function () {
                     required: ["front", "back"]
                 }
             };
+            const response = await window.fetchModelAPI(window.injectClassTuning({
+                contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + studyText }] }],
+                generationConfig: { temperature: window.QUIZ_TEMPERATURE, responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
+            }), apiKey);
+            const rawText = response.candidates[0].content.parts[0].text;
+            items = salvageTruncatedJSON(rawText.split('```json').join('').split('```').join('').trim());
         }
 
-        const response = await window.fetchModelAPI(window.injectClassTuning({
-            contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + studyText }] }],
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema }
-        }), apiKey);
-
-        let rawText = response.candidates[0].content.parts[0].text;
-        let cleanText = rawText.split('```json').join('').split('```').join('').trim();
-        window.activeStudySessionItems = salvageTruncatedJSON(cleanText);
+        if (!Array.isArray(items) || !items.length) {
+            window.showLoadingOverlay(false);
+            window.showToast(window.t('tst_gen_empty', "Generazione non riuscita: nessuna domanda prodotta."), "error");
+            return;
+        }
+        window.activeStudySessionItems = items;
 
         appState.db.studySets = appState.db.studySets || [];
         const label = targetLabel;
         window.activeStudySetTitle = label; // titolo corretto in storico e sul bus
+        const _setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        window.activeStudySetId = _setId;   // per "Domande nuove" nel player
         appState.db.studySets.push({
-            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            id: _setId,
             title: label,
             mode: window.studyConfig.mode,
             type: window.studyConfig.quizType || 'Flashcard',
             items: window.activeStudySessionItems,
+            // Materiale sorgente per "Rigenera domande nuove" (nuova chiamata AI con nonce
+            // fresco, invece del replay verbatim di loadStudySet). Cap difensivo.
+            material: String(studyText || '').slice(0, 12000),
+            quantity: window.studyConfig.quantity,
             date: new Date().toISOString()
         });
         if (window.renderStudySets) window.renderStudySets();
@@ -282,8 +294,37 @@ window.openStudyPlayer = function () {
     document.getElementById('study-quiz-view').classList.add('hidden');
     document.getElementById('study-summary-view').classList.add('hidden');
 
+    // "Domande nuove" nel player: visibile solo se il set attivo è rigenerabile (ha material)
+    const regenBtn = document.getElementById('study-player-regen');
+    if (regenBtn) {
+        const aset = (appState.db.studySets || []).find(s => s.id === window.activeStudySetId);
+        const canRegen = !!(aset && aset.material);
+        regenBtn.classList.toggle('hidden', !canRegen);
+        regenBtn.classList.toggle('flex', canRegen);
+    }
+
     window.renderCurrentStudyItem();
     window.safeCreateIcons();
+};
+
+// "Domande nuove" dal player: rigenera il set attivo (nonce fresco) e riparte da capo.
+window.regenerateActiveSet = async function () {
+    const id = window.activeStudySetId;
+    if (!id || typeof window.regenerateStudySet !== 'function') {
+        window.showToast(window.t('tst_no_active_set', "Nessun set attivo da rigenerare."), "warning"); return;
+    }
+    await window.regenerateStudySet(id);
+    const set = (appState.db.studySets || []).find(s => s.id === id);
+    if (set && Array.isArray(set.items) && set.items.length) {
+        window.activeStudySessionItems = set.items;
+        window.currentStudyItemIndex = 0;
+        window.studyResults = { mode: set.mode, type: set.type, correct: 0, total: set.items.length, mistakes: [], openAnswers: [], startTime: Date.now() };
+        document.getElementById('study-flashcard-view').classList.add('hidden');
+        document.getElementById('study-quiz-view').classList.add('hidden');
+        document.getElementById('study-summary-view').classList.add('hidden');
+        window.renderCurrentStudyItem();
+        window.safeCreateIcons();
+    }
 };
 
 window.closeStudyPlayer = function () {

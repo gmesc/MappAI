@@ -43,10 +43,16 @@ window.InfomaniakBridge = {
         const maxTokens = geminiPayload.generationConfig?.maxOutputTokens || 4000;
         const isJsonMode = geminiPayload.generationConfig?.responseMimeType === "application/json";
 
+        // Di default la temperature è forzata a 0.3 (struttura JSON stabile per mappe/KG).
+        // I payload quiz marcano `_respectTemp` per usare la LORO temperature (più alta →
+        // domande più varie a parità di materiale). Solo per quel caso il bridge la rispetta.
+        const gc = geminiPayload.generationConfig || {};
+        const temp = (gc._respectTemp && typeof gc.temperature === 'number') ? gc.temperature : 0.3;
+
         const openAIPayload = {
             model: modelName,
             messages: messages,
-            temperature: 0.3,
+            temperature: temp,
             max_tokens: maxTokens,
             // Valori ridotti per non penalizzare la struttura JSON ripetitiva (nodi, links)
             frequency_penalty: 0.3,

@@ -1860,7 +1860,8 @@ ipcMain.handle('live-start-session', async (event, opts) => {
                 scope: o.scope || '',   // 010: ramo L1 coperto
                 durationMin: Number(o.durationMin) || 0,
                 mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
-                hintMode: o.hintMode || 'onrequest', build: o.build || null
+                hintMode: o.hintMode || 'onrequest', build: o.build || null,
+                revealAnswers: o.revealAnswers !== false   // report profilo con soluzioni (default ON)
             },
             roster: Array.isArray(o.roster) ? o.roster : [],
             questions: Array.isArray(o.questions) ? o.questions : []

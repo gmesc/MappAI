@@ -45,24 +45,41 @@
 
   // Costruisce un cloze: oscura fino a `max` termini (interi, con confini di parola).
   // Ritorna { segments:[{text}|{blank}], blanks:[termine...] }.
+  // opts.seed (numero o stringa) → VARIA quali termini vengono oscurati tra somministrazioni,
+  // restando deterministico a parità di seed (riproducibile per il ripasso). Senza seed:
+  // comportamento storico (i termini più lunghi/specifici, primi `max`).
   function makeCloze(desc, terms, opts) {
     const max = (opts && opts.max) || 3;
     const text = String(desc || '');
     const sorted = [...new Set(terms.map(t => String(t || '').trim()).filter(t => t.length >= 4))]
       .sort((a, b) => b.length - a.length); // specifici prima
-    const matches = [];
+    // Raccogli TUTTI i candidati non sovrapposti (non solo i primi `max`): sono mutuamente
+    // disgiunti per costruzione greedy → qualunque loro sottoinsieme è valido.
+    const cap = Math.max(max, 12);
+    const cands = [];
     for (const term of sorted) {
+      if (cands.length >= cap) break;
       let re;
       try { re = new RegExp('(?<![\\p{L}\\p{N}])' + escapeRegex(term) + '(?![\\p{L}\\p{N}])', 'iu'); }
       catch (e) { re = new RegExp('\\b' + escapeRegex(term) + '\\b', 'i'); }
       const m = re.exec(text);
       if (!m) continue;
       const start = m.index, end = start + m[0].length;
-      if (matches.some(x => start < x.end && end > x.start)) continue; // niente sovrapposizioni
-      matches.push({ start, end, term: text.slice(start, end) });
-      if (matches.length >= max) break;
+      if (cands.some(x => start < x.end && end > x.start)) continue; // niente sovrapposizioni
+      cands.push({ start, end, term: text.slice(start, end) });
     }
-    matches.sort((a, b) => a.start - b.start);
+    // Selezione dei `max` da oscurare: rotazione seedata sui candidati (default = primi `max`).
+    let picked;
+    if (opts && opts.seed != null && cands.length > max) {
+      let h = 0; const s = String(opts.seed);
+      for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+      const off = ((h % cands.length) + cands.length) % cands.length;
+      picked = [];
+      for (let i = 0; i < max; i++) picked.push(cands[(off + i) % cands.length]);
+    } else {
+      picked = cands.slice(0, max);
+    }
+    const matches = picked.sort((a, b) => a.start - b.start);
     const segments = [];
     let pos = 0;
     for (const mm of matches) {
@@ -91,13 +108,15 @@
   function buildSession() {
     const nodes = (S() && S().db && S().db.nodes) || [];
     const labels = nodes.map(n => ({ id: n.id, label: clean(n.label) })).filter(x => x.label.length >= 4);
+    // Seed per-sessione → buchi diversi a ogni ripasso in-app (stabili entro la sessione)
+    const seed = (typeof window !== 'undefined' && window.quizNonce) ? window.quizNonce() : String(Date.now());
     const items = [];
     nodes.forEach(n => {
       if (n.level === 0) return;
       const desc = (n.desc || n.content || '').trim();
       if (desc.length < 40) return;
       const others = labels.filter(x => x.id !== n.id).map(x => x.label);
-      const cz = makeCloze(desc, others, { max: 3 });
+      const cz = makeCloze(desc, others, { max: 3, seed: seed + ':' + n.id });
       if (cz.blanks.length >= 1) items.push({ nodeId: n.id, label: clean(n.label), cloze: cz });
     });
     return shuffle(items).slice(0, 12);

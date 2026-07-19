@@ -55,3 +55,32 @@ test('levenshtein: distanze base', () => {
   assert.equal(C.levenshtein('casa', 'cassa'), 1);
   assert.equal(C.levenshtein('', 'abc'), 3);
 });
+
+test('makeCloze: back-compat senza seed → termini più lunghi primi', () => {
+  // 4 candidati, max 2 → i due più lunghi (Delta/Gamma per lunghezza pari usa ordine desc stabile)
+  const r = C.makeCloze('Alfa Beta Gamma Delta Epsilon.', ['Alfa', 'Beta', 'Gamma', 'Delta', 'Epsilon'], { max: 2 });
+  assert.equal(r.blanks.length, 2);
+  // Epsilon (7) è il più lungo → deve essere tra i buchi
+  assert.ok(r.blanks.includes('Epsilon'));
+});
+
+test('makeCloze: seed → deterministico a parità di seed, varia tra seed diversi', () => {
+  const terms = ['Alfa', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Omega'];
+  const text = 'Alfa Beta Gamma Delta Epsilon Zeta Omega insieme.';
+  const a1 = C.makeCloze(text, terms, { max: 2, seed: 'sessione-1' }).blanks.join('|');
+  const a2 = C.makeCloze(text, terms, { max: 2, seed: 'sessione-1' }).blanks.join('|');
+  assert.equal(a1, a2, 'stesso seed → stessi buchi (riproducibile per ripasso)');
+  // almeno un seed su alcuni produce una selezione diversa dal default
+  const def = C.makeCloze(text, terms, { max: 2 }).blanks.join('|');
+  const seeds = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
+  const anyDifferent = seeds.some(s => C.makeCloze(text, terms, { max: 2, seed: s }).blanks.join('|') !== def);
+  assert.ok(anyDifferent, 'almeno un seed varia la selezione rispetto al default');
+});
+
+test('makeCloze: seed non rompe non-sovrapposizione né il tetto max', () => {
+  const terms = ['Fotosintesi', 'Glucosio', 'Clorofilla', 'Luce', 'Acqua'];
+  const r = C.makeCloze('La Fotosintesi usa Luce, Acqua e Clorofilla per il Glucosio.', terms, { max: 3, seed: 'x' });
+  assert.ok(r.blanks.length <= 3);
+  // i blank sono termini reali presenti nel testo
+  r.blanks.forEach(b => assert.ok('La Fotosintesi usa Luce, Acqua e Clorofilla per il Glucosio.'.includes(b)));
+});

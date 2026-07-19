@@ -137,6 +137,9 @@
       '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lv-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
       '</div>' +
       '<div id="lv-customwrap" style="display:none"></div>' +
+      '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
+      '<input type="checkbox" id="lv-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
+      '<span>' + t('lv_reveal', 'A fine sessione mostra allo studente le soluzioni (giuste/sbagliate + spiegazione), salvabili sul suo dispositivo.') + '</span></label>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
       '<button type="button" id="lv-back" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
       '<button type="button" id="lv-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
@@ -161,6 +164,8 @@
     ov.querySelector('#lv-go').onclick = function () {
       var cls = classes.length ? classes.find(function (c) { return c.id === ov.querySelector('#lv-class').value; }) : null;
       if (!cls) { toast(t('lv_pick_class', 'Scegli o crea una classe.'), 'error'); return; }
+      var _rev = ov.querySelector('#lv-reveal');
+      LT._revealAnswers = !_rev || _rev.checked;   // toggle "mostra soluzioni" (default ON)
       if (mode === 'custom') {
         var qs = readCustomEditor(ov.querySelector('#lv-customwrap'));
         if (!qs.length) { toast(t('lv_no_custom', 'Aggiungi almeno una domanda.'), 'error'); return; }
@@ -204,12 +209,14 @@
     if (!CC) return [];
     var labels = (S().db.nodes || []).map(function (n) { return { id: n.id, label: window.cleanLabel ? window.cleanLabel(n.label) : n.label }; })
       .filter(function (x) { return x.label && x.label.length >= 4; });
+    // Seed di somministrazione → buchi diversi tra sessioni (ma stabili entro la sessione)
+    var seed = (window.quizNonce ? window.quizNonce() : String(Date.now()));
     var out = [];
     nodes.forEach(function (n) {
       if (out.length >= qty) return;
       var desc = (n.desc || n.content || '').trim();
       var others = labels.filter(function (x) { return x.id !== n.id; }).map(function (x) { return x.label; });
-      var cz = CC.makeCloze(desc, others, { max: 3 });
+      var cz = CC.makeCloze(desc, others, { max: 3, seed: seed + ':' + n.id });
       if (cz.blanks.length >= 1) {
         out.push({ kind: 'cloze', text: '', segments: cz.segments, nodeId: n.id, nodeLabel: window.cleanLabel ? window.cleanLabel(n.label) : n.label, source: 'map' });
       }
@@ -260,7 +267,7 @@
       // "vero"/"true"/"corretto" → affermazione VERA; altrimenti falsa
       var isTrue = /(^|\b)(vero|true|v|si|s|corretto|giusto|esatto)(\b|$)/.test(c) ||
                    (opts0.length === 2 && c === opts0[0] && /ver|tru/.test(opts0[0]));
-      return { kind: 'tf', text: q, proposed: q, statementTrue: !!isTrue, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+      return { kind: 'tf', text: q, proposed: q, statementTrue: !!isTrue, explanation: it.explanation ? String(it.explanation) : undefined, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
     }
     var opts = (Array.isArray(it.options) ? it.options : []).map(function (o) { return LC.sanitizeText(o, LC.LIMITS.optionMax); }).filter(Boolean).slice(0, LC.LIMITS.optionsMax);
     if (opts.length < 2) return null;
@@ -269,7 +276,9 @@
     for (var i = 0; i < opts.length; i++) { if (norm(opts[i]) === norm(it.correct)) { ci = i; break; } }
     if (ci < 0) { var nn = parseInt(it.correct, 10); if (!isNaN(nn)) ci = (nn >= 1 && nn <= opts.length) ? nn - 1 : (nn >= 0 && nn < opts.length ? nn : -1); }
     if (ci < 0) return null;   // non mappabile → scarta (qualità > quantità)
-    return { kind: 'mc', text: q, options: opts, correct: ci, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
+    // Rimescola le opzioni: rompe la memorizzazione posizionale (anche su item ricorrenti)
+    var sh = LC.shuffleOptions(opts, ci);
+    return { kind: 'mc', text: q, options: sh.options, correct: sh.correct, explanation: it.explanation ? String(it.explanation) : undefined, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
   }
 
   function generateQuizViaStudy(nodes, qty, mode) {
@@ -429,6 +438,7 @@
       name: rootLabel(), activity: activity, className: cls.name,
       scope: LT._scope || '',   // 010: ramo coperto per il registro attività
       durationMin: timer || 0,
+      revealAnswers: LT._revealAnswers !== false,   // report profilo con soluzioni (default ON)
       roster: (cls.students || []).map(function (s) { return { emojiKey: s.emojiKey, emoji: s.emoji, num: s.num, name: s.name || '' }; }),
       questions: questions
     };

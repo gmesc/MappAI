@@ -3019,12 +3019,12 @@
   // Genera quiz ancorati al contenuto: ① cloud (12s timeout) → ② locale (2 item, prompt corto,
   // validazione deterministica obbligatoria — il 4B produce JSON valido ma non item garantiti sensati)
   // → ③ null (fallback = domande aperte in _genQuestions). Schema {stem,a1,a2,a3,correct 1-based}.
-  function _genQuizForNode(node) {
+  function _genQuizForNode(node, fresh) {
     var content = _desc(node);
     if (!content) return Promise.resolve(null);
     var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
     var canCloud = !!(key && typeof window.fetchModelAPI === 'function');
-    var cached = _quizCacheGet(node.id, content);
+    var cached = fresh ? null : _quizCacheGet(node.id, content);   // fresh=true → salta la cache (rigenera)
     if (cached && !(cached.src === 'local' && canCloud)) { node._dunQuiz = cached.items; return Promise.resolve(cached.items); }   // cache hit (ma il cloud può sostituire il locale)
     function accept(arr, src) {
       if (!Array.isArray(arr)) return null;
@@ -3037,8 +3037,10 @@
     }
     if (canCloud) {
       var sys = _dgEn() ? 'You are an author of educational quizzes for students with special educational needs (SEN/dyslexia). ALWAYS write in English. Rely EXCLUSIVELY on the provided content: do NOT invent facts that are not there, do NOT use outside or general knowledge.' : 'Sei un autore di quiz didattici per studenti BES/DSA. Scrivi SEMPRE in italiano. Basati ESCLUSIVAMENTE sul contenuto fornito: NON inventare fatti non presenti, NON usare conoscenza esterna o di cultura generale.';
-      var prompt = _dgEn() ? ('Concept: "' + _clean(node.label) + '"\n\nStudy content (the ONLY allowed source):\n' + content + '\n\nWrite 4 COMPLETION questions in English, based ONLY on this content. Each question is a sentence STEM to complete, with 3 short completions: only ONE correct and faithful to the content, two plausible but wrong. Completions must continue the stem NATURALLY (do not repeat it, no capital letter at the start, no question mark). Avoid completions that give the answer away inside the stem. Reply ONLY with a JSON array, no text before or after:\n[{"stem":"The Bergier Commission was tasked with","a1":"examining the accusations against Switzerland impartially","a2":"putting Swiss bankers on trial","a3":"redrawing the national borders","correct":1}]\n"correct" is 1, 2 or 3 (the number of the right completion).') : ('Concetto: "' + _clean(node.label) + '"\n\nContenuto di studio (UNICA fonte ammessa):\n' + content + '\n\nGenera 4 domande a COMPLETAMENTO in italiano, basate SOLO su questo contenuto. Ogni domanda è un INCIPIT di frase ("stem") da completare, con 3 completamenti brevi: UNO solo corretto e fedele al contenuto, due plausibili ma errati. I completamenti devono proseguire NATURALMENTE lo stem (non ripeterlo, non iniziare con maiuscola, niente punto di domanda). Evita completamenti che svelano la risposta nello stem. Rispondi SOLO con un array JSON, senza testo prima o dopo:\n[{"stem":"La Commissione Bergier aveva il compito di","a1":"esaminare in modo imparziale le accuse contro la Svizzera","a2":"processare i banchieri svizzeri","a3":"ridefinire i confini nazionali","correct":1}]\n"correct" è 1, 2 o 3 (numero del completamento corretto).');
-      var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { temperature: 0.3, maxOutputTokens: 1024 } };
+      var prompt = _dgEn() ? ('Concept: "' + _clean(node.label) + '"\n\nStudy content (the ONLY allowed source):\n' + content + '\n\nWrite 4 COMPLETION questions in English, based ONLY on this content. Each question is a sentence STEM to complete, with 3 short completions: only ONE correct and faithful to the content, two plausible but wrong. Completions must continue the stem NATURALLY (do not repeat it, no capital letter at the start, no question mark). Avoid completions that give the answer away inside the stem. Reply ONLY with a JSON array, no text before or after. Format (abstract example, replace with content from the text):\n[{"stem":"<sentence beginning to complete>","a1":"<correct completion, faithful to the text>","a2":"<plausible but wrong completion>","a3":"<plausible but wrong completion>","correct":1}]\n"correct" is 1, 2 or 3 (the number of the right completion).') : ('Concetto: "' + _clean(node.label) + '"\n\nContenuto di studio (UNICA fonte ammessa):\n' + content + '\n\nGenera 4 domande a COMPLETAMENTO in italiano, basate SOLO su questo contenuto. Ogni domanda è un INCIPIT di frase ("stem") da completare, con 3 completamenti brevi: UNO solo corretto e fedele al contenuto, due plausibili ma errati. I completamenti devono proseguire NATURALMENTE lo stem (non ripeterlo, non iniziare con maiuscola, niente punto di domanda). Evita completamenti che svelano la risposta nello stem. Rispondi SOLO con un array JSON, senza testo prima o dopo. Formato (esempio astratto, sostituisci con contenuti tratti dal testo):\n[{"stem":"<inizio di frase da completare>","a1":"<completamento corretto e fedele al testo>","a2":"<completamento plausibile ma errato>","a3":"<completamento plausibile ma errato>","correct":1}]\n"correct" è 1, 2 o 3 (numero del completamento corretto).');
+      var _nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
+      prompt += (_dgEn() ? '\n\n[Variation code: ' : '\n\n[Codice di variazione: ') + _nonce + (_dgEn() ? ' — make the questions differ from previous versions]' : ' — genera domande diverse da versioni precedenti]');
+      var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), maxOutputTokens: 1024, _respectTemp: true } };
       if (window.injectClassTuning) window.injectClassTuning(payload);   // MappAI Live: quiz tarato sulla classe attiva
       if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'dungeon');
       return _withTimeout(window.fetchModelAPI(payload, key), 12000).then(function (resp) {
@@ -3061,20 +3063,22 @@
       return accept(arr, 'local');
     }).catch(function () { _setAiMode('off'); return node._dunQuiz || null; });
   }
-  function _ensureQuiz(id) {
+  function _ensureQuiz(id, fresh) {
     var node = _nodeById(id);
     if (!node) return;
     var content = _desc(node);
     if (!content) return;
-    if (!node._dunQuiz) { var c = _quizCacheGet(id, content); if (c) node._dunQuiz = c.items; }   // idrata dalla cache (zero costi)
+    // fresh=true (resetQuiz): NON idratare dalla cache né uscire — rigenera davvero dall'AI
+    // (senza questo, resetQuiz ri-leggeva la stessa cache localStorage e non cambiava nulla).
+    if (!fresh && !node._dunQuiz) { var c = _quizCacheGet(id, content); if (c) node._dunQuiz = c.items; }   // idrata dalla cache (zero costi)
     var canCloud = false; try { canCloud = !!(window.getSystemKey && window.getSystemKey() && typeof window.fetchModelAPI === 'function'); } catch (e) {}
-    var cached = _quizCacheGet(id, content);
+    var cached = fresh ? null : _quizCacheGet(id, content);
     var wantUpgrade = !!(node._dunQuiz && cached && cached.src === 'local' && canCloud);   // il cloud sostituisce gli item locali
-    if (node._dunQuiz && !wantUpgrade) return;
+    if (!fresh && node._dunQuiz && !wantUpgrade) return;
     var pend = node._quizGenPending;
-    if (pend && (Date.now() - pend) < 60000) return;   // A17: pending con timestamp → retry ammesso dopo 60s (mai bloccato per sempre)
+    if (!fresh && pend && (Date.now() - pend) < 60000) return;   // A17: pending con timestamp → retry ammesso dopo 60s (mai bloccato per sempre)
     node._quizGenPending = Date.now();
-    _genQuizForNode(node).then(function () { node._quizGenPending = 0; }, function () { node._quizGenPending = 0; });
+    _genQuizForNode(node, fresh).then(function () { node._quizGenPending = 0; }, function () { node._quizGenPending = 0; });
   }
   // Costruisce una domanda dal pool AI del nodo (schema {stem|q, a1,a2,a3, correct 1-based}). null se non pronto → fallback.
   // Forma: STEM dichiarativo da completare + completamenti. 'tf' → scelta binaria (corretto + 1 distrattore); altrimenti MC a 3.
@@ -4195,7 +4199,7 @@
       if (DUN && DUN.diary) DUN.diary.forEach(function (d) { ids[d.id] = true; });
       var st = _getAppState(), nodes = (st && st.db && st.db.nodes) || [];
       nodes.forEach(function (nd) { if (nd._dunQuiz || nd._quizGenPending) { delete nd._dunQuiz; delete nd._quizGenPending; n++; } });
-      Object.keys(ids).forEach(function (id) { _ensureQuiz(id); });   // re-genera in background per i nodi nel diario
+      Object.keys(ids).forEach(function (id) { _ensureQuiz(id, true); });   // re-genera DAVVERO (fresh) per i nodi nel diario, bypassando la cache
       console.log('[memory-dungeon] quiz azzerati su ' + n + ' nodi; rigenerazione avviata per ' + Object.keys(ids).length + ' nodi del diario');
       return n;
     },

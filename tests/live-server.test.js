@@ -383,3 +383,59 @@ test('live loginMode group: join per nickname, 409 altro device, report per grup
   assert.ok(rep.includes('I Galli'));   // report aggregato per gruppo
   await srv.stop();
 });
+
+test('reveal risposte: /api/finish ritorna il risultato; my-result gated su consegna', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-reveal-'));
+  const roster = mkRoster(1);   // volpe-00
+  const qs = [
+    { kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'Roma.', source: 'map' },
+    { kind: 'tf', text: 'Il Sole è una stella', proposed: 'vero', statementTrue: true, source: 'map' }
+  ];
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: true }, roster, questions: qs });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 0, ms: 1500 }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 1, choice: false, ms: 1200 }) });
+
+  // PRIMA della consegna: my-result senza soluzioni (submitted=false)
+  const before = await api('/api/my-result?s=' + tok + '&emojiKey=volpe&num=00&deviceId=d1');
+  assert.strictEqual(before.status, 200);
+  assert.strictEqual(before.body.submitted, false);
+  assert.strictEqual(before.body.result.perQuestion[0].correctText, undefined);   // niente soluzioni prima di consegnare
+
+  // consegna → il risultato torna CON soluzioni (revealAnswers ON)
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.status, 200);
+  assert.strictEqual(fin.body.revealAnswers, true);
+  assert.strictEqual(fin.body.result.right, 1);
+  assert.strictEqual(fin.body.result.wrong, 1);
+  assert.strictEqual(fin.body.result.accuracyPct, 50);
+  assert.strictEqual(fin.body.result.perQuestion[0].correctText, 'Roma');
+  assert.strictEqual(fin.body.result.perQuestion[0].explanation, 'Roma.');
+
+  // device sbagliato → 403
+  assert.strictEqual((await api('/api/my-result?s=' + tok + '&emojiKey=volpe&num=00&deviceId=ALTRO')).status, 403);
+  await srv.stop();
+});
+
+test('reveal OFF: /api/finish non manda soluzioni', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-noreveal-'));
+  const roster = mkRoster(1);
+  const qs = [{ kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'x', source: 'map' }];
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: false }, roster, questions: qs });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 1, ms: 1000 }) });
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.body.revealAnswers, false);
+  assert.strictEqual(fin.body.result.perQuestion[0].correctText, undefined);   // niente soluzioni
+  assert.strictEqual(fin.body.result.perQuestion[0].outcome, 'wrong');          // ma l'esito sì
+  await srv.stop();
+});

@@ -198,6 +198,9 @@
       l1Label: sanitizeText(q.l1Label, 120) || null,
       source: q.source === 'custom' ? 'custom' : 'map'
     };
+    // Spiegazione: preservata lato server per il report profilo dello studente; MAI
+    // inviata durante il gioco (publicQuestions non la copia) → nessun aiuto in corsa.
+    if (q.explanation) clean.explanation = sanitizeText(q.explanation, LIMITS.answerMax || 600);
     if (kind === 'mc') {
       var opts = Array.isArray(q.options) ? q.options.map(function (o) { return sanitizeText(o, LIMITS.optionMax); }).filter(Boolean) : [];
       if (opts.length < LIMITS.optionsMin || opts.length > LIMITS.optionsMax) errors.push('bad-options');
@@ -551,6 +554,82 @@
     };
   }
 
+  // Testo leggibile della risposta DATA dallo studente (per il report profilo).
+  function _yourText(q, a) {
+    if (!a || a.skipped) return '';
+    if (q.kind === 'mc') return (typeof a.choice === 'number' && q.options) ? (q.options[a.choice] || '') : '';
+    if (q.kind === 'tf') return (typeof a.choice === 'boolean') ? (a.choice ? 'Vero' : 'Falso') : '';
+    if (q.kind === 'cloze') return (Array.isArray(a.blanks) ? a.blanks.filter(Boolean).join(', ') : '');
+    if (q.kind === 'open') return String(a.text || '');
+    return '';
+  }
+  // Testo leggibile della risposta CORRETTA (dalla domanda completa, lato server).
+  function _correctText(q) {
+    if (q.kind === 'mc') return (q.options && q.options[q.correct]) || '';
+    if (q.kind === 'tf') return q.statementTrue ? 'Vero' : 'Falso';
+    if (q.kind === 'cloze') return (q.segments || []).filter(function (s) { return s.blank; }).map(function (s) { return s.blank; }).join(', ');
+    if (q.kind === 'open') {
+      if (q.answerText) return q.answerText;
+      if (q.answerYear != null) return String(q.answerYear) + (q.answerYearEnd ? '–' + q.answerYearEnd : '');
+      if (Array.isArray(q.answerTexts) && q.answerTexts.length) return q.answerTexts.join(' / ');
+      return '';
+    }
+    return '';
+  }
+
+  // Corregge UN SOLO allievo e ritorna il suo risultato con dettaglio per-domanda.
+  // Usato dalla dashboard studente a fine sessione. opts.reveal=false → strippa le
+  // soluzioni (solo aggregato + esito), per rispettare il toggle docente e l'anti-copiatura.
+  // accuratezza = giuste / risposte DATE (right+wrong); manual (aperte da correggere) a parte.
+  function computeStudentResult(questions, student, opts) {
+    var reveal = !(opts && opts.reveal === false);
+    var qs = Array.isArray(questions) ? questions : [];
+    var answers = (student && student.answers) || {};
+    var right = 0, wrong = 0, blank = 0, manual = 0;
+    var perQuestion = qs.map(function (q, i) {
+      var idx = (q.idx != null ? q.idx : i);
+      var a = answers[idx];
+      var g = gradeAnswer(q, a);
+      if (g.outcome === 'right') right++;
+      else if (g.outcome === 'wrong') wrong++;
+      else if (g.outcome === 'manual') manual++;
+      else blank++;
+      var row = { idx: idx, kind: q.kind, outcome: g.outcome };
+      if (reveal) {
+        row.text = q.text || '';
+        row.yourText = _yourText(q, a);
+        row.correctText = _correctText(q);
+        if (q.explanation) row.explanation = q.explanation;
+      }
+      return row;
+    });
+    var attempted = right + wrong;
+    return {
+      accuracyPct: attempted > 0 ? Math.round(100 * right / attempted) : 0,
+      right: right, wrong: wrong, blank: blank, manual: manual,
+      attempted: attempted, total: qs.length,
+      reveal: reveal, perQuestion: perQuestion
+    };
+  }
+
+  // Rimescola le opzioni di una domanda MC e riallinea l'indice della risposta corretta.
+  // Rompe la memorizzazione POSIZIONALE (lo studente impara "la risposta è la 2ª") anche
+  // su item identici. Puro: `rnd` iniettabile per i test (default Math.random). Fisher-Yates.
+  function shuffleOptions(options, correctIndex, rnd) {
+    var opts = Array.isArray(options) ? options.slice() : [];
+    var n = opts.length;
+    if (n < 2) return { options: opts, correct: correctIndex };
+    var r = (typeof rnd === 'function') ? rnd : Math.random;
+    // traccia l'opzione corretta per riferimento (non per indice, che cambia durante lo shuffle)
+    var correctVal = (correctIndex >= 0 && correctIndex < n) ? opts[correctIndex] : null;
+    for (var i = n - 1; i > 0; i--) {
+      var j = Math.floor(r() * (i + 1));
+      var tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp;
+    }
+    var newCorrect = correctVal === null ? correctIndex : opts.indexOf(correctVal);
+    return { options: opts, correct: newCorrect };
+  }
+
   var CORE = {
     EMOJI_SET: EMOJI_SET,
     NUM_MAX: NUM_MAX,
@@ -575,12 +654,14 @@
     publicQuestions: publicQuestions,
     mcFromItem: mcFromItem,
     tfFromMc: tfFromMc,
+    shuffleOptions: shuffleOptions,
     buildL1Resolver: buildL1Resolver,
     cleanAnswer: cleanAnswer,
     gradeAnswer: gradeAnswer,
     rateFromMs: rateFromMs,
     median: median,
-    computeResults: computeResults
+    computeResults: computeResults,
+    computeStudentResult: computeStudentResult
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;

@@ -98,6 +98,20 @@
   #done button { width: min(320px, 84vw); padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 700; }
   #review { background: #f1f5f9; color: #334155; }
   #submit { background: #16a34a; color: #fff; }
+  /* Dashboard risultato studente */
+  #done { overflow-y: auto; }
+  #result-dash { text-align: left; margin-top: 6px; }
+  #result-score { text-align: center; margin-bottom: 14px; }
+  #result-score .pct { font-size: 54px; font-weight: 800; line-height: 1; }
+  #result-score .sub { font-size: 13px; color: #64748b; margin-top: 4px; }
+  #result-list { max-height: 52vh; overflow-y: auto; }
+  .rq { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .rq-q { font-weight: 700; font-size: 14px; margin-bottom: 6px; line-height: 1.35; }
+  .rq-a { font-size: 13px; color: #334155; margin-top: 2px; }
+  .rq-c { font-size: 13px; color: #16a34a; margin-top: 2px; font-weight: 700; }
+  .rq-e { font-size: 12px; color: #64748b; margin-top: 7px; padding-top: 7px; border-top: 1px solid #f1f5f9; line-height: 1.4; }
+  #result-save { background: #4f46e5; color: #fff; margin-top: 4px; }
+  @media print { #review, #submit, #result-save, header { display: none !important; } #result-list { max-height: none; overflow: visible; } }
 </style>
 </head>
 <body>
@@ -152,6 +166,12 @@
   <p id="done-msg">Puoi ancora rivedere e cambiare le risposte finché l'insegnante non chiude.</p>
   <button id="review">Rivedi le risposte</button>
   <button id="submit">Consegna</button>
+  <!-- Dashboard risultato (dopo la Consegna, se il docente ha attivato le soluzioni) -->
+  <div id="result-dash" style="display:none;width:min(560px,92vw)">
+    <div id="result-score"></div>
+    <div id="result-list"></div>
+    <button id="result-save" type="button">💾 Salva il mio risultato</button>
+  </div>
 </section>
 
 <script src="/public/js/mappai-live-core.js"></script>
@@ -473,6 +493,13 @@
       $('done-emoji').textContent = '🔒'; $('done-title').textContent = 'Sessione chiusa';
       $('done-msg').textContent = 'Grazie! L\'insegnante ha chiuso il quiz.';
       $('review').style.display = 'none'; $('submit').style.display = 'none';
+      // Alla chiusura carica il risultato finale (con soluzioni se il docente le ha attivate)
+      if (IDENT) {
+        var idq = IDENT.nick ? ('&nick=' + encodeURIComponent(IDENT.nick))
+          : ('&emojiKey=' + encodeURIComponent(IDENT.emojiKey || '') + '&num=' + encodeURIComponent(IDENT.num || ''));
+        api('/api/my-result?s=' + encodeURIComponent(TOKEN) + idq + '&deviceId=' + encodeURIComponent(deviceId))
+          .then(function (r) { if (r.status === 200 && r.body && r.body.result) renderResult(r.body); });
+      }
     } else {
       $('done-emoji').textContent = '🎉'; $('done-title').textContent = 'Hai finito!';
       $('review').style.display = ''; $('submit').style.display = '';
@@ -482,10 +509,46 @@
   function startPlayerResume() { show('player'); renderQuestion(); if (!pollTimer) startPlayer(); }
   $('submit').onclick = function () {
     flushCurrent();
-    post('/api/finish', { token: TOKEN, emojiKey: IDENT.emojiKey, num: IDENT.num, deviceId: deviceId }).then(function () {
-      $('done-msg').textContent = 'Consegnato! Puoi ancora rivedere finché l\'insegnante non chiude.';
+    post('/api/finish', { token: TOKEN, emojiKey: IDENT.emojiKey, num: IDENT.num, deviceId: deviceId }).then(function (r) {
+      $('done-msg').textContent = 'Consegnato!';
+      if (r && r.body && r.body.result) renderResult(r.body);
     });
   };
+  $('result-save').onclick = function () { window.print(); };
+
+  // Dashboard risultato: % + (se il docente ha attivato le soluzioni) dettaglio per domanda.
+  function renderResult(data) {
+    var res = (data && data.result) || {};
+    $('review').style.display = 'none';
+    $('submit').style.display = 'none';
+    $('done-msg').textContent = data.revealAnswers
+      ? 'Ecco com’è andata. Puoi salvare il tuo risultato.'
+      : 'Consegnato! L’insegnante ha scelto di non mostrare le soluzioni.';
+    var acc = res.accuracyPct || 0;
+    var col = acc >= 70 ? '#16a34a' : acc >= 40 ? '#d97706' : '#dc2626';
+    $('result-score').innerHTML =
+      '<div class="pct" style="color:' + col + '">' + acc + '%</div>' +
+      '<div class="sub">' + res.right + ' giuste su ' + res.attempted + ' date' +
+      (res.blank ? ' · ' + res.blank + ' in bianco' : '') +
+      (res.manual ? ' · ' + res.manual + ' da correggere' : '') + '</div>';
+    var list = '';
+    var reveal = data.revealAnswers && Array.isArray(res.perQuestion) && res.perQuestion.length && res.perQuestion[0].text !== undefined;
+    if (reveal) {
+      res.perQuestion.forEach(function (q, n) {
+        var ic = q.outcome === 'right' ? '✅' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
+        list += '<div class="rq">' +
+          '<div class="rq-q">' + ic + ' ' + esc(q.text || ('Domanda ' + (n + 1))) + '</div>' +
+          (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
+                      : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
+          (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '') +
+          (q.explanation ? '<div class="rq-e">' + esc(q.explanation) + '</div>' : '') +
+          '</div>';
+      });
+    }
+    $('result-list').innerHTML = list;
+    $('result-save').style.display = reveal ? '' : 'none';
+    $('result-dash').style.display = '';
+  }
 
   // salva quando l'app va in background (chiusura schermo, cambio tab)
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && IDENT && $('player').classList.contains('on')) flushCurrent(); });
