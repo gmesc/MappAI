@@ -62,10 +62,11 @@ window.openNodeLabelsPrintModal = function () {
     // PAROLE CHIAVE AI (layout «Titolo + parole chiave»); il file avrà [VERDE].
     var _nlSpecial = !!(window.MappAITune && window.MappAITune.isSpecialActive && window.MappAITune.isSpecialActive());
     var _nlCtx = ((window.MappAITune && window.MappAITune.activeContextName) ? window.MappAITune.activeContextName() : '').replace(/[<>&]/g, '');
+    // Riga-toggle (dentro il box «Opzioni PDF»); pm-option-toggle = riga compatta
     var nlTuneRow = _nlSpecial ?
-        ('<label class="pm-section" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="' + window.t('bs_tune_tip_kw', 'Tara le parole chiave AI sul profilo del contesto attivo (solo layout «Titolo + parole chiave»). Il file avrà il suffisso [VERDE].') + '">' +
-            '<input type="checkbox" id="nl-tune-toggle" style="width:16px;height:16px;accent-color:#16a34a">' +
-            '<span class="pm-section-title" style="margin:0">' + window.t('bs_tune_label', 'Taratura AI') + ' · <span style="color:#16a34a;font-weight:800">' + _nlCtx + '</span></span>' +
+        ('<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 0;font-size:13.5px;font-weight:700;color:#334155" title="' + window.t('bs_tune_tip_kw', 'Tara le parole chiave AI sul profilo del contesto attivo (solo layout «Titolo + parole chiave»). Il file avrà il suffisso [VERDE].') + '">' +
+            '<input type="checkbox" id="nl-tune-toggle" style="width:16px;height:16px;accent-color:#16a34a;flex:0 0 auto">' +
+            '<span>' + window.t('bs_tune_label', 'Taratura AI') + ' · <span style="color:#16a34a;font-weight:800">' + _nlCtx + '</span></span>' +
         '</label>') : '';
 
     // Costruisci le opzioni di livello (tutte + singoli livelli)
@@ -93,14 +94,14 @@ window.openNodeLabelsPrintModal = function () {
     modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
 
     modal.innerHTML =
-        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[880px] p-8 relative">' +
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[880px] max-h-[90vh] flex flex-col relative">' +
 
             '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
                 'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
                 '<i data-lucide="x" class="w-6 h-6"></i>' +
             '</button>' +
 
-            '<div class="space-y-6">' +
+            '<div class="overflow-y-auto p-8 space-y-6">' +
 
                 '<div class="flex items-center gap-3">' +
                     '<div class="pm-icon-wrap">' +
@@ -174,38 +175,46 @@ window.openNodeLabelsPrintModal = function () {
 
                 '</div>' +
 
-                '<div class="pm-section">' +
-                    '<span class="pm-section-title">Sfondo pagina</span>' +
-                    '<div class="flex flex-wrap gap-8">' +
-                        '<label class="pm-option">' +
-                            '<input type="radio" name="nl-bg" value="none" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
-                            '<div><div class="pm-option-label">Nessuno sfondo</div>' +
-                            '<div class="pm-option-desc">Pagina bianca</div></div>' +
-                        '</label>' +
-                        '<label class="pm-option">' +
-                            '<input type="radio" name="nl-bg" value="grid" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
-                            '<div><div class="pm-option-label">Griglia a quadretti 5 mm</div>' +
-                            '<div class="pm-option-desc">Linee cyan tenui (0,3 mm) su tutta la pagina</div></div>' +
-                        '</label>' +
+                // Impostazioni pagina + opzioni PDF affiancate (meno box sciolti)
+                '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">' +
+                    '<div class="pm-section">' +
+                        '<span class="pm-section-title">Sfondo pagina</span>' +
+                        '<div class="space-y-3">' +
+                            '<label class="pm-option">' +
+                                '<input type="radio" name="nl-bg" value="none" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                                '<div><div class="pm-option-label">Nessuno sfondo</div>' +
+                                '<div class="pm-option-desc">Pagina bianca</div></div>' +
+                            '</label>' +
+                            '<label class="pm-option">' +
+                                '<input type="radio" name="nl-bg" value="grid" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                                '<div><div class="pm-option-label">Griglia a quadretti 5 mm</div>' +
+                                '<div class="pm-option-desc">Linee cyan tenui (0,3 mm) su tutta la pagina</div></div>' +
+                            '</label>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="pm-section">' +
+                        '<span class="pm-section-title">Opzioni PDF</span>' +
+                        '<div class="space-y-1">' +
+                            nlTuneRow +
+                            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 0;font-size:13.5px;font-weight:700;color:#334155" title="' + window.t('cc_nl_tip', 'Aggiunge in coda al PDF le pagine «Catena dei perché»: i nessi causa-effetto della mappa (dai link e dalle descrizioni, senza AI).') + '">' +
+                                '<input type="checkbox" id="nl-causal-toggle" style="width:16px;height:16px;accent-color:#4f46e5;flex:0 0 auto">' +
+                                '<span>' + window.t('cc_nl_toggle', 'Includi «Catena dei perché»') + '</span>' +
+                            '</label>' +
+                            (_nlSpecial ? '' : '<div class="pm-option-desc" style="margin-top:4px">Aggiunge in coda i nessi causa-effetto della mappa.</div>') +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
 
-                nlTuneRow +
+            '</div>' +   // fine area scrollabile
 
-                '<label class="pm-section" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="' + window.t('cc_nl_tip', 'Aggiunge in coda al PDF le pagine «Catena dei perché»: i nessi causa-effetto della mappa (dai link e dalle descrizioni, senza AI).') + '">' +
-                    '<input type="checkbox" id="nl-causal-toggle" style="width:16px;height:16px;accent-color:#4f46e5">' +
-                    '<span class="pm-section-title" style="margin:0">' + window.t('cc_nl_toggle', 'Includi «Catena dei perché»') + '</span>' +
-                '</label>' +
-
-                '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
-                    '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
-                        'class="pm-btn-cancel">Annulla</button>' +
-                    '<button type="button" onclick="window.printAllNodeLabels()" ' +
-                        'class="pm-btn-primary">' +
-                        '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
-                    '</button>' +
-                '</div>' +
-
+            // Footer FISSO (fuori dallo scroll): i bottoni restano sempre visibili
+            '<div class="flex gap-3 p-6 border-t border-slate-100 bg-white rounded-b-2xl">' +
+                '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                    'class="pm-btn-cancel">Annulla</button>' +
+                '<button type="button" onclick="window.printAllNodeLabels()" ' +
+                    'class="pm-btn-primary">' +
+                    '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
+                '</button>' +
             '</div>' +
         '</div>';
 
