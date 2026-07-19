@@ -32,10 +32,11 @@ async function setupLive(t) {
   const relayPort = await relay.listen(0, '127.0.0.1');
   const relayBase = 'http://127.0.0.1:' + relayPort;
 
+  const roster = LC.buildCredentials(3);   // identità CASUALI dal pool → mai hardcodarle nei test
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Fotosintesi', activity: 'Quiz', className: '2A' },
-    roster: LC.buildCredentials(3),
+    roster,
     questions: sampleQuestions()
   });
   const livePort = await srv.listen(0, '127.0.0.1');
@@ -51,7 +52,7 @@ async function setupLive(t) {
     await srv.stop();
     await relay.close();
   });
-  return { relay, relayBase, srv, livePort, tok, h };
+  return { relay, relayBase, srv, livePort, tok, h, roster };
 }
 
 // ── register → code + publicUrl ─────────────────────────────────────────────
@@ -89,26 +90,35 @@ test('student.html e live-core.js serviti via cookie', async (t) => {
 
 // ── API: risposta identica al diretto ───────────────────────────────────────
 test('GET /api/session e POST /api/join: pass-through fedele', async (t) => {
-  const { relayBase, livePort, tok } = await setupLive(t);
+  const { relayBase, livePort, tok, roster } = await setupLive(t);
 
   const viaRelay = await fetch(relayBase + '/api/session?s=' + tok).then(r => r.json());
   const direct = await fetch('http://127.0.0.1:' + livePort + '/api/session?s=' + tok).then(r => r.json());
   assert.deepStrictEqual(viaRelay, direct);
   assert.strictEqual(viaRelay.phase, 'lobby');
 
-  // join via relay (token nel BODY, non in query → route per body)
+  // join via relay (token nel BODY, non in query → route per body) — identità DAL roster
+  const inR = roster[0];
   const join = await fetch(relayBase + '/api/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'dev1' })
+    body: JSON.stringify({ token: tok, emojiKey: inR.emojiKey, num: inR.num, deviceId: 'dev1' })
   });
   assert.strictEqual(join.status, 200);
   const jb = await join.json();
   assert.strictEqual(jb.questions[0].correct, undefined, 'soluzioni strippate anche via relay');
 
   // errori applicativi passano intatti (identità fuori roster → 404 del server locale)
+  const inRoster = (ek, num) => roster.some(r => r.emojiKey === ek && r.num === num);
+  let outR = null;
+  for (let n = 0; n <= 10 && !outR; n++) {
+    for (const e of LC.EMOJI_SET) {
+      const num = String(n).padStart(2, '0');
+      if (!inRoster(e.key, num)) { outR = { emojiKey: e.key, num }; break; }
+    }
+  }
   const bad = await fetch(relayBase + '/api/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: tok, emojiKey: 'unicorno', num: '09', deviceId: 'devX' })
+    body: JSON.stringify({ token: tok, emojiKey: outR.emojiKey, num: outR.num, deviceId: 'devX' })
   });
   assert.strictEqual(bad.status, 404);
 });

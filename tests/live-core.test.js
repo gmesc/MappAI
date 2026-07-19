@@ -11,19 +11,37 @@ const path = require('path');
 const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
 
 // ── Credenziali ──────────────────────────────────────────────────────────
-test('buildCredentials: coppie uniche, numero 00..10, emoji ciclata', () => {
+test('buildCredentials: coppie uniche, numero 00..NUM_MAX, ordine randomizzato', () => {
   const c = LC.buildCredentials(15);
   assert.strictEqual(c.length, 15);
-  // primi 12 = tutte emoji diverse, numero 00
-  const first12 = c.slice(0, 12);
-  assert.strictEqual(new Set(first12.map(x => x.emojiKey)).size, 12);
-  first12.forEach(x => assert.strictEqual(x.num, '00'));
-  // 13° riparte con prima emoji, numero 01
-  assert.strictEqual(c[12].emojiKey, c[0].emojiKey);
-  assert.strictEqual(c[12].num, '01');
-  // unicità coppie
+  // unicità coppie (emoji, numero)
   const keys = c.map(x => x.emojiKey + '-' + x.num);
   assert.strictEqual(new Set(keys).size, keys.length);
+  // ogni coppia valida: numero 00..NUM_MAX (2 cifre), emojiKey nel set
+  const validKeys = new Set(LC.EMOJI_SET.map(e => e.key));
+  c.forEach(x => {
+    assert.strictEqual(x.num.length, 2);
+    const nn = Number(x.num);
+    assert.ok(nn >= 0 && nn <= LC.NUM_MAX);
+    assert.ok(validKeys.has(x.emojiKey));
+    assert.ok(x.emoji);
+  });
+});
+
+test('buildCredentials: rng deterministico → riproducibile e NON sequenziale', () => {
+  const seeded = (seed) => { let s = seed >>> 0; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; };
+  const a = LC.buildCredentials(20, seeded(42)).map(x => x.emojiKey + '-' + x.num);
+  const b = LC.buildCredentials(20, seeded(42)).map(x => x.emojiKey + '-' + x.num);
+  assert.deepStrictEqual(a, b); // stesso seed → stesso risultato
+  // randomizzato: NON è il vecchio schema sequenziale (primi 12 tutti num 00)
+  const allFirst12Zero = LC.buildCredentials(20, seeded(42)).slice(0, 12).every(x => x.num === '00');
+  assert.ok(!allFirst12Zero);
+});
+
+test('buildCredentials: 132 = pool completo (tutte le coppie, nessuna mancante)', () => {
+  const c = LC.buildCredentials(132);
+  const pairs = new Set(c.map(x => x.emojiKey + '-' + x.num));
+  assert.strictEqual(pairs.size, 132);
 });
 
 test('buildCredentials: clamp a MAX_IDENTITIES (132)', () => {

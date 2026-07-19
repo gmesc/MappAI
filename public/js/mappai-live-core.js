@@ -99,15 +99,24 @@
   }
 
   // Credenziali per una classe di `count` allievi: coppie UNICHE (emoji, numero).
-  // Allievo i → emoji i%12, numero i/12 → con ≤12 allievi tutte le emoji diverse.
-  function buildCredentials(count) {
+  // Estratte a CASO dal pool completo (132 coppie) e mescolate (Fisher-Yates):
+  // l'ordine non è più sequenziale → un allievo non può indovinare le credenziali
+  // dei compagni dalla propria posizione nel registro (segretezza account).
+  // `rng` opzionale (default Math.random) → riproducibile nei test.
+  function buildCredentials(count, rng) {
     var n = Math.max(0, Math.min(Number(count) || 0, MAX_IDENTITIES));
-    var out = [];
-    for (var i = 0; i < n; i++) {
-      var e = EMOJI_SET[i % EMOJI_SET.length];
-      out.push({ emojiKey: e.key, emoji: e.emoji, num: pad2(Math.floor(i / EMOJI_SET.length)), name: '' });
+    var rand = typeof rng === 'function' ? rng : Math.random;
+    var pool = [];
+    for (var num = 0; num <= NUM_MAX; num++) {
+      for (var e = 0; e < EMOJI_SET.length; e++) {
+        pool.push({ emojiKey: EMOJI_SET[e].key, emoji: EMOJI_SET[e].emoji, num: pad2(num), name: '' });
+      }
     }
-    return out;
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(rand() * (i + 1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    return pool.slice(0, n);
   }
 
   function identityKey(emojiKey, num) {
