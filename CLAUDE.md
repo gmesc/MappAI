@@ -534,6 +534,51 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### 🔵 IN CORSO (18-19/7/26): branch `chore/electron-39` — Electron 39 + fix quiz + reveal risultati
+Branch NON ancora mergiato in main. Suite **493/493**. Cinque commit puliti:
+- `9975308` **Electron 30 → 39.8.10** (chiude 16 alert Dependabot). Codice già pronto:
+  preload usa `webUtils.getPathForFile`; unico adeguamento handler `console-message`
+  (firma a oggetto evento). `npm run pack` firma con electron-builder 24 senza problemi.
+- `a55c679` **emoji Noto** su collab/tutor student.html (il webfont Noto non era caricato
+  → iPhone cadeva su Apple). + griglia login individuale collab rifatta (chip 60×60).
+- `b455855` **naming progressivo sessioni** (Live/Tutor/Lavagna): cartelle `…-00`, `…-01`
+  per somministrazione → risolve il bug "Sessione chiusa" al 2° avvio stesso giorno/classe.
+  Crash-safe: riprende l'ultima solo se ancora aperta. `progressiveSessionDir` in main.js,
+  `sessionSeq` puro in files-core, `phase`/`markClosed` in collab-server.
+- `d3719c0` **credenziali classe casuali** (Fisher-Yates, segretezza account) — di un'altra
+  sessione, estratto pulito dal working tree entangled.
+- `ac8bb34` **quiz: qualità + varietà + feedback risultati**. Diagnosi (workflow multi-agente):
+  ripetizione = cache/determinismo; qualità povera = prompt; + BUG chiave `MULTIPLE_CHOICE_QUIZ`
+  mancante (prompt vuoto). Fix: nuove chiavi MC + riscrittura DYNAMIC_QUIZ/FLASHCARD (varietà
+  cognitiva, anti-memorizzazione, distrattori, BES/DSA); `{{nonce}}` + temp 0.7 (+ marker
+  `_respectTemp` sbloccato su bridge Infomaniak, sanitizzato prima di Google); bottone
+  "Rigenera" (pill Set di Studio + player); shuffle opzioni live; cloze seedato; motore
+  `generateDynamicQuiz` condiviso in-app/Live; esempio "Bergier" rimosso dal prompt dungeon;
+  fillPromptTemplate replacer-funzione (no corruzione `$$` KaTeX). **Reveal risultati**
+  (default ON, toggle wizard Live): studente a fine sessione vede % (su risposte date) +
+  giuste/sbagliate + spiegazione, salvabile — `computeStudentResult`, `/api/finish` +
+  `/api/my-result` gated (token+deviceId, soluzioni solo dopo consegna), dashboard student.html.
+  E2E browser verificato contro server reale.
+
+**⚠️ DA FARE (prossima sessione):**
+1. **Test device reali** (TEST-CHECKLIST.html): quiz con AI vera Google+Infomaniak
+   (qualità + non-ripetizione tra 2 generazioni stesso ramo), reveal risultati da telefono,
+   smoke Electron 39 (vault/PDF/pacchettizzata), naming progressivo.
+2. **Stream profilo "Taratura VERDE"** — 8 file UNCOMMITTED nel working tree (altra sessione,
+   NON scritti da Claude): `mappai-teacher-profile.js` (nuovo), `app.js`, `index.html`,
+   `branch-synthesis.js`, `print-dossier.js`, `kg-extraction.js`, `mm-extraction.js`,
+   `it_translations.js`. Testare e committare (serve conferma utente). Dentro
+   index.html/app.js/it_translations 3 pezzetti di Claude ci viaggiano (bottone ↻ nel player,
+   fix-leak non-Electron Google, chiavi IT `ui_regen`).
+3. **Pulizia**: cancellare `*.bak-quiz` (backup prompt) quando il quiz è validato.
+4. **Merge `chore/electron-39` → main**.
+
+> Nota metodo (git senza staging interattivo qui): per estrarre commit puliti da un working
+> tree con feature intrecciate nello STESSO file, usato: `git checkout HEAD -- file` + riapplico
+> solo l'hunk voluto (es. buildCredentials), oppure `head -n` per troncare test appesi in coda,
+> verificando lo stato committato in isolamento (checkout HEAD temporaneo dei chiamanti) prima
+> del commit, poi restore dai backup. Documentato qui per riuso.
+
 ### ✅ FATTO (15/7/26): Consumi AI — registro token/costi + dashboard ciambelle drill-down
 Richiesta utente (scelte confermate: persistenza su DISCO · documento=progetto/mappa ·
 vista IN-APP + stampa · valuta unica CHF con tasso configurabile). Suite **477/477** ✅

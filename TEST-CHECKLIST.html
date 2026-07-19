@@ -156,6 +156,15 @@
       { id:'x6', dev:false, label:`App pacchettizzata: <code>npm run pack</code> → apri <code>dist/mac-arm64/MappAI.app</code> → boot e licensing ok` },
       { id:'x7', dev:true,  label:`[opt] Tutor QR con AI reale (proxy <code>callModel</code> nel main)` },
     ]},
+    { key:'F', title:'Ⓕ Quiz + Reveal risultati (19/7 — commit ac8bb34)', items:[
+      { id:'f1', dev:false, label:`<b>Bug prompt vuoto</b>: quiz per-nodo (bottone quiz/flashcard sul nodo) → 5 domande <b>ancorate al contenuto</b> del nodo, non generiche/vuote` },
+      { id:'f2', dev:false, label:`<b>Varietà</b>: genera quiz sullo stesso ramo <b>due volte</b> (Google) → domande <b>diverse</b> tra le due (nonce); qualità cognitiva (non solo richiamo)` },
+      { id:'f3', dev:false, label:`<b>Rigenera</b>: pill "Rigenera" nel pannello Set di Studio <b>e</b> "↻ Domande nuove" nell'header del player → domande nuove` },
+      { id:'f4', dev:false, label:`Infomaniak reale: quiz genera senza errori JSON (temperature 0.7 sbloccata dal bridge, _respectTemp sanitizzato prima di Google)` },
+      { id:'f5', dev:true,  label:`<b>Reveal Live (default ON)</b>: fine sessione → studente vede % (su risposte date) + giuste/sbagliate + spiegazione, salvabile. Soluzioni NON visibili durante il gioco` },
+      { id:'f6', dev:true,  label:`Toggle wizard Live "mostra soluzioni" OFF → studente vede solo "consegnato", niente soluzioni` },
+      { id:'f7', dev:false, label:`Cloze in-app: rifacendolo sulla stessa mappa i buchi cambiano (seedato per sessione)` },
+    ]},
     { key:'Merge', title:'🔀 Merge', items:[
       { id:'m1', dev:false, label:`<code>fix/tutor-mode-chat</code> → già in <code>main</code> (8868be0 + abb0cfd), branch chiuso` },
       { id:'m2', dev:false, label:`Innesto BERT → già in <code>main</code> (e1c5686), branch chiuso` },
