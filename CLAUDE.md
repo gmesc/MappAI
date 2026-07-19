@@ -529,6 +529,33 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
       'auto' → italiano). Narrativa di gioco e Studio Attivo via `_tSafe`/`t()`.
     - ⚠️ Le mappe già generate NON vengono ritradotte: il selettore governa solo le
       generazioni successive.
+15. **Tabelle di dati (righe multiple con colonne, 19 lug 2026)** → SEMPRE
+    `<table class="table-fixed"><colgroup>` con larghezze fisse per colonna, MAI
+    CSS grid ripetuto riga-per-riga. Motivo: con grid ogni riga è un contenitore
+    a sé — se il contenuto varia (es. n° bottoni diverso tra righe), la colonna
+    `auto`/`1fr` si ridimensiona in modo indipendente riga per riga e le intestazioni
+    smettono di allinearsi alle celle sottostanti. Con `<table>` header e righe
+    condividono lo STESSO layout di colonne per costruzione.
+    - Riferimento: `mappai-landing-teach.js` (helper `th()`/`td()`/`fileTable()`/
+      `actTable()`) — 4 tabelle della landing Insegna, verificate con harness
+      Node (`th` count === `td` count === `<col>` count per ogni tabella).
+    - Header e celle **allineati a sinistra di default**; centra (`text-center`)
+      SOLO se richiesto esplicitamente per una colonna specifica (es. contatori
+      numerici brevi) — mai come default silenzioso, e mai header disallineato
+      dalla cella (stesso `text-align` su entrambi).
+    - Colonna azioni (icone PLAY/QR/FOLDER/BIN…) → ultima `<col>` a **larghezza
+      fissa**, mai `auto`: il numero di bottoni per riga può variare (es. QR
+      disabilitato se manca il vault) senza spostare le colonne a sinistra.
+    - Date → formato **GG/MM/AAAA** (`fmtDate` in mappai-landing-teach.js),
+      mai formati locali (`toLocaleDateString` con mese testuale) per coerenza
+      tra tabelle.
+    - Eliminazione (BIN) → SEMPRE conferma a **digitazione del nome esatto**
+      dell'elemento (pattern `confirmDeleteText`), mai un solo click o un
+      confirm generico: previene cancellazioni accidentali su elenchi densi.
+    - Prima di aggiungere colonne o spostarne l'ordine, verificare con uno
+      script Node che itera l'HTML generato (conteggio `<th>`/`<td>`/`<col>`)
+      che l'allineamento resti corretto — un browser reale con licensing
+      attivo spesso non è disponibile per la verifica visiva immediata.
 
 ---
 
