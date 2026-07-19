@@ -306,7 +306,7 @@
               esc(t('lim_intro', 'Attività via QR: gli allievi entrano dal telefono sulla rete d\'aula.')) + '</div>' +
             // ── § Attività live (gli allievi entrano col QR) ─────────────────
             limSection(t('lim_sec_live', 'Attività live')) +
-            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla, cloze o domande tue')) +
+            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue')) +
             limCard('board', 'presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
             limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
             limCard('timeline', 'calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +

@@ -305,7 +305,7 @@ const en_translations = {
     lv_hub_title: "MappAI Live",
     lv_hub_intro: "Class activities via QR: students join from their phones on the classroom network.",
     lv_card_quiz: "Live active study",
-    lv_card_quiz_d: "True/False, multiple choice, cloze or your own questions — with final reports",
+    lv_card_quiz_d: "True/False, multiple choice or your own questions — with final reports",
     lv_card_quiz_tip: "Each student answers from their phone; at the end two reports: question heatmap and individual cards.",
     lv_card_board: "Collaborative board",
     lv_card_board_d: "Groups propose nodes from their phones, live on the map",
