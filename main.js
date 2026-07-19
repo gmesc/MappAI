@@ -2311,6 +2311,70 @@ ipcMain.handle('open-save-folder', async () => {
     shell.openPath(saveDir);
 });
 
+// ── Apri la cartella vault di una mappa nel Finder (sezione Progetti, Insegna 19/7) ──
+ipcMain.handle('open-vault-folder', async (event, { vaultName } = {}) => {
+    try {
+        const safe = path.basename(String(vaultName || ''));
+        if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
+        const dir = path.join(mapsBaseDir(), safe);
+        if (!fs.existsSync(dir)) return { success: false, error: 'cartella-non-trovata' };
+        await shell.openPath(dir);
+        return { success: true, dir };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// ── Zip della cartella vault → cartella materiali attiva (condivisione QR, 19/7) ──
+// Richiede il server Materiali attivo (liveMatInfo). jszip è dipendenza transitiva
+// di docx/mammoth (produzione) → presente anche nell'app pacchettizzata.
+ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
+    try {
+        if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+        const safe = path.basename(String(vaultName || ''));
+        if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
+        const srcDir = path.join(mapsBaseDir(), safe);
+        if (!fs.existsSync(srcDir)) return { success: false, error: 'cartella-non-trovata' };
+        const JSZip = require('jszip');
+        const zip = new JSZip();
+        const root = zip.folder(safe);
+        const addDir = (absDir, zf) => {
+            for (const ent of fs.readdirSync(absDir, { withFileTypes: true })) {
+                const abs = path.join(absDir, ent.name);
+                if (ent.isDirectory()) addDir(abs, zf.folder(ent.name));
+                else if (ent.isFile()) { try { zf.file(ent.name, fs.readFileSync(abs)); } catch (e) { /* skip unreadable */ } }
+            }
+        };
+        addDir(srcDir, root);
+        const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const fileName = safe.replace(/[^a-zA-Z0-9._-]+/g, '_') + '.zip';
+        fs.writeFileSync(path.join(liveMatInfo.filesDir, fileName), buf);
+        return { success: true, file: fileName, files: liveMatSrv ? liveMatSrv.state().files : [] };
+    } catch (err) { console.error('zip-vault-to-materials:', err); return { success: false, error: err.message }; }
+});
+
+// ── Apri un file della libreria "File condivisi" nel programma di sistema (19/7) ──
+ipcMain.handle('sharedmat-open-file', async (event, { id } = {}) => {
+    try {
+        const it = _smRead().find(x => x.id === id);
+        if (!it) return { success: false, error: 'file-non-trovato' };
+        const abs = path.join(sharedMatFilesDir(), it.stored);
+        if (!fs.existsSync(abs)) return { success: false, error: 'file-mancante' };
+        await shell.openPath(abs);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// ── Apri la cartella di una sessione di studio nel Finder (registro attività, 19/7) ──
+ipcMain.handle('study-session-open-folder', async (event, { dir } = {}) => {
+    try {
+        const abs = path.resolve(String(dir || ''));
+        const roots = studyRootsForListing().map(r => path.resolve(r.dir));
+        const ok = roots.some(root => abs === root || abs.startsWith(root + path.sep)) && fs.existsSync(abs);
+        if (!ok) return { success: false, error: 'percorso-non-consentito' };
+        await shell.openPath(abs);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
 // ══════════════════════════════════════════════════════════════════════════
 // ORGANIZZAZIONE FILE (010) — IPC: stato, scelta posizione, setup+migrazione,
 // registro attività di studio (enumerazione sessioni + apertura report).

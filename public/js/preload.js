@@ -96,7 +96,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sharedmatAdd: () => ipcRenderer.invoke('sharedmat-add'),
     sharedmatRemove: (data) => ipcRenderer.invoke('sharedmat-remove', data),
     sharedmatOpenFolder: () => ipcRenderer.invoke('sharedmat-open-folder'),
+    sharedmatOpenFile: (data) => ipcRenderer.invoke('sharedmat-open-file', data),
     sharedmatPublish: (data) => ipcRenderer.invoke('sharedmat-publish', data),
+    // Sezione Progetti/Attività Insegna (19/7): apri cartelle, zip vault → QR.
+    openVaultFolder: (data) => ipcRenderer.invoke('open-vault-folder', data),
+    zipVaultToMaterials: (data) => ipcRenderer.invoke('zip-vault-to-materials', data),
+    openMapsFolder: () => ipcRenderer.invoke('open-save-folder'),
+    studySessionOpenFolder: (data) => ipcRenderer.invoke('study-session-open-folder', data),
     liveClassesLoad: () => ipcRenderer.invoke('live-classes-load'),
     liveClassesSave: (data) => ipcRenderer.invoke('live-classes-save', data),
     launcherChoice: (choice) => ipcRenderer.invoke('launcher-choice', choice),

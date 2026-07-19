@@ -767,6 +767,31 @@
     catch (e) { return null; }
   }
 
+  // Condivide via QR la CARTELLA VAULT di una mappa come .zip scaricabile (19/7):
+  // zip del vault nella cartella servita dal server Materiali, poi QR al file .zip
+  // (download, nessun login). Usato dalla sezione "Progetti esistenti" (Insegna).
+  window.MappAILive = window.MappAILive || {};
+  window.MappAILive.shareVaultZipQr = function (vaultName, displayName) {
+    if (!window.electronAPI || !window.electronAPI.zipVaultToMaterials) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
+    toast(t('lt_zip_building', 'Preparo la cartella vault…'), 'info');
+    return ensureMatServer().then(function (info) {
+      if (!info || !info.success) { toast((info && info.error) || t('lv_electron', 'Errore'), 'error'); return null; }
+      return window.electronAPI.zipVaultToMaterials({ vaultName: vaultName });
+    }).then(function (r) {
+      if (!r) return null;
+      if (!r.success) {
+        toast(r.error === 'cartella-non-trovata' ? t('lt_no_vault', 'Nessuna cartella vault su disco') : (r.error || t('lv_electron', 'Errore')), 'error');
+        return r;
+      }
+      LT.matInfo.files = r.files;
+      var info = LT.matInfo;
+      var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
+      var fileUrl = base + '/files/' + encodeURIComponent(r.file) + '?s=' + info.token;
+      openDocQr(fileUrl, r.file);
+      return r;
+    });
+  };
+
   // Condivide via QR un file della libreria "Materiali docente": assicura il
   // server materiali, pubblica il file nella sessione, registra la classe attiva,
   // mostra il QR alla pagina anteprima (file.html). Usato da "Condividi da PC"
