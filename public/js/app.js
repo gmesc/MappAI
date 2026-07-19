@@ -1585,22 +1585,35 @@ window.injectClassTuning = function (payload) {
 window.accessibleDescRules = function () {
     try {
         if (localStorage.getItem('mappai_accessible_descs') === '0') return '';
+        var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
         var reg = 'medio';
         var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
         if (c && c.register) reg = c.register;
-        if (reg === 'ricco') return '';
-        var full = (reg === 'semplice');
-        var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
-        if (en) {
-            var r = '\n\n--- DESCRIPTION ACCESSIBILITY ---\nIn each "desc": explain every technical term the first time it appears (e.g. "cellulose, the fiber that holds plants upright"); make the cause-effect links of the source explicit (because, therefore, instead of).';
-            if (full) r += ' Anchor concepts to concrete actions and details present in the source. Short, linear sentences.';
-            r += ' Stay faithful to the source facts and within the requested word limit.';
-            return r;
+
+        // (A) FRASI AUTO-CONTENUTE — sempre (ANCHE 'ricco'): la «Catena dei perché»
+        //     (deterministica, estrae i nessi dalle desc) serve a ogni classe.
+        //     Senza questa regola le frasi causali usano pronomi/possessivi che
+        //     rimandano al titolo del nodo ("La sua posizione a corte…") e,
+        //     estratte fuori contesto, perdono il soggetto o restano frammenti.
+        var out = en
+            ? '\n\n--- SELF-CONTAINED SENTENCES (for the cause-effect chain) ---\nWhen a "desc" states a cause-effect link, write it so it makes sense ON ITS OWN, even lifted out of the node: ALWAYS name the subject explicitly (the person, object or concept — e.g. "Cai Lun", not "his role"); never start a link with a bare pronoun or possessive ("its", "this", "it", "this invention") that only refers to the node title. Write both sides of the link as complete clauses, never fragments, and use complete causal connectives WITH their complement ("enables X to …", "thanks to", "led to"), never truncated.'
+            : '\n\n--- FRASI AUTO-CONTENUTE (per la Catena dei perché) ---\nQuando una "desc" esprime un nesso causa-effetto, scrivi la frase così che si capisca DA SOLA, anche estratta fuori dal nodo: nomina SEMPRE il soggetto per esteso (la persona, l\'oggetto o il concetto — es. "Cai Lun", non "la sua posizione"); non iniziare mai un nesso con un pronome o un possessivo ("la sua", "questo", "esso", "questa invenzione") che rimanda solo al titolo del nodo. Scrivi i due lati del nesso come frasi compiute, mai frammenti, e usa connettivi causali completi CON il loro complemento ("permette di + azione", "grazie a", "portò a"), mai troncati.';
+
+        // (B) ACCESSIBILITÀ DESCRIZIONI — solo medio/semplice ('ricco' = solo la
+        //     regola strutturale sopra).
+        if (reg !== 'ricco') {
+            var full = (reg === 'semplice');
+            if (en) {
+                out += '\n\n--- DESCRIPTION ACCESSIBILITY ---\nIn each "desc": explain every technical term the first time it appears (e.g. "cellulose, the fiber that holds plants upright"); make the cause-effect links of the source explicit (because, therefore, instead of).';
+                if (full) out += ' Anchor concepts to concrete actions and details present in the source. Short, linear sentences.';
+                out += ' Stay faithful to the source facts and within the requested word limit.';
+            } else {
+                out += '\n\n--- ACCESSIBILITÀ DESCRIZIONI ---\nIn ogni "desc": spiega ogni termine tecnico la prima volta che compare (es. "la cellulosa, la fibra che sostiene le piante"); esplicita i nessi causa-effetto presenti nella fonte (perché, quindi, invece di).';
+                if (full) out += ' Ancora i concetti ad azioni e dettagli concreti presenti nella fonte. Frasi brevi e lineari.';
+                out += ' Resta fedele ai fatti della fonte e nel limite di parole richiesto.';
+            }
         }
-        var ri = '\n\n--- ACCESSIBILITÀ DESCRIZIONI ---\nIn ogni "desc": spiega ogni termine tecnico la prima volta che compare (es. "la cellulosa, la fibra che sostiene le piante"); esplicita i nessi causa-effetto presenti nella fonte (perché, quindi, invece di).';
-        if (full) ri += ' Ancora i concetti ad azioni e dettagli concreti presenti nella fonte. Frasi brevi e lineari.';
-        ri += ' Resta fedele ai fatti della fonte e nel limite di parole richiesto.';
-        return ri;
+        return out;
     } catch (e) { return ''; }
 };
 

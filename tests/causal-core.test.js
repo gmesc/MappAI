@@ -150,10 +150,26 @@ test('desc: "ec" a metà frase — causa tagliata alla prima virgola (coda scart
     assert.ok(!t[0].cause.includes('rivoluzionando'), 'coda non tagliata: ' + t[0].cause);
 });
 
-test('desc: clitici penzolanti rimossi in coda al lato', () => {
+test('desc: soggetto ANAFORICO ("La sua…") scartato — Catena senza soggetto', () => {
+    // Caso reale «la CARTA»: il lato causa perde il soggetto (Cai Lun) → estratto
+    // fuori dal nodo è incomprensibile. Meglio nessun nesso (§8-9).
     const t = C.extractDescTriples('La sua posizione a corte gli permise di sviluppare questa invenzione rivoluzionaria.');
+    assert.strictEqual(t.length, 0, 'lato con possessivo iniziale senza soggetto va scartato');
+});
+
+test('desc: clitici penzolanti rimossi in coda al lato (soggetto nominato)', () => {
+    const t = C.extractDescTriples('Cai Lun a corte gli permise di sviluppare la carta.');
     assert.strictEqual(t.length, 1);
     assert.ok(!/\sgli$/.test(t[0].cause), 'clitico pendente: ' + t[0].cause);
+});
+
+test('desc: «permette/permise di + infinito» → connShow completo, conn normalizzato', () => {
+    const t = C.extractDescTriples('Cai Lun a corte permise di sviluppare la carta.');
+    assert.strictEqual(t.length, 1);
+    assert.strictEqual(t[0].conn, 'permise', 'conn resta normalizzato (dedup + gruppi cloze)');
+    assert.strictEqual(t[0].connShow, 'permise di', 'display: connettivo completo con «di»');
+    // il formattatore di riga usa connShow → "… → permise di → …"
+    assert.ok(C.promptLines([t[0]])[0].includes('permise di'), 'promptLines mostra il connettivo completo');
 });
 
 // ── extractLinkTriples ──────────────────────────────────────────────────

@@ -170,9 +170,16 @@
     function _junkSide(s) {
         const w = _words(s);
         if (w < MIN_SIDE_WORDS) return true;
+        const cs = _clean(s);
         // NB: niente \b — dopo lettere accentate (È, ciò) il word-boundary JS fallisce
-        if (w <= 3 && /^(questo|questa|questi|queste|ciò|esso|essa|essi|esse|lui|lei|tale|tali|this|that|it|they)(\s|$)/i.test(_clean(s))) return true;
-        if (w <= 3 && /^(è|era|sono|erano|fu|furono|avvenne|accadde|is|was|are|were)(\s|$)/i.test(_clean(s))) return true;
+        if (w <= 3 && /^(questo|questa|questi|queste|ciò|esso|essa|essi|esse|lui|lei|tale|tali|this|that|it|they)(\s|$)/i.test(cs)) return true;
+        if (w <= 3 && /^(è|era|sono|erano|fu|furono|avvenne|accadde|is|was|are|were)(\s|$)/i.test(cs)) return true;
+        // Soggetto ANAFORICO: il lato inizia con un possessivo il cui referente sta
+        // FUORI dal lato ("La sua posizione a corte…", "Il loro uso…", "Their spread…")
+        // → estratto nella Catena il soggetto (es. Cai Lun) sparisce. Scarta a QUALSIASI
+        // lunghezza: meglio perdere un nesso che mostrarne uno senza soggetto (§8-9).
+        if (/^(?:(?:la|il|i|le|gli|lo)\s+)?(?:sua|suo|suoi|sue|loro)\s/i.test(cs)) return true;
+        if (/^(?:his|her|its|their)\s/i.test(cs)) return true;
         return false;
     }
 
@@ -247,6 +254,13 @@
                     if (c.lang === 'en') t.connShow = ({ trasformazione: 'therefore', dipendenza: 'enables', sequenza: 'leads to' })[c.family] || 'therefore';
                 } else {
                     t.cause = _cap(left); t.effect = _cap(right);
+                    // «permette/permise di + infinito»: mostra il connettivo COMPLETO
+                    // ("permette di") — l'effetto è un verbo, senza "di" si legge male
+                    // ("permette sviluppare"). Solo DISPLAY: t.conn resta normalizzato
+                    // per dedup e per i gruppi di equivalenza del cloze buchi-relazione.
+                    if ((c.conn === 'permette' || c.conn === 'permise') && /\sdi\s*$/i.test(m[0])) {
+                        t.connShow = c.conn + ' di';
+                    }
                 }
                 out.push(t);
                 break; // una tripla per frase

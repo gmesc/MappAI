@@ -5,7 +5,8 @@
  * — tecnica sorgente→sandbox, unica nel repo perché la funzione vive in app.js
  * e non in un modulo UMD; fallimento rumoroso via assert se il refactor la sposta)
  * — default medio senza classe, intensità piena su registro 'semplice',
- * '' su 'ricco', kill-switch mappai_accessible_descs='0', variante EN —
+ * SOLO la regola strutturale (frasi auto-contenute) su 'ricco', kill-switch
+ * mappai_accessible_descs='0' → tutto off, variante EN —
  * e il CABLAGGIO: iniezione dentro buildSystemInstruction (fasi prosa),
  * blocco PRIMA della direttiva di formato JSON negli enrich (regola
  * Focus+Lenses), lingua enrich = lingua mappe (regola 14), assenza nelle
@@ -70,8 +71,19 @@ test('registro medio: regola leggera', () => {
     assert.ok(!out.includes('dettagli concreti'));
 });
 
-test('registro ricco: nessuna regola', () => {
-    assert.strictEqual(makeFn({ register: 'ricco' })(), '');
+test('registro ricco: SOLO regola auto-contenuta, niente blocco accessibilità', () => {
+    const out = makeFn({ register: 'ricco' })();
+    assert.ok(out.includes('FRASI AUTO-CONTENUTE'), 'la regola strutturale vale anche per ricco (Catena dei perché serve a ogni classe)');
+    assert.ok(!out.includes('ACCESSIBILITÀ DESCRIZIONI'), 'ricco non riceve il blocco accessibilità');
+});
+
+test('regola auto-contenuta presente per la Catena dei perché (default + kill-switch)', () => {
+    // sempre presente (default medio): nomina il soggetto, niente pronomi al titolo
+    const def = makeFn({})();
+    assert.ok(def.includes('FRASI AUTO-CONTENUTE'), 'regola auto-contenuta assente di default');
+    assert.ok(def.includes('soggetto'), 'la regola deve chiedere il soggetto esplicito');
+    // il master kill-switch la disattiva insieme all'accessibilità
+    assert.strictEqual(makeFn({ register: 'medio', flagOff: true })(), '');
 });
 
 test('kill-switch mappai_accessible_descs=0: nessuna regola anche con semplice', () => {
