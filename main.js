@@ -847,6 +847,22 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
     }
 });
 
+// pipeline-open-folder: apre nel Finder una cartella vault DENTRO mapsBaseDir
+// (i vault della pipeline sono annidati nei contenitori di classe → basename non basta).
+ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
+    try {
+        if (!folderPath) return { ok: false, error: 'percorso mancante' };
+        const base = mapsBaseDir();
+        const resolved = path.resolve(folderPath);
+        if (resolved !== path.resolve(base) && !resolved.startsWith(path.resolve(base) + path.sep)) {
+            return { ok: false, error: 'fuori da Mappe' };
+        }
+        if (!fs.existsSync(resolved)) return { ok: false, error: 'cartella-non-trovata' };
+        await shell.openPath(resolved);
+        return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
+});
+
 // vault-materials-list: elenca i materiali su disco (Materiale Studio/) + manifest.
 ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
     try {
@@ -2482,7 +2498,8 @@ ipcMain.handle('files-root-get', async () => {
         organized: filesOrganized(),
         filesRoot: s.filesRoot || null,
         rootDir: filesOrganized() ? mappaiRootDir() : null,
-        documentsDir: documentsDir()
+        documentsDir: documentsDir(),
+        mapsBaseDir: mapsBaseDir()   // 011: base per la pipeline (costruzione folderPath)
     };
 });
 

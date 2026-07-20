@@ -998,6 +998,14 @@
                         <span class="text-[32px]" id="btn-generate-label">Genera Mappa</span>
                     </button>
 
+                    <!-- Pipeline «Genera materiali» (011): mappa + quiz + fogli + sintesi in un colpo -->
+                    <button type="button" id="generate-materials-btn"
+                        onclick="window.MappAIPipeline && window.MappAIPipeline.openModal()"
+                        class="w-full mt-3 flex items-center justify-center gap-2 px-5 py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 font-bold text-sm transition-colors">
+                        <i data-lucide="package" class="w-5 h-5"></i>
+                        <span data-i18n="mp_btn_generate_materials">Genera materiali</span>
+                    </button>
+
                     <div class="hidden">
                         <input type="file" id="landing-import" accept=".json" class="hidden"
                             onchange="window.importGraph(event)">

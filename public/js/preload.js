@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     htmlToPdf: (data) => ipcRenderer.invoke('html-to-pdf', data),
     saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
+    pipelineOpenFolder: (data) => ipcRenderer.invoke('pipeline-open-folder', data),
     saveVault: (data) => {
         // Propaga il flag sottocartelle-per-ramo (gated). NON sovrascrive un valore esplicito
         // (l'export JIGSAW forza branchFolders:true a prescindere dal flag utente).
