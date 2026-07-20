@@ -87,21 +87,23 @@ const QP_PRINT_BAR = (accentColor, label) => `
 
 // ── STAMPA QUIZ ──────────────────────────────────────────
 
-window.printQuizSet = function (setId) {
-    const sets = appState?.db?.studySets || [];
-    const set = setId
-        ? sets.find(s => s.id === setId)
-        : sets[sets.length - 1]; // ultimo set generato
+// Risoluzione nome mappa (comportamento storico preservato: legge appState.nodes,
+// undefined → 'MappAI'; la pipeline passa opts.mapName esplicito).
+function _qpMapName() {
+    try {
+        const rootNode = appState?.nodes?.find(n => n.level === 0);
+        return rootNode ? cleanLabel(rootNode.label) : 'MappAI';
+    } catch (e) { return 'MappAI'; }
+}
 
-    if (!set || !set.items?.length) {
-        showToast('Nessun quiz trovato', 'warning');
-        return;
-    }
-
-    const rootNode = appState.nodes?.find(n => n.level === 0);
-    const mapName = rootNode ? cleanLabel(rootNode.label) : 'MappAI';
-    const now = new Date().toLocaleString('it-IT');
+// Builder PURO: ritorna la stringa HTML del quiz (risposte + foglio verifica).
+// opts: { mapName?, now?, includeBar? (default true) }. Non tocca il DOM principale.
+window.buildQuizSetHtml = function (set, opts) {
+    opts = opts || {};
+    const mapName = opts.mapName || _qpMapName();
+    const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#4f46e5';
+    const includeBar = opts.includeBar !== false;
 
     // Genera HTML domande
     let questionsHtml = '';
@@ -252,7 +254,7 @@ window.printQuizSet = function (setId) {
     </style>
 </head>
 <body>
-    ${QP_PRINT_BAR(accentColor, 'Quiz')}
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Quiz') : ''}
 
     <div class="qp-header">
         <div class="qp-title">${escHtmlQP(set.title)}</div>
@@ -282,37 +284,31 @@ window.printQuizSet = function (setId) {
 </body>
 </html>`;
 
+    return fullHtml;
+};
+
+// Consumer: risolve il set e apre la finestra di stampa (comportamento invariato).
+window.printQuizSet = function (setId) {
+    const sets = appState?.db?.studySets || [];
+    const set = setId ? sets.find(s => s.id === setId) : sets[sets.length - 1];
+    if (!set || !set.items?.length) { showToast('Nessun quiz trovato', 'warning'); return; }
     const win = window.open('', '_blank');
-    if (!win) {
-        showToast('Popup bloccato — abilita i popup', 'warning');
-        return;
-    }
-    win.document.write(fullHtml);
+    if (!win) { showToast('Popup bloccato — abilita i popup', 'warning'); return; }
+    win.document.write(window.buildQuizSetHtml(set));
     win.document.close();
-    showToast(
-        `✓ Quiz stampabile aperto — ${set.items.length} domande`,
-        'success'
-    );
+    showToast(`✓ Quiz stampabile aperto — ${set.items.length} domande`, 'success');
 };
 
 // ── STAMPA FLASHCARD ─────────────────────────────────────
 
-window.printFlashcardSet = function (setId) {
-    const sets = appState?.db?.studySets || [];
-    const set = setId
-        ? sets.find(s => s.id === setId)
-        : sets.find(s => s.mode === 'flashcard')
-        || sets[sets.length - 1];
-
-    if (!set || !set.items?.length) {
-        showToast('Nessuna flashcard trovata', 'warning');
-        return;
-    }
-
-    const rootNode = appState.nodes?.find(n => n.level === 0);
-    const mapName = rootNode ? cleanLabel(rootNode.label) : 'MappAI';
-    const now = new Date().toLocaleString('it-IT');
+// Builder PURO: ritorna la stringa HTML delle flashcard (2 colonne).
+// opts: { mapName?, now?, includeBar? (default true) }.
+window.buildFlashcardSetHtml = function (set, opts) {
+    opts = opts || {};
+    const mapName = opts.mapName || _qpMapName();
+    const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#059669';
+    const includeBar = opts.includeBar !== false;
 
     let cardsHtml = '';
     set.items.forEach((item, idx) => {
@@ -415,7 +411,7 @@ window.printFlashcardSet = function (setId) {
     </style>
 </head>
 <body>
-    ${QP_PRINT_BAR(accentColor, 'Flashcard')}
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Flashcard') : ''}
 
     <div class="qp-header">
         <div class="qp-title">${escHtmlQP(set.title)}</div>
@@ -445,17 +441,21 @@ window.printFlashcardSet = function (setId) {
 </body>
 </html>`;
 
+    return fullHtml;
+};
+
+// Consumer: risolve il set e apre la finestra di stampa (comportamento invariato).
+window.printFlashcardSet = function (setId) {
+    const sets = appState?.db?.studySets || [];
+    const set = setId
+        ? sets.find(s => s.id === setId)
+        : sets.find(s => s.mode === 'flashcard') || sets[sets.length - 1];
+    if (!set || !set.items?.length) { showToast('Nessuna flashcard trovata', 'warning'); return; }
     const win = window.open('', '_blank');
-    if (!win) {
-        showToast('Popup bloccato — abilita i popup', 'warning');
-        return;
-    }
-    win.document.write(fullHtml);
+    if (!win) { showToast('Popup bloccato — abilita i popup', 'warning'); return; }
+    win.document.write(window.buildFlashcardSetHtml(set));
     win.document.close();
-    showToast(
-        `✓ Flashcard stampabili aperte — ${set.items.length} carte`,
-        'success'
-    );
+    showToast(`✓ Flashcard stampabili aperte — ${set.items.length} carte`, 'success');
 };
 
 // ── STAMPA TUTTI I SET ───────────────────────────────────

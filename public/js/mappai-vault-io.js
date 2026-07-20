@@ -7,6 +7,25 @@
 // SOTA: MARKDOWN VAULT LOGIC
 // ==========================================
 
+// Assembla l'oggetto mapData del vault dallo stato corrente (stessi campi del
+// salvataggio manuale). Riusato da saveMapVault (con dialog) E dalla pipeline
+// 011 (salvataggio automatico via electronAPI.saveVault, senza dialog).
+window.buildVaultMapData = function () {
+    return {
+        extractionMode: appState.extractionMode,
+        rootNodeLabel: appState.rootNodeLabel,
+        nodes: appState.db.nodes,
+        links: appState.db.links,
+        studySets: appState.db.studySets || [],
+        userProfile: appState.userProfile,
+        tutorState: serializeTutorState(tutorState),
+        aiProvider: appState.aiProvider,
+        aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
+        generationUsage: appState.generationUsage,
+        customColors: appState.db.customColors || {}
+    };
+};
+
 window.saveMapVault = async function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
 
@@ -18,19 +37,7 @@ window.saveMapVault = async function () {
 
         const saveRes = await window.electronAPI.saveVault({
             folderPath: result.folderPath,
-            mapData: {
-                extractionMode: appState.extractionMode,
-                rootNodeLabel: appState.rootNodeLabel,
-                nodes: appState.db.nodes,
-                links: appState.db.links,
-                studySets: appState.db.studySets || [],
-                userProfile: appState.userProfile,
-                tutorState: serializeTutorState(tutorState),
-                aiProvider: appState.aiProvider,
-                aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
-                generationUsage: appState.generationUsage,
-                customColors: appState.db.customColors || {}
-            }
+            mapData: window.buildVaultMapData()
         });
 
         window.showLoadingOverlay(false);

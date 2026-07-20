@@ -23,6 +23,12 @@
 
     let _lastSynthesis = null; // { branchLabel, mapName, rawText, sourcesArr }
 
+    // Modalità silenziosa (pipeline 011): niente overlay né modale risultato.
+    // Default false → il flusso manuale è invariato. runWholeMap la alza/abbassa.
+    let _silent = false;
+    function _ovl(show, msg) { if (!_silent && window.showLoadingOverlay) window.showLoadingOverlay(show, msg); }
+    function _maybeResultModal(data) { if (!_silent) _openBranchSynthesisResultModal(data); }
+
     function _escBS(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -388,17 +394,17 @@
 
         try {
             if (allNodes.length <= WHOLE_SINGLE_MAX) {
-                window.showLoadingOverlay(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
+                _ovl(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
                 const out = await _synthesizeOnce(
                     [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey);
-                window.showLoadingOverlay(false);
+                _ovl(false);
                 if (!out) {
-                    window.showToast('La mappa non ha contenuti (descrizioni) da sintetizzare', 'warning');
-                    return;
+                    if (!_silent) window.showToast('La mappa non ha contenuti (descrizioni) da sintetizzare', 'warning');
+                    return null;
                 }
                 _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr, causalTriples: out.causalTriples || [], tuned: !!(window.MappAITune && window.MappAITune.armed) };
-                _openBranchSynthesisResultModal(_lastSynthesis);
-                return;
+                _maybeResultModal(_lastSynthesis);
+                return _lastSynthesis;
             }
 
             const isMM = appState.extractionMode === 'mindmap';
@@ -411,7 +417,7 @@
             for (let i = 0; i < branches.length; i++) {
                 const b = branches[i];
                 const label = window.cleanLabel ? window.cleanLabel(b.label) : b.label;
-                window.showLoadingOverlay(true,
+                _ovl(true,
                     window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
                 try {
                     const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey);
@@ -423,15 +429,15 @@
             }
 
             if (!sections.some(s => !s.failed)) {
-                window.showLoadingOverlay(false);
-                window.showToast('Nessun ramo è stato sintetizzato — riprova', 'error');
-                return;
+                _ovl(false);
+                if (!_silent) window.showToast('Nessun ramo è stato sintetizzato — riprova', 'error');
+                return null;
             }
 
             // Panoramica introduttiva (best-effort: se fallisce, il documento esce senza)
             let intro = '';
             try {
-                window.showLoadingOverlay(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
+                _ovl(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
                 const digest = sections.filter(s => !s.failed)
                     .map(s => '## ' + s.branchLabel + '\n' + s.rawText.slice(0, 900)).join('\n\n');
                 const langNote = window.mapLangNote ? window.mapLangNote() : '';
@@ -454,13 +460,16 @@
                 console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);
             }
 
-            window.showLoadingOverlay(false);
+            _ovl(false);
             _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
-            _openBranchSynthesisResultModal(_lastSynthesis);
+            _maybeResultModal(_lastSynthesis);
+            return _lastSynthesis;
         } catch (err) {
-            window.showLoadingOverlay(false);
+            _ovl(false);
             console.error('[BranchSynthesis] Errore sintesi mappa:', err);
+            if (_silent) throw err;   // pipeline: propaga per far fallire lo step
             window.showToast('Errore generazione sintesi: ' + (err.message || err), 'error');
+            return null;
         }
     }
 
@@ -967,6 +976,31 @@
     // Superficie pubblica: costruzione dell'HTML stampabile/esportabile (usata
     // anche per la ri-apertura dall'archivio documenti).
     window.MappAIBranchSynthesis = { buildPrintHtml: _buildSynthesisPrintHtml };
+
+    // Namespace pipeline (011): sintesi «tutta la mappa» headless.
+    //   runWholeMap({apiKey?, tuned?, silent?}) → Promise<data|null> (forma _lastSynthesis)
+    //   buildHtml(data, opts?)   → string (= _buildSynthesisPrintHtml)
+    //   generateAudio(data)      → Promise<{blob, mime, ext, cues}> (Google-only, throw se manca chiave)
+    // Il flusso manuale (modale sintesi) resta invariato: usa gli entry esistenti.
+    window.MappAISynthesis = {
+        runWholeMap: async function (opts) {
+            opts = opts || {};
+            const apiKey = opts.apiKey || (window.getSystemKey ? window.getSystemKey() : '');
+            if (!apiKey) throw new Error(window.t('tst_need_key', "Inserisci un'API Key per continuare"));
+            const _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
+            const _prevSilent = _silent;
+            if (window.MappAITune) window.MappAITune.armed = !!opts.tuned;
+            _silent = !!opts.silent;
+            try {
+                return (await _generateWholeMapSynthesis(apiKey)) || null;
+            } finally {
+                _silent = _prevSilent;
+                if (window.MappAITune) window.MappAITune.armed = _prevArmed;
+            }
+        },
+        buildHtml: function (data, opts) { return _buildSynthesisPrintHtml(data, opts); },
+        generateAudio: function (data) { return _generateSynthesisAudioWithCues(data); }
+    };
 
     console.log('[MappAI] mappai-branch-synthesis.js caricato ✓');
 })();
