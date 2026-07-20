@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
     pipelineOpenFolder: (data) => ipcRenderer.invoke('pipeline-open-folder', data),
+    pipelineOpenFile: (data) => ipcRenderer.invoke('pipeline-open-file', data),
     saveVault: (data) => {
         // Propaga il flag sottocartelle-per-ramo (gated). NON sovrascrive un valore esplicito
         // (l'export JIGSAW forza branchFolders:true a prescindere dal flag utente).
@@ -98,7 +99,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     liveMaterialsAdd: () => ipcRenderer.invoke('live-materials-add'),
     liveMaterialsAddHtml: (data) => ipcRenderer.invoke('live-materials-add-html', data),
     sharedmatList: () => ipcRenderer.invoke('sharedmat-list'),
-    sharedmatAdd: () => ipcRenderer.invoke('sharedmat-add'),
+    sharedmatAdd: (data) => ipcRenderer.invoke('sharedmat-add', data),
     sharedmatRemove: (data) => ipcRenderer.invoke('sharedmat-remove', data),
     sharedmatOpenFolder: () => ipcRenderer.invoke('sharedmat-open-folder'),
     sharedmatOpenFile: (data) => ipcRenderer.invoke('sharedmat-open-file', data),

@@ -193,6 +193,21 @@
     });
   }
 
+  // ── matchesSelectedProject (011/US5) ──────────────────────────────────────
+  // Filtro per la mappa SELEZIONATA in Insegna (click sulla riga progetto).
+  // sel = { id, name } | null. null → tutto passa (nessuna selezione).
+  // Un item resta se: item.projectId === sel.id, OPPURE (mapName|map) === sel.name.
+  // I materiali/condivisi/attività legacy senza projectId né mapRef → esclusi
+  // quando c'è una selezione (compaiono solo in vista non-selezionata).
+  function matchesSelectedProject(item, sel) {
+    if (!sel || (sel.id == null && sel.name == null)) return true;
+    if (!item) return false;
+    if (item.projectId != null && sel.id != null && String(item.projectId) === String(sel.id)) return true;
+    var mapRef = item.mapName != null ? item.mapName : item.map;
+    if (mapRef != null && sel.name != null && String(mapRef) === String(sel.name)) return true;
+    return false;
+  }
+
   var CORE = {
     normGrade: normGrade,
     registryAdd: registryAdd,
@@ -200,6 +215,7 @@
     rankMapsForClass: rankMapsForClass,
     buildSetsIndex: buildSetsIndex,
     filterByClass: filterByClass,
+    matchesSelectedProject: matchesSelectedProject,
     REGISTRY_CAP: REGISTRY_CAP
   };
 

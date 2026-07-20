@@ -109,11 +109,11 @@
 
 **Independent Test**: quickstart Fase 3 — selezione/deselezione, filtri sulle 3 sezioni, kill-switch, apertura materiali da disco.
 
-- [ ] T036 [P] [US5] `public/js/mappai-teach-core.js`: helper puro `matchesSelectedProject(item, sel)` (match per projectId poi mapName, regole per tipo item) — test in `tests/teach-core.test.js`
-- [ ] T037 [US5] `public/js/mappai-landing-teach.js`: click riga in `renderProjects()` = selezione (`MappAITeach._selectedProject`, evidenzia, secondo click deseleziona); apertura SOLO dal bottone «Riprendi»; kill-switch `mappai_teach_row_select='0'` = click-apre storico (constitution II)
-- [ ] T038 [US5] `mappai-landing-teach.js`: con selezione attiva filtrare Materiali (mapName), Attività (r.map), File condivisi (nuovo metadato); sezione Materiali fonde l'archivio localStorage con i file su disco via `vaultMaterialsList` (voci derivate per-vault della classe; apertura file disco via IPC shell esistente)
-- [ ] T039 [US5] Metadato mappa sui file condivisi caricati dalla pipeline: pass-through `mapName` nell'IPC sharedmat di upload + rendering del chip; i file storici senza metadato appaiono solo senza selezione (FR-023)
-- [ ] T040 [US5] Checkpoint US5: quickstart Fase 3 punti 1-5 (selezione, kill-switch, materiali da disco, condivisi, regressioni filtro classe/Costruisci) + i18n nuove stringhe + suite verde
+- [X] T036 [P] [US5] `public/js/mappai-teach-core.js`: helper puro `matchesSelectedProject(item, sel)` (match per projectId poi mapName, regole per tipo item) — test in `tests/teach-core.test.js`
+- [X] T037 [US5] `public/js/mappai-landing-teach.js`: click riga in `renderProjects()` = selezione (`MappAITeach._selectedProject`, evidenzia, secondo click deseleziona); apertura SOLO dal bottone «Riprendi»; kill-switch `mappai_teach_row_select='0'` = click-apre storico (constitution II)
+- [X] T038 [US5] `mappai-landing-teach.js`: con selezione attiva filtrare Materiali (mapName), Attività (r.map), File condivisi (nuovo metadato); sezione Materiali fonde l'archivio localStorage con i file su disco via `vaultMaterialsList` (voci derivate per-vault della classe; apertura file disco via IPC shell esistente)
+- [X] T039 [US5] Metadato mappa sui file condivisi caricati dalla pipeline: pass-through `mapName` nell'IPC sharedmat di upload + rendering del chip; i file storici senza metadato appaiono solo senza selezione (FR-023)
+- [X] T040 [US5] Checkpoint US5: quickstart Fase 3 punti 1-5 (selezione, kill-switch, materiali da disco, condivisi, regressioni filtro classe/Costruisci) + i18n nuove stringhe + suite verde
 
 ---
 

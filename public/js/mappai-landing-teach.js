@@ -124,6 +124,59 @@
     return kept.map(function (i) { return i.id; });
   }
 
+  // ── US5: mappa selezionata (click sulla riga «Progetti esistenti») ─────────
+  // _selectedProject = { id, name } | null. Filtra le 3 sezioni sulla mappa scelta.
+  // Non sopravvive al reload (gesto di consultazione). Kill-switch storico:
+  // mappai_teach_row_select='0' → click sulla riga APRE la mappa (comportamento pre-011).
+  var _selectedProject = null;
+  var _diskCache = {};   // id materiale-disco → { vaultPath, relPath }
+  function rowSelectEnabled() { try { return localStorage.getItem('mappai_teach_row_select') !== '0'; } catch (e) { return true; } }
+  function selectProject(id) {
+    var p = projectsRead().find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (_selectedProject && _selectedProject.id === id) _selectedProject = null;   // 2° click → deseleziona
+    else _selectedProject = { id: p.id, name: p.name };
+    window.MappAITeach._selectedProject = _selectedProject;
+    refresh();
+  }
+  function filterBySelection(items) {
+    if (!_selectedProject) return items;
+    var core = CORE();
+    if (!core || !core.matchesSelectedProject) return items;
+    return (items || []).filter(function (it) { return core.matchesSelectedProject(it, _selectedProject); });
+  }
+  // Materiali su disco (Materiale Studio/) del vault del progetto selezionato.
+  function _diskKind(name) {
+    var n = String(name || '');
+    if (/\.mp3$|\.m4a$|\.wav$/i.test(n)) return { icon: 'volume-2', label: 'Audio' };
+    if (/^Quiz-/i.test(n)) return { icon: 'list-checks', label: 'Quiz' };
+    if (/^Flashcard-/i.test(n)) return { icon: 'copy', label: 'Flashcard' };
+    if (/^Foglio-nodi-/i.test(n)) return { icon: 'scissors', label: 'Foglio nodi' };
+    if (/^Sintesi/i.test(n)) return { icon: 'sparkles', label: 'Sintesi' };
+    return { icon: 'file', label: 'File' };
+  }
+  function _diskMaterialsFor(p) {
+    if (!p || !p.vault || !window.electronAPI || !window.electronAPI.getAllVaults || !window.electronAPI.vaultMaterialsList) return Promise.resolve([]);
+    return window.electronAPI.getAllVaults().then(function (all) {
+      var v = (all || []).find(function (x) { return x.folderName === p.vault; });
+      if (!v) return [];
+      return window.electronAPI.vaultMaterialsList({ vaultPath: v.fullPath }).then(function (res) {
+        if (!res || !res.ok) return [];
+        return (res.files || []).map(function (f) {
+          var id = 'disk:' + f.relPath;
+          _diskCache[id] = { vaultPath: v.fullPath, relPath: f.relPath };
+          return { id: id, _disk: true, title: f.name, mapName: p.name, cls: p.cls, date: f.mtime };
+        });
+      });
+    }).catch(function () { return []; });
+  }
+  function openDiskFile(id) {
+    var d = _diskCache[id];
+    if (!d) return;
+    if (window.electronAPI && window.electronAPI.pipelineOpenFile) window.electronAPI.pipelineOpenFile({ vaultPath: d.vaultPath, relPath: d.relPath });
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+
   // ── Layout condiviso: ogni sezione è una <table table-fixed> con <colgroup>
   // a larghezze fisse → intestazioni e righe condividono le STESSE colonne
   // (vera semantica tabellare: header sopra la loro colonna, nessuno slittamento
@@ -182,7 +235,8 @@
   function fileRow(o) {
     var click = o.onClick ? ' onclick="' + o.onClick + '"' : '';
     var cur = o.onClick ? ' cursor-pointer' : '';
-    return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition' + cur + '"' + click + '>' +
+    var sel = o.selected ? ' bg-indigo-100 ring-1 ring-inset ring-indigo-300' : '';
+    return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition' + cur + sel + '"' + click + '>' +
       td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(o.date) +
       td('<div class="flex justify-end items-center gap-0.5">' + (o.block || '') + '</div>', 'text-right') + '</tr>';
   }
@@ -311,12 +365,18 @@
       push(p.cls);
       if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push);
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (p.tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(p.tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
+      // Click sulla riga = SELEZIONA la mappa (filtra le 3 sezioni). Apertura solo
+      // dal bottone «Riprendi». Kill-switch '0' → click apre (comportamento storico).
+      var onClick = rowSelectEnabled()
+        ? "window.MappAITeach.selectProject('" + p.id + "')"
+        : "window.loadSavedProject('" + p.id + "')";
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
         title: p.name, titleTip: p.name, dot: dot,
         cls: classCell(chips), date: dateCell(p.date),
         block: projBlock(p),
-        onClick: "window.loadSavedProject('" + p.id + "')"
+        onClick: onClick,
+        selected: !!(_selectedProject && _selectedProject.id === p.id)
       });
     }).join(''), true);
   }
@@ -382,6 +442,7 @@
     window.electronAPI.sharedmatList().then(function (r) {
       var items = (r && r.success && r.items) ? r.items : [];
       _smCache = items;
+      items = filterBySelection(items);   // US5: filtra sulla mappa selezionata (metadato mapName)
       if (!items.length) {
         body.innerHTML = addBar + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
           esc(_t('lt_sm_empty', 'Nessun file condiviso. Usa “Condividi da PC” per inviare una scheda o un documento agli allievi via QR.')) + '</p>';
@@ -398,7 +459,7 @@
         return fileRow({
           tipo: tipoCell(smIcon(it.ext), extLbl, it.ext || ''),
           title: it.name, titleTip: it.name,
-          sub: esc(smHuman(it.size)),
+          sub: esc(smHuman(it.size) + (it.mapName ? ' · ' + it.mapName : '')),
           cls: classCell(it.sharedClasses || []), date: dateCell(it.addedAt),
           block: block
         });
@@ -409,7 +470,9 @@
 
   function shareFromPc() {
     if (!window.electronAPI || !window.electronAPI.sharedmatAdd) { toast(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
-    window.electronAPI.sharedmatAdd().then(function (r) {
+    // US5: se una mappa è selezionata, il file condiviso porta il suo nome (metadato).
+    var mapName = _selectedProject ? _selectedProject.name : '';
+    window.electronAPI.sharedmatAdd({ mapName: mapName }).then(function (r) {
       if (!r || !r.success) { if (r && !r.canceled) toast((r && r.error) || 'Errore', 'error'); return; }
       renderSharedMat();
       if (r.added && r.added.length && window.MappAILive && window.MappAILive.shareFile) {
@@ -454,30 +517,53 @@
   function renderMaterials(docs) {
     var body = document.getElementById('teach-materials-body');
     if (!body) return;
-    var list = filterItems(docs.map(function (d) { return Object.assign({}, d, { mapName: d.mapName }); }));
+    // Archivio localStorage (filtro classe + selezione mappa).
+    var archive = filterBySelection(filterItems((docs || []).map(function (d) { return Object.assign({}, d); })));
+    // Con una mappa selezionata: fonde i materiali su DISCO del suo vault (pipeline 011).
+    var p = _selectedProject ? projectsRead().find(function (x) { return x.id === _selectedProject.id; }) : null;
+    if (p && p.vault) {
+      _paintMaterials(body, archive);   // dipingi subito l'archivio
+      _diskMaterialsFor(p).then(function (disk) { _paintMaterials(body, archive.concat(disk)); });
+    } else {
+      _paintMaterials(body, archive);
+    }
+  }
+  function _materialRowHtml(d) {
+    if (d._disk) {
+      var dk = _diskKind(d.title);
+      var block =
+        actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+        actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false);
+      return fileRow({
+        tipo: tipoCell(dk.icon, dk.label, dk.label),
+        title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
+        cls: classCell(d.cls), date: dateCell(d.date), block: block,
+        onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
+      });
+    }
+    var meta = KIND_META[d.kind] || KIND_META.dossier;
+    var typeLbl = _t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label);
+    var isNode = d.kind === 'nodesheet';
+    var block2 =
+      actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDoc('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+      actIcon('qr-code', isNode ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareDoc('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isNode) +
+      actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
+      actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
+    return fileRow({
+      tipo: tipoCell(meta.icon, typeLbl, typeLbl),
+      title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
+      cls: classCell(d.cls), date: dateCell(d.date), block: block2,
+      onClick: "window.MappAITeach.openDoc('" + esc(d.id) + "')"
+    });
+  }
+  function _paintMaterials(body, list) {
     if (!list.length) {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
         esc(_t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.')) + '</p>';
       return;
     }
-    body.innerHTML = fileTable(list.map(function (d) {
-      var meta = KIND_META[d.kind] || KIND_META.dossier;
-      var typeLbl = _t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label);
-      var isNode = d.kind === 'nodesheet';
-      var block =
-        actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDoc('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-        actIcon('qr-code', isNode ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareDoc('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isNode) +
-        actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
-        actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
-      return fileRow({
-        tipo: tipoCell(meta.icon, typeLbl, typeLbl),
-        title: d.title, titleTip: d.title,
-        sub: d.mapName ? esc(d.mapName) : '',
-        cls: classCell(d.cls), date: dateCell(d.date),
-        block: block,
-        onClick: "window.MappAITeach.openDoc('" + esc(d.id) + "')"
-      });
-    }).join(''), true);
+    body.innerHTML = fileTable(list.map(_materialRowHtml).join(''), true);
+    if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
   // Condivide un materiale archiviato via QR (Materiali di MappAI Live). Solo HTML.
@@ -528,6 +614,8 @@
         var acn = normName(activeClassName());
         if (acn) rows = rows.filter(function (r) { return normName(r.className) === acn; });
       }
+      // US5: filtro sulla mappa selezionata (le righe attività hanno il campo .map)
+      rows = filterBySelection(rows);
       if (!rows.length) {
         body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
           esc(_t('lt_no_activities', 'Nessuna attività somministrata. Avvia un quiz, un tutor o una timeline con una classe: qui compariranno le somministrazioni con i loro report.')) + '</p>' + setsHtml;
@@ -866,6 +954,9 @@
     deleteProject: deleteProjectRow,
     openProjectFolder: openProjectFolder,
     shareProjectZip: shareProjectZip,
+    selectProject: selectProject,
+    openDiskFile: openDiskFile,
+    _selectedProject: null,
     openMapsFolder: openMapsFolder,
     openActivityFolder: openActivityFolder,
     _regRead: regRead,

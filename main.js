@@ -863,6 +863,22 @@ ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
     } catch (err) { return { ok: false, error: err.message }; }
 });
 
+// pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe
+// (materiali della pipeline dalla sezione Insegna). Validazione sotto mapsBaseDir.
+ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !relPath) return { ok: false, error: 'parametri mancanti' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido' };
+        const base = path.resolve(mapsBaseDir());
+        const target = path.resolve(path.join(vaultPath, safe));
+        if (target !== base && !target.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!fs.existsSync(target)) return { ok: false, error: 'file-non-trovato' };
+        await shell.openPath(target);
+        return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
+});
+
 // vault-materials-list: elenca i materiali su disco (Materiale Studio/) + manifest.
 ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
     try {
@@ -2079,7 +2095,7 @@ function _smWrite(items) {
     fs.writeFileSync(sharedMatIndexFile(), JSON.stringify({ schema: 'mappai-shared-materials@1', items }, null, 2));
 }
 function _smPublic(it) {
-    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null };
+    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null, mapName: it.mapName || '' };
 }
 
 ipcMain.handle('sharedmat-list', async () => {
@@ -2087,7 +2103,7 @@ ipcMain.handle('sharedmat-list', async () => {
     catch (err) { return { success: false, error: err.message }; }
 });
 
-ipcMain.handle('sharedmat-add', async () => {
+ipcMain.handle('sharedmat-add', async (event, { mapName } = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {
         title: 'Condividi da PC — scegli un file', properties: ['openFile', 'multiSelections']
     });
@@ -2103,7 +2119,7 @@ ipcMain.handle('sharedmat-add', async () => {
             const stored = id + '__' + name.replace(/[^a-zA-Z0-9._-]+/g, '_');
             fs.copyFileSync(src, path.join(sharedMatFilesDir(), stored));
             const st = fs.statSync(path.join(sharedMatFilesDir(), stored));
-            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null };
+            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null, mapName: mapName ? String(mapName) : '' };
             items.unshift(entry); added.push(_smPublic(entry));
         } catch (e) { console.warn('[sharedmat] copia fallita', src, e.message); }
     }
