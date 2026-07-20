@@ -16,9 +16,9 @@
 
 **Purpose**: scheletri moduli + baseline verde
 
-- [ ] T001 Creare scheletro UMD `public/js/mappai-pipeline-core.js` (pattern di `mappai-files-core.js`: factory UMD, export vuoto, console.log di caricamento) e registrarlo in `public/index.html` dopo `mappai-files-core.js`
-- [ ] T002 Creare scheletro `public/js/mappai-material-pipeline.js` (IIFE, namespace `window.MappAIPipeline` vuoto) e registrarlo in `public/index.html` dopo `mappai-landing-teach.js`
-- [ ] T003 Baseline: `npm test` verde (594+) e `node --check` sui due nuovi file — commit di partenza
+- [X] T001 Creare scheletro UMD `public/js/mappai-pipeline-core.js` (pattern di `mappai-files-core.js`: factory UMD, export vuoto, console.log di caricamento) e registrarlo in `public/index.html` dopo `mappai-files-core.js`
+- [X] T002 Creare scheletro `public/js/mappai-material-pipeline.js` (IIFE, namespace `window.MappAIPipeline` vuoto) e registrarlo in `public/index.html` dopo `mappai-landing-teach.js`
+- [X] T003 Baseline: `npm test` verde (594+) e `node --check` sui due nuovi file — commit di partenza
 
 ---
 
