@@ -203,6 +203,59 @@
     };
   }
 
+  // ── Avvia LIVE riusando un set GIÀ generato (dal tab Studio, via QR) ────────
+  // Bypassa angolo/scope/quantità (le domande esistono già): il docente sceglie solo
+  // classe e timer. Il tipo (V/F o Scelta multipla) è preselezionato dal set. Zero AI.
+  function openLiveFromSet(set) {
+    if (!set || !Array.isArray(set.items) || !set.items.length) { toast(t('lv_set_empty', 'Questo set non ha domande.'), 'error'); return; }
+    var mode = /ver|v\/f|\btf\b|true|fals/i.test(String(set.type || set.quizType || '')) ? 'tf' : 'mc';
+    var modeLabel = mode === 'tf' ? t('lv_m_tf', 'Vero / Falso') : t('lv_m_mc', 'Scelta multipla');
+    var classes = (window.MappAIClasses && window.MappAIClasses.list()) || [];
+    var activeId = (window.MappAIClasses && window.MappAIClasses.activeId && window.MappAIClasses.activeId()) || '';
+    var classOpts = classes.map(function (c) { return '<option value="' + c.id + '"' + (c.id === activeId ? ' selected' : '') + '>' + esc(c.name) + (c.year ? ' (' + esc(c.year) + ')' : '') + ' · ' + (c.students || []).length + '</option>'; }).join('');
+    var classField = classes.length
+      ? '<select id="lvs-class" class="lv-in">' + classOpts + '</select>'
+      : '<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">' +
+        t('lv_no_class', 'Nessuna classe. Creala in Profilo → Account classi.') +
+        ' <button type="button" id="lvs-goclass" style="background:none;border:0;color:#4f46e5;font-weight:700;cursor:pointer;text-decoration:underline">' + t('lv_open_class', 'Apri Account classi') + '</button></div>';
+    var body = '<style>.lv-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff}' +
+      '.lv-lab{display:block;font-size:11px;font-weight:700;color:#475569;margin:12px 0 4px}</style>' +
+      '<div style="font-size:12px;color:#475569;background:#f1f5f9;border-radius:10px;padding:10px 12px">' +
+        t('lv_from_set_hint', 'Avvia una sessione live con le domande GIÀ pronte di questo set — nessuna nuova generazione AI.') + '</div>' +
+      '<span class="lv-lab">' + t('lv_class', 'Classe') + '</span>' + classField +
+      '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qtype', 'Tipo') + '</span>' +
+        '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font-weight:700;color:#4f46e5;background:#eef2ff">' + esc(modeLabel) + ' · ' + set.items.length + ' ' + t('lv_questions', 'domande') + '</div></div>' +
+      '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lvs-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
+      '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
+        '<input type="checkbox" id="lvs-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
+        '<span>' + t('lv_reveal', 'A fine sessione mostra allo studente le soluzioni (giuste/sbagliate + spiegazione), salvabili sul suo dispositivo.') + '</span></label>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
+      '<button type="button" id="lvs-back" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
+      '<button type="button" id="lvs-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
+    var ov = modal('radio', t('lv_from_set_title', 'Avvia quiz live'), body, '560px');
+    var gc = ov.querySelector('#lvs-goclass');
+    if (gc) gc.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
+    ov.querySelector('#lvs-back').onclick = closeModal;
+    ov.querySelector('#lvs-go').onclick = function () {
+      var cls = classes.length ? classes.find(function (c) { return c.id === ov.querySelector('#lvs-class').value; }) : null;
+      if (!cls) { toast(t('lv_pick_class', 'Scegli o crea una classe.'), 'error'); return; }
+      var timer = Math.max(0, parseInt(ov.querySelector('#lvs-timer').value, 10) || 0);
+      var rev = ov.querySelector('#lvs-reveal');
+      var node0 = { id: '', label: set.title || rootLabel() };
+      var qs = [];
+      set.items.forEach(function (it) {
+        var node = it.nodeId ? { id: it.nodeId, label: it.nodeLabel || set.title } : node0;
+        var lq = dynItemToLive(it, node, mode);
+        if (lq) qs.push(lq);
+      });
+      qs = attachL1(qs);
+      if (!qs.length) { toast(t('lv_set_unmappable', 'Le domande di questo set non sono compatibili con la modalità live.'), 'error'); return; }
+      LT._scope = '';                       // set = intera mappa
+      LT._revealAnswers = !rev || rev.checked;
+      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer);
+    };
+  }
+
   // Nodi in scope con contenuto sufficiente
   function scopedNodes(scope) {
     var nodes = S().db.nodes || [];
@@ -734,6 +787,14 @@
   // attivo live e del pannello Materiali dai quick-start QR.
   window.MappAILive.openSetup = function () { return openLiveSetup(); };
   window.MappAILive.openMaterials = function () { return openMaterialsPanel(); };
+  // QR dal tab Studio: avvia la Live riusando gli item di un set già generato
+  // (bypassa angolo/scope/quantità; tipo V/F o MC preselezionato dal set).
+  window.MappAILive.launchFromSetPrompt = function (setId) {
+    var sets = (S() && S().db && S().db.studySets) || [];
+    var set = setId ? sets.find(function (s) { return s.id === setId; }) : sets[sets.length - 1];
+    if (!set) { toast(t('lv_set_missing', 'Set non trovato.'), 'error'); return; }
+    openLiveFromSet(set);
+  };
   // Timeline Live (008): avvia una sessione con domande già pronte (dal pool
   // timeline) + opzioni extra (mode/loginMode/hintMode/build). Riusa launch →
   // dashboard standard per Completa; onLaunched custom per Costruisci.
