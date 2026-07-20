@@ -201,6 +201,46 @@ test('estimateCalls: senza keyword C=0; senza audio D senza blocchi', () => {
   assert.strictEqual(e.perStep.D, 4);      // 3+1, no audio
 });
 
+// ── preset (US3) ────────────────────────────────────────────────────────
+test('presetFromConfig: strippa classId/className/sede, tiene solo output', () => {
+  const o = PC.presetFromConfig({ classId: 'cls_x', className: '2ª A', sede: 'Bellinzona', tuned: true, levelTuned: false, quiz: { types: ['mc', 'tf'], perBranch: 4, angle: 'causa' }, synthesis: { audio: true } });
+  assert.strictEqual(o.classId, undefined);
+  assert.strictEqual(o.className, undefined);
+  assert.strictEqual(o.sede, undefined);
+  assert.deepStrictEqual(o.quiz.types, ['mc', 'tf']);
+  assert.strictEqual(o.quiz.perBranch, 4);
+  assert.strictEqual(o.tuned, true);
+  assert.strictEqual(o.synthesis.audio, true);
+  assert.strictEqual(o.nodesheet, undefined);   // non richiesto → assente
+});
+
+test('presetNormalize: schema v1, opzioni ignote → default, no classe', () => {
+  const p = PC.presetNormalize({ name: 'X'.repeat(80), options: { classId: 'leak', quiz: { types: ['mc', 'bogus'], perBranch: 99, angle: 'causa' }, nodesheet: { fmt: 'weird', modes: ['title', 'nope'], maxLevel: 3 } } });
+  assert.strictEqual(p.v, 1);
+  assert.strictEqual(p.name.length, 60);                 // cap nome
+  assert.ok(p.id.indexOf('pr_') === 0);
+  assert.deepStrictEqual(p.options.quiz.types, ['mc']);  // 'bogus' scartato
+  assert.strictEqual(p.options.quiz.perBranch, 10);      // clamp 1..10
+  assert.strictEqual(p.options.nodesheet.fmt, '2x2');    // 'weird' → default
+  assert.deepStrictEqual(p.options.nodesheet.modes, ['title']); // 'nope' scartato
+  assert.strictEqual(p.options.nodesheet.maxLevel, 3);
+  assert.strictEqual(p.options.classId, undefined);      // classe mai nei preset
+});
+
+test('presetNormalize: quiz senza tipi validi → default mc; modes vuoti → title', () => {
+  const p = PC.presetNormalize({ name: 'Y', options: { quiz: { types: ['zzz'] }, nodesheet: { modes: [] } } });
+  assert.deepStrictEqual(p.options.quiz.types, ['mc']);
+  assert.deepStrictEqual(p.options.nodesheet.modes, ['title']);
+});
+
+test('presetListPush: cap FIFO 50 scarta i più vecchi', () => {
+  let list = [];
+  for (let i = 0; i < 55; i++) list = PC.presetListPush(list, { name: 'p' + i, createdAt: NOW, options: {} }, 50);
+  assert.strictEqual(list.length, 50);
+  assert.strictEqual(list[0].name, 'p5');    // i primi 5 scartati
+  assert.strictEqual(list[49].name, 'p54');
+});
+
 // ── buildFileName ───────────────────────────────────────────────────────
 test('buildFileName: nomi canonici + marcatore VERDE', () => {
   assert.strictEqual(PC.buildFileName('quiz_mc', 'Fotosintesi', false), 'Quiz-MC-Fotosintesi.pdf');

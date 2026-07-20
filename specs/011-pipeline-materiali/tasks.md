@@ -85,9 +85,9 @@
 
 **Independent Test**: quickstart Fase 2 punto 7 — preset applicato su un'altra classe riproduce le opzioni.
 
-- [ ] T030 [P] [US3] `mappai-pipeline-core.js`: `presetNormalize(record)` (schema v1, opzioni ignote→default, cap 50 FIFO) + `presetFromConfig(config)` (STRIPPA classId/className/sede) — puri, test in `tests/pipeline-core.test.js`
-- [ ] T031 [US3] UI preset nel modale (`mappai-material-pipeline.js`): «Salva preset» (nome), tendina/menu gestione (applica, rinomina, elimina) su localStorage `mappai_material_presets`; avviso non bloccante su opzioni degradate; i18n relative
-- [ ] T032 [US3] Checkpoint US3: quickstart Fase 2 punto 7 + suite verde
+- [X] T030 [P] [US3] `mappai-pipeline-core.js`: `presetNormalize(record)` (schema v1, opzioni ignote→default, cap 50 FIFO) + `presetFromConfig(config)` (STRIPPA classId/className/sede) — puri, test in `tests/pipeline-core.test.js`
+- [X] T031 [US3] UI preset nel modale (`mappai-material-pipeline.js`): «Salva preset» (nome), tendina/menu gestione (applica, rinomina, elimina) su localStorage `mappai_material_presets`; avviso non bloccante su opzioni degradate; i18n relative
+- [X] T032 [US3] Checkpoint US3: quickstart Fase 2 punto 7 + suite verde
 
 ---
 

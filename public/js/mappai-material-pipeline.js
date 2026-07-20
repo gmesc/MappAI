@@ -362,6 +362,58 @@
     return html;
   }
 
+  // ── Preset (US3) — localStorage 'mappai_material_presets', mai la classe ──
+  function _presetKey() { return 'mappai_material_presets'; }
+  function _loadPresets() {
+    try { const a = JSON.parse(localStorage.getItem(_presetKey()) || '[]'); return Array.isArray(a) ? a.map(p => PC().presetNormalize(p)) : []; }
+    catch (e) { return []; }
+  }
+  function _savePresets(list) { try { localStorage.setItem(_presetKey(), JSON.stringify(list)); } catch (e) {} }
+  function _presetOptions() {
+    const list = _loadPresets();
+    if (!list.length) return '<option value="">' + _esc(_t('mp_no_presets', 'Nessun preset salvato')) + '</option>';
+    return list.map(p => '<option value="' + _esc(p.id) + '">' + _esc(p.name) + '</option>').join('');
+  }
+  function _refreshPresetSelect() { const s = document.getElementById('mp-preset'); if (s) s.innerHTML = _presetOptions(); }
+
+  Pipeline._applyPreset = function () {
+    const s = document.getElementById('mp-preset');
+    if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
+    const p = _loadPresets().filter(x => x.id === s.value)[0]; if (!p) return;
+    const o = p.options || {};
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
+    const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
+    set('mp-quiz-on', !!o.quiz);
+    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle); }
+    set('mp-ns-on', !!o.nodesheet);
+    if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); set('mp-ns-causal', o.nodesheet.causal); }
+    set('mp-syn-on', !!o.synthesis);
+    if (o.synthesis) set('mp-syn-audio', o.synthesis.audio);
+    set('mp-tuned', o.tuned); set('mp-leveltuned', o.levelTuned);
+    _syncSections(); Pipeline._reestimate();
+    _toast(_t('mp_applied', 'Preset applicato: ') + p.name, 'success');
+  };
+
+  Pipeline._savePreset = function () {
+    const cfg = _readConfig(); if (!cfg) return;
+    if (!cfg.quiz && !cfg.nodesheet && !cfg.synthesis) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
+    let name = window.prompt ? window.prompt(_t('mp_preset_name', 'Nome del preset:'), '') : '';
+    if (name == null) return;
+    name = String(name).trim();
+    if (!name) { _toast(_t('mp_preset_noname', 'Serve un nome per il preset'), 'warning'); return; }
+    let list = _loadPresets();
+    list = PC().presetListPush(list, { name, createdAt: _now(), options: PC().presetFromConfig(cfg) }, 50);
+    _savePresets(list); _refreshPresetSelect();
+    _toast(_t('mp_preset_saved', 'Preset salvato'), 'success');
+  };
+
+  Pipeline._deletePreset = function () {
+    const s = document.getElementById('mp-preset'); if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
+    const list = _loadPresets().filter(x => x.id !== s.value);
+    _savePresets(list); _refreshPresetSelect();
+    _toast(_t('mp_preset_deleted', 'Preset eliminato'), 'info');
+  };
+
   Pipeline.openModal = function () {
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
     if (!_state().sources || !_state().sources.length) {
@@ -383,6 +435,14 @@
         // Classe
         '<div class="pm-section" style="margin-top:16px"><span class="pm-section-title">' + _esc(_t('mp_class', 'Classe destinataria')) + '</span>' +
           '<select id="mp-class" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-[12px] font-bold text-slate-700">' + _classOptions() + '</select></div>' +
+        // Preset (US3): configurazioni riusabili, senza classe
+        '<div class="pm-section" style="margin-top:12px"><span class="pm-section-title">' + _esc(_t('mp_presets', 'Preset')) + '</span>' +
+          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+            '<select id="mp-preset" style="flex:1;min-width:150px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">' + _presetOptions() + '</select>' +
+            '<button type="button" id="mp-preset-apply" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_apply', 'Applica')) + '</button>' +
+            '<button type="button" id="mp-preset-save" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_save', 'Salva')) + '</button>' +
+            '<button type="button" id="mp-preset-del" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_delete', 'Elimina')) + '</button>' +
+          '</div></div>' +
         // Quiz
         '<div class="pm-section" style="margin-top:14px">' +
           '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-quiz-on" checked style="width:16px;height:16px;accent-color:#4f46e5"><span class="pm-section-title" style="margin:0">' + _esc(_t('mp_quiz', 'Quiz e flashcard')) + '</span></label>' +
@@ -421,6 +481,9 @@
     modal.querySelector('#mp-close').onclick = () => modal.remove();
     modal.querySelector('#mp-cancel').onclick = () => modal.remove();
     modal.querySelector('#mp-start').onclick = () => Pipeline._startFromModal();
+    modal.querySelector('#mp-preset-apply').onclick = () => Pipeline._applyPreset();
+    modal.querySelector('#mp-preset-save').onclick = () => Pipeline._savePreset();
+    modal.querySelector('#mp-preset-del').onclick = () => Pipeline._deletePreset();
     modal.addEventListener('change', () => { _syncSections(); Pipeline._reestimate(); });
     modal.addEventListener('input', () => Pipeline._reestimate());
     const esc = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); } };
