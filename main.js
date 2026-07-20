@@ -1078,34 +1078,6 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
         if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
 
-        // 3a-bis. Memory Dungeon: cartella piani custom creata di default, con LEGGIMI
-        // per studenti/docenti (contratto: docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md).
-        // Vuota = nessun effetto: i piani senza file restano procedurali.
-        const dungeonPianiDir = path.join(folderPath, 'Memory Dungeon', 'piani');
-        if (!fs.existsSync(dungeonPianiDir)) fs.mkdirSync(dungeonPianiDir, { recursive: true });
-        const dungeonReadme = path.join(folderPath, 'Memory Dungeon', 'LEGGIMI.md');
-        if (!fs.existsSync(dungeonReadme)) {
-            fs.writeFileSync(dungeonReadme, [
-                '# Memory Dungeon — piani personalizzati',
-                '',
-                'In questa cartella vivono i piani del dungeon disegnati da te, dal tuo docente o dai compagni.',
-                '',
-                '## Hai ricevuto un file di piano? Due strade:',
-                '1. **Consigliata**: in MappAI, menu azioni (in basso a sinistra) → «Importa piano Dungeon».',
-                '   Il file viene controllato (niente piani ingiocabili) e copiato qui al posto giusto.',
-                '2. Manuale: trascina il file `.json` dentro la cartella `piani/`. Il nome del file non',
-                '   conta: il piano si riconosce dal campo `"id": "piano-N"` scritto dentro il file.',
-                '',
-                '## Come funziona',
-                '- Ogni file descrive UN piano del dungeon. Al prossimo avvio del Memory Dungeon quel',
-                '  piano sostituisce quello generato automaticamente.',
-                '- I piani senza file restano generati automaticamente: cartella vuota = tutto come prima.',
-                '- `ruleset.json` (facoltativo, accanto a `piani/`) è per docenti/OPI: regola le soglie di',
-                '  validazione (quante memorie, distanze minime, numero massimo di nemici).',
-                ''
-            ].join('\n'), 'utf-8');
-        }
-
         // 3b. Ponti JIGSAW isolati (contributi inter-area dello studente)
         const _pontiBridgesPath = path.join(nodesDir, '_ponti', '_bridges.json');
         if (_bridgesData.length > 0 || fs.existsSync(_pontiBridgesPath)) {
