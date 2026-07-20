@@ -49,7 +49,12 @@
         maxContainment: 0.60, // se ≥ questa quota del figlio è già nel coperto → parafrasi
         minNewChildWords: 3,  // parole-contenuto NUOVE min perché un figlio sia legittimo
         // dedup fra frasi residue selezionate
-        sentenceDupContainment: 0.80
+        sentenceDupContainment: 0.80,
+        // P1-bis — un assorbitore (nodo non approfondibile) uccide una frase che
+        // ha ancora novità SOLO se la reclama con pertinenza forte (è davvero il
+        // suo tema); sotto questa soglia la vittoria è "di superficie" e la
+        // frase ripiega sulla migliore foglia approfondibile.
+        absorberClaimMin: 0.5
     };
 
     const STEM_LEN = (DescFidelity && DescFidelity.STEM_LEN) || 6;
@@ -122,6 +127,15 @@
             .filter(Boolean);
     }
 
+    // Similarità di Jaccard sui token-contenuto di due testi (0..1).
+    function jaccardSim(textA, textB) {
+        const a = new Set(contentWords(textA)), b = new Set(contentWords(textB));
+        if (!a.size || !b.size) return 0;
+        let inter = 0;
+        for (const w of a) if (b.has(w)) inter++;
+        return inter / (a.size + b.size - inter);
+    }
+
     // ── P1 — RESIDUO ─────────────────────────────────────────────────────────
     // Frasi della fonte che parlano del tema del padre MA aggiungono lessico
     // non ancora nella sua desc. Ordinate per quantità di novità, deduplicate
@@ -162,6 +176,124 @@
     // Materiale-residuo pronto per il prompt (stringa), '' se non c'è residuo.
     function buildResidueMaterial(parentText, corpus, opts) {
         return residueSentences(parentText, corpus, opts).join(' ');
+    }
+
+    // ── P1-bis — ASSEGNAZIONE GLOBALE frase→foglia ──────────────────────────
+    // Difetto osservato (mappa "Storia della Carta" 2A): ogni foglia pescava il
+    // residuo in modo indipendente → la stessa frase della fonte (es. i magli
+    // idraulici di Fabriano) veniva depositata come figlio in 4 rami diversi,
+    // anche sotto padri fuori tema ("Produzione Papiro") dove la pertinenza
+    // lessicale di superficie bastava a passare il gate.
+    // Qui ogni frase del corpus è assegnata AL SOLO competitor con pertinenza
+    // massima (argmax): niente doppi depositi, e la frase finisce dove è
+    // davvero a tema. competitors: [{ id, parentText, eligible }] — DEVE
+    // includere anche i nodi NON approfondibili (eligible:false = assorbitori).
+    // Se l'argmax è un assorbitore, la frase viene UCCISA solo in due casi:
+    //  - è già coperta lì (novità < minNewWords → davvero ridondante), oppure
+    //  - l'assorbitore la reclama con pertinenza forte (≥ absorberClaimMin: la
+    //    frase è chiaramente il SUO tema, depositarla altrove la collocherebbe
+    //    male — es. i magli di Fabriano sotto "Produzione Papiro").
+    // Altrimenti la vittoria è "di superficie" (tipico: il padre a desc ricca
+    // out-copre la propria foglia specifica) e la frase ripiega sulla migliore
+    // foglia approfondibile — senza questo ripiego il deepening perderebbe
+    // recall proprio dove le desc dei padri sono più curate (finding review
+    // 21/7/26). A parità di pertinenza un eligible batte sempre un assorbitore.
+    // → Map<id, material:string> (solo competitor eligible con residuo).
+    function assignResidues(competitors, corpus, opts) {
+        const o = Object.assign({}, DEFAULTS, opts);
+        const prepared = (competitors || []).map(c => ({
+            id: c.id,
+            eligible: c.eligible !== false,
+            idx: buildCoverageIndex(c.parentText),
+            hasWords: contentWords(c.parentText).length > 0
+        })).filter(c => c.hasWords);
+        const out = new Map();
+        if (!prepared.length) return out;
+
+        const perLeaf = new Map();  // id → [{text, novelty, words}] (solo eligible)
+        prepared.forEach(c => { if (c.eligible) perLeaf.set(c.id, []); });
+
+        // ordine: pertinenza, poi eligible batte assorbitore, poi novità
+        const beats = (a, b) => !b || a.relevance > b.relevance ||
+            (a.relevance === b.relevance && (
+                (a.comp.eligible ? 1 : 0) > (b.comp.eligible ? 1 : 0) ||
+                ((a.comp.eligible ? 1 : 0) === (b.comp.eligible ? 1 : 0) && a.newSet.size > b.newSet.size)));
+
+        for (let raw of splitSentences(corpus)) {
+            if (raw.length > o.maxSentenceChars) raw = raw.slice(0, o.maxSentenceChars);
+            const ws = contentWords(raw);
+            if (ws.length < o.minSentenceWords) continue;
+            let best = null, bestEligible = null;
+            for (const comp of prepared) {
+                let onTopic = 0;
+                const newSet = new Set();
+                for (const w of ws) {
+                    if (_isCovered(w, comp.idx)) onTopic++;
+                    else newSet.add(w);
+                }
+                const relevance = onTopic / ws.length;
+                if (relevance < o.relMin) continue;
+                // per DEPOSITARE serve novità; un assorbitore compete comunque
+                if (comp.eligible && newSet.size < o.minNewWords) continue;
+                const cand = { comp, relevance, newSet };
+                if (beats(cand, best)) best = cand;
+                if (comp.eligible && beats(cand, bestEligible)) bestEligible = cand;
+            }
+            let winner = null;
+            if (best) {
+                if (best.comp.eligible) {
+                    winner = best;
+                } else if (best.newSet.size < o.minNewWords || best.relevance >= o.absorberClaimMin) {
+                    winner = null;           // assorbita davvero: coperta o chiaramente sua
+                } else {
+                    winner = bestEligible;   // vittoria di superficie → ripiega (può essere null)
+                }
+            }
+            if (winner) {
+                perLeaf.get(winner.comp.id).push({ text: raw, novelty: winner.newSet.size, words: winner.newSet });
+            }
+        }
+
+        // per foglia: dedup fra frasi assegnate + ordinamento per novità + cap
+        for (const [id, picked] of perLeaf) {
+            const kept = [];
+            picked.sort((a, b) => b.novelty - a.novelty);
+            for (const p of picked) {
+                const dup = kept.some(k => {
+                    const inter = [...p.words].filter(w => k.words.has(w)).length;
+                    return inter / p.words.size >= o.sentenceDupContainment;
+                });
+                if (!dup) kept.push(p);
+            }
+            const material = kept.slice(0, o.maxSentences).map(k => k.text).join(' ');
+            if (material) out.set(id, material);
+        }
+        return out;
+    }
+
+    // ── P3 — GATE ANTI-DUPLICATO GLOBALE ────────────────────────────────────
+    // Un candidato è quasi-duplicato di un nodo ESISTENTE (qualsiasi ramo) se
+    // Jaccard alto sui token-contenuto O se il suo lessico è quasi tutto già
+    // contenuto in quel nodo. Cattura i gemelli cross-ramo ("Fili metallici
+    // Fabriano" ↔ "Fili Metallici nei Setacci") che il verdetto padre+fratelli
+    // non può vedere. `others` = array di stringhe (label+desc dei nodi).
+    // → indice del primo duplicato in others, o -1.
+    function isNearDuplicate(text, others, opts) {
+        const o = Object.assign({ dupJaccard: 0.55, dupContainment: 0.75 }, opts);
+        const aList = contentWords(text);   // tokenizza il candidato UNA volta
+        if (!aList.length) return -1;
+        const aSet = new Set(aList);
+        for (let i = 0; i < (others || []).length; i++) {
+            const other = others[i];
+            if (!other) continue;
+            const idx = buildCoverageIndex(other);
+            let inter = 0, covered = 0;
+            for (const w of aSet) if (idx.words.has(w)) inter++;
+            for (const w of aList) if (_isCovered(w, idx)) covered++;
+            if (inter / (aSet.size + idx.words.size - inter) >= o.dupJaccard) return i;
+            if (covered / aList.length >= o.dupContainment) return i;
+        }
+        return -1;
     }
 
     // ── P2 — VERDETTO ANTI-PARAFRASI ─────────────────────────────────────────
@@ -208,10 +340,13 @@
         contentWords,
         buildCoverageIndex,
         lexicalOverlap,
+        jaccardSim,
         splitSentences,
         residueSentences,
         buildResidueMaterial,
+        assignResidues,
         paraphraseVerdict,
-        filterProposedChildren
+        filterProposedChildren,
+        isNearDuplicate
     };
 }));

@@ -96,6 +96,94 @@ test('residueMode: nessun residuo dalla fonte → zero chiamate, zero nodi', asy
     window.fetchModelAPI = orig;
 });
 
+// ── P1-bis: la frase fuori tema NON finisce nel ramo sbagliato ───────────────
+// Regressione del bug reale 2A: "Produzione Papiro" riceveva figli sui magli
+// idraulici di Fabriano perché condividono lessico di superficie.
+test('assegnazione globale: la frase magli va solo al ramo Fabriano, non al papiro', async () => {
+    appState.extractionMode = 'mindmap';
+    appState.db = {
+        nodes: [
+            { id: 'ROOT', label: 'Storia della carta', level: 0, desc: 'Storia.' },
+            { id: 'L1_0', label: 'Precursori', level: 1, group: 1, desc: 'I materiali usati prima della carta.' },
+            { id: 'L1_0_L3_B1', label: 'Produzione Papiro', level: 3, group: 1,
+              desc: 'Gli artigiani tagliavano il fusto della pianta in strisce sottili, le incrociavano e le schiacciavano con un martello di legno prima di incollarle in rotoli.' },
+            { id: 'L1_3', label: 'Innovazioni Europee', level: 1, group: 4, desc: 'Le innovazioni di Fabriano nella produzione.' },
+            { id: 'L1_3_L3_A1', label: 'Pila a Magli Idraulici', level: 3, group: 4,
+              desc: 'Gli artigiani di Fabriano utilizzarono l\'energia dei fiumi per azionare grandi martelli di legno, chiamati magli, che sminuzzavano i tessuti rapidamente.' }
+        ],
+        links: [
+            { source: 'ROOT', target: 'L1_0', rel: 'include' },
+            { source: 'L1_0', target: 'L1_0_L3_B1', rel: 'include' },
+            { source: 'ROOT', target: 'L1_3', rel: 'include' },
+            { source: 'L1_3', target: 'L1_3_L3_A1', rel: 'include' }
+        ],
+        sourcesDict: {}
+    };
+    const corpus = [
+        'Gli artigiani di Fabriano usarono l\'energia dei fiumi per azionare grandi martelli di legno chiamati magli che sminuzzavano gli stracci in una pasta finissima.',
+        'Il fusto del papiro veniva raccolto lungo il Nilo in estate e i rotoli misuravano fino a venti metri.'
+    ];
+    const prompts = [];
+    const orig = window.fetchModelAPI;
+    AI_RESPONSE = { expansions: [] };
+    window.fetchModelAPI = async (payload) => {
+        prompts.push(payload.contents[0].parts[0].text);
+        return orig(payload);
+    };
+    await window.executeDeepeningPass(corpus, 'test-key', 5);
+    window.fetchModelAPI = orig;
+
+    const papiroPrompt = prompts.find(p => p.includes('L1_0_L3_B1'));
+    const magliPrompt = prompts.find(p => p.includes('L1_3_L3_A1'));
+    assert.ok(magliPrompt, 'il ramo Fabriano riceve la chiamata');
+    assert.match(magliPrompt, /sminuzzavano gli stracci/, 'la frase magli sta nel materiale del ramo giusto');
+    // incondizionato (finding review): se il papiro perde il SUO residuo la
+    // regressione deve emergere, non passare in silenzio
+    assert.ok(papiroPrompt, 'il ramo papiro riceve la chiamata col proprio residuo');
+    assert.ok(!papiroPrompt.includes('magli'), 'il papiro NON riceve la frase magli');
+    assert.match(papiroPrompt, /Nilo/, 'il papiro riceve solo il suo residuo');
+});
+
+// ── P3: gate anti-duplicato globale all'inserimento ─────────────────────────
+test('gate globale: un figlio che rifà un nodo di un ALTRO ramo viene scartato', async () => {
+    appState.extractionMode = 'mindmap';
+    appState.db = {
+        nodes: [
+            { id: 'ROOT', label: 'Storia della carta', level: 0, desc: 'Storia.' },
+            { id: 'L1_3', label: 'Innovazioni', level: 1, group: 4, desc: 'Le innovazioni italiane della carta.' },
+            { id: 'L1_3_L3_A3', label: 'Filigrana', level: 3, group: 4,
+              desc: 'I cartai di Fabriano inserivano fili metallici nei setacci per lasciare un disegno visibile controluce sul foglio.' },
+            { id: 'L1_2', label: 'Diffusione', level: 1, group: 3, desc: 'La diffusione geografica della carta nel mondo.' },
+            { id: 'L1_2_L3_X', label: 'Colla Animale', level: 3, group: 3,
+              desc: 'Gli Italiani impiegarono una gelatina ricavata dagli scarti delle pelli animali che rese la carta impermeabile all\'inchiostro e resistente ai parassiti.' }
+        ],
+        links: [
+            { source: 'ROOT', target: 'L1_3', rel: 'include' },
+            { source: 'L1_3', target: 'L1_3_L3_A3', rel: 'include' },
+            { source: 'ROOT', target: 'L1_2', rel: 'include' },
+            { source: 'L1_2', target: 'L1_2_L3_X', rel: 'include' }
+        ],
+        sourcesDict: {}
+    };
+    // corpus: residuo solo per la Filigrana; la seconda frase è riempitivo
+    // fuori tema (nessun competitor la reclama) per superare la soglia dei
+    // 200 char sotto cui il pass salta per "fonte troppo corta".
+    const corpus = [
+        'La filigrana di Fabriano fu introdotta nel Duecento e serviva a certificare il formato e il produttore del foglio, come un marchio brevettato.',
+        'Il commercio delle spezie arricchì Venezia durante il Trecento e il Quattrocento grazie alle rotte del Mediterraneo orientale.'
+    ];
+    // l'AI propone 2 figli: uno legittimo, uno che RIFÀ il nodo Colla Animale di un altro ramo
+    AI_RESPONSE = { expansions: [{ parent: 'L1_3_L3_A3', children: [
+        { label: 'Origine Duecento', desc: 'La filigrana comparve a Fabriano nel Duecento per certificare il formato e il produttore del foglio, come un marchio.' },
+        { label: 'Gelatina di pelli', desc: 'Una gelatina ricavata dagli scarti delle pelli animali rendeva la carta impermeabile all\'inchiostro e resistente ai parassiti.' }
+    ] }] };
+    await window.executeDeepeningPass(corpus, 'test-key', 5);
+
+    const added = appState.db.nodes.filter(n => /_D\d+$/.test(n.id));
+    assert.strictEqual(added.length, 1, `atteso solo il figlio legittimo, avuti: ${added.map(n => n.label)}`);
+    assert.strictEqual(added[0].label, 'Origine Duecento');
+});
+
 test('flag mappai_deepen_residue=false → torna al comportamento legacy (materiale=desc)', async () => {
     seedMap();
     global.localStorage.getItem = (k) => k === 'mappai_deepen_residue' ? 'false' : null;

@@ -107,6 +107,83 @@ test('filterProposedChildren: figli genuinamente distinti passano tutti', () => 
     assert.strictEqual(accepted.length, 3);
 });
 
+// ── assignResidues (P1-bis: argmax globale) ─────────────────────────────────
+// Regressione del bug reale (mappa "Storia della Carta" 2A): la frase sui magli
+// di Fabriano condivide "martello di legno"+"artigiani" con "Produzione Papiro"
+// → col retrieval per-foglia indipendente finiva depositata ANCHE lì.
+const PAPIRO = { id: 'PAP', parentText: 'Produzione Papiro. Gli artigiani tagliavano il fusto della pianta in strisce sottili, le incrociavano e le schiacciavano con un martello di legno prima di incollarle in rotoli.' };
+const MAGLI = { id: 'MAG', parentText: 'Pila a Magli Idraulici. Gli artigiani di Fabriano utilizzarono l\'energia dei fiumi per azionare grandi martelli di legno, chiamati magli, che sminuzzavano i tessuti rapidamente.' };
+const FRASE_MAGLI = 'Gli artigiani di Fabriano usarono l\'energia dei fiumi per azionare grandi martelli di legno chiamati magli che sminuzzavano gli stracci in una pasta finissima.';
+const FRASE_PAPIRO = 'Il fusto del papiro veniva raccolto lungo il Nilo in estate e i rotoli misuravano fino a venti metri.';
+
+test('assignResidues: la frase va SOLO alla foglia a pertinenza massima (argmax)', () => {
+    // sanity del bug: senza argmax la frase magli passerebbe il gate anche sul papiro
+    const soloPapiro = DC.residueSentences(PAPIRO.parentText, FRASE_MAGLI);
+    assert.strictEqual(soloPapiro.length, 1, 'per-foglia indipendente: il papiro la accetterebbe (il bug)');
+    // con la gara globale vince il nodo magli
+    const out = DC.assignResidues([PAPIRO, MAGLI], [FRASE_MAGLI, FRASE_PAPIRO].join('\n'));
+    assert.ok(!out.has('PAP') || !out.get('PAP').includes('magli'), 'il papiro NON riceve la frase magli');
+    assert.match(out.get('MAG') || '', /magli/, 'la foglia magli la riceve');
+    assert.match(out.get('PAP') || '', /Nilo/, 'il papiro riceve il SUO residuo');
+});
+
+test('assignResidues: assorbitore (eligible:false) vince → frase scartata, non dirottata', () => {
+    const out = DC.assignResidues(
+        [PAPIRO, { ...MAGLI, eligible: false }],
+        FRASE_MAGLI);
+    assert.strictEqual(out.has('MAG'), false, 'gli assorbitori non producono materiale');
+    assert.strictEqual(out.has('PAP'), false, 'la frase non ricade sul secondo classificato fuori tema');
+});
+
+test('assignResidues: assorbitore che contiene già la frase la assorbe (pertinenza 1.0, zero novità)', () => {
+    const covered = { id: 'COV', parentText: FRASE_MAGLI, eligible: false };
+    const out = DC.assignResidues([PAPIRO, covered], FRASE_MAGLI);
+    assert.strictEqual(out.size, 0, 'frase già coperta da un nodo della mappa → sparisce');
+});
+
+// Finding review 21/7/26 (major): il padre a desc RICCA vinceva sulla propria
+// foglia corta per copertura di superficie e la frase — con informazione nuova
+// per tutta la mappa — moriva. Ora: vittoria assorbitore "di superficie"
+// (pertinenza < absorberClaimMin, novità alta) → ripiego sull'eligible migliore.
+test('assignResidues: assorbitore vince di superficie (<0.5) → ripiega sulla foglia eligible', () => {
+    const PADRE_RICCO = { id: 'PADRE', eligible: false, parentText: 'Innovazioni di Fabriano. Le innovazioni di Fabriano comprendono la pila a magli idraulici che sminuzzava gli stracci con energia dei fiumi, la colla animale ricavata dalle pelli che rendeva la carta impermeabile, e la filigrana coi fili metallici come marchio di fabbrica contro i falsi.' };
+    const FOGLIA_CORTA = { id: 'FOGLIA', eligible: true, parentText: 'Pila a Magli Idraulici. Attrezzo di Fabriano.' };
+    const FRASE = 'La pila a magli idraulici riduceva gli stracci in pasta in poche ore mentre la pestatura a mano richiedeva giorni di lavoro.';
+    // guardia sul setup: il padre deve battere STRETTAMENTE la foglia, sotto 0.5
+    const relP = DC.lexicalOverlap(FRASE, PADRE_RICCO.parentText);
+    const relF = DC.lexicalOverlap(FRASE, FOGLIA_CORTA.parentText);
+    assert.ok(relP.covered / relP.total > relF.covered / relF.total, 'setup: padre sopra la foglia');
+    assert.ok(relP.covered / relP.total < 0.5, 'setup: padre sotto absorberClaimMin');
+    const out = DC.assignResidues([PADRE_RICCO, FOGLIA_CORTA], FRASE);
+    assert.match(out.get('FOGLIA') || '', /pestatura/, 'la frase ripiega sulla foglia, non muore');
+});
+
+test('assignResidues: a parità di pertinenza un eligible batte un assorbitore', () => {
+    const A = { id: 'ABS', eligible: false, parentText: 'Pila a Magli. Martelli di legno azionati dai fiumi che sminuzzavano gli stracci.' };
+    const E = { id: 'ELI', eligible: true, parentText: 'Pila a Magli. Martelli di legno azionati dai fiumi che sminuzzavano gli stracci.' };
+    const F = 'I martelli di legno della pila sminuzzavano gli stracci producendo pasta finissima in poche ore di lavoro.';
+    const out = DC.assignResidues([A, E], F);
+    assert.match(out.get('ELI') || '', /finissima/, 'stesso testo → vince il deposito, non lo scarto');
+});
+
+// ── isNearDuplicate (P3: gate globale) ──────────────────────────────────────
+test('isNearDuplicate: coppia reale D5/D7 della mappa 2A catturata', () => {
+    const d5 = 'Diffusione in Europa Grazie ai mercanti arabi che percorrevano le rotte commerciali della Via della Seta, la carta iniziò il suo viaggio verso l\'Europa. Questo commercio permise la diffusione della tecnologia di produzione della carta e del materiale stesso nel continente europeo.';
+    const d7 = 'Viaggio della carta in Europa Grazie ai mercanti arabi che viaggiavano lungo le rotte commerciali della Via della Seta, la carta iniziò il suo viaggio verso l\'Europa. Questo processo di diffusione permise alla tecnologia della carta di raggiungere nuove regioni e culture.';
+    assert.ok(DC.isNearDuplicate(d7, [d5]) >= 0, 'D7 riconosciuto quasi-duplicato di D5');
+});
+
+test('isNearDuplicate: contenuti distinti passano', () => {
+    const a = 'La cellulosa è la fibra vegetale estratta dal legno degli alberi nelle cartiere moderne.';
+    const b = 'La filigrana era un marchio di fabbrica creato con fili metallici nei setacci.';
+    assert.strictEqual(DC.isNearDuplicate(a, [b]), -1);
+});
+
+test('jaccardSim: identici → 1, disgiunti → 0', () => {
+    assert.strictEqual(DC.jaccardSim('pasta di legno cotta', 'pasta di legno cotta'), 1);
+    assert.strictEqual(DC.jaccardSim('pasta di legno', 'filigrana controluce'), 0);
+});
+
 // ── override soglie ──────────────────────────────────────────────────────────
 test('opts: soglia containment abbassata rende più severo il verdetto', () => {
     const parent = 'I monaci copiavano libri antichi negli scriptorium salvando la cultura.';
