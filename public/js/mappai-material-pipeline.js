@@ -395,7 +395,14 @@
     if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); set('mp-ns-causal', o.nodesheet.causal); }
     set('mp-syn-on', !!o.synthesis);
     if (o.synthesis) set('mp-syn-audio', o.synthesis.audio);
-    set('mp-tuned', o.tuned); set('mp-leveltuned', o.levelTuned);
+    // «Adatta alla classe»: master + ambito derivati da tuned/levelTuned del preset.
+    const adaptOn = !!(o.tuned || o.levelTuned);
+    set('mp-adapt-on', adaptOn);
+    let scope = 'both';
+    if (o.levelTuned && !o.tuned) scope = 'map';
+    else if (o.tuned && !o.levelTuned) scope = 'materials';
+    const r = document.querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
+    if (r) r.checked = true;
     _syncSections(); Pipeline._reestimate();
     _toast(_t('mp_applied', 'Preset applicato: ') + p.name, 'success');
   };
@@ -443,6 +450,12 @@
     // Etichetta inline di un campo (leggibile).
     const fld = (label, inner) =>
       '<label class="flex items-center gap-2 text-[12px] font-semibold text-slate-600">' + _esc(label) + ' ' + inner + '</label>';
+    // Radio di scelta ambito (Adatta alla classe): label bold + descrizione grigia.
+    const adaptRadio = (val, label, desc, checked) =>
+      '<label class="flex items-start gap-2 cursor-pointer select-none">' +
+      '<input type="radio" name="mp-adapt-scope" value="' + val + '"' + (checked ? ' checked' : '') + ' class="mt-1 accent-indigo-600 shrink-0">' +
+      '<span><span class="text-[12.5px] font-semibold text-slate-700">' + _esc(label) + '</span> ' +
+      '<span class="text-[11px] text-slate-400">— ' + _esc(desc) + '</span></span></label>';
     const SEL = 'px-2.5 py-1.5 rounded-lg border border-slate-200 text-[12px] font-semibold text-slate-700 bg-white';
     const SECT = 'bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100';
     const SUBTITLE = 'block text-[10.5px] font-bold uppercase tracking-widest text-slate-400 mb-2';
@@ -487,9 +500,19 @@
           // Sintesi
           '<div class="' + SECT + '">' + secHeader('mp-syn-on', _t('mp_synthesis', 'Sintesi della mappa')) +
             '<div id="mp-syn-body" class="mt-3">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
-          // Taratura
-          '<div class="' + SECT + ' flex gap-x-6 gap-y-2 flex-wrap">' +
-            chk('mp-tuned', _t('mp_tuned', 'Taratura AI [VERDE]'), false) + chk('mp-leveltuned', _t('mp_leveltuned', 'Adatta la mappa al livello'), false) + '</div>' +
+          // Adatta alla classe (C): master + ambito. La classe attiva è già il contesto
+          // base ovunque; qui scegli cosa affinare IN PIÙ (mappa e/o materiali).
+          '<div class="' + SECT + '">' +
+            '<label class="flex items-center gap-2.5 cursor-pointer select-none">' +
+              '<input type="checkbox" id="mp-adapt-on" class="w-[17px] h-[17px] accent-indigo-600 shrink-0">' +
+              '<span class="text-[13.5px] font-bold text-slate-800">' + _esc(_t('mp_adapt', 'Adatta alla classe')) + ' <span id="mp-adapt-cls" class="text-indigo-600"></span></span>' +
+            '</label>' +
+            '<div id="mp-adapt-body" class="mt-3 space-y-2">' +
+              '<p class="text-[11px] text-slate-500 leading-relaxed">' + _esc(_t('mp_adapt_help', 'La classe attiva è già il contesto di base. Scegli cosa affinare in più:')) + '</p>' +
+              adaptRadio('map', _t('mp_adapt_map', 'Solo la mappa'), _t('mp_adapt_map_desc', 'profondità e complessità dei contenuti sul grado'), false) +
+              adaptRadio('materials', _t('mp_adapt_materials', 'Solo i materiali'), _t('mp_adapt_materials_desc', 'registro e note su quiz, fogli e sintesi → file [VERDE]'), false) +
+              adaptRadio('both', _t('mp_adapt_both', 'Entrambi'), _t('mp_adapt_both_desc', 'mappa sul grado + materiali [VERDE]'), true) +
+            '</div></div>' +
         '</div>' +
         // Footer
         '<div class="mt-5 pt-4 border-t border-slate-100">' +
@@ -520,6 +543,14 @@
     body('mp-quiz-body', on('mp-quiz-on'));
     body('mp-ns-body', on('mp-ns-on'));
     body('mp-syn-body', on('mp-syn-on'));
+    body('mp-adapt-body', on('mp-adapt-on'));
+    // Nome classe nel master toggle «Adatta alla classe».
+    const sel = document.getElementById('mp-class');
+    const lbl = document.getElementById('mp-adapt-cls');
+    if (sel && lbl) {
+      const cls = (sel.value && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(sel.value) : null;
+      lbl.textContent = cls ? cls.name : '';
+    }
   }
 
   // Legge la config dal modale (null se il modale non è aperto).
@@ -527,7 +558,15 @@
     const g = (id) => document.getElementById(id);
     if (!g('mp-modal')) return null;
     const on = (id) => g(id) && g(id).checked;
-    const cfg = { classId: (g('mp-class') && g('mp-class').value) || '', tuned: !!on('mp-tuned'), levelTuned: !!on('mp-leveltuned') };
+    // «Adatta alla classe»: master + ambito → levelTuned (mappa) e/o tuned (materiali VERDE).
+    const adaptOn = !!on('mp-adapt-on');
+    const scopeEl = document.querySelector('input[name="mp-adapt-scope"]:checked');
+    const scope = adaptOn ? (scopeEl ? scopeEl.value : 'both') : 'none';
+    const cfg = {
+      classId: (g('mp-class') && g('mp-class').value) || '',
+      levelTuned: adaptOn && (scope === 'map' || scope === 'both'),
+      tuned: adaptOn && (scope === 'materials' || scope === 'both')
+    };
     if (on('mp-quiz-on')) {
       const types = [];
       if (on('mp-qt-mc')) types.push('mc');
