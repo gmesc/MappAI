@@ -45,6 +45,46 @@ test('activityLabel: codici noti + Title Case fallback', () => {
   assert.strictEqual(FC.activityLabel(''), 'Attività');
 });
 
+// ── mapClassFolder / vaultFolderName (011) ──────────────────────────────
+test('mapClassFolder: con sede → "sede-classe", senza sede → classe', () => {
+  assert.strictEqual(FC.mapClassFolder('Bellinzona', '2ª A'), 'Bellinzona-2ª A');
+  assert.strictEqual(FC.mapClassFolder('', '2ª A'), '2ª A');
+  assert.strictEqual(FC.mapClassFolder(null, '1ª B'), '1ª B');
+  assert.strictEqual(FC.mapClassFolder('Locarno', ''), 'Locarno');      // sede senza classe
+  assert.strictEqual(FC.mapClassFolder('', ''), 'Senza classe');        // niente → fallback
+  // caratteri illegali sanitizzati in entrambi i segmenti
+  assert.strictEqual(FC.mapClassFolder('Se/de', '2:A'), 'Se de-2 A');
+});
+
+test('vaultFolderName: titolo mappa FS-safe, fallback "Mappa"', () => {
+  assert.strictEqual(FC.vaultFolderName('La Fotosintesi'), 'La Fotosintesi');
+  assert.strictEqual(FC.vaultFolderName(''), 'Mappa');
+  assert.strictEqual(FC.vaultFolderName(null), 'Mappa');
+  assert.strictEqual(FC.vaultFolderName('Storia: 1848'), 'Storia 1848');
+});
+
+// ── sanitizeVaultRelPath (011) ──────────────────────────────────────────
+test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', () => {
+  assert.strictEqual(FC.sanitizeVaultRelPath('pipeline.json'), 'pipeline.json');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/Quiz-MC-Fotosintesi.pdf'), 'Materiale Studio/Quiz-MC-Fotosintesi.pdf');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio\\Sintesi -VERDE.html'), 'Materiale Studio/Sintesi -VERDE.html'); // backslash → slash
+  // illegali
+  assert.strictEqual(FC.sanitizeVaultRelPath('../secret'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/../../etc/passwd'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('/absolute/path'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('C:\\Windows\\x'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('Nodi/hack.md'), null);       // sottocartella non ammessa
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/sub/deep.pdf'), null); // troppo profondo
+  assert.strictEqual(FC.sanitizeVaultRelPath(''), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
+});
+
+test('VAULT_CONTAINER_EXCLUDE: contenitori di sistema', () => {
+  assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Chat') >= 0);
+  assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Quiz e Flashcard') >= 0);
+  assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Studio Attivo') >= 0);
+});
+
 // ── sessionFolderName / sessionRelPath ──────────────────────────────────
 test('sessionFolderName: data · attività · mappa (+ ramo)', () => {
   const n = FC.sessionFolderName({ date: new Date(2026, 6, 12), activity: 'quiz', map: 'Fotosintesi' });

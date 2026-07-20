@@ -71,6 +71,46 @@
     return safeName(className, 'Senza classe');
   }
 
+  // ── Naming cartelle di classe / vault mappa (011) ───────────────────────
+  // Nome cartella-classe che contiene i vault-mappa: "<sede>-<classe>" se la
+  // classe ha una sede, altrimenti solo la classe (fallback 'Senza classe').
+  function mapClassFolder(sede, className) {
+    var s = safeName(sede, '');
+    if (s) {
+      var hasClass = className != null && String(className).trim() !== '';
+      return safeName(hasClass ? (s + '-' + className) : s, 'Senza classe');
+    }
+    return classFolder(className);
+  }
+
+  // Nome cartella del vault-mappa dal titolo del progetto (fallback 'Mappa').
+  function vaultFolderName(rootLabel) {
+    return safeName(rootLabel, 'Mappa');
+  }
+
+  // Sanitizzazione del percorso relativo scritto dentro un vault dalla pipeline
+  // (constitution V). Ammessi SOLO: un file nel root del vault (es. pipeline.json)
+  // oppure un file dentro 'Materiale Studio/'. Nega `..`, path assoluti, drive
+  // Windows, caratteri illegali. Ritorna il path normalizzato (forward slash) o
+  // null se illegale — il chiamante (main.js) NON reimplementa le regole.
+  function sanitizeVaultRelPath(relPath) {
+    var raw = String(relPath == null ? '' : relPath).replace(/\\/g, '/').trim();
+    if (!raw) return null;
+    if (raw.charAt(0) === '/' || /^[a-zA-Z]:/.test(raw)) return null;   // assoluto / drive
+    var segs = raw.split('/').filter(function (s) { return s !== '' && s !== '.'; });
+    if (!segs.length || segs.indexOf('..') >= 0) return null;
+    for (var i = 0; i < segs.length; i++) {
+      if (safeName(segs[i], '') !== segs[i]) return null;              // illegali / trailing
+    }
+    if (segs.length === 1) return segs[0];                            // file nel root
+    if (segs.length === 2 && segs[0] === 'Materiale Studio') return segs.join('/');
+    return null;
+  }
+
+  // Cartelle note NON-vault dentro Mappe/: escluse dalla scansione a 2 livelli
+  // (contenitori di sistema, mai vault) — main.js importa questa costante.
+  var VAULT_CONTAINER_EXCLUDE = ['Chat', 'Quiz e Flashcard', 'Studio Attivo'];
+
   // Codici attività → etichetta leggibile. Passa-attraverso in Title Case se ignoto.
   var ACT = {
     quiz: 'Quiz', 'vero-falso': 'Vero-Falso', cloze: 'Cloze',
@@ -219,6 +259,10 @@
     safeName: safeName,
     isoDate: isoDate,
     classFolder: classFolder,
+    mapClassFolder: mapClassFolder,
+    vaultFolderName: vaultFolderName,
+    sanitizeVaultRelPath: sanitizeVaultRelPath,
+    VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,
     activityLabel: activityLabel,
     sessionFolderName: sessionFolderName,
     sessionRelPath: sessionRelPath,

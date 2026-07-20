@@ -69,6 +69,18 @@
             label: 'Attività live',
             subs: { quiz: 'Quiz live' }
         },
+        pipeline: {
+            label: 'Pipeline materiali',
+            subs: {
+                map: 'Mappa',
+                quiz_mc: 'Quiz a scelta multipla',
+                quiz_tf: 'Quiz Vero/Falso',
+                flashcards: 'Flashcard',
+                nodesheet: 'Foglio nodi',
+                synthesis: 'Sintesi',
+                tts: 'Voce naturale'
+            }
+        },
         other: {
             label: 'Altro',
             subs: { admin_test: 'Test prompt (admin)', misc: 'Non classificato' }
