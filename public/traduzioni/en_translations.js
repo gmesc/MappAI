@@ -1516,6 +1516,9 @@ const en_translations = {
     cc_nl_tip: "Appends the “Why-chain” pages to the PDF: the map's cause-effect links (from links and descriptions, no AI).",
     // Pipeline «Genera materiali» (011)
     mp_btn_generate_materials: "Generate materials",
+    ui_generate_map_only: "Generate Map",
+    tt_launch_live: "Launch as a live activity (QR)",
+    mp_preset_name_desc: "Save the current options (without the class) to reuse them.",
     mp_title: "Generate materials",
     mp_subtitle: "Map + quizzes + node sheets + summary, archived in the vault",
     mp_class: "Target class",

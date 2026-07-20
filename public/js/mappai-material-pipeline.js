@@ -403,14 +403,17 @@
   Pipeline._savePreset = function () {
     const cfg = _readConfig(); if (!cfg) return;
     if (!cfg.quiz && !cfg.nodesheet && !cfg.synthesis) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
-    let name = window.prompt ? window.prompt(_t('mp_preset_name', 'Nome del preset:'), '') : '';
-    if (name == null) return;
-    name = String(name).trim();
-    if (!name) { _toast(_t('mp_preset_noname', 'Serve un nome per il preset'), 'warning'); return; }
-    let list = _loadPresets();
-    list = PC().presetListPush(list, { name, createdAt: _now(), options: PC().presetFromConfig(cfg) }, 50);
-    _savePresets(list); _refreshPresetSelect();
-    _toast(_t('mp_preset_saved', 'Preset salvato'), 'success');
+    // window.prompt NON è supportato in Electron → prompt custom dell'app.
+    const commit = function (name) {
+      name = String(name == null ? '' : name).trim();
+      if (!name) { _toast(_t('mp_preset_noname', 'Serve un nome per il preset'), 'warning'); return; }
+      let list = _loadPresets();
+      list = PC().presetListPush(list, { name: name, createdAt: _now(), options: PC().presetFromConfig(cfg) }, 50);
+      _savePresets(list); _refreshPresetSelect();
+      _toast(_t('mp_preset_saved', 'Preset salvato'), 'success');
+    };
+    if (window.showPrompt) window.showPrompt(_t('mp_preset_name', 'Nome del preset'), '', commit, _t('mp_preset_name_desc', 'Salva le opzioni correnti (senza la classe) per riusarle.'));
+    else commit(window.prompt ? window.prompt(_t('mp_preset_name', 'Nome del preset:'), '') : '');
   };
 
   Pipeline._deletePreset = function () {
@@ -427,57 +430,70 @@
       return;
     }
     const old = document.getElementById('mp-modal'); if (old) old.remove();
-    const chk = (id, label, checked) => '<label class="pm-option" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' style="width:15px;height:15px;accent-color:#4f46e5"><span class="pm-option-label" style="margin:0">' + _esc(label) + '</span></label>';
+    // Opzione checkbox leggibile (label slate-700 12.5px).
+    const chk = (id, label, checked) =>
+      '<label class="flex items-center gap-2 cursor-pointer select-none">' +
+      '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' class="w-[16px] h-[16px] accent-indigo-600 shrink-0">' +
+      '<span class="text-[12.5px] font-semibold text-slate-700">' + _esc(label) + '</span></label>';
+    // Header di sezione attivabile: checkbox + titolo bold leggibile.
+    const secHeader = (id, label) =>
+      '<label class="flex items-center gap-2.5 cursor-pointer select-none">' +
+      '<input type="checkbox" id="' + id + '" checked class="w-[17px] h-[17px] accent-indigo-600 shrink-0">' +
+      '<span class="text-[13.5px] font-bold text-slate-800">' + _esc(label) + '</span></label>';
+    // Etichetta inline di un campo (leggibile).
+    const fld = (label, inner) =>
+      '<label class="flex items-center gap-2 text-[12px] font-semibold text-slate-600">' + _esc(label) + ' ' + inner + '</label>';
+    const SEL = 'px-2.5 py-1.5 rounded-lg border border-slate-200 text-[12px] font-semibold text-slate-700 bg-white';
+    const SECT = 'bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100';
+    const SUBTITLE = 'block text-[10.5px] font-bold uppercase tracking-widest text-slate-400 mb-2';
 
     const modal = document.createElement('div');
     modal.id = 'mp-modal';
     modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3200] flex items-center justify-center p-4';
     modal.innerHTML =
-      '<div class="bg-white rounded-2xl shadow-2xl w-[94vw] max-w-[720px] max-h-[92vh] overflow-y-auto p-7 relative">' +
+      '<div class="bg-white rounded-2xl shadow-2xl w-[94vw] max-w-[600px] max-h-[90vh] overflow-y-auto p-6 relative">' +
         '<button type="button" id="mp-close" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>' +
-        '<div class="flex items-center gap-3 mb-1"><div class="pm-icon-wrap"><i data-lucide="package" class="w-5 h-5 text-indigo-600"></i></div>' +
+        '<div class="flex items-center gap-3 mb-5"><div class="pm-icon-wrap"><i data-lucide="package" class="w-5 h-5 text-indigo-600"></i></div>' +
           '<div><div class="pm-title">' + _esc(_t('mp_title', 'Genera materiali')) + '</div>' +
           '<div class="pm-subtitle">' + _esc(_t('mp_subtitle', 'Mappa + quiz + fogli nodi + sintesi, archiviati nel vault')) + '</div></div></div>' +
-        // Classe
-        '<div class="pm-section" style="margin-top:16px"><span class="pm-section-title">' + _esc(_t('mp_class', 'Classe destinataria')) + '</span>' +
-          '<select id="mp-class" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-[12px] font-bold text-slate-700">' + _classOptions() + '</select></div>' +
-        // Preset (US3): configurazioni riusabili, senza classe
-        '<div class="pm-section" style="margin-top:12px"><span class="pm-section-title">' + _esc(_t('mp_presets', 'Preset')) + '</span>' +
-          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-            '<select id="mp-preset" style="flex:1;min-width:150px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">' + _presetOptions() + '</select>' +
-            '<button type="button" id="mp-preset-apply" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_apply', 'Applica')) + '</button>' +
-            '<button type="button" id="mp-preset-save" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_save', 'Salva')) + '</button>' +
-            '<button type="button" id="mp-preset-del" class="pm-btn-cancel" style="padding:5px 10px;font-size:11px">' + _esc(_t('mp_delete', 'Elimina')) + '</button>' +
-          '</div></div>' +
-        // Quiz
-        '<div class="pm-section" style="margin-top:14px">' +
-          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-quiz-on" checked style="width:16px;height:16px;accent-color:#4f46e5"><span class="pm-section-title" style="margin:0">' + _esc(_t('mp_quiz', 'Quiz e flashcard')) + '</span></label>' +
-          '<div id="mp-quiz-body" style="margin-top:8px;padding-left:6px">' +
-            '<div style="display:flex;gap:14px;flex-wrap:wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-tf', _t('mp_qt_tf', 'Vero/Falso'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + '</div>' +
-            '<div style="display:flex;gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
-              '<label class="pm-option-desc" style="display:flex;align-items:center;gap:6px">' + _esc(_t('mp_perbranch', 'Per ramo')) + ' <input type="number" id="mp-perbranch" min="1" max="10" value="3" style="width:52px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px"></label>' +
-              '<label class="pm-option-desc" style="display:flex;align-items:center;gap:6px">' + _esc(_t('mp_angle', 'Angolo')) + ' <select id="mp-angle" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select></label>' +
-            '</div></div></div>' +
-        // Foglio nodi
-        '<div class="pm-section" style="margin-top:14px">' +
-          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-ns-on" checked style="width:16px;height:16px;accent-color:#4f46e5"><span class="pm-section-title" style="margin:0">' + _esc(_t('mp_nodesheet', 'Fogli nodi')) + '</span></label>' +
-          '<div id="mp-ns-body" style="margin-top:8px;padding-left:6px">' +
-            '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
-              '<label class="pm-option-desc" style="display:flex;align-items:center;gap:6px">' + _esc(_t('mp_level', 'Livello')) + ' <select id="mp-ns-level" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px">' + _levelOptions() + '</select></label>' +
-              '<label class="pm-option-desc" style="display:flex;align-items:center;gap:6px">' + _esc(_t('mp_fmt', 'Formato')) + ' <select id="mp-ns-fmt" style="padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px"><option value="3x4">3×4</option><option value="2x2" selected>2×2</option><option value="2x1">2×1</option></select></label>' +
-            '</div>' +
-            '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">' + chk('mp-ns-title', _t('mp_mode_title', 'Titolo'), true) + chk('mp-ns-keywords', _t('mp_mode_kw', 'Parole chiave'), false) + chk('mp-ns-summary', _t('mp_mode_summary', 'Da completare'), false) + chk('mp-ns-card', _t('mp_mode_card', 'Scheda'), false) + '</div>' +
-            '<div style="margin-top:8px">' + chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div></div></div>' +
-        // Sintesi
-        '<div class="pm-section" style="margin-top:14px">' +
-          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mp-syn-on" checked style="width:16px;height:16px;accent-color:#4f46e5"><span class="pm-section-title" style="margin:0">' + _esc(_t('mp_synthesis', 'Sintesi della mappa')) + '</span></label>' +
-          '<div id="mp-syn-body" style="margin-top:8px;padding-left:6px">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
-        // Taratura
-        '<div class="pm-section" style="margin-top:14px;display:flex;gap:18px;flex-wrap:wrap">' +
-          chk('mp-tuned', _t('mp_tuned', 'Taratura AI [VERDE]'), false) + chk('mp-leveltuned', _t('mp_leveltuned', 'Adatta la mappa al livello'), false) + '</div>' +
+        '<div class="space-y-3">' +
+          // Classe + Preset (riga compatta)
+          '<div class="' + SECT + '"><span class="' + SUBTITLE + '">' + _esc(_t('mp_class', 'Classe destinataria')) + '</span>' +
+            '<select id="mp-class" class="w-full ' + SEL + '">' + _classOptions() + '</select>' +
+            '<span class="' + SUBTITLE + '" style="margin-top:12px">' + _esc(_t('mp_presets', 'Preset')) + '</span>' +
+            '<div class="flex gap-2 items-center flex-wrap">' +
+              '<select id="mp-preset" class="flex-1 min-w-[150px] ' + SEL + '">' + _presetOptions() + '</select>' +
+              '<button type="button" id="mp-preset-apply" class="pm-btn-cancel" style="flex:none;padding:6px 12px">' + _esc(_t('mp_apply', 'Applica')) + '</button>' +
+              '<button type="button" id="mp-preset-save" class="pm-btn-cancel" style="flex:none;padding:6px 12px">' + _esc(_t('mp_save', 'Salva')) + '</button>' +
+              '<button type="button" id="mp-preset-del" class="pm-btn-cancel" style="flex:none;padding:6px 12px">' + _esc(_t('mp_delete', 'Elimina')) + '</button>' +
+            '</div></div>' +
+          // Quiz
+          '<div class="' + SECT + '">' + secHeader('mp-quiz-on', _t('mp_quiz', 'Quiz e flashcard')) +
+            '<div id="mp-quiz-body" class="mt-3 space-y-3">' +
+              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-tf', _t('mp_qt_tf', 'Vero/Falso'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + '</div>' +
+              '<div class="flex gap-5 items-center flex-wrap">' +
+                fld(_t('mp_perbranch', 'Per ramo'), '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="w-[56px] ' + SEL + '">') +
+                fld(_t('mp_angle', 'Angolo'), '<select id="mp-angle" class="' + SEL + '">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>') +
+              '</div></div></div>' +
+          // Foglio nodi
+          '<div class="' + SECT + '">' + secHeader('mp-ns-on', _t('mp_nodesheet', 'Fogli nodi')) +
+            '<div id="mp-ns-body" class="mt-3 space-y-3">' +
+              '<div class="flex gap-5 items-center flex-wrap">' +
+                fld(_t('mp_level', 'Livello'), '<select id="mp-ns-level" class="' + SEL + '">' + _levelOptions() + '</select>') +
+                fld(_t('mp_fmt', 'Formato'), '<select id="mp-ns-fmt" class="' + SEL + '"><option value="3x4">3×4</option><option value="2x2" selected>2×2</option><option value="2x1">2×1</option></select>') +
+              '</div>' +
+              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-ns-title', _t('mp_mode_title', 'Titolo'), true) + chk('mp-ns-keywords', _t('mp_mode_kw', 'Parole chiave'), false) + chk('mp-ns-summary', _t('mp_mode_summary', 'Da completare'), false) + chk('mp-ns-card', _t('mp_mode_card', 'Scheda'), false) + '</div>' +
+              chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div></div>' +
+          // Sintesi
+          '<div class="' + SECT + '">' + secHeader('mp-syn-on', _t('mp_synthesis', 'Sintesi della mappa')) +
+            '<div id="mp-syn-body" class="mt-3">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
+          // Taratura
+          '<div class="' + SECT + ' flex gap-x-6 gap-y-2 flex-wrap">' +
+            chk('mp-tuned', _t('mp_tuned', 'Taratura AI [VERDE]'), false) + chk('mp-leveltuned', _t('mp_leveltuned', 'Adatta la mappa al livello'), false) + '</div>' +
+        '</div>' +
         // Footer
-        '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">' +
-          '<div id="mp-estimate" class="pm-option-desc" style="margin-bottom:10px"></div>' +
+        '<div class="mt-5 pt-4 border-t border-slate-100">' +
+          '<div id="mp-estimate" class="text-[12px] font-semibold text-slate-600 mb-3"></div>' +
           '<div class="flex gap-3"><button type="button" id="mp-cancel" class="pm-btn-cancel">' + _esc(_t('ui_cancel', 'Annulla')) + '</button>' +
           '<button type="button" id="mp-start" class="pm-btn-primary" style="flex:1;justify-content:center"><i data-lucide="play" class="w-4 h-4"></i> ' + _esc(_t('mp_start', 'Avvia')) + '</button></div></div>' +
       '</div>';

@@ -983,27 +983,28 @@
                         </div>
                     </div>
 
-                    <!-- Pulsante Generate -->
-                    <button type="submit" id="generate-btn" class="btn_salva_action w-full !h-32">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none"
+                    <!-- Pipeline «Genera materiali» (011): bottone PRINCIPALE — mappa + quiz + fogli + sintesi -->
+                    <button type="button" id="generate-materials-btn"
+                        onclick="window.MappAIPipeline && window.MappAIPipeline.openModal()"
+                        class="btn_salva_action w-full !h-32">
+                        <i data-lucide="package" class="w-8 h-8"></i>
+                        <span class="text-[32px]" data-i18n="mp_btn_generate_materials">Genera materiali</span>
+                    </button>
+
+                    <!-- Genera Mappa (solo mappa): accent-blue, submit del form → startGeneration -->
+                    <button type="submit" id="generate-btn"
+                        class="w-full mt-3 flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition-colors shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-sparkles">
                             <path
-                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                             <path d="M5 3v4" />
                             <path d="M19 17v4" />
                             <path d="M3 5h4" />
                             <path d="M17 19h4" />
                         </svg>
-                        <span class="text-[32px]" id="btn-generate-label">Genera Mappa</span>
-                    </button>
-
-                    <!-- Pipeline «Genera materiali» (011): mappa + quiz + fogli + sintesi in un colpo -->
-                    <button type="button" id="generate-materials-btn"
-                        onclick="window.MappAIPipeline && window.MappAIPipeline.openModal()"
-                        class="w-full mt-3 flex items-center justify-center gap-2 px-5 py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 font-bold text-sm transition-colors">
-                        <i data-lucide="package" class="w-5 h-5"></i>
-                        <span data-i18n="mp_btn_generate_materials">Genera materiali</span>
+                        <span id="btn-generate-label" data-i18n="ui_generate_map_only">Genera Mappa</span>
                     </button>
 
                     <div class="hidden">
@@ -1386,18 +1387,8 @@
                             </div>
                         </div>
 
-                        <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> <span data-i18n="ui_map_flashcards">Flashcard Mappa</span>
-                        </button>
-                        <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="graduation-cap" class="w-5 h-5"></i> <span data-i18n="ui_map_quiz">Quiz Mappa</span>
-                        </button>
-                        <button onclick="window.showAppTutorial()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="book-open" class="w-5 h-5"></i> <span data-i18n="ui_study_tips">Consigli di Studio</span>
-                        </button>
+                        <!-- 011: rimossi i 3 bottoni gialli (Flashcard/Quiz/Consigli): i set
+                             pre-generati dalla pipeline vivono nella lista «Set di Studio» qui sotto. -->
                     </div>
 
                     <!-- Set Flashcard Generati -->

@@ -430,6 +430,7 @@ const it_translations = {
     ui_usage_dash: "Consumi AI",
     tt_usage_dash: "Dashboard dei consumi AI — token e costi per documento e categoria",
     mp_btn_generate_materials: "Genera materiali",
+    ui_generate_map_only: "Genera Mappa",
     ui_no_projects: "Nessun progetto salvato. Crea una nuova mappa per iniziare.",
     ui_struct_suggestions: "Suggerimenti strutturali",
     ui_analyze_structure: "Analizza struttura",

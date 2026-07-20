@@ -146,7 +146,11 @@ test('validateQuizItems / validatePdfB64 / validateSynthesis', () => {
   assert.strictEqual(PC.validateSynthesis(null).ok, false);
   assert.strictEqual(PC.validateSynthesis({ rawText: '   ' }).ok, false);
   assert.strictEqual(PC.validateSynthesis({ rawText: 'Un testo di sintesi abbastanza lungo.' }).ok, true);
-  assert.strictEqual(PC.validateSynthesis({ sections: [{ text: 'Sezione con contenuto sufficiente.' }] }).ok, true);
+  // Mappa intera: whole=true (FLAG, non testo) + sezioni con rawText → deve passare
+  assert.strictEqual(PC.validateSynthesis({ whole: true, intro: '', sections: [{ rawText: 'Sezione con contenuto sufficiente per il ramo.' }] }).ok, true);
+  assert.strictEqual(PC.validateSynthesis({ whole: true, intro: 'Panoramica introduttiva della mappa.', sections: [] }).ok, true);
+  // whole=true ma nessun testo reale → fallisce (non deve scambiare il flag per contenuto)
+  assert.strictEqual(PC.validateSynthesis({ whole: true, intro: '', sections: [{ failed: true }] }).ok, false);
 });
 
 // ── file-first / resume / retry (US2) ───────────────────────────────────
