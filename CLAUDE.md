@@ -561,6 +561,44 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (20/7/26): 011-pipeline-materiali — pipeline «Genera materiali» (spec-kit completo)
+Branch `011-pipeline-materiali` (NON ancora mergiato). Spec-kit completo
+(`specs/011-pipeline-materiali/`), 43 task, 8 commit puliti. Suite **621/621** ✅.
+Bottone **«Genera materiali»** in Costruisci → modale → pipeline crash-safe a 4 step
+(A mappa → B quiz/flashcard → C fogli nodi → D sintesi+voce) che orchestra i motori
+ESISTENTI e archivia tutto nel vault dentro cartelle di classe `[sede]-[classe]`.
+- **Core puri**: `mappai-pipeline-core.js` (UMD: manifest `mappai-pipeline@1` + macchina a
+  stati, validatori step, `estimateCalls`, `buildFileName`, preset) — 21 test; estensioni a
+  `files-core` (`mapClassFolder`/`vaultFolderName`/`sanitizeVaultRelPath`/`VAULT_CONTAINER_EXCLUDE`)
+  e `teach-core` (`matchesSelectedProject`). `usage-core`: categoria `pipeline` (7 sottovoci).
+- **Motori resi headless** (una funzione, due consumer — flusso manuale INVARIATO):
+  `buildQuizSetHtml`/`buildFlashcardSetHtml` (quiz-print), `printAllNodeLabels(opts)` con
+  `toDisk`→base64 (print-dossier), `window.MappAISynthesis {runWholeMap silent, buildHtml,
+  generateAudio}` (branch-synthesis), `window.buildVaultMapData()` (vault-io).
+- **IPC sottili** (main = solo I/O/finestre): `html-to-pdf` (finestra offscreen +
+  `printToPDF`), `save-vault-file` (sanitizz. da FilesCore), `vault-materials-list`,
+  `pipeline-open-folder`/`pipeline-open-file`; `get-all-vaults` esteso a **2 livelli**
+  (contenitori classe, shape invariata + `classDir`); `files-root-get` espone `mapsBaseDir`;
+  `sharedmat-add` accetta `mapName`.
+- **Orchestratore** `mappai-material-pipeline.js` (`window.MappAIPipeline`): modale config
+  (classe · quiz/fogli/sintesi · VERDE · adatta-livello · preset), pre-flight+stima live,
+  step A-D con manifest **file-first** (scritto a ogni transizione), riepilogo + **Riprova**
+  per step, **ripresa idempotente** (`checkResume` al load del vault → prompt → salta i done),
+  degrado voce non bloccante (FR-006).
+- **Insegna (US5)**: click riga «Progetti» = **seleziona** la mappa (evidenzia, 2° click
+  deseleziona); le 3 sezioni si filtrano; Materiali fonde archivio + file su disco. «Riprendi»
+  apre. Preset in `localStorage mappai_material_presets` (mai la classe). Sede sulla classe:
+  tendina da `MappAITeacherProfile.sediList()` nei DUE form.
+- **Kill-switch**: `mappai_teach_row_select='0'` → click riga Insegna apre (comportamento storico).
+- **Limite noto**: `open-vault-folder`/`zip-vault-to-materials` (flussi condivisione) risolvono
+  ancora il vault flat per basename → non trovano i vault ANNIDATI. La pipeline usa path
+  assoluti (`pipeline-open-folder/-file`) → non impattata. Follow-up se serve la condivisione
+  QR dei vault di classe.
+- ⚠️ **Da testare in Electron vivo** (quickstart Fase 1-3): builder da console + htmlToPdf,
+  pipeline reale su una fonte (4 step done su disco), crash a metà + ripresa (zero chiamate
+  ripetute), riprova step, degrado voce, collisione ` · 02`, preset, sede, selezione Insegna +
+  materiali da disco, consumi categoria «Pipeline materiali». Poi merge in main.
+
 ### 🔵 IN CORSO (18-19/7/26): branch `chore/electron-39` — Electron 39 + fix quiz + reveal risultati
 Branch NON ancora mergiato in main. Suite **493/493**. Cinque commit puliti:
 - `9975308` **Electron 30 → 39.8.10** (chiude 16 alert Dependabot). Codice già pronto:

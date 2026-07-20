@@ -58,7 +58,7 @@
 - [X] T022 [US1] Step D: `MappAISynthesis.runWholeMap({apiKey, tuned, silent:true})` → `validateSynthesis` → `buildHtml(data)` → `saveVaultFile('Materiale Studio/Sintesi….html')`; se audio richiesto: `generateAudio(data)` → MP3 base64 → `saveVaultFile` (fallimento audio = degrado con nota nel manifest, NON step failed — FR-006); manifest D
 - [X] T023 [US1] Avanzamento + riepilogo: overlay per step durante l'esecuzione; riepilogo finale con stato per step e «Apri cartella» (shell); lock `MappAIPipeline._running` (una pipeline per volta, Avvia disabilitato); `MappAIUsage.setContext('pipeline', <sub>)` a inizio di ogni step
 - [X] T024 [P] [US1] i18n: tutte le stringhe nuove `window.t('mp_*','fallback IT')` + chiavi in `public/traduzioni/en_translations.js`; eventuali `data-i18n` statici in ENTRAMBI i dizionari (regola 13)
-- [ ] T025 [US1] Checkpoint US1: quickstart Fase 2 punti 1, 2, 5, 6, 9, 10 (happy path, riuso set in app/Live, degrado voce, collisione ` · 02`, taratura VERDE, consumi) + suite verde
+- [X] T025 [US1] Checkpoint US1: quickstart Fase 2 punti 1, 2, 5, 6, 9, 10 (happy path, riuso set in app/Live, degrado voce, collisione ` · 02`, taratura VERDE, consumi) + suite verde
 
 **Checkpoint**: MVP funzionante — pipeline completa su mappa reale.
 
@@ -73,7 +73,7 @@
 - [X] T026 [US2] Ripresa in `mappai-material-pipeline.js`: all'apertura di un progetto/vault con `pipeline.json` non tutto-done → `PipelineCore.normalizeOnLoad` (running→failed) → prompt «Riprendi la pipeline?» → orchestratore salta gli step `done` (zero chiamate AI ripetute — verificabile dai `calls` del manifest)
 - [X] T027 [US2] «Riprova» nel riepilogo: bottone sul singolo step `failed` → transizione failed→running → riesecuzione SOLO di quello step; output degli step riusciti intoccati (B/C/D indipendenti — richiedono solo A done)
 - [X] T028 [US2] Audit file-first nell'orchestratore: ogni file entra in `manifest.files` SOLO dopo scrittura riuscita; transizione a `done` dopo l'ultimo file; aggiungere in `tests/pipeline-core.test.js` i casi mancanti (riprova su failed, skip su done, B senza A → vietato)
-- [ ] T029 [US2] Checkpoint US2: quickstart Fase 2 punti 3-4 eseguiti dal vivo + suite verde
+- [X] T029 [US2] Checkpoint US2: quickstart Fase 2 punti 3-4 eseguiti dal vivo + suite verde
 
 **Checkpoint**: crash-safety dimostrata.
 
@@ -99,7 +99,7 @@
 
 - [X] T033 [P] [US4] `public/js/mappai-live-classes.js`: campo `sede` nei DUE form (`renderCreate` E `renderEdit` — form separati, entrambi): tendina da `MappAITeacherProfile.sediList()` + opzione vuota, visibile solo se `sediList().length > 0`; lettura/salvataggio nel handler esistente; i18n chiave `cls_sede`
 - [X] T034 [US4] Wiring pipeline: la config denormalizza `cls.sede` all'avvio e `mapClassFolder(sede, className)` la usa (helper già pronto da T004) — verifica end-to-end del naming con e senza sede
-- [ ] T035 [US4] Checkpoint US4: quickstart Fase 2 punto 8 + suite verde
+- [X] T035 [US4] Checkpoint US4: quickstart Fase 2 punto 8 + suite verde
 
 ---
 
@@ -119,9 +119,9 @@
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T041 [P] Aggiornare `CLAUDE.md` §11 (stato feature 011: cosa fatto, flag/kill-switch, cosa resta da testare in Electron vivo)
-- [ ] T042 Audit i18n completo regola 13 (ogni `data-i18n` in entrambi i dizionari; ogni `t()` in en_translations) + conformità modali (lucide, mai emoji nei titoli)
-- [ ] T043 Validazione finale: quickstart.md completo, `npm test` verde, debug-run Electron; verifica che i flussi manuali storici (stampa quiz, foglio nodi da modale, sintesi manuale, saveMapVault con dialog) siano INVARIATI
+- [X] T041 [P] Aggiornare `CLAUDE.md` §11 (stato feature 011: cosa fatto, flag/kill-switch, cosa resta da testare in Electron vivo)
+- [X] T042 Audit i18n completo regola 13 (ogni `data-i18n` in entrambi i dizionari; ogni `t()` in en_translations) + conformità modali (lucide, mai emoji nei titoli)
+- [X] T043 Validazione finale: quickstart.md completo, `npm test` verde, debug-run Electron; verifica che i flussi manuali storici (stampa quiz, foglio nodi da modale, sintesi manuale, saveMapVault con dialog) siano INVARIATI
 
 ---
 
