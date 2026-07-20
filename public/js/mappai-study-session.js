@@ -41,8 +41,13 @@ window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') 
         iconElem.setAttribute('data-lucide', iconName);
     }
     const quizTypeContainer = document.getElementById('quiz-type-container');
-    if (mode === 'quiz') quizTypeContainer.classList.remove('hidden');
-    else quizTypeContainer.classList.add('hidden');
+    if (mode === 'quiz') {
+        quizTypeContainer.classList.remove('hidden');
+        const angleSel = document.getElementById('study-quiz-angle');
+        if (angleSel && window.buildQuizAngleOptions) {
+            angleSel.innerHTML = window.buildQuizAngleOptions(window.studyConfig && window.studyConfig.quizAngle);
+        }
+    } else quizTypeContainer.classList.add('hidden');
 
     const modal = document.getElementById('study-config-modal');
     modal.classList.remove('hidden');
@@ -89,6 +94,51 @@ window.quizNonce = function () {
 // NON forzare 0.3 (di default il bridge ignora la temperature del payload — vedi CLAUDE.md §3).
 window.QUIZ_TEMPERATURE = 0.7;
 
+// ── Angolo delle domande (varietà quiz, 20/7) ───────────────────────────────
+// 'auto' = misto/rotante (default): il modello varia angolo e sintassi ad ogni
+// generazione. Gli altri = taglio UNICO per tutte le domande (verifica mirata).
+// hint IT/EN = istruzione concreta iniettata nel prompt (regola 14, lingua mappe).
+window.QUIZ_ANGLES = [
+    { key: 'auto', hint: '', hintEn: '' },
+    { key: 'definizione', hint: 'la DEFINIZIONE: che cos\'è, spiega il concetto', hintEn: 'the DEFINITION: what it is, explaining the concept' },
+    { key: 'causa', hint: 'la CAUSA: perché avviene, che cosa lo provoca', hintEn: 'the CAUSE: why it happens, what triggers it' },
+    { key: 'conseguenza', hint: 'la CONSEGUENZA: che cosa comporta, che cosa ne deriva', hintEn: 'the CONSEQUENCE: what it entails, what follows from it' },
+    { key: 'esempio', hint: 'un ESEMPIO concreto: applicare il concetto a un caso reale della fonte', hintEn: 'a concrete EXAMPLE: applying the concept to a real case from the source' },
+    { key: 'confronto', hint: 'un CONFRONTO: differenze e somiglianze fra due elementi del testo', hintEn: 'a COMPARISON: differences and similarities between two elements of the text' },
+    { key: 'eccezione', hint: 'un\'ECCEZIONE o un limite: quando NON vale, i casi particolari', hintEn: 'an EXCEPTION or limit: when it does NOT hold, the special cases' },
+    { key: 'applicazione', hint: 'un\'APPLICAZIONE/INFERENZA: usare il concetto per dedurre o risolvere un caso', hintEn: 'an APPLICATION/INFERENCE: using the concept to deduce or solve a case' }
+];
+window.quizAngleLabel = function (key) {
+    var m = { auto: 'Automatico (misto)', definizione: 'Definizione', causa: 'Causa', conseguenza: 'Conseguenza', esempio: 'Esempio concreto', confronto: 'Confronto', eccezione: 'Eccezione / limite', applicazione: 'Applicazione / inferenza' };
+    return window.t ? window.t('qa_' + key, m[key] || key) : (m[key] || key);
+};
+window.buildQuizAngleOptions = function (selected) {
+    var sel = selected || 'auto';
+    return (window.QUIZ_ANGLES || []).map(function (a) {
+        return '<option value="' + a.key + '"' + (a.key === sel ? ' selected' : '') + '>' + window.quizAngleLabel(a.key) + '</option>';
+    }).join('');
+};
+// Blocco istruzione da ANTEPORRE al prompt quiz: angolo (misto o forzato) + sintassi
+// varia (anti-memorizzazione). Sostituisce il debole "usa il nonce per variare".
+window.quizAngleBlock = function (angleKey) {
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    var a = (window.QUIZ_ANGLES || []).filter(function (x) { return x.key === angleKey; })[0];
+    var head;
+    if (!a || a.key === 'auto') {
+        head = en
+            ? 'ANGLE OF THIS SET: vary the angle across the questions (definition, cause, consequence, concrete example, comparison, exception, application/inference) — never two questions on the same aspect.'
+            : 'ANGOLO DI QUESTA GENERAZIONE: varia l\'angolo tra le domande (definizione, causa, conseguenza, esempio concreto, confronto, eccezione, applicazione/inferenza) — mai due domande sullo stesso aspetto.';
+    } else {
+        head = en
+            ? 'ANGLE OF THIS SET (mandatory): EVERY question must be built around ' + (a.hintEn || a.key) + '.'
+            : 'ANGOLO DI QUESTA GENERAZIONE (obbligatorio): OGNI domanda deve avere come taglio ' + a.hint + '.';
+    }
+    var syntax = en
+        ? ' SYNTACTIC VARIETY: vary the question FORM (open "why/how", completion, concrete case, "which is NOT…", motivated true/false) so students cannot memorize the pattern.'
+        : ' VARIETÀ SINTATTICA: varia la FORMA della domanda (aperta "perché/come", completamento, caso concreto, "quale NON…", vero/falso motivato) così gli allievi non memorizzano lo schema.';
+    return head + syntax;
+};
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
@@ -104,7 +154,9 @@ window.generateDynamicQuiz = async function (opts) {
             opts.usageSub || (qt.indexOf('vero') >= 0 ? 'quiz_tf' : (qt.indexOf('apert') >= 0 ? 'quiz_open' : 'quiz_mc')));
     }
     const nonce = opts.nonce || window.quizNonce();
-    const prompt = window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce });
+    const angleBlock = window.quizAngleBlock ? window.quizAngleBlock(opts.angle || 'auto') : '';
+    const prompt = (angleBlock ? angleBlock + '\n\n' : '') +
+        window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce });
     const schema = {
         type: "ARRAY",
         items: {
@@ -134,6 +186,8 @@ window.startStudySession = async function () {
     window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;
     if (window.studyConfig.mode === 'quiz') {
         window.studyConfig.quizType = document.getElementById('study-quiz-type').value;
+        const _angEl = document.getElementById('study-quiz-angle');
+        window.studyConfig.quizAngle = _angEl ? _angEl.value : 'auto';
     }
 
     let studyText = "";
@@ -175,6 +229,7 @@ window.startStudySession = async function () {
                 material: studyText,
                 quizType: window.studyConfig.quizType,
                 quantity: window.studyConfig.quantity,
+                angle: window.studyConfig.quizAngle || 'auto',
                 apiKey: apiKey
             });
         } else {
@@ -222,6 +277,7 @@ window.startStudySession = async function () {
             // Materiale sorgente per "Rigenera domande nuove" (nuova chiamata AI con nonce
             // fresco, invece del replay verbatim di loadStudySet). Cap difensivo.
             material: String(studyText || '').slice(0, 12000),
+            angle: window.studyConfig.quizAngle || 'auto',   // taglio scelto: la rigenerazione lo mantiene
             quantity: window.studyConfig.quantity,
             date: new Date().toISOString()
         });

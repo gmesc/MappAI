@@ -41,7 +41,10 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         maxItems: 5
     };
 
-    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
+    // Angolo 'auto' (misto + sintassi varia) anche sul quiz per-nodo → più varietà
+    // tra generazioni. Anteposto al payload, non a promptText (guardia template-vuoto).
+    const _angleB = window.quizAngleBlock ? window.quizAngleBlock('auto') : '';
+    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
 
     try {
         if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
@@ -192,7 +195,8 @@ window.regenerateStudySet = async function (setId) {
             const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", { nodeLabel: set.title, nodeContent: set.material, nonce });
             const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { q: { type: "STRING" }, a1: { type: "STRING" }, a2: { type: "STRING" }, a3: { type: "STRING" }, correct: { type: "INTEGER" } }, required: ["q", "a1", "a2", "a3", "correct"] }, minItems: 5, maxItems: 5 };
             if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
-            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
+            const _angleB = window.quizAngleBlock ? window.quizAngleBlock(set.angle || 'auto') : '';
+            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
             const raw = data.candidates[0].content.parts[0].text;
             newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
         } else if (set.mode === 'flashcard') {
@@ -204,7 +208,7 @@ window.regenerateStudySet = async function (setId) {
             newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
         } else {
             // quiz "dinamico" (options/correct): riusa generateDynamicQuiz (nonce interno)
-            newItems = await window.generateDynamicQuiz({ nodeLabel: set.title, material: set.material, quizType: set.type || 'Scelta Multipla', quantity: set.quantity || set.items.length || 5, apiKey });
+            newItems = await window.generateDynamicQuiz({ nodeLabel: set.title, material: set.material, quizType: set.type || 'Scelta Multipla', quantity: set.quantity || set.items.length || 5, angle: set.angle || 'auto', apiKey });
         }
         if (!Array.isArray(newItems) || !newItems.length) { window.showLoadingOverlay(false); window.showToast(window.t('tst_regen_empty', "Rigenerazione non riuscita: nessuna domanda prodotta."), "error"); return; }
         set.items = newItems;

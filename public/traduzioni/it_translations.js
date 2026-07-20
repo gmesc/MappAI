@@ -476,6 +476,7 @@ const it_translations = {
     ui_tts_tool: "Ascolto Testo",
     ui_undo: "Annulla",
     ui_quiz_type: "Tipo di Quiz",
+    ui_quiz_angle: "Angolo delle domande",
     ui_quantity: "Quantità (Domande/Card)",
     ui_fluency_timer: "Timer di Fluency",
     ui_saved_profiles: "Profili Salvati",

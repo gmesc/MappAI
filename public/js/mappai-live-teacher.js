@@ -141,6 +141,8 @@
       '<button type="button" data-c="choice" class="sel">' + t('lv_cloze_choice', '👆 Scegli fra 3 (tocca)') + '</button>' +
       '<button type="button" data-c="type">' + t('lv_cloze_type', '⌨️ Scrivi') + '</button></div>' +
       '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_cloze_choice_hint', '«Scegli» toglie lo stress della tastiera (consigliato su telefono/BES-DSA).') + '</div></div>' +
+      '<div id="lv-angle-row"><span class="lv-lab">' + t('ui_quiz_angle', 'Angolo delle domande') + '</span>' +
+      '<select id="lv-angle" class="lv-in">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '') + '</select></div>' +
       '<span class="lv-lab">' + t('lv_scope', 'Da dove') + '</span>' + scopeField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qty', 'Numero domande') + '</span><input id="lv-qty" type="number" class="lv-in" value="8" min="1" max="' + LC.LIMITS.questionsMax + '" inputmode="numeric"></div>' +
       '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lv-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
@@ -169,6 +171,8 @@
         ov.querySelector('#lv-customwrap').style.display = custom ? '' : 'none';
         // il sotto-toggle «scrivi/scegli» solo per il Cloze
         var ca = ov.querySelector('#lv-cloze-answer'); if (ca) ca.style.display = (mode === 'cloze') ? '' : 'none';
+        // l'angolo delle domande vale per quiz V/F e Scelta multipla, non per il Cloze
+        var ar = ov.querySelector('#lv-angle-row'); if (ar) ar.style.display = (mode === 'cloze') ? 'none' : '';
         if (custom) buildCustomEditor(ov.querySelector('#lv-customwrap'));
       };
     });
@@ -194,7 +198,8 @@
       var scope = ov.querySelector('#lv-scope').value;
       var qty = Math.max(1, Math.min(parseInt(ov.querySelector('#lv-qty').value, 10) || 8, LC.LIMITS.questionsMax));
       var timer = Math.max(0, parseInt(ov.querySelector('#lv-timer').value, 10) || 0);
-      generateAndLaunch(cls, mode, scope, qty, timer, { clozeAnswer: clozeAnswer });
+      var angle = (ov.querySelector('#lv-angle') && ov.querySelector('#lv-angle').value) || 'auto';
+      generateAndLaunch(cls, mode, scope, qty, timer, { clozeAnswer: clozeAnswer, angle: angle });
     };
   }
 
@@ -321,7 +326,7 @@
     return { kind: 'mc', text: q, options: sh.options, correct: sh.correct, explanation: it.explanation ? String(it.explanation) : undefined, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
   }
 
-  function generateQuizViaStudy(nodes, qty, mode) {
+  function generateQuizViaStudy(nodes, qty, mode, angle) {
     if (!window.generateDynamicQuiz) return Promise.resolve([]);
     var apiKey = window.getSystemKey ? window.getSystemKey() : null;
     var qt = (mode === 'tf')
@@ -333,7 +338,7 @@
       if (out.length >= qty || idx >= nodes.length) return Promise.resolve();
       var n = nodes[idx++];
       var material = clean(n.label) + ': ' + (n.desc || n.content || '');
-      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, apiKey: apiKey, usageCat: 'live', usageSub: 'quiz' })
+      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, angle: angle || 'auto', apiKey: apiKey, usageCat: 'live', usageSub: 'quiz' })
         .then(function (items) {
           for (var k = 0; k < items.length && out.length < qty; k++) {
             var lq = dynItemToLive(items[k], n, mode);
@@ -375,7 +380,7 @@
     showBusy(t('lv_generating', 'Genero le domande dai contenuti…'));
     // Stesso motore del quiz in-app (DYNAMIC_QUIZ); fallback al generatore
     // "completamento" solo se il primo non produce nulla.
-    generateQuizViaStudy(nodes, qty, mode).then(function (qs) {
+    generateQuizViaStudy(nodes, qty, mode, extra && extra.angle).then(function (qs) {
       if (qs && qs.length) return qs;
       return generateQuizAI(nodes, qty, mode === 'tf');
     }).then(function (qs) {
