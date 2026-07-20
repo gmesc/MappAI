@@ -796,6 +796,83 @@ ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultP
     }
 });
 
+// ── Pipeline «Genera materiali» (011) — 3 handler sottili (I/O + finestra) ──
+// Nessuna logica di dominio qui: naming/sanitizzazione/manifest vivono nei moduli
+// renderer e in FilesCore/PipelineCore (constitution VI).
+
+// html-to-pdf: HTML stampabile → PDF senza interazione (webContents.printToPDF).
+ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
+    let win = null;
+    try {
+        if (!html || typeof html !== 'string') return { ok: false, error: 'html mancante' };
+        const opts = options || {};
+        win = new BrowserWindow({
+            show: false,
+            webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false }
+        });
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        await new Promise(r => setTimeout(r, 150));   // settle del layout (font/immagini inline)
+        const pdf = await win.webContents.printToPDF({
+            pageSize: opts.pageSize || 'A4',
+            printBackground: true,
+            landscape: !!opts.landscape
+        });
+        return { ok: true, base64: pdf.toString('base64') };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    } finally {
+        if (win) { try { win.destroy(); } catch (e) { /* noop */ } }
+    }
+});
+
+// save-vault-file: scrittura generica dentro il vault (HTML/MP3/PDF/JSON manifest).
+// La sanitizzazione del percorso arriva da FilesCore — main NON reimplementa regole.
+ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        if (base64 == null && text == null) return { ok: false, error: 'nessun contenuto' };
+        const dest = path.join(vaultPath, safe);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        if (base64 != null) {
+            const b = (/^data:/i.test(base64) && base64.indexOf(',') >= 0) ? base64.slice(base64.indexOf(',') + 1) : base64;
+            fs.writeFileSync(dest, Buffer.from(b, 'base64'));
+        } else {
+            fs.writeFileSync(dest, String(text), 'utf-8');
+        }
+        return { ok: true, path: dest };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// vault-materials-list: elenca i materiali su disco (Materiale Studio/) + manifest.
+ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        let manifest = null;
+        try {
+            const mp = path.join(vaultPath, 'pipeline.json');
+            if (fs.existsSync(mp)) manifest = JSON.parse(fs.readFileSync(mp, 'utf-8'));
+        } catch (e) { manifest = null; }   // parse tollerante: manifest corrotto ≠ errore
+        const dir = path.join(vaultPath, 'Materiale Studio');
+        const files = [];
+        if (fs.existsSync(dir)) {
+            fs.readdirSync(dir).forEach(name => {
+                try {
+                    const fp = path.join(dir, name);
+                    const st = fs.statSync(fp);
+                    if (st.isFile()) files.push({ name: name, relPath: 'Materiale Studio/' + name, size: st.size, mtime: st.mtimeMs });
+                } catch (e) { /* skip */ }
+            });
+        }
+        return { ok: true, manifest: manifest, files: files };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
 // IPC Handler to save chat transcripts
 ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
@@ -2226,42 +2303,60 @@ ipcMain.handle('get-all-vaults', async () => {
     try {
         const saveDir = mapsBaseDir();   // 010
         if (!fs.existsSync(saveDir)) return [];
+        const EXCLUDE = (FilesCore && FilesCore.VAULT_CONTAINER_EXCLUDE) || [];
 
-        const folders = fs.readdirSync(saveDir).filter(f => {
-            return fs.statSync(path.join(saveDir, f)).isDirectory();
-        });
+        // Legge un vault (cartella con index.yaml). classDir = basename del contenitore
+        // di classe se annidato (011), assente per i vault flat. Shape INVARIATA.
+        function readVaultInfo(vaultPath, folderName, classDir) {
+            const indexPath = path.join(vaultPath, 'index.yaml');
+            if (!fs.existsSync(indexPath)) return null;
+            const vaultInfo = { folderName: folderName, fullPath: vaultPath };
+            if (classDir) vaultInfo.classDir = classDir;
+            try {
+                const parsed = yaml.load(fs.readFileSync(indexPath, 'utf-8')) || {};
+                vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
+                vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || folderName;
+                vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
+                if (parsed.userProfile) {
+                    vaultInfo.nickname = parsed.userProfile.nickname;
+                    vaultInfo.age      = parsed.userProfile.age;
+                }
+            } catch (e) {
+                console.warn(`[MappAI] Errore parsing index.yaml in ${folderName}:`, e.message);
+                // Fallback legacy riga-per-riga
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                indexContent.split('\n').forEach(line => {
+                    if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                    if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
+                    if (line.startsWith('userProfile:')) {
+                        try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
+                    }
+                });
+            }
+            return vaultInfo;
+        }
 
         const vaults = [];
-        folders.forEach(f => {
-            const vaultPath = path.join(saveDir, f);
-            const indexPath = path.join(vaultPath, 'index.yaml');
-            if (fs.existsSync(indexPath)) {
-                const vaultInfo = { folderName: f, fullPath: vaultPath };
-                try {
-                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                    const parsed = yaml.load(indexContent) || {};
-                    vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
-                    vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || f;
-                    vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
-                    if (parsed.userProfile) {
-                        vaultInfo.nickname = parsed.userProfile.nickname;
-                        vaultInfo.age      = parsed.userProfile.age;
-                    }
-                } catch(e) {
-                    console.warn(`[MappAI] Errore parsing index.yaml in ${f}:`, e.message);
-                    // Fallback legacy
-                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                    indexContent.split('\n').forEach(line => {
-                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
-                        if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
-                        if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
-                        if (line.startsWith('userProfile:')) {
-                            try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
-                        }
-                    });
-                }
-                vaults.push(vaultInfo);
+        fs.readdirSync(saveDir).forEach(f => {
+            const p = path.join(saveDir, f);
+            let st; try { st = fs.statSync(p); } catch (e) { return; }
+            if (!st.isDirectory() || EXCLUDE.indexOf(f) >= 0) return;
+            // Livello 1: cartella CON index.yaml = vault (comportamento storico).
+            if (fs.existsSync(path.join(p, 'index.yaml'))) {
+                const vi = readVaultInfo(p, f, null);
+                if (vi) vaults.push(vi);
+                return;
             }
+            // Livello 2: contenitore di classe (nessun index.yaml) → scandire 1 livello.
+            let children; try { children = fs.readdirSync(p); } catch (e) { return; }
+            children.forEach(c => {
+                const cp = path.join(p, c);
+                let cst; try { cst = fs.statSync(cp); } catch (e) { return; }
+                if (!cst.isDirectory()) return;
+                const vi = readVaultInfo(cp, c, f);   // folderName = basename del vault; classDir = contenitore
+                if (vi) vaults.push(vi);
+            });
         });
 
         // Sort by lastUpdated desc
