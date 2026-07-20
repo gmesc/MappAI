@@ -561,6 +561,43 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### 🔵 IN CORSO (21/7/26): branch `fix/deepening-residuo` — P1+P2 anti-parafrasi nel deepening
+Branch NON ancora mergiato. Origine: audit pedagogico su mm_elvezia + mm_la_carta
+(vedi memoria `audit-deepening-dnodes.md`) → i nodi `_D<n>` (Fase 3.7 "deepening
+selettivo") erano il 38.8% / 42.7% delle due mappe, ~metà parafrasi del padre.
+Causa: il pass si attivava sulla PROFONDITÀ mancante e riceveva come materiale la
+SOLA desc del padre (`textParts`, la fonte vera, era passato ma MAI usato). Fix in
+due mosse, entrambe in `executeDeepeningPass` (mappai-generation-support.js:1734+):
+- **Core puro** `public/js/mappai-deepen-core.js` (UMD, dipende soft da
+  `MappAIDescFidelity` per tokenizzazione/stemming IT; caricato in index.html DOPO
+  desc-fidelity, PRIMA di generation-support). API: `residueSentences`/
+  `buildResidueMaterial` (P1: frasi della fonte on-topic col padre MA con lessico
+  nuovo), `paraphraseVerdict`/`filterProposedChildren` (P2: scarta un sotto-concetto
+  se il suo lessico è ≥`maxContainment`=0.60 già nel "coperto" = desc padre +
+  fratelli accettati, o porta <3 parole nuove; il covered CUMULATIVO uccide i
+  fratelli quasi-identici). +12 test `tests/deepen-core.test.js`.
+- **P1 nel pass**: materiale = residuo dalla fonte (`textParts` ora USATO), gate =
+  presenza di residuo (non più profondità del ramo; lo slider resta TETTO di
+  profondità). Nessun residuo → niente approfondimento. Prompt riscritto: mostra al
+  modello "GIÀ COPERTO (non ripetere)" vs "NUOVO MATERIALE DALLA FONTE".
+- **P2 nel pass**: `filterProposedChildren` prima dell'inserimento; log
+  `+N nodi, M scartati (parafrasi)`. +3 test `tests/deepening-integration.test.js`
+  (mock fetchModelAPI: 1 valido + 2 parafrasi → 1 inserito).
+- **Reversibile**: kill-switch generale `mappai_deepening_enabled` (esistente);
+  A/B col comportamento legacy (materiale=desc, no verdetto) via
+  `mappai_deepen_residue='false'`. Se il core manca o la fonte è <200 char → legacy
+  o skip (mai parafrasi in un vault riaperto senza fonte).
+- **Verifica sui dati reali** (harness Node, P2 vs padre col covered cumulativo):
+  Elvezia 16/33 D-nodes scartati (48%), Carta 24/35 (69%) — coerente con l'audit.
+  Suite **636/636** ✅ (621 + 12 + 3).
+- ⚠️ **Da testare in Electron vivo**: generazione MM multi-pass reale su una fonte →
+  contare i D-node risultanti (attesi molti meno) e verificare che siano dettagli
+  nuovi, non parafrasi; log `[Deepening]` in console; A/B col flag legacy.
+- Limite noto: il verdetto è LESSICALE → cattura le parafrasi ad alto overlap (la
+  maggioranza), non i quasi-duplicati raccontati con lessico molto diverso (es. la
+  stessa battaglia con sinonimi) → dominio del dedup semantico intra-ramo (proposta
+  P3, non ancora fatta). Restano aperte anche P4-P7 dell'audit.
+
 ### ✅ FATTO (20/7/26): 011-pipeline-materiali — pipeline «Genera materiali» (spec-kit completo)
 Branch `011-pipeline-materiali` (NON ancora mergiato). Spec-kit completo
 (`specs/011-pipeline-materiali/`), 43 task, 8 commit puliti. Suite **621/621** ✅.
@@ -1726,6 +1763,8 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
 | `mappai_kg_community_mode` | **KG Community (stile MiniMAP)**: single-pass + comunità GraphRAG invece dell'albero forzato. Solo modalità KG | OFF |
 | `mappai_legacy_float_btns` | **Ripristina i 7 bottoni flottanti storici** del bordo destro (Cloze 📝 20 · Padronanza 🎯 84 · Progressi 📈 148 · Percorso 🧭 212 · Palazzo 🏛️ 276 · Dungeon 🎮 340 · Lavoro 🔥 404). Con feature 001-menu-reorg tutto vive nel launcher Studio attivo (viste+strumenti) e la colonna è vuota; `'1'` torna alla disposizione precedente | OFF |
+| `mappai_deepening_enabled` | Kill-switch generale della **Fase 3.7 deepening** (nodi `_D` di approfondimento). `'false'` = niente pass di approfondimento | ON |
+| `mappai_deepen_residue` | Deepening in **modalità residuo+verdetto (P1+P2)**: materiale dalla fonte + scarto delle parafrasi. `'false'` = comportamento legacy (materiale = desc del padre, nessun verdetto anti-parafrasi) | ON |
 
 **Comandi console:**
 ```js
