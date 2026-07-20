@@ -149,6 +149,39 @@ test('validateQuizItems / validatePdfB64 / validateSynthesis', () => {
   assert.strictEqual(PC.validateSynthesis({ sections: [{ text: 'Sezione con contenuto sufficiente.' }] }).ok, true);
 });
 
+// ── file-first / resume / retry (US2) ───────────────────────────────────
+test('stepTransition: running resetta i file (retry pulito), done li tiene', () => {
+  let m = PC.createManifest(fullConfig, { now: NOW });
+  m = PC.stepTransition(m, 'A', 'running', { now: NOW });
+  m = PC.stepTransition(m, 'A', 'done', { now: NOW });
+  m = PC.stepTransition(m, 'C', 'running', { now: NOW });
+  m.steps.C.files = ['Materiale Studio/parziale.pdf'];   // file parziale scritto pre-crash
+  m = PC.stepTransition(m, 'C', 'failed', { now: NOW, error: 'boom' });
+  assert.deepStrictEqual(m.steps.C.files, ['Materiale Studio/parziale.pdf']); // failed conserva
+  m = PC.stepTransition(m, 'C', 'running', { now: NOW });   // Riprova
+  assert.deepStrictEqual(m.steps.C.files, []);               // reset per rigenerare
+});
+
+test('resume: step done NON si ritocca; solo failed/pending ripartono (guardia orchestratore)', () => {
+  // Simula un manifest post-crash: A done, B done, C running (crash), D pending.
+  let m = PC.createManifest(fullConfig, { now: NOW });
+  m = PC.stepTransition(m, 'A', 'running', { now: NOW });
+  m = PC.stepTransition(m, 'A', 'done', { now: NOW, calls: 20 });
+  m = PC.stepTransition(m, 'B', 'running', { now: NOW });
+  m = PC.stepTransition(m, 'B', 'done', { now: NOW, files: ['Materiale Studio/Quiz-MC-X.pdf'], calls: 6 });
+  m = PC.stepTransition(m, 'C', 'running', { now: NOW });
+  const norm = PC.normalizeOnLoad(m);
+  assert.strictEqual(norm.steps.A.status, 'done');
+  assert.strictEqual(norm.steps.A.calls, 20);      // i calls NON cambiano → zero chiamate ripetute
+  assert.strictEqual(norm.steps.B.status, 'done');
+  assert.strictEqual(norm.steps.C.status, 'failed'); // crash → failed
+  assert.strictEqual(norm.steps.D.status, 'pending');
+  // La ripresa può transire C failed→running e D pending→running; B done resta done.
+  assert.doesNotThrow(() => PC.stepTransition(norm, 'C', 'running', { now: NOW }));
+  assert.doesNotThrow(() => PC.stepTransition(norm, 'D', 'running', { now: NOW }));
+  assert.throws(() => PC.stepTransition(norm, 'B', 'running', { now: NOW }), /vietata/); // done→running vietato
+});
+
 // ── estimateCalls ───────────────────────────────────────────────────────
 test('estimateCalls: rami × tipi + keyword + sintesi + audio', () => {
   const e = PC.estimateCalls(fullConfig, { branches: 4, nodes: 40, audioBlocks: 3 });

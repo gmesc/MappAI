@@ -70,9 +70,9 @@
 
 **Independent Test**: quickstart Fase 2 punti 3-4 — kill dell'app a metà step C → ripresa senza rigenerare A/B; rete giù su D → Riprova solo D.
 
-- [ ] T026 [US2] Ripresa in `mappai-material-pipeline.js`: all'apertura di un progetto/vault con `pipeline.json` non tutto-done → `PipelineCore.normalizeOnLoad` (running→failed) → prompt «Riprendi la pipeline?» → orchestratore salta gli step `done` (zero chiamate AI ripetute — verificabile dai `calls` del manifest)
-- [ ] T027 [US2] «Riprova» nel riepilogo: bottone sul singolo step `failed` → transizione failed→running → riesecuzione SOLO di quello step; output degli step riusciti intoccati (B/C/D indipendenti — richiedono solo A done)
-- [ ] T028 [US2] Audit file-first nell'orchestratore: ogni file entra in `manifest.files` SOLO dopo scrittura riuscita; transizione a `done` dopo l'ultimo file; aggiungere in `tests/pipeline-core.test.js` i casi mancanti (riprova su failed, skip su done, B senza A → vietato)
+- [X] T026 [US2] Ripresa in `mappai-material-pipeline.js`: all'apertura di un progetto/vault con `pipeline.json` non tutto-done → `PipelineCore.normalizeOnLoad` (running→failed) → prompt «Riprendi la pipeline?» → orchestratore salta gli step `done` (zero chiamate AI ripetute — verificabile dai `calls` del manifest)
+- [X] T027 [US2] «Riprova» nel riepilogo: bottone sul singolo step `failed` → transizione failed→running → riesecuzione SOLO di quello step; output degli step riusciti intoccati (B/C/D indipendenti — richiedono solo A done)
+- [X] T028 [US2] Audit file-first nell'orchestratore: ogni file entra in `manifest.files` SOLO dopo scrittura riuscita; transizione a `done` dopo l'ultimo file; aggiungere in `tests/pipeline-core.test.js` i casi mancanti (riprova su failed, skip su done, B senza A → vietato)
 - [ ] T029 [US2] Checkpoint US2: quickstart Fase 2 punti 3-4 eseguiti dal vivo + suite verde
 
 **Checkpoint**: crash-safety dimostrata.

@@ -192,6 +192,8 @@ window.directLoadVault = async function (folderPath) {
 
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
+            // 011: pipeline materiali incompleta su questo vault → proponi la ripresa.
+            if (window.MappAIPipeline && window.MappAIPipeline.checkResume) window.MappAIPipeline.checkResume(folderPath);
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }

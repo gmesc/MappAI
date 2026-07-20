@@ -540,6 +540,44 @@
     });
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // US2 — ripresa idempotente dopo crash
+  // ══════════════════════════════════════════════════════════════════════
+  // Chiamata all'apertura di un vault: se pipeline.json non è tutto-done,
+  // normalizza (running→failed) e propone di riprendere (salta gli step done).
+  Pipeline.checkResume = async function (vaultPath) {
+    try {
+      if (!vaultPath || Pipeline._running) return;
+      if (!(window.electronAPI && window.electronAPI.vaultMaterialsList)) return;
+      const res = await window.electronAPI.vaultMaterialsList({ vaultPath });
+      if (!res || !res.ok || !res.manifest) return;
+      let manifest = res.manifest;
+      if (!PC() || manifest.schema !== PC().SCHEMA) return;
+      if (PC().isComplete(manifest)) return;   // niente da riprendere
+      manifest = PC().normalizeOnLoad(manifest);   // running (crash) → failed
+      _confirmResume(vaultPath, manifest);
+    } catch (e) { /* silenzioso: la ripresa non deve mai bloccare il load */ }
+  };
+
+  function _confirmResume(vaultPath, manifest) {
+    const old = document.getElementById('mp-resume'); if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'mp-resume';
+    modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3200] flex items-center justify-center p-4';
+    modal.innerHTML =
+      '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[420px] p-6 relative">' +
+        '<div class="flex items-center gap-3 mb-3"><div class="pm-icon-wrap"><i data-lucide="rotate-cw" class="w-5 h-5 text-indigo-600"></i></div>' +
+        '<div class="pm-title">' + _esc(_t('mp_resume', 'Riprendi')) + '</div></div>' +
+        '<p class="pm-body-text mb-4">' + _esc(_t('mp_resume_prompt', 'Questo vault ha una pipeline materiali incompleta. Riprenderla?')) + '</p>' +
+        '<div class="flex gap-3"><button type="button" id="mpr-no" class="pm-btn-cancel">' + _esc(_t('ui_cancel', 'Annulla')) + '</button>' +
+        '<button type="button" id="mpr-yes" class="pm-btn-primary" style="flex:1;justify-content:center"><i data-lucide="play" class="w-4 h-4"></i> ' + _esc(_t('mp_resume', 'Riprendi')) + '</button></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    _icons();
+    modal.querySelector('#mpr-no').onclick = () => modal.remove();
+    modal.querySelector('#mpr-yes').onclick = () => { modal.remove(); Pipeline.run(manifest.config || {}, { only: ['B', 'C', 'D'], vaultPath, manifest }); };
+  }
+
   window.MappAIPipeline = Pipeline;
   console.log('[MappAIPipeline] orchestratore pipeline materiali caricato');
 })();
