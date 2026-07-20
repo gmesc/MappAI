@@ -329,6 +329,12 @@
       if (config.nodesheet && wants('C') && manifest.steps.C.status !== 'done') manifest = await _stepC(vaultPath, manifest, config);
       if (config.synthesis && wants('D') && manifest.steps.D.status !== 'done') manifest = await _stepD(vaultPath, manifest, config, apiKey);
 
+      // Rendi i set quiz/flashcard accessibili SUBITO dalla pagina Insegna
+      // (indice mappai_studysets_index + progetto) senza attendere un autosave:
+      // il docente li trova pronti sia a mappa aperta sia in Insegna (openSet).
+      try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { /* best-effort */ }
+      if (window.MappAITeach && window.MappAITeach.refresh) { try { window.MappAITeach.refresh(); } catch (e) {} }
+
       _overlay(false);
       _openSummary(vaultPath, manifest, config);
     } catch (err) {
