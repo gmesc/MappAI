@@ -97,8 +97,8 @@
 
 **Independent Test**: quickstart Fase 2 punto 8 — nick sede nel profilo → tendina nel form classe → cartella col prefisso.
 
-- [ ] T033 [P] [US4] `public/js/mappai-live-classes.js`: campo `sede` nei DUE form (`renderCreate` E `renderEdit` — form separati, entrambi): tendina da `MappAITeacherProfile.sediList()` + opzione vuota, visibile solo se `sediList().length > 0`; lettura/salvataggio nel handler esistente; i18n chiave `cls_sede`
-- [ ] T034 [US4] Wiring pipeline: la config denormalizza `cls.sede` all'avvio e `mapClassFolder(sede, className)` la usa (helper già pronto da T004) — verifica end-to-end del naming con e senza sede
+- [X] T033 [P] [US4] `public/js/mappai-live-classes.js`: campo `sede` nei DUE form (`renderCreate` E `renderEdit` — form separati, entrambi): tendina da `MappAITeacherProfile.sediList()` + opzione vuota, visibile solo se `sediList().length > 0`; lettura/salvataggio nel handler esistente; i18n chiave `cls_sede`
+- [X] T034 [US4] Wiring pipeline: la config denormalizza `cls.sede` all'avvio e `mapClassFolder(sede, className)` la usa (helper già pronto da T004) — verifica end-to-end del naming con e senza sede
 - [ ] T035 [US4] Checkpoint US4: quickstart Fase 2 punto 8 + suite verde
 
 ---

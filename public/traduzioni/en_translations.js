@@ -1581,4 +1581,6 @@ const en_translations = {
     mp_preset_noname: "The preset needs a name",
     mp_preset_saved: "Preset saved",
     mp_preset_deleted: "Preset deleted",
+    cls_sede: "Site",
+    cls_sede_none: "— site —",
 };
