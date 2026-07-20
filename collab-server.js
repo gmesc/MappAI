@@ -53,7 +53,7 @@ function createCollabServer(opts) {
   let groups = {};   // slug → { nick, color, deviceId, nodes, rev, updatedAt }
   const roster = Array.isArray(opts.roster) ? opts.roster : [];   // US5: login individuale
   const sessionFile = path.join(dir, 'session.json');
-  if (fs.existsSync(sessionFile) && !opts.fresh) {
+  if (fs.existsSync(sessionFile)) {
     const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
     session = s.session;
     for (const f of fs.readdirSync(groupsDir)) {
@@ -76,6 +76,10 @@ function createCollabServer(opts) {
       // Login flessibile (008 US5): 'group' (storico, nickname) o 'individual'
       // (roster emoji+numero). Default = comportamento storico a gruppi.
       loginMode: (opts.session && opts.session.loginMode === 'individual') ? 'individual' : 'group',
+      // 'open' finché il docente non ferma il server (markClosed → 'closed'). Il main usa
+      // questo per il naming progressivo: una sessione 'closed' non viene mai ripresa, una
+      // 'open' (app crashata senza stop) sì → crash-safety.
+      phase: 'open',
       token: token(10),
       adminToken: token(16),
       startedAt: new Date().toISOString()
@@ -301,6 +305,9 @@ function createCollabServer(opts) {
       });
     },
     stop() { return new Promise(r => server.close(r)); },
+    // Chiusura esplicita (docente ferma il server): la sessione non verrà più ripresa
+    // dal naming progressivo. Idempotente.
+    markClosed() { if (session.phase !== 'closed') { session.phase = 'closed'; persist(); } },
     state() {
       return {
         session: {

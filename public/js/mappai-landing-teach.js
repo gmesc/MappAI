@@ -124,6 +124,102 @@
     return kept.map(function (i) { return i.id; });
   }
 
+  // ── Layout condiviso: ogni sezione è una <table table-fixed> con <colgroup>
+  // a larghezze fisse → intestazioni e righe condividono le STESSE colonne
+  // (vera semantica tabellare: header sopra la loro colonna, nessuno slittamento
+  // se cambia il numero di bottoni report). 19/7. ──────────────────────────
+  var TD = 'px-2 py-2 align-middle';
+  var TH = 'px-2 py-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap';
+  function th(label, align) { return '<th class="' + TH + ' ' + (align || 'text-left') + '">' + esc(label) + '</th>'; }
+  function td(inner, extra) { return '<td class="' + TD + (extra ? ' ' + extra : '') + '">' + (inner == null ? '' : inner) + '</td>'; }
+  function fmtDate(ts) {
+    if (!ts) return '';
+    try {
+      var d = new Date(ts);
+      var p = function (n) { return String(n).padStart(2, '0'); };
+      return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+    } catch (e) { return ''; }
+  }
+  // Contenuto cella TIPO: icona + etichetta breve maiuscola (troncata dalla td).
+  function tipoCell(icon, label, title) {
+    return '<span class="flex items-center gap-1 text-indigo-400 min-w-0" title="' + esc(title || label) + '">' +
+      '<i data-lucide="' + icon + '" class="w-3.5 h-3.5 shrink-0"></i>' +
+      '<span class="text-[9px] font-bold uppercase tracking-tight truncate">' + esc(label) + '</span></span>';
+  }
+  // Contenuto cella CLASSE: chip singolo/lista o trattino.
+  function classCell(names) {
+    var arr = (names == null) ? [] : (Array.isArray(names) ? names : [names]);
+    arr = arr.filter(function (x) { return x != null && x !== ''; });
+    if (!arr.length) return '<span class="text-slate-300">—</span>';
+    return '<span class="flex flex-wrap gap-1 min-w-0">' + arr.slice(0, 2).map(function (c) {
+      return '<span class="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5 max-w-full"><i data-lucide="graduation-cap" class="w-2.5 h-2.5 shrink-0"></i><span class="truncate">' + esc(c) + '</span></span>';
+    }).join('') + (arr.length > 2 ? '<span class="text-[9px] text-slate-400">+' + (arr.length - 2) + '</span>' : '') + '</span>';
+  }
+  // Contenuto cella DATA.
+  function dateCell(ts) { return '<span class="text-[10px] text-slate-400 tabular-nums whitespace-nowrap">' + esc(fmtDate(ts)) + '</span>'; }
+  // Bottone icona azione (PLAY/QR/FOLDER/BIN…). disabled → grigio inerte.
+  function actIcon(icon, tip, onclick, color, disabled) {
+    var cls = disabled ? 'text-slate-200 cursor-not-allowed'
+      : (color || 'text-slate-400 hover:text-indigo-500');
+    var handler = (disabled || !onclick) ? '' : ' onclick="event.stopPropagation();' + onclick + '"';
+    return '<button type="button"' + handler + (disabled ? ' disabled' : '') +
+      ' title="' + esc(tip) + '" class="inline-flex items-center rounded-lg p-1.5 transition ' + cls + '">' +
+      '<i data-lucide="' + icon + '" class="w-4 h-4"></i></button>';
+  }
+  // Cella TITOLO (bollino opzionale + sottotitolo).
+  function titleTd(o) {
+    return td('<div class="flex items-center gap-1.5 min-w-0" title="' + esc(o.titleTip || o.title) + '">' + (o.dot || '') +
+      '<div class="min-w-0"><div class="text-[12px] font-bold text-slate-700 truncate">' + esc(o.title) + '</div>' +
+      (o.sub ? '<div class="text-[10px] text-slate-400 truncate">' + o.sub + '</div>' : '') + '</div></div>');
+  }
+  // ── Tabella sezioni "file" (Progetti · Materiali · File condivisi) ──────────
+  var FILE_COLS = '<colgroup><col style="width:88px"><col><col style="width:118px"><col style="width:100px"><col style="width:150px"></colgroup>';
+  function fileHead() {
+    return '<thead class="sticky top-0 bg-white z-10"><tr class="border-b border-slate-200">' +
+      th(_t('rp_type', 'Tipo')) + th(_t('rp_title', 'Titolo')) + th(_t('rp_class', 'Classe')) +
+      th(_t('lt_col_date', 'Data')) + '<th class="' + TH + '"></th></tr></thead>';
+  }
+  function fileRow(o) {
+    var click = o.onClick ? ' onclick="' + o.onClick + '"' : '';
+    var cur = o.onClick ? ' cursor-pointer' : '';
+    return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition' + cur + '"' + click + '>' +
+      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(o.date) +
+      td('<div class="flex justify-end items-center gap-0.5">' + (o.block || '') + '</div>', 'text-right') + '</tr>';
+  }
+  function fileTable(rowsHtml, scroll) {
+    var t = '<table class="w-full table-fixed border-collapse">' + FILE_COLS + fileHead() + '<tbody>' + rowsHtml + '</tbody></table>';
+    return scroll ? '<div class="overflow-y-auto max-h-[340px]" style="scrollbar-gutter:stable">' + t + '</div>' : t;
+  }
+  // ── Tabella "Attività di studio e report": Tipo · Titolo · Classe ·
+  // Partecipanti · Data · Report(bottoni) · Finder ──────────────────────────
+  var ACT_COLS = '<colgroup><col style="width:88px"><col><col style="width:80px"><col style="width:104px"><col style="width:64px"><col style="width:196px"><col style="width:44px"></colgroup>';
+  function actHead() {
+    return '<thead class="sticky top-0 bg-white z-10"><tr class="border-b border-slate-200">' +
+      th(_t('rp_type', 'Tipo')) + th(_t('rp_title', 'Titolo')) + th(_t('rp_class', 'Classe')) +
+      th(_t('lt_col_date', 'Data')) + th(_t('lt_col_part_short', 'Part.')) + th(_t('lt_col_report', 'Report')) +
+      '<th class="' + TH + '"></th></tr></thead>';
+  }
+  function actTableRow(o) {
+    return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition">' +
+      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(o.date) + td(o.partic) +
+      td('<div class="flex flex-wrap items-center gap-1">' + (o.reports || '') + '</div>') +
+      td(o.folder, 'text-right') + '</tr>';
+  }
+  function actTable(rowsHtml) {
+    return '<table class="w-full table-fixed border-collapse">' + ACT_COLS + actHead() + '<tbody>' + rowsHtml + '</tbody></table>';
+  }
+  // Conferma "forte" per l'eliminazione: l'utente digita il NOME esatto della voce.
+  function confirmDeleteText(name, onOk) {
+    var title = _t('lt_del_type_title', 'Conferma eliminazione');
+    var desc = _t('lt_del_type_desc', 'Per eliminare scrivi qui sotto il nome esatto:') + ' “' + name + '”';
+    if (window.showPrompt) {
+      window.showPrompt(title, '', function (val) {
+        if (val && String(val).trim().toLowerCase() === String(name).trim().toLowerCase()) onOk();
+        else toast(_t('lt_del_type_mismatch', 'Il testo non corrisponde: eliminazione annullata.'), 'warning');
+      }, desc);
+    } else if (confirm(desc)) { onOk(); }
+  }
+
   // ── Modalità Insegna: rendering ────────────────────────────────────────────
   function sectionShell(id, icon, title, bodyId, count) {
     var badge = (count != null && count > 0)
@@ -152,7 +248,7 @@
       return '<button type="button" class="teach-qs-btn" onclick="window.MappAITeach.quickStart(\'' + kind + '\')">' +
         '<i data-lucide="' + icon + '" class="w-7 h-7"></i><span>' + esc(label) + '</span></button>';
     };
-    return '<div class="max-w-2xl mx-auto mb-6"><div class="flex flex-wrap gap-3">' +
+    return '<div class="max-w-[806px] mx-auto mb-6"><div class="flex flex-wrap gap-3">' +
       qs('collab', 'presentation', _t('ui_qs_collab', 'Lavagna interattiva')) +
       qs('live', 'radio', _t('ui_qs_live', 'Studio attivo live')) +
       qs('materials', 'folder-down', _t('ui_qs_materials', 'Materiali di studio')) +
@@ -170,14 +266,7 @@
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
       sectionShell('teach-sharedmat', 'share-2', _t('ui_teach_sharedmat', 'File condivisi'), 'teach-sharedmat-body') +
       sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
-    // Progetti (renderer unico + filtro classe)
-    if (window.StorageManager && StorageManager.renderRecentProjects) {
-      StorageManager.renderRecentProjects('teach-projects-body', {
-        classChips: true,
-        onlyIds: allowedProjectIds(),
-        emptyMsg: _t('lt_no_projects_class', 'Nessun progetto per questa classe. Mostra tutto per vederli tutti.')
-      });
-    }
+    renderProjects();
     renderMaterials(docs);
     renderSharedMat();
     renderActivities(sets);
@@ -187,12 +276,85 @@
   // Barra "Cartella documenti" (010): entra nelle impostazioni di organizzazione file.
   function filesBar() {
     if (!window.MappAIFiles) return '';
-    return '<div class="max-w-2xl mx-auto mb-4 flex justify-end">' +
+    return '<div class="max-w-[806px] mx-auto mb-4 flex justify-end">' +
       '<button type="button" onclick="window.MappAIFiles.openSettings()" class="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-500 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 rounded-lg px-3 py-1.5 bg-white">' +
       '<i data-lucide="folder-cog" class="w-3.5 h-3.5"></i>' + esc(_t('ui_files_folder', 'Cartella documenti')) + '</button></div>';
   }
 
+  // ── Progetti esistenti (mappe salvate) — layout unificato ──────────────────
+  var TYPE_META = {
+    kg: { icon: 'network', label: 'KG', full: 'Knowledge Graph' },
+    mindmap: { icon: 'git-merge', label: 'MM', full: 'Mappa Mentale' }
+  };
+  function renderProjects() {
+    var body = document.getElementById('teach-projects-body');
+    if (!body) return;
+    var projects = projectsRead();
+    // Nasconde i progetti il cui vault è stato eliminato dal disco (come Costruisci).
+    var valid = (window.StorageManager && Array.isArray(StorageManager.validVaultFolders)) ? StorageManager.validVaultFolders : null;
+    if (valid) projects = projects.filter(function (p) { return !p.vault || valid.indexOf(p.vault) >= 0; });
+    // Filtro "Solo classe attiva".
+    var allow = allowedProjectIds();
+    if (Array.isArray(allow)) { var set = {}; allow.forEach(function (i) { set[i] = 1; }); projects = projects.filter(function (p) { return set[p.id]; }); }
+    if (!projects.length) {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+        esc(_t('lt_no_projects_class', 'Nessun progetto per questa classe. Mostra tutto per vederli tutti.')) + '</p>';
+      return;
+    }
+    var core = CORE();
+    var reg = regRead();
+    var norm = (core && core.normGrade) ? core.normGrade : function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
+    body.innerHTML = fileTable(projects.map(function (p) {
+      var meta = TYPE_META[p.type === 'kg' ? 'kg' : 'mindmap'];
+      var chips = [], seen = {};
+      var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
+      push(p.cls);
+      if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push);
+      var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (p.tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(p.tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
+      return fileRow({
+        tipo: tipoCell(meta.icon, meta.label, meta.full),
+        title: p.name, titleTip: p.name, dot: dot,
+        cls: classCell(chips), date: dateCell(p.date),
+        block: projBlock(p),
+        onClick: "window.loadSavedProject('" + p.id + "')"
+      });
+    }).join(''), true);
+  }
+  function projBlock(p) {
+    var hasVault = !!p.vault;
+    return actIcon('play-circle', _t('rp_resume', 'Riprendi'), "window.loadSavedProject('" + p.id + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+      actIcon('qr-code', hasVault ? _t('lt_share_vault_qr', 'Condividi la cartella vault (QR)') : _t('lt_no_vault', 'Nessuna cartella vault su disco'), "window.MappAITeach.shareProjectZip('" + p.id + "')", 'text-green-600 hover:text-green-700', !hasVault) +
+      actIcon('folder', hasVault ? _t('lt_open_finder', 'Apri nel Finder') : _t('lt_no_vault', 'Nessuna cartella vault su disco'), "window.MappAITeach.openProjectFolder('" + p.id + "')", null, !hasVault) +
+      actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.deleteProject('" + p.id + "')", 'text-slate-300 hover:text-red-500', false);
+  }
+  function deleteProjectRow(id) {
+    var p = projectsRead().find(function (x) { return x.id === id; });
+    if (!p) return;
+    confirmDeleteText(p.name, function () {
+      var projects = projectsRead().filter(function (x) { return x.id !== id; });
+      try { localStorage.setItem('tutor_ai_projects', JSON.stringify(projects)); localStorage.removeItem(id); } catch (e) { }
+      refresh();
+    });
+  }
+  function openProjectFolder(id) {
+    var p = projectsRead().find(function (x) { return x.id === id; });
+    if (!p || !p.vault) { toast(_t('lt_no_vault', 'Nessuna cartella vault su disco'), 'warning'); return; }
+    if (window.electronAPI && window.electronAPI.openVaultFolder) window.electronAPI.openVaultFolder({ vaultName: p.vault });
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+  function shareProjectZip(id) {
+    var p = projectsRead().find(function (x) { return x.id === id; });
+    if (!p || !p.vault) { toast(_t('lt_no_vault', 'Nessuna cartella vault su disco'), 'warning'); return; }
+    if (window.MappAILive && window.MappAILive.shareVaultZipQr) window.MappAILive.shareVaultZipQr(p.vault, p.name);
+    else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+  }
+  function openMapsFolder() {
+    if (window.electronAPI && window.electronAPI.openMapsFolder) window.electronAPI.openMapsFolder();
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+
   // ── File condivisi (libreria "Materiali docente", IPC su disco) ────────────
+  var _smCache = [];
   function smIcon(ext) {
     ext = String(ext || '').toLowerCase();
     if (ext === 'pdf') return 'file-text';
@@ -212,32 +374,35 @@
         esc(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.')) + '</p>';
       return;
     }
-    var addBar = '<div class="flex items-center gap-2 px-2 pb-2">' +
+    var addBar = '<div class="flex items-center gap-2 px-3 pt-1 pb-2">' +
       '<button type="button" onclick="window.MappAITeach.shareFromPc()" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg px-3 py-1.5">' +
       '<i data-lucide="upload" class="w-3.5 h-3.5"></i>' + esc(_t('lt_sm_add', 'Condividi da PC')) + '</button>' +
       '<button type="button" onclick="window.MappAITeach.openSharedFolder()" title="' + esc(_t('lt_sm_folder', 'Apri cartella')) + '" class="inline-flex items-center text-slate-400 hover:text-indigo-500 rounded-lg p-1.5">' +
       '<i data-lucide="folder" class="w-4 h-4"></i></button></div>';
     window.electronAPI.sharedmatList().then(function (r) {
       var items = (r && r.success && r.items) ? r.items : [];
+      _smCache = items;
       if (!items.length) {
         body.innerHTML = addBar + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
           esc(_t('lt_sm_empty', 'Nessun file condiviso. Usa “Condividi da PC” per inviare una scheda o un documento agli allievi via QR.')) + '</p>';
         if (window.safeCreateIcons) window.safeCreateIcons();
         return;
       }
-      body.innerHTML = addBar + items.map(function (it) {
-        var chips = (it.sharedClasses || []).map(function (c) {
-          return '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(c) + '</span>';
-        }).join(' ');
-        return '<div class="flex items-center gap-2 px-2 py-2 border-b border-slate-100 hover:bg-indigo-50 rounded-lg">' +
-          '<i data-lucide="' + smIcon(it.ext) + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
-          '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(it.name) + '">' + esc(it.name) + '</span>' +
-          '<span class="block text-[10px] text-slate-400 truncate">' + esc(smHuman(it.size)) + '</span></span>' +
-          chips +
-          '<button type="button" onclick="window.MappAITeach.shareFile(\'' + esc(it.id) + '\')" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" class="inline-flex items-center text-green-600 hover:text-green-700 rounded-lg p-1.5"><i data-lucide="qr-code" class="w-4 h-4"></i></button>' +
-          '<button type="button" onclick="window.MappAITeach.removeSharedFile(\'' + esc(it.id) + '\')" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" class="inline-flex items-center text-slate-300 hover:text-red-500 rounded-lg p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
-          '</div>';
-      }).join('');
+      body.innerHTML = addBar + fileTable(items.map(function (it) {
+        var extLbl = String(it.ext || 'file').toUpperCase().slice(0, 4);
+        var block =
+          actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openSharedFile('" + esc(it.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+          actIcon('qr-code', _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareFile('" + esc(it.id) + "')", 'text-green-600 hover:text-green-700', false) +
+          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openSharedFolder()", null, false) +
+          actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.removeSharedFile('" + esc(it.id) + "')", 'text-slate-300 hover:text-red-500', false);
+        return fileRow({
+          tipo: tipoCell(smIcon(it.ext), extLbl, it.ext || ''),
+          title: it.name, titleTip: it.name,
+          sub: esc(smHuman(it.size)),
+          cls: classCell(it.sharedClasses || []), date: dateCell(it.addedAt),
+          block: block
+        });
+      }).join(''), true);
       if (window.safeCreateIcons) window.safeCreateIcons();
     }).catch(function () { body.innerHTML = addBar; if (window.safeCreateIcons) window.safeCreateIcons(); });
   }
@@ -258,9 +423,15 @@
   }
   function removeSharedFile(id) {
     if (!window.electronAPI || !window.electronAPI.sharedmatRemove) return;
-    var go = function () { window.electronAPI.sharedmatRemove({ id: id }).then(function () { renderSharedMat(); }); };
-    if (window.showConfirm) window.showConfirm(_t('lt_sm_del_confirm', 'Eliminare questo file dalla libreria? (la copia inviata agli allievi resta scaricata)'), go);
-    else if (confirm(_t('lt_sm_del_confirm', 'Eliminare questo file dalla libreria?'))) go();
+    var it = _smCache.find(function (x) { return x.id === id; });
+    var name = (it && it.name) || _t('lt_this_file', 'questo file');
+    confirmDeleteText(name, function () {
+      window.electronAPI.sharedmatRemove({ id: id }).then(function () { renderSharedMat(); });
+    });
+  }
+  function openSharedFile(id) {
+    if (window.electronAPI && window.electronAPI.sharedmatOpenFile) window.electronAPI.sharedmatOpenFile({ id: id });
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
   }
   function openSharedFolder() { if (window.electronAPI && window.electronAPI.sharedmatOpenFolder) window.electronAPI.sharedmatOpenFolder(); }
 
@@ -289,23 +460,24 @@
         esc(_t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.')) + '</p>';
       return;
     }
-    body.innerHTML = list.map(function (d) {
+    body.innerHTML = fileTable(list.map(function (d) {
       var meta = KIND_META[d.kind] || KIND_META.dossier;
-      var dt = d.date ? new Date(d.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-      var cls = d.cls
-        ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(d.cls) + '</span>'
-        : '';
-      return '<div class="flex items-center gap-2 px-2 py-2 border-b border-slate-100 hover:bg-indigo-50 rounded-lg cursor-pointer" onclick="window.MappAITeach.openDoc(\'' + esc(d.id) + '\')">' +
-        '<i data-lucide="' + meta.icon + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
-        '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(d.title) + '">' + esc(d.title) + '</span>' +
-        '<span class="block text-[10px] text-slate-400 truncate">' + esc(_t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label)) + (d.mapName ? ' · ' + esc(d.mapName) : '') + '</span></span>' +
-        cls + '<span class="text-[10px] text-slate-400 shrink-0">' + esc(dt) + '</span>' +
-        (d.kind !== 'nodesheet'
-          ? '<button type="button" onclick="event.stopPropagation();window.MappAITeach.shareDoc(\'' + esc(d.id) + '\')" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" class="inline-flex items-center text-green-600 hover:text-green-700 rounded-lg p-1.5"><i data-lucide="qr-code" class="w-4 h-4"></i></button>'
-          : '') +
-        '<button type="button" onclick="event.stopPropagation();window.MappAITeach.deleteDoc(\'' + esc(d.id) + '\')" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" class="inline-flex items-center text-slate-300 hover:text-red-500 rounded-lg p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
-        '</div>';
-    }).join('');
+      var typeLbl = _t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label);
+      var isNode = d.kind === 'nodesheet';
+      var block =
+        actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDoc('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+        actIcon('qr-code', isNode ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareDoc('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isNode) +
+        actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
+        actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
+      return fileRow({
+        tipo: tipoCell(meta.icon, typeLbl, typeLbl),
+        title: d.title, titleTip: d.title,
+        sub: d.mapName ? esc(d.mapName) : '',
+        cls: classCell(d.cls), date: dateCell(d.date),
+        block: block,
+        onClick: "window.MappAITeach.openDoc('" + esc(d.id) + "')"
+      });
+    }).join(''), true);
   }
 
   // Condivide un materiale archiviato via QR (Materiali di MappAI Live). Solo HTML.
@@ -322,15 +494,14 @@
 
   // Elimina un materiale archiviato (con conferma).
   function deleteDoc(id) {
-    var go = function () {
+    var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
+    var name = (doc && doc.title) || _t('lt_this_material', 'questo materiale');
+    confirmDeleteText(name, function () {
       if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
       var docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [];
       renderMaterials(docs);
       if (window.safeCreateIcons) window.safeCreateIcons();
-    };
-    var msg = _t('lt_doc_del_confirm', 'Eliminare questo materiale dall\'archivio? (l\'operazione non si può annullare)');
-    if (window.showConfirm) window.showConfirm(msg, go);
-    else if (confirm(msg)) go();
+    });
   }
 
   // ── Registro attività di studio + report (010) ────────────────────────────
@@ -363,7 +534,7 @@
         if (window.safeCreateIcons) window.safeCreateIcons();
         return;
       }
-      body.innerHTML = rows.map(activityRow).join('') + setsHtml;
+      body.innerHTML = actTable(rows.map(activityRow).join('')) + setsHtml;
       if (window.safeCreateIcons) window.safeCreateIcons();
     }).catch(function () {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_activities', 'Nessuna attività somministrata.')) + '</p>' + setsHtml;
@@ -372,27 +543,41 @@
   }
 
   var ACT_ICON = { Quiz: 'help-circle', 'Vero-Falso': 'check-circle', Cloze: 'pencil-line', Domande: 'message-circle-question', 'Tutor AI': 'message-square', Timeline: 'gantt-chart', Lavagna: 'presentation' };
+  // Report → etichetta breve del bottone (chiave i18n · fallback IT).
+  var WHICH_LBL = { questions: 'lt_rep_answers', students: 'lt_rep_students', tutor: 'lt_rep_tutor', workshop: 'lt_rep_workshop' };
+  var WHICH_FB = { questions: 'Risposte', students: 'Allievi', tutor: 'Tutor', workshop: 'Costruzione' };
   function activityRow(r) {
-    var dt = r.date ? new Date(r.date).toLocaleDateString('it-CH', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
     var scope = r.scope ? esc(r.scope) : esc(_t('lt_whole_map', 'Tutta la mappa'));
     var icon = ACT_ICON[r.activity] || 'clipboard-list';
-    var cls = r.className
-      ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-500"><i data-lucide="graduation-cap" class="w-3 h-3"></i>' + esc(r.className) + '</span>' : '';
+    var typeLbl = r.activity || _t('lt_activity', 'Attività');
     var partic = (r.total > 0 || r.participants > 0)
-      ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500"><i data-lucide="users" class="w-3 h-3"></i>' + r.participants + '/' + r.total + '</span>' : '';
+      ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 whitespace-nowrap" title="' + esc(_t('lt_participants', 'Partecipanti')) + '"><i data-lucide="users" class="w-3 h-3 shrink-0"></i>' + (r.participants || 0) + '/' + (r.total || 0) + '</span>'
+      : '<span class="text-slate-300">—</span>';
     var reports = (r.reports && r.reports.length)
       ? r.reports.map(function (rep) {
-          return '<button type="button" onclick="window.MappAITeach.openReport(\'' + esc(encodeURIComponent(rep.file)) + '\')" class="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-600 hover:text-white hover:bg-indigo-500 border border-indigo-200 rounded-md px-2 py-1 transition-colors">' +
-            '<i data-lucide="file-text" class="w-3 h-3"></i>' + esc(rep.label) + '</button>';
-        }).join(' ')
+          var lbl = _t(WHICH_LBL[rep.which] || '', WHICH_FB[rep.which] || rep.label);
+          return '<button type="button" onclick="event.stopPropagation();window.MappAITeach.openReport(\'' + esc(encodeURIComponent(rep.file)) + '\')" class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-white hover:bg-indigo-500 border border-indigo-200 rounded-md px-1.5 py-1 transition-colors">' +
+            '<i data-lucide="file-text" class="w-3 h-3 shrink-0"></i>' + esc(lbl) + '</button>';
+        }).join('')
       : '<span class="text-[10px] text-slate-400 italic">' + esc(_t('lt_no_report', 'Nessun report')) + '</span>';
-    return '<div class="px-2 py-2.5 border-b border-slate-100">' +
-      '<div class="flex items-center gap-2">' +
-      '<i data-lucide="' + icon + '" class="w-4 h-4 text-indigo-400 shrink-0"></i>' +
-      '<span class="flex-1 min-w-0"><span class="block text-[12.5px] font-bold text-slate-700 truncate" title="' + esc(r.activity) + ' · ' + esc(r.map) + '">' + esc(r.activity) + (r.map ? ' · ' + esc(r.map) : '') + '</span>' +
-      '<span class="block text-[10px] text-slate-400 truncate"><i data-lucide="target" class="w-2.5 h-2.5 inline align-middle"></i> ' + scope + '</span></span>' +
-      cls + partic + '<span class="text-[10px] text-slate-400 shrink-0">' + esc(dt) + '</span></div>' +
-      '<div class="flex flex-wrap gap-1.5 mt-1.5 pl-6">' + reports + '</div></div>';
+    var folderBtn = r.dir
+      ? actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openActivityFolder('" + esc(encodeURIComponent(r.dir)) + "')", null, false)
+      : '';
+    return actTableRow({
+      tipo: tipoCell(icon, typeLbl, typeLbl),
+      title: r.map || r.activity || '', titleTip: r.activity + (r.map ? ' · ' + r.map : ''),
+      sub: '<i data-lucide="target" class="w-2.5 h-2.5 inline align-middle"></i> ' + scope,
+      cls: classCell(r.className), partic: partic, date: dateCell(r.date),
+      reports: reports, folder: folderBtn
+    });
+  }
+  function openActivityFolder(dirEnc) {
+    var dir = decodeURIComponent(dirEnc);
+    if (window.electronAPI && window.electronAPI.studySessionOpenFolder) {
+      window.electronAPI.studySessionOpenFolder({ dir: dir }).then(function (rr) {
+        if (!rr || !rr.success) toast(_t('lt_folder_missing', 'Cartella non disponibile.'), 'warning');
+      });
+    } else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
   }
 
   // Sottolista muta: quiz/flashcard SALVATI ma non somministrati (riapribili).
@@ -677,6 +862,12 @@
     shareFile: shareFile,
     removeSharedFile: removeSharedFile,
     openSharedFolder: openSharedFolder,
+    openSharedFile: openSharedFile,
+    deleteProject: deleteProjectRow,
+    openProjectFolder: openProjectFolder,
+    shareProjectZip: shareProjectZip,
+    openMapsFolder: openMapsFolder,
+    openActivityFolder: openActivityFolder,
     _regRead: regRead,
     _regWrite: regWrite
   };

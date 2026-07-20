@@ -1619,14 +1619,17 @@ La mappa dello studente NON deve essere identica: organizzazioni alternative sen
         // così le attività di studio stanno in un posto solo.
         const mvOn = !!(window.MappAIMasteryView && window.MappAIMasteryView.active);
         const evOn = !!(window.MappAIEffortView && window.MappAIEffortView.active);
+        // Cloze NASCOSTO per ora (scelta utente 20/7): distrattori/testi deboli dalle
+        // desc → riattivabile con localStorage mappai_cloze_enabled='1'. Codice intatto.
+        const _clozeOn = (function () { try { return localStorage.getItem('mappai_cloze_enabled') === '1'; } catch (e) { return false; } })();
         const extraModes = [
-            { key: 'cloze', icon: 'pencil-line', ok: !!window.MappAICloze,
+            (_clozeOn ? { key: 'cloze', icon: 'pencil-line', ok: !!window.MappAICloze,
               title: window.t('as_cloze_title', 'Cloze — completa le definizioni'),
-              hint: window.t('as_cloze_hint', 'Riempi i termini oscurati nelle descrizioni dei nodi.') },
+              hint: window.t('as_cloze_hint', 'Riempi i termini oscurati nelle descrizioni dei nodi.') } : null),
             { key: 'palace', icon: 'landmark', ok: !!(window.MappAIPalace && window.MappAIPalace.start),
               title: window.t('as_palace_title', 'Palazzo della Memoria'),
               hint: window.t('as_palace_hint', 'Viaggio per stanze col metodo dei loci.') }
-        ];
+        ].filter(Boolean);
         const views = [
             { key: 'heatmap', icon: 'target', ok: !!window.MappAIMasteryView, on: mvOn,
               title: window.t('as_heatmap_title', 'Heat map padronanza'),

@@ -3,186 +3,288 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MappAI — Checklist test pre-merge (007 + 008 + MappAI Live)</title>
+<title>MappAI — Checklist test (Live/Tutor/Timeline + Electron 39)</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 <style>
-  :root { --ind:#4f46e5; --ind2:#6366f1; --ok:#16a34a; --slate:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#fafbff; --emoji:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
-  * { box-sizing:border-box; margin:0; font-family:'Space Mono',ui-monospace,monospace; }
-  body { background:var(--bg); color:var(--slate); padding:24px 18px 80px; line-height:1.5;
+  :root { --ind:#4f46e5; --ind2:#6366f1; --ok:#16a34a; --ok-bg:#dcfce7; --amber:#d97706; --amber-bg:#fef3c7;
+          --slate:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#fafbff;
+          --emoji:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  /* emoji Android (Noto) nello stack universale — regola globale MappAI */
+  * { box-sizing:border-box; margin:0; font-family:'Space Mono', var(--emoji), ui-monospace, monospace; }
+  body { background:var(--bg); color:var(--slate); padding:24px 18px 90px; line-height:1.5;
          background-image:radial-gradient(#ddd6fe 1px, transparent 1px); background-size:24px 24px; }
-  .wrap { max-width:860px; margin:0 auto; }
+  .wrap { max-width:900px; margin:0 auto; }
   header { text-align:center; background:#fff; border-radius:16px; padding:22px 18px; border-bottom:3px solid var(--ind); margin-bottom:18px; }
   h1 { font-size:20px; }
   .sub { font-size:12px; color:var(--mut); margin-top:6px; }
-  .emoji { font-family:var(--emoji); }
   .prog-wrap { position:sticky; top:0; z-index:10; background:var(--bg); padding:10px 0 6px; margin-bottom:8px; }
-  .prog-bar { height:12px; background:#eef2ff; border-radius:999px; overflow:hidden; border:1px solid var(--line); }
-  .prog-bar i { display:block; height:100%; width:0; background:var(--ind); transition:width .25s; }
+  .prog-bar { height:12px; background:#eef2ff; border-radius:999px; overflow:hidden; border:1px solid var(--line); display:flex; }
+  .prog-bar i { display:block; height:100%; width:0; transition:width .25s; }
+  .prog-bar .pb-ok { background:var(--ok); }
+  .prog-bar .pb-ob { background:var(--amber); }
   .prog-txt { font-size:12px; color:var(--mut); margin-top:5px; text-align:center; }
+  .prog-txt b.ok { color:var(--ok); } .prog-txt b.ob { color:var(--amber); } .prog-txt b.nt { color:var(--mut); }
   section { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
   h2 { font-size:14px; color:var(--ind); display:flex; align-items:center; gap:8px; }
   h2 .sec-prog { margin-left:auto; font-size:11px; color:var(--mut); font-weight:400; }
-  .item { display:flex; gap:10px; align-items:flex-start; padding:8px 4px; border-bottom:1px solid #f1f5f9; }
+  .item { padding:10px 4px; border-bottom:1px solid #f1f5f9; }
   .item:last-child { border-bottom:0; }
-  .item input { margin-top:3px; width:18px; height:18px; accent-color:var(--ind); flex-shrink:0; cursor:pointer; }
-  .item label { font-size:13px; cursor:pointer; }
-  .item.done label { color:#94a3b8; text-decoration:line-through; }
-  .hint { display:block; font-size:11px; color:var(--mut); margin-top:2px; }
-  .dev { display:inline-block; font-size:10px; font-weight:700; background:#eef2ff; color:var(--ind); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
-  .bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:10px 18px; display:flex; gap:8px; justify-content:center; }
+  .item-head { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+  .item-label { font-size:13px; flex:1; min-width:220px; }
+  .item.st-ok .item-label { color:#334155; }
+  .item.st-untested .item-label { color:var(--slate); }
+  .dev { display:inline-block; font-size:10px; font-weight:700; background:#eef2ff; color:var(--ind); border-radius:6px; padding:1px 6px; margin-left:4px; vertical-align:middle; }
+  code { background:#f1f5f9; border-radius:5px; padding:1px 5px; font-size:12px; }
+  /* segmented control 3 stati */
+  .seg { display:flex; gap:4px; flex-shrink:0; }
+  .seg-btn { border:1.5px solid var(--line); background:#fff; color:var(--mut); border-radius:8px;
+             padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;
+             display:flex; align-items:center; gap:4px; }
+  .seg-btn:hover { border-color:#cbd5e1; }
+  .seg-btn.on[data-v="ok"] { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .seg-btn.on[data-v="untested"] { background:#64748b; border-color:#64748b; color:#fff; }
+  .seg-btn.on[data-v="note"] { background:var(--amber); border-color:var(--amber); color:#fff; }
+  .item-note { display:block; width:100%; margin-top:8px; border:1.5px solid var(--line); border-radius:8px;
+               padding:7px 10px; font-size:12px; color:var(--slate); background:#fff; resize:vertical;
+               min-height:34px; outline:none; }
+  .item-note::placeholder { color:#cbd5e1; }
+  .item-note:focus { border-color:var(--ind2); }
+  .item-note.has-text { background:var(--amber-bg); border-color:#fcd34d; }
+  .item.st-note { background:#fffbeb; border-radius:8px; }
+  .bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:10px 18px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
   .bar button { border:0; border-radius:10px; padding:9px 16px; font:inherit; font-weight:700; font-size:12px; cursor:pointer; }
   .b-print { background:var(--ind); color:#fff; }
   .b-exp { background:#eef2ff; color:var(--ind); }
+  .b-allnt { background:#fff; color:var(--mut); border:1px solid var(--line); }
   .b-reset { background:#fff; color:#dc2626; border:1px solid #fee2e2; }
   .note { font-size:11px; color:var(--mut); background:#f1f5f9; border-radius:8px; padding:8px 11px; margin-bottom:14px; }
-  @media print { body{background:#fff;padding:0} .bar,.prog-wrap{display:none} section{break-inside:avoid} }
+  @media print { body{background:#fff;padding:0} .bar,.prog-wrap{display:none} section{break-inside:avoid}
+    .seg-btn:not(.on){display:none} .item-note:not(.has-text){display:none} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>🧪 Checklist test pre-merge</h1>
-    <div class="sub">Stack <b>008-timeline-live</b> (contiene 007 Tutor QR + MappAI Live + taratura classe + quiz upgrade + provider toggle)<br>Da spuntare su LAN con 2 telefoni prima del merge in <b>main</b>. Stato salvato nel browser.</div>
+    <h1>🧪 Checklist test</h1>
+    <div class="sub">MappAI Live + Tutor QR (007) + Timeline Live (008) — già in <b>main</b>; smoke test <b>⚡ Electron 39</b> prima del merge.<br>
+      Per ogni voce: <b>OK</b> (verificato, funziona) · <b>Non testato</b> · <b>Osservazioni</b> (nota/problema). Campo note libero su ogni voce. Stato salvato nel browser.</div>
   </header>
 
   <div class="prog-wrap">
-    <div class="prog-bar"><i id="pbar"></i></div>
-    <div class="prog-txt" id="ptxt">0 / 0</div>
+    <div class="prog-bar"><i class="pb-ok" id="pbar-ok"></i><i class="pb-ob" id="pbar-ob"></i></div>
+    <div class="prog-txt" id="ptxt">—</div>
   </div>
 
-  <div class="note">Le voci senza <span class="dev">device</span> si provano solo sul PC; quelle con <span class="dev">device</span> richiedono uno o due telefoni sulla stessa rete del PC docente. Voci <b>[opt]</b> = facoltative / regressione.</div>
+  <div class="note">Le voci con <span class="dev">device</span> richiedono uno o due telefoni sulla stessa rete del PC. <b>[opt]</b> = facoltative / regressione. Usa <b>Osservazioni</b> quando qualcosa non torna e scrivi la nota nel campo sotto.</div>
 
-  <section data-sec="Setup">
-    <h2>⚙️ Setup <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="s1"><label><code>npm test</code> verde (431/431)</label></div>
-      <div class="item"><input type="checkbox" data-id="s2"><label><code>npm start</code>, 1 progetto/mappa aperto con fonti (per avere anni nel testo)</label></div>
-      <div class="item"><input type="checkbox" data-id="s3"><label>1 classe negli Account classi con credenziali generate</label></div>
-      <div class="item"><input type="checkbox" data-id="s4"><label>Chiave API configurata (Google e/o Infomaniak + Product ID)</label></div>
-      <div class="item"><input type="checkbox" data-id="s5"><label>2 telefoni sulla stessa rete (hotspot PC o router d'aula) <span class="dev">device</span></label></div>
-    </div>
-  </section>
-
-  <section data-sec="A">
-    <h2>Ⓐ MappAI Live — Studio attivo (quiz) <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="a1"><label>Menu → MappAI Live → Studio attivo live → wizard: classe, Scelta multipla, scope, quantità, timer → Avvia</label></div>
-      <div class="item"><input type="checkbox" data-id="a2"><label>QR + URL + proiettore appaiono; senza chiave AI → avvio bloccato</label></div>
-      <div class="item"><input type="checkbox" data-id="a3"><label>Login studente: classe + emoji + numero (tastierino numerico); identità presa da altro device → errore; classe sbagliata → errore <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="a4"><label>"Avvia domande" → il telefono passa da lobby a player da solo <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="a5"><label>Risposte: Indietro / Salta / Avanti, sync dot verde, countdown se timer <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="a6"><label>Autosave: uccidi l'app a metà → riavvia → RIPRESA stesso token, QR ancora valido, risposte ritrovate <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="a7"><label>Chiudi → 2 report (heatmap domande + schede individuali), nomi allievi se inseriti, apri cartella <code>~/Documents/MappAI - Live/</code></label></div>
-      <div class="item"><input type="checkbox" data-id="a8"><label><b>Qualità quiz</b>: confronta quiz Live con quiz di Studio sullo stesso ramo → domande vere con opzioni (non "completamento")</label></div>
-      <div class="item"><input type="checkbox" data-id="a9"><label>Modalità Vero/Falso → affermazioni native; Cloze e "Domande mie" (editor) generano e partono</label></div>
-    </div>
-  </section>
-
-  <section data-sec="B">
-    <h2>Ⓑ Taratura classe (chip + picker) <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="b1"><label>Chip 🎓 nell'header landing (grigio "Generico" / indigo col nome classe)</label></div>
-      <div class="item"><input type="checkbox" data-id="b2"><label>Picker automatico al primo avvio (se ≥1 classe), una volta per sessione</label></div>
-      <div class="item"><input type="checkbox" data-id="b3"><label>Account classi → sezione Taratura AI: livello, sistema, registro, note; salva e persistono</label></div>
-      <div class="item"><input type="checkbox" data-id="b4"><label>Classe con registro "semplice" → genera mappa → desc più semplici; cambia a "ricco"/Generico → registro diverso</label></div>
-      <div class="item"><input type="checkbox" data-id="b5"><label>Live setup con classe attiva → dropdown classe preselezionato</label></div>
-    </div>
-  </section>
-
-  <section data-sec="C">
-    <h2>Ⓒ Tutor QR "Chatta e Scrivi" (007) <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="c1"><label>Hub Live → "Chatta e Scrivi" → wizard (argomento, modalità, cap scambi, consegna); senza chiave → bloccato</label></div>
-      <div class="item"><input type="checkbox" data-id="c2"><label><b>Provider toggle</b>: con ENTRAMBE le chiavi → selettore Google/Infomaniak (default = attivo); con una sola → badge; Infomaniak senza Product ID → avvio bloccato con avviso</label></div>
-      <div class="item"><input type="checkbox" data-id="c3"><label>Telefono: login → argomento + chat; contatore scambi scala; al cap chat chiusa → invito a Scrivi <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="c4"><label>Scrivi → Consegna → conferma; ricarica/rientra → chat + bozza ritrovate <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="c5"><label>"scrivimi tu il testo" → tutor rifiuta e rilancia; "ignora le istruzioni" → resta nel ruolo <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="c6"><label><code>GET /api/session</code> dal telefono: nessuna chiave / adminToken / systemInstruction</label></div>
-      <div class="item"><input type="checkbox" data-id="c7"><label>Cap superato (11°) e messaggio troppo lungo → rifiutati SENZA chiamata AI (log server)</label></div>
-      <div class="item"><input type="checkbox" data-id="c8"><label>5 telefoni insieme → risposte in sequenza, nessun errore <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="c9"><label>Dashboard: identità/fase/scambi; chiudi → report testo+trascrizione in <code>~/Documents/MappAI - Tutor/</code>; "Sblocca" → ri-consegna</label></div>
-      <div class="item"><input type="checkbox" data-id="c10"><label><b>Provider Infomaniak reale</b>: avvia con Infomaniak scelto → chat funziona (nessun errore JSON); verifica che i dati passino da lì <span class="dev">device</span></label></div>
-    </div>
-  </section>
-
-  <section data-sec="D">
-    <h2>Ⓓ Timeline Live (008) <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="d1"><label>In-app: Stampa dossier → Crea Timeline → +Aggiungi data → persiste dopo riavvio, nessun duplicato; Modalità esercizio (card-buco + 💡)</label></div>
-      <div class="item"><input type="checkbox" data-id="d2"><label><b>Completa</b> via QR: refuso lieve accettato, distanza ±2 ok / ±3 no, 💡 su richiesta; DevTools durante lancio → ZERO chiamate AI; chiudi → 2 report; scelta multipla → opzioni dal pool, <code>/api/session</code> senza soluzioni <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="d3"><label><b>Costruisci</b> via QR: proposta su buco + libera con anno inventato + duplicato → dashboard flagga duplicato e "anno non citato"; approva/boccia; cap 3; report; timeline aggiornata senza AI <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="d4"><label>Proiezione LIM (fullscreen, QR in angolo): approvazione compare entro 5s <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="d5"><label>Login flessibile: gruppi (2 device stesso nick → 409/ripresa) e individuale (contro roster) <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="d6"><label>Tab LIM in sidebar; kill-switch <code>mappai_lim_tab='0'</code></label></div>
-      <div class="item"><input type="checkbox" data-id="d7"><label><b>Popup redesign — barra</b>: bottoni "+ Aggiungi data", "Esercizio", "▶ Attività con la classe", "Stampa", "Chiudi"; riga-guida (titolo mappa · N date · istruzione) sempre visibile sotto la barra; aprendo il form il titolo della timeline NON viene coperto</label></div>
-      <div class="item"><input type="checkbox" data-id="d8"><label><b>Form "Nuova data"</b>: etichette leggibili sopra ogni campo (Anno*, Anno fine, Evento*, Categoria, Etichetta, Contesto); salva una data → compare nella timeline, marcata ✏️</label></div>
-      <div class="item"><input type="checkbox" data-id="d9"><label><b>Esercizio</b>: spuntando "Esercizio" appare il banner "💡 Esercizio attivo" + card tratteggiate; togliendo la spunta il banner sparisce; il conteggio nella guida mostra "N date · M da completare"</label></div>
-      <div class="item"><input type="checkbox" data-id="d10"><label><b>Lancio live dal popup</b>: "▶ Attività con la classe" apre il wizard Timeline Live direttamente (pool già presente, nessuna rigenerazione AI); con la finestra principale MappAI chiusa → avviso invece di errore</label></div>
-    </div>
-  </section>
-
-  <section data-sec="E">
-    <h2>Ⓔ Materiali + regressioni + coesistenza <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="e1"><label>Materiali: pubblica file → telefono scarica via QR senza login; sintesi con voce naturale in streaming <span class="dev">device</span></label></div>
-      <div class="item"><input type="checkbox" data-id="e2"><label>I 4 server coesistono: garden 8765 / collab 8766 / live 8767 / materiali 8768 (porte distinte)</label></div>
-      <div class="item"><input type="checkbox" data-id="e3"><label>[opt] Regressione: Studio attivo, Lavagna, Materiali invariati; IPC generate-gemini/infomaniak ok dopo estrazione <code>callModel</code></label></div>
-      <div class="item"><input type="checkbox" data-id="e4"><label>[opt] Switch lingua EN→IT→EN sulle etichette nuove; tab NPC (Sapienti) nascosta nell'admin, le altre 5 intatte</label></div>
-    </div>
-  </section>
-
-  <section data-sec="Merge">
-    <h2>🔀 Prima del merge <span class="sec-prog"></span></h2>
-    <div class="items">
-      <div class="item"><input type="checkbox" data-id="m1"><label>Decidere su <code>fix/tutor-mode-chat</code> (2 bugfix tutor in-app, fuori da 008): mergiare a parte o scartare</label></div>
-      <div class="item"><input type="checkbox" data-id="m2"><label><code>feat/bert-graft</code> lasciato in standby (non bloccante)</label></div>
-      <div class="item"><input type="checkbox" data-id="m3"><label>Merge <code>008-timeline-live</code> → <code>main</code> (fast-forward, porta 007 + tutto)</label></div>
-    </div>
-  </section>
+  <div id="sections"></div>
 </div>
 
 <div class="bar">
   <button class="b-print" onclick="window.print()">🖨 Stampa / PDF</button>
   <button class="b-exp" onclick="exportState()">📋 Esporta stato (copia)</button>
-  <button class="b-reset" onclick="resetAll()">Azzera</button>
+  <button class="b-allnt" onclick="resetStatuses()">Segna tutto “Non testato”</button>
+  <button class="b-reset" onclick="resetAll()">Azzera tutto</button>
 </div>
 
 <script>
-  const KEY = 'mappai_test_checklist_v1';
-  const boxes = [...document.querySelectorAll('input[type=checkbox]')];
+  // ── Dati checklist (id STABILI, riusati dalla versione a checkbox) ──────────
+  const SECTIONS = [
+    { key:'Setup', title:'⚙️ Setup', items:[
+      { id:'s1', dev:false, label:`<code>npm test</code> verde (477/477)` },
+      { id:'s2', dev:false, label:`<code>npm start</code>, 1 progetto/mappa aperto con fonti (per avere anni nel testo)` },
+      { id:'s3', dev:false, label:`1 classe negli Account classi con credenziali generate` },
+      { id:'s4', dev:false, label:`Chiave API configurata (Google e/o Infomaniak + Product ID)` },
+      { id:'s5', dev:true,  label:`2 telefoni sulla stessa rete (hotspot PC o router d'aula)` },
+    ]},
+    { key:'A', title:'Ⓐ MappAI Live — Studio attivo (quiz)', items:[
+      { id:'a1', dev:false, label:`Menu → MappAI Live → Studio attivo live → wizard: classe, Scelta multipla, scope, quantità, timer → Avvia` },
+      { id:'a2', dev:false, label:`QR + URL + proiettore appaiono; senza chiave AI → avvio bloccato` },
+      { id:'a3', dev:true,  label:`Login studente: classe + emoji + numero (tastierino numerico); identità presa da altro device → errore; classe sbagliata → errore` },
+      { id:'a4', dev:true,  label:`"Avvia domande" → il telefono passa da lobby a player da solo` },
+      { id:'a5', dev:true,  label:`Risposte: Indietro / Salta / Avanti, sync dot verde, countdown se timer` },
+      { id:'a6', dev:true,  label:`Autosave: uccidi l'app a metà → riavvia → RIPRESA stesso token, QR ancora valido, risposte ritrovate` },
+      { id:'a7', dev:false, label:`Chiudi → 2 report (heatmap domande + schede individuali), nomi allievi se inseriti, apri cartella <code>~/Documents/MappAI - Live/</code>` },
+      { id:'a8', dev:false, label:`<b>Qualità quiz</b>: confronta quiz Live con quiz di Studio sullo stesso ramo → domande vere con opzioni (non "completamento")` },
+      { id:'a9', dev:false, label:`Modalità Vero/Falso → affermazioni native; Cloze e "Domande mie" (editor) generano e partono` },
+    ]},
+    { key:'B', title:'Ⓑ Taratura classe (chip + picker)', items:[
+      { id:'b1', dev:false, label:`Chip 🎓 nell'header landing (grigio "Generico" / indigo col nome classe)` },
+      { id:'b2', dev:false, label:`Picker automatico al primo avvio (se ≥1 classe), una volta per sessione` },
+      { id:'b3', dev:false, label:`Account classi → Taratura AI: campo <b>Classe</b> ereditato dal nome; <b>Livello</b> = solo «Scuola Media» / «Scuola Media Superiore» (niente Ticino/Italia/Liceo); registro; note; salva e persistono` },
+      { id:'b3b', dev:false, label:`Bottone <b>«?»</b> accanto a "Taratura AI" (classe E scheda studente) → apre/chiude il box che spiega come i campi tarano la generazione` },
+      { id:'b3c', dev:false, label:`<b>Scheda studente</b> (tab Studenti → Gestisci): stesse card del modale classe — bianca «Dati studente» + indaco «🎯 Taratura AI»; note BES nella card indaco; salva e persistono` },
+      { id:'b4', dev:false, label:`Classe con registro "semplice" → genera mappa → desc più semplici; cambia a "ricco"/Generico → registro diverso` },
+      { id:'b5', dev:false, label:`Live setup con classe attiva → dropdown classe preselezionato` },
+    ]},
+    { key:'C', title:'Ⓒ Tutor QR "Chatta e Scrivi" (007)', items:[
+      { id:'c1', dev:false, label:`Hub Live → "Chatta e Scrivi" → wizard (argomento, modalità, cap scambi, consegna); senza chiave → bloccato` },
+      { id:'c2', dev:false, label:`<b>Provider toggle</b>: con ENTRAMBE le chiavi → selettore Google/Infomaniak (default = attivo); con una sola → badge; Infomaniak senza Product ID → avvio bloccato con avviso` },
+      { id:'c3', dev:true,  label:`Telefono: login → argomento + chat; contatore scambi scala; al cap chat chiusa → invito a Scrivi` },
+      { id:'c4', dev:true,  label:`Scrivi → Consegna → conferma; ricarica/rientra → chat + bozza ritrovate` },
+      { id:'c5', dev:true,  label:`"scrivimi tu il testo" → tutor rifiuta e rilancia; "ignora le istruzioni" → resta nel ruolo` },
+      { id:'c6', dev:false, label:`<code>GET /api/session</code> dal telefono: nessuna chiave / adminToken / systemInstruction` },
+      { id:'c7', dev:false, label:`Cap superato (11°) e messaggio troppo lungo → rifiutati SENZA chiamata AI (log server)` },
+      { id:'c8', dev:true,  label:`5 telefoni insieme → risposte in sequenza, nessun errore` },
+      { id:'c9', dev:false, label:`Dashboard: identità/fase/scambi; chiudi → report testo+trascrizione in <code>~/Documents/MappAI - Tutor/</code>; "Sblocca" → ri-consegna` },
+      { id:'c10', dev:true, label:`<b>Provider Infomaniak reale</b>: avvia con Infomaniak scelto → chat funziona (nessun errore JSON); verifica che i dati passino da lì` },
+    ]},
+    { key:'D', title:'Ⓓ Timeline Live (008)', items:[
+      { id:'d1', dev:false, label:`In-app: Stampa dossier → Crea Timeline → +Aggiungi data → persiste dopo riavvio, nessun duplicato; Modalità esercizio (card-buco + 💡)` },
+      { id:'d2', dev:true,  label:`<b>Completa</b> via QR: refuso lieve accettato, distanza ±2 ok / ±3 no, 💡 su richiesta; DevTools durante lancio → ZERO chiamate AI; chiudi → 2 report; scelta multipla → opzioni dal pool, <code>/api/session</code> senza soluzioni` },
+      { id:'d3', dev:true,  label:`<b>Costruisci</b> via QR: proposta su buco + libera con anno inventato + duplicato → dashboard flagga duplicato e "anno non citato"; approva/boccia; cap 3; report; timeline aggiornata senza AI` },
+      { id:'d4', dev:true,  label:`Proiezione LIM (fullscreen, QR in angolo): approvazione compare entro 5s` },
+      { id:'d5', dev:true,  label:`Login flessibile: gruppi (2 device stesso nick → 409/ripresa) e individuale (contro roster)` },
+      { id:'d6', dev:false, label:`Tab LIM in sidebar; kill-switch <code>mappai_lim_tab='0'</code>` },
+      { id:'d7', dev:false, label:`<b>Popup redesign — barra</b>: bottoni "+ Aggiungi data", "Esercizio", "▶ Attività con la classe", "Stampa", "Chiudi"; riga-guida (titolo mappa · N date · istruzione) sempre visibile sotto la barra; aprendo il form il titolo della timeline NON viene coperto` },
+      { id:'d8', dev:false, label:`<b>Form "Nuova data"</b>: etichette leggibili sopra ogni campo (Anno*, Anno fine, Evento*, Categoria, Etichetta, Contesto); salva una data → compare nella timeline, marcata ✏️` },
+      { id:'d9', dev:false, label:`<b>Esercizio</b>: spuntando "Esercizio" appare il banner "💡 Esercizio attivo" + card tratteggiate; togliendo la spunta il banner sparisce; il conteggio nella guida mostra "N date · M da completare"` },
+      { id:'d10', dev:false, label:`<b>Lancio live dal popup</b>: "▶ Attività con la classe" apre il wizard Timeline Live direttamente (pool già presente, nessuna rigenerazione AI); con la finestra principale MappAI chiusa → avviso invece di errore` },
+    ]},
+    { key:'E', title:'Ⓔ Materiali + regressioni + coesistenza', items:[
+      { id:'e1', dev:true,  label:`Materiali: pubblica file → telefono scarica via QR senza login; sintesi con voce naturale in streaming` },
+      { id:'e2', dev:false, label:`I 4 server coesistono: garden 8765 / collab 8766 / live 8767 / materiali 8768 (porte distinte)` },
+      { id:'e3', dev:false, label:`[opt] Regressione: Studio attivo, Lavagna, Materiali invariati; IPC generate-gemini/infomaniak ok dopo estrazione <code>callModel</code>` },
+      { id:'e4', dev:false, label:`[opt] Switch lingua EN→IT→EN sulle etichette nuove; tab NPC (Sapienti) nascosta nell'admin, le altre 5 intatte` },
+    ]},
+    { key:'X', title:'⚡ Electron 39 (chore/electron-39)', items:[
+      { id:'x1', dev:false, label:`Boot pulito su Electron 39.8.10: moduli caricati, zero errori console, fetch modelli ok (debug-run + suite 477/477 già verificati)` },
+      { id:'x2', dev:false, label:`Generazione mappa reale (MM multi-pass su Google) → nessun errore, metriche in console come su Electron 30` },
+      { id:'x3', dev:false, label:`Salva vault + riapri progetto (IPC file system); carica un PDF/DOCX come fonte (percorso file via <code>webUtils</code>)` },
+      { id:'x4', dev:true,  label:`Sessione Live via QR da telefono (server LAN + IPC)` },
+      { id:'x5', dev:false, label:`Stampa dossier / export PDF vettoriale (<code>window.open</code> + jsPDF)` },
+      { id:'x6', dev:false, label:`App pacchettizzata: <code>npm run pack</code> → apri <code>dist/mac-arm64/MappAI.app</code> → boot e licensing ok` },
+      { id:'x7', dev:true,  label:`[opt] Tutor QR con AI reale (proxy <code>callModel</code> nel main)` },
+    ]},
+    { key:'F', title:'Ⓕ Quiz + Reveal risultati (19/7 — commit ac8bb34)', items:[
+      { id:'f1', dev:false, label:`<b>Bug prompt vuoto</b>: quiz per-nodo (bottone quiz/flashcard sul nodo) → 5 domande <b>ancorate al contenuto</b> del nodo, non generiche/vuote` },
+      { id:'f2', dev:false, label:`<b>Varietà</b>: genera quiz sullo stesso ramo <b>due volte</b> (Google) → domande <b>diverse</b> tra le due (nonce); qualità cognitiva (non solo richiamo)` },
+      { id:'f3', dev:false, label:`<b>Rigenera</b>: pill "Rigenera" nel pannello Set di Studio <b>e</b> "↻ Domande nuove" nell'header del player → domande nuove` },
+      { id:'f4', dev:false, label:`Infomaniak reale: quiz genera senza errori JSON (temperature 0.7 sbloccata dal bridge, _respectTemp sanitizzato prima di Google)` },
+      { id:'f5', dev:true,  label:`<b>Reveal Live (default ON)</b>: fine sessione → studente vede % (su risposte date) + giuste/sbagliate + spiegazione, salvabile. Soluzioni NON visibili durante il gioco` },
+      { id:'f6', dev:true,  label:`Toggle wizard Live "mostra soluzioni" OFF → studente vede solo "consegnato", niente soluzioni` },
+      { id:'f7', dev:false, label:`Cloze in-app: rifacendolo sulla stessa mappa i buchi cambiano (seedato per sessione)` },
+    ]},
+    { key:'Merge', title:'🔀 Merge', items:[
+      { id:'m1', dev:false, label:`<code>fix/tutor-mode-chat</code> → già in <code>main</code> (8868be0 + abb0cfd), branch chiuso` },
+      { id:'m2', dev:false, label:`Innesto BERT → già in <code>main</code> (e1c5686), branch chiuso` },
+      { id:'m3', dev:false, label:`Merge <code>008-timeline-live</code> → <code>main</code> → FATTO via 010 (81f8243)` },
+      { id:'m4', dev:false, label:`Merge <code>chore/electron-39</code> → <code>main</code> dopo smoke test sezione ⚡ (chiude 16 alert Dependabot)` },
+    ]},
+  ];
+
+  // Stato riportato da Giacomo (15/07/26): questi id sono OK, tutto il resto = Non testato.
+  const PRESET_OK = ['s1','s2','s3','s4','s5','a1','a3','a4','a5','a6','a7','b1','b2','b5',
+    'c2','c3','c4','c5','c7','c9','c10','e4','x1','x5','m1','m2','m3'];
+
+  const KEY = 'mappai_test_checklist_v2';
+  const LABELS = { ok:'OK', untested:'Non testato', note:'Osservazioni' };
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } }
-  function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
   let state = load();
 
-  function refresh() {
-    let done = 0;
-    boxes.forEach(b => {
-      const on = !!state[b.dataset.id];
-      b.checked = on;
-      b.closest('.item').classList.toggle('done', on);
-      if (on) done++;
+  // Preset UNA volta: applica lo stato riportato senza risuscitare modifiche future.
+  if (!state._preset_v2) {
+    state = { _preset_v2: 1 };
+    SECTIONS.forEach(s => s.items.forEach(it => {
+      state[it.id] = { s: PRESET_OK.includes(it.id) ? 'ok' : 'untested', n: '' };
+    }));
+    save();
+  }
+  function get(id) { if (!state[id]) state[id] = { s:'untested', n:'' }; return state[id]; }
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  const root = document.getElementById('sections');
+  SECTIONS.forEach(sec => {
+    const el = document.createElement('section');
+    el.dataset.sec = sec.key;
+    let html = `<h2>${sec.title} <span class="sec-prog"></span></h2>`;
+    sec.items.forEach(it => {
+      const st = get(it.id);
+      html += `<div class="item st-${st.s}" data-id="${it.id}">
+        <div class="item-head">
+          <div class="item-label">${it.label}${it.dev ? ' <span class="dev">device</span>' : ''}</div>
+          <div class="seg" role="group">
+            <button type="button" class="seg-btn" data-v="ok">✓ OK</button>
+            <button type="button" class="seg-btn" data-v="untested">– Non testato</button>
+            <button type="button" class="seg-btn" data-v="note">✎ Osservazioni</button>
+          </div>
+        </div>
+        <textarea class="item-note" placeholder="Osservazioni / riflessioni su questa voce…"></textarea>
+      </div>`;
     });
-    document.getElementById('pbar').style.width = boxes.length ? Math.round(done/boxes.length*100)+'%' : '0';
-    document.getElementById('ptxt').textContent = done + ' / ' + boxes.length + ' completati (' + (boxes.length?Math.round(done/boxes.length*100):0) + '%)';
+    el.innerHTML = html;
+    root.appendChild(el);
+  });
+
+  // Aggancia stato iniziale + handler
+  document.querySelectorAll('.item').forEach(item => {
+    const id = item.dataset.id, st = get(id);
+    item.querySelectorAll('.seg-btn').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === st.s);
+      b.onclick = () => { get(id).s = b.dataset.v; save(); paintItem(item); refresh(); };
+    });
+    const ta = item.querySelector('.item-note');
+    ta.value = st.n || '';
+    ta.classList.toggle('has-text', !!ta.value.trim());
+    ta.addEventListener('input', () => {
+      get(id).n = ta.value;
+      ta.classList.toggle('has-text', !!ta.value.trim());
+      save();
+    });
+  });
+
+  function paintItem(item) {
+    const st = get(item.dataset.id);
+    item.className = 'item st-' + st.s;
+    item.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('on', b.dataset.v === st.s));
+  }
+
+  function refresh() {
+    let ok = 0, note = 0, nt = 0;
+    const items = SECTIONS.flatMap(s => s.items);
+    items.forEach(it => { const s = get(it.id).s; if (s==='ok') ok++; else if (s==='note') note++; else nt++; });
+    const tot = items.length;
+    document.getElementById('pbar-ok').style.width = (ok/tot*100) + '%';
+    document.getElementById('pbar-ob').style.width = (note/tot*100) + '%';
+    document.getElementById('ptxt').innerHTML =
+      `<b class="ok">${ok} OK</b> · <b class="ob">${note} osservazioni</b> · <b class="nt">${nt} da testare</b> — su ${tot}`;
     document.querySelectorAll('section').forEach(sec => {
-      const bs = [...sec.querySelectorAll('input')];
-      const d = bs.filter(b => state[b.dataset.id]).length;
-      const sp = sec.querySelector('.sec-prog');
-      if (sp) sp.textContent = d + '/' + bs.length;
+      const ids = SECTIONS.find(s => s.key === sec.dataset.sec).items.map(i => i.id);
+      const o = ids.filter(i => get(i).s === 'ok').length;
+      sec.querySelector('.sec-prog').textContent = o + '/' + ids.length + ' OK';
     });
   }
-  boxes.forEach(b => b.addEventListener('change', () => {
-    if (b.checked) state[b.dataset.id] = 1; else delete state[b.dataset.id];
-    save(state); refresh();
-  }));
-  function resetAll() { if (confirm('Azzerare tutte le spunte?')) { state = {}; save(state); refresh(); } }
+
+  function resetStatuses() {
+    if (!confirm('Rimettere tutte le voci su “Non testato”? (le note restano)')) return;
+    SECTIONS.flatMap(s => s.items).forEach(it => { get(it.id).s = 'untested'; });
+    save();
+    document.querySelectorAll('.item').forEach(paintItem);
+    refresh();
+  }
+  function resetAll() {
+    if (!confirm('Azzerare TUTTO: stati e osservazioni?')) return;
+    state = { _preset_v2: 1 };
+    SECTIONS.flatMap(s => s.items).forEach(it => { state[it.id] = { s:'untested', n:'' }; });
+    save();
+    document.querySelectorAll('.item').forEach(item => {
+      paintItem(item);
+      const ta = item.querySelector('.item-note'); ta.value = ''; ta.classList.remove('has-text');
+    });
+    refresh();
+  }
+
   function exportState() {
+    const strip = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
     let out = 'CHECKLIST TEST — stato\n\n';
-    document.querySelectorAll('section').forEach(sec => {
-      out += '## ' + sec.querySelector('h2').textContent.replace(/\s*\d+\/\d+\s*$/, '').trim() + '\n';
-      sec.querySelectorAll('.item').forEach(it => {
-        const on = it.querySelector('input').checked;
-        out += (on ? '[x] ' : '[ ] ') + it.querySelector('label').textContent.trim() + '\n';
+    SECTIONS.forEach(sec => {
+      out += '## ' + strip(sec.title) + '\n';
+      sec.items.forEach(it => {
+        const st = get(it.id);
+        const tag = st.s === 'ok' ? '[OK]' : st.s === 'note' ? '[OSSERVAZIONI]' : '[NON TESTATO]';
+        out += tag + ' ' + strip(it.label) + (it.dev ? ' (device)' : '') + '\n';
+        if (st.n && st.n.trim()) out += '    → ' + st.n.trim().replace(/\n/g, '\n      ') + '\n';
       });
       out += '\n';
     });
@@ -191,6 +293,7 @@
       () => { prompt('Copia manualmente:', out); }
     );
   }
+
   refresh();
 </script>
 </body>

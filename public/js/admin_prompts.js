@@ -94,7 +94,10 @@ window.fillPromptTemplate = function(promptKey, variables) {
     }
     
     for (const [key, value] of Object.entries(variables || {})) {
-        text = text.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        // Replacer FUNZIONE (non stringa): inserisce il valore LETTERALE. Con la stringa,
+        // JS interpreta le sequenze speciali ($$ → $, $& → match, ecc.) e corrompe i valori
+        // con delimitatori KaTeX $$…$$ (es. {{nodeContent}} = desc con formule).
+        text = text.replace(new RegExp(`{{${key}}}`, 'g'), () => String(value == null ? '' : value));
     }
     // {{relVocabulary}}: vocabolario linking words centralizzato (mappai-relations.js).
     // Riempito qui per OGNI template, senza che i chiamanti debbano passarlo.

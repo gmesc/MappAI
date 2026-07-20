@@ -35,7 +35,8 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
-  '.pdf': 'application/pdf'
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip'
 };
 const STATIC_ALLOW = [
   '/public/live/',
@@ -121,6 +122,9 @@ function createLiveServer(opts) {
       mode: cfg.mode === 'build' ? 'build' : 'quiz',
       loginMode: cfg.loginMode === 'group' ? 'group' : 'individual',
       hintMode: (['always', 'onrequest', 'never'].indexOf(cfg.hintMode) >= 0) ? cfg.hintMode : 'onrequest',
+      // Report profilo studente: mostra le soluzioni (giuste/sbagliate + spiegazione) a
+      // fine sessione. Default ON. Le soluzioni NON viaggiano durante il gioco.
+      revealAnswers: cfg.revealAnswers !== false,
       build: (cfg.mode === 'build' && cfg.build) ? {
         gaps: Array.isArray(cfg.build.gaps) ? cfg.build.gaps : [],
         freeAllowed: cfg.build.freeAllowed !== false,
@@ -308,6 +312,21 @@ function createLiveServer(opts) {
         });
       }
 
+      // Risultato del SOLO studente richiedente (dashboard a fine sessione / reload).
+      // Gated: token sessione + identità + deviceId corrispondente. Soluzioni solo se
+      // revealAnswers e lo studente ha consegnato (o la sessione è chiusa).
+      if (p === '/api/my-result' && req.method === 'GET') {
+        if (u.searchParams.get('s') !== session.token) return json(res, 403, { error: 'token' });
+        const id = pid({ nick: u.searchParams.get('nick'), emojiKey: u.searchParams.get('emojiKey'), num: u.searchParams.get('num') });
+        const st = students[id];
+        if (!st) return json(res, 404, { error: 'not-joined' });
+        if (st.deviceId !== u.searchParams.get('deviceId')) return json(res, 403, { error: 'not-your-identity' });
+        const submitted = !!st.finishedAt || session.phase === 'closed';
+        const reveal = !!session.revealAnswers && submitted;   // niente soluzioni prima della consegna
+        return json(res, 200, { revealAnswers: !!session.revealAnswers, submitted, phase: session.phase,
+          result: LC.computeStudentResult(questions, st, { reveal }) });
+      }
+
       if (p === '/api/report' && req.method === 'GET') {
         if (!isAdmin(u.searchParams.get('admin'))) { res.writeHead(403); res.end('forbidden'); return; }
         const w = u.searchParams.get('which');
@@ -444,7 +463,11 @@ function createLiveServer(opts) {
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
             st.finishedAt = new Date().toISOString();
             persistStudent(id);
-            return json(res, 200, { ok: true });
+            // Feedback immediato: il risultato dello studente (solo il SUO), con soluzioni
+            // se il docente ha attivato revealAnswers. Le soluzioni non erano mai state
+            // inviate durante il gioco (publicQuestions le strippa).
+            const result = LC.computeStudentResult(questions, st, { reveal: session.revealAnswers });
+            return json(res, 200, { ok: true, revealAnswers: !!session.revealAnswers, result });
           }
 
           // ── docente: cambia fase (avvia le domande) ──

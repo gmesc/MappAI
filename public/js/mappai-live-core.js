@@ -99,15 +99,24 @@
   }
 
   // Credenziali per una classe di `count` allievi: coppie UNICHE (emoji, numero).
-  // Allievo i → emoji i%12, numero i/12 → con ≤12 allievi tutte le emoji diverse.
-  function buildCredentials(count) {
+  // Estratte a CASO dal pool completo (132 coppie) e mescolate (Fisher-Yates):
+  // l'ordine non è più sequenziale → un allievo non può indovinare le credenziali
+  // dei compagni dalla propria posizione nel registro (segretezza account).
+  // `rng` opzionale (default Math.random) → riproducibile nei test.
+  function buildCredentials(count, rng) {
     var n = Math.max(0, Math.min(Number(count) || 0, MAX_IDENTITIES));
-    var out = [];
-    for (var i = 0; i < n; i++) {
-      var e = EMOJI_SET[i % EMOJI_SET.length];
-      out.push({ emojiKey: e.key, emoji: e.emoji, num: pad2(Math.floor(i / EMOJI_SET.length)), name: '' });
+    var rand = typeof rng === 'function' ? rng : Math.random;
+    var pool = [];
+    for (var num = 0; num <= NUM_MAX; num++) {
+      for (var e = 0; e < EMOJI_SET.length; e++) {
+        pool.push({ emojiKey: EMOJI_SET[e].key, emoji: EMOJI_SET[e].emoji, num: pad2(num), name: '' });
+      }
     }
-    return out;
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(rand() * (i + 1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    return pool.slice(0, n);
   }
 
   function identityKey(emojiKey, num) {
@@ -155,6 +164,55 @@
     return levenshtein(a, e) <= (e.length > 6 ? 2 : 1);
   }
 
+  // Correzione di un blank cloze. Concetto → isCloseMatch storico. Buco-RELAZIONE
+  // (seg.conn) → esatto/refuso sulla superficie OPPURE un equivalente della lista
+  // `accept` (match esatto-normalizzato: una FRASE che contiene un equivalente non
+  // vale). `accept` è precalcolata dal generatore con MappAICausalCore.connEquivalents.
+  function matchesCloze(given, seg) {
+    var expected = seg && seg.blank;
+    if (isCloseMatch(given, expected)) return true;
+    if (seg && seg.conn && Array.isArray(seg.accept) && seg.accept.length) {
+      var g = normalize(given);
+      if (!g) return false;
+      for (var i = 0; i < seg.accept.length; i++) if (normalize(seg.accept[i]) === g) return true;
+    }
+    return false;
+  }
+
+  // Punteggio di UN buco: 1 (match pieno), 0.5 (prefisso di un termine multi-parola:
+  // «pianta» per «pianta acquatica» → manca «acquatica»), 0 altrimenti. I buchi-
+  // relazione (conn) non hanno parziale. Mirror di clozeBlankScore in mappai-cloze.js
+  // (parità in-app ↔ Live). Ritorna { score, missing }.
+  var CLOZE_STOPWORDS = {
+    il: 1, lo: 1, la: 1, i: 1, gli: 1, le: 1, un: 1, uno: 1, una: 1, l: 1,
+    di: 1, del: 1, dello: 1, della: 1, dei: 1, degli: 1, delle: 1,
+    a: 1, al: 1, allo: 1, alla: 1, ai: 1, agli: 1, alle: 1, e: 1, ed: 1, o: 1,
+    the: 1, an: 1, of: 1, and: 1, or: 1, to: 1
+  };
+  function clozeBlankScore(given, seg) {
+    // modalità A SCELTA: match ESATTO (normalizzato) con la soluzione — NIENTE fuzzy
+    // (un distrattore edit-vicino o prefisso NON deve valere), niente equivalenti,
+    // niente ½. Deve stare PRIMA di matchesCloze (che è fuzzy).
+    if (seg && Array.isArray(seg.choices) && seg.choices.length) {
+      return { score: normalize(given) === normalize(seg.blank) ? 1 : 0, missing: '' };
+    }
+    if (matchesCloze(given, seg)) return { score: 1, missing: '' };
+    if (seg && seg.conn) return { score: 0, missing: '' };
+    var expected = String((seg && seg.blank) || '').trim();
+    var eWords = expected.split(/\s+/);
+    if (eWords.length < 2) return { score: 0, missing: '' };
+    var g = normalize(given);
+    if (!g) return { score: 0, missing: '' };
+    // prefisso di sole parole-funzione («il» per «Il Rinascimento») → niente ½
+    if (g.split(' ').every(function (w) { return CLOZE_STOPWORDS[w]; })) return { score: 0, missing: '' };
+    for (var k = 1; k < eWords.length; k++) {
+      if (normalize(eWords.slice(0, k).join(' ')) === g) {
+        return { score: 0.5, missing: eWords.slice(k).join(' ') };
+      }
+    }
+    return { score: 0, missing: '' };
+  }
+
   // "roma" NON matcha "romania" (ratio 4/7 < 0.7).
   function answerMatches(selected, correct) {
     var ns = normalize(selected), nc = normalize(correct);
@@ -189,6 +247,9 @@
       l1Label: sanitizeText(q.l1Label, 120) || null,
       source: q.source === 'custom' ? 'custom' : 'map'
     };
+    // Spiegazione: preservata lato server per il report profilo dello studente; MAI
+    // inviata durante il gioco (publicQuestions non la copia) → nessun aiuto in corsa.
+    if (q.explanation) clean.explanation = sanitizeText(q.explanation, LIMITS.answerMax || 600);
     if (kind === 'mc') {
       var opts = Array.isArray(q.options) ? q.options.map(function (o) { return sanitizeText(o, LIMITS.optionMax); }).filter(Boolean) : [];
       if (opts.length < LIMITS.optionsMin || opts.length > LIMITS.optionsMax) errors.push('bad-options');
@@ -204,7 +265,26 @@
       var blanks = segs.filter(function (s) { return s && s.blank; });
       if (!blanks.length) errors.push('no-blanks');
       clean.segments = segs.map(function (s) {
-        return (s && s.blank) ? { blank: sanitizeText(s.blank, LIMITS.optionMax) } : { text: String((s && s.text) || '') };
+        if (!s || !s.blank) return { text: String((s && s.text) || '') };
+        // buco-RELAZIONE (Cloze allineato allo Studio attivo): conserva il flag e
+        // la lista `accept` degli equivalenti (precalcolata dal generatore col
+        // core; il server non può derivarla). Restano lato server — mai in public.
+        var seg = { blank: sanitizeText(s.blank, LIMITS.optionMax) };
+        if (s.conn) {
+          seg.conn = true;
+          if (Array.isArray(s.accept)) {
+            // cap 48: la lista espansa (forme articolate + equivalenti + answerOnly)
+            // di un gruppo verbale arriva a ~22 voci; 48 dà margine senza troncare.
+            seg.accept = s.accept.map(function (a) { return sanitizeText(a, LIMITS.optionMax); })
+              .filter(Boolean).slice(0, 48);
+          }
+        }
+        // modalità A SCELTA: opzioni fisse (soluzione + 2 distrattori, già mescolate).
+        // Vanno al pubblico (servono a rendere i bottoni), la soluzione NON è marcata.
+        if (Array.isArray(s.choices) && s.choices.length) {
+          seg.choices = s.choices.map(function (o) { return sanitizeText(o, LIMITS.optionMax); }).filter(Boolean).slice(0, 6);
+        }
+        return seg;
       });
     } else if (kind === 'open') {
       clean.answerText = sanitizeText(q.answerText, LIMITS.answerMax) || null;
@@ -231,7 +311,11 @@
     return (Array.isArray(questions) ? questions : []).map(function (q, i) {
       var pub = {
         idx: (q.idx != null ? q.idx : i), kind: q.kind, text: q.text,
-        nodeLabel: q.nodeLabel || null
+        // Orientamento allo studente = MACRO-AREA (L1), non l'etichetta del nodo:
+        // il nome del nodo spesso CONTIENE la risposta (es. nodo «Tavolette Argilla»
+        // → domanda «quale materiale in Mesopotamia?» risposta «Tavolette di argilla»).
+        // Il nodeLabel specifico NON viaggia più al client.
+        topic: q.l1Label || null
       };
       // Timeline (008): l'indizio è CONTESTO della fonte, non la soluzione → può
       // viaggiare; expects guida l'input numerico degli anni. answerYear/answerText(s)
@@ -242,8 +326,22 @@
       if (q.kind === 'mc') pub.options = (q.options || []).slice();
       if (q.kind === 'tf') pub.proposed = q.proposed || null;
       if (q.kind === 'cloze') {
+        // SOLO lunghezza (mai il termine) + flag conn per il rendering (riquadro
+        // ambra + hint). La lista `accept` NON viene copiata → nessun leak.
+        // A scelta: manda le opzioni (già mescolate, la soluzione non è marcata) —
+        // come le options di una MC. `blank` (soluzione) non viene mai inviato.
         pub.segments = (q.segments || []).map(function (s) {
-          return s.blank ? { blank: { len: String(s.blank).length } } : { text: s.text };
+          if (!s.blank) return { text: s.text };
+          var b = {};
+          if (Array.isArray(s.choices) && s.choices.length) {
+            // A scelta: SOLO le opzioni (niente `len` — la lunghezza della soluzione
+            // tradirebbe quale opzione è giusta; lo slot ha larghezza fissa).
+            b.choices = s.choices.slice();
+          } else {
+            b.len = String(s.blank).length;   // modalità scrivi: larghezza del campo
+          }
+          if (s.conn) b.conn = true;
+          return { blank: b };
         });
       }
       return pub;
@@ -328,10 +426,21 @@
       if (!Number.isInteger(c) || c < 0 || c >= (question.options || []).length) return null;
       a.choice = c;
     } else if (question.kind === 'cloze') {
-      var expected = (question.segments || []).filter(function (s) { return s.blank; }).length;
+      var blankSegs = (question.segments || []).filter(function (s) { return s.blank; });
       var blanks = Array.isArray(raw.blanks) ? raw.blanks : [];
       a.blanks = [];
-      for (var i = 0; i < expected; i++) a.blanks.push(sanitizeText(blanks[i], LIMITS.optionMax));
+      for (var i = 0; i < blankSegs.length; i++) {
+        var val = sanitizeText(blanks[i], LIMITS.optionMax);
+        // Modalità A SCELTA: la risposta DEVE essere una delle opzioni servite (anti
+        // client-manomesso: niente valore inventato o soluzione digitata a mano).
+        var choices = blankSegs[i].choices;
+        if (Array.isArray(choices) && choices.length) {
+          var ok = false, vN = normalize(val);
+          for (var j = 0; j < choices.length; j++) if (normalize(choices[j]) === vN) { val = choices[j]; ok = true; break; }
+          if (!ok) val = '';   // fuori dalle opzioni → vuoto (conta come non risposto)
+        }
+        a.blanks.push(val);
+      }
     } else if (question.kind === 'open') {
       a.text = sanitizeText(raw.text, LIMITS.answerMax);
     } else return null;
@@ -355,14 +464,20 @@
       return { score: okMc ? 1 : 0, outcome: okMc ? 'right' : 'wrong' };
     }
     if (question.kind === 'cloze') {
-      var terms = (question.segments || []).filter(function (s) { return s.blank; }).map(function (s) { return s.blank; });
+      var segs = (question.segments || []).filter(function (s) { return s.blank; });
       var given = Array.isArray(answer.blanks) ? answer.blanks : [];
-      if (!terms.length) return { score: 0, outcome: 'blank' };
+      if (!segs.length) return { score: 0, outcome: 'blank' };
       if (given.every(function (g) { return !String(g || '').trim(); })) return { score: 0, outcome: 'blank' };
-      var ok = 0;
-      terms.forEach(function (t, i) { if (isCloseMatch(given[i], t)) ok++; });
-      var score = ok / terms.length;
-      return { score: score, outcome: score === 1 ? 'right' : 'wrong' };
+      var sum = 0;
+      var detail = segs.map(function (s, i) {
+        // buco-RELAZIONE: match esatto/equivalente (accept). Concetto: match pieno
+        // O mezzo punto se prefisso di un termine multi-parola (complemento mancante).
+        var b = clozeBlankScore(given[i], s);
+        sum += b.score;
+        return { given: String(given[i] || ''), expected: s.blank, score: b.score, missing: b.missing, conn: !!s.conn };
+      });
+      var score = sum / segs.length;
+      return { score: score, outcome: score === 1 ? 'right' : 'wrong', blanks: detail };
     }
     if (question.kind === 'open') {
       var txt = String(answer.text || '').trim();
@@ -453,7 +568,18 @@
         var ms = answers[idx] ? (Number(answers[idx].ms) || 0) : 0;
         var attempted = (g.outcome === 'right' || g.outcome === 'wrong');
         var rate = attempted ? rateFromMs(ms) : null;
-        items.push({ idx: idx, outcome: g.outcome, score: g.score, ms: ms, rate: rate });
+        // Dettaglio per il REPORT DOCENTE (issue 3): stesso contenuto della scheda
+        // che vede lo studente — n° domanda, testo/etichetta, risposta data,
+        // risposta giusta (solo se non pienamente corretta). Il docente vede sempre
+        // le soluzioni (report post-sessione), quindi qui non si strippa.
+        items.push({
+          idx: idx, kind: q.kind, outcome: g.outcome, score: g.score, ms: ms, rate: rate,
+          label: q.nodeLabel || null,
+          text: q.text || (q.kind === 'cloze' ? _clozePlain(q) : ''),
+          yourText: _yourText(q, answers[idx]),
+          correctText: (g.outcome === 'right') ? '' : _correctText(q),
+          missing: (g.blanks || []).filter(function (b) { return b.score === 0.5; }).map(function (b) { return b.missing; }).filter(Boolean)
+        });
 
         if (answers[idx] && answers[idx].hintUsed) { hintsUsed++; perQuestion[i].hintCount++; }
 
@@ -542,6 +668,102 @@
     };
   }
 
+  // Testo leggibile della risposta DATA dallo studente (per il report profilo).
+  function _yourText(q, a) {
+    if (!a || a.skipped) return '';
+    if (q.kind === 'mc') return (typeof a.choice === 'number' && q.options) ? (q.options[a.choice] || '') : '';
+    if (q.kind === 'tf') return (typeof a.choice === 'boolean') ? (a.choice ? 'Vero' : 'Falso') : '';
+    if (q.kind === 'cloze') return (Array.isArray(a.blanks) ? a.blanks.filter(Boolean).join(', ') : '');
+    if (q.kind === 'open') return String(a.text || '');
+    return '';
+  }
+  // Frase cloze RICOSTRUITA (segmenti + termini soluzione) — per il report docente.
+  function _clozePlain(q) {
+    return (q.segments || []).map(function (s) { return s.blank ? s.blank : (s.text || ''); }).join('');
+  }
+  // Testo leggibile della risposta CORRETTA (dalla domanda completa, lato server).
+  function _correctText(q) {
+    if (q.kind === 'mc') return (q.options && q.options[q.correct]) || '';
+    if (q.kind === 'tf') return q.statementTrue ? 'Vero' : 'Falso';
+    if (q.kind === 'cloze') return (q.segments || []).filter(function (s) { return s.blank; }).map(function (s) { return s.blank; }).join(', ');
+    if (q.kind === 'open') {
+      if (q.answerText) return q.answerText;
+      if (q.answerYear != null) return String(q.answerYear) + (q.answerYearEnd ? '–' + q.answerYearEnd : '');
+      if (Array.isArray(q.answerTexts) && q.answerTexts.length) return q.answerTexts.join(' / ');
+      return '';
+    }
+    return '';
+  }
+
+  // Corregge UN SOLO allievo e ritorna il suo risultato con dettaglio per-domanda.
+  // Usato dalla dashboard studente a fine sessione. opts.reveal=false → strippa le
+  // soluzioni (solo aggregato + esito), per rispettare il toggle docente e l'anti-copiatura.
+  // accuratezza = giuste / risposte DATE (right+wrong); manual (aperte da correggere) a parte.
+  function computeStudentResult(questions, student, opts) {
+    var reveal = !(opts && opts.reveal === false);
+    var qs = Array.isArray(questions) ? questions : [];
+    var answers = (student && student.answers) || {};
+    var right = 0, wrong = 0, blank = 0, manual = 0;
+    var scoreSum = 0, half = 0;   // scoreSum frazionario → accuratezza coerente col report docente
+    var perQuestion = qs.map(function (q, i) {
+      var idx = (q.idx != null ? q.idx : i);
+      var a = answers[idx];
+      var g = gradeAnswer(q, a);
+      if (g.outcome === 'right') right++;
+      else if (g.outcome === 'wrong') wrong++;
+      else if (g.outcome === 'manual') manual++;
+      else blank++;
+      if (g.outcome === 'right' || g.outcome === 'wrong') {
+        scoreSum += (g.score || 0);
+        if ((g.score || 0) > 0 && (g.score || 0) < 1) half++;   // conta i mezzi punti (per la UI)
+      }
+      var row = { idx: idx, kind: q.kind, outcome: g.outcome, score: g.score };
+      if (reveal) {
+        row.text = q.text || (q.kind === 'cloze' ? _clozePlain(q) : '');
+        row.yourText = _yourText(q, a);
+        row.correctText = _correctText(q);
+        // Cloze: dettaglio PER-BUCO allineato (issue 7) — la lista giunta con ", "
+        // perdeva la corrispondenza posizionale. Frammenti di soluzione → reveal ON.
+        if (q.kind === 'cloze' && Array.isArray(g.blanks)) {
+          row.blanks = g.blanks.map(function (b) {
+            return { given: b.given, expected: b.expected, score: b.score, missing: b.missing };
+          });
+          row.missing = g.blanks.filter(function (b) { return b.score === 0.5; }).map(function (b) { return b.missing; }).filter(Boolean);
+        }
+        if (q.explanation) row.explanation = q.explanation;
+      }
+      return row;
+    });
+    var attempted = right + wrong;
+    return {
+      // accuratezza sul PUNTEGGIO (include i mezzi punti) → stessa base del report
+      // docente (computeResults), niente più 0% allo studente con dei ½ mostrati.
+      accuracyPct: attempted > 0 ? Math.round(100 * scoreSum / attempted) : 0,
+      right: right, wrong: wrong, blank: blank, manual: manual,
+      halfCount: half, scorePoints: Math.round(scoreSum * 10) / 10,
+      attempted: attempted, total: qs.length,
+      reveal: reveal, perQuestion: perQuestion
+    };
+  }
+
+  // Rimescola le opzioni di una domanda MC e riallinea l'indice della risposta corretta.
+  // Rompe la memorizzazione POSIZIONALE (lo studente impara "la risposta è la 2ª") anche
+  // su item identici. Puro: `rnd` iniettabile per i test (default Math.random). Fisher-Yates.
+  function shuffleOptions(options, correctIndex, rnd) {
+    var opts = Array.isArray(options) ? options.slice() : [];
+    var n = opts.length;
+    if (n < 2) return { options: opts, correct: correctIndex };
+    var r = (typeof rnd === 'function') ? rnd : Math.random;
+    // traccia l'opzione corretta per riferimento (non per indice, che cambia durante lo shuffle)
+    var correctVal = (correctIndex >= 0 && correctIndex < n) ? opts[correctIndex] : null;
+    for (var i = n - 1; i > 0; i--) {
+      var j = Math.floor(r() * (i + 1));
+      var tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp;
+    }
+    var newCorrect = correctVal === null ? correctIndex : opts.indexOf(correctVal);
+    return { options: opts, correct: newCorrect };
+  }
+
   var CORE = {
     EMOJI_SET: EMOJI_SET,
     NUM_MAX: NUM_MAX,
@@ -561,17 +783,21 @@
     normalize: normalize,
     levenshtein: levenshtein,
     isCloseMatch: isCloseMatch,
+    matchesCloze: matchesCloze,
+    clozeBlankScore: clozeBlankScore,
     answerMatches: answerMatches,
     validateQuestion: validateQuestion,
     publicQuestions: publicQuestions,
     mcFromItem: mcFromItem,
     tfFromMc: tfFromMc,
+    shuffleOptions: shuffleOptions,
     buildL1Resolver: buildL1Resolver,
     cleanAnswer: cleanAnswer,
     gradeAnswer: gradeAnswer,
     rateFromMs: rateFromMs,
     median: median,
-    computeResults: computeResults
+    computeResults: computeResults,
+    computeStudentResult: computeStudentResult
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;

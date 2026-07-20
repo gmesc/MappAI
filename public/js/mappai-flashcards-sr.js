@@ -15,10 +15,18 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
     }
     if (!silent) window.showLoadingOverlay(true, window.t('lo_fc_gen', "Generazione Flashcard in corso..."), "flashcard");
 
+    const nodeContent = node.desc || node.content;
     const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
         nodeLabel: node.label,
-        nodeContent: node.desc || node.content
+        nodeContent: nodeContent,
+        nonce: (window.quizNonce ? window.quizNonce() : String(Date.now()))
     });
+    // Guardia: se il template risolve a stringa vuota (chiave mancante nel config),
+    // NON chiamare l'AI a vuoto — genererebbe domande scollegate dalla fonte.
+    if (!promptText || !promptText.trim()) {
+        if (!silent) { window.showLoadingOverlay(false); window.showToast(window.t('tst_quiz_no_tpl', "Template quiz non trovato: ripristina i prompt di default."), "error"); }
+        return;
+    }
 
     const schema = {
         type: "ARRAY",
@@ -33,7 +41,10 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         maxItems: 5
     };
 
-    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: promptText }] }], generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schema } });
+    // Angolo 'auto' (misto + sintassi varia) anche sul quiz per-nodo → più varietà
+    // tra generazioni. Anteposto al payload, non a promptText (guardia template-vuoto).
+    const _angleB = window.quizAngleBlock ? window.quizAngleBlock('auto') : '';
+    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
 
     try {
         if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
@@ -54,6 +65,9 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
                 mode: 'quiz', // Default mode for nodes is currently 'quiz' (multiple choice)
                 type: 'Multiple Choice',
                 items: items,
+                // Sorgente per "Rigenera domande nuove" (vedi regenerateStudySet)
+                material: String((node.label ? node.label + ': ' : '') + (nodeContent || '')).slice(0, 12000),
+                nodeQuiz: true,   // usa il template MULTIPLE_CHOICE (schema a1/a2/a3)
                 date: new Date().toISOString()
             });
         }
@@ -109,6 +123,9 @@ window.renderStudySets = function () {
                 </div>
             </div>
             <div class="ml-3 shrink-0 flex items-center gap-1">
+                <button onclick="event.stopPropagation(); window.regenerateStudySet('${set.id}')" class="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition" title="${window.t('tt_regen_set', 'Genera domande nuove su questo materiale')}">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>${window.t('ui_regen', 'Rigenera')}</span>
+                </button>
                 <button onclick="event.stopPropagation(); window.deleteStudySet('${set.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
@@ -128,6 +145,7 @@ window.loadStudySet = function (setId) {
     if (!set) return;
 
     window.activeStudySetTitle = set.title || 'Mappa';
+    window.activeStudySetId = setId;   // per "Domande nuove" nel player
     window.activeStudySessionItems = set.items;
     window.studyConfig = {
         mode: set.mode,
@@ -152,6 +170,55 @@ window.deleteStudySet = function (setId) {
     if (confirm("Sei sicuro di voler eliminare questo set?")) {
         appState.db.studySets = appState.db.studySets.filter(s => s.id !== setId);
         window.renderStudySets();
+    }
+};
+
+// "Rigenera domande nuove": nuova chiamata AI con nonce fresco (NON il replay verbatim
+// di loadStudySet). Risolve la ripetizione identica dei set salvati. Richiede set.material
+// (salvato alla creazione); i set storici senza material non sono rigenerabili.
+window.regenerateStudySet = async function (setId) {
+    const set = appState.db.studySets.find(s => s.id === setId);
+    if (!set) return;
+    if (!set.material) {
+        window.showToast(window.t('tst_set_no_material', "Set storico senza materiale salvato: non rigenerabile. Rigeneralo dal nodo/ramo."), "warning");
+        return;
+    }
+    const apiKey = window.getSystemKey();
+    if (!apiKey) { window.showToast(window.t('tst_key_in_settings', "Inserisci API Key nelle impostazioni."), "error"); return; }
+    if (!confirm(window.t('cf_regen_set', "Rigenerare il set con domande NUOVE? Le domande attuali verranno sostituite."))) return;
+    window.showLoadingOverlay(true, window.t('lo_study_gen', "Generazione materiale di studio in corso..."), set.mode === 'flashcard' ? 'flashcard' : 'quiz');
+    try {
+        const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
+        let newItems = [];
+        if (set.nodeQuiz) {
+            // quiz per-nodo: schema a1/a2/a3, template MULTIPLE_CHOICE
+            const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", { nodeLabel: set.title, nodeContent: set.material, nonce });
+            const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { q: { type: "STRING" }, a1: { type: "STRING" }, a2: { type: "STRING" }, a3: { type: "STRING" }, correct: { type: "INTEGER" } }, required: ["q", "a1", "a2", "a3", "correct"] }, minItems: 5, maxItems: 5 };
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
+            const _angleB = window.quizAngleBlock ? window.quizAngleBlock(set.angle || 'auto') : '';
+            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
+            const raw = data.candidates[0].content.parts[0].text;
+            newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+        } else if (set.mode === 'flashcard') {
+            const promptText = window.fillPromptTemplate("FLASHCARD_GENERATOR", { quantity: set.quantity || set.items.length || 5, nodeLabel: set.title, nonce });
+            const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { front: { type: "STRING" }, back: { type: "STRING" } }, required: ["front", "back"] } };
+            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'flashcards');
+            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: promptText + "\n\nMateriale:\n" + set.material }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
+            const raw = data.candidates[0].content.parts[0].text;
+            newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+        } else {
+            // quiz "dinamico" (options/correct): riusa generateDynamicQuiz (nonce interno)
+            newItems = await window.generateDynamicQuiz({ nodeLabel: set.title, material: set.material, quizType: set.type || 'Scelta Multipla', quantity: set.quantity || set.items.length || 5, angle: set.angle || 'auto', apiKey });
+        }
+        if (!Array.isArray(newItems) || !newItems.length) { window.showLoadingOverlay(false); window.showToast(window.t('tst_regen_empty', "Rigenerazione non riuscita: nessuna domanda prodotta."), "error"); return; }
+        set.items = newItems;
+        set.date = new Date().toISOString();
+        window.showLoadingOverlay(false);
+        window.showToast(window.t('tst_regen_done', "Domande rigenerate!"), "success");
+        window.renderStudySets();
+    } catch (e) {
+        window.showLoadingOverlay(false);
+        window.showAlert("Errore Rigenerazione", e && e.message);
     }
 };
 

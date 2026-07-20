@@ -58,6 +58,17 @@ window.openNodeLabelsPrintModal = function () {
     const maxLevelPresent = Math.max(...Object.keys(levelCounts).map(Number));
     const mapName = appState.db?.rootNodeLabel || appState.rootNodeLabel || 'Progetto MappAI';
 
+    // Toggle "Taratura AI" — solo con contesto SPECIALE (pallino verde). Tara le
+    // PAROLE CHIAVE AI (layout «Titolo + parole chiave»); il file avrà [VERDE].
+    var _nlSpecial = !!(window.MappAITune && window.MappAITune.isSpecialActive && window.MappAITune.isSpecialActive());
+    var _nlCtx = ((window.MappAITune && window.MappAITune.activeContextName) ? window.MappAITune.activeContextName() : '').replace(/[<>&]/g, '');
+    // Riga-toggle (dentro il box «Opzioni PDF»); pm-option-toggle = riga compatta
+    var nlTuneRow = _nlSpecial ?
+        ('<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 0;font-size:13.5px;font-weight:700;color:#334155" title="' + window.t('bs_tune_tip_kw', 'Tara le parole chiave AI sul profilo del contesto attivo (solo layout «Titolo + parole chiave»). Il file avrà il suffisso [VERDE].') + '">' +
+            '<input type="checkbox" id="nl-tune-toggle" style="width:16px;height:16px;accent-color:#16a34a;flex:0 0 auto">' +
+            '<span>' + window.t('bs_tune_label', 'Taratura AI') + ' · <span style="color:#16a34a;font-weight:800">' + _nlCtx + '</span></span>' +
+        '</label>') : '';
+
     // Costruisci le opzioni di livello (tutte + singoli livelli)
     function countUpTo(maxLv) {
         return allNodes.filter(function (n) { return (n.level || 0) <= maxLv; }).length;
@@ -83,14 +94,14 @@ window.openNodeLabelsPrintModal = function () {
     modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3000] flex items-center justify-center p-4';
 
     modal.innerHTML =
-        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[880px] p-8 relative">' +
+        '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[880px] max-h-[90vh] flex flex-col relative">' +
 
             '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
                 'class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10">' +
                 '<i data-lucide="x" class="w-6 h-6"></i>' +
             '</button>' +
 
-            '<div class="space-y-6">' +
+            '<div class="overflow-y-auto p-8 space-y-6">' +
 
                 '<div class="flex items-center gap-3">' +
                     '<div class="pm-icon-wrap">' +
@@ -164,31 +175,46 @@ window.openNodeLabelsPrintModal = function () {
 
                 '</div>' +
 
-                '<div class="pm-section">' +
-                    '<span class="pm-section-title">Sfondo pagina</span>' +
-                    '<div class="flex flex-wrap gap-8">' +
-                        '<label class="pm-option">' +
-                            '<input type="radio" name="nl-bg" value="none" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
-                            '<div><div class="pm-option-label">Nessuno sfondo</div>' +
-                            '<div class="pm-option-desc">Pagina bianca</div></div>' +
-                        '</label>' +
-                        '<label class="pm-option">' +
-                            '<input type="radio" name="nl-bg" value="grid" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
-                            '<div><div class="pm-option-label">Griglia a quadretti 5 mm</div>' +
-                            '<div class="pm-option-desc">Linee cyan tenui (0,3 mm) su tutta la pagina</div></div>' +
-                        '</label>' +
+                // Impostazioni pagina + opzioni PDF affiancate (meno box sciolti)
+                '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">' +
+                    '<div class="pm-section">' +
+                        '<span class="pm-section-title">Sfondo pagina</span>' +
+                        '<div class="space-y-3">' +
+                            '<label class="pm-option">' +
+                                '<input type="radio" name="nl-bg" value="none" checked class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                                '<div><div class="pm-option-label">Nessuno sfondo</div>' +
+                                '<div class="pm-option-desc">Pagina bianca</div></div>' +
+                            '</label>' +
+                            '<label class="pm-option">' +
+                                '<input type="radio" name="nl-bg" value="grid" class="mt-0.5 accent-indigo-600 cursor-pointer">' +
+                                '<div><div class="pm-option-label">Griglia a quadretti 5 mm</div>' +
+                                '<div class="pm-option-desc">Linee cyan tenui (0,3 mm) su tutta la pagina</div></div>' +
+                            '</label>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="pm-section">' +
+                        '<span class="pm-section-title">Opzioni PDF</span>' +
+                        '<div class="space-y-1">' +
+                            nlTuneRow +
+                            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 0;font-size:13.5px;font-weight:700;color:#334155" title="' + window.t('cc_nl_tip', 'Aggiunge in coda al PDF le pagine «Catena dei perché»: i nessi causa-effetto della mappa (dai link e dalle descrizioni, senza AI).') + '">' +
+                                '<input type="checkbox" id="nl-causal-toggle" style="width:16px;height:16px;accent-color:#4f46e5;flex:0 0 auto">' +
+                                '<span>' + window.t('cc_nl_toggle', 'Includi «Catena dei perché»') + '</span>' +
+                            '</label>' +
+                            (_nlSpecial ? '' : '<div class="pm-option-desc" style="margin-top:4px">Aggiunge in coda i nessi causa-effetto della mappa.</div>') +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
 
-                '<div class="flex gap-3 pt-2 border-t border-slate-100">' +
-                    '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
-                        'class="pm-btn-cancel">Annulla</button>' +
-                    '<button type="button" onclick="window.printAllNodeLabels()" ' +
-                        'class="pm-btn-primary">' +
-                        '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
-                    '</button>' +
-                '</div>' +
+            '</div>' +   // fine area scrollabile
 
+            // Footer FISSO (fuori dallo scroll): i bottoni restano sempre visibili
+            '<div class="flex gap-3 p-6 border-t border-slate-100 bg-white rounded-b-2xl">' +
+                '<button type="button" onclick="document.getElementById(\'node-labels-print-modal\').remove()" ' +
+                    'class="pm-btn-cancel">Annulla</button>' +
+                '<button type="button" onclick="window.printAllNodeLabels()" ' +
+                    'class="pm-btn-primary">' +
+                    '<i data-lucide="printer" class="w-4 h-4"></i> Genera PDF' +
+                '</button>' +
             '</div>' +
         '</div>';
 
@@ -243,6 +269,13 @@ window.printAllNodeLabels = async function () {
     var selectedBgEl = document.querySelector('input[name="nl-bg"]:checked');
     var pageBg = selectedBgEl ? selectedBgEl.value : 'none';
 
+    // Taratura AI (solo se layout keyword): leggi PRIMA di chiudere il modale
+    var nlTuneOn = !!(document.getElementById('nl-tune-toggle') && document.getElementById('nl-tune-toggle').checked);
+    var tuned = false;
+
+    // «Catena dei perché»: pagine extra in coda al PDF (deterministico, zero AI)
+    var nlCausalOn = !!(document.getElementById('nl-causal-toggle') && document.getElementById('nl-causal-toggle').checked);
+
     var modal = document.getElementById('node-labels-print-modal');
     if (modal) modal.remove();
 
@@ -265,10 +298,15 @@ window.printAllNodeLabels = async function () {
         var kwApiKey = window.getSystemKey ? window.getSystemKey() : '';
         if (kwApiKey) {
             window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi…');
+            var _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
+            if (window.MappAITune) window.MappAITune.armed = nlTuneOn;
             try {
                 keywordsMap = await _generateNodeKeywords(nodes, kwApiKey) || {};
+                tuned = nlTuneOn; // keyword generate con taratura → file [VERDE]
             } catch (kwErr) {
                 console.warn('[Labels] Generazione keyword AI fallita, uso fallback:', kwErr);
+            } finally {
+                if (window.MappAITune) window.MappAITune.armed = _prevArmed;
             }
             window.showLoadingOverlay(false);
         }
@@ -470,7 +508,19 @@ window.printAllNodeLabels = async function () {
         }
     }
 
-    doc.save(`Label-${projectTitle}.pdf`);
+    // Pagine «Catena dei perché» in coda (opt-in dalla checkbox; zero AI)
+    if (nlCausalOn) {
+        try {
+            const added = window.MappAICausal && window.MappAICausal.appendPdfPages
+                && window.MappAICausal.appendPdfPages(doc, fontName);
+            if (!added) window.showToast(window.t('cc_empty_pdf', 'Nessun nesso causa-effetto trovato: PDF generato senza pagine catena.'), 'info');
+        } catch (ccErr) {
+            console.warn('[Labels] Catena dei perché non aggiunta:', ccErr);
+        }
+    }
+
+    const verde = tuned ? '-[VERDE]' : '';
+    doc.save(`Label-${projectTitle}${verde}.pdf`);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 
     // Archivio documenti (005): il Foglio nodi è un PDF → salvato come data-URI,
@@ -479,7 +529,7 @@ window.printAllNodeLabels = async function () {
         if (window.MappAIStudyDocs) {
             window.MappAIStudyDocs.save({
                 kind: 'nodesheet',
-                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle,
+                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle + (tuned ? ' [VERDE]' : ''),
                 mapName: projectTitle,
                 pdf: doc.output('datauristring')
             });
@@ -566,6 +616,7 @@ async function _kwCallBatch(nodesChunk, apiKey) {
     };
 
     if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'nodesheet');
+    if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se non armato
     var response = await window.fetchModelAPI(payload, apiKey);
     var raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!raw) return {};

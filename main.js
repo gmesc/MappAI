@@ -92,10 +92,13 @@ function createWindow() {
     // così `npm start 2>&1 | tee run.log` cattura l'intera pipeline da terminale.
     // Off di default (zero impatto). Reversibile.
     if (process.env.MAPPAI_TRACE) {
-        const _lvl = ['LOG', 'WARN', 'ERR', 'INFO'];
-        mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-            const src = (sourceId || '').split('/').pop();
-            console.log(`[renderer:${_lvl[level] || level}] ${message}${src ? '  (' + src + ':' + line + ')' : ''}`);
+        // Electron ≥32: 'console-message' passa un solo oggetto evento
+        // ({ level: stringa, message, lineNumber, sourceId }) — la firma
+        // posizionale (level numerico, message, line, sourceId) è deprecata.
+        mainWindow.webContents.on('console-message', (e) => {
+            const lvl = String(e.level || 'log').toUpperCase();
+            const src = (e.sourceId || '').split('/').pop();
+            console.log(`[renderer:${lvl}] ${e.message}${src ? '  (' + src + ':' + e.lineNumber + ')' : ''}`);
         });
     }
 
@@ -275,6 +278,13 @@ app.on('window-all-closed', () => {
 async function callGemini({ apiKey, payload, model }) {
     const modelName = model || "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    // Rimuove i marker interni (chiavi con prefisso "_", es. _respectTemp usato dal bridge
+    // Infomaniak) dal generationConfig: l'API Gemini rifiuta i campi sconosciuti (400).
+    if (payload && payload.generationConfig && Object.keys(payload.generationConfig).some(k => k[0] === '_')) {
+        const gc = {};
+        for (const k of Object.keys(payload.generationConfig)) { if (k[0] !== '_') gc[k] = payload.generationConfig[k]; }
+        payload = Object.assign({}, payload, { generationConfig: gc });
+    }
     try {
         const response = await axios.post(url, payload, {
             headers: { 'Content-Type': 'application/json' },
@@ -1701,17 +1711,22 @@ ipcMain.handle('collab-start-session', async (event, opts) => {
         const name = (opts && opts.name) || 'Lavagna';
         const legacySlug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
             .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sessione';
-        // 010: organizzato → Attività di studio/<Classe>/<sessione>; storico → MappAI - Lavagna/<slug>
-        const dir = studySessionDir({
-            name, activity: 'lavagna', className: (opts && opts.className) || '', scope: (opts && opts.scope) || '',
-            legacyBase: 'MappAI - Lavagna', legacySlug
-        });
-        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        const requestedMode = (opts && opts.loginMode) === 'individual' ? 'individual' : 'group';
+        // Progressivo per somministrazione (…-00, …-01, …). Crash-safe: riprende l'ultima
+        // Lavagna del giorno SOLO se è ancora aperta (phase ≠ closed → "Ferma server" la
+        // chiude) E la modalità login coincide con quella scelta ora. Modalità diversa o
+        // sessione conclusa → nuova cartella pulita (niente più ripresa della vecchia).
+        const { dir, resuming } = progressiveSessionDir(
+            { name, activity: 'lavagna', className: (opts && opts.className) || '', scope: (opts && opts.scope) || '', legacyBase: 'MappAI - Lavagna', legacySlug },
+            doc => doc && doc.session && doc.session.phase !== 'closed'
+                && ((doc.session.loginMode === 'individual' ? 'individual' : 'group') === requestedMode)
+        );
+        fs.mkdirSync(dir, { recursive: true });
         collabSrv = createCollabServer({
             repoRoot: __dirname,
             dir,
             // Login flessibile (008 US5): loginMode/roster pass-through (default = gruppi)
-            session: { name, rootLabel: (opts && opts.rootLabel) || name, loginMode: (opts && opts.loginMode) || 'group', className: (opts && opts.className) || '', scope: (opts && opts.scope) || '' },
+            session: { name, rootLabel: (opts && opts.rootLabel) || name, loginMode: requestedMode, className: (opts && opts.className) || '', scope: (opts && opts.scope) || '' },
             roster: (opts && Array.isArray(opts.roster)) ? opts.roster : []
         });
         let port = null, lastErr = null;
@@ -1738,6 +1753,12 @@ ipcMain.handle('collab-start-session', async (event, opts) => {
 ipcMain.handle('collab-stop-session', async () => {
     try {
         closeRelay('collab');
+        // Chiusura ESPLICITA (il docente ferma il server): marca la sessione 'closed' su
+        // disco → il prossimo avvio parte da una cartella progressiva nuova. Senza questo,
+        // un semplice riavvio dell'app la riprenderebbe (crash-safety), riproponendo il
+        // lavoro precedente. Se invece l'app crasha (nessuno stop) la sessione resta aperta
+        // → ripresa voluta.
+        if (collabSrv && collabSrv.markClosed) { try { collabSrv.markClosed(); } catch (e) { /* best-effort */ } }
         if (collabSrv) { await collabSrv.stop(); collabSrv = null; collabInfo = null; }
         return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
@@ -1778,6 +1799,43 @@ function dateStamp() {
     return p(d.getDate()) + '-' + p(d.getMonth() + 1) + '-' + d.getFullYear();
 }
 
+// (parent, baseName, sep) per una sessione — organizzato o storico. Riusato da tutte
+// le attività LAN (live/tutor/lavagna) per il naming progressivo.
+//   o = { name, activity, className, scope, legacyBase, legacySlug }
+function sessionParentBase(o) {
+    o = o || {};
+    if (filesOrganized()) {
+        const parent = path.join(mappaiRootDir(), FilesCore.SUB.activity, FilesCore.classFolder(o.className || ''));
+        const baseName = FilesCore.sessionFolderName({
+            className: o.className || '', activity: o.activity || 'quiz',
+            map: o.name || 'Sessione', scope: o.scope || '', date: Date.now()
+        });
+        return { parent, baseName, sep: ' · ' };
+    }
+    return { parent: path.join(documentsDir(), o.legacyBase), baseName: o.legacySlug, sep: '-' };
+}
+
+// Cartella di UNA somministrazione, con suffisso progressivo (…-00, …-01, …). Più sessioni
+// per la stessa classe/mappa nello stesso giorno = cartelle DISTINTE → non si ricade più
+// sulla sessione (chiusa) precedente. Crash-safe: se l'ultima è ancora RIPRENDIBILE
+// (canResume(doc) → true, es. phase ≠ closed) la riprende con lo stesso token/QR; altrimenti
+// ne crea una nuova col numero successivo. La prima del giorno termina sempre con "00".
+//   o = come sessionParentBase;  canResume(sessionDoc) = predicato sul session.json su disco
+function progressiveSessionDir(o, canResume) {
+    const { parent, baseName, sep } = sessionParentBase(o);
+    let names = [];
+    try { names = fs.readdirSync(parent, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); }
+    catch (e) { /* genitore non esiste ancora → prima somministrazione */ }
+    const seq = FilesCore.sessionSeq(names, baseName, sep);
+    if (seq.last && typeof canResume === 'function') {
+        try {
+            const doc = JSON.parse(fs.readFileSync(path.join(parent, seq.last, 'session.json'), 'utf8'));
+            if (canResume(doc)) return { dir: path.join(parent, seq.last), resuming: true };
+        } catch (e) { /* session.json assente/illeggibile → nuova */ }
+    }
+    return { dir: path.join(parent, baseName + sep + seq.next), resuming: false };
+}
+
 // Avvia (o RIPRENDE) una sessione quiz live. Payload dal renderer:
 // { name (titolo mappa), activity, className, durationMin, roster, questions }
 ipcMain.handle('live-start-session', async (event, opts) => {
@@ -1785,14 +1843,15 @@ ipcMain.handle('live-start-session', async (event, opts) => {
         if (liveSrv) { await liveSrv.stop(); liveSrv = null; liveInfo = null; }
         const o = opts || {};
         const name = o.name || 'Quiz';
-        // 010: organizzato → Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa (— ramo)>;
-        // storico → MappAI - Live/[mappa]-[attività]-[classe]-[GG-MM-AAAA]
+        // Progressivo per somministrazione (…-00, …-01, …): due quiz stesso giorno/classe
+        // = cartelle distinte, mai ripresa della sessione chiusa precedente (crash-safe
+        // solo sull'ultima ancora aperta, phase ≠ closed).
         const legacySlug = [slugLive(name), slugLive(o.activity || 'quiz'), slugLive(o.className || 'classe'), dateStamp()].join('-');
-        const dir = studySessionDir({
-            name, activity: o.activity || 'quiz', className: o.className || '', scope: o.scope || '',
-            legacyBase: 'MappAI - Live', legacySlug
-        });
-        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        const { dir, resuming } = progressiveSessionDir(
+            { name, activity: o.activity || 'quiz', className: o.className || '', scope: o.scope || '', legacyBase: 'MappAI - Live', legacySlug },
+            doc => doc && doc.session && doc.session.phase !== 'closed'
+        );
+        fs.mkdirSync(dir, { recursive: true });
         liveSrv = createLiveServer({
             repoRoot: __dirname, dir,
             // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico)
@@ -1801,7 +1860,8 @@ ipcMain.handle('live-start-session', async (event, opts) => {
                 scope: o.scope || '',   // 010: ramo L1 coperto
                 durationMin: Number(o.durationMin) || 0,
                 mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
-                hintMode: o.hintMode || 'onrequest', build: o.build || null
+                hintMode: o.hintMode || 'onrequest', build: o.build || null,
+                revealAnswers: o.revealAnswers !== false   // report profilo con soluzioni (default ON)
             },
             roster: Array.isArray(o.roster) ? o.roster : [],
             questions: Array.isArray(o.questions) ? o.questions : []
@@ -2063,14 +2123,16 @@ ipcMain.handle('tutor-start-session', async (event, opts) => {
         if (tutorSrv) { await tutorSrv.stop(); tutorSrv = null; tutorInfo = null; }
         const o = opts || {};
         if (!o.apiKey) return { success: false, error: 'api-key-mancante' };
-        // 010: organizzato → Attività di studio/<Classe>/<AAAA-MM-GG · Tutor AI · Mappa (— argomento)>;
-        // storico → MappAI - Tutor/[mappa]-[classe]-[GG-MM-AAAA]
+        // Progressivo per somministrazione (…-00, …-01, …), crash-safe solo sull'ultima
+        // ancora aperta (phase ≠ closed). Come Live: due sessioni Tutor stesso giorno/classe
+        // = cartelle distinte, mai ripresa di quella conclusa.
         const legacySlug = [slugLive(o.name || 'mappa'), slugLive(o.className || 'classe'), dateStamp()].join('-');
-        const dir = studySessionDir({
-            name: o.name, activity: 'tutor', className: o.className || '', scope: o.scope || o.topic || '',
-            legacyBase: 'MappAI - Tutor', legacySlug
-        });
-        const resuming = fs.existsSync(path.join(dir, 'session.json'));
+        const scopeStr = o.scope || (o.topic && o.topic.label) || (typeof o.topic === 'string' ? o.topic : '') || '';
+        const { dir, resuming } = progressiveSessionDir(
+            { name: o.name, activity: 'tutor', className: o.className || '', scope: scopeStr, legacyBase: 'MappAI - Tutor', legacySlug },
+            doc => doc && doc.session && doc.session.phase !== 'closed'
+        );
+        fs.mkdirSync(dir, { recursive: true });
         tutorSrv = createTutorServer({
             repoRoot: __dirname, dir,
             session: {
@@ -2247,6 +2309,70 @@ ipcMain.handle('open-save-folder', async () => {
         fs.mkdirSync(saveDir, { recursive: true });
     }
     shell.openPath(saveDir);
+});
+
+// ── Apri la cartella vault di una mappa nel Finder (sezione Progetti, Insegna 19/7) ──
+ipcMain.handle('open-vault-folder', async (event, { vaultName } = {}) => {
+    try {
+        const safe = path.basename(String(vaultName || ''));
+        if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
+        const dir = path.join(mapsBaseDir(), safe);
+        if (!fs.existsSync(dir)) return { success: false, error: 'cartella-non-trovata' };
+        await shell.openPath(dir);
+        return { success: true, dir };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// ── Zip della cartella vault → cartella materiali attiva (condivisione QR, 19/7) ──
+// Richiede il server Materiali attivo (liveMatInfo). jszip è dipendenza transitiva
+// di docx/mammoth (produzione) → presente anche nell'app pacchettizzata.
+ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
+    try {
+        if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
+        const safe = path.basename(String(vaultName || ''));
+        if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
+        const srcDir = path.join(mapsBaseDir(), safe);
+        if (!fs.existsSync(srcDir)) return { success: false, error: 'cartella-non-trovata' };
+        const JSZip = require('jszip');
+        const zip = new JSZip();
+        const root = zip.folder(safe);
+        const addDir = (absDir, zf) => {
+            for (const ent of fs.readdirSync(absDir, { withFileTypes: true })) {
+                const abs = path.join(absDir, ent.name);
+                if (ent.isDirectory()) addDir(abs, zf.folder(ent.name));
+                else if (ent.isFile()) { try { zf.file(ent.name, fs.readFileSync(abs)); } catch (e) { /* skip unreadable */ } }
+            }
+        };
+        addDir(srcDir, root);
+        const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const fileName = safe.replace(/[^a-zA-Z0-9._-]+/g, '_') + '.zip';
+        fs.writeFileSync(path.join(liveMatInfo.filesDir, fileName), buf);
+        return { success: true, file: fileName, files: liveMatSrv ? liveMatSrv.state().files : [] };
+    } catch (err) { console.error('zip-vault-to-materials:', err); return { success: false, error: err.message }; }
+});
+
+// ── Apri un file della libreria "File condivisi" nel programma di sistema (19/7) ──
+ipcMain.handle('sharedmat-open-file', async (event, { id } = {}) => {
+    try {
+        const it = _smRead().find(x => x.id === id);
+        if (!it) return { success: false, error: 'file-non-trovato' };
+        const abs = path.join(sharedMatFilesDir(), it.stored);
+        if (!fs.existsSync(abs)) return { success: false, error: 'file-mancante' };
+        await shell.openPath(abs);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// ── Apri la cartella di una sessione di studio nel Finder (registro attività, 19/7) ──
+ipcMain.handle('study-session-open-folder', async (event, { dir } = {}) => {
+    try {
+        const abs = path.resolve(String(dir || ''));
+        const roots = studyRootsForListing().map(r => path.resolve(r.dir));
+        const ok = roots.some(root => abs === root || abs.startsWith(root + path.sep)) && fs.existsSync(abs);
+        if (!ok) return { success: false, error: 'percorso-non-consentito' };
+        await shell.openPath(abs);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
 });
 
 // ══════════════════════════════════════════════════════════════════════════

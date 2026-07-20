@@ -100,6 +100,27 @@
     return [SUB.activity, classFolder(o && o.className), sessionFolderName(o)];
   }
 
+  // Progressivo somministrazioni: più quiz per la stessa classe/mappa lo STESSO giorno
+  // non devono ricadere sulla stessa cartella (→ ripresa della sessione precedente,
+  // spesso già CHIUSA). Dato l'elenco delle cartelle già presenti nel genitore e il
+  // nome base (senza suffisso), ritorna { next, last, maxSeq }:
+  //   next  = suffisso NN (≥2 cifre) della PROSSIMA somministrazione ('00' se è la prima)
+  //   last  = nome cartella col seq più alto già presente (null se nessuna) → il chiamante
+  //           decide se RIPRENDERLA (crash-safe, se ancora aperta) o crearne una nuova
+  //   maxSeq= seq massimo trovato (-1 se nessuna)
+  // Match solo su "<baseName><sep><cifre>" → cartelle di attività diverse non interferiscono.
+  function sessionSeq(existing, baseName, sep) {
+    sep = (sep == null) ? ' · ' : sep;
+    var esc = function (s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+    var rx = new RegExp('^' + esc(baseName) + esc(sep) + '(\\d{2,})$');
+    var max = -1, last = null;
+    (existing || []).forEach(function (nm) {
+      var m = String(nm).match(rx);
+      if (m) { var n = parseInt(m[1], 10); if (n > max) { max = n; last = String(nm); } }
+    });
+    return { next: String(max + 1).padStart(2, '0'), last: last, maxSeq: max };
+  }
+
   // ── Piano di migrazione ─────────────────────────────────────────────────
   // Input: array descrittivo di ciò che è su disco (main.js lo costruisce con fs):
   //   [{ old:'MappAI - Live', kind:'sessions', sub:'activity',
@@ -201,6 +222,7 @@
     activityLabel: activityLabel,
     sessionFolderName: sessionFolderName,
     sessionRelPath: sessionRelPath,
+    sessionSeq: sessionSeq,
     planMigration: planMigration,
     REPORT_FILES: REPORT_FILES,
     reportMeta: reportMeta,

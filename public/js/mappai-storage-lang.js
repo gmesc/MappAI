@@ -46,6 +46,12 @@ const StorageManager = {
             // senza questo ogni autosave lo cancellerebbe (assegnazione in Costruisci
             // o eredità dal chip in Insegna).
             grade: existing ? (existing.grade || null) : null,
+            // Bollino taratura (19/7): true = mappa generata con la taratura livello
+            // attiva. Riflette lo snapshot corrente (appState.generationTuned, salvato
+            // e ripristinato al load); progetti legacy senza flag → false (grigio).
+            tuned: (typeof appState.generationTuned === 'boolean')
+                ? appState.generationTuned
+                : (existing ? !!existing.tuned : false),
             nodesCount: appState.db.nodes.length,
             type: appState.extractionMode || 'mindmap',
             // Nome della cartella vault collegata (null = progetto solo-localStorage):
@@ -330,12 +336,22 @@ const StorageManager = {
                 const icon = isKg ? 'network' : 'git-merge';
                 const label = isKg ? 'KG' : 'MM';
                 const labelFull = isKg ? 'Knowledge Graph' : 'Mappa Mentale';
+                // Bollino taratura (19/7): verde = generata con taratura livello, grigio = standard.
+                const tunedDot = `<span class="inline-block w-2 h-2 rounded-full shrink-0 ${p.tuned ? 'bg-emerald-500' : 'bg-slate-300'}" title="${p.tuned ? T('rp_tuned_yes', 'Generazione tarata') : T('rp_tuned_no', 'Generazione standard')}"></span>`;
 
                 // Cella 3: chip classi (Insegna) oppure classe di salvataggio (default)
                 let col3Cell;
                 if (opts.classChips) {
-                    const chips = (core && core.classesForMap)
+                    const sessionChips = (core && core.classesForMap)
                         ? core.classesForMap(registry, { projectId: p.id, map: p.name }) : [];
+                    // 19/7: mostra ANCHE la classe con cui la mappa è stata generata
+                    // (p.cls), non solo le classi delle sessioni live. Dedup normGrade.
+                    const norm = (core && core.normGrade) ? core.normGrade : (x => String(x == null ? '' : x).toLowerCase().trim());
+                    const chips = [];
+                    const seenCls = Object.create(null);
+                    const pushCls = (c) => { if (c == null || c === '') return; const k = norm(c) || String(c); if (seenCls[k]) return; seenCls[k] = true; chips.push(c); };
+                    pushCls(p.cls);
+                    sessionChips.forEach(pushCls);
                     col3Cell = chips.length
                         ? '<span class="flex flex-wrap gap-1">' + chips.slice(0, 3).map(c =>
                             `<span class="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5"><i data-lucide="graduation-cap" class="w-2.5 h-2.5 shrink-0"></i>${esc(c)}</span>`).join('') + '</span>'
@@ -357,7 +373,7 @@ const StorageManager = {
                             <i data-lucide="${icon}" class="w-3 h-3 shrink-0"></i>
                             <span class="text-[9px] font-bold uppercase tracking-tight">${label}</span>
                         </span>
-                        <span class="text-[12px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition" title="${esc(p.name)}">${esc(p.name)}</span>
+                        <span class="flex items-center gap-1.5 min-w-0" title="${esc(p.name)}">${tunedDot}<span class="text-[12px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition">${esc(p.name)}</span></span>
                         ${col3Cell}
                         ${gradeCell}
                         <span class="text-[11px] text-slate-500 text-right tabular-nums">${p.nodesCount}</span>

@@ -219,7 +219,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Generazione dell'intero albero della mappa in corso...`);
 
         let userProfileStr = '';
-        if (appState.userProfile) {
+        if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
             userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
         }
 
@@ -723,7 +723,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         };
 
         let userProfileStr = '';
-        if (appState.userProfile) {
+        if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
             userProfileStr = `\n\nPROFILO STUDENTE DESTINATARIO DELLA MAPPA:\nEtà: ${appState.userProfile.age} anni. Scuola: ${appState.userProfile.grade}. Sistema scolastico: ${appState.userProfile.system}. ADATTA IL LINGUAGGIO! I concetti e le descrizioni devono essere riscritti per essere perfettamente comprensibili a un allievo di questa età. Usa un linguaggio semplice, frasi brevi ed esempi adatti a lui. EVITA IL LINGUAGGIO ACCADEMICO O UNIVERSITARIO.`;
         }
 

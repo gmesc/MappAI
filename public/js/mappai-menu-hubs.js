@@ -155,6 +155,8 @@
                         title: t('ui_print_dossier_btn', 'Stampa dossier'),  tip: t('tt_print_dossier', 'Dossier PDF stampabile con i contenuti della mappa.') },
             timeline: { icon: 'gantt-chart',     ok: !!window.openTimelineGeneratorModal, fn: () => window.openTimelineGeneratorModal(),
                         title: t('ui_create_timeline', 'Crea Timeline'),     tip: t('tt_gen_timeline', 'Genera una timeline cronologica con l\'AI.') },
+            causal:   { icon: 'route',           ok: !!(window.MappAICausal && window.MappAICausal.openDoc), fn: () => window.MappAICausal.openDoc(),
+                        title: t('cc_doc_title', 'Catena dei perché'),       tip: t('cc_card_tip', 'Documento stampabile con i nessi causa-effetto della mappa (dai link e dalle descrizioni, zero AI) + modalità esercizio.') },
             jexport:  { icon: 'users',           ok: !!(J && J.openExportModal),    fn: () => J.openExportModal(),
                         title: t('ui_export_jigsaw', 'Esporta JIGSAW'),      tip: t('tt_jigsaw_export', 'Una copia per gruppo: editing sbloccato su un solo ramo, studio su tutta la mappa.') },
             jmerge:   { icon: 'git-merge',       ok: !!(J && J.openReconcileModal), fn: () => J.openReconcileModal(),
@@ -169,7 +171,7 @@
         if (nDocs) defs.saved.title = t('sd_card', 'Documenti salvati') + ' (' + nDocs + ')';
         let body =
             sectionHeader(t('mh_section_print', 'Stampati')) +
-            grid([defs.pdf, defs.sheet, defs.synth, defs.dossier, defs.timeline]) +
+            grid([defs.pdf, defs.sheet, defs.synth, defs.dossier, defs.timeline, defs.causal]) +
             sectionHeader(t('sd_section', 'Salvati')) +
             grid([defs.saved]);
         if (!jigsawStudentOn()) {   // funzioni docente: nascoste sulle copie studente
@@ -203,7 +205,8 @@
                 dossier:   { icon: 'files',    label: t('sd_kind_dossier', 'Dossier') },
                 nodesheet: { icon: 'scissors', label: t('lt_kind_nodesheet', 'Foglio nodi') },
                 timeline:  { icon: 'gantt-chart', label: t('lt_kind_timeline', 'Timeline') },
-                map:       { icon: 'file-text', label: t('sd_kind_map', 'Mappa PDF') }
+                map:       { icon: 'file-text', label: t('sd_kind_map', 'Mappa PDF') },
+                causal:    { icon: 'route', label: t('cc_doc_title', 'Catena dei perché') }
             };
             const rows = docs.map(d => {
                 const meta = KIND_META[d.kind] || KIND_META.dossier;

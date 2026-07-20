@@ -28,10 +28,22 @@ function sampleQuestions() {
   ];
 }
 
+// Roster DETERMINISTICO per i test del server (buildCredentials ora è randomizzato
+// per segretezza → la casualità è coperta da live-core.test.js; qui servono
+// identità note volpe-00 / panda-00 / rana-00 su cui i test fanno join).
+const FIXED_IDS = ['volpe-00', 'panda-00', 'rana-00'];
+function mkRoster(n) {
+  return FIXED_IDS.slice(0, n).map(function (id) {
+    var parts = id.split('-'), emojiKey = parts[0], num = parts[1];
+    var e = LC.EMOJI_SET.find(function (x) { return x.key === emojiKey; });
+    return { emojiKey: emojiKey, emoji: e ? e.emoji : '', num: num, name: '' };
+  });
+}
+
 // ── Ciclo completo: join → answer → close → report ─────────────────────────
 test('ciclo completo: join, autosave, indietro, finish, close, report', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-test-'));
-  const roster = LC.buildCredentials(3);   // volpe-00, panda-00, rana-00
+  const roster = mkRoster(3);   // volpe-00, panda-00, rana-00
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'Fotosintesi', activity: 'Quiz', className: '2A' }, roster, questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
@@ -126,7 +138,7 @@ test('ciclo completo: join, autosave, indietro, finish, close, report', async ()
 // ── Release + adozione ─────────────────────────────────────────────────────
 test('release docente → identità adottabile da altro device', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-rel-'));
-  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', className: '2A' }, roster: LC.buildCredentials(2), questions: sampleQuestions() });
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', className: '2A' }, roster: mkRoster(2), questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
   const admin = srv.state().session.adminToken, tok = srv.state().session.token;
@@ -141,7 +153,7 @@ test('release docente → identità adottabile da altro device', async () => {
 // ── Resume da disco ────────────────────────────────────────────────────────
 test('resume: stesso dir → stesso token, risposte intatte, fase preservata', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-res-'));
-  const roster = LC.buildCredentials(2);
+  const roster = mkRoster(2);
   let srv = createLiveServer({ repoRoot, dir, session: { name: 'Y', className: '2A' }, roster, questions: sampleQuestions() });
   let port = await srv.listen(0, '127.0.0.1');
   let api = apiFactory(port);
@@ -167,7 +179,7 @@ test('resume: stesso dir → stesso token, risposte intatte, fase preservata', a
 test('timer: durationMin scaduto → chiusura automatica + report', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tim-'));
   // 0.003 min ≈ 180ms: abbastanza per testare il percorso reale del setTimeout
-  const srv = createLiveServer({ repoRoot, dir, session: { name: 'T', className: '2A', durationMin: 0.003 }, roster: LC.buildCredentials(1), questions: sampleQuestions() });
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'T', className: '2A', durationMin: 0.003 }, roster: mkRoster(1), questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
   const admin = srv.state().session.adminToken;
@@ -210,7 +222,7 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
 // ── Timeline Live (008): sessione mode/loginMode/hintMode + hintUsed persistito ──
 test('session espone mode/loginMode/hintMode; /api/answer persiste hintUsed', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tl-'));
-  const roster = LC.buildCredentials(2);
+  const roster = mkRoster(2);
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Storia', activity: 'timeline', className: '3A', hintMode: 'onrequest' },
@@ -253,7 +265,7 @@ function buildSrv(dir, roster) {
 
 test('build: propose ok/422/429, review idempotenza/409, flags, close report', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-build-'));
-  const roster = LC.buildCredentials(2);
+  const roster = mkRoster(2);
   const srv = buildSrv(dir, roster);
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
@@ -314,7 +326,7 @@ test('build: propose ok/422/429, review idempotenza/409, flags, close report', a
 
 test('build: propose su sessione quiz → 404; ripresa da disco con proposte', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-quiz-'));
-  const roster = LC.buildCredentials(1);
+  const roster = mkRoster(1);
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'Q', activity: 'Quiz' }, roster, questions: [{ kind: 'open', text: 'x', answerText: 'y' }] });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
@@ -325,7 +337,7 @@ test('build: propose su sessione quiz → 404; ripresa da disco con proposte', a
 
   // ripresa build con proposte su disco
   const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'live-b2-'));
-  const roster2 = LC.buildCredentials(1);
+  const roster2 = mkRoster(1);
   const s1 = buildSrv(dir2, roster2);
   const port2 = await s1.listen(0, '127.0.0.1');
   const api2 = apiFactory(port2);
@@ -369,5 +381,61 @@ test('live loginMode group: join per nickname, 409 altro device, report per grup
   await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
   const rep = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
   assert.ok(rep.includes('I Galli'));   // report aggregato per gruppo
+  await srv.stop();
+});
+
+test('reveal risposte: /api/finish ritorna il risultato; my-result gated su consegna', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-reveal-'));
+  const roster = mkRoster(1);   // volpe-00
+  const qs = [
+    { kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'Roma.', source: 'map' },
+    { kind: 'tf', text: 'Il Sole è una stella', proposed: 'vero', statementTrue: true, source: 'map' }
+  ];
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: true }, roster, questions: qs });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 0, ms: 1500 }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 1, choice: false, ms: 1200 }) });
+
+  // PRIMA della consegna: my-result senza soluzioni (submitted=false)
+  const before = await api('/api/my-result?s=' + tok + '&emojiKey=volpe&num=00&deviceId=d1');
+  assert.strictEqual(before.status, 200);
+  assert.strictEqual(before.body.submitted, false);
+  assert.strictEqual(before.body.result.perQuestion[0].correctText, undefined);   // niente soluzioni prima di consegnare
+
+  // consegna → il risultato torna CON soluzioni (revealAnswers ON)
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.status, 200);
+  assert.strictEqual(fin.body.revealAnswers, true);
+  assert.strictEqual(fin.body.result.right, 1);
+  assert.strictEqual(fin.body.result.wrong, 1);
+  assert.strictEqual(fin.body.result.accuracyPct, 50);
+  assert.strictEqual(fin.body.result.perQuestion[0].correctText, 'Roma');
+  assert.strictEqual(fin.body.result.perQuestion[0].explanation, 'Roma.');
+
+  // device sbagliato → 403
+  assert.strictEqual((await api('/api/my-result?s=' + tok + '&emojiKey=volpe&num=00&deviceId=ALTRO')).status, 403);
+  await srv.stop();
+});
+
+test('reveal OFF: /api/finish non manda soluzioni', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-noreveal-'));
+  const roster = mkRoster(1);
+  const qs = [{ kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'x', source: 'map' }];
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: false }, roster, questions: qs });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 1, ms: 1000 }) });
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.body.revealAnswers, false);
+  assert.strictEqual(fin.body.result.perQuestion[0].correctText, undefined);   // niente soluzioni
+  assert.strictEqual(fin.body.result.perQuestion[0].outcome, 'wrong');          // ma l'esito sì
   await srv.stop();
 });

@@ -242,7 +242,17 @@ test('POST /api/nodes: link con estremità inesistente → rejected, non salvato
 test('collab loginMode individual: join per emoji+numero dal roster', async () => {
   const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-ind-'));
-  const roster = LC.buildCredentials(2);   // volpe-00, panda-00
+  // buildCredentials pesca a CASO dal pool (segretezza account) → il test usa
+  // le identità RESTITUITE, mai coppie hardcodate.
+  const roster = LC.buildCredentials(2);
+  const inR = roster[0];
+  const inRoster = (ek, num) => roster.some(r => r.emojiKey === ek && r.num === num);
+  let outR = null;   // identità garantita FUORI roster
+  for (let num = 0; num <= 10 && !outR; num++) {
+    for (const e of LC.EMOJI_SET) {
+      if (!inRoster(e.key, String(num).padStart(2, '0'))) { outR = { emojiKey: e.key, num: String(num).padStart(2, '0') }; break; }
+    }
+  }
   const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav', loginMode: 'individual' }, roster });
   const pt = await s.listen(0, '127.0.0.1');
   const a = (p, o) => fetch('http://127.0.0.1:' + pt + p, o).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
@@ -254,13 +264,13 @@ test('collab loginMode individual: join per emoji+numero dal roster', async () =
   assert.ok(Array.isArray(sess.body.emojiSet));
 
   // fuori roster → 401
-  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'unicorno', num: '09', deviceId: 'dX' }) })).status, 401);
-  // dal roster → 200, nick = "volpe-00"
-  const j = await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: outR.emojiKey, num: outR.num, deviceId: 'dX' }) })).status, 401);
+  // dal roster → 200, nick = "<emoji>-<num>"
+  const j = await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: inR.emojiKey, num: inR.num, deviceId: 'd1' }) });
   assert.strictEqual(j.status, 200);
-  assert.strictEqual(j.body.nick, 'volpe-00');
-  // stesso identità altro device → 409
-  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: 'volpe', num: '00', deviceId: 'dY' }) })).status, 409);
+  assert.strictEqual(j.body.nick, inR.emojiKey + '-' + inR.num);
+  // stessa identità altro device → 409
+  assert.strictEqual((await a('/api/join', { method: 'POST', body: JSON.stringify({ token: t, emojiKey: inR.emojiKey, num: inR.num, deviceId: 'dY' }) })).status, 409);
   await s.stop();
 });
 
@@ -276,4 +286,27 @@ test('collab default resta a gruppi (nessuna regressione 003/006)', async () => 
   assert.strictEqual(j.status, 200);
   assert.strictEqual(j.body.nick, 'I Galli');
   await s.stop();
+});
+
+test('collab phase: open all\'avvio, markClosed → closed su disco (naming progressivo)', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-phase-'));
+  const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
+  await s.listen(0, '127.0.0.1');
+  // all'avvio la sessione è APERTA → il main la riprenderebbe dopo un crash
+  let sj = JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session;
+  assert.strictEqual(sj.phase, 'open');
+  // chiusura esplicita (docente ferma il server) → 'closed', persistita
+  s.markClosed();
+  sj = JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session;
+  assert.strictEqual(sj.phase, 'closed');
+  // idempotente
+  s.markClosed();
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session.phase, 'closed');
+  await s.stop();
+
+  // RIPRESA da disco conserva phase closed (naming progressivo → non la riprende più)
+  const s2 = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
+  assert.strictEqual(s2.state().session.token, sj.token);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session.phase, 'closed');
+  if (s2.stop) await s2.stop().catch(() => {});
 });

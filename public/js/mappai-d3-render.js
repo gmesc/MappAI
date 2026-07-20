@@ -866,19 +866,28 @@ function tick() {
     });
     g.selectAll(".link-label").each(function (d) {
         const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
-        let lx, ly;
+        const dx = tx - sx, dy = ty - sy;
+        const len = Math.hypot(dx, dy) || 1;         // nodi sovrapposti → 1 (evita NaN)
+        const ux = dx / len, uy = dy / len;
+        // Rotazione PARALLELA al tratto, mai capovolta (flip di 180° a sinistra).
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (angle > 90 || angle < -90) angle += 180;
+        let cx, cy;
         if (d.bidirectional) {
-            const len = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2) || 1;
-            const ux = (tx - sx) / len, uy = (ty - sy) / len;
+            // Etichetta sul midpoint visivo della curva Bezier (offset perpendicolare).
             const mx = (sx + tx) / 2, my = (sy + ty) / 2;
-            // Midpoint visivo della curva Bezier = 0.5*(punto di controllo) spostato
-            lx = mx - uy * 20;
-            ly = my + ux * 20;
+            cx = mx - uy * 20;
+            cy = my + ux * 20;
         } else {
-            lx = sx + (tx - sx) * 0.67;
-            ly = sy + (ty - sy) * 0.67;
+            // CENTRO OTTICO: punto medio del tratto VISIBILE, fra i BORDI dei due
+            // cerchi (non fra i centri) → resta centrato anche con raggi diversi.
+            const rs = getNodeRadius(d.source), rt = getNodeRadius(d.target);
+            cx = (sx + ux * rs + tx - ux * rt) / 2;
+            cy = (sy + uy * rs + ty - uy * rt) / 2;
         }
-        d3.select(this).attr("x", lx).attr("y", ly);
+        // transform sostituisce x/y: azzera x/y per non sommare gli offset.
+        d3.select(this).attr("x", 0).attr("y", 0)
+            .attr("transform", `translate(${cx}, ${cy}) rotate(${angle})`);
     });
     g.selectAll(".node-group").attr("transform", d => `translate(${d.x},${d.y})`);
 }
