@@ -283,6 +283,8 @@ const it_translations = {
     tt_cycle_links: "Click: cicla visibilità link (tutto / solo gerarchia / solo cross-link)",
     tt_pathfinder: "Pathfinder: Clicca 2 nodi per trovare il percorso logico",
     ui_depth: "Profondità",
+    ui_show_depth: "Mostra fino a",
+    ui_gen_depth_label: "Genera fino a:",
     tt_export_pdf: "Esporta la mappa visibile in formato PDF",
     tt_manage_layouts: "Gestisci e Fissa i Layout della mappa",
     ui_reading_ruler: "Riga di Lettura",

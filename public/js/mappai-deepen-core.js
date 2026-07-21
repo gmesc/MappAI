@@ -335,6 +335,101 @@
         return { accepted, rejected };
     }
 
+    // ── TETTO DI PROFONDITÀ — ripiegamento deterministico ───────────────────
+    // Rende lo slider "Genera fino a L{max}" una GARANZIA nei dati, non un
+    // filtro di vista. Ogni nodo più profondo di maxLevel viene RIMOSSO e il suo
+    // contenuto RIPIEGATO nella desc dell'antenato-al-tetto (il discendente di
+    // maxLevel sulla sua catena), ma solo le frasi che aggiungono lessico nuovo
+    // (anti-parafrasi, riuso di lexicalOverlap) e finché la desc resta leggibile
+    // (tetto parole per BES/DSA). I cross-link che toccano un nodo ripiegato
+    // vengono ri-puntati all'antenato-al-tetto (self-loop e duplicati scartati);
+    // i link d'albero interni al sottoalbero ripiegato spariscono.
+    //
+    // Profondità = topologica (BFS da ROOT sui link non-cross), non il campo
+    // `level` (che può essere stale prima del sanitizer). Puro: opera su copie
+    // e ritorna il nuovo grafo + un report.
+    //
+    // nodes: [{id,label,desc,content,...}], links: [{source,target,rel,isCross}]
+    // → { nodes, links, removed:[id], foldedInto:{capId:[srcId]}, report }
+    function foldBeyondDepth(nodes, links, maxLevel, opts) {
+        const o = Object.assign({ maxDescWords: 140, rootId: 'ROOT' }, opts);
+        const max = parseInt(maxLevel);
+        const eid = x => (x && typeof x === 'object') ? x.id : x;
+        const N = (nodes || []).map(n => Object.assign({}, n));       // copie
+        const byId = {}; N.forEach(n => { byId[n.id] = n; });
+        const L = (links || []).map(l => ({ source: eid(l.source), target: eid(l.target), rel: l.rel, isCross: !!l.isCross }));
+        const report = { removed: [], foldedInto: {}, appended: 0, skippedDup: 0 };
+        if (!(max >= 1) || !byId[o.rootId]) return { nodes: N, links: L, removed: [], foldedInto: {}, report };
+
+        // BFS profondità + genitore d'albero
+        const children = {}, parent = {};
+        L.forEach(l => { if (l.isCross || l.isBridge) return; (children[l.source] = children[l.source] || []).push(l.target); if (parent[l.target] === undefined) parent[l.target] = l.source; });
+        const depth = {}; depth[o.rootId] = 0;
+        let q = [o.rootId];
+        while (q.length) { const nx = []; for (const id of q) for (const c of (children[id] || [])) if (depth[c] === undefined && byId[c]) { depth[c] = depth[id] + 1; nx.push(c); } q = nx; }
+
+        // antenato-al-tetto per un nodo profondo: risali finché depth == max
+        const capOf = (id) => {
+            let cur = id, guard = 0;
+            while (cur !== undefined && depth[cur] > max && guard < 64) { cur = parent[cur]; guard++; }
+            return (cur !== undefined && depth[cur] === max) ? cur : null;
+        };
+
+        // gruppi di ripiegamento: cap → discendenti (dal meno profondo)
+        const groups = {};
+        N.forEach(n => {
+            const d = depth[n.id];
+            if (d === undefined || d <= max) return;   // irraggiungibile o entro il tetto
+            const cap = capOf(n.id);
+            if (!cap) return;                            // niente antenato valido → lasciato (raro)
+            (groups[cap] = groups[cap] || []).push(n.id);
+        });
+
+        const wordCount = s => (String(s || '').trim().match(/\S+/g) || []).length;
+        const foldedSet = new Set();
+
+        Object.keys(groups).forEach(capId => {
+            const cap = byId[capId];
+            const ids = groups[capId].sort((a, b) => (depth[a] - depth[b]));
+            let covered = (cap.desc || cap.content || '');
+            ids.forEach(id => {
+                foldedSet.add(id);
+                report.removed.push(id);
+                (report.foldedInto[capId] = report.foldedInto[capId] || []).push(id);
+                if (wordCount(cap.desc) >= o.maxDescWords) return;   // desc già piena → assorbi senza scrivere
+                const src = byId[id];
+                const piece = (src.desc || src.content || '').trim();
+                if (!piece) return;
+                // ripiega solo se aggiunge lessico nuovo (no parafrasi dell'antenato)
+                if (isNearDuplicate(piece, [covered], { dupJaccard: 0.6, dupContainment: 0.7 }) >= 0) { report.skippedDup++; return; }
+                cap.desc = ((cap.desc || '') + ' ' + piece).trim();
+                covered = cap.desc;
+                report.appended++;
+            });
+        });
+
+        // rimuovi i nodi ripiegati
+        const outNodes = N.filter(n => !foldedSet.has(n.id));
+
+        // ricablaggio link: droppa quelli interni al sottoalbero ripiegato;
+        // ri-punta i cross-link con UN estremo ripiegato verso il suo cap
+        const seen = new Set(), outLinks = [];
+        L.forEach(l => {
+            let s = l.source, t = l.target;
+            const sF = foldedSet.has(s), tF = foldedSet.has(t);
+            if (sF && tF) return;                        // interno al sottoalbero → via
+            if (sF) s = capOf(l.source);
+            if (tF) t = capOf(l.target);
+            if (!s || !t || s === t) return;             // self-loop dopo il ricablaggio
+            if (!outNodes.some(n => n.id === s) || !outNodes.some(n => n.id === t)) return;
+            const key = s + '→' + t + '|' + (l.isCross ? 'x' : 'h');
+            if (seen.has(key)) return; seen.add(key);
+            outLinks.push({ source: s, target: t, rel: l.rel, isCross: l.isCross });
+        });
+
+        return { nodes: outNodes, links: outLinks, removed: report.removed, foldedInto: report.foldedInto, report };
+    }
+
     return {
         DEFAULTS,
         contentWords,
@@ -347,6 +442,7 @@
         assignResidues,
         paraphraseVerdict,
         filterProposedChildren,
-        isNearDuplicate
+        isNearDuplicate,
+        foldBeyondDepth
     };
 }));

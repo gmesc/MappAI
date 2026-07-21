@@ -614,10 +614,78 @@ due mosse, entrambe in `executeDeepeningPass` (mappai-generation-support.js:1734
 - ⚠️ **Da testare in Electron vivo**: generazione MM multi-pass reale su una fonte →
   contare i D-node risultanti (attesi molti meno) e verificare che siano dettagli
   nuovi, non parafrasi; log `[Deepening]` in console; A/B col flag legacy.
-- Limite noto: il verdetto è LESSICALE → cattura le parafrasi ad alto overlap (la
-  maggioranza), non i quasi-duplicati raccontati con lessico molto diverso (es. la
-  stessa battaglia con sinonimi) → dominio del dedup semantico intra-ramo (proposta
-  P3, non ancora fatta). Restano aperte anche P4-P7 dell'audit.
+- **Round 2 (21/7/26, commit `18a8a56`) — P1-bis + P3 dopo la prima generazione reale.**
+  La mappa "Storia della Carta" (2A) ha mostrato il modo di fallimento successivo:
+  retrieval per-foglia indipendente → stessa frase della fonte depositata come figlio
+  in 4 rami diversi, anche sotto padri fuori tema ("Produzione Papiro" riceveva i
+  magli idraulici di Fabriano — lessico di superficie condiviso). Fix, tutto
+  deterministico in `mappai-deepen-core.js` + wiring nel pass:
+  - **P1-bis `assignResidues`**: assegnazione GLOBALE frase→foglia (argmax pertinenza).
+    Competono TUTTI i nodi; i non-approfondibili sono ASSORBITORI: uccidono la frase
+    solo se davvero coperta (novità <3) o reclamata con pertinenza ≥`absorberClaimMin`
+    0.5; vittoria "di superficie" → ripiego sulla miglior foglia eligible (senza,
+    i padri a desc ricca mangiano il recall — finding review). A parità eligible >
+    assorbitore.
+  - **P2 esteso**: coperto = catena antenati fino al L1 (prima solo padre); cresce solo
+    coi fratelli DAVVERO inseriti.
+  - **P3 `isNearDuplicate`**: gate globale all'inserimento — candidato vs TUTTI i nodi
+    (Jaccard ≥0.55 o containment ≥0.75), antenati esclusi (già governati da P2).
+  - Review avversaria via workflow (2 verificatori con probe): 1 major + 3 minor,
+    tutti fixati. Suite **646/646** (+8 test, incl. regressione realistica del bug
+    "martello di legno" papiro↔magli e coppia reale D5/D7).
+- Limite noto residuo: metro LESSICALE → i quasi-duplicati con lessico davvero
+  disgiunto (sinonimi puri) restano per l'eventuale variante embedding (riuso
+  `executeSemanticDedup` senza skip stesso-L1). Aperte P4-P7 dell'audit.
+- ⚠️ Perf nota (review): `assignResidues` sincrona ~560ms su corpus 60K parole ×
+  100 nodi (dietro overlay, ok); cresce lineare — se corpus/nodi raddoppiano
+  valutare yield periodici.
+
+### 🔵 IN CORSO (21/7/26): tetto di profondità reale — lo slider «Genera fino a» ora vincola i DATI
+Branch `fix/deepening-residuo`, NON committato con questo commit di doc. Origine: le mappe
+chieste «fino a L3» uscivano con nodi L4/L5. Diagnosi (3 difetti sovrapposti):
+1. **Prompt Fase 3 contraddittorio** — scriveva sempre `(L2, L3, L4, L5)` ignorando
+   `maxMapLevel` ([mm-extraction.js:819](public/js/mappai-mm-extraction.js:819) +
+   [generation-support.js:496](public/js/mappai-generation-support.js:496)) → il modello
+   seguiva l'elenco concreto, non il numero.
+2. **Zero clamp nei dati** — il tree-sanitizer etichetta la profondità topologica reale,
+   nessuno pota oltre il tetto.
+3. **Lo slider #level-slider è solo FILTRO VISTA** (`onLevelSliderInput`→`applyVisualFilters`,
+   [d3-render.js:1810](public/js/mappai-d3-render.js:1810)): nasconde i nodi profondi sul
+   canvas ma NON li elimina → una mappa «L3» era una L5 con L4/L5 **vivi nel vault** (quindi
+   in quiz, fogli nodi, materiali). `mm_dal_papiro.json` ha davvero `level:4/5`.
+
+**Decisioni utente**: (a) il dettaglio L4/L5 si **RIPIEGA nella desc** dell'antenato-al-tetto
+(niente info persa, desc più ricche — ideale BES/DSA); (b) **due controlli separati**
+«Genera fino a» (dati) + «Mostra fino a» (vista).
+
+**Implementato** (tutto deterministico, zero AI):
+- **`MappAIDeepenCore.foldBeyondDepth(nodes, links, maxLevel)`** (core puro): profondità
+  TOPOLOGICA (BFS da ROOT, non il campo `level`); ogni nodo oltre il tetto rimosso e la sua
+  desc **travasata** nella desc del cap (antenato a profondità = maxLevel), ma solo le frasi
+  con lessico nuovo (riuso `isNearDuplicate` anti-bloat) e finché la desc resta < 140 parole;
+  cross-link da nodi ripiegati ri-puntati al cap (self-loop/dup scartati). +5 test incl.
+  fixture reale.
+- **Prompt dinamici**: lista livelli e id-esempio generati da `maxMapLevel` (a 3 → «L2, L3»),
+  + regola «NON superare MAI il Livello N: riassumi il dettaglio più fine nella desc».
+- **`window.applyDepthCeiling(maxMapLevel)`** (generation-support.js): applica il fold su
+  `appState.db`, pulisce sourcesDict/customColors dei nodi ripiegati. Chiamato dopo
+  deepening+sanitize in **multipass E iterativa**, poi ri-sanitizza. Kill-switch
+  `mappai_depth_ceiling='0'`. Solo MM (no KG).
+- **`window.getGenDepth()`/`setGenDepth(v)`**: profondità di GENERAZIONE separata dallo
+  slider vista (`localStorage mappai_gen_depth`, fallback slider→5). `mm-extraction.js:785`
+  ora legge `getGenDepth()`.
+- **UI**: `#gen-depth-select` (L2 essenziale…L5 massimo) nel modale config AI accanto a
+  «Lingua delle mappe» (init in `mappai-ui-modals.js`); slider toolbar rietichettato
+  «Mostra fino a» con tooltip che chiarisce il ruolo. i18n `ui_show_depth`/`ui_gen_depth_label`
+  in ENTRAMBI i dizionari.
+- **Verificato in browser**: fold reale `mm_dal_papiro` a L3 = **70→47 nodi, 23 ripiegati,
+  16 dettagli confluiti, 5 parafrasi saltate**; lista livelli «L2, L3» a tetto 3; global
+  esposti; selettore presente. Suite **658/658** ✅.
+- ⚠️ **Da testare in Electron vivo**: generazione reale a L3 (attesi zero nodi L4/L5 nel
+  vault, log `[Tetto L3]` + `[Deepening]`); `applyDepthCeiling` usa `appState` (non
+  esercitabile da browser statico).
+- Flag nuovi: `mappai_depth_ceiling` (kill-switch tetto, default ON) · `mappai_gen_depth`
+  (profondità di generazione, default = slider).
 
 ### ✅ FATTO (20/7/26): 011-pipeline-materiali — pipeline «Genera materiali» (spec-kit completo)
 Branch `011-pipeline-materiali` (NON ancora mergiato). Spec-kit completo

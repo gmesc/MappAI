@@ -521,6 +521,8 @@ const en_translations = {
     tt_cycle_links: "Click: cycle link visibility (all / hierarchy only / cross-links only)",
     tt_pathfinder: "Pathfinder: Click 2 nodes to find the logical path",
     ui_depth: "Depth",
+    ui_show_depth: "Show up to",
+    ui_gen_depth_label: "Generate up to:",
     tt_export_pdf: "Export the visible map to PDF",
     ui_export_pdf_btn: "Export map PDF",
     tt_manage_layouts: "Manage and Pin map Layouts",

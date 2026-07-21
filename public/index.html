@@ -1629,7 +1629,7 @@
                 <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
                 <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
                     <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_depth">Profondità</span>
+                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_show_depth" title="Filtro di vista: nasconde i nodi più profondi senza cancellarli. La profondità dei DATI si imposta con «Genera fino a» nella config AI.">Mostra fino a</span>
                         <span id="level-slider-val"
                             class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
                     </div>
@@ -3136,6 +3136,17 @@
                     <option value="it">Italiano</option>
                     <option value="en">English</option>
                     <option value="auto" data-i18n="ui_map_lang_auto">Lingua delle fonti</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-3 mb-4">
+                <span class="input_label_xs" data-i18n="ui_gen_depth_label" title="Profondità massima dei rami nei DATI (diverso dal filtro «Mostra fino a» sulla mappa)">Genera fino a:</span>
+                <select id="gen-depth-select"
+                    onchange="window.setGenDepth && window.setGenDepth(this.value)"
+                    class="text-xs bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 focus_ring_standard">
+                    <option value="2">L2 — essenziale</option>
+                    <option value="3">L3 — consigliato</option>
+                    <option value="4">L4 — dettagliato</option>
+                    <option value="5" selected>L5 — massimo</option>
                 </select>
             </div>
             <div class="space-y-5 overflow-y-auto flex-1 pr-1 custom-scrollbar">

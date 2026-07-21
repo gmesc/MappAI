@@ -184,6 +184,98 @@ test('jaccardSim: identici → 1, disgiunti → 0', () => {
     assert.strictEqual(DC.jaccardSim('pasta di legno', 'filigrana controluce'), 0);
 });
 
+// ── foldBeyondDepth (tetto di profondità deterministico) ────────────────────
+test('foldBeyondDepth: nessun nodo oltre il tetto; il dettaglio confluisce nella desc del cap', () => {
+    const nodes = [
+        { id: 'ROOT', label: 'R', level: 0, desc: '' },
+        { id: 'L1_0', label: 'Ramo', level: 1, group: 1, desc: 'tema del ramo' },
+        { id: 'L2', label: 'Cap', level: 2, group: 1, desc: 'La pila a magli sminuzza gli stracci.' },
+        { id: 'L3', label: 'Dett', level: 3, group: 1, desc: 'I magli erano azionati dall energia dei fiumi tramite ruote idrauliche.' },
+        { id: 'L4', label: 'Foglia', level: 4, group: 1, desc: 'Le ruote idrauliche di Fabriano funzionavano giorno e notte lungo il fiume Giano.' }
+    ];
+    const links = [
+        { source: 'ROOT', target: 'L1_0', rel: 'include' },
+        { source: 'L1_0', target: 'L2', rel: 'include' },
+        { source: 'L2', target: 'L3', rel: 'include' },
+        { source: 'L3', target: 'L4', rel: 'include' }
+    ];
+    const out = DC.foldBeyondDepth(nodes, links, 2);   // tetto L2
+    const ids = out.nodes.map(n => n.id);
+    assert.ok(!ids.includes('L3') && !ids.includes('L4'), 'L3/L4 rimossi');
+    assert.deepStrictEqual(out.removed.sort(), ['L3', 'L4']);
+    const cap = out.nodes.find(n => n.id === 'L2');
+    assert.match(cap.desc, /energia dei fiumi/, 'il dettaglio L3 confluisce nella desc del cap');
+    assert.match(cap.desc, /Giano/, 'anche il dettaglio L4 confluisce');
+    // nessun link verso nodi rimossi
+    assert.ok(out.links.every(l => ids.includes(l.source) && ids.includes(l.target)), 'link coerenti');
+});
+
+test('foldBeyondDepth: non ripiega una foglia parafrasi del cap (anti-bloat)', () => {
+    const nodes = [
+        { id: 'ROOT', label: 'R', level: 0, desc: '' },
+        { id: 'L1_0', label: 'Ramo', level: 1, group: 1, desc: 'tema' },
+        { id: 'L2', label: 'Cap', level: 2, group: 1, desc: 'La pila a magli idraulici sminuzzava gli stracci con energia dei fiumi.' },
+        { id: 'DUP', label: 'Copia', level: 3, group: 1, desc: 'La pila a magli idraulici sminuzzava gli stracci usando energia dei fiumi.' }
+    ];
+    const links = [
+        { source: 'ROOT', target: 'L1_0', rel: 'include' },
+        { source: 'L1_0', target: 'L2', rel: 'include' },
+        { source: 'L2', target: 'DUP', rel: 'approfondisce' }
+    ];
+    const before = nodes.find(n => n.id === 'L2').desc;
+    const out = DC.foldBeyondDepth(nodes, links, 2);
+    assert.ok(!out.nodes.some(n => n.id === 'DUP'), 'la parafrasi è rimossa');
+    assert.strictEqual(out.nodes.find(n => n.id === 'L2').desc, before, 'ma NON appesa (era già coperta)');
+    assert.strictEqual(out.report.skippedDup, 1);
+});
+
+test('foldBeyondDepth: ri-punta un cross-link da nodo ripiegato al suo cap', () => {
+    // profondità TOPOLOGICA: ROOT(0)→L1a(1)→A2(2)→A3(3); ROOT→L1b(1)→B2(2)
+    const nodes = [
+        { id: 'ROOT', label: 'R', level: 0, desc: '' },
+        { id: 'L1a', label: 'Ramo A', level: 1, group: 1, desc: 'ramo A' },
+        { id: 'A2', label: 'A2', level: 2, group: 1, desc: 'ramo A cap' },
+        { id: 'A3', label: 'A3', level: 3, group: 1, desc: 'dettaglio A profondo con lessico nuovo alfa beta gamma' },
+        { id: 'L1b', label: 'Ramo B', level: 1, group: 2, desc: 'ramo B' },
+        { id: 'B2', label: 'B2', level: 2, group: 2, desc: 'ramo B cap' }
+    ];
+    const links = [
+        { source: 'ROOT', target: 'L1a', rel: 'include' },
+        { source: 'L1a', target: 'A2', rel: 'include' },
+        { source: 'A2', target: 'A3', rel: 'include' },
+        { source: 'ROOT', target: 'L1b', rel: 'include' },
+        { source: 'L1b', target: 'B2', rel: 'include' },
+        { source: 'A3', target: 'B2', rel: 'causa', isCross: true }   // cross da nodo profondo
+    ];
+    const out = DC.foldBeyondDepth(nodes, links, 2);
+    assert.ok(!out.nodes.some(n => n.id === 'A3'), 'A3 ripiegato');
+    const cross = out.links.find(l => l.isCross);
+    assert.ok(cross && cross.source === 'A2' && cross.target === 'B2', 'cross ri-puntato A3→A2');
+});
+
+test('foldBeyondDepth: no-op se maxLevel copre già tutta la profondità', () => {
+    const nodes = [{ id: 'ROOT', label: 'R', level: 0, desc: '' }, { id: 'L2', label: 'x', level: 2, group: 1, desc: 'y' }];
+    const links = [{ source: 'ROOT', target: 'L2', rel: 'include' }];
+    const out = DC.foldBeyondDepth(nodes, links, 5);
+    assert.strictEqual(out.removed.length, 0);
+    assert.strictEqual(out.nodes.length, 2);
+});
+
+test('foldBeyondDepth FIXTURE: mm_dal_papiro a L3 → zero nodi oltre L3, desc cresciute', { skip: !require('fs').existsSync('/Users/giacomomeschini/Documents/MappAI - file/Mappe/mm_dal_papiro_alla_paper.json') }, () => {
+    const map = JSON.parse(require('fs').readFileSync('/Users/giacomomeschini/Documents/MappAI - file/Mappe/mm_dal_papiro_alla_paper.json', 'utf8'));
+    // profondità topologica reale
+    const eid = x => (x && typeof x === 'object') ? x.id : x;
+    const out = DC.foldBeyondDepth(map.nodes, map.links, 3);
+    // ricalcola la profondità del grafo risultante
+    const ch = {}; out.links.forEach(l => { if (l.isCross) return; (ch[eid(l.source)] = ch[eid(l.source)] || []).push(eid(l.target)); });
+    const dep = { ROOT: 0 }; let q = ['ROOT'];
+    while (q.length) { const nx = []; for (const id of q) for (const c of (ch[id] || [])) if (dep[c] === undefined) { dep[c] = dep[id] + 1; nx.push(c); } q = nx; }
+    const maxDepth = Math.max(...Object.values(dep));
+    assert.ok(maxDepth <= 3, `profondità max attesa ≤3, avuta ${maxDepth}`);
+    assert.ok(out.removed.length >= 8, `attesi ≥8 nodi ripiegati (L4/L5), avuti ${out.removed.length}`);
+    assert.ok(out.report.appended >= 1, 'almeno un dettaglio confluito in una desc');
+});
+
 // ── override soglie ──────────────────────────────────────────────────────────
 test('opts: soglia containment abbassata rende più severo il verdetto', () => {
     const parent = 'I monaci copiavano libri antichi negli scriptorium salvando la cultura.';

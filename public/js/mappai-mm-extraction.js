@@ -497,6 +497,13 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             window.showToast(window.t('tst_tree_error', "Errore durante la generazione dell'albero."), "error");
         }
 
+        // Tetto di profondità (anche in iterativa): il template full-tree può
+        // generare oltre il tetto scelto → ripiega nei dati, poi ri-sanitizza.
+        if (window.applyDepthCeiling) {
+            window.applyDepthCeiling(window.getGenDepth ? window.getGenDepth() : 5);
+            if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+        }
+
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         try {
             await window.enrichThinDescs(textParts, apiKey);
@@ -782,7 +789,7 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
 
         const aiToRealIdMap = {};
         const lastNodeInBranch = {};
-        const maxMapLevel = parseInt(document.getElementById('level-slider').value) || 5;
+        const maxMapLevel = window.getGenDepth ? window.getGenDepth() : (parseInt(document.getElementById('level-slider').value) || 5);
         const completedBranchL2s = {}; // { branchId: ['label1', 'label2', ...] } — aggiornato dopo ogni ramo
 
         // Inizializza tracciamento dei rami
@@ -802,6 +809,15 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
             // Strategia A — calcola il catalogo dei rami fratelli per questo branch
             const siblingCatalog = buildSiblingL1Catalog(branch.id, completedBranchL2s);
 
+            // Lista livelli DINAMICA dal tetto scelto: senza, il prompt scriveva
+            // sempre "(L2, L3, L4, L5)" contraddicendo il numero maxMapLevel →
+            // il modello generava L4/L5 anche con lo slider a 3.
+            const _lvlList = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => 'L' + (i + 2)).join(', ');
+            const _idEx = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => {
+                const suff = ['A', 'A1', 'A1a', 'B2A', '1'][i] || String(i + 1);
+                return `${branch.id}_L${i + 2}_${suff}`;
+            }).join(', ');
+
             const promptBranch = useJSONL
                 ? window.buildBranchPromptJSONL(branch, {
                     rootNodeLabel: appState.rootNodeLabel,
@@ -816,9 +832,9 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
 Hai il compito di sviluppare in profondità il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${appState.rootNodeLabel}".
 
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5), fino al livello di dettaglio realmente coperto dalle fonti.
+1. Genera tutti i sotto-nodi gerarchici spingendoti AL MASSIMO fino al Livello ${maxMapLevel} (${_lvlList}), e solo fino al livello di dettaglio realmente coperto dalle fonti. NON superare MAI il Livello ${maxMapLevel}: se la fonte contiene dettaglio più fine, riassumilo dentro la desc del nodo di Livello ${maxMapLevel}, senza creare nodi più profondi.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${_idEx}).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": descrizione scientifica o storica chiarissima (da 30 a 50 parole), in tono espositivo e fedele alle fonti, tarata sul profilo dello studente indicato.
@@ -1169,6 +1185,14 @@ ${textParts.join('\n\n')}`;
             }
         } catch (e) {
             console.warn('[Deepening] errore non bloccante:', e.message);
+        }
+
+        // Tetto di profondità: garanzia deterministica che nessun nodo superi
+        // maxMapLevel nei DATI (la Fase 3 può ancora sforare). Ripiega il
+        // dettaglio oltre il tetto nelle desc. Dopo, ri-sanitizza.
+        if (window.applyDepthCeiling) {
+            window.applyDepthCeiling(maxMapLevel);
+            if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
         }
 
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).

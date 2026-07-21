@@ -470,6 +470,12 @@ window.parseJSONLResponse = function (text) {
 window.buildBranchPromptJSONL = function (branch, opts) {
     const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts, siblingCatalog } = opts;
     const sc = siblingCatalog || '';
+    // Lista livelli DINAMICA dal tetto (vedi mm-extraction: niente più "(L2,L3,L4,L5)" fisso)
+    const _lvlList = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => 'L' + (i + 2)).join(', ');
+    const _idEx = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => {
+        const suff = ['A', 'A1', 'A1a', 'B2A', '1'][i] || String(i + 1);
+        return `${branch.id}_L${i + 2}_${suff}`;
+    }).join(', ');
 
     // ── C: Carta del ramo (gated dal flag branch boundaries; graceful se i campi mancano) ──
     const _ambitoPart = branch.ambito ? `\n- Ambito (concetti che DEVONO stare qui): ${branch.ambito}` : '';
@@ -493,9 +499,9 @@ Usa i verbi di Gerarchia (comprende, è formato da, fa parte di) SOLO se non esi
 Hai il compito di sviluppare in profondità il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
 ${charter}
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5), fino al livello di dettaglio realmente coperto dalle fonti.
+1. Genera tutti i sotto-nodi gerarchici spingendoti AL MASSIMO fino al Livello ${maxMapLevel} (${_lvlList}), e solo fino al livello di dettaglio realmente coperto dalle fonti. NON superare MAI il Livello ${maxMapLevel}: se la fonte contiene dettaglio più fine, riassumilo dentro la desc del nodo di Livello ${maxMapLevel}.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${_idEx}).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": paragrafo descrittivo chiaro (50-80 parole quando la fonte lo permette, più corto altrimenti). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
@@ -1966,4 +1972,48 @@ Rispondi SOLO con JSON puro:
         }
     }
     if (totalAdded > 0 || totalParaphrase > 0 || totalDupes > 0) console.info(`[Deepening] Fase 3.7 completata: +${totalAdded} nodi${totalParaphrase ? `, ${totalParaphrase} parafrasi scartate (P2)` : ''}${totalDupes ? `, ${totalDupes} duplicati globali scartati (P3)` : ''}`);
+};
+
+// ── Profondità di GENERAZIONE (≠ filtro vista) ──────────────────────────────
+// Decisione utente (21/7/26): due controlli separati. "Genera fino a"
+// (mappai_gen_depth) è autoritativo sui DATI e guida Fase 3 + tetto; lo slider
+// #level-slider resta il filtro di VISTA (mostra fino a). Fallback allo slider
+// per retrocompatibilità, poi 5.
+window.getGenDepth = function () {
+    const stored = parseInt(localStorage.getItem('mappai_gen_depth'));
+    if (stored >= 1 && stored <= 5) return stored;
+    const el = document.getElementById('level-slider');
+    const sv = el ? parseInt(el.value) : NaN;
+    return (sv >= 1 && sv <= 5) ? sv : 5;
+};
+window.setGenDepth = function (v) {
+    const n = parseInt(v);
+    if (n >= 1 && n <= 5) localStorage.setItem('mappai_gen_depth', String(n));
+};
+
+// ── TETTO DI PROFONDITÀ — applica foldBeyondDepth su appState ────────────────
+// Rende "Genera fino a L{max}" una garanzia NEI DATI: i nodi oltre il tetto
+// (che la Fase 3 può ancora produrre nonostante il prompt) vengono ripiegati
+// nella desc dell'antenato-al-tetto invece di restare nascosti dal filtro vista.
+// Deterministico, zero AI. Kill-switch: mappai_depth_ceiling === '0'.
+window.applyDepthCeiling = function (maxMapLevel) {
+    try {
+        if (localStorage.getItem('mappai_depth_ceiling') === '0') return;
+        if (appState.extractionMode === 'kg') return;         // il tetto ha senso solo sulle MM gerarchiche
+        const DC = window.MappAIDeepenCore;
+        const max = parseInt(maxMapLevel);
+        if (!DC || !DC.foldBeyondDepth || !(max >= 1)) return;
+        const before = appState.db.nodes.length;
+        const res = DC.foldBeyondDepth(appState.db.nodes, appState.db.links, max);
+        if (!res.removed.length) return;                       // niente da ripiegare
+        const removedSet = new Set(res.removed);
+        appState.db.nodes = res.nodes;
+        appState.db.links = res.links;
+        // pulizia collaterale: sourcesDict e customColors dei nodi ripiegati
+        if (appState.db.sourcesDict) res.removed.forEach(id => { delete appState.db.sourcesDict[id]; });
+        if (appState.db.customColors) res.removed.forEach(id => { delete appState.db.customColors[id]; });
+        console.info(`[Tetto L${max}] ${before}→${appState.db.nodes.length} nodi · ${res.removed.length} ripiegati · ${res.report.appended} dettagli confluiti nelle desc · ${res.report.skippedDup} parafrasi scartate`);
+    } catch (e) {
+        console.warn('[Tetto profondità] errore non bloccante:', e.message);
+    }
 };
