@@ -260,8 +260,6 @@ window.showConfigAIModal = function () {
             if (productInput) productInput.value = appState.infomaniakProductId || '';
             const mapLangSel = document.getElementById('map-language-select');
             if (mapLangSel && window.getMapLanguageSetting) mapLangSel.value = window.getMapLanguageSetting();
-            const genDepthSel = document.getElementById('gen-depth-select');
-            if (genDepthSel && window.getGenDepth) genDepthSel.value = String(window.getGenDepth());
             m.style.display = '';
             m.classList.remove('hidden');
             m.classList.add('flex');

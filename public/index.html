@@ -951,6 +951,27 @@
 
                     </div>
 
+                    <!-- Divisorio Sottile -->
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- SEZIONE: Profondità di generazione (tetto nei dati, ≠ filtro vista) -->
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col gap-0.5 max-w-[62%]">
+                                <span class="landing_label_primary mb-0" data-i18n="ui_gen_depth_title">Profondità di generazione</span>
+                                <span class="landing_label_secondary" data-i18n="ui_gen_depth_desc">Livello massimo dei rami nei dati. Il dettaglio più fine confluisce nelle descrizioni. Diverso dal filtro «Mostra fino a» sulla mappa.</span>
+                            </div>
+                            <select id="gen-depth-select"
+                                onchange="window.setGenDepth && window.setGenDepth(this.value)"
+                                class="text-[14px] font-bold bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 shrink-0 focus_ring_standard cursor-pointer">
+                                <option value="2" data-i18n="ui_gen_depth_l2">L2 — essenziale</option>
+                                <option value="3" data-i18n="ui_gen_depth_l3">L3 — consigliato</option>
+                                <option value="4" data-i18n="ui_gen_depth_l4">L4 — dettagliato</option>
+                                <option value="5" selected data-i18n="ui_gen_depth_l5">L5 — massimo</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- SEZIONE: Logica MM (MappAI / BERT) -->
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
@@ -3136,17 +3157,6 @@
                     <option value="it">Italiano</option>
                     <option value="en">English</option>
                     <option value="auto" data-i18n="ui_map_lang_auto">Lingua delle fonti</option>
-                </select>
-            </div>
-            <div class="flex items-center gap-3 mb-4">
-                <span class="input_label_xs" data-i18n="ui_gen_depth_label" title="Profondità massima dei rami nei DATI (diverso dal filtro «Mostra fino a» sulla mappa)">Genera fino a:</span>
-                <select id="gen-depth-select"
-                    onchange="window.setGenDepth && window.setGenDepth(this.value)"
-                    class="text-xs bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 focus_ring_standard">
-                    <option value="2">L2 — essenziale</option>
-                    <option value="3">L3 — consigliato</option>
-                    <option value="4">L4 — dettagliato</option>
-                    <option value="5" selected>L5 — massimo</option>
                 </select>
             </div>
             <div class="space-y-5 overflow-y-auto flex-1 pr-1 custom-scrollbar">

@@ -1990,6 +1990,14 @@ window.setGenDepth = function (v) {
     const n = parseInt(v);
     if (n >= 1 && n <= 5) localStorage.setItem('mappai_gen_depth', String(n));
 };
+// Il selettore «Profondità di generazione» vive nel form principale (sempre
+// visibile): riflette il valore salvato al caricamento.
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function () {
+        const sel = document.getElementById('gen-depth-select');
+        if (sel && window.getGenDepth) sel.value = String(window.getGenDepth());
+    });
+}
 
 // ── TETTO DI PROFONDITÀ — applica foldBeyondDepth su appState ────────────────
 // Rende "Genera fino a L{max}" una garanzia NEI DATI: i nodi oltre il tetto
