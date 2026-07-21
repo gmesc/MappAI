@@ -358,6 +358,27 @@ priorità mentre il focus è su Google. Vedere TODO punto 10 backlog se si ripre
 
 ## 8. BUG NOTI E PROBLEMI APERTI
 
+### ✅ Rimosso (21/7/26): template `MIND_MAP_BRANCH` — era codice morto nel pannello admin
+**Sintomo:** il template `MIND_MAP_BRANCH_*` appariva nella tab MINDMAPS della dashboard
+admin, ma modificarlo NON cambiava le mappe generate → ingannava docente/admin che lo edita.
+**Causa:** la Fase 3 (espansione rami MM multi-pass) NON passa da
+`fillPromptTemplate("MIND_MAP_BRANCH")`. Costruisce il prompt inline in
+[mappai-mm-extraction.js:815](public/js/mappai-mm-extraction.js:815) oppure via
+`buildBranchPromptJSONL` in
+[mappai-generation-support.js:470](public/js/mappai-generation-support.js:470). Quei prompt
+inline hanno feature che il template non esprimeva (catalogo rami fratelli, carta del ramo
+ambito/desc/confini, rich-rel, formato JSONL anti-troncamento per Infomaniak) e il
+token-budget validato (§11) è tarato su di essi. **Live via `fillPromptTemplate` restano
+solo** `L1_MACRO_CATEGORIES` (Fase 1) e `MIND_MAP_FULL_TREE` (modalità iterativa).
+**Decisione (utente):** cancellare, non marcare — "future use" illusorio (si ripartirebbe
+dal prompt inline, più aggiornato); il template non era fonte di verità di nulla (le regole
+di fedeltà vivono in `MM_FIDELITY_RULES_IT`); la storia resta in git.
+**Cosa è stato tolto:** gli 8 variant `MIND_MAP_BRANCH_{IT,EN,_INFOMANIAK,_STUDENT…}` da
+`prompts_config.json` + `public/prompts_default.json` (verificato zero consumatori a runtime);
+`MIND_MAP_BRANCH` dalla categoria MINDMAPS e da `systemPromptsDescriptions` in
+`admin_prompts.js`; chiave i18n orfana `admin_prompt_desc_branch` dai due dizionari.
+Aggiornato il commento in `mappai-generation-support.js` (~L.540).
+
 ### 🟢→🟠 KG povero: causa template RISOLTA, causa C (Infomaniak) ISOLATA
 **Sintomo originale:** KG a "stella" — densità ~1.1, 0 cross-link, 68% relazioni
 generiche "correlato a". Grafo povero di spunti di ragionamento.

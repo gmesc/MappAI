@@ -33,7 +33,6 @@ const it_translations = {
     admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",
     admin_prompt_desc_mm_full: "Generazione Mappa Mentale (Single-Pass)",
     admin_prompt_desc_kg_full: "Generazione Knowledge Graph (Single-Pass)",
-    admin_prompt_desc_branch: "Costruzione strutturata dei Rami della Mappa Mentale",
     admin_prompt_desc_kg: "Generazione Knowledge Graph Iterativa (Deprecata)",
     step1_desc: "Carica il tuo materiale da diverse fonti:",
     step2: "Oggetto dello Studio",

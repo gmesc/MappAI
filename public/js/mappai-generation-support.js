@@ -536,8 +536,9 @@ ${textParts.join('\n\n')}`;
 // label/desc dei nodi MM (Fase 3 inline, builder JSONL). Nato dal bug "desc
 // romanzate" (5 lug 2026): il modello drammatizzava oltre la fonte ("come un
 // funambolo", "terrore che Hitler...") e inventava nodi astratti a L4/L5
-// quando la fonte era esaurita. Stessa regola replicata nei template
-// MIND_MAP_FULL_TREE / MIND_MAP_BRANCH di prompts_config.json.
+// quando la fonte era esaurita. Stessa regola replicata nel template
+// MIND_MAP_FULL_TREE di prompts_config.json (il template MIND_MAP_BRANCH,
+// non usato a runtime, è stato rimosso il 21/7/26 — vedi CLAUDE.md §8).
 window.MM_FIDELITY_RULES_IT = `
 ⚓ REGOLA DI FEDELTÀ ALLA FONTE — PRIORITARIA SU OGNI ALTRA REGOLA ⚓
 - TONO ESPOSITIVO da manuale scolastico: la 'desc' riporta SOLO fatti, dati e relazioni presenti nelle fonti.

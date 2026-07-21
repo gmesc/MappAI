@@ -32,7 +32,6 @@ const en_translations = {
     admin_prompt_desc_l1: "Level 1 Nodes Generation (Macro-Categories)",
     admin_prompt_desc_mm_full: "Mind Map Generation (Single-Pass)",
     admin_prompt_desc_kg_full: "Knowledge Graph Generation (Single-Pass)",
-    admin_prompt_desc_branch: "Structured construction of Mind Map Branches",
     admin_prompt_desc_kg: "Iterative Knowledge Graph Generation (Deprecated)",
     step1_desc: "Load your material from different sources:",
     step2: "Topic of Study",
