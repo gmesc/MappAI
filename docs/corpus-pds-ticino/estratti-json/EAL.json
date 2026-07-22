@@ -1,0 +1,289 @@
+{
+ "codePrefix": "EAL",
+ "discipline": "Educazione alimentare",
+ "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-scienze-umane-sociali-e-naturali/educazione-alimentare-traguardi-di-competenza/",
+ "license": "materiale ufficiale DECS Ticino — uso educativo (© Divisione della scuola – Repubblica e Cantone Ticino)",
+ "items": [
+  {
+   "codeJson": "EAL.III.1",
+   "codePortale": "EAL.III.1",
+   "descrizione": "Pianificare e organizzare un pasto equilibrato.",
+   "traguardi": [
+    "Abilità: Classificare gli alimenti nella piramide alimentare",
+    "Abilità: Comporre un pasto equilibrato e completo",
+    "Abilità: Proporre una pianificazione giornaliera e settimanale dei pasti",
+    "Abilità: Estrapolare le principali informazioni riportate su un’etichetta",
+    "Abilità: Riconoscere i più frequenti comportamenti alimentari",
+    "Abilità: Scegliere il metodo di preparazione più adatto",
+    "Abilità: Utilizzare siti o applicazioni specifiche nella fase di progettazione",
+    "Abilità: Pianificare la spesa per la preparazione del pasto riflettendo sugli aspetti nutrizionali, culturali, etici, ambientali, economici",
+    "Abilità: Effettuare scelte che dimostrino sensibilità ambientale",
+    "Abilità: Riconoscere la provenienza del cibo e il relativo impatto ambientale",
+    "Abilità: Smaltire in modo differenziato i rifiuti",
+    "Abilità: Allestire la lista della spesa",
+    "Abilità: Leggere criticamente l ricetta",
+    "Abilità: Individuare gli utensili e gli ingredienti necessari per la realizzazione del pasto",
+    "Abilità: Stabilire metodi di cottura adeguati",
+    "Abilità: Prevedere l’utilizzo di elettrodomestici specifici",
+    "Abilità: Stabilire lo spazio e il tempo necessario per la realizzazione del compito",
+    "Conoscenza: La piramide alimentare svizzera",
+    "Conoscenza: Le sostanze nutritive e la loro funzione",
+    "Conoscenza: I gruppi alimentari e i loro principali alimenti",
+    "Conoscenza: La razione giornaliera consigliata",
+    "Conoscenza: Il piatto equilibrato",
+    "Conoscenza: I metodi di cottura",
+    "Conoscenza: Il contenuto delle etichette",
+    "Conoscenza: Applicazioni di siti legati all’alimentazione",
+    "Conoscenza: Le scelte alimentari in relazione ad aspetti culturali quali religioni e tradizioni",
+    "Conoscenza: Conseguenze possibili delle proprie scelte alimentari",
+    "Conoscenza: Relazione tra provenienza e produzione del cibo e impatto ambientale",
+    "Conoscenza: Funzione degli imballaggi e conseguenze per l’ambiente",
+    "Conoscenza: Smaltimento differenziato dei rifiuti",
+    "Conoscenza: Principali termini lessicali settoriali",
+    "Conoscenza: Funzione e funzionamento degli elettrodomestici",
+    "Conoscenza: Norme per lo smaltimento dei rifiuti"
+   ]
+  },
+  {
+   "codeJson": "EAL.III.2",
+   "codePortale": "EAL.III.2",
+   "descrizione": "Utilizzare strategie e procedure per l’esecuzione del compito.",
+   "traguardi": [
+    "Abilità: Collaborare attivamente con i compagni nell’esecuzione delle ricette",
+    "Abilità: Condividere con il gruppo il pasto",
+    "Abilità: Consultare supporti tecnologici per attingere a informazioni",
+    "Abilità: Riconoscere le particolarità individuali in relazione alla nutrizione",
+    "Abilità: Riconoscere le particolarità alimentari delle diverse culture",
+    "Abilità: Evitare lo spreco energetico",
+    "Abilità: Utilizzare con parsimonia l’acqua potabile",
+    "Abilità: Fare uso in modo accorto dei prodotti di pulizia",
+    "Abilità: Separare i rifiuti prodotti durante la lezione",
+    "Abilità: Gestire lo spazio del laboratorio e il tempo a disposizione",
+    "Abilità: Pianificare il lavoro pratico di laboratorio organizzando un piano di lavoro completo e funzionale",
+    "Abilità: Leggere la ricetta individuando ingredienti, dosi, utensili e modalità di esecuzione",
+    "Abilità: Eseguire la ricetta in tutti i suoi passaggi",
+    "Abilità: Saper adattare la ricetta in funzione del numero di persone o porzioni raccomandate",
+    "Abilità: Utilizzare adeguatamente gli elettrodomestici di uso comune",
+    "Abilità: Prevenire e anticipare eventuali situazioni pericolose",
+    "Abilità: Curare l’igiene",
+    "Abilità: Manipolare correttamente alimenti e oggetti",
+    "Abilità: Rigovernare e riordinare, apparecchiare e sparecchiar in modo corretto la tavola",
+    "Abilità: Curare gli aspetti estetici della tavola e dei piatti",
+    "Conoscenza: Regole di comportamento",
+    "Conoscenza: Galateo",
+    "Conoscenza: Siti, piattaforme e applicazioni riconosciute",
+    "Conoscenza: Principali pasti tradizionali",
+    "Conoscenza: Principali scelte religiose rispetto al cibo",
+    "Conoscenza: Abitudini gastronomiche di altri paesi",
+    "Conoscenza: Principali malattie che determinano scelte alimentari particolari",
+    "Conoscenza: Tendenze e mode",
+    "Conoscenza: Principali aspetti storici- geografici che influenzano la nostra alimentazione",
+    "Conoscenza: Conseguenze del proprio operato in relazione all’ambiente",
+    "Conoscenza: Marchi alimentari",
+    "Conoscenza: Principali applicazioni con contenuti ambientali",
+    "Conoscenza: Disposizione del laboratorio tecnico (aula)",
+    "Conoscenza: Metodi di base per la cottura",
+    "Conoscenza: Piramide alimentare svizzera",
+    "Conoscenza: Elettrodomestici e gli utensili di uso comune",
+    "Conoscenza: Norme di sicurezza fondamentali",
+    "Conoscenza: Norme igieniche nella pratica laboratoriale",
+    "Conoscenza: Prodotti di pulizia",
+    "Conoscenza: Allestimento della tavola"
+   ]
+  },
+  {
+   "codeJson": "EAL.III.3",
+   "codePortale": "EAL.III.3",
+   "descrizione": "Riflettere sul proprio agire in funzione di una regolazione dei risultati.",
+   "traguardi": [
+    "Abilità: Agire da consumatore consapevole",
+    "Abilità: Organizzare un pasto equilibrato per un gruppo ristretto di persone",
+    "Abilità: Preparare un pasto equilibrato",
+    "Abilità: Consumare il pasto seguendo le convenzioni sociali",
+    "Abilità: Consegnare uno spazio pulito e ordinato",
+    "Conoscenza: Tutte le conoscenze elencate precedentemente"
+   ]
+  },
+  {
+   "codeJson": "EAL.III.1A",
+   "codePortale": "EAL.III.1A",
+   "descrizione": "Identificare i passaggi chiave dell’attività da svolgere.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1B",
+   "codePortale": "EAL.III.1B",
+   "descrizione": "Scegliere i prodotti secondo criteri nutrizionali.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1C",
+   "codePortale": "EAL.III.1C",
+   "descrizione": "Scegliere un pasto equilibrato rispettando gli aspetti culturali.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1D",
+   "codePortale": "EAL.III.1D",
+   "descrizione": "Individuare i criteri per proporre un pasto sostenibile.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1E",
+   "codePortale": "EAL.III.1E",
+   "descrizione": "Scegliere le tecniche di preparazione.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1F",
+   "codePortale": "EAL.III.1F",
+   "descrizione": "Individuare lo spazio e gestire il tempo necessario.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.1G",
+   "codePortale": "EAL.III.1G",
+   "descrizione": "Riconoscere le specificità relative all'igiene e alla sicurezza.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2A",
+   "codePortale": "EAL.III.2A",
+   "descrizione": "Analizzare i prodotti utilizzati.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2B",
+   "codePortale": "EAL.III.2B",
+   "descrizione": "Eseguire la preparazione seguendo la ricetta.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2C",
+   "codePortale": "EAL.III.2C",
+   "descrizione": "Contribuire attivamente alla preparazione del pasto.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2D",
+   "codePortale": "EAL.III.2D",
+   "descrizione": "Proporre nuove soluzioni per ottimizzare il lavoro.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2E",
+   "codePortale": "EAL.III.2E",
+   "descrizione": "Collaborare con i compagni integrando gli stimoli del docente.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2F",
+   "codePortale": "EAL.III.2F",
+   "descrizione": "Confrontare le differenti abitudini alimentari.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2G",
+   "codePortale": "EAL.III.2G",
+   "descrizione": "Utilizzare la piramide alimentare svizzera per preparare pasti tradizionali ed etnici.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2H",
+   "codePortale": "EAL.III.2H",
+   "descrizione": "Agire consapevolmente nell’utilizzo delle risorse.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2I",
+   "codePortale": "EAL.III.2I",
+   "descrizione": "Cucinare un pasto equilibrato rispettando spazi, tempi, risorse e seguendo le norme igieniche e di sicurezza.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2L",
+   "codePortale": "EAL.III.2L",
+   "descrizione": "Applicare le tecniche selezionate.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2M",
+   "codePortale": "EAL.III.2M",
+   "descrizione": "Apparecchiare la tavola seguendo il galateo.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.2N",
+   "codePortale": "EAL.III.2N",
+   "descrizione": "Riordinare e pulire l'ambiente di lavoro.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3A",
+   "codePortale": "EAL.III.3A",
+   "descrizione": "Valutare il proprio operato in funzione dell'attività svolta.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3B",
+   "codePortale": "EAL.III.3B",
+   "descrizione": "Argomentare le scelte alimentari effettuate in funzione della salute.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3C",
+   "codePortale": "EAL.III.3C",
+   "descrizione": "Esplicitare criticamente i propri pensieri sul modo di alimentarsi.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3D",
+   "codePortale": "EAL.III.3D",
+   "descrizione": "Esaminare il comportamento e l'atteggiamento assunti.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3E",
+   "codePortale": "EAL.III.3E",
+   "descrizione": "Valutare le implicazioni culturali e storiche in relazione al benessere individuale e collettivo.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3F",
+   "codePortale": "EAL.III.3F",
+   "descrizione": "Riconoscere le diverse abitudini alimentari.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3G",
+   "codePortale": "EAL.III.3G",
+   "descrizione": "Esprimere le proprie opinioni sulle conseguenze delle scelte individuali e collettive.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3H",
+   "codePortale": "EAL.III.3H",
+   "descrizione": "Valutare il proprio atteggiamento di consumatore.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3I",
+   "codePortale": "EAL.III.3I",
+   "descrizione": "Analizzare criticamente l'attività nelle diverse fasi.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3L",
+   "codePortale": "EAL.III.3L",
+   "descrizione": "Formulare un giudizio sulla relazione intercorsa con i compagni.",
+   "traguardi": []
+  },
+  {
+   "codeJson": "EAL.III.3M",
+   "codePortale": "EAL.III.3M",
+   "descrizione": "Esplicitare le proprie impressioni e sensazioni sulle attività.",
+   "traguardi": []
+  }
+ ],
+ "note": "Struttura reale del portale: 3 traguardi principali (EAL.III.1/2/3) con elenchi verbatim di Abilità e Conoscenze (mappati sui prefissi Abilità:/Conoscenza:); 30 declinazioni con sotto-lettera (EAL.III.1A…3M) che portano SOLO una descrizione e una classificazione per Ambito, non voci di conoscenza/abilità/processo/atteggiamento. Per le declinazioni traguardi=[] (l'Ambito non è una delle 4 categorie canoniche). Il portale non espone «Processi/Strategie» né «Atteggiamenti». codeJson=codePortale per tutti i 33 codici (allineamento 1:1 con i codici attesi). Ambiti delle declinazioni: EAL.III.1A=Ambiti individuali; EAL.III.1B=Ambiti individuali; EAL.III.1C=Ambiti socioculturali; EAL.III.1D=Ambiti socioambientali; EAL.III.1E=Ambiti operativi; EAL.III.1F=Ambiti operativi; EAL.III.1G=Ambiti operativi; EAL.III.2A=Ambiti individuali; EAL.III.2B=Ambiti individuali; EAL.III.2C=Ambiti individuali; EAL.III.2D=Ambiti individuali; EAL.III.2E=Ambiti individuali; EAL.III.2F=Ambiti socioculturali; EAL.III.2G=Ambiti socioculturali; EAL.III.2H=Ambiti socioambientali; EAL.III.2I=Ambiti operativi; EAL.III.2L=Ambiti operativi; EAL.III.2M=Ambiti operativi; EAL.III.2N=Ambiti operativi; EAL.III.3A=Ambiti individuali; EAL.III.3B=Ambiti individuali; EAL.III.3C=Ambiti individuali; EAL.III.3D=Ambiti individuali; EAL.III.3E=Ambiti socioculturali; EAL.III.3F=Ambiti socioculturali; EAL.III.3G=Ambiti socioambientali; EAL.III.3H=Ambiti socioambientali; EAL.III.3I=Ambiti operativi; EAL.III.3L=Ambiti operativi; EAL.III.3M=Ambiti operativi."
+}

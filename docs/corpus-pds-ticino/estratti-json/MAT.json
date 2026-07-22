@@ -1,0 +1,324 @@
+{
+  "codePrefix": "MAT",
+  "discipline": "Matematica",
+  "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-matematica/matematica-traguardi-di-competenza/",
+  "license": "© Divisione della scuola – Repubblica e Cantone Ticino (materiale ufficiale DECS Ticino — uso educativo)",
+  "items": [
+    {
+      "codeJson": "MAT.I.1",
+      "codePortale": "MAT.I.01",
+      "descrizione": "Conosce e utilizza i numeri naturali almeno fino a 100 in contesti legati principalmente al quotidiano e sa effettuare ordinamenti, stime, conteggi di raccolte alla sua portata numerica.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.2",
+      "codePortale": "MAT.I.02",
+      "descrizione": "Esegue calcoli mentali e mentali-scritti che coinvolgono addizioni almeno fino a 100 e sottrazioni in casi più semplici.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.3",
+      "codePortale": "MAT.I.03",
+      "descrizione": "Riconosce, denomina e descrive le più comuni figure del piano e dello spazio, oltre a semplici relazioni e strutture legate alla lettura della realtà che lo circonda.",
+      "ambito": "Geometria",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.4",
+      "codePortale": "MAT.I.04",
+      "descrizione": "Sa situarsi nel tempo della vita quotidiana, nella ciclicità e ricorsività.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.5",
+      "codePortale": "MAT.I.05",
+      "descrizione": "Confronta, classifica e ordina lunghezze legate alla sua realtà ed effettua nel concreto misure per confronto con una grandezza scelta come unità.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.6",
+      "codePortale": "MAT.I.06",
+      "descrizione": "Esplora, comprende, prova e risolve situazioni-problema contestualizzate legate al vissuto e alla realtà che coinvolgono i primi apprendimenti in ambito numerico, geometrico e relativi a grandezze riferite alla sua quotidianità.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.7",
+      "codePortale": "MAT.I.07",
+      "descrizione": "Progetta e realizza rappresentazioni e modelli non formalizzati legati all'interpretazione matematica del mondo che lo circonda.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.8",
+      "codePortale": "MAT.I.08",
+      "descrizione": "Presenta, descrive e motiva le proprie scelte prese per affrontare una semplice situazione matematica legata alla realtà in modo tale che risultino comprensibili ai compagni, come pure comprende le descrizioni e presentazioni degli altri.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.I.9",
+      "codePortale": "MAT.I.09",
+      "descrizione": "Manifesta un atteggiamento positivo rispetto all'apprendimento quando si affrontano esperienze relative alla matematica.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.1",
+      "codePortale": "MAT.II.01",
+      "descrizione": "Conosce e utilizza i numeri naturali, i numeri decimali e le frazioni in contesti reali e ideali; sa ordinare i numeri naturali e decimali.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.2",
+      "codePortale": "MAT.II.02",
+      "descrizione": "Esegue con sicurezza il calcolo mentale e mentale-scritto che coinvolge le quattro operazioni con numeri naturali e sa effettuare calcoli con numeri decimali, eventualmente anche ricorrendo a una calcolatrice in situazioni che lo richiedono.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.3",
+      "codePortale": "MAT.II.03",
+      "descrizione": "Ricava e interpreta informazioni da tabelle e grafici; elabora, interpreta e rappresenta insieme di dati forniti o ricercati.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.4",
+      "codePortale": "MAT.II.04",
+      "descrizione": "Esprime valutazioni probabilistiche in alcune semplici situazioni di incertezza legate al vissuto.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.5",
+      "codePortale": "MAT.II.05",
+      "descrizione": "Riconosce, denomina, descrive e rappresenta figure (del piano e dello spazio), relazioni e strutture legate all'interpretazione della realtà o a una loro matematizzazione e modellizzazione.",
+      "ambito": "Geometria",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.6",
+      "codePortale": "MAT.II.06",
+      "descrizione": "Classifica le principali figure del piano in base a caratteristiche geometriche.",
+      "ambito": "Geometria",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.7",
+      "codePortale": "MAT.II.07",
+      "descrizione": "Confronta, classifica, e ordina le più comuni grandezze ed effettua e calcola misure dirette e indirette legate alla realtà e a situazioni ideali ancorate nel concreto.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.8",
+      "codePortale": "MAT.II.08",
+      "descrizione": "Determina misure significative delle principali figure del piano.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.9",
+      "codePortale": "MAT.II.09",
+      "descrizione": "Comprende e risolve con fiducia e determinazione situazioni-problema in tutti gli ambiti di contenuto previsti per questo ciclo, legate al concreto o astratte ma partendo da situazioni reali, mantenendo il controllo critico sia sui processi risolutivi sia sui risultati, esplorando e provando diverse strade risolutive.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.10",
+      "codePortale": "MAT.II.10",
+      "descrizione": "Costruisce ragionamenti, fondandosi su ipotesi, sostenendo le proprie idee e confrontandosi con il punto di vista di altri.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.11",
+      "codePortale": "MAT.II.11",
+      "descrizione": "Legge e comprende testi che coinvolgono aspetti logici e matematici concernenti gli ambiti coinvolti in questo ciclo.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.12",
+      "codePortale": "MAT.II.12",
+      "descrizione": "Utilizza strumenti, convenzionali e non, per affrontare una situazione, in particolare strumenti per il disegno tecnico (riga, compasso, squadra) e strumenti di misura (metro, contenitore graduato, goniometro ecc.).",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.13",
+      "codePortale": "MAT.II.13",
+      "descrizione": "Progetta e realizza rappresentazioni e modelli di vario tipo, matematizzando e modellizzando situazioni reali impregnate di senso.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.14",
+      "codePortale": "MAT.II.14",
+      "descrizione": "Riconosce e utilizza rappresentazioni diverse di uno stesso oggetto matematico.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.15",
+      "codePortale": "MAT.II.15",
+      "descrizione": "Comunica e argomenta procedimenti e soluzioni relative a una situazione, utilizzando diversi registri di rappresentazione semiotica; comprende, valuta e prende in considerazione la bontà di argomentazioni legate a scelte o processi risolutivi diversi dai propri.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.II.16",
+      "codePortale": "MAT.II.16",
+      "descrizione": "Manifesta un atteggiamento positivo rispetto alla matematica, tramite esperienze significative che gli permettano di cogliere in che misura gli strumenti matematici che ha imparato a utilizzare siano utili per operare nella realtà.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.1",
+      "codePortale": "MAT.III.01",
+      "descrizione": "Conosce, ordina e utilizza con sicurezza i numeri reali in contesti concreti e astratti e calcola con essi anche in forma non approssimata.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.2",
+      "codePortale": "MAT.III.02",
+      "descrizione": "Esegue con sicurezza il calcolo mentale e mentale-scritto nell'insieme dei numeri reali e ne padroneggia le diverse proprietà e rappresentazioni; stima il risultato di un calcolo e valuta l'opportunità di ricorrere a una calcolatrice in situazioni che la richiedono.",
+      "ambito": "Numeri e calcolo",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.3",
+      "codePortale": "MAT.III.03",
+      "descrizione": "Riconosce, descrive, individua e rappresenta relazioni di tipo funzionale in situazioni reali e le utilizza per descrivere e risolvere una situazione-problema.",
+      "ambito": "Funzioni",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.4",
+      "codePortale": "MAT.III.04",
+      "descrizione": "Analizza e interpreta insiemi e rappresentazioni di dati per ricavarne misure di variabilità e prendere decisioni legate al contesto.",
+      "ambito": "Probabilità e statistica",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.5",
+      "codePortale": "MAT.III.05",
+      "descrizione": "Si orienta ed esprime valutazioni qualitative e quantitative probabilistiche in situazioni di incertezza legate principalmente al mondo reale.",
+      "ambito": "Probabilità e statistica",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.6",
+      "codePortale": "MAT.III.06",
+      "descrizione": "Riconosce, denomina, descrive, classifica e rappresenta figure (del piano e dello spazio), ne individua proprietà e ne coglie relazioni tra gli elementi.",
+      "ambito": "Geometria",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.7",
+      "codePortale": "MAT.III.07",
+      "descrizione": "Confronta, misura, ordina e trasforma le principali grandezze, effettua e calcola misure dirette e indirette legate alla realtà e a situazioni ideali e conosce le più comuni unità di misura legate al Sistema Internazionale delle Unità e alla Legge federale sulla metrologia.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.8",
+      "codePortale": "MAT.III.08",
+      "descrizione": "Determina misure significative di figure del piano e dello spazio.",
+      "ambito": "Grandezze e misure",
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.9",
+      "codePortale": "MAT.III.09",
+      "descrizione": "Applica il pensiero matematico per comprendere e risolvere con fiducia e determinazione situazioni-problema sia reali sia astratte concernenti tutti gli ambiti previsti per questo ciclo, mantenendo il controllo critico sia sui processi risolutivi sia sui risultati, esplorando e provando diverse strade risolutive e valutando in modo critico le informazioni e la loro coerenza.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.10",
+      "codePortale": "MAT.III.10",
+      "descrizione": "Confronta procedimenti diversi e produce matematizzazioni e modellizzazioni che gli consentono di passare da un problema specifico vissuto e interpretato a una classe di problemi.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.11",
+      "codePortale": "MAT.III.11",
+      "descrizione": "Manifesta disponibilità e capacità a utilizzare modelli matematici di pensiero, di presentazione delle proprie scelte, strategie e processi risolutivi e di interpretazione di oggetti e situazioni reali.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.12",
+      "codePortale": "MAT.III.12",
+      "descrizione": "Costruisce ragionamenti, fondandosi su ipotesi, sostenendo le proprie idee e confrontandosi con il punto di vista di altri; esprime e testa congetture dedotte da situazioni reali o astratte.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.13",
+      "codePortale": "MAT.III.13",
+      "descrizione": "Legge e comprende testi in modo autonomo che coinvolgono aspetti logici e matematici concernenti gli ambiti coinvolti in questo ciclo.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.14",
+      "codePortale": "MAT.III.14",
+      "descrizione": "Utilizza strumenti, convenzionali e non, per affrontare una situazione - in particolare, strumenti per il disegno tecnico (riga, compasso, squadra), strumenti di misura (metro, contenitore graduato, goniometro ecc.), strumenti di calcolo (calcolatrice e software matematici) - e sa valutare l'opportunità di ricorrere a essi in situazioni che le richiedono.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.15",
+      "codePortale": "MAT.III.15",
+      "descrizione": "Progetta e realizza rappresentazioni e modelli di vario tipo, matematizzando e modellizzando situazioni reali e ideali impegnate di senso.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.16",
+      "codePortale": "MAT.III.16",
+      "descrizione": "Utilizza e interpreta il linguaggio matematico e ne coglie il rapporto con il linguaggio naturale.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.17",
+      "codePortale": "MAT.III.17",
+      "descrizione": "Riconosce e utilizza con consapevolezza rappresentazioni diverse di uno stesso oggetto matematico.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.18",
+      "codePortale": "MAT.III.18",
+      "descrizione": "Descrive e spiega il procedimento seguito, utilizzando diversi registri di rappresentazione semiotica, mantenendo il controllo sia sul processo risolutivo, sia sui risultati; produce giustificazioni e argomentazioni in base alle conoscenze teoriche acquisite.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.19",
+      "codePortale": "MAT.III.19",
+      "descrizione": "Sostiene le proprie convinzioni, portando esempi e controesempi adeguati e utilizzando concatenazioni di affermazioni; accetta di cambiare opinione riconoscendo la logica e la correttezza di un'argomentazione altrui.",
+      "ambito": null,
+      "traguardi": []
+    },
+    {
+      "codeJson": "MAT.III.20",
+      "codePortale": "MAT.III.20",
+      "descrizione": "Manifesta, con sempre maggiore convinzione, un atteggiamento positivo rispetto alla matematica per mezzo di esperienze significative e comprende come molti dei saperi matematici appresi siano utilizzati per operare nella realtà.",
+      "ambito": null,
+      "traguardi": []
+    }
+  ],
+  "note": "Estratti 45/45 item (I=9, II=16, III=20), conteggio coincide con gli attesi. La pagina 'traguardi di competenza' di Matematica NON contiene declinazioni per 'Obiettivi di conoscenza/abilita/Processi/Atteggiamenti' (assenti sul portale per questa pagina) -> array 'traguardi' vuoto per tutti. Catturato invece l'ambito tematico del portale nel campo 'ambito' (Numeri e calcolo=24, Geometria=25, Grandezze e misure=90, Funzioni=112, Probabilita e statistica=88; null per i traguardi trasversali *.06+). codePortale usa numerazione zero-padded (MAT.I.01); codeJson usa la forma attesa non paddata (MAT.I.1). Descrizioni raccolte verbatim dalle pagine singole del CPT 'traguardo_di_compete' (REST wp/v2, tag=10) poiche' il testo non e' esposto nel REST ma solo reso lato server; contenuto identico alla lista filtrata per ciclo sul portale."
+}

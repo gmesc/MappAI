@@ -1,0 +1,75 @@
+{
+  "codePrefix": "EV",
+  "discipline": "Educazione visiva",
+  "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-arti/educazione-visiva-traguardi-di-competenza/",
+  "license": "© Divisione della scuola – Repubblica e Cantone Ticino — materiale ufficiale DECS Ticino, uso educativo",
+  "items": [
+    {
+      "codeJson": "EV.I.G1",
+      "codePortale": "EV.I.G1",
+      "descrizione": "Osservare immagini, opere d'arte, fotografie, filmati per descriverne il tema e le sensazioni evocate.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.I.G2",
+      "codePortale": "EV.I.G2",
+      "descrizione": "Riconoscere alcuni elementi del linguaggio visivo di base per rappresentare graficamente un'immagine ed esprimere un'emozione, un bisogno, un'idea, una situazione.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.I.G3",
+      "codePortale": "EV.I.G3",
+      "descrizione": "Sperimentare e utilizzare diverse tecniche grafico-pittoriche e cogliere le loro potenzialità espressive attraverso l'esplorazione di diversi ambiti; naturali, culturali e artistici.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.II.G1",
+      "codePortale": "EV.II.G1",
+      "descrizione": "Identificare gli elementi del linguaggio visivo per descrivere un'immagine, un oggetto, uno spazio riconoscendone il valore artistico e storico per rielaborarlo in un dato contesto.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.II.G2",
+      "codePortale": "EV.II.G2",
+      "descrizione": "Tradurre (decodificare, codificare) un'idea partendo dall'immaginario o dalla realtà in una produzione spontanea praticando diverse tecniche grafico-pittoriche con mezzi dati o scelti dall'allievo.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G1",
+      "codePortale": "EV.III.G1",
+      "descrizione": "Analizzare i principali elementi della percezione visiva per descrivere un oggetto con un linguaggio adeguato riconoscendone il valore estetico, storico e culturale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G2",
+      "codePortale": "EV.III.G2",
+      "descrizione": "Riconoscere i codici del linguaggio visivo per analizzare, comprendere e comparare istanze comunicative in contesti diversi.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G3",
+      "codePortale": "EV.III.G3",
+      "descrizione": "Analizzare e utilizzare le caratteristiche strutturali di soggetti naturali e artificiali come metodo di indagine, per reinterpretarle in un progetto personale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G4",
+      "codePortale": "EV.III.G4",
+      "descrizione": "Rappresentare il volume e lo spazio attraverso le regole della rappresentazione tridimensionale per scoprire una nuova realtà e/o progettare, strutturare e realizzare in modo personale una nuova immagine autonoma rispetto al soggetto iniziale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G5",
+      "codePortale": "EV.III.G5",
+      "descrizione": "Utilizzare le tecniche grafico-pittoriche necessarie per caratterizzare efficacemente il prodotto da realizzare.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EV.III.G6",
+      "codePortale": "EV.III.G6",
+      "descrizione": "(ODAS) Utilizzare i codici del linguaggio visivo per distinguere i diversi tipi di immagine (ornamentale, decorativa, comunicativa, di rappresentazione e di espressione) anche sotto il profilo culturale, storico e simbolico come risorsa per poter progettare e realizzare autonomamente una ricerca personale in modo coerente alla sua funzione e utilizzando le tecniche adeguate.",
+      "traguardi": []
+    }
+  ],
+  "note": "Tutti gli 11 codici attesi (EV.I.G1..EV.III.G6) trovati e allineati 1:1 con i codici del portale. Il portale, per l'area Arti, pubblica ogni traguardo come pagina singola (URL /traguardo-di-competenza/<slug>/) contenente SOLO codice + descrittore di competenza + ciclo; NON esistono, a livello di traguardo, le declinazioni per categoria (Obiettivi di conoscenza, Obiettivi di abilità, Processi/Strategie, Atteggiamenti) → array 'traguardi' vuoto per ogni voce (nessuna categoria inventata). Verificato sia nell'HTML server-side sia nel DOM renderizzato. Il descrittore di EV.III.G6 inizia con il marcatore '(ODAS)' così come pubblicato. Descrittori riprodotti verbatim (le interruzioni di riga interne del sito, meri a-capo di impaginazione, sono state normalizzate a singolo spazio)."
+}
