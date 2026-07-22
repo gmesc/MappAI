@@ -83,6 +83,8 @@ const en_translations = {
     el_export_hl_tip: "Source sheet with sentences highlighted by macro-area, printable / PDF",
     el_no_source_doc: "No source to export.",
     el_doc_hl_title: "Sheet with highlights",
+    el_bp_toggle: "Ignore headers",
+    el_bp_tip: "Ignore recurring headers/footers of the sheet (highlighting, analysis, export and generation)",
     el_export_nolib: "Document builder not available.",
     el_no_areas: "No sentence attributed to a macro-area. Needs a map with macro-areas and a source.",
     el_area_other: "Other area",

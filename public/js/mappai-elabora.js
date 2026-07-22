@@ -54,10 +54,16 @@
         return !!(s && s.db && Array.isArray(s.db.nodes) && s.db.nodes.length > 1 && s.extractionMode === 'mindmap');
     }
 
+    // #1: rimuove le intestazioni/piè di pagina ricorrenti (default ON, kill-switch
+    // 'mappai_strip_boilerplate'='0') → non inquinano evidenziazione/analisi/export.
+    function _stripBoilerplateOn() { try { return localStorage.getItem('mappai_strip_boilerplate') !== '0'; } catch (e) { return true; } }
     function _corpus() {
         const s = _appState();
-        try { return (window.MappAIDescFidelity && window.MappAIDescFidelity.corpusFromState(s)) || ''; }
-        catch (e) { return ''; }
+        try {
+            let c = (window.MappAIDescFidelity && window.MappAIDescFidelity.corpusFromState(s)) || '';
+            if (c && window.MappAIBoilerplate && _stripBoilerplateOn()) c = window.MappAIBoilerplate.stripBoilerplate(c).text;
+            return c;
+        } catch (e) { return ''; }
     }
 
     // ── entrata nel tab ─────────────────────────────────────────────────────
@@ -684,7 +690,8 @@
     // pannello fonte a sinistra: testo estratto OPPURE anteprima del PDF originale
     function _srcPaneHTML(corpus, pdfs) {
         const hasPdf = pdfs.length > 0;
-        let head = '<div class="elab-pane-head"><span class="elab-lbl">' + t('el_source', 'Materiale · fonte') + '</span>';
+        let head = '<div class="elab-pane-head"><span class="elab-lbl">' + t('el_source', 'Materiale · fonte') + '</span>' +
+            '<button type="button" class="elab-bpchip' + (_stripBoilerplateOn() ? ' on' : '') + '" onclick="MappAIElabora.toggleBoilerplate()" title="' + t('el_bp_tip', 'Ignora intestazioni e piè di pagina ricorrenti della scheda (evidenziazione, analisi, export e generazione)') + '">' + (_stripBoilerplateOn() ? '✓ ' : '') + t('el_bp_toggle', 'Ignora intestazioni') + '</button>';
         if (hasPdf) {
             head += '<div class="elab-spacer"></div><div class="elab-srcseg">' +
                 '<button type="button" class="elab-seg' + (_srcView === 'text' ? ' active' : '') + '" onclick="MappAIElabora.setSrcView(\'text\')">' + t('el_view_text', 'Testo') + '</button>' +
@@ -890,6 +897,12 @@
     }
 
     function setSrcView(v) { _srcView = (v === 'pdf') ? 'pdf' : 'text'; render(); }
+    // #1: attiva/disattiva l'esclusione delle intestazioni/piè ricorrenti.
+    function toggleBoilerplate() {
+        const on = _stripBoilerplateOn();
+        try { localStorage.setItem('mappai_strip_boilerplate', on ? '0' : '1'); } catch (e) { }
+        render();
+    }
     function setPdfIdx(i) { _pdfIdx = i | 0; render(); }
 
     function _sourceHTML(corpus) {
@@ -1181,6 +1194,9 @@
         .elab-sw{width:20px;height:10px;border-radius:3px}
         .elab-sw-good{background:var(--egoods);box-shadow:inset 0 -2px 0 var(--egoodl)}
         .elab-sw-res{background:var(--enotices);box-shadow:inset 0 -2px 0 var(--enoticel)}
+        .elab-bpchip{margin-left:10px;font:inherit;font-size:11px;font-weight:700;border:1px solid var(--eline2);background:var(--epanel);color:var(--esoft);padding:3px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+        .elab-bpchip:hover{border-color:var(--eaccr);color:var(--eacc)}
+        .elab-bpchip.on{background:var(--eaccs);border-color:var(--eaccr);color:var(--eacc)}
         .elab-srcseg{display:inline-flex;background:var(--epanel3);border-radius:8px;padding:2px}
         .elab-seg{font:inherit;font-size:11px;font-weight:700;border:0;background:transparent;color:var(--esoft);padding:4px 12px;border-radius:7px;cursor:pointer}
         .elab-seg.active{background:var(--epanel);color:var(--eacc);box-shadow:0 1px 2px rgba(15,23,42,.06)}
@@ -1259,6 +1275,6 @@
         teardown, revealCard, revealInSource,
         setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, exportAreas, exportHighlighted
+        flushSourcesToVault, exportAreas, exportHighlighted, toggleBoilerplate
     };
 })();

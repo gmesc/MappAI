@@ -1383,6 +1383,19 @@ window.startGeneration = async function () {
         return;
     }
 
+    // #1 (22/7): rimuove intestazioni/piè di pagina ricorrenti dal corpus di
+    // generazione (es. "Storia IV Media · La Guerra Fredda · pag. 3") → la mappa
+    // non ingerisce il boilerplate come contenuto. Per-fonte (i repeat sono
+    // interni a un PDF). Default ON, kill-switch mappai_strip_boilerplate='0'.
+    try {
+        var _bpOn = true; try { _bpOn = localStorage.getItem('mappai_strip_boilerplate') !== '0'; } catch (e) { }
+        if (_bpOn && window.MappAIBoilerplate) {
+            var _bpTot = 0;
+            textParts = textParts.map(function (part) { var r = window.MappAIBoilerplate.stripBoilerplate(part); _bpTot += r.count; return r.text; });
+            if (_bpTot) console.log('[Boilerplate] rimosse ' + _bpTot + ' righe di intestazione/piè dal corpus di generazione');
+        }
+    } catch (e) { /* best-effort: se fallisce, corpus invariato */ }
+
     // Nuova mappa = chat nuove: mai ereditare il tutorState della mappa precedente
     if (window.setTutorState) window.setTutorState(null);
 

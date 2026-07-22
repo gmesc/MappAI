@@ -118,7 +118,9 @@ function loadVault(dir) {
     return { nodes, links };
 }
 
-test('diffMaps FIXTURE reale: ricostruisce le correzioni della coppia papiro/copia', { skip: !fs.existsSync(COPIA) }, () => {
+// Fixture su disco = dati VIVI: se una delle due cartelle (o i loro Nodi/) è stata
+// spostata/eliminata dall'app, salta invece di un ENOENT (guardia su ENTRAMBE).
+test('diffMaps FIXTURE reale: ricostruisce le correzioni della coppia papiro/copia', { skip: !(fs.existsSync(path.join(ORIG, 'Nodi')) && fs.existsSync(path.join(COPIA, 'Nodi'))) }, () => {
     const before = loadVault(ORIG), after = loadVault(COPIA);
     const log = CC.diffMaps(before, after, { map: 'dal papiro alla paper' });
     const s = CC.summarize(log);
