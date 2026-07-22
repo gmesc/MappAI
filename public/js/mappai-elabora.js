@@ -269,7 +269,14 @@
     // ── colori delle MACRO-AREE (22/7) ───────────────────────────────────────
     // Il colore di un nodo = colore del suo GROUP (tutto il ramo L1 lo condivide),
     // preso da customColors o dalla colorScale globale — identico a _treeRow.
-    let _covByGroup = null;   // group → { index (coperto lessicale), color }
+    let _covUnits = null;     // [{ group, color, index }] — unità di confronto lessicale
+    let _covThreshold = 0.65; // soglia containment per colorare (per-nodo)
+    // A/B: legacy = confronto per MACRO-AREA (indice = desc di TUTTI i nodi del
+    // gruppo, soglia 0.6) → colorava quasi ogni frase (il lessico della fonte è
+    // quasi tutto nelle desc). Nuovo (default): confronto per NODO (indice = la
+    // SOLA desc del nodo, soglia 0.65) → colora solo le frasi che sono davvero il
+    // cuore di un concetto specifico; il generico/non-coperto resta pulito.
+    function _hlLegacy() { try { return localStorage.getItem('mappai_elab_highlight_legacy') === '1'; } catch (e) { return false; } }
     function _nodeGroupOf(n) { return (n && n.level === 0) ? 0 : (n ? n.group : undefined); }
     function _groupColorOf(grp) {
         const s = _appState();
@@ -300,27 +307,36 @@
                 _marks.set(_normKey(r.text), { ci: ci, ri: ri, nodeId: c.nodeId });
             });
         });
-        // Indice del "coperto" PER GROUP: così una frase della fonte si attribuisce
-        // alla macro-area con la miglior sovrapposizione lessicale → highlight nel
-        // colore di QUELLA macro-area (non un verde unico).
-        _covIdx = null; _covByGroup = null;
+        // Unità di confronto del "coperto": per-NODO (default) o per-MACRO-AREA
+        // (legacy). Una frase si attribuisce all'unità con la miglior sovrapposizione
+        // lessicale sopra soglia → colore della macro-area di quel nodo/gruppo.
+        _covIdx = null; _covUnits = null;
+        const legacy = _hlLegacy();
+        _covThreshold = legacy ? 0.6 : 0.65;
         try {
             const D = window.MappAIDeepenCore;
             if (D && D.buildCoverageIndex && s && s.db) {
-                const byGroup = new Map();
-                (s.db.nodes || []).forEach(n => {
-                    const g = _nodeGroupOf(n);
-                    if (g === undefined || g === null) return;
-                    const txt = (n.label || '') + ' ' + (n.desc || n.content || '');
-                    if (!byGroup.has(g)) byGroup.set(g, []);
-                    byGroup.get(g).push(txt);
-                });
-                _covByGroup = new Map();
-                byGroup.forEach((arr, g) => {
-                    _covByGroup.set(g, { index: D.buildCoverageIndex(arr.join('\n')), color: _groupColorOf(g) });
-                });
+                _covUnits = [];
+                if (legacy) {
+                    const byGroup = new Map();
+                    (s.db.nodes || []).forEach(n => {
+                        const g = _nodeGroupOf(n);
+                        if (g === undefined || g === null) return;
+                        if (!byGroup.has(g)) byGroup.set(g, []);
+                        byGroup.get(g).push((n.label || '') + ' ' + (n.desc || n.content || ''));
+                    });
+                    byGroup.forEach((arr, g) => _covUnits.push({ group: g, color: _groupColorOf(g), index: D.buildCoverageIndex(arr.join('\n')) }));
+                } else {
+                    (s.db.nodes || []).forEach(n => {
+                        const g = _nodeGroupOf(n);
+                        if (g === undefined || g === null) return;
+                        const txt = (n.label || '') + ' ' + (n.desc || n.content || '');
+                        if (String(txt).trim().split(/\s+/).length < 5) return;   // nodi senza desc utile
+                        _covUnits.push({ group: g, color: _groupColorOf(g), index: D.buildCoverageIndex(txt) });
+                    });
+                }
             }
-        } catch (e) { _covByGroup = null; }
+        } catch (e) { _covUnits = null; }
     }
 
     // colore+area della macro-area che copre una frase (o null).
@@ -332,17 +348,18 @@
             const g = _nodeGroupOf(n);
             return { color: _groupColorOf(g), group: g, kind: 'res', ci: m.ci, ri: m.ri };
         }
-        if (_covByGroup && _covByGroup.size) {
+        if (_covUnits && _covUnits.length) {
             try {
                 const D = window.MappAIDeepenCore;
                 let best = null;
-                _covByGroup.forEach((v, g) => {
-                    if (!v.index || !D || !D.lexicalOverlap) return;
+                for (let i = 0; i < _covUnits.length; i++) {
+                    const v = _covUnits[i];
+                    if (!v.index || !D || !D.lexicalOverlap) continue;
                     const ov = D.lexicalOverlap(sent, v.index);
-                    if (ov && ov.total >= 3 && ov.containment >= 0.6 && (!best || ov.containment > best.c)) {
-                        best = { c: ov.containment, color: v.color, group: g };
+                    if (ov && ov.total >= 3 && ov.containment >= _covThreshold && (!best || ov.containment > best.c)) {
+                        best = { c: ov.containment, color: v.color, group: v.group };
                     }
-                });
+                }
                 if (best) return { color: best.color, group: best.group, kind: 'cov' };
             } catch (e) { /* soft */ }
         }
