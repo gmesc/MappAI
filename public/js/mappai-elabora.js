@@ -201,6 +201,7 @@
             '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
             '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
             '<div class="elab-spacer"></div>' +
+            '<button type="button" class="elab-btn" onclick="MappAIElabora.openQuestions()" title="' + t('el_questions_tip', 'Recupera le domande/esercizi della scheda per usarle in un quiz') + '">❓ ' + t('el_questions', 'Domande scheda') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlightedPdf()" title="' + t('el_export_hl_tip', 'Esporta il PDF originale con le frasi evidenziate per macro-area (fonte solo-testo → documento riflowato)') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
@@ -497,6 +498,70 @@
             if (window.showToast) showToast(t('el_pdf_export_fail', 'Export PDF non riuscito, esporto la versione testo.'), 'warning');
             exportHighlighted();
         }
+    }
+
+    // ── Domande della scheda → quiz (idea utente a) ──────────────────────────
+    // Recupera le domande/esercizi dalla fonte e le usa come set di studio aperto.
+    function openQuestions() {
+        if (!window.MappAIQuestions) { if (window.showToast) showToast(t('el_q_nolib', 'Estrattore domande non disponibile.'), 'error'); return; }
+        const qs = window.MappAIQuestions.extractQuestions(_corpus());
+        if (!qs.length) { if (window.showToast) showToast(t('el_q_none', 'Nessuna domanda o esercizio trovato nella fonte.'), 'warning'); return; }
+        const old = document.getElementById('elab-q-modal'); if (old) old.remove();
+        const ov = document.createElement('div');
+        ov.id = 'elab-q-modal';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:1002;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:24px;font:inherit';
+        const rows = qs.map((q, i) =>
+            '<label class="elab-q-row" style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:10px;cursor:pointer">' +
+            '<input type="checkbox" data-qi="' + i + '" checked style="margin-top:3px;width:16px;height:16px;accent-color:#4f46e5;flex:0 0 auto">' +
+            '<span style="flex:1;min-width:0"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:' + (q.type === 'task' ? '#b45309' : '#4f46e5') + ';margin-right:7px">' + (q.type === 'task' ? t('el_q_task', 'consegna') : t('el_q_question', 'domanda')) + '</span>' +
+            '<span style="font-size:13px;color:#1e293b;line-height:1.5">' + esc(q.text) + '</span></span></label>'
+        ).join('');
+        ov.innerHTML =
+            '<div style="background:#fff;border-radius:18px;max-width:720px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3)">' +
+            '<div style="padding:18px 22px;border-bottom:1px solid #eef2f6">' +
+            '<div style="font-size:16px;font-weight:900;color:#1e293b">❓ ' + t('el_q_title', 'Domande della scheda') + '</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:3px">' + t('el_q_sub', 'Recuperate dalla fonte. Seleziona quelle da mettere nel set di studio.') + ' · ' + qs.length + '</div></div>' +
+            '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9">' +
+            '<button type="button" id="elab-q-all" class="elab-btn elab-tiny elab-ghost">' + t('el_q_all', 'Seleziona tutto') + '</button>' +
+            '<button type="button" id="elab-q-none" class="elab-btn elab-tiny elab-ghost">' + t('el_q_clear', 'Deseleziona') + '</button></div>' +
+            '<div id="elab-q-list" style="overflow-y:auto;padding:8px 10px;flex:1">' + rows + '</div>' +
+            '<div style="padding:14px 22px;border-top:1px solid #eef2f6;display:flex;justify-content:flex-end;gap:10px">' +
+            '<button type="button" id="elab-q-cancel" class="elab-btn elab-ghost">' + t('el_q_cancel', 'Annulla') + '</button>' +
+            '<button type="button" id="elab-q-create" class="elab-btn elab-primary">' + t('el_q_create', 'Crea set di studio') + '</button></div>' +
+            '</div>';
+        document.body.appendChild(ov);
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+        ov.querySelector('#elab-q-cancel').onclick = close;
+        ov.querySelector('#elab-q-all').onclick = () => ov.querySelectorAll('#elab-q-list input').forEach(c => c.checked = true);
+        ov.querySelector('#elab-q-none').onclick = () => ov.querySelectorAll('#elab-q-list input').forEach(c => c.checked = false);
+        ov.querySelector('#elab-q-create').onclick = () => {
+            const picked = [];
+            ov.querySelectorAll('#elab-q-list input:checked').forEach(c => { const q = qs[+c.dataset.qi]; if (q) picked.push(q.text); });
+            if (!picked.length) { if (window.showToast) showToast(t('el_q_pick', 'Seleziona almeno una domanda.'), 'warning'); return; }
+            _createSetFromQuestions(picked);
+            close();
+        };
+    }
+
+    function _createSetFromQuestions(texts) {
+        const s = _appState();
+        if (!s || !s.db) return;
+        s.db.studySets = s.db.studySets || [];
+        const items = texts.map(t2 => ({ question: t2, answer: '', explanation: '' }));
+        const id = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        s.db.studySets.push({
+            id: id,
+            title: t('el_q_setname', 'Domande della scheda'),
+            mode: 'quiz', type: t('el_q_settype', 'Aperte'),
+            items: items, material: '', angle: 'auto', quantity: items.length,
+            date: new Date().toISOString(), origin: 'elabora-questions'
+        });
+        if (window.renderStudySets) window.renderStudySets();
+        try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        if (window.showToast) showToast(t('el_q_created', '{n} domande aggiunte come set di studio.').replace('{n}', items.length), 'success');
     }
 
     // Esporta il documento "frasi per area tematica" (#5) via il costruttore condiviso.
@@ -1349,6 +1414,7 @@
         teardown, revealCard, revealInSource,
         setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate
+        flushSourcesToVault, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
+        openQuestions
     };
 })();
