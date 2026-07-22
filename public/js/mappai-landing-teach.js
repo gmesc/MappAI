@@ -197,7 +197,7 @@
     body.innerHTML = fileTable(_elabVaults.map(function (rec, i) {
       var v = rec.v, p = rec.p;
       var meta = TYPE_META[v.extractionMode === 'kg' ? 'kg' : 'mindmap'];
-      var chips = vaultChips(rec, core, reg, norm);
+      var chips = vaultChips(rec);
       var tuned = !!(p && p.tuned);
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '"></span>';
       var block = actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.elabFinder(" + i + ")", null, false) +
@@ -554,14 +554,12 @@
     });
     return out;
   }
-  // Chip classe di una riga disco: contenitore di classe (verità) + eventuale
-  // classe del progetto localStorage collegato.
-  function vaultChips(rec, core, reg, norm) {
-    var chips = [], seen = {};
-    var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
-    if (rec.v.classDir) push(prettyClass(rec.v.classDir));
-    if (rec.p) { push(rec.p.cls); if (core && core.classesForMap) core.classesForMap(reg, { projectId: rec.p.id, map: rec.p.name }).forEach(push); }
-    return chips;
+  // Chip classe di una riga disco = SOLO il contenitore di classe reale su disco
+  // (fonte di verità). Niente p.cls né registro sessioni: erano fonti stale che
+  // mostravano classi inesistenti (es. «IV media») incoerenti con la cartella.
+  // Vault flat (senza classDir) → nessun chip (mappa non assegnata a una classe).
+  function vaultChips(rec) {
+    return rec.v.classDir ? [prettyClass(rec.v.classDir)] : [];
   }
 
   function renderProjects() {
@@ -602,7 +600,7 @@
     var rows = _projVaults.map(function (rec, i) {
       var v = rec.v, p = rec.p;
       var meta = TYPE_META[v.extractionMode === 'kg' ? 'kg' : 'mindmap'];
-      var chips = vaultChips(rec, core, reg, norm);
+      var chips = vaultChips(rec);
       var tuned = !!(p && p.tuned);
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
       var selected = !!(p && _selectedProject && _selectedProject.id === p.id);
