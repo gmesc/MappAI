@@ -457,6 +457,56 @@
         window.MappAIStudyDoc.openDoc(html, { successMsg: t('el_doc_opened', 'Documento aperto — stampa o salva in PDF.') });
     }
 
+    // Legenda: macro-aree DAVVERO presenti nell'export (frasi colorate) →
+    // [{ label (L1), color }], in ordine di gruppo.
+    function _legendFor(colored) {
+        const s = _appState();
+        const l1 = new Map();
+        ((s && s.db && s.db.nodes) || []).forEach(n => {
+            if (n.level === 1) { const g = _nodeGroupOf(n); if (g != null && !l1.has(g)) l1.set(g, window.cleanLabel ? window.cleanLabel(n.label) : (n.label || '')); }
+        });
+        const byG = new Map();
+        (colored || []).forEach(cs => { if (cs.group == null || byG.has(cs.group)) return; byG.set(cs.group, cs.color); });
+        return [...byG.entries()].sort((a, b) => a[0] - b[0]).map(e => ({ label: l1.get(e[0]) || t('el_area_other', 'Altra area'), color: e[1] }));
+    }
+    function _hexRgb(hex) {
+        let c = String(hex || '').trim().replace(/^#/, '');
+        if (/^[0-9a-f]{3}$/i.test(c)) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+        if (!/^[0-9a-f]{6}$/i.test(c)) c = '64748b';
+        const n = parseInt(c, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function _mixWhite(hex, f) { const rgb = _hexRgb(hex); const m = x => Math.round(x + (255 - x) * (1 - f)); return [m(rgb[0]), m(rgb[1]), m(rgb[2])]; }
+
+    // Disegna la pagina-legenda con jsPDF (pastiglie colore + intensità + brand).
+    function _drawLegendPage(doc, jsPDF, legend, W, H, mapName) {
+        const mx = 54; let y = 78;
+        doc.setFillColor(255, 255, 255); doc.rect(0, 0, W, H, 'F');
+        doc.setTextColor(30, 41, 59); doc.setFont(undefined, 'bold'); doc.setFontSize(22);
+        doc.text(t('el_legend_title', 'Legenda dei colori'), mx, y); y += 20;
+        doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+        doc.text((mapName ? mapName + ' · ' : '') + t('el_legend_sub', 'ogni colore = una macro-area della mappa'), mx, y); y += 34;
+        doc.setFontSize(12);
+        legend.forEach(e => {
+            if (y > H - 150) return;
+            const rgb = _hexRgb(e.color);
+            doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.roundedRect(mx, y - 11, 28, 15, 3, 3, 'F');
+            doc.setTextColor(30, 41, 59); doc.text(String(e.label || '—'), mx + 40, y); y += 26;
+        });
+        y += 20;
+        doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
+        doc.text(t('el_legend_intensity', 'Intensità del colore'), mx, y); y += 22;
+        doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(51, 65, 85);
+        const sample = (legend[0] && legend[0].color) || '#4f46e5';
+        let rgb = _hexRgb(sample);
+        doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.roundedRect(mx, y - 11, 28, 15, 3, 3, 'F');
+        doc.text(t('el_legend_full', 'Pieno = concetto centrale della mappa'), mx + 40, y); y += 24;
+        const lite = _mixWhite(sample, 0.32);
+        doc.setFillColor(lite[0], lite[1], lite[2]); doc.roundedRect(mx, y - 11, 28, 15, 3, 3, 'F');
+        doc.text(t('el_legend_weak', 'Tenue = argomento presente ma riassunto dalla mappa'), mx + 40, y); y += 30;
+        doc.setFontSize(9); doc.setTextColor(148, 163, 184);
+        doc.text('MappAI · insegnai.ch', mx, H - 44);
+    }
+
     // #3 (fedeltà): esporta il PDF ORIGINALE con gli highlight per macro-area
     // bruciati sopra (raster, una immagine per pagina, impaginazione preservata).
     // Fallback al documento riflowato se non c'è un PDF sorgente o mancano le lib.
@@ -478,6 +528,17 @@
             const SCALE = 2, CAP = 60;
             const n = Math.min(pdf.numPages, CAP);
             let doc = null;
+            // Pagina-legenda in testa: pastiglia colore + nome per ogni macro-area
+            // presente + spiegazione delle intensità (pieno/tenue).
+            const legend = _legendFor(colored);
+            if (legend.length) {
+                const p1 = await pdf.getPage(1);
+                const v1 = p1.getViewport({ scale: 1 });
+                const or0 = v1.width > v1.height ? 'l' : 'p';
+                const s0 = _appState();
+                doc = new jsPDF({ orientation: or0, unit: 'pt', format: [v1.width, v1.height] });
+                _drawLegendPage(doc, jsPDF, legend, v1.width, v1.height, (s0 && s0.rootNodeLabel) || '');
+            }
             for (let i = 1; i <= n; i++) {
                 const page = await pdf.getPage(i);
                 const vp1 = page.getViewport({ scale: 1 });        // pt per il formato pagina
@@ -932,7 +993,7 @@
             const out = [];
             D.splitSentences(corpus).forEach(sn => {
                 const c = _sentColor(sn);
-                if (c && c.color) out.push({ n: _normKey(sn), color: c.color, strength: c.strength || 'strong' });
+                if (c && c.color) out.push({ n: _normKey(sn), color: c.color, strength: c.strength || 'strong', group: c.group });
             });
             return out;
         } catch (e) { return []; }
