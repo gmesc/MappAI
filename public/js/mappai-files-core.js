@@ -89,10 +89,12 @@
   }
 
   // Sanitizzazione del percorso relativo scritto dentro un vault dalla pipeline
-  // (constitution V). Ammessi SOLO: un file nel root del vault (es. pipeline.json)
-  // oppure un file dentro 'Materiale Studio/'. Nega `..`, path assoluti, drive
-  // Windows, caratteri illegali. Ritorna il path normalizzato (forward slash) o
-  // null se illegale — il chiamante (main.js) NON reimplementa le regole.
+  // (constitution V). Ammessi SOLO: un file nel root del vault (es. pipeline.json),
+  // un file dentro 'Materiale Studio/' oppure dentro 'Fonti/' (PDF originali
+  // delle fonti, 22/7/26 — anteprima ELABORA persistente). Nega `..`, path
+  // assoluti, drive Windows, caratteri illegali. Ritorna il path normalizzato
+  // (forward slash) o null se illegale — il chiamante (main.js) NON reimplementa
+  // le regole.
   function sanitizeVaultRelPath(relPath) {
     var raw = String(relPath == null ? '' : relPath).replace(/\\/g, '/').trim();
     if (!raw) return null;
@@ -103,7 +105,7 @@
       if (safeName(segs[i], '') !== segs[i]) return null;              // illegali / trailing
     }
     if (segs.length === 1) return segs[0];                            // file nel root
-    if (segs.length === 2 && segs[0] === 'Materiale Studio') return segs.join('/');
+    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Fonti')) return segs.join('/');
     return null;
   }
 

@@ -20,13 +20,16 @@
 // con materiale REALE, resta il giudice. L'AI non inventa contenuto.
 //
 // Test: tests/enrich-core.test.js
+// mappai-relations.js entra come TERZA dipendenza (vocabolario linking words per
+// famiglia). Soft-fallback: se manca a load-time i segnali per-famiglia si saltano
+// (vedi _relations()) → l'ordine di caricamento in index.html non può rompere nulla.
 (function (root, factory) {
     if (typeof module === 'object' && module.exports) {
-        module.exports = factory(require('./mappai-deepen-core.js'), require('./mappai-desc-fidelity.js'));
+        module.exports = factory(require('./mappai-deepen-core.js'), require('./mappai-desc-fidelity.js'), require('./mappai-relations.js'));
     } else {
-        root.MappAIEnrichCore = factory(root.MappAIDeepenCore, root.MappAIDescFidelity);
+        root.MappAIEnrichCore = factory(root.MappAIDeepenCore, root.MappAIDescFidelity, root.MappAIRelations);
     }
-}(typeof self !== 'undefined' ? self : this, function (Deepen, Fidelity) {
+}(typeof self !== 'undefined' ? self : this, function (Deepen, Fidelity, Relations) {
     'use strict';
 
     const DEFAULTS = {
@@ -34,7 +37,18 @@
         poorWordCount: 25,        // desc più corta = nodo "povero"
         maxResiduePerCard: 5,     // frasi-fonte mostrate per card (cap UI)
         maxCards: 24,             // card di copertura totali (cap UI)
-        longSentence: 30          // parole: frase lunga (leggibilità BES/DSA)
+        longSentence: 30,         // parole: frase lunga (leggibilità BES/DSA)
+        // ── segnali di "imparabilità" del testo (deterministici, descrittivi) ──
+        gulpeaseFloor: 40,          // Gulpease medio sotto = decodifica faticosa (≈ licenza media)
+        gulpeaseMinParaWords: 15,   // paragrafi più corti = rumore, esclusi dal calcolo
+        gulpeaseParaCharCap: 2000,  // oltre = "paragrafo" da PDF su una riga → si chunka
+        gulpeaseChunkSentences: 8,  // frasi per chunk quando un paragrafo è troppo lungo
+        familySignalMaxFamilies: 2, // ≤ N famiglie di nessi presenti (su 7) = testo monotono
+        glossaryMinFreq: 4,         // freq minima di un candidato glossario
+        glossaryMinLen: 7,          // lunghezza minima di un candidato glossario
+        termDefFreq: 3,             // freq minima perché un termine sia "chiave" (uso-prima-def)
+        termDefLen: 6,              // lunghezza minima del termine chiave
+        termDefLag: 2               // frasi di ritardo tollerate fra primo uso e definizione
     };
 
     const wc = s => (String(s || '').trim().match(/\S+/g) || []).length;
@@ -52,6 +66,220 @@
         condizionale: /\b(qualora|purch[eé]|a condizione che|nel caso in cui|ammesso che|se soltanto|a patto che)\w*/gi,
         esemplificativa: /\b(ad esempio|per esempio|come ad esempio|cio[eè]|ossia|vale a dire|in particolare|tra cui|ad esempio)\w*/gi
     };
+
+    // ── Utilità per i segnali di imparabilità (tutte pure, deterministiche) ──
+    const STEM_LEN = (Fidelity && Fidelity.STEM_LEN) || 6;
+    // "lettera estesa": include accenti à-ÿ → confini di parola affidabili anche
+    // su verbi/marcatori che iniziano per 'è' (\b ASCII qui non basterebbe).
+    const _LETTER = 'a-zà-ÿ0-9';
+    const _escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // regex per una frase-verbo (anche multi-parola: 'porta a', 'fa parte di'):
+    // \s+ tollera spazi multipli, i confini escludono lettere/accenti/cifre.
+    function _phraseRe(phrase) {
+        const body = _escRe(phrase).replace(/\s+/g, '\\s+');
+        return new RegExp('(?<![' + _LETTER + '])' + body + '(?![' + _LETTER + '])', 'gi');
+    }
+    function _countPhrase(lowNorm, phrase) {
+        const m = lowNorm.match(_phraseRe(phrase));
+        return m ? m.length : 0;
+    }
+    // Marcatori definitori: accenti CONSERVATI così 'è' (copula) ≠ 'e' (congiunzione).
+    const DEF_MARKER = new RegExp('(?<![' + _LETTER + '])(è|sono|si\\s+chiama(?:no)?|si\\s+definisce|cioè|ossia|vale\\s+a\\s+dire|detto|chiamat[oa])(?![' + _LETTER + '])', 'gi');
+    const DEF_WINDOW = 48;   // caratteri fra termine e marcatore per dirli "vicini"
+
+    // Soft-fallback per il vocabolario relazioni: factory-arg o, in extremis,
+    // window.MappAIRelations (browser con ordine di caricamento anomalo). null →
+    // i segnali per-famiglia vengono semplicemente saltati (nessun crash).
+    function _relations() {
+        if (Relations && Relations.EDGE_FAMILIES) return Relations;
+        try {
+            if (typeof window !== 'undefined' && window.MappAIRelations && window.MappAIRelations.EDGE_FAMILIES) {
+                return window.MappAIRelations;
+            }
+        } catch (e) { /* window assente in Node */ }
+        return null;
+    }
+
+    // ── Gulpease (indice di leggibilità IT). NON è un voto: profilo descrittivo. ──
+    // Formula: 89 + (300×frasi − 10×lettere)/parole, clamp 0..100. Conteggi RAW
+    // (non le parole-contenuto): la difficoltà di decodifica pesa TUTTE le parole.
+    function _gulpeaseScore(unitText) {
+        const words = (unitText.match(/\S+/g) || []).length;
+        if (!words) return null;
+        const sentences = Math.max(1, Deepen.splitSentences(unitText).length);
+        const letters = (unitText.match(/[a-zà-ÿ]/gi) || []).length;
+        let score = 89 + (300 * sentences - 10 * letters) / words;
+        score = Math.max(0, Math.min(100, score));
+        return { words, sentences, letters, score: Math.round(score) };
+    }
+    // Unità di misura = paragrafi (split su \n+). I paragrafi troppo corti sono
+    // rumore; quelli enormi (PDF = una riga sola) vengono chunkati per frasi.
+    function _gulpeaseUnits(text, o) {
+        const paras = String(text).split(/\n+/).map(p => p.trim()).filter(Boolean);
+        const units = [];
+        for (const p of paras) {
+            if ((p.match(/\S+/g) || []).length < o.gulpeaseMinParaWords) continue;
+            if (p.length > o.gulpeaseParaCharCap) {
+                const ss = Deepen.splitSentences(p);
+                for (let i = 0; i < ss.length; i += o.gulpeaseChunkSentences) {
+                    const chunk = ss.slice(i, i + o.gulpeaseChunkSentences).join(' ');
+                    if ((chunk.match(/\S+/g) || []).length >= o.gulpeaseMinParaWords) units.push(chunk);
+                }
+            } else {
+                units.push(p);
+            }
+        }
+        return units;
+    }
+    function _gulpease(text, o) {
+        const perParagraph = [];
+        _gulpeaseUnits(text, o).forEach((u, index) => {
+            const g = _gulpeaseScore(u);
+            if (g) perParagraph.push({ index, words: g.words, sentences: g.sentences, letters: g.letters, score: g.score });
+        });
+        const avg = perParagraph.length
+            ? Math.round(perParagraph.reduce((a, p) => a + p.score, 0) / perParagraph.length)
+            : null;
+        const worstParagraphs = perParagraph.slice()
+            .sort((a, b) => a.score - b.score)
+            .slice(0, 3)
+            .map(p => ({ index: p.index, score: p.score }));
+        return { avg, perParagraph, worstParagraphs };
+    }
+
+    // ── Densità dei nessi per FAMIGLIA (regola progetto 12: verbi solo da EDGE_FAMILIES) ──
+    function _connectivesByFamily(lowNorm, per1000) {
+        const R = _relations();
+        const out = {};
+        if (!R || !R.EDGE_FAMILIES || !R.getFamilyVerbs) return out; // soft-fallback
+        Object.keys(R.EDGE_FAMILIES).forEach(key => {
+            if (key === 'altro') return;
+            const verbs = R.getFamilyVerbs(key, 'it') || [];
+            let count = 0; const found = [];
+            verbs.forEach(v => {
+                const c = _countPhrase(lowNorm, v);
+                if (c > 0) { count += c; found.push(v); }
+            });
+            out[key] = { count, per1000: per1000(count), found };
+        });
+        return out;
+    }
+
+    // ── Esempi (didattici) + analogie/metafore esplicite ──
+    function _markers(lowNorm, connectives) {
+        const R = _relations();
+        // esempi: la regex esemplificativa esistente + marcatori didattici extra
+        let ex = connectives.esemplificativa.count;
+        ['come quando', 'immagina', 'prova a pensare', 'pensa a'].forEach(m => { ex += _countPhrase(lowNorm, m); });
+        // analogie: verbi della famiglia 'analogia' (getFamilyVerbs esclude 'come') + frasi esplicite
+        let an = 0;
+        if (R && R.getFamilyVerbs) (R.getFamilyVerbs('analogia', 'it') || []).forEach(v => { an += _countPhrase(lowNorm, v); });
+        ['è come', 'una specie di', 'proprio come'].forEach(m => { an += _countPhrase(lowNorm, m); });
+        return { examples: ex, analogies: an };
+    }
+
+    // Posizione (in caratteri) della prima parola della frase la cui radice = stem
+    // (o la forma esatta = term). `low` conserva gli accenti; term/stem sono
+    // parole-contenuto già normalizzate → la parola matchata va ristrippata.
+    function _termPos(low, stem, term) {
+        const re = /[a-zà-ÿ0-9]+/gi; let m;
+        while ((m = re.exec(low)) !== null) {
+            const w = m[0].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+            if (w === term || (w.length >= STEM_LEN && w.slice(0, STEM_LEN) === stem)) return m.index;
+        }
+        return -1;
+    }
+
+    // ── Termini usati prima della definizione + candidati glossario ──
+    // Un pass unico costruisce le mappe stem→frasi; per ogni radice si cerca la
+    // prima frase in cui il termine è DEFINITO (vicino a un marcatore). Se la
+    // definizione arriva troppo tardi → "uso prima della definizione"; se non
+    // arriva mai → candidato glossario. Le due liste sono disgiunte per costruzione.
+    function _termAnalysis(sentences, contentW, o) {
+        const out = { termsBeforeDefinition: [], glossaryCandidates: [] };
+        if (!sentences.length) return out;
+
+        const freq = {};
+        contentW.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+
+        const sInfo = sentences.map(s => {
+            const low = s.toLowerCase();
+            const cov = Deepen.buildCoverageIndex(s);
+            let markerIdx = null;
+            DEF_MARKER.lastIndex = 0; let m;
+            while ((m = DEF_MARKER.exec(low)) !== null) {
+                (markerIdx || (markerIdx = [])).push(m.index);
+                if (DEF_MARKER.lastIndex <= m.index) DEF_MARKER.lastIndex = m.index + 1; // guardia
+            }
+            return { low, cov, markerIdx };
+        });
+
+        const firstUseByStem = {};
+        const sentByStem = {};
+        sInfo.forEach((si, i) => {
+            si.cov.stems.forEach(st => {
+                if (firstUseByStem[st] === undefined) firstUseByStem[st] = i;
+                (sentByStem[st] || (sentByStem[st] = [])).push(i);
+            });
+        });
+
+        function defIdxForStem(st, term) {
+            const cand = sentByStem[st];
+            if (!cand) return -1;
+            for (const i of cand) {
+                const si = sInfo[i];
+                if (!si.markerIdx) continue;
+                const tp = _termPos(si.low, st, term);
+                if (tp < 0) continue;
+                if (si.markerIdx.some(mi => Math.abs(mi - tp) <= DEF_WINDOW)) return i;
+            }
+            return -1;
+        }
+
+        // raggruppa le inflessioni per radice a STEM_LEN, forma-display = la più frequente
+        const groups = {};
+        Object.keys(freq).forEach(w => {
+            if (w.length < o.termDefLen) return;
+            const st = w.length >= STEM_LEN ? w.slice(0, STEM_LEN) : w;
+            const g = groups[st] || (groups[st] = { forms: {}, freq: 0, best: w, bestFreq: 0 });
+            g.forms[w] = freq[w]; g.freq += freq[w];
+            if (freq[w] > g.bestFreq) { g.bestFreq = freq[w]; g.best = w; }
+        });
+
+        const tbd = [];
+        for (const st of Object.keys(groups)) {
+            const g = groups[st];
+            if (g.freq < o.termDefFreq) continue;
+            const firstUse = firstUseByStem[st];
+            if (firstUse === undefined) continue;
+            const di = defIdxForStem(st, g.best);
+            if (di < 0) continue;                          // mai definito → semmai glossario
+            if (di > firstUse + o.termDefLag) {
+                tbd.push({ term: g.best, usedAtSentence: firstUse + 1, definedAtSentence: di + 1 });
+            }
+        }
+        tbd.sort((a, b) => a.usedAtSentence - b.usedAtSentence);
+        out.termsBeforeDefinition = tbd.slice(0, 8);
+
+        const glossary = [];
+        for (const st of Object.keys(groups)) {
+            const g = groups[st];
+            // display fra le sole forme lunghe ≥ glossaryMinLen; freq = somma di quelle forme
+            let best = null, bestFreq = 0, aggr = 0;
+            for (const form of Object.keys(g.forms)) {
+                if (form.length < o.glossaryMinLen) continue;
+                aggr += g.forms[form];
+                if (g.forms[form] > bestFreq) { bestFreq = g.forms[form]; best = form; }
+            }
+            if (!best || aggr < o.glossaryMinFreq) continue;
+            if (defIdxForStem(st, best) >= 0) continue;    // ha una definizione da qualche parte
+            glossary.push({ term: best, freq: aggr });
+        }
+        glossary.sort((a, b) => b.freq - a.freq);
+        out.glossaryCandidates = glossary.slice(0, 10);
+
+        return out;
+    }
 
     function analyzeTextSignals(corpus, opts) {
         const o = Object.assign({}, DEFAULTS, opts);
@@ -81,6 +309,19 @@
             else seen.push(s);
         }
 
+        // ── segnali di imparabilità (deterministici, additivi) ──
+        const lowNorm = text.toLowerCase().replace(/\s+/g, ' ');
+        const gulpease = _gulpease(text, o);
+        const connectivesByFamily = _connectivesByFamily(lowNorm, per1000);
+        const mk = _markers(lowNorm, connectives);
+        const markers = {
+            examples: { count: mk.examples, per1000: per1000(mk.examples) },
+            analogies: { count: mk.analogies, per1000: per1000(mk.analogies) }
+        };
+        const term = _termAnalysis(sentences, contentW, o);
+        const termsBeforeDefinition = term.termsBeforeDefinition;
+        const glossaryCandidates = term.glossaryCandidates;
+
         // ── osservazioni azionabili (conservative, descrittive) ──
         const signals = [];
         if (connectives.causale.per1000 < 4) {
@@ -88,7 +329,8 @@
                 observation: 'Pochi nessi causali espliciti.',
                 suggestion: 'Se il tema è un processo o una catena di cause-effetti, rendere espliciti i legami (perché, quindi, di conseguenza) aiuta chi ha poche preconoscenze.' });
         }
-        if (connectives.esemplificativa.count === 0) {
+        // esempi: conta anche i marcatori didattici (markers.examples), non solo la regex esemplificativa
+        if (markers.examples.count === 0) {
             signals.push({ key: 'examples_none', value: 0, level: 'notice',
                 observation: 'Nessun esempio esplicito rilevato.',
                 suggestion: 'Un esempio concreto ancora un concetto astratto: valuta di aggiungerne per i punti più difficili.' });
@@ -103,11 +345,54 @@
                 observation: repeated + ' frase/i ripetuta/e nel materiale.',
                 suggestion: 'La ripetizione è spesso SALIENZA (segnala importanza), non rumore: verifica se è voluta prima di toglierla.' });
         }
+        // Gulpease medio basso → decodifica faticosa (descrittivo, non un voto)
+        if (gulpease.avg != null && gulpease.avg < o.gulpeaseFloor) {
+            signals.push({ key: 'gulpease_low', value: gulpease.avg, level: 'notice',
+                observation: 'Indice di leggibilità Gulpease medio ' + gulpease.avg + ' — frasi lunghe e parole lunghe pesano sulla decodifica.',
+                suggestion: 'Frasi più corte e parole più semplici alzano l’indice (per una licenza media serve almeno ' + o.gulpeaseFloor + '): intervenire sui paragrafi più fitti aiuta gli studenti BES/DSA.' });
+        }
+        // Nessi di poche famiglie → ragionamento monotono (solo su testi non brevi)
+        const famKeys = Object.keys(connectivesByFamily);
+        if (famKeys.length && words > 300) {
+            const present = famKeys.filter(k => connectivesByFamily[k].count > 0);
+            if (present.length <= o.familySignalMaxFamilies) {
+                const R = _relations();
+                const labels = present.map(k => (R && R.getFamilyLabel) ? R.getFamilyLabel(k, 'it') : k);
+                signals.push({ key: 'connectives_monotone', value: present.length, level: 'notice',
+                    observation: present.length
+                        ? 'Il testo usa quasi solo nessi di tipo ' + labels.join(', ') + '.'
+                        : 'Il testo non usa quasi nessun nesso relazionale esplicito.',
+                    suggestion: 'Esplicitare relazioni di altro tipo (causa, contrasto, sequenza, condizione…) dove pertinenti rende visibile il ragionamento, non solo l’elenco dei fatti.' });
+            }
+        }
+        // Nessuna analogia/metafora esplicita su materiale corposo
+        if (markers.analogies.count === 0 && words > 400) {
+            signals.push({ key: 'analogies_none', value: 0, level: 'notice',
+                observation: 'Nessuna analogia o metafora esplicita nel materiale.',
+                suggestion: 'Le analogie ancorano i concetti astratti al concreto: valuta di aggiungerne per i passaggi più difficili.' });
+        }
+        // Termini usati prima di essere definiti
+        if (termsBeforeDefinition.length >= 2) {
+            const top = termsBeforeDefinition.slice(0, 3);
+            const obs = top.map(t => '«' + t.term + '» compare alla frase ' + t.usedAtSentence + ' ma viene spiegato solo alla frase ' + t.definedAtSentence).join('; ') + '.';
+            signals.push({ key: 'terms_before_def', value: termsBeforeDefinition.length, level: 'notice',
+                observation: obs,
+                suggestion: 'Anticipare la definizione (o aggiungere un rimando) prima del primo uso riduce il carico per chi ha poche preconoscenze.' });
+        }
+        // Candidati glossario: termini ricorrenti mai definiti
+        if (glossaryCandidates.length >= 3) {
+            const top = glossaryCandidates.slice(0, 3).map(c => c.term);
+            signals.push({ key: 'glossary_candidates', value: glossaryCandidates.length, level: 'info',
+                observation: glossaryCandidates.length + ' termini ricorrenti senza definizione esplicita nel materiale (' + top.join(', ') + '…).',
+                suggestion: 'Valuta un mini-glossario o definizioni inline per questi termini: utile soprattutto per gli studenti BES/DSA.' });
+        }
 
         return {
             words, sentences: sentences.length, avgSentenceWords,
             lexicalDensity, typeTokenRatio, uniqueContentWords: uniqueContent,
-            connectives, redundancy: repeated, signals
+            connectives, redundancy: repeated,
+            gulpease, connectivesByFamily, markers, termsBeforeDefinition, glossaryCandidates,
+            signals
         };
     }
 

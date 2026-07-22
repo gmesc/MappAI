@@ -1074,8 +1074,8 @@
             <div id="elabora-content" class="hidden"></div>
 
 
-        <!-- QUICK ACTIONS SOTA -->
-        <div class="max-w-2xl mx-auto mt-12 mb-12">
+        <!-- QUICK ACTIONS SOTA (nascosta in modalità ELABORA) -->
+        <div id="landing-quick-actions" class="max-w-2xl mx-auto mt-12 mb-12">
             <div class="flex flex-col sm:flex-row gap-4">
                 <button onclick="window.startEmptyMap()" class="btn_quick_action">
                     <i data-lucide="plus-circle" class="w-[61px] h-[61px] shrink-0"></i>
@@ -1093,8 +1093,8 @@
             </div>
         </div>
 
-        <!-- Meta-analisi docente + Consumi AI (discreti, in fondo) -->
-        <div class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
+        <!-- Meta-analisi docente + Consumi AI (discreti, in fondo; nascosti in ELABORA) -->
+        <div id="landing-meta-links" class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
             <button onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
                 title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
@@ -2482,15 +2482,15 @@
 
     <!-- MODALE EDITING NODO -->
     <div id="edit-node-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white w-screen h-screen max-w-none rounded-none shadow-2xl p-8 flex flex-col transform scale-95 transition-transform duration-200 relative"
             id="edit-node-box">
             <button onclick="window.closeEditModal()"
                 class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
             <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
-            <div class="space-y-6 max-h-[70vh] overflow-y-auto pl-4 pr-4 modal-scroll">
+            <div class="space-y-6 flex-1 min-h-0 overflow-y-auto pl-4 pr-4 modal-scroll">
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="modal_field_title" data-i18n="lbl_node_name">Nome nodo</label>

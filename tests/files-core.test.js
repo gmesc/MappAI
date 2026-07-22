@@ -79,6 +79,15 @@ test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', (
   assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
 });
 
+// ── Fonti/ (22/7/26 — PDF originali per anteprima ELABORA) ──────────────
+test('sanitizeVaultRelPath: ammette Fonti/<file>, nega traversal e profondità', () => {
+  assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/scheda-carta.pdf'), 'Fonti/scheda-carta.pdf');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Fonti\\La Svizzera.pdf'), 'Fonti/La Svizzera.pdf'); // backslash → slash
+  assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/../secret.pdf'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/sub/deep.pdf'), null);   // troppo profondo
+  assert.strictEqual(FC.sanitizeVaultRelPath('fonti/x.pdf'), null);          // case-sensitive: solo 'Fonti'
+});
+
 test('VAULT_CONTAINER_EXCLUDE: contenitori di sistema', () => {
   assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Chat') >= 0);
   assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Quiz e Flashcard') >= 0);
