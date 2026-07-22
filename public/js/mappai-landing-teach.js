@@ -172,14 +172,82 @@
 
   // ── Progetti in ELABORA: stesso layout tabella di Insegna (Tipo/Titolo/Classe/
   //    Data), MA senza «Riprendi» né QR; click riga → carica + elabora (openProject).
+  // ELABORA «Progetti esistenti» — stessa fonte di verità = disco (22/7), come
+  // Insegna: filtro classe + chip coerenti col contenitore di classe reale.
+  var _elabVaults = [];
+  var _elabContainer = 'elab-projects';
   function renderElaboraProjects(containerId) {
-    var body = document.getElementById(containerId || 'elab-projects');
+    _elabContainer = containerId || 'elab-projects';
+    var body = document.getElementById(_elabContainer);
     if (!body) return;
+    if (!window.electronAPI || !window.electronAPI.getAllVaults) { renderElaboraProjectsLocal(body); return; }
+    window.electronAPI.getAllVaults().then(function (vaults) {
+      renderElaboraProjectsDisk(body, vaults || []);
+    }).catch(function () { renderElaboraProjectsLocal(body); });
+  }
+  function renderElaboraProjectsDisk(body, vaults) {
+    var core = CORE();
+    var reg = regRead();
+    var norm = (core && core.normGrade) ? core.normGrade : function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
+    _elabVaults = filterVaults(vaults);
+    if (!_elabVaults.length) {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('el_no_projects', 'Nessuna mappa salvata da elaborare.')) + '</p>';
+      return;
+    }
+    body.innerHTML = fileTable(_elabVaults.map(function (rec, i) {
+      var v = rec.v, p = rec.p;
+      var meta = TYPE_META[v.extractionMode === 'kg' ? 'kg' : 'mindmap'];
+      var chips = vaultChips(rec, core, reg, norm);
+      var tuned = !!(p && p.tuned);
+      var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '"></span>';
+      var block = actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.elabFinder(" + i + ")", null, false) +
+        actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.elabDelete(" + i + ")", 'text-slate-300 hover:text-red-500', false);
+      return fileRow({
+        tipo: tipoCell(meta.icon, meta.label, meta.full),
+        title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
+        cls: classCell(chips), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
+        block: block,
+        onClick: "window.MappAITeach.elabOpen(" + i + ")",
+        selected: false
+      });
+    }).join(''), true);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+  }
+  function _elabRec(i) { return _elabVaults[i] || null; }
+  function elabOpen(i) {
+    var r = _elabRec(i); if (!r) return;
+    if (r.p && window.MappAIElabora && window.MappAIElabora.openProject) return window.MappAIElabora.openProject(r.p.id);
+    // Vault orfano: carica dal disco poi entra in ELABORA sulla mappa corrente.
+    if (window.directLoadVault) {
+      window.directLoadVault(r.v.fullPath);
+      setTimeout(function () { if (window.MappAIElabora && window.MappAIElabora.openFromMap) window.MappAIElabora.openFromMap(); }, 450);
+    }
+  }
+  function elabFinder(i) {
+    var r = _elabRec(i); if (!r) return;
+    if (window.electronAPI && window.electronAPI.pipelineOpenFolder) window.electronAPI.pipelineOpenFolder({ folderPath: r.v.fullPath });
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+  function elabDelete(i) {
+    var r = _elabRec(i); if (!r) return;
+    var title = r.v.rootNodeLabel || r.v.folderName;
+    confirmDeleteText(title, function () {
+      var purgeLocal = function () {
+        if (!r.p) return;
+        try { var arr = projectsRead().filter(function (x) { return x.id !== r.p.id; }); localStorage.setItem('tutor_ai_projects', JSON.stringify(arr)); localStorage.removeItem(r.p.id); } catch (e) { }
+      };
+      if (window.electronAPI && window.electronAPI.deleteVault) {
+        window.electronAPI.deleteVault({ folderPath: r.v.fullPath }).then(function (res) {
+          if (res && res.success) { toast(_t('lt_vault_deleted', 'Cartella spostata nel Cestino.'), 'success'); purgeLocal(); renderElaboraProjects(_elabContainer); }
+          else toast((res && res.error) || _t('lt_vault_del_fail', 'Impossibile eliminare la cartella.'), 'error');
+        }).catch(function () { toast(_t('lt_vault_del_fail', 'Impossibile eliminare la cartella.'), 'error'); });
+      } else { purgeLocal(); renderElaboraProjects(_elabContainer); }
+    });
+  }
+  // Fallback senza Electron: elenco dal solo localStorage.
+  function renderElaboraProjectsLocal(body) {
     var projects = projectsRead();
-    var valid = (typeof StorageManager !== 'undefined' && Array.isArray(StorageManager.validVaultFolders)) ? StorageManager.validVaultFolders : null;
-    if (valid) projects = projects.filter(function (p) { return !p.vault || valid.indexOf(p.vault) >= 0; });
     var allow = allowedProjectIds();
-    // Picker: classe attiva senza mappe → mostra tutte (mai vuoto per filtro).
     if (Array.isArray(allow) && allow.length) { var set = {}; allow.forEach(function (i) { set[i] = 1; }); projects = projects.filter(function (p) { return set[p.id]; }); }
     if (!projects.length) {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('el_no_projects', 'Nessuna mappa salvata da elaborare.')) + '</p>';
@@ -446,7 +514,7 @@
   // file .json sciolti in Mappe (esportazioni singole) restano fuori. Fallback
   // al solo localStorage se l'API Electron non è disponibile (browser statico).
   var _projVaults = [];   // cache dell'ultimo render disco: idx → { v, p }
-  function FCore() { try { return window.FilesCore || null; } catch (e) { return null; } }
+  function FCore() { try { return window.MappAIFilesCore || null; } catch (e) { return null; } }
   function prettyClass(dir) { return String(dir || '').replace(/_/g, ' '); }
   // Match progetto localStorage ↔ vault su disco per folderName + classDir.
   // Legacy (progetto senza classDir) → match sul solo folderName.
@@ -464,6 +532,36 @@
       var hasSnap = false; try { hasSnap = !!localStorage.getItem(p.id); } catch (e) { }
       return !p.vault && hasSnap;
     });
+  }
+
+  // Merge disco↔localStorage + filtro "solo classe attiva". Ritorna [{v,p}].
+  // Condiviso da Insegna e ELABORA (stessa fonte di verità = disco).
+  function filterVaults(vaults) {
+    var projects = projectsRead();
+    var fc = FCore();
+    var allow = allowedProjectIds();
+    var allowSet = Array.isArray(allow) ? (function () { var s = {}; allow.forEach(function (i) { s[i] = 1; }); return s; })() : null;
+    var acFolder = null;
+    if (readFilter() === 'active') { var ac = activeClass(); if (ac && ac.name && fc) acFolder = fc.mapClassFolder(ac.sede, ac.name); }
+    var out = [];
+    (vaults || []).forEach(function (v) {
+      var p = matchProjectToVault(projects, v);
+      if (allowSet) {
+        var ok = (p && allowSet[p.id]) || (acFolder && v.classDir === acFolder);
+        if (!ok) return;
+      }
+      out.push({ v: v, p: p });
+    });
+    return out;
+  }
+  // Chip classe di una riga disco: contenitore di classe (verità) + eventuale
+  // classe del progetto localStorage collegato.
+  function vaultChips(rec, core, reg, norm) {
+    var chips = [], seen = {};
+    var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
+    if (rec.v.classDir) push(prettyClass(rec.v.classDir));
+    if (rec.p) { push(rec.p.cls); if (core && core.classesForMap) core.classesForMap(reg, { projectId: rec.p.id, map: rec.p.name }).forEach(push); }
+    return chips;
   }
 
   function renderProjects() {
@@ -486,27 +584,11 @@
   }
 
   function renderProjectsDisk(body, vaults) {
-    var projects = projectsRead();
     var core = CORE();
     var reg = regRead();
     var norm = (core && core.normGrade) ? core.normGrade : function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
-    var fc = FCore();
 
-    // Filtro "Solo classe attiva".
-    var allow = allowedProjectIds();
-    var allowSet = Array.isArray(allow) ? (function () { var s = {}; allow.forEach(function (i) { s[i] = 1; }); return s; })() : null;
-    var acFolder = null;
-    if (readFilter() === 'active') { var ac = activeClass(); if (ac && ac.name && fc) acFolder = fc.mapClassFolder(ac.sede, ac.name); }
-
-    _projVaults = [];
-    vaults.forEach(function (v) {
-      var p = matchProjectToVault(projects, v);
-      if (allowSet) {
-        var ok = (p && allowSet[p.id]) || (acFolder && v.classDir === acFolder);
-        if (!ok) return;
-      }
-      _projVaults.push({ v: v, p: p });
-    });
+    _projVaults = filterVaults(vaults);
 
     if (!_projVaults.length) {
       body.innerHTML = backfillBar() + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
@@ -520,10 +602,7 @@
     var rows = _projVaults.map(function (rec, i) {
       var v = rec.v, p = rec.p;
       var meta = TYPE_META[v.extractionMode === 'kg' ? 'kg' : 'mindmap'];
-      var chips = [], seen = {};
-      var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
-      if (v.classDir) push(prettyClass(v.classDir));
-      if (p) { push(p.cls); if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push); }
+      var chips = vaultChips(rec, core, reg, norm);
       var tuned = !!(p && p.tuned);
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
       var selected = !!(p && _selectedProject && _selectedProject.id === p.id);
@@ -1264,6 +1343,9 @@
     projFinder: projFinder,
     projQr: projQr,
     projDelete: projDelete,
+    elabOpen: elabOpen,
+    elabFinder: elabFinder,
+    elabDelete: elabDelete,
     backfillVaults: backfillVaults,
     selectProject: selectProject,
     openDiskFile: openDiskFile,

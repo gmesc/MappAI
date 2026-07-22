@@ -96,7 +96,7 @@ window.ensureProjectVault = async function (opts) {
         if (localStorage.getItem('mappai_autovault') === '0') return null;
         if (!window.electronAPI || !window.electronAPI.saveVault || !window.electronAPI.filesRootGet) return null;
         if (!appState.db.nodes || !appState.db.nodes.length) return null;
-        var FC = window.FilesCore;
+        var FC = window.MappAIFilesCore;
         if (!FC) return null;
 
         // (1) Progetto già legato a una cartella → aggiorna in place.
