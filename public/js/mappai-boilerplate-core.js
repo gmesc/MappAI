@@ -31,24 +31,42 @@
         return slice.map(_normWord).join(' ');
     }
 
-    // Migliore affisso (prefisso o suffisso) ripetuto tra gli array di parole:
-    // il PIÙ LUNGO (fino a maxLen parole) che ricorre ≥ minRepeats volte. Le
-    // righe devono avere almeno margin parole di corpo oltre l'affisso (per non
-    // divorare righe corte). → { n, key, count } | null.
-    function _bestAffix(wordArrays, side, minRepeats, maxLen, margin) {
-        for (var n = maxLen; n >= 3; n--) {
-            var counts = {};
-            for (var i = 0; i < wordArrays.length; i++) {
-                var w = wordArrays[i];
-                if (w.length < n + margin) continue;
-                var k = _affixKey(w, n, side);
-                counts[k] = (counts[k] || 0) + 1;
-            }
-            var bk = null, bc = 0;
-            for (var key in counts) { if (counts[key] > bc) { bc = counts[key]; bk = key; } }
-            if (bk && bc >= minRepeats) return { n: n, key: bk, count: bc };
+    // Affisso (prefisso/suffisso) di n parole più frequente tra gli array (righe
+    // con almeno n+margin parole). → { key, count } | null.
+    function _affixTop(wordArrays, n, side, margin) {
+        var counts = {};
+        for (var i = 0; i < wordArrays.length; i++) {
+            var w = wordArrays[i];
+            if (w.length < n + margin) continue;
+            var k = _affixKey(w, n, side);
+            counts[k] = (counts[k] || 0) + 1;
         }
-        return null;
+        var bk = null, bc = 0;
+        for (var key in counts) { if (counts[key] > bc) { bc = counts[key]; bk = key; } }
+        return bk ? { key: bk, count: bc } : null;
+    }
+
+    // Migliore affisso comune (header/footer). Parte dal prefisso corto (3 parole)
+    // e lo ALLUNGA finché resta condiviso da ~90% delle pagine che condividono il
+    // prefisso corto: trova così il CONFINE dell'header (dove le pagine divergono),
+    // non un prefisso lungo ma raro (coincidenza in poche pagine → bug guerra fredda:
+    // «…pag. … 18 1.» count 3 vinceva su «…pag. …» count 26). Il prefisso a 3 parole
+    // deve coprire ≥ metà delle pagine per contare come header. margin = corpo minimo.
+    // → { n, key, count } | null.
+    function _bestAffix(wordArrays, side, minRepeats, maxLen, margin) {
+        var baseline = 0;
+        for (var b = 0; b < wordArrays.length; b++) if (wordArrays[b].length >= 3 + margin) baseline++;
+        if (baseline < minRepeats) return null;
+        var t3 = _affixTop(wordArrays, 3, side, margin);
+        if (!t3 || t3.count < Math.max(minRepeats, Math.ceil(baseline * 0.5))) return null;
+        var need = Math.max(minRepeats, Math.ceil(t3.count * 0.9));
+        var best = null;
+        for (var n = 3; n <= maxLen; n++) {
+            var t = _affixTop(wordArrays, n, side, margin);
+            if (t && t.count >= need) best = { n: n, key: t.key, count: t.count };
+            else break;   // copertura scesa sotto soglia → l'header finisce qui
+        }
+        return best;
     }
 
     // Righe "da boilerplate" standalone (modo B): corte, ripetute ≥ minRepeats.

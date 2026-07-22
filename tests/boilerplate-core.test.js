@@ -80,6 +80,22 @@ test('stripBoilerplate MODO A: pagina singola (no ripetizione) non tocca nulla',
     assert.ok(r.text.indexOf('Storia IV Media') >= 0);
 });
 
+test('stripBoilerplate MODO A: prefisso a COPERTURA massima, non il più lungo raro', () => {
+    // Bug reale (guerra fredda, 26 pag): un prefisso più lungo ricorreva 3× per
+    // coincidenza (tabella) → veniva scelto lui e l'header restava sulle altre 23.
+    const H = 'Storia IV Media La Guerra Fredda pag. …';
+    const pages = [];
+    for (let i = 0; i < 10; i++) pages.push(H + ' Contenuto pagina numero ' + i + ' con parole diverse e lunghezza sufficiente per una pagina vera.');
+    pages[3] = H + ' Tabella dati riga uno due tre quattro cinque sei sette otto nove dieci undici.';
+    pages[7] = H + ' Tabella dati riga alfa beta gamma delta epsilon zeta eta theta iota kappa lambda.';
+    const r = BP.stripBoilerplate(pages.join('\n'));
+    assert.ok(r.count >= 10, 'header tolto da tutte le 10 pagine, count=' + r.count);
+    assert.ok(r.text.indexOf('Storia IV Media') < 0, 'header via da tutte');
+    assert.ok(r.text.indexOf('Tabella dati') >= 0, '«Tabella dati» è corpo, resta');
+    const head = r.removed.find(x => x.type === 'header');
+    assert.strictEqual(head.count, 10);
+});
+
 test('stripBoilerplate MODO A: prefisso comune ma corpo diverso — non divora il corpo', () => {
     const r = BP.stripBoilerplate(PAGES);
     // ogni pagina conserva il proprio corpo distintivo
