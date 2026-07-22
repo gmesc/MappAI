@@ -119,7 +119,10 @@ body.sd-odys .sd-sec-h { font-family:'OpenDyslexic',Verdana,sans-serif; }
 .sd-btn-ghost { background:#fff; color:${accent}; border:1px solid #e2e8f0; }
 .sd-btn-ghost.on { background:#eef2ff; }
 .sd-btn-close { background:#f1f5f9; color:#475569; }
-.sd-read-panel { position:fixed; top:54px; right:14px; background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; z-index:101; box-shadow:0 12px 34px rgba(15,23,42,.14); display:none; min-width:236px; }
+.sd-read-panel { position:fixed; top:54px; right:14px; background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; z-index:101; box-shadow:0 12px 34px rgba(15,23,42,.14); min-width:236px; }
+/* Nascosto di default: .sd-read-panel.no-print (2 classi) batte .no-print{display:block};
+   .sd-read-panel.open, più sotto, riapre. */
+.sd-read-panel.no-print { display:none; }
 .sd-read-panel.open { display:block; }
 .sd-read-h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:8px; }
 .sd-read-row { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:9px 0; font-size:11px; font-weight:700; color:#475569; cursor:pointer; }
