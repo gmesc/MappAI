@@ -85,6 +85,9 @@
             '.sd-dot { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }\n' +
             '.sd-count { margin-left:auto; font-size:10px; font-weight:700; color:#94a3b8; background:#f1f5f9; border-radius:999px; padding:1px 9px; }\n' +
             '.sd-item { font-size:12px; line-height:1.7; color:#334155; padding:8px 12px; margin:0 0 7px; border-radius:0 6px 6px 0; }\n' +
+            '.sd-body p { font-size:12px; line-height:1.85; color:#334155; margin:0 0 12px; }\n' +
+            '.sd-source span { border-radius:3px; }\n' +
+            'body.sd-dys .sd-body p { font-family:Verdana,\'Trebuchet MS\',sans-serif; font-size:15px; line-height:2.05; letter-spacing:.03em; word-spacing:.14em; color:#33312e; }\n' +
             '.sd-empty { font-size:11px; color:#94a3b8; font-style:italic; }\n' +
             '.sd-footer { text-align:center; margin-top:22px; font-size:9px; color:#94a3b8; }\n' +
             '.sd-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:12px; }\n' +

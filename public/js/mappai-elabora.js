@@ -195,6 +195,7 @@
             '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
             '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
             '<div class="elab-spacer"></div>' +
+            '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlighted()" title="' + t('el_export_hl_tip', 'Scheda della fonte con le frasi evidenziate per macro-area, stampabile/PDF') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
             '<button type="button" class="elab-btn elab-primary" onclick="MappAIElabora.pickPdf()">' + emo('add') + ' ' + t('el_add_pdf', 'Aggiungi PDF') + '</button>' +
@@ -383,6 +384,46 @@
         });
         return [...buckets.entries()].sort((a, b) => a[0] - b[0])
             .map(e => ({ heading: e[1].label, color: e[1].color, items: e[1].items }));
+    }
+
+    // ── #3: scheda della fonte CON gli highlight per macro-area (ordine di lettura) ──
+    // Corpo = paragrafi della fonte con le frasi evidenziate nel colore dell'area
+    // (stessa logica del pannello, ma con stili inline print-safe).
+    function _highlightedDocBody() {
+        const D = window.MappAIDeepenCore;
+        const corpus = _corpus();
+        if (!D || !D.splitSentences || !corpus) return '';
+        const SD = window.MappAIStudyDoc;
+        const paras = corpus.split(/\n{2,}/).filter(p => p.trim());
+        return '<div class="sd-source">' + paras.map(p => {
+            const trimmed = p.trim();
+            const sents = D.splitSentences(trimmed);
+            if (!sents || !sents.length) return '<p>' + esc(trimmed) + '</p>';
+            return '<p>' + sents.map(sn => {
+                const sc = _sentColor(sn);
+                if (!sc) return esc(sn);
+                const style = (sc.kind === 'res')
+                    ? 'background:' + SD.rgba(sc.color, 0.20) + ';box-shadow:inset 0 -2px 0 ' + SD.rgba(sc.color, 0.85)
+                    : 'background:linear-gradient(transparent 60%,' + SD.rgba(sc.color, 0.32) + ' 60%)';
+                return '<span style="' + style + '">' + esc(sn) + '</span>';
+            }).join(' ') + '</p>';
+        }).join('') + '</div>';
+    }
+
+    function exportHighlighted() {
+        if (!window.MappAIStudyDoc) { if (window.showToast) showToast(t('el_export_nolib', 'Costruttore documento non disponibile.'), 'error'); return; }
+        const body = _highlightedDocBody();
+        if (!body) { if (window.showToast) showToast(t('el_no_source_doc', 'Nessuna fonte da esportare.'), 'warning'); return; }
+        const s = _appState();
+        const lang = (window.getMapLanguage && window.getMapLanguage() === 'en') ? 'en' : 'it';
+        const html = window.MappAIStudyDoc.buildHtml({
+            title: t('el_doc_hl_title', 'Scheda con evidenziazioni'),
+            mapName: (s && s.rootNodeLabel) || t('el_map', 'Mappa'),
+            subtitle: t('el_crumb', 'elaborazione'),
+            bodyHtml: body,
+            lang: lang
+        });
+        window.MappAIStudyDoc.openDoc(html, { successMsg: t('el_doc_opened', 'Documento aperto — stampa o salva in PDF.') });
     }
 
     // Esporta il documento "frasi per area tematica" (#5) via il costruttore condiviso.
@@ -1218,6 +1259,6 @@
         teardown, revealCard, revealInSource,
         setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, exportAreas
+        flushSourcesToVault, exportAreas, exportHighlighted
     };
 })();
