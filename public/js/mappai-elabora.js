@@ -257,6 +257,32 @@
 
     function _normKey(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); }
 
+    // ── colori delle MACRO-AREE (22/7) ───────────────────────────────────────
+    // Il colore di un nodo = colore del suo GROUP (tutto il ramo L1 lo condivide),
+    // preso da customColors o dalla colorScale globale — identico a _treeRow.
+    let _covByGroup = null;   // group → { index (coperto lessicale), color }
+    function _nodeGroupOf(n) { return (n && n.level === 0) ? 0 : (n ? n.group : undefined); }
+    function _groupColorOf(grp) {
+        const s = _appState();
+        try {
+            const cc = s.db.customColors || {};
+            if (cc[grp] !== undefined) return cc[grp];
+            if (typeof colorScale !== 'undefined' && colorScale && colorScale[grp]) return colorScale[grp];
+        } catch (e) { /* soft */ }
+        return '#94a3b8';
+    }
+    // hex (#rgb/#rrggbb) o rgb()/qualunque → rgba con alpha. Fallback: la stringa così com'è.
+    function _rgba(color, a) {
+        let c = String(color || '').trim();
+        let m = /^#([0-9a-f]{3})$/i.exec(c);
+        if (m) { const h = m[1]; c = '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+        m = /^#([0-9a-f]{6})$/i.exec(c);
+        if (m) { const n = parseInt(m[1], 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+        m = /^rgb\(([^)]+)\)$/i.exec(c);
+        if (m) return 'rgba(' + m[1].split(',').map(x => x.trim()).slice(0, 3).join(',') + ',' + a + ')';
+        return c;
+    }
+
     function _buildMarks(R, s) {
         _marks = new Map();
         const cards = (R.coverage.cards || []).filter(c => !_ignored.has('cov:' + c.nodeId));
@@ -265,28 +291,64 @@
                 _marks.set(_normKey(r.text), { ci: ci, ri: ri, nodeId: c.nodeId });
             });
         });
-        _covIdx = null;
+        // Indice del "coperto" PER GROUP: così una frase della fonte si attribuisce
+        // alla macro-area con la miglior sovrapposizione lessicale → highlight nel
+        // colore di QUELLA macro-area (non un verde unico).
+        _covIdx = null; _covByGroup = null;
         try {
-            const F = window.MappAIDescFidelity;
-            if (F && F.buildSourceIndex && s && s.db) {
-                const allTxt = (s.db.nodes || []).map(n => (n.label || '') + ' ' + (n.desc || n.content || '')).join('\n');
-                _covIdx = F.buildSourceIndex(allTxt);
+            const D = window.MappAIDeepenCore;
+            if (D && D.buildCoverageIndex && s && s.db) {
+                const byGroup = new Map();
+                (s.db.nodes || []).forEach(n => {
+                    const g = _nodeGroupOf(n);
+                    if (g === undefined || g === null) return;
+                    const txt = (n.label || '') + ' ' + (n.desc || n.content || '');
+                    if (!byGroup.has(g)) byGroup.set(g, []);
+                    byGroup.get(g).push(txt);
+                });
+                _covByGroup = new Map();
+                byGroup.forEach((arr, g) => {
+                    _covByGroup.set(g, { index: D.buildCoverageIndex(arr.join('\n')), color: _groupColorOf(g) });
+                });
             }
-        } catch (e) { _covIdx = null; }
+        } catch (e) { _covByGroup = null; }
     }
 
-    // classifica una frase della fonte: residuo (ambra, cliccabile) > coperta (verde) > neutra
-    function _sentMark(sent) {
+    // colore della macro-area che copre una frase (o null). { color, kind:'res'|'cov', ci, ri }
+    function _sentColor(sent) {
         const m = _marks && _marks.get(_normKey(sent));
         if (m) {
-            return { cls: 'elab-s elab-s-res', attr: ' id="elab-src-c' + m.ci + '-r' + m.ri + '" onclick="MappAIElabora.revealCard(' + m.ci + ')" title="' + t('el_res_tip', 'Nella fonte, non ancora nella scheda — clicca per vedere la card') + '"' };
+            const n = _node(m.nodeId);
+            return { color: _groupColorOf(_nodeGroupOf(n)), kind: 'res', ci: m.ci, ri: m.ri };
         }
-        if (_covIdx) {
+        if (_covByGroup && _covByGroup.size) {
             try {
                 const D = window.MappAIDeepenCore;
-                const ov = D && D.lexicalOverlap ? D.lexicalOverlap(sent, _covIdx) : null;
-                if (ov && ov.total >= 3 && (ov.covered / ov.total) >= 0.6) return { cls: 'elab-s elab-s-cov', attr: '' };
+                let best = null;
+                _covByGroup.forEach(v => {
+                    if (!v.index || !D || !D.lexicalOverlap) return;
+                    const ov = D.lexicalOverlap(sent, v.index);
+                    if (ov && ov.total >= 3 && ov.containment >= 0.6 && (!best || ov.containment > best.c)) {
+                        best = { c: ov.containment, color: v.color };
+                    }
+                });
+                if (best) return { color: best.color, kind: 'cov' };
             } catch (e) { /* soft */ }
+        }
+        return null;
+    }
+
+    // classifica una frase della fonte per il testo: residuo (cliccabile) > coperta
+    // > neutra, evidenziata nel COLORE della macro-area di appartenenza.
+    function _sentMark(sent) {
+        const sc = _sentColor(sent);
+        if (sc && sc.kind === 'res') {
+            const style = ' style="background:' + _rgba(sc.color, 0.20) + ';box-shadow:inset 0 -2px 0 ' + _rgba(sc.color, 0.85) + '"';
+            return { cls: 'elab-s elab-s-res', attr: ' id="elab-src-c' + sc.ci + '-r' + sc.ri + '" onclick="MappAIElabora.revealCard(' + sc.ci + ')" title="' + t('el_res_tip', 'Nella fonte, non ancora nella scheda — clicca per vedere la card') + '"' + style };
+        }
+        if (sc && sc.kind === 'cov') {
+            const style = ' style="background:linear-gradient(transparent 60%,' + _rgba(sc.color, 0.32) + ' 60%)"';
+            return { cls: 'elab-s elab-s-cov', attr: style };
         }
         return { cls: 'elab-s', attr: '' };
     }
@@ -604,6 +666,75 @@
         };
     }
 
+    // Frasi della fonte con colore di macro-area (per l'highlight sul PDF).
+    // { n: frase normalizzata, color }. Salta le frasi neutre.
+    function _coloredSentences() {
+        try {
+            const D = window.MappAIDeepenCore;
+            if (!D || !D.splitSentences) return [];
+            const corpus = _corpus();
+            if (!corpus) return [];
+            const out = [];
+            D.splitSentences(corpus).forEach(sn => {
+                const c = _sentColor(sn);
+                if (c && c.color) out.push({ n: _normKey(sn), color: c.color });
+            });
+            return out;
+        } catch (e) { return []; }
+    }
+
+    // Disegna rettangoli colorati sopra il canvas di UNA pagina PDF, sulle parole
+    // che appartengono a una frase colorata (best-effort: text layer pdf.js +
+    // match della frase normalizzata nel testo concatenato della pagina).
+    function _paintPdfHighlights(wrap, tc, vpCss, scaleCss, colored) {
+        const items = (tc && tc.items) || [];
+        if (!items.length) return;
+        // stringa pagina normalizzata + mappa char→indice item
+        let raw = ''; const map = [];
+        items.forEach((it, idx) => {
+            const s = it.str || '';
+            let prevSpace = raw.length === 0 || raw[raw.length - 1] === ' ';
+            for (let k = 0; k < s.length; k++) {
+                const ch = s[k];
+                if (/\s/.test(ch)) { if (!prevSpace) { raw += ' '; map.push(idx); prevSpace = true; } }
+                else { raw += ch.toLowerCase(); map.push(idx); prevSpace = false; }
+            }
+            if (!prevSpace) { raw += ' '; map.push(idx); }   // stacco fra item
+        });
+        if (!raw) return;
+        const itemColor = new Map();   // item idx → colore (primo che matcha)
+        colored.forEach(cs => {
+            if (!cs.n || cs.n.length < 8) return;            // frasi troppo corte = rumore
+            let from = 0, pos;
+            while ((pos = raw.indexOf(cs.n, from)) >= 0) {
+                const end = Math.min(pos + cs.n.length - 1, map.length - 1);
+                for (let ci = pos; ci <= end; ci++) { const it = map[ci]; if (!itemColor.has(it)) itemColor.set(it, cs.color); }
+                from = pos + cs.n.length;
+            }
+        });
+        if (!itemColor.size) return;
+        const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
+        const layer = document.createElement('div');
+        layer.className = 'elab-pdf-hllayer';
+        itemColor.forEach((color, idx) => {
+            const it = items[idx];
+            if (!it || !it.transform) return;
+            const tx = U ? U.transform(vpCss.transform, it.transform) : it.transform;
+            const fontH = Math.hypot(tx[2], tx[3]) || ((it.height || 10) * scaleCss);
+            const width = (it.width || 0) * scaleCss;
+            if (width <= 0) return;
+            const hl = document.createElement('div');
+            hl.className = 'elab-pdf-hl';
+            hl.style.left = tx[4] + 'px';
+            hl.style.top = (tx[5] - fontH) + 'px';
+            hl.style.width = width + 'px';
+            hl.style.height = fontH + 'px';
+            hl.style.background = _rgba(color, 0.34);
+            layer.appendChild(hl);
+        });
+        wrap.appendChild(layer);
+    }
+
     // Render pagine PDF su canvas via pdf.js (già caricato, worker configurato).
     // Token-guardato: switch/teardown annulla i render obsoleti.
     async function _mountPdf(pdfs) {
@@ -625,18 +756,34 @@
             scroll.innerHTML = '';
             const wCss = Math.max(320, (scroll.clientWidth || 640) - 28);
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            // Frasi della fonte con colore di macro-area (per l'highlight PDF).
+            const colored = _coloredSentences();
             for (let i = 1; i <= n; i++) {
                 if (token !== _pdfToken) return;
                 const page = await pdf.getPage(i);
                 if (token !== _pdfToken) return;
                 const vp1 = page.getViewport({ scale: 1 });
                 const vp = page.getViewport({ scale: (wCss / vp1.width) * dpr });
+                const wrap = document.createElement('div');
+                wrap.className = 'elab-pdf-pagewrap';
+                wrap.style.width = wCss + 'px'; wrap.style.height = Math.floor(vp.height / dpr) + 'px';
                 const canvas = document.createElement('canvas');
                 canvas.className = 'elab-pdf-page';
                 canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
                 canvas.style.width = wCss + 'px'; canvas.style.height = Math.floor(vp.height / dpr) + 'px';
-                scroll.appendChild(canvas);
+                wrap.appendChild(canvas);
+                scroll.appendChild(wrap);
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                if (token !== _pdfToken) return;
+                // Highlight colorati sul PDF: text layer pdf.js + match delle frasi.
+                if (colored.length) {
+                    try {
+                        const tc = await page.getTextContent();
+                        if (token !== _pdfToken) return;
+                        const vpCss = page.getViewport({ scale: wCss / vp1.width });
+                        _paintPdfHighlights(wrap, tc, vpCss, wCss / vp1.width, colored);
+                    } catch (e) { /* best-effort: senza text layer resta il canvas */ }
+                }
             }
             if (token !== _pdfToken) return;
             if (total > n) {
@@ -952,7 +1099,10 @@
         .elab-pdfname{font-weight:700;color:var(--eink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .elab-pdfinfo{margin-left:auto;font-size:11px;color:var(--efaint);white-space:nowrap}
         .elab-pdf-scroll{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--epanel3)}
-        .elab-pdf-page{border-radius:4px;box-shadow:0 2px 12px rgba(15,23,42,.14);background:#fff;max-width:100%}
+        .elab-pdf-pagewrap{position:relative;border-radius:4px;box-shadow:0 2px 12px rgba(15,23,42,.14);max-width:100%}
+        .elab-pdf-page{display:block;border-radius:4px;background:#fff;max-width:100%}
+        .elab-pdf-hllayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:4px}
+        .elab-pdf-hl{position:absolute;border-radius:2px;mix-blend-mode:multiply}
         .elab-pdf-loading{color:var(--esoft);font-size:12.5px;padding:12px;text-align:center}
         .elab-s{border-radius:3px}
         .elab-s-cov{background:linear-gradient(transparent 62%,var(--egoodl) 62%)}
