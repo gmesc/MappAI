@@ -578,6 +578,32 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
       che l'allineamento resti corretto — un browser reale con licensing
       attivo spesso non è disponibile per la verifica visiva immediata.
 
+16. **Coerenza grafica landing (Costruisci/Elabora/Insegna, 22 lug 2026)** → i tre
+    tab della landing DEVONO condividere larghezza, stile bottoni, gerarchia font.
+    Design token unici (mai inventarne di nuovi più stretti/di altro colore):
+    - **Larghezza contenuto = 1100px.** Il blocco globale in `public/css/style.css`
+      (`#landing-view .glass-card>div, #setup-form, .max-w-2xl, .max-w-3xl,
+      .teach-section-card, #teach-content>div, #elabora-content>div → max-width:
+      1100px !important`) rende la landing piatta e larga. Ogni NUOVA sezione/barra
+      di landing usi `.teach-section-card` o `max-w-2xl` (entrambi mappati a 1100),
+      MAI un `max-w-[NNNpx]` custom (era il bug INSEGNA/ELABORA a 806/820 → strette).
+      Se aggiungi un contenitore diretto sotto `#teach-content`/`#elabora-content`,
+      è già coperto dal selettore `>div`.
+    - **Bottoni azione grigio→emerald** (stile COSTRUISCI `.btn_quick_action` /
+      `.btn_selezione_input`): `bg-slate-100` a riposo, `hover:bg-emerald-400
+      hover:text-white`, `text-slate-500 font-bold`, label CENTRATA su due righe
+      (`.teach-qs-btn span` = flex + `min-h-[2.4em]` + `leading-tight`). L'accento
+      interattivo sui bottoni grigi è SEMPRE `emerald-400`, mai indigo/teal-*.
+    - **Header di sezione** = `.teach-section-card` con header
+      `text-sm font-bold text-slate-600` + icona Lucide `text-indigo-400` + chevron
+      `text-slate-400` (identico al toggle «Progetti salvati» di COSTRUISCI,
+      `index.html:1046-1053`). L'indigo è l'accento di icone/link di sezione; il
+      grigio-emerald è l'accento dei bottoni-card. Non mischiare i due schemi.
+    - **Regola generale**: ogni nuova grafica di landing (sezioni, barre, bottoni,
+      modali, font) riusa questi token. Verifica visiva: servire `public/` con un
+      http server locale, aprire nel Browser pane, nascondere `#beta-lock-screen`
+      lato-DOM e misurare le larghezze (il licensing blocca la vista ma non il DOM).
+
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ

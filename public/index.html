@@ -122,7 +122,10 @@
         .teach-filter-seg { @apply text-slate-400 hover:text-slate-600; } /* Segmento inattivo del filtro classe (005) */
         .teach-filter-seg.active { @apply bg-white text-indigo-600 shadow; } /* Segmento attivo del filtro classe */
         .teach-section-card { @apply max-w-[806px] mx-auto mb-4 border border-slate-200 rounded-2xl overflow-hidden; } /* Sezione collassabile della modalità Insegna (+20% larghezza, 19/7) */
-        .teach-qs-btn { @apply flex-1 basis-[180px] flex flex-col items-center justify-center gap-2 px-4 py-5 bg-white border border-indigo-100 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all text-indigo-600 font-bold text-sm; } /* Bottone quick-start QR (005) */
+        /* Bottone quick-start QR (005) — stile COSTRUISCI: grigio → hover emerald,
+           label centrata su due righe (leading-tight + min-h) così 4 stanno su una riga. */
+        .teach-qs-btn { @apply flex-1 basis-0 min-w-[150px] flex flex-col items-center justify-center gap-3 px-4 py-6 bg-slate-100 rounded-2xl shadow-sm hover:bg-emerald-400 hover:text-white transition-all text-slate-500 font-bold text-sm text-center; }
+        .teach-qs-btn span { @apply flex items-center justify-center text-center leading-tight min-h-[2.4em]; } /* label a 2 righe, altezza uniforme */
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
         .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
         .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
