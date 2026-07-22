@@ -270,7 +270,9 @@
     // Il colore di un nodo = colore del suo GROUP (tutto il ramo L1 lo condivide),
     // preso da customColors o dalla colorScale globale — identico a _treeRow.
     let _covUnits = null;     // [{ group, color, index }] — unità di confronto lessicale
-    let _covThreshold = 0.65; // soglia containment per colorare (per-nodo)
+    let _covThreshold = 0.65; // soglia containment per il colore PIENO (cuore del concetto)
+    let _covWeak = 0.5;       // soglia inferiore per il colore TENUE (associazione moderata:
+    //                           frase rilevante ma "riassunta" dalla mappa — es. pagine narrative)
     // A/B: legacy = confronto per MACRO-AREA (indice = desc di TUTTI i nodi del
     // gruppo, soglia 0.6) → colorava quasi ogni frase (il lessico della fonte è
     // quasi tutto nelle desc). Nuovo (default): confronto per NODO (indice = la
@@ -313,6 +315,7 @@
         _covIdx = null; _covUnits = null;
         const legacy = _hlLegacy();
         _covThreshold = legacy ? 0.6 : 0.65;
+        _covWeak = legacy ? _covThreshold : 0.5;   // legacy = nessun tier tenue
         try {
             const D = window.MappAIDeepenCore;
             if (D && D.buildCoverageIndex && s && s.db) {
@@ -356,11 +359,13 @@
                     const v = _covUnits[i];
                     if (!v.index || !D || !D.lexicalOverlap) continue;
                     const ov = D.lexicalOverlap(sent, v.index);
-                    if (ov && ov.total >= 3 && ov.containment >= _covThreshold && (!best || ov.containment > best.c)) {
+                    if (ov && ov.total >= 3 && ov.containment >= _covWeak && (!best || ov.containment > best.c)) {
                         best = { c: ov.containment, color: v.color, group: v.group };
                     }
                 }
-                if (best) return { color: best.color, group: best.group, kind: 'cov' };
+                // Graduata: colore PIENO se ≥ soglia (cuore del concetto), TENUE se
+                // solo moderato (frase rilevante ma riassunta dalla mappa).
+                if (best) return { color: best.color, group: best.group, kind: 'cov', strength: best.c >= _covThreshold ? 'strong' : 'weak' };
             } catch (e) { /* soft */ }
         }
         return null;
@@ -375,7 +380,8 @@
             return { cls: 'elab-s elab-s-res', attr: ' id="elab-src-c' + sc.ci + '-r' + sc.ri + '" onclick="MappAIElabora.revealCard(' + sc.ci + ')" title="' + t('el_res_tip', 'Nella fonte, non ancora nella scheda — clicca per vedere la card') + '"' + style };
         }
         if (sc && sc.kind === 'cov') {
-            const style = ' style="background:linear-gradient(transparent 60%,' + _rgba(sc.color, 0.32) + ' 60%)"';
+            const a = sc.strength === 'weak' ? 0.13 : 0.32;   // graduata: tenue vs pieno
+            const style = ' style="background:linear-gradient(transparent 60%,' + _rgba(sc.color, a) + ' 60%)"';
             return { cls: 'elab-s elab-s-cov', attr: style };
         }
         return { cls: 'elab-s', attr: '' };
@@ -426,9 +432,10 @@
             return '<p>' + sents.map(sn => {
                 const sc = _sentColor(sn);
                 if (!sc) return esc(sn);
+                const a = sc.strength === 'weak' ? 0.13 : 0.32;
                 const style = (sc.kind === 'res')
                     ? 'background:' + SD.rgba(sc.color, 0.20) + ';box-shadow:inset 0 -2px 0 ' + SD.rgba(sc.color, 0.85)
-                    : 'background:linear-gradient(transparent 60%,' + SD.rgba(sc.color, 0.32) + ' 60%)';
+                    : 'background:linear-gradient(transparent 60%,' + SD.rgba(sc.color, a) + ' 60%)';
                 return '<span style="' + style + '">' + esc(sn) + '</span>';
             }).join(' ') + '</p>';
         }).join('') + '</div>';
@@ -485,12 +492,13 @@
                         const itemColor = _matchColoredItems(tc, colored);
                         if (itemColor.size) {
                             ctx.save(); ctx.globalCompositeOperation = 'multiply';
-                            itemColor.forEach((color, idx) => {
+                            itemColor.forEach((info, idx) => {
                                 const it = tc.items[idx]; if (!it || !it.transform) return;
                                 const tx = U ? U.transform(vp.transform, it.transform) : it.transform;
                                 const fontH = Math.hypot(tx[2], tx[3]) || ((it.height || 10) * SCALE);
                                 const width = (it.width || 0) * SCALE; if (width <= 0) return;
-                                ctx.fillStyle = window.MappAIStudyDoc ? window.MappAIStudyDoc.rgba(color, 0.4) : color;
+                                const a = info.strength === 'weak' ? 0.16 : 0.4;
+                                ctx.fillStyle = window.MappAIStudyDoc ? window.MappAIStudyDoc.rgba(info.color, a) : info.color;
                                 ctx.fillRect(tx[4], tx[5] - fontH, width, fontH);
                             });
                             ctx.restore();
@@ -924,7 +932,7 @@
             const out = [];
             D.splitSentences(corpus).forEach(sn => {
                 const c = _sentColor(sn);
-                if (c && c.color) out.push({ n: _normKey(sn), color: c.color });
+                if (c && c.color) out.push({ n: _normKey(sn), color: c.color, strength: c.strength || 'strong' });
             });
             return out;
         } catch (e) { return []; }
@@ -953,10 +961,14 @@
         if (!raw) return itemColor;
         colored.forEach(cs => {
             if (!cs.n || cs.n.length < 8) return;
+            const strong = cs.strength !== 'weak';
             let from = 0, pos;
             while ((pos = raw.indexOf(cs.n, from)) >= 0) {
                 const end = Math.min(pos + cs.n.length - 1, map.length - 1);
-                for (let ci = pos; ci <= end; ci++) { const it = map[ci]; if (!itemColor.has(it)) itemColor.set(it, cs.color); }
+                for (let ci = pos; ci <= end; ci++) {
+                    const it = map[ci], prev = itemColor.get(it);
+                    if (!prev || (prev.strength === 'weak' && strong)) itemColor.set(it, { color: cs.color, strength: strong ? 'strong' : 'weak' });
+                }
                 from = pos + cs.n.length;
             }
         });
@@ -970,7 +982,7 @@
         const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
         const layer = document.createElement('div');
         layer.className = 'elab-pdf-hllayer';
-        itemColor.forEach((color, idx) => {
+        itemColor.forEach((info, idx) => {
             const it = items[idx];
             if (!it || !it.transform) return;
             const tx = U ? U.transform(vpCss.transform, it.transform) : it.transform;
@@ -983,7 +995,7 @@
             hl.style.top = (tx[5] - fontH) + 'px';
             hl.style.width = width + 'px';
             hl.style.height = fontH + 'px';
-            hl.style.background = _rgba(color, 0.34);
+            hl.style.background = _rgba(info.color, info.strength === 'weak' ? 0.14 : 0.34);
             layer.appendChild(hl);
         });
         wrap.appendChild(layer);
