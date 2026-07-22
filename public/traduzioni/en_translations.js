@@ -1430,6 +1430,7 @@ const en_translations = {
     ui_qs_collab: "Interactive board",
     ui_qs_live: "Live active study",
     ui_qs_materials: "Study materials",
+    ui_qs_share: "Share",
     ui_no_projects_app: "No projects saved in this MappAI app.",
     rp_classes: "Classes",
     rp_grade: "Grade",

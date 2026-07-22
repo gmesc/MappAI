@@ -470,10 +470,15 @@
       return '<button type="button" class="teach-qs-btn" onclick="window.MappAITeach.quickStart(\'' + kind + '\')">' +
         '<i data-lucide="' + icon + '" class="w-7 h-7"></i><span>' + esc(label) + '</span></button>';
     };
+    // «Condividi» non passa da quickStart: apre subito il selettore file (shareFromPc)
+    // → condivide con la classe attiva. Sostituisce la sezione «File condivisi».
+    var share = '<button type="button" class="teach-qs-btn" onclick="window.MappAITeach.shareFromPc()">' +
+      '<i data-lucide="folder" class="w-7 h-7"></i><span>' + esc(_t('ui_qs_share', 'Condividi')) + '</span></button>';
     return '<div class="max-w-[806px] mx-auto mb-6"><div class="flex flex-wrap gap-3">' +
       qs('collab', 'presentation', _t('ui_qs_collab', 'Lavagna interattiva')) +
       qs('live', 'radio', _t('ui_qs_live', 'Studio attivo live')) +
       qs('materials', 'folder-down', _t('ui_qs_materials', 'Materiali di studio')) +
+      share +
       '</div></div>';
   }
 
@@ -486,11 +491,9 @@
       quickStartBar() + filesBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
-      sectionShell('teach-sharedmat', 'share-2', _t('ui_teach_sharedmat', 'File condivisi'), 'teach-sharedmat-body') +
       sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
     renderProjects();
     renderMaterials(docs);
-    renderSharedMat();
     renderActivities(sets);
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
