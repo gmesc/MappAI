@@ -1653,6 +1653,11 @@ window.showGenerationReport = function () {
 
     window.showToast(`${window.t('tst_gen_done', "Generazione completata!")} Token: ${tokens} | ${window.t('ui_cost', "Costo")}: ${costText}`, "success");
 
+    // Riordino su disco (22/7): a fine generazione crea/aggiorna in automatico la
+    // cartella vault della mappa in «Mappe» (nome = ROOT; annidata nella classe
+    // attiva se presente). Non bloccante — kill-switch mappai_autovault='0'.
+    try { if (window.ensureProjectVault) window.ensureProjectVault({ reason: 'generation' }); } catch (e) { }
+
     // Log for debugging
     console.log("--- Generation Report ---");
     console.log(`Model: ${modelId}`);

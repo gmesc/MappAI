@@ -205,6 +205,7 @@ window.directLoadVault = async function (folderPath) {
 
 window.resetVaultState = function () {
     appState.activeVaultPath = null;
+    appState.activeVaultClassDir = null;   // 22/7: nesting classe del vault auto-creato
     const syncBtn = document.getElementById('sync-vault-btn');
     if (syncBtn) {
         syncBtn.classList.add('hidden');

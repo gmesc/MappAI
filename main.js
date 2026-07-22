@@ -827,13 +827,15 @@ ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
 
 // save-vault-file: scrittura generica dentro il vault (HTML/MP3/PDF/JSON manifest).
 // La sanitizzazione del percorso arriva da FilesCore — main NON reimplementa regole.
-ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text } = {}) => {
+ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         if (base64 == null && text == null) return { ok: false, error: 'nessun contenuto' };
         const dest = path.join(vaultPath, safe);
+        // ifAbsent: non sovrascrivere (Fonti/ — il chiamante ritenta con suffisso)
+        if (ifAbsent && fs.existsSync(dest)) return { ok: false, error: 'exists', exists: true };
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         if (base64 != null) {
             const b = (/^data:/i.test(base64) && base64.indexOf(',') >= 0) ? base64.slice(base64.indexOf(',') + 1) : base64;
@@ -842,6 +844,24 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
             fs.writeFileSync(dest, String(text), 'utf-8');
         }
         return { ok: true, path: dest };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// read-vault-file: lettura simmetrica di save-vault-file (stesse guardie di path
+// via FilesCore — 22/7/26, anteprima PDF originali in ELABORA). Ritorna base64.
+ipcMain.handle('read-vault-file', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        const src = path.join(vaultPath, safe);
+        if (!fs.existsSync(src)) return { ok: false, error: 'file non trovato: ' + safe };
+        const stat = fs.statSync(src);
+        const MAX = 50 * 1024 * 1024; // cap 50MB: evita payload IPC enormi
+        if (stat.size > MAX) return { ok: false, error: 'file troppo grande (' + Math.round(stat.size / 1048576) + 'MB)' };
+        return { ok: true, base64: fs.readFileSync(src).toString('base64'), size: stat.size };
     } catch (err) {
         return { ok: false, error: err.message };
     }
@@ -861,6 +881,23 @@ ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
         await shell.openPath(resolved);
         return { ok: true };
     } catch (err) { return { ok: false, error: err.message }; }
+});
+
+// delete-vault: sposta nel Cestino una cartella vault DENTRO mapsBaseDir (Elimina
+// dalla sezione Insegna). shell.trashItem = recuperabile (mai cancellazione dura);
+// validazione sotto Mappe + rifiuto della radice stessa.
+ipcMain.handle('delete-vault', async (event, { folderPath } = {}) => {
+    try {
+        if (!folderPath) return { success: false, error: 'percorso mancante' };
+        const base = path.resolve(mapsBaseDir());
+        const resolved = path.resolve(folderPath);
+        if (resolved === base || (!resolved.startsWith(base + path.sep))) {
+            return { success: false, error: 'fuori da Mappe' };
+        }
+        if (!fs.existsSync(resolved)) return { success: false, error: 'cartella-non-trovata' };
+        await shell.trashItem(resolved);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
 });
 
 // pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe

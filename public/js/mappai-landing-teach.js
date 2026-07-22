@@ -33,7 +33,26 @@
   function regRead() { try { return JSON.parse(localStorage.getItem(LS_REGISTRY) || '[]'); } catch (e) { return []; } }
   function regWrite(arr) { try { localStorage.setItem(LS_REGISTRY, JSON.stringify(arr)); } catch (e) { /* quota */ } }
   function setsRead() { try { return JSON.parse(localStorage.getItem(LS_SETS) || '[]'); } catch (e) { return []; } }
-  function projectsRead() { try { return JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]'); } catch (e) { return []; } }
+  function projectsRead() {
+    var arr;
+    try { arr = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]'); } catch (e) { return []; }
+    // Heal (#2, 22/7): risolve p.cls dal p.clsId congelato quando il nome mancava
+    // al primo salvataggio (store classi async non ancora caricato). Scrive UNA
+    // volta → la classe compare nei chip e nel filtro anche dopo il boot.
+    try {
+      if (window.MappAIClasses && window.MappAIClasses.get) {
+        var changed = false;
+        arr.forEach(function (p) {
+          if ((!p.cls || p.cls === '') && p.clsId) {
+            var c = window.MappAIClasses.get(p.clsId);
+            if (c && c.name) { p.cls = c.name; changed = true; }
+          }
+        });
+        if (changed) localStorage.setItem('tutor_ai_projects', JSON.stringify(arr));
+      }
+    } catch (e) { /* best-effort */ }
+    return arr;
+  }
   function activeClass() { try { return (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { return null; } }
   function classList() { try { return (window.MappAIClasses && window.MappAIClasses.list()) || []; } catch (e) { return []; } }
 
@@ -65,6 +84,8 @@
     var segT = document.getElementById('landing-mode-teach');
     var segE = document.getElementById('landing-mode-elabora');
     var clsFilter = document.getElementById('teach-class-filter');
+    var quickActions = document.getElementById('landing-quick-actions');
+    var metaLinks = document.getElementById('landing-meta-links');
     if (build) build.classList.toggle('hidden', mode !== 'build');
     if (teach) teach.classList.toggle('hidden', mode !== 'teach');
     if (elab) elab.classList.toggle('hidden', mode !== 'elabora');
@@ -72,10 +93,34 @@
     if (segT) segT.classList.toggle('active', mode === 'teach');
     if (segE) segE.classList.toggle('active', mode === 'elabora');
     if (clsFilter) clsFilter.classList.toggle('hidden', mode !== 'teach');
+    if (quickActions) quickActions.classList.toggle('hidden', mode === 'elabora');
+    if (metaLinks) metaLinks.classList.toggle('hidden', mode === 'elabora');
     applyFilterSeg();
+    // Lasciando ELABORA: smonta l'overlay fullscreen (portal a livello di body).
+    if (mode !== 'elabora' && window.MappAIElabora && window.MappAIElabora.teardown) window.MappAIElabora.teardown();
     if (mode === 'build') renderBuildProjects();
-    else if (mode === 'teach') refresh();
-    else if (mode === 'elabora' && window.MappAIElabora) window.MappAIElabora.open();
+    else if (mode === 'teach') { refresh(); _ensureFreshAndRerender(); }
+    else if (mode === 'elabora' && window.MappAIElabora) { window.MappAIElabora.open(); _ensureFreshAndRerender(); }
+  }
+
+  // #3 (22/7): il primo render di Insegna/ELABORA usa stato che arriva ASINCRONO —
+  // scansione vault su disco (validVaultFolders), store classi (IPC), liste materiali.
+  // Entrando in modalità ri-sincronizza quei dati e RIRENDE una volta pronti, così
+  // non serve un refresh manuale per vedere l'ultimo vault/i file appena generati.
+  var _freshBusy = false;
+  function _ensureFreshAndRerender() {
+    if (_freshBusy) return; _freshBusy = true;
+    var tasks = [];
+    try { if (window.StorageManager && StorageManager.syncValidVaults) tasks.push(StorageManager.syncValidVaults()); } catch (e) { }
+    try { if (window.MappAIClasses && window.MappAIClasses.load && !window.MappAIClasses.loaded) tasks.push(window.MappAIClasses.load()); } catch (e) { }
+    var done = function () {
+      _freshBusy = false;
+      var m = readMode();
+      if (m === 'teach') refresh();
+      else if (m === 'elabora' && window.MappAIElabora) window.MappAIElabora.render();
+    };
+    if (!tasks.length) { _freshBusy = false; return; }
+    Promise.all(tasks).then(done).catch(function () { _freshBusy = false; });
   }
 
   // Filtro classe CONDIVISO (Insegna + Costruisci + Elabora): stessi segmenti stile
@@ -395,14 +440,220 @@
     kg: { icon: 'network', label: 'KG', full: 'Knowledge Graph' },
     mindmap: { icon: 'git-merge', label: 'MM', full: 'Mappa Mentale' }
   };
+  // FONTE DI VERITÀ = DISCO (22/7). L'elenco legge le cartelle vault reali via
+  // get-all-vaults (incluse le annidate nei contenitori di classe), unite ai
+  // metadati localStorage (id/classe/tuning) quando un progetto corrisponde. I
+  // file .json sciolti in Mappe (esportazioni singole) restano fuori. Fallback
+  // al solo localStorage se l'API Electron non è disponibile (browser statico).
+  var _projVaults = [];   // cache dell'ultimo render disco: idx → { v, p }
+  function FCore() { try { return window.FilesCore || null; } catch (e) { return null; } }
+  function prettyClass(dir) { return String(dir || '').replace(/_/g, ' '); }
+  // Match progetto localStorage ↔ vault su disco per folderName + classDir.
+  // Legacy (progetto senza classDir) → match sul solo folderName.
+  function matchProjectToVault(projects, v) {
+    var byBoth = projects.find(function (p) {
+      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null);
+    });
+    if (byBoth) return byBoth;
+    if (v.classDir) return null;
+    return projects.find(function (p) { return p.vault === v.folderName && !p.classDir; }) || null;
+  }
+  // Progetti localStorage privi di cartella su disco (per la barra "Riordina").
+  function orphanProjects() {
+    return projectsRead().filter(function (p) {
+      var hasSnap = false; try { hasSnap = !!localStorage.getItem(p.id); } catch (e) { }
+      return !p.vault && hasSnap;
+    });
+  }
+
   function renderProjects() {
     var body = document.getElementById('teach-projects-body');
     if (!body) return;
+    if (!window.electronAPI || !window.electronAPI.getAllVaults) { renderProjectsLocal(body); return; }
+    window.electronAPI.getAllVaults().then(function (vaults) {
+      renderProjectsDisk(body, vaults || []);
+    }).catch(function () { renderProjectsLocal(body); });
+  }
+
+  function backfillBar() {
+    var orphans = orphanProjects();
+    if (!orphans.length || !window.electronAPI || !window.electronAPI.saveVault) return '';
+    return '<div class="flex items-center justify-between gap-2 px-3 py-2 mb-1 bg-amber-50 border border-amber-200 rounded-lg">' +
+      '<span class="text-[11px] text-amber-700 font-semibold">' +
+      esc(_t('lt_backfill_hint', '{n} mappe non hanno ancora una cartella su disco.').replace('{n}', orphans.length)) + '</span>' +
+      '<button type="button" onclick="window.MappAITeach.backfillVaults()" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg px-2.5 py-1 shrink-0">' +
+      '<i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>' + esc(_t('lt_backfill_btn', 'Riordina cartelle')) + '</button></div>';
+  }
+
+  function renderProjectsDisk(body, vaults) {
     var projects = projectsRead();
-    // Nasconde i progetti il cui vault è stato eliminato dal disco (come Costruisci).
-    var valid = (window.StorageManager && Array.isArray(StorageManager.validVaultFolders)) ? StorageManager.validVaultFolders : null;
-    if (valid) projects = projects.filter(function (p) { return !p.vault || valid.indexOf(p.vault) >= 0; });
+    var core = CORE();
+    var reg = regRead();
+    var norm = (core && core.normGrade) ? core.normGrade : function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
+    var fc = FCore();
+
     // Filtro "Solo classe attiva".
+    var allow = allowedProjectIds();
+    var allowSet = Array.isArray(allow) ? (function () { var s = {}; allow.forEach(function (i) { s[i] = 1; }); return s; })() : null;
+    var acFolder = null;
+    if (readFilter() === 'active') { var ac = activeClass(); if (ac && ac.name && fc) acFolder = fc.mapClassFolder(ac.sede, ac.name); }
+
+    _projVaults = [];
+    vaults.forEach(function (v) {
+      var p = matchProjectToVault(projects, v);
+      if (allowSet) {
+        var ok = (p && allowSet[p.id]) || (acFolder && v.classDir === acFolder);
+        if (!ok) return;
+      }
+      _projVaults.push({ v: v, p: p });
+    });
+
+    if (!_projVaults.length) {
+      body.innerHTML = backfillBar() + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+        esc(readFilter() === 'active'
+          ? _t('lt_no_projects_class', 'Nessun progetto per questa classe. Mostra tutto per vederli tutti.')
+          : _t('lt_no_projects_disk', 'Nessuna mappa nella cartella Mappe. Genera una mappa per crearne una.')) + '</p>';
+      if (window.safeCreateIcons) window.safeCreateIcons();
+      return;
+    }
+
+    var rows = _projVaults.map(function (rec, i) {
+      var v = rec.v, p = rec.p;
+      var meta = TYPE_META[v.extractionMode === 'kg' ? 'kg' : 'mindmap'];
+      var chips = [], seen = {};
+      var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
+      if (v.classDir) push(prettyClass(v.classDir));
+      if (p) { push(p.cls); if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push); }
+      var tuned = !!(p && p.tuned);
+      var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
+      var selected = !!(p && _selectedProject && _selectedProject.id === p.id);
+      // Riga con progetto collegato → SELEZIONA (filtra le sezioni). Vault orfano
+      // (nessun progetto localStorage) → click APRE direttamente.
+      var onClick = (p && rowSelectEnabled())
+        ? "window.MappAITeach.selectProject('" + p.id + "')"
+        : "window.MappAITeach.projOpen(" + i + ")";
+      return fileRow({
+        tipo: tipoCell(meta.icon, meta.label, meta.full),
+        title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
+        cls: classCell(chips), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
+        block: projBlockDisk(i),
+        onClick: onClick,
+        selected: selected
+      });
+    }).join('');
+    body.innerHTML = backfillBar() + fileTable(rows, true);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+  }
+
+  function projBlockDisk(i) {
+    return actIcon('play-circle', _t('rp_resume', 'Riprendi'), "window.MappAITeach.projOpen(" + i + ")", 'text-indigo-500 hover:text-indigo-700', false) +
+      actIcon('qr-code', _t('lt_share_vault_qr', 'Condividi la cartella vault (QR)'), "window.MappAITeach.projQr(" + i + ")", 'text-green-600 hover:text-green-700', false) +
+      actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.projFinder(" + i + ")", null, false) +
+      actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.projDelete(" + i + ")", 'text-slate-300 hover:text-red-500', false);
+  }
+  function _projRec(i) { return _projVaults[i] || null; }
+  function projOpen(i) {
+    var r = _projRec(i); if (!r) return;
+    if (r.p && window.loadSavedProject) return window.loadSavedProject(r.p.id);
+    if (window.directLoadVault) window.directLoadVault(r.v.fullPath);
+  }
+  function projFinder(i) {
+    var r = _projRec(i); if (!r) return;
+    if (window.electronAPI && window.electronAPI.pipelineOpenFolder) window.electronAPI.pipelineOpenFolder({ folderPath: r.v.fullPath });
+    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+  function projQr(i) {
+    var r = _projRec(i); if (!r) return;
+    var name = r.p ? r.p.name : (r.v.rootNodeLabel || r.v.folderName);
+    if (window.MappAILive && window.MappAILive.shareVaultZipQr) window.MappAILive.shareVaultZipQr(r.v.folderName, name);
+    else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+  }
+  function projDelete(i) {
+    var r = _projRec(i); if (!r) return;
+    var title = r.v.rootNodeLabel || r.v.folderName;
+    confirmDeleteText(title, function () {
+      var purgeLocal = function () {
+        if (!r.p) return;
+        try {
+          var arr = projectsRead().filter(function (x) { return x.id !== r.p.id; });
+          localStorage.setItem('tutor_ai_projects', JSON.stringify(arr));
+          localStorage.removeItem(r.p.id);
+        } catch (e) { }
+      };
+      if (window.electronAPI && window.electronAPI.deleteVault) {
+        window.electronAPI.deleteVault({ folderPath: r.v.fullPath }).then(function (res) {
+          if (res && res.success) { toast(_t('lt_vault_deleted', 'Cartella spostata nel Cestino.'), 'success'); purgeLocal(); refresh(); }
+          else toast((res && res.error) || _t('lt_vault_del_fail', 'Impossibile eliminare la cartella.'), 'error');
+        }).catch(function () { toast(_t('lt_vault_del_fail', 'Impossibile eliminare la cartella.'), 'error'); });
+      } else { purgeLocal(); refresh(); }
+    });
+  }
+
+  // Backfill (decisione 2): crea in blocco le cartelle mancanti per i progetti
+  // localStorage senza vault, dagli snapshot appState su disco — SENZA toccare la
+  // mappa aperta. Nesting per classe (clsId → classe) e collisione « · 0N ».
+  function _mapDataFromSnapshot(snap) {
+    return {
+      extractionMode: snap.extractionMode,
+      rootNodeLabel: snap.rootNodeLabel,
+      nodes: (snap.db && snap.db.nodes) || [],
+      links: (snap.db && snap.db.links) || [],
+      studySets: (snap.db && snap.db.studySets) || [],
+      userProfile: snap.userProfile,
+      aiProvider: snap.aiProvider,
+      generationUsage: snap.generationUsage,
+      customColors: (snap.db && snap.db.customColors) || {}
+    };
+  }
+  async function backfillVaults() {
+    var fc = FCore();
+    if (!window.electronAPI || !window.electronAPI.saveVault || !window.electronAPI.filesRootGet || !fc) {
+      toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return;
+    }
+    var todo = orphanProjects();
+    if (!todo.length) { toast(_t('lt_backfill_none', 'Tutte le mappe hanno già una cartella.'), 'info'); return; }
+    if (window.showLoadingOverlay) window.showLoadingOverlay(true, _t('lt_backfill_run', 'Riordino le cartelle…'));
+    var created = 0;
+    try {
+      var info = await window.electronAPI.filesRootGet();
+      var base = info && info.mapsBaseDir;
+      var all = [];
+      try { all = (await window.electronAPI.getAllVaults()) || []; } catch (e) { all = []; }
+      var projects = projectsRead();
+      for (var k = 0; k < todo.length; k++) {
+        var p = todo[k];
+        var snap = null; try { snap = JSON.parse(localStorage.getItem(p.id) || 'null'); } catch (e) { snap = null; }
+        if (!snap || !snap.db || !snap.db.nodes || !snap.db.nodes.length) continue;
+        var cls = (p.clsId && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(p.clsId) : null;
+        var classDir = (cls && cls.name) ? fc.mapClassFolder(cls.sede, cls.name) : null;
+        var vaultName = fc.vaultFolderName(snap.rootNodeLabel || p.name || 'Mappa');
+        var siblings = all.filter(function (v) { return classDir ? (v.classDir === classDir) : (!v.classDir); }).map(function (v) { return v.folderName; });
+        var finalName = vaultName;
+        if (siblings.indexOf(vaultName) >= 0 && fc.sessionSeq) {
+          var seq = fc.sessionSeq(siblings, vaultName, ' · ');
+          var n = Math.max(2, (seq.maxSeq || 0) + 1);
+          finalName = vaultName + ' · ' + String(n).padStart(2, '0');
+        }
+        var folderPath = classDir ? (base + '/' + classDir + '/' + finalName) : (base + '/' + finalName);
+        var res = null;
+        try { res = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: _mapDataFromSnapshot(snap) }); } catch (e) { res = null; }
+        if (res && res.success) {
+          var proj = projects.find(function (x) { return x.id === p.id; });
+          if (proj) { proj.vault = finalName; proj.classDir = classDir; }
+          all.push({ folderName: finalName, classDir: classDir });
+          created++;
+        }
+      }
+      localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
+    } catch (e) { console.warn('[autovault] backfill fallito:', e && e.message); }
+    if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+    toast(_t('lt_backfill_done', '{n} cartelle create.').replace('{n}', created), 'success');
+    refresh();
+  }
+
+  // Fallback senza Electron (browser statico): elenco dal solo localStorage.
+  function renderProjectsLocal(body) {
+    var projects = projectsRead();
     var allow = allowedProjectIds();
     if (Array.isArray(allow)) { var set = {}; allow.forEach(function (i) { set[i] = 1; }); projects = projects.filter(function (p) { return set[p.id]; }); }
     if (!projects.length) {
@@ -420,8 +671,6 @@
       push(p.cls);
       if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push);
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (p.tuned ? 'bg-emerald-500' : 'bg-slate-300') + '" title="' + esc(p.tuned ? _t('rp_tuned_yes', 'Generazione tarata') : _t('rp_tuned_no', 'Generazione standard')) + '"></span>';
-      // Click sulla riga = SELEZIONA la mappa (filtra le 3 sezioni). Apertura solo
-      // dal bottone «Riprendi». Kill-switch '0' → click apre (comportamento storico).
       var onClick = rowSelectEnabled()
         ? "window.MappAITeach.selectProject('" + p.id + "')"
         : "window.loadSavedProject('" + p.id + "')";
@@ -1011,6 +1260,11 @@
     deleteProject: deleteProjectRow,
     openProjectFolder: openProjectFolder,
     shareProjectZip: shareProjectZip,
+    projOpen: projOpen,
+    projFinder: projFinder,
+    projQr: projQr,
+    projDelete: projDelete,
+    backfillVaults: backfillVaults,
     selectProject: selectProject,
     openDiskFile: openDiskFile,
     _selectedProject: null,

@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Pipeline «Genera materiali» (011)
     htmlToPdf: (data) => ipcRenderer.invoke('html-to-pdf', data),
     saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', data),
+    readVaultFile: (data) => ipcRenderer.invoke('read-vault-file', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
     pipelineOpenFolder: (data) => ipcRenderer.invoke('pipeline-open-folder', data),
     pipelineOpenFile: (data) => ipcRenderer.invoke('pipeline-open-file', data),
@@ -117,6 +118,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     pickFolder: () => ipcRenderer.invoke('pick-folder'),
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
+    deleteVault: (data) => ipcRenderer.invoke('delete-vault', data),
     getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),

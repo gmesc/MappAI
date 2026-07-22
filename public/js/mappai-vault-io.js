@@ -44,6 +44,12 @@ window.saveMapVault = async function () {
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
 
+            // Fonti/: ora che il vault esiste, salva gli originali PDF delle
+            // sources ancora in memoria (22/7/26 — anteprima ELABORA persistente)
+            if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
+                window.MappAIElabora.flushSourcesToVault();
+            }
+
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
                 saveRes.upgrades.forEach(up => {
@@ -71,6 +77,86 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         console.error(e);
         window.showAlert("Errore", e.message);
+    }
+};
+
+// Auto-creazione ORDINATA della cartella vault (riordino su disco, 22/7).
+// A fine generazione (e come backfill dalla sezione Insegna) crea la cartella
+// vault della mappa dentro «Mappe», nominata col ROOT del progetto. Se c'è una
+// CLASSE ATTIVA la annida nella cartella della classe (Mappe/<classe>/<root>),
+// altrimenti flat (Mappe/<root>). Idempotente: se il progetto è già legato a un
+// vault (appState.activeVaultPath), AGGIORNA quella cartella invece di crearne
+// una nuova (decisione 1B: stesso progetto = update). Collisione di nome nella
+// stessa classe → suffisso « · 0N » (stesso schema della pipeline 011).
+// Kill-switch: localStorage 'mappai_autovault' === '0'. Ritorna
+// { created, folderPath, classDir } oppure null (skip/errore, mai bloccante).
+window.ensureProjectVault = async function (opts) {
+    opts = opts || {};
+    try {
+        if (localStorage.getItem('mappai_autovault') === '0') return null;
+        if (!window.electronAPI || !window.electronAPI.saveVault || !window.electronAPI.filesRootGet) return null;
+        if (!appState.db.nodes || !appState.db.nodes.length) return null;
+        var FC = window.FilesCore;
+        if (!FC) return null;
+
+        // (1) Progetto già legato a una cartella → aggiorna in place.
+        if (appState.activeVaultPath) {
+            var upd = await window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() });
+            if (upd && upd.success && window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
+            return { created: false, folderPath: appState.activeVaultPath, classDir: appState.activeVaultClassDir || null };
+        }
+
+        // (2) Classe attiva → nesting; altrimenti flat in Mappe.
+        var cls = null;
+        try { cls = (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { cls = null; }
+        var info = await window.electronAPI.filesRootGet();
+        var base = info && info.mapsBaseDir;
+        if (!base) return null;
+
+        var vaultName = FC.vaultFolderName(appState.rootNodeLabel || 'Mappa');
+        var classDir = (cls && cls.name) ? FC.mapClassFolder(cls.sede, cls.name) : null;
+
+        // (3) Collisione → suffisso « · 0N ».
+        var siblings = [];
+        try {
+            var all = await window.electronAPI.getAllVaults();
+            siblings = (all || []).filter(function (v) {
+                return classDir ? (v.classDir === classDir) : (!v.classDir);
+            }).map(function (v) { return v.folderName; });
+        } catch (e) { siblings = []; }
+        var finalName = vaultName;
+        if (siblings.indexOf(vaultName) >= 0 && FC.sessionSeq) {
+            var seq = FC.sessionSeq(siblings, vaultName, ' · ');
+            var n = Math.max(2, (seq.maxSeq || 0) + 1);
+            finalName = vaultName + ' · ' + String(n).padStart(2, '0');
+        }
+
+        var folderPath = classDir ? (base + '/' + classDir + '/' + finalName) : (base + '/' + finalName);
+        var saveRes = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: window.buildVaultMapData() });
+        if (!saveRes || !saveRes.success) return null;
+
+        appState.activeVaultPath = folderPath;
+        appState.activeVaultClassDir = classDir;
+
+        // Fonti/: travasa gli originali PDF ancora in memoria (come saveMapVault).
+        if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
+            try { window.MappAIElabora.flushSourcesToVault(); } catch (e) { }
+        }
+        // Base64 → path locali su disco.
+        if (saveRes.upgrades) {
+            saveRes.upgrades.forEach(function (up) {
+                var node = appState.db.nodes.find(function (n) { return n.id === up.id; });
+                if (node && up.images) { node.images = up.images; if (up.images.length > 0) node.image = up.images[0]; }
+            });
+        }
+        var syncBtn = document.getElementById('sync-vault-btn');
+        if (syncBtn) { syncBtn.classList.remove('hidden'); syncBtn.classList.add('flex'); }
+
+        if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
+        return { created: true, folderPath: folderPath, classDir: classDir };
+    } catch (e) {
+        console.warn('[autovault] ensureProjectVault fallito:', e && e.message);
+        return null;
     }
 };
 

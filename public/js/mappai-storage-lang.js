@@ -31,10 +31,18 @@ const StorageManager = {
         const existing = idx >= 0 ? projects[idx] : null;
         // Classe attiva al momento della CREAZIONE (congelata al primo salvataggio;
         // progetti legacy senza campo restano null — mai retro-etichettati)
-        let activeClsName = null;
+        let activeClsName = null, activeClsId = null;
         try {
-            const ac = window.MappAIClasses && window.MappAIClasses.getActive();
-            if (ac && ac.name) activeClsName = ac.name;
+            // L'ID classe attivo è in localStorage (sincrono, SEMPRE disponibile);
+            // il NOME vive nella lista classi caricata via IPC (async) → se il primo
+            // autosave parte prima del caricamento, getActive() → null e la classe
+            // resterebbe congelata a null. Congelando anche clsId il nome si risolve
+            // a render (renderProjects/renderElaboraProjects) quando lo store è pronto.
+            if (window.MappAIClasses) {
+                if (window.MappAIClasses.activeId) activeClsId = window.MappAIClasses.activeId() || null;
+                const ac = window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+                if (ac && ac.name) activeClsName = ac.name;
+            }
         } catch (e) { /* store classi non disponibile */ }
         const pMeta = {
             id: this.currentProjectId,
@@ -42,6 +50,9 @@ const StorageManager = {
             date: Date.now(),                                          // ultima modifica
             created: (existing && (existing.created || existing.date)) || Date.now(), // creazione
             cls: existing ? (existing.cls || null) : activeClsName,
+            // ID classe congelato alla creazione (per risolvere il nome a render
+            // anche se lo store classi non era ancora caricato al primo salvataggio)
+            clsId: existing ? (existing.clsId || activeClsId) : activeClsId,
             // Grade del grafo (005-landing-insegna): PRESERVATO dall'esistente —
             // senza questo ogni autosave lo cancellerebbe (assegnazione in Costruisci
             // o eredità dal chip in Insegna).
@@ -58,7 +69,13 @@ const StorageManager = {
             // usato da renderRecentProjects per nascondere i progetti il cui vault è stato eliminato
             vault: appState.activeVaultPath
                 ? (String(appState.activeVaultPath).split(/[\\/]/).filter(Boolean).pop() || null)
-                : null
+                : null,
+            // Contenitore di classe che annida il vault (22/7, auto-vault): serve a
+            // disambiguare il match col disco (get-all-vaults ritorna folderName +
+            // classDir). null = vault flat in Mappe (progetto senza classe).
+            classDir: appState.activeVaultClassDir
+                || (existing ? existing.classDir : null)
+                || null
         };
 
         if (idx >= 0) projects[idx] = pMeta;
@@ -174,6 +191,12 @@ const StorageManager = {
                     window.showLoadingOverlay(false);
                 }
             }, 200);
+
+            // Backfill pigro (22/7): se un progetto legacy non ha ancora una
+            // cartella su disco, creala all'apertura (nome ROOT, nesting classe).
+            if (!appState.activeVaultPath && window.ensureProjectVault) {
+                setTimeout(() => { try { window.ensureProjectVault({ reason: 'open' }); } catch (e) { } }, 400);
+            }
 
             return true;
         } catch (e) {
