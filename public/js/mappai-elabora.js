@@ -195,6 +195,7 @@
             '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
             '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
             '<div class="elab-spacer"></div>' +
+            '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
             '<button type="button" class="elab-btn elab-primary" onclick="MappAIElabora.pickPdf()">' + emo('add') + ' ' + t('el_add_pdf', 'Aggiungi PDF') + '</button>' +
             '<input type="file" id="elab-pdf-input" accept="application/pdf,.pdf" class="hidden" onchange="MappAIElabora.onPdf(this)">' +
@@ -314,25 +315,27 @@
         } catch (e) { _covByGroup = null; }
     }
 
-    // colore della macro-area che copre una frase (o null). { color, kind:'res'|'cov', ci, ri }
+    // colore+area della macro-area che copre una frase (o null).
+    // { color, group, kind:'res'|'cov', ci, ri }
     function _sentColor(sent) {
         const m = _marks && _marks.get(_normKey(sent));
         if (m) {
             const n = _node(m.nodeId);
-            return { color: _groupColorOf(_nodeGroupOf(n)), kind: 'res', ci: m.ci, ri: m.ri };
+            const g = _nodeGroupOf(n);
+            return { color: _groupColorOf(g), group: g, kind: 'res', ci: m.ci, ri: m.ri };
         }
         if (_covByGroup && _covByGroup.size) {
             try {
                 const D = window.MappAIDeepenCore;
                 let best = null;
-                _covByGroup.forEach(v => {
+                _covByGroup.forEach((v, g) => {
                     if (!v.index || !D || !D.lexicalOverlap) return;
                     const ov = D.lexicalOverlap(sent, v.index);
                     if (ov && ov.total >= 3 && ov.containment >= 0.6 && (!best || ov.containment > best.c)) {
-                        best = { c: ov.containment, color: v.color };
+                        best = { c: ov.containment, color: v.color, group: g };
                     }
                 });
-                if (best) return { color: best.color, kind: 'cov' };
+                if (best) return { color: best.color, group: best.group, kind: 'cov' };
             } catch (e) { /* soft */ }
         }
         return null;
@@ -351,6 +354,53 @@
             return { cls: 'elab-s elab-s-cov', attr: style };
         }
         return { cls: 'elab-s', attr: '' };
+    }
+
+    // ── #5: raccolta delle frasi della fonte PER MACRO-AREA ──────────────────
+    // Ogni frase della fonte attribuita a una macro-area (residuo o coperta)
+    // finisce nella sezione di quell'area, nel suo colore. Aree ordinate per group.
+    function _areaSections() {
+        const s = _appState();
+        const D = window.MappAIDeepenCore;
+        if (!s || !s.db || !D || !D.splitSentences) return [];
+        const l1Label = new Map();   // group → etichetta L1
+        (s.db.nodes || []).forEach(n => {
+            if (n.level === 1) {
+                const g = _nodeGroupOf(n);
+                if (g != null && !l1Label.has(g)) l1Label.set(g, window.cleanLabel ? window.cleanLabel(n.label) : (n.label || ''));
+            }
+        });
+        const buckets = new Map();   // group → { label, color, items[] }
+        const seen = new Set();
+        D.splitSentences(_corpus() || '').forEach(sn => {
+            const key = _normKey(sn);
+            if (key.length < 8 || seen.has(key)) return;   // dedup + salta rumore
+            const c = _sentColor(sn);
+            if (!c || c.group == null) return;
+            seen.add(key);
+            if (!buckets.has(c.group)) buckets.set(c.group, { label: l1Label.get(c.group) || t('el_area_other', 'Altra area'), color: _groupColorOf(c.group), items: [] });
+            buckets.get(c.group).items.push(esc(sn));
+        });
+        return [...buckets.entries()].sort((a, b) => a[0] - b[0])
+            .map(e => ({ heading: e[1].label, color: e[1].color, items: e[1].items }));
+    }
+
+    // Esporta il documento "frasi per area tematica" (#5) via il costruttore condiviso.
+    function exportAreas() {
+        if (!window.MappAIStudyDoc) { if (window.showToast) showToast(t('el_export_nolib', 'Costruttore documento non disponibile.'), 'error'); return; }
+        const sections = _areaSections();
+        if (!sections.length) { if (window.showToast) showToast(t('el_no_areas', 'Nessuna frase attribuita a una macro-area. Serve una mappa con macro-aree e una fonte.'), 'warning'); return; }
+        const s = _appState();
+        const mapName = (s && s.rootNodeLabel) || t('el_map', 'Mappa');
+        const lang = (window.getMapLanguage && window.getMapLanguage() === 'en') ? 'en' : 'it';
+        const html = window.MappAIStudyDoc.buildHtml({
+            title: t('el_doc_areas_title', 'Frasi della fonte per area tematica'),
+            mapName: mapName,
+            subtitle: t('el_crumb', 'elaborazione'),
+            sections: sections,
+            lang: lang
+        });
+        window.MappAIStudyDoc.openDoc(html, { successMsg: t('el_doc_opened', 'Documento aperto — stampa o salva in PDF.') });
     }
 
     // click su frase-residuo → scrolla e lampeggia la card corrispondente
@@ -1168,6 +1218,6 @@
         teardown, revealCard, revealInSource,
         setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault
+        flushSourcesToVault, exportAreas
     };
 })();
