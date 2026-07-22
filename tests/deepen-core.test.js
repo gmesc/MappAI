@@ -261,10 +261,18 @@ test('foldBeyondDepth: no-op se maxLevel copre già tutta la profondità', () =>
     assert.strictEqual(out.nodes.length, 2);
 });
 
-test('foldBeyondDepth FIXTURE: mm_dal_papiro a L3 → zero nodi oltre L3, desc cresciute', { skip: !require('fs').existsSync('/Users/giacomomeschini/Documents/MappAI - file/Mappe/mm_dal_papiro_alla_paper.json') }, () => {
+test('foldBeyondDepth FIXTURE: mm_dal_papiro a L3 → zero nodi oltre L3, desc cresciute', { skip: !require('fs').existsSync('/Users/giacomomeschini/Documents/MappAI - file/Mappe/mm_dal_papiro_alla_paper.json') }, (t) => {
     const map = JSON.parse(require('fs').readFileSync('/Users/giacomomeschini/Documents/MappAI - file/Mappe/mm_dal_papiro_alla_paper.json', 'utf8'));
     // profondità topologica reale
     const eid = x => (x && typeof x === 'object') ? x.id : x;
+    // guardia anti-drift: la mappa su disco è DATI VIVI — se è già stata foldata
+    // nell'app (niente nodi oltre L3) la fixture non esercita più il caso → skip.
+    {
+        const ch0 = {}; map.links.forEach(l => { if (l.isCross) return; (ch0[eid(l.source)] = ch0[eid(l.source)] || []).push(eid(l.target)); });
+        const dep0 = { ROOT: 0 }; let q0 = ['ROOT'];
+        while (q0.length) { const nx = []; for (const id of q0) for (const c of (ch0[id] || [])) if (dep0[c] === undefined) { dep0[c] = dep0[id] + 1; nx.push(c); } q0 = nx; }
+        if (Math.max(...Object.values(dep0)) <= 3) { t.skip('fixture già foldata a L3 su disco'); return; }
+    }
     const out = DC.foldBeyondDepth(map.nodes, map.links, 3);
     // ricalcola la profondità del grafo risultante
     const ch = {}; out.links.forEach(l => { if (l.isCross) return; (ch[eid(l.source)] = ch[eid(l.source)] || []).push(eid(l.target)); });
