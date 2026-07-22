@@ -201,7 +201,7 @@
             '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
             '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
             '<div class="elab-spacer"></div>' +
-            '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlighted()" title="' + t('el_export_hl_tip', 'Scheda della fonte con le frasi evidenziate per macro-area, stampabile/PDF') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
+            '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlightedPdf()" title="' + t('el_export_hl_tip', 'Esporta il PDF originale con le frasi evidenziate per macro-area (fonte solo-testo → documento riflowato)') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
             '<button type="button" class="elab-btn elab-primary" onclick="MappAIElabora.pickPdf()">' + emo('add') + ' ' + t('el_add_pdf', 'Aggiungi PDF') + '</button>' +
@@ -430,6 +430,73 @@
             lang: lang
         });
         window.MappAIStudyDoc.openDoc(html, { successMsg: t('el_doc_opened', 'Documento aperto — stampa o salva in PDF.') });
+    }
+
+    // #3 (fedeltà): esporta il PDF ORIGINALE con gli highlight per macro-area
+    // bruciati sopra (raster, una immagine per pagina, impaginazione preservata).
+    // Fallback al documento riflowato se non c'è un PDF sorgente o mancano le lib.
+    async function exportHighlightedPdf() {
+        const pdfs = _collectPdfs();
+        if (!pdfs.length) return exportHighlighted();   // fonte solo-testo → riflow
+        if (typeof pdfjsLib === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+            if (window.showToast) showToast(t('el_pdf_export_fallback', 'Esporto la versione testo (PDF non disponibile).'), 'info');
+            return exportHighlighted();
+        }
+        const entry = pdfs[_pdfIdx] || pdfs[0];
+        if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('el_pdf_export_run', 'Esporto il PDF evidenziato…'));
+        try {
+            const colored = _coloredSentences();
+            const buf = await entry.file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+            const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
+            const jsPDF = window.jspdf.jsPDF;
+            const SCALE = 2, CAP = 60;
+            const n = Math.min(pdf.numPages, CAP);
+            let doc = null;
+            for (let i = 1; i <= n; i++) {
+                const page = await pdf.getPage(i);
+                const vp1 = page.getViewport({ scale: 1 });        // pt per il formato pagina
+                const vp = page.getViewport({ scale: SCALE });     // canvas ad alta risoluzione
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport: vp }).promise;
+                if (colored.length) {
+                    try {
+                        const tc = await page.getTextContent();
+                        const itemColor = _matchColoredItems(tc, colored);
+                        if (itemColor.size) {
+                            ctx.save(); ctx.globalCompositeOperation = 'multiply';
+                            itemColor.forEach((color, idx) => {
+                                const it = tc.items[idx]; if (!it || !it.transform) return;
+                                const tx = U ? U.transform(vp.transform, it.transform) : it.transform;
+                                const fontH = Math.hypot(tx[2], tx[3]) || ((it.height || 10) * SCALE);
+                                const width = (it.width || 0) * SCALE; if (width <= 0) return;
+                                ctx.fillStyle = window.MappAIStudyDoc ? window.MappAIStudyDoc.rgba(color, 0.4) : color;
+                                ctx.fillRect(tx[4], tx[5] - fontH, width, fontH);
+                            });
+                            ctx.restore();
+                        }
+                    } catch (e) { /* pagina senza text layer: resta il canvas nudo */ }
+                }
+                const img = canvas.toDataURL('image/jpeg', 0.82);
+                const orient = vp1.width > vp1.height ? 'l' : 'p';
+                if (!doc) doc = new jsPDF({ orientation: orient, unit: 'pt', format: [vp1.width, vp1.height] });
+                else doc.addPage([vp1.width, vp1.height], orient);
+                doc.addImage(img, 'JPEG', 0, 0, vp1.width, vp1.height);
+            }
+            if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+            if (!doc) return exportHighlighted();
+            const s = _appState();
+            const name = String((s && s.rootNodeLabel) || 'scheda').replace(/[^\w\-]+/g, '_').slice(0, 50) + '-evidenziata.pdf';
+            doc.save(name);
+            if (window.showToast) showToast(t('el_pdf_export_done', 'PDF evidenziato salvato.'), 'success');
+        } catch (e) {
+            if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+            console.warn('[elabora] export PDF evidenziato fallito:', e && e.message);
+            if (window.showToast) showToast(t('el_pdf_export_fail', 'Export PDF non riuscito, esporto la versione testo.'), 'warning');
+            exportHighlighted();
+        }
     }
 
     // Esporta il documento "frasi per area tematica" (#5) via il costruttore condiviso.
@@ -784,10 +851,12 @@
     // Disegna rettangoli colorati sopra il canvas di UNA pagina PDF, sulle parole
     // che appartengono a una frase colorata (best-effort: text layer pdf.js +
     // match della frase normalizzata nel testo concatenato della pagina).
-    function _paintPdfHighlights(wrap, tc, vpCss, scaleCss, colored) {
+    // Matching condiviso (anteprima DOM + export PDF): quali text item della
+    // pagina cadono in una frase colorata. → Map(item idx → colore).
+    function _matchColoredItems(tc, colored) {
         const items = (tc && tc.items) || [];
-        if (!items.length) return;
-        // stringa pagina normalizzata + mappa char→indice item
+        const itemColor = new Map();
+        if (!items.length || !colored || !colored.length) return itemColor;
         let raw = ''; const map = [];
         items.forEach((it, idx) => {
             const s = it.str || '';
@@ -797,12 +866,11 @@
                 if (/\s/.test(ch)) { if (!prevSpace) { raw += ' '; map.push(idx); prevSpace = true; } }
                 else { raw += ch.toLowerCase(); map.push(idx); prevSpace = false; }
             }
-            if (!prevSpace) { raw += ' '; map.push(idx); }   // stacco fra item
+            if (!prevSpace) { raw += ' '; map.push(idx); }
         });
-        if (!raw) return;
-        const itemColor = new Map();   // item idx → colore (primo che matcha)
+        if (!raw) return itemColor;
         colored.forEach(cs => {
-            if (!cs.n || cs.n.length < 8) return;            // frasi troppo corte = rumore
+            if (!cs.n || cs.n.length < 8) return;
             let from = 0, pos;
             while ((pos = raw.indexOf(cs.n, from)) >= 0) {
                 const end = Math.min(pos + cs.n.length - 1, map.length - 1);
@@ -810,6 +878,12 @@
                 from = pos + cs.n.length;
             }
         });
+        return itemColor;
+    }
+
+    function _paintPdfHighlights(wrap, tc, vpCss, scaleCss, colored) {
+        const items = (tc && tc.items) || [];
+        const itemColor = _matchColoredItems(tc, colored);
         if (!itemColor.size) return;
         const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
         const layer = document.createElement('div');
@@ -1275,6 +1349,6 @@
         teardown, revealCard, revealInSource,
         setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, exportAreas, exportHighlighted, toggleBoilerplate
+        flushSourcesToVault, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate
     };
 })();
