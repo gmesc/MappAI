@@ -182,20 +182,11 @@
     }
     function _removeBanner() { var b = document.getElementById('correction-banner'); if (b) b.remove(); }
 
-    function mountButton() {
-        if (localStorage.getItem('mappai_correction_mode') !== '1') return;
-        var host = document.getElementById('header-utils') || document.body;
-        if (document.getElementById('cr-header-btn')) return;
-        var btn = document.createElement('button');
-        btn.id = 'cr-header-btn';
-        btn.type = 'button';
-        btn.title = _t('cr_btn_tip', 'Revisione mappa (raccogli correzioni annotate)');
-        btn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;cursor:pointer;font-size:13px;';
-        btn.innerHTML = '<i data-lucide="clipboard-pen"></i><span>' + _t('cr_btn', 'Revisione') + '</span>';
-        btn.onclick = function () { if (_active) review(); else start(); };
-        host.appendChild(btn);
-        if (window.safeCreateIcons) window.safeCreateIcons();
-    }
+    // 22/7/26: il bottone Revisione NON è più nella landing header — vive nel menu
+    // azioni della mappa (index.html #floating-actions-menu, sotto Sincronizza Vault),
+    // che chiama direttamente MappAICorrection.start/review. mountButton resta come
+    // no-op per retrocompatibilità (altri chiamanti/API), senza montare nulla.
+    function mountButton() { /* no-op: entry spostata nel menu azioni mappa */ }
 
     // Analitiche aggregate: legge più correzioni.json e somma i motivi (per i
     // tester). Riceve un array di log già parsati; puro, senza I/O.

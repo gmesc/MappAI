@@ -1472,6 +1472,29 @@
         return false;
     }
 
+    // ── MM Triage: profondità adattiva dal tipo di scheda (pre-pass) ──────────
+
+    function enableMMTriage() {
+        localStorage.setItem('mappai_mm_triage_enabled', '1');
+        if (typeof window.setMMLogic === 'function') window.setMMLogic('triage', true);
+        const mode = _getAppState()?.extractionMode;
+        if (mode && mode !== 'mindmap') {
+            console.warn(`%c⚠️ Triage attivato ma extractionMode=${mode}. Avrà effetto solo in MindMap.`, 'color:orange');
+        } else {
+            console.log('%c✅ MM TRIAGE ATTIVO (MindMap)', 'color:green;font-weight:bold');
+            console.log('   Pre-pass: 1 chiamata AI stima la profondità-essenziale dalla struttura della fonte.');
+            console.log('   Tassonomico → nessun approfondimento (no nodi _D di parafrasi); procedurale → scava sotto L3.');
+        }
+        return true;
+    }
+
+    function disableMMTriage() {
+        localStorage.setItem('mappai_mm_triage_enabled', '0');
+        if (typeof window.setMMLogic === 'function') window.setMMLogic('mappai', true);
+        console.log('%c⛔ MM TRIAGE DISATTIVATO (deepening usa il tetto utente)', 'color:#6366f1;font-weight:bold');
+        return false;
+    }
+
     // ── Community KG (ispirato a MiniMAP) ─────────────────────────────────────
 
     function enableCommunityKG() {
@@ -1679,6 +1702,8 @@
         disableL1Split,
         enableRichRel,
         disableRichRel,
+        enableMMTriage,
+        disableMMTriage,
         enableCommunityKG,
         disableCommunityKG,
         enrichDescsStatus,

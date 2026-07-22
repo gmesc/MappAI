@@ -10,10 +10,14 @@ let editTarget = null;
 let editLinks = [];
 let editImages = [];
 
-window.openEditModal = function (nodeData) {
+// appendText (opz.): citazione da ELABORA precaricata in coda alla desc; il
+// docente la vede, ritocca e SALVA (non-mutante finché non salva). Decisione 1(B).
+window.openEditModal = function (nodeData, appendText) {
     editTarget = nodeData;
     document.getElementById('edit-n-label').value = cleanLabel(nodeData.label) || "";
-    document.getElementById('edit-n-content').value = cleanLabel(nodeData.desc || nodeData.content) || "";
+    let _baseDesc = cleanLabel(nodeData.desc || nodeData.content) || "";
+    if (appendText) _baseDesc = (_baseDesc ? _baseDesc + "\n\n" : "") + String(appendText).trim();
+    document.getElementById('edit-n-content').value = _baseDesc;
 
     // Migration to arrays
     editLinks = nodeData.urls ? [...nodeData.urls] : (nodeData.url ? [nodeData.url] : []);
@@ -61,6 +65,10 @@ window.openEditModal = function (nodeData) {
         modal.classList.remove('opacity-0');
         box.classList.remove('scale-95');
         window.safeCreateIcons();
+        if (appendText) {
+            const ta = document.getElementById('edit-n-content');
+            if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollTop = ta.scrollHeight; }
+        }
     }, 10);
 }
 

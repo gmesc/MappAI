@@ -18,6 +18,7 @@
         map: {
             label: 'Generazione mappa',
             subs: {
+                triage: 'Triage struttura fonte',
                 mm_iterative: 'MindMap iterativa',
                 mm_phase1: 'MindMap — Fase 1 (macro-aree)',
                 mm_phase3: 'MindMap — Fase 3 (rami)',

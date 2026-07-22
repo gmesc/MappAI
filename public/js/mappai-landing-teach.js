@@ -28,7 +28,7 @@
   var CORE = function () { return window.MappAITeachCore; };
 
   // ── localStorage I/O ───────────────────────────────────────────────────────
-  function readMode() { try { return localStorage.getItem(LS_MODE) === 'teach' ? 'teach' : 'build'; } catch (e) { return 'build'; } }
+  function readMode() { try { var m = localStorage.getItem(LS_MODE); return (m === 'teach' || m === 'elabora') ? m : 'build'; } catch (e) { return 'build'; } }
   function readFilter() { try { return localStorage.getItem(LS_FILTER) === 'active' ? 'active' : 'all'; } catch (e) { return 'all'; } }
   function regRead() { try { return JSON.parse(localStorage.getItem(LS_REGISTRY) || '[]'); } catch (e) { return []; } }
   function regWrite(arr) { try { localStorage.setItem(LS_REGISTRY, JSON.stringify(arr)); } catch (e) { /* quota */ } }
@@ -60,36 +60,49 @@
     var mode = readMode();
     var build = document.getElementById('build-content');
     var teach = document.getElementById('teach-content');
+    var elab = document.getElementById('elabora-content');
     var segB = document.getElementById('landing-mode-build');
     var segT = document.getElementById('landing-mode-teach');
+    var segE = document.getElementById('landing-mode-elabora');
     var clsFilter = document.getElementById('teach-class-filter');
     if (build) build.classList.toggle('hidden', mode !== 'build');
     if (teach) teach.classList.toggle('hidden', mode !== 'teach');
+    if (elab) elab.classList.toggle('hidden', mode !== 'elabora');
     if (segB) segB.classList.toggle('active', mode === 'build');
     if (segT) segT.classList.toggle('active', mode === 'teach');
+    if (segE) segE.classList.toggle('active', mode === 'elabora');
     if (clsFilter) clsFilter.classList.toggle('hidden', mode !== 'teach');
     applyFilterSeg();
     if (mode === 'build') renderBuildProjects();
-    else refresh();
+    else if (mode === 'teach') refresh();
+    else if (mode === 'elabora' && window.MappAIElabora) window.MappAIElabora.open();
   }
 
+  // Filtro classe CONDIVISO (Insegna + Costruisci + Elabora): stessi segmenti stile
   function applyFilterSeg() {
     var f = readFilter();
-    var a = document.getElementById('teach-filter-all');
-    var c = document.getElementById('teach-filter-class');
-    if (a) a.classList.toggle('active', f === 'all');
-    if (c) c.classList.toggle('active', f === 'active');
+    [['teach-filter-all', 'teach-filter-class'], ['build-filter-all', 'build-filter-class'], ['elab-filter-all', 'elab-filter-class']].forEach(function (pair) {
+      var a = document.getElementById(pair[0]); var c = document.getElementById(pair[1]);
+      if (a) a.classList.toggle('active', f === 'all');
+      if (c) c.classList.toggle('active', f === 'active');
+    });
   }
 
   function setMode(m) {
-    try { localStorage.setItem(LS_MODE, m === 'teach' ? 'teach' : 'build'); } catch (e) { }
+    // ELABORA (co-docente): senza mappa caricata mostra il selettore progetti
+    // (empty-state con lista) → scegli una mappa da elaborare. Nessun blocco.
+    var mm = (m === 'teach' || m === 'elabora') ? m : 'build';
+    try { localStorage.setItem(LS_MODE, mm); } catch (e) { }
     applyMode();
   }
 
   function setClassFilter(f) {
     try { localStorage.setItem(LS_FILTER, f === 'active' ? 'active' : 'all'); } catch (e) { }
     applyFilterSeg();
-    refresh();
+    var mode = readMode();
+    if (mode === 'build') renderBuildProjects();
+    else if (mode === 'elabora' && window.MappAIElabora) window.MappAIElabora.render();
+    else refresh();
   }
 
   function toggleBuildProjects() {
@@ -103,9 +116,51 @@
 
   // ── Modalità Costruisci: sezione progetti (con menu grade) ──────────────────
   function renderBuildProjects() {
-    if (window.StorageManager && StorageManager.renderRecentProjects) {
-      StorageManager.renderRecentProjects('recent-projects-container', { gradeMenu: true });
+    // StorageManager è const lessicale (NON su window) → guardia con typeof, non window.
+    if (typeof StorageManager !== 'undefined' && StorageManager.renderRecentProjects) {
+      // Picker: filtro-classe che non trova mappe → mostra tutte (mai lista vuota).
+      var ids = allowedProjectIds();
+      if (Array.isArray(ids) && ids.length === 0) ids = null;
+      StorageManager.renderRecentProjects('recent-projects-container', { gradeMenu: true, onlyIds: ids });
     }
+  }
+
+  // ── Progetti in ELABORA: stesso layout tabella di Insegna (Tipo/Titolo/Classe/
+  //    Data), MA senza «Riprendi» né QR; click riga → carica + elabora (openProject).
+  function renderElaboraProjects(containerId) {
+    var body = document.getElementById(containerId || 'elab-projects');
+    if (!body) return;
+    var projects = projectsRead();
+    var valid = (typeof StorageManager !== 'undefined' && Array.isArray(StorageManager.validVaultFolders)) ? StorageManager.validVaultFolders : null;
+    if (valid) projects = projects.filter(function (p) { return !p.vault || valid.indexOf(p.vault) >= 0; });
+    var allow = allowedProjectIds();
+    // Picker: classe attiva senza mappe → mostra tutte (mai vuoto per filtro).
+    if (Array.isArray(allow) && allow.length) { var set = {}; allow.forEach(function (i) { set[i] = 1; }); projects = projects.filter(function (p) { return set[p.id]; }); }
+    if (!projects.length) {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('el_no_projects', 'Nessuna mappa salvata da elaborare.')) + '</p>';
+      return;
+    }
+    var core = CORE();
+    var reg = regRead();
+    var norm = (core && core.normGrade) ? core.normGrade : function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
+    body.innerHTML = fileTable(projects.map(function (p) {
+      var meta = TYPE_META[p.type === 'kg' ? 'kg' : 'mindmap'];
+      var chips = [], seen = {};
+      var push = function (c) { if (c == null || c === '') return; var k = norm(c) || String(c); if (seen[k]) return; seen[k] = 1; chips.push(c); };
+      push(p.cls);
+      if (core && core.classesForMap) core.classesForMap(reg, { projectId: p.id, map: p.name }).forEach(push);
+      var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (p.tuned ? 'bg-emerald-500' : 'bg-slate-300') + '"></span>';
+      var block = actIcon('folder', p.vault ? _t('lt_open_finder', 'Apri nel Finder') : _t('lt_no_vault', 'Nessuna cartella vault su disco'), "window.MappAITeach.openProjectFolder('" + p.id + "')", null, !p.vault) +
+        actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.deleteProject('" + p.id + "')", 'text-slate-300 hover:text-red-500', false);
+      return fileRow({
+        tipo: tipoCell(meta.icon, meta.label, meta.full),
+        title: p.name, titleTip: p.name, dot: dot,
+        cls: classCell(chips), date: dateCell(p.date),
+        block: block,
+        onClick: "window.MappAIElabora && window.MappAIElabora.openProject('" + p.id + "')",
+        selected: false
+      });
+    }).join(''), true);
   }
 
   // ── Filtro "Solo classe attiva" → id progetti ammessi ──────────────────────
@@ -935,6 +990,8 @@
     init: init,
     setMode: setMode,
     setClassFilter: setClassFilter,
+    allowedProjectIds: allowedProjectIds,
+    renderElaboraProjects: renderElaboraProjects,
     toggleBuildProjects: toggleBuildProjects,
     toggleSection: toggleSection,
     refresh: refresh,

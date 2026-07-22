@@ -638,6 +638,11 @@
                         <i data-lucide="wrench" class="w-4 h-4"></i>
                         <span data-i18n="ui_landing_build">Costruisci</span>
                     </button>
+                    <button type="button" id="landing-mode-elabora" onclick="window.MappAITeach && window.MappAITeach.setMode('elabora')"
+                        class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span data-i18n="ui_landing_elabora">Elabora</span>
+                    </button>
                     <button type="button" id="landing-mode-teach" onclick="window.MappAITeach && window.MappAITeach.setMode('teach')"
                         class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
                         <i data-lucide="presentation" class="w-4 h-4"></i>
@@ -982,8 +987,8 @@
                             <div class="flex bg-emerald-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
                                     class="flex-1 text-[13px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600">MappAI</button>
-                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('bert')"
-                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">BERT</button>
+                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('triage')"
+                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700" data-i18n="ui_mm_logic_adaptive">Adattiva</button>
                             </div>
                         </div>
                     </div>
@@ -1048,6 +1053,15 @@
                     <i id="build-projects-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform"></i>
                 </button>
                 <div id="build-projects-body" class="hidden mt-3 border border-slate-100 rounded-2xl overflow-hidden">
+                    <!-- Filtro classe (22/7/26): CLASSE/TUTTI, condiviso con Insegna/Elabora -->
+                    <div class="flex justify-end px-3 pt-2 pb-1">
+                        <div class="inline-flex rounded-full bg-slate-100 p-1 shadow-inner">
+                            <button type="button" id="build-filter-all" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('all')"
+                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_all">Tutti</span></button>
+                            <button type="button" id="build-filter-class" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('active')"
+                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_class">Classe</span></button>
+                        </div>
+                    </div>
                     <div id="recent-projects-container" class="flex flex-col pb-1"></div>
                 </div>
             </div>
@@ -1057,6 +1071,7 @@
 
             <!-- ===== MODALITÀ INSEGNA (popolata da mappai-landing-teach.js) ===== -->
             <div id="teach-content" class="hidden"></div>
+            <div id="elabora-content" class="hidden"></div>
 
 
         <!-- QUICK ACTIONS SOTA -->
@@ -1465,26 +1480,35 @@
                          Le voci vivono nei modali di mappai-menu-hubs.js (card pulite +
                          tooltip hover). Gli input file restano QUI nascosti: i modali li
                          attivano via click() programmato. -->
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
-                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
-                    </button>
+                    <!-- Ordine (22/7/26, richiesta utente): Materiali · Live · Studio · Garden ·
+                         Graph manager · Sincronizza Vault · Revisione · Co-docente. -->
                     <button onclick="window.openStudyMaterialsModal && window.openStudyMaterialsModal()" title="Stampati e attività JIGSAW dalla mappa" data-i18n-title="tt_materials_hub">
                         <i data-lucide="printer"></i> <span data-i18n="ui_materials_hub">Materiali di studio</span>
                     </button>
-                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
-                        <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
+                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
+                        <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
+                    </button>
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
+                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
                     <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
                         <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
                     </button>
-                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
-                        <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
+                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
+                        <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
                     </button>
                     <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
                          mappai-vault-io/manager/storage-lang via getElementById → resta qui -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
                         title="Sincronizza modifiche nel Vault" data-i18n-title="tt_sync_vault">
                         <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
+                    </button>
+                    <!-- Sotto Sincronizza Vault (22/7/26): Revisione (correzioni annotate) + Co-docente -->
+                    <button onclick="window.MappAICorrection && (window.MappAICorrection.isActive() ? window.MappAICorrection.review() : window.MappAICorrection.start())" title="Revisione mappa: raccogli correzioni annotate come ground-truth" data-i18n-title="tt_revisione_hub">
+                        <i data-lucide="clipboard-pen"></i> <span data-i18n="ui_revisione_hub">Revisione</span>
+                    </button>
+                    <button onclick="window.MappAIElabora && window.MappAIElabora.openFromMap()" title="Elabora: analizza la scheda e arricchisci la mappa con citazioni dalla fonte" data-i18n-title="tt_elabora_hub">
+                        <i data-lucide="sparkles"></i> <span data-i18n="ui_elabora_hub">Co-docente (Elabora)</span>
                     </button>
                     <!-- input file nascosti (attivati dai modali hub) -->
                     <input type="file" id="menu-import-json" accept=".json" class="hidden"
@@ -3508,6 +3532,7 @@
     <script src="js/mappai-relations.js"></script>
 
     <script src="js/app.js"></script>
+    <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js"></script>
     <script src="js/mappai-storage-lang.js"></script>
     <script src="js/mappai-d3-render.js"></script>
@@ -3541,6 +3566,7 @@
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-desc-fidelity.js"></script>
     <script src="js/mappai-deepen-core.js"></script>
+    <script src="js/mappai-enrich-core.js"></script>
     <script src="js/mappai-correction-core.js"></script>
     <script src="js/mappai-correction-mode.js"></script>
     <script src="js/mappai-node-styling.js"></script>
@@ -3575,6 +3601,7 @@
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
     <script src="js/mappai-pipeline-core.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
+    <script src="js/mappai-elabora.js"></script>
     <script src="js/mappai-material-pipeline.js"></script>
     <script src="js/mappai-usage-core.js"></script>
     <script src="js/mappai-usage-tracker.js"></script>

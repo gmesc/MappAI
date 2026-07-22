@@ -1180,7 +1180,17 @@ ${textParts.join('\n\n')}`;
         // Ri-sanitizza dopo: i nuovi nodi entrano nel ricalcolo BFS di livelli/group.
         try {
             if (window.executeDeepeningPass) {
-                await window.executeDeepeningPass(textParts, apiKey, maxMapLevel);
+                // Triage adattivo (opt-in): se attivo, essentialDepth cappa il TARGET del
+                // deepening (mai oltre il tetto utente maxMapLevel). Tassonomico (2) →
+                // target<3 → il deepening non parte (nessun nodo _D di parafrasi);
+                // procedurale (3) → scava solo le foglie sotto L3. Assente/null → maxMapLevel
+                // (comportamento identico a oggi). Il tetto di Fase 3 resta maxMapLevel.
+                let deepTarget = maxMapLevel;
+                try {
+                    const et = appState.mmTriage && parseInt(appState.mmTriage.essentialDepth);
+                    if (et >= 2 && et <= 5) deepTarget = Math.min(maxMapLevel, et);
+                } catch (e) { /* verdetto assente → tetto utente */ }
+                await window.executeDeepeningPass(textParts, apiKey, deepTarget);
                 if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
             }
         } catch (e) {
