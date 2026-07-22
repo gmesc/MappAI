@@ -507,20 +507,76 @@
         doc.text('MappAI · insegnai.ch', mx, H - 44);
     }
 
-    // #3 (fedeltà): esporta il PDF ORIGINALE con gli highlight per macro-area
-    // bruciati sopra (raster, una immagine per pagina, impaginazione preservata).
-    // Fallback al documento riflowato se non c'è un PDF sorgente o mancano le lib.
-    async function exportHighlightedPdf() {
+    // Voce del bottone: fonte solo-testo → documento riflowato; PDF presente →
+    // apre il modale di configurazione dell'app (NON il dialog OS diretto).
+    function exportHighlightedPdf() {
         const pdfs = _collectPdfs();
         if (!pdfs.length) return exportHighlighted();   // fonte solo-testo → riflow
         if (typeof pdfjsLib === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
             if (window.showToast) showToast(t('el_pdf_export_fallback', 'Esporto la versione testo (PDF non disponibile).'), 'info');
             return exportHighlighted();
         }
-        const entry = pdfs[_pdfIdx] || pdfs[0];
+        _openPdfExportModal(pdfs);
+    }
+
+    // Modale di configurazione dell'export PDF (app-styled): opzioni prima del
+    // salvataggio, invece del dialog OS diretto.
+    function _openPdfExportModal(pdfs) {
+        const old = document.getElementById('elab-pdfexp-modal'); if (old) old.remove();
+        const ov = document.createElement('div');
+        ov.id = 'elab-pdfexp-modal';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:1002;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:24px;font:inherit';
+        const row = (id, label, desc, checked) =>
+            '<label style="display:flex;gap:11px;align-items:flex-start;padding:11px 13px;border:1px solid #eef2f6;border-radius:12px;cursor:pointer;margin-bottom:9px">' +
+            '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' style="margin-top:2px;width:17px;height:17px;accent-color:#4f46e5;flex:0 0 auto">' +
+            '<span><span style="display:block;font-size:13px;font-weight:700;color:#1e293b">' + esc(label) + '</span>' +
+            '<span style="display:block;font-size:11px;color:#64748b;margin-top:2px">' + esc(desc) + '</span></span></label>';
+        let pdfSel = '';
+        if (pdfs.length > 1) {
+            pdfSel = '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:5px">' + esc(t('el_pdfexp_which', 'Quale PDF')) + '</div>' +
+                '<select id="elab-pdfexp-sel" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;font:inherit">' +
+                pdfs.map((p, i) => '<option value="' + i + '"' + (i === _pdfIdx ? ' selected' : '') + '>' + esc(p.name || ('PDF ' + (i + 1))) + '</option>').join('') + '</select></div>';
+        }
+        ov.innerHTML =
+            '<div style="background:#fff;border-radius:18px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3)">' +
+            '<div style="padding:18px 22px;border-bottom:1px solid #eef2f6">' +
+            '<div style="font-size:16px;font-weight:900;color:#1e293b">📄 ' + t('el_pdfexp_title', 'Esporta il PDF evidenziato') + '</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:3px">' + t('el_pdfexp_sub', 'Il PDF originale con le frasi evidenziate per macro-area.') + '</div></div>' +
+            '<div style="padding:16px 20px">' + pdfSel +
+            row('elab-pdfexp-legend', t('el_pdfexp_legend', 'Pagina-legenda dei colori'), t('el_pdfexp_legend_d', 'Una pagina iniziale con la chiave colore→macro-area.'), true) +
+            row('elab-pdfexp-graded', t('el_pdfexp_graded', 'Includi le associazioni moderate (tenue)'), t('el_pdfexp_graded_d', 'Deseleziona per evidenziare solo i concetti centrali (pieno).'), true) +
+            '</div>' +
+            '<div style="padding:14px 22px;border-top:1px solid #eef2f6;display:flex;justify-content:flex-end;gap:10px">' +
+            '<button type="button" id="elab-pdfexp-cancel" class="elab-btn elab-ghost">' + t('el_q_cancel', 'Annulla') + '</button>' +
+            '<button type="button" id="elab-pdfexp-go" class="elab-btn elab-primary">' + t('el_pdfexp_go', 'Esporta PDF') + '</button></div>' +
+            '</div>';
+        document.body.appendChild(ov);
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+        ov.querySelector('#elab-pdfexp-cancel').onclick = close;
+        ov.querySelector('#elab-pdfexp-go').onclick = () => {
+            const opts = {
+                legend: ov.querySelector('#elab-pdfexp-legend').checked,
+                graded: ov.querySelector('#elab-pdfexp-graded').checked,
+                pdfIdx: pdfs.length > 1 ? (+ov.querySelector('#elab-pdfexp-sel').value) : _pdfIdx
+            };
+            close();
+            _runPdfExport(pdfs, opts);
+        };
+    }
+
+    // #3 (fedeltà): esporta il PDF ORIGINALE con gli highlight per macro-area
+    // bruciati sopra (raster, una immagine per pagina, impaginazione preservata).
+    // opts: { pdfIdx, legend:bool, graded:bool }.
+    async function _runPdfExport(pdfs, opts) {
+        opts = opts || {};
+        const entry = pdfs[(opts.pdfIdx != null ? opts.pdfIdx : _pdfIdx)] || pdfs[0];
         if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('el_pdf_export_run', 'Esporto il PDF evidenziato…'));
         try {
-            const colored = _coloredSentences();
+            let colored = _coloredSentences();
+            if (opts.graded === false) colored = colored.filter(c => c.strength !== 'weak');   // solo concetti centrali
             const buf = await entry.file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
             const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
@@ -530,7 +586,7 @@
             let doc = null;
             // Pagina-legenda in testa: pastiglia colore + nome per ogni macro-area
             // presente + spiegazione delle intensità (pieno/tenue).
-            const legend = _legendFor(colored);
+            const legend = (opts.legend === false) ? [] : _legendFor(colored);
             if (legend.length) {
                 const p1 = await pdf.getPage(1);
                 const v1 = p1.getViewport({ scale: 1 });
