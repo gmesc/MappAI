@@ -1409,7 +1409,7 @@
         if (_stylesInjected) return; _stylesInjected = true;
         const css = `
         #elabora-content .elab-emo,#elab-overlay .elab-emo{font-family:var(--emoji-font);font-style:normal;line-height:1}
-        #elabora-content,#elab-overlay{--eink:#1e293b;--eink2:#475569;--esoft:#64748b;--efaint:#94a3b8;--eline:#e8ecf4;--eline2:#dde4f0;--epanel:#fff;--epanel2:#f6f8fc;--epanel3:#eef2f9;--eacc:#4f46e5;--eacc2:#6366f1;--eaccs:#eef2ff;--eaccr:#c7d2fe;--enotice:#b45309;--enotices:#fffbeb;--enoticel:#fce4a6;--egood:#047857;--egoods:#ecfdf5;--egoodl:#a7f3d0;--egap:#6d28d9;--egaps:#f5f3ff;--egapl:#ddd6fe}
+        #elabora-content,#elab-overlay,#elab-pdfexp-modal,#elab-q-modal{--eink:#1e293b;--eink2:#475569;--esoft:#64748b;--efaint:#94a3b8;--eline:#e8ecf4;--eline2:#dde4f0;--epanel:#fff;--epanel2:#f6f8fc;--epanel3:#eef2f9;--eacc:#4f46e5;--eacc2:#6366f1;--eaccs:#eef2ff;--eaccr:#c7d2fe;--enotice:#b45309;--enotices:#fffbeb;--enoticel:#fce4a6;--egood:#047857;--egoods:#ecfdf5;--egoodl:#a7f3d0;--egap:#6d28d9;--egaps:#f5f3ff;--egapl:#ddd6fe}
         #elabora-content,#elab-overlay{font-size:clamp(13.5px,.28vw + 12.4px,16px);color:var(--eink)}
         /* Portal fullscreen a livello di body (sfugge al transform di .glass-card).
            z 950: sotto il modale edit nodo (z 1000) così «Aggiungi citazione» resta sopra. */
