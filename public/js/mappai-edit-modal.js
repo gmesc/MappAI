@@ -12,7 +12,8 @@ let editImages = [];
 
 // appendText (opz.): citazione da ELABORA precaricata in coda alla desc; il
 // docente la vede, ritocca e SALVA (non-mutante finché non salva). Decisione 1(B).
-window.openEditModal = function (nodeData, appendText) {
+window.openEditModal = function (nodeData, appendText, opts) {
+    opts = opts || {};
     editTarget = nodeData;
     document.getElementById('edit-n-label').value = cleanLabel(nodeData.label) || "";
     let _baseDesc = cleanLabel(nodeData.desc || nodeData.content) || "";
@@ -54,6 +55,26 @@ window.openEditModal = function (nodeData, appendText) {
 
     if (urlInput) urlInput.value = "";
 
+    // Header colorato col colore del nodo (stile #source-modal) + sottotitolo = etichetta.
+    try {
+        const groupKey2 = (editTarget.level === 0) ? 0 : editTarget.group;
+        const nodeColor = (appState.db.customColors && appState.db.customColors[groupKey2] !== undefined)
+            ? appState.db.customColors[groupKey2]
+            : (colorScale[groupKey2] || colorScale[1]);
+        const hdr = document.getElementById('edit-node-header');
+        if (hdr && nodeColor) {
+            hdr.style.backgroundColor = nodeColor;
+            const cc = String(nodeColor).replace('#', '');
+            const r = parseInt(cc.substr(0, 2), 16) || 0, g = parseInt(cc.substr(2, 2), 16) || 0, b = parseInt(cc.substr(4, 2), 16) || 0;
+            hdr.style.color = (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1e293b' : '#ffffff';
+        }
+        const sub = document.getElementById('edit-node-subtitle');
+        if (sub) sub.textContent = cleanLabel(nodeData.label) || '';
+    } catch (e) { /* soft */ }
+    // Sezione media (link/immagini/file): visibile per default; nascosta se opts.withMedia === false.
+    const mediaSec = document.getElementById('edit-media-section');
+    if (mediaSec) mediaSec.classList.toggle('hidden', opts.withMedia === false);
+
     window.renderEditLinksList();
     window.renderEditImagesList();
 
@@ -71,6 +92,16 @@ window.openEditModal = function (nodeData, appendText) {
         }
     }, 10);
 }
+
+// Matita nell'header del modale di lettura (#source-modal): passa alla modifica
+// del nodo corrente mostrando ANCHE i campi media (link/immagini/documenti).
+window.editCurrentSourceNode = function () {
+    var n = (typeof editTarget !== 'undefined' && editTarget) ? editTarget
+        : (typeof currentNode !== 'undefined' ? currentNode : null);
+    if (!n) return;
+    if (window.closeSourceModal) window.closeSourceModal();
+    setTimeout(function () { window.openEditModal(n, null, { withMedia: true }); }, 60);
+};
 
 window.setEditColor = function (color) {
     const colorInput = document.getElementById('edit-n-color');
