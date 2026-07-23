@@ -240,6 +240,21 @@
       }
     </style>
     <style>
+      /* ── Sidebar albero: pallini/toggle GRAFICI (immuni al toggle icone Android) ── */
+      /* Cerchio colorato che fa da toggle collassa/espandi; +/- centrato, bianco, bold. */
+      .tree-dot-toggle { width: 18px; height: 18px; border-radius: 9999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 0; padding: 0; cursor: pointer; line-height: 1;
+        box-shadow: 0 1px 2px rgba(15,23,42,.15); transition: transform .12s ease; }
+      .tree-dot-toggle:hover { transform: scale(1.12); }
+      .tree-dot-sign { color: #fff; font-family: 'Space Mono', ui-monospace, monospace;
+        font-weight: 700; font-size: 13px; line-height: 1; display: block; }
+      .tree-dot-static { width: 12px; height: 12px; border-radius: 9999px; display: inline-block; }
+      .tree-child-dot { width: 9px; height: 9px; border-radius: 9999px; display: inline-block; background: #cbd5e1; }
+      /* Toolbar: segni +/- come FONT (non emoji), colore slate-600. */
+      .tb-sign { font-family: 'Space Mono', ui-monospace, monospace; font-weight: 700;
+        font-size: 16px; line-height: 1; color: #475569; }
+
       /* ── Visibilità link (cycle 3 stati) ─────────────────────── */
       .link-group.link-hidden { display: none !important; }
 
@@ -1230,10 +1245,10 @@
 
                 <!-- Avvio Lavagna collaborativa via QR (006): in fondo all'albero -->
                 <div class="px-4 pb-4">
-                    <button type="button" onclick="window.openCollabHub && window.openCollabHub()"
-                        class="w-full flex items-center justify-center gap-2 text-xs font-bold bg-indigo-600 text-white py-2.5 rounded-lg shadow-sm hover:bg-indigo-700 transition">
+                    <button type="button" onclick="window.openCollabQrProjection ? window.openCollabQrProjection() : (window.openCollabHub && window.openCollabHub())"
+                        class="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-100 text-slate-500 py-2.5 rounded-lg hover:bg-emerald-400 hover:text-white transition-colors">
                         <i data-lucide="qr-code" class="w-4 h-4"></i>
-                        <span data-i18n="ui_collab_start_qr">Condividi la Lavagna (QR)</span>
+                        <span data-i18n="ui_collab_start_qr">Lavagna QR</span>
                     </button>
                 </div>
 
@@ -1605,11 +1620,9 @@
                     <i data-lucide="arrow-left-right" class="w-5 h-5 text-slate-500 mb-1" title="Distanza"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeDistance(-1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="minus" class="w-4 h-4"></i></button>
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><span class="tb-sign">−</span></button>
                         <button onclick="window.changeDistance(1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="plus" class="w-4 h-4"></i></button>
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><span class="tb-sign">+</span></button>
                     </div>
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>
@@ -1619,11 +1632,9 @@
                     <i data-lucide="type" class="w-5 h-5 text-slate-500 mb-1" title="Testo"></i>
                     <div class="flex gap-1">
                         <button onclick="window.changeFontScale(-1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="minus" class="w-4 h-4"></i></button>
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><span class="tb-sign">−</span></button>
                         <button onclick="window.changeFontScale(1)"
-                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><i
-                                data-lucide="plus" class="w-4 h-4"></i></button>
+                            class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-700 transition"><span class="tb-sign">+</span></button>
                     </div>
                 </div>
                 <div class="w-px h-8 bg-slate-200"></div>

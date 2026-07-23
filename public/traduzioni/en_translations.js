@@ -1011,7 +1011,7 @@ const en_translations = {
     cl_detach: "Detach panel",
     cl_dock: "Dock to sidebar",
     cl_collapse: "Collapse",
-    ui_collab_start_qr: "Share the board (QR)",
+    ui_collab_start_qr: "Board QR",
     tst_collab_need_map: "Open a map to start the board",
     tst_collab_electron: "The collaborative board requires the desktop app",
     tst_collab_resumed: "Session RESUMED: the previous QR is still valid",
