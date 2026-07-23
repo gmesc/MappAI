@@ -1165,10 +1165,32 @@
             (p.grade ? '<span style="font-size:10px;color:#94a3b8">' + esc(p.grade) + '</span>' : '') + '</button>';
         }).join('');
     };
+    var otherGrade = (ranked.otherGrade || []);
     var inner = band('lt_band_started', 'Già usate con la classe', ranked.started) +
       band('lt_band_grade', 'Stesso grado', ranked.sameGrade) +
-      band('lt_band_others', 'Altre mappe', ranked.others);
+      band('lt_band_others', 'Mappe generiche', ranked.others);
+    // Mappe assegnate ad ALTRE classi: nascoste di default (il docente non è
+    // bloccato → toggle per mostrarle). Se non c'è nessun'altra mappa da mostrare
+    // sopra, le espande subito così il picker non resta vuoto.
+    var hasVisible = ranked.started.length || ranked.sameGrade.length || ranked.others.length;
+    if (otherGrade.length) {
+      var toggleLabel = _t('lt_band_other_grade', 'Mappe di altre classi') + ' (' + otherGrade.length + ')';
+      inner += '<button type="button" class="lt-other-toggle" style="width:100%;text-align:left;margin-top:12px;padding:8px 10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px">' +
+        '<i data-lucide="chevron-right" class="lt-other-chev" style="width:14px;height:14px"></i>' + esc(toggleLabel) + '</button>' +
+        '<div class="lt-other-wrap" style="display:' + (hasVisible ? 'none' : 'block') + '">' +
+        band('lt_band_other_grade_h', 'Assegnate ad altre classi', otherGrade) + '</div>';
+    }
     var ov = makeOverlay('git-merge', _t('lt_pick_map', 'Scegli la mappa'), inner, '520px');
+    var tgl = ov.querySelector('.lt-other-toggle');
+    if (tgl) tgl.onclick = function () {
+      var wrap = ov.querySelector('.lt-other-wrap');
+      var chev = ov.querySelector('.lt-other-chev');
+      if (!wrap) return;
+      var open = wrap.style.display !== 'none';
+      wrap.style.display = open ? 'none' : 'block';
+      if (chev) chev.setAttribute('data-lucide', open ? 'chevron-right' : 'chevron-down');
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    };
     ov.querySelectorAll('.lt-map').forEach(function (b) {
       b.onclick = function () {
         var p = projects.find(function (x) { return x.id === b.dataset.id; });
