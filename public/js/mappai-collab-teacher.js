@@ -171,17 +171,34 @@
                 if (!roster) return;
             }
             const netMode = window.MappAINetMode ? window.MappAINetMode.get() : 'lan';
-            await doStart({ name, rootLabel: rootLabel(), loginMode, roster, netMode, resumeDir });
+            await doStart({ name, rootLabel: rootLabel(), loginMode, roster, netMode, resumeDir, className: activeClassName() });
         };
     }
 
-    // Riempie il menu «Riprendi» con le sessioni Lavagna su disco.
+    // Nome della classe attiva ('' se generico/assente).
+    function activeClassName() {
+        try {
+            const c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+            return (c && c.name) ? String(c.name) : '';
+        } catch (e) { return ''; }
+    }
+    function _normStr(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+
+    // Riempie il menu «Riprendi» con le sessioni Lavagna su disco, FILTRATE alla
+    // mappa corrente (riprendere una sessione di un'altra mappa caricherebbe una
+    // board estranea) e alla classe attiva quando registrata. Le sessioni legacy
+    // senza className restano visibili (match solo per mappa).
     async function populateResume(ov) {
         const sel = ov && ov.querySelector('#cl-resume');
         if (!sel || !window.electronAPI || !window.electronAPI.collabSessionsList) return;
         try {
             const r = await window.electronAPI.collabSessionsList();
-            const list = (r && r.success && r.sessions) ? r.sessions : [];
+            let list = (r && r.success && r.sessions) ? r.sessions : [];
+            const st = S();
+            const curMap = _normStr(st && (st.rootNodeLabel || rootLabel()));
+            const curCls = _normStr(activeClassName());
+            list = list.filter(s => _normStr(s.name) === curMap);
+            if (curCls) list = list.filter(s => !s.className || _normStr(s.className) === curCls);
             list.forEach(s => {
                 const d = s.startedAt ? new Date(s.startedAt) : null;
                 const date = d && !isNaN(d) ? d.toLocaleDateString() : '';
