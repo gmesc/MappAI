@@ -132,6 +132,9 @@ window.renderStudySets = function () {
                 <button onclick="event.stopPropagation(); if('${set.mode}' === 'flashcard') { window.printFlashcardSet('${set.id}'); } else { window.printQuizSet('${set.id}'); }" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0" title="Stampa / Esporta PDF">
                     <i data-lucide="printer" class="w-4 h-4"></i>
                 </button>
+                ${set.mode === 'quiz' ? `<button onclick="event.stopPropagation(); window.MappAILive && window.MappAILive.launchFromSetPrompt && window.MappAILive.launchFromSetPrompt('${set.id}');" class="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors flex-shrink-0" title="${window.t('tt_launch_live', 'Avvia questo set come attività live (QR)')}">
+                    <i data-lucide="qr-code" class="w-4 h-4"></i>
+                </button>` : ''}
                 <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
             </div>
         `;

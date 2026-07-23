@@ -18,6 +18,7 @@
         map: {
             label: 'Generazione mappa',
             subs: {
+                triage: 'Triage struttura fonte',
                 mm_iterative: 'MindMap iterativa',
                 mm_phase1: 'MindMap — Fase 1 (macro-aree)',
                 mm_phase3: 'MindMap — Fase 3 (rami)',
@@ -68,6 +69,18 @@
         live: {
             label: 'Attività live',
             subs: { quiz: 'Quiz live' }
+        },
+        pipeline: {
+            label: 'Pipeline materiali',
+            subs: {
+                map: 'Mappa',
+                quiz_mc: 'Quiz a scelta multipla',
+                quiz_tf: 'Quiz Vero/Falso',
+                flashcards: 'Flashcard',
+                nodesheet: 'Foglio nodi',
+                synthesis: 'Sintesi',
+                tts: 'Voce naturale'
+            }
         },
         other: {
             label: 'Altro',

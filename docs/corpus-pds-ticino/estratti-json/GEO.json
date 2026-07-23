@@ -1,0 +1,57 @@
+{
+  "codePrefix": "GEO",
+  "discipline": "Geografia",
+  "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-scienze-umane-sociali-e-naturali/geografia-traguardi-di-competenza/",
+  "license": "© Divisione della scuola – Repubblica e Cantone Ticino — materiale ufficiale DECS Ticino, uso educativo",
+  "items": [
+    {
+      "codeJson": "GEO.III.1",
+      "codePortale": "GEO.III.01",
+      "descrizione": "Selezionare in autonomia criteri e indicatori socio-territoriali e ambientali per connotare realtà geografiche sulla base di fonti e dati proposti dal docente.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.2",
+      "codePortale": "GEO.III.02",
+      "descrizione": "Individuare ipotesi generali e specifiche e allestire in modo guidato strumenti d'indagine per inquadrare realtà geografiche regionali.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.3",
+      "codePortale": "GEO.III.03",
+      "descrizione": "Nel palinsesto dei territori regionali ricavare, con precisione e in modo viepiù autonomo, trame del presente e del passato per orientarsi spazialmente e temporalmente, e sentirsi partecipe della società di accoglienza.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.4",
+      "codePortale": "GEO.III.04",
+      "descrizione": "Con la guida del docente ricostruire i processi e i cambiamenti nel funzionamento delle regioni in termini di dipendenze, interdipendenze, esclusioni e inclusioni, per valutare il grado di equilibrio e di coesione sociale in ogni territorio, e dunque sviluppare un senso consapevole di cittadinanza.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.5",
+      "codePortale": "GEO.III.05",
+      "descrizione": "In base a protocolli metodologici confrontare documenti, dati, artefatti regionali per far emergere attori, progetti e visioni, chiarire finalità geografiche e sviluppare il senso civico dell'azione territoriale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.6",
+      "codePortale": "GEO.III.06",
+      "descrizione": "Utilizzare in modo progressivo e autonomo il cambiamento di scala geografica per definire i contesti e i condizionamenti socioambientali del presente e del passato che determinano l'organizzazione di una regione e i relativi comportamenti territoriali.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.7",
+      "codePortale": "GEO.III.07",
+      "descrizione": "Sulla base di ragionamenti e scelte di scala espliciti confrontare e rileggere regioni geografiche per relativizzare casi particolari, far emergere modelli generali di organizzazione territoriale, chiarificare traiettorie di sviluppo umano e sociale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "GEO.III.8",
+      "codePortale": "GEO.III.08",
+      "descrizione": "Utilizzando consapevolmente regole e strumenti della comunicazione geografica, comprendere, produrre e rielaborare informazioni strutturate per manifestare, verificare in collaborazione e difendere interpretazioni di eventi e comportamenti sociali.",
+      "traguardi": []
+    }
+  ],
+  "note": "8 traguardi di competenza (GEO.III.01–GEO.III.08). La pagina del portale riporta SOLO la descrizione di ciascun traguardo, senza declinazione per categoria (Obiettivi di conoscenza/abilità, Processi, Atteggiamenti): 'traguardi' resta quindi vuoto per tutti gli item. Descrizioni verbatim, verificate contro public/data/piano-studio-ticino.json."
+}

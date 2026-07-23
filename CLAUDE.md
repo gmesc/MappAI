@@ -358,6 +358,27 @@ priorità mentre il focus è su Google. Vedere TODO punto 10 backlog se si ripre
 
 ## 8. BUG NOTI E PROBLEMI APERTI
 
+### ✅ Rimosso (21/7/26): template `MIND_MAP_BRANCH` — era codice morto nel pannello admin
+**Sintomo:** il template `MIND_MAP_BRANCH_*` appariva nella tab MINDMAPS della dashboard
+admin, ma modificarlo NON cambiava le mappe generate → ingannava docente/admin che lo edita.
+**Causa:** la Fase 3 (espansione rami MM multi-pass) NON passa da
+`fillPromptTemplate("MIND_MAP_BRANCH")`. Costruisce il prompt inline in
+[mappai-mm-extraction.js:815](public/js/mappai-mm-extraction.js:815) oppure via
+`buildBranchPromptJSONL` in
+[mappai-generation-support.js:470](public/js/mappai-generation-support.js:470). Quei prompt
+inline hanno feature che il template non esprimeva (catalogo rami fratelli, carta del ramo
+ambito/desc/confini, rich-rel, formato JSONL anti-troncamento per Infomaniak) e il
+token-budget validato (§11) è tarato su di essi. **Live via `fillPromptTemplate` restano
+solo** `L1_MACRO_CATEGORIES` (Fase 1) e `MIND_MAP_FULL_TREE` (modalità iterativa).
+**Decisione (utente):** cancellare, non marcare — "future use" illusorio (si ripartirebbe
+dal prompt inline, più aggiornato); il template non era fonte di verità di nulla (le regole
+di fedeltà vivono in `MM_FIDELITY_RULES_IT`); la storia resta in git.
+**Cosa è stato tolto:** gli 8 variant `MIND_MAP_BRANCH_{IT,EN,_INFOMANIAK,_STUDENT…}` da
+`prompts_config.json` + `public/prompts_default.json` (verificato zero consumatori a runtime);
+`MIND_MAP_BRANCH` dalla categoria MINDMAPS e da `systemPromptsDescriptions` in
+`admin_prompts.js`; chiave i18n orfana `admin_prompt_desc_branch` dai due dizionari.
+Aggiornato il commento in `mappai-generation-support.js` (~L.540).
+
 ### 🟢→🟠 KG povero: causa template RISOLTA, causa C (Infomaniak) ISOLATA
 **Sintomo originale:** KG a "stella" — densità ~1.1, 0 cross-link, 68% relazioni
 generiche "correlato a". Grafo povero di spunti di ragionamento.
@@ -557,9 +578,178 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
       che l'allineamento resti corretto — un browser reale con licensing
       attivo spesso non è disponibile per la verifica visiva immediata.
 
+16. **Coerenza grafica landing (Costruisci/Elabora/Insegna, 22 lug 2026)** → i tre
+    tab della landing DEVONO condividere larghezza, stile bottoni, gerarchia font.
+    Design token unici (mai inventarne di nuovi più stretti/di altro colore):
+    - **Larghezza contenuto = 1100px.** Il blocco globale in `public/css/style.css`
+      (`#landing-view .glass-card>div, #setup-form, .max-w-2xl, .max-w-3xl,
+      .teach-section-card, #teach-content>div, #elabora-content>div → max-width:
+      1100px !important`) rende la landing piatta e larga. Ogni NUOVA sezione/barra
+      di landing usi `.teach-section-card` o `max-w-2xl` (entrambi mappati a 1100),
+      MAI un `max-w-[NNNpx]` custom (era il bug INSEGNA/ELABORA a 806/820 → strette).
+      Se aggiungi un contenitore diretto sotto `#teach-content`/`#elabora-content`,
+      è già coperto dal selettore `>div`.
+    - **Bottoni azione grigio→emerald** (stile COSTRUISCI `.btn_quick_action` /
+      `.btn_selezione_input`): `bg-slate-100` a riposo, `hover:bg-emerald-400
+      hover:text-white`, `text-slate-500 font-bold`, label CENTRATA su due righe
+      (`.teach-qs-btn span` = flex + `min-h-[2.4em]` + `leading-tight`). L'accento
+      interattivo sui bottoni grigi è SEMPRE `emerald-400`, mai indigo/teal-*.
+    - **Header di sezione** = `.teach-section-card` con header
+      `text-sm font-bold text-slate-600` + icona Lucide `text-indigo-400` + chevron
+      `text-slate-400` (identico al toggle «Progetti salvati» di COSTRUISCI,
+      `index.html:1046-1053`). L'indigo è l'accento di icone/link di sezione; il
+      grigio-emerald è l'accento dei bottoni-card. Non mischiare i due schemi.
+    - **Regola generale**: ogni nuova grafica di landing (sezioni, barre, bottoni,
+      modali, font) riusa questi token. Verifica visiva: servire `public/` con un
+      http server locale, aprire nel Browser pane, nascondere `#beta-lock-screen`
+      lato-DOM e misurare le larghezze (il licensing blocca la vista ma non il DOM).
+
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### 🔵 IN CORSO (21/7/26): branch `fix/deepening-residuo` — P1+P2 anti-parafrasi nel deepening
+Branch NON ancora mergiato. Origine: audit pedagogico su mm_elvezia + mm_la_carta
+(vedi memoria `audit-deepening-dnodes.md`) → i nodi `_D<n>` (Fase 3.7 "deepening
+selettivo") erano il 38.8% / 42.7% delle due mappe, ~metà parafrasi del padre.
+Causa: il pass si attivava sulla PROFONDITÀ mancante e riceveva come materiale la
+SOLA desc del padre (`textParts`, la fonte vera, era passato ma MAI usato). Fix in
+due mosse, entrambe in `executeDeepeningPass` (mappai-generation-support.js:1734+):
+- **Core puro** `public/js/mappai-deepen-core.js` (UMD, dipende soft da
+  `MappAIDescFidelity` per tokenizzazione/stemming IT; caricato in index.html DOPO
+  desc-fidelity, PRIMA di generation-support). API: `residueSentences`/
+  `buildResidueMaterial` (P1: frasi della fonte on-topic col padre MA con lessico
+  nuovo), `paraphraseVerdict`/`filterProposedChildren` (P2: scarta un sotto-concetto
+  se il suo lessico è ≥`maxContainment`=0.60 già nel "coperto" = desc padre +
+  fratelli accettati, o porta <3 parole nuove; il covered CUMULATIVO uccide i
+  fratelli quasi-identici). +12 test `tests/deepen-core.test.js`.
+- **P1 nel pass**: materiale = residuo dalla fonte (`textParts` ora USATO), gate =
+  presenza di residuo (non più profondità del ramo; lo slider resta TETTO di
+  profondità). Nessun residuo → niente approfondimento. Prompt riscritto: mostra al
+  modello "GIÀ COPERTO (non ripetere)" vs "NUOVO MATERIALE DALLA FONTE".
+- **P2 nel pass**: `filterProposedChildren` prima dell'inserimento; log
+  `+N nodi, M scartati (parafrasi)`. +3 test `tests/deepening-integration.test.js`
+  (mock fetchModelAPI: 1 valido + 2 parafrasi → 1 inserito).
+- **Reversibile**: kill-switch generale `mappai_deepening_enabled` (esistente);
+  A/B col comportamento legacy (materiale=desc, no verdetto) via
+  `mappai_deepen_residue='false'`. Se il core manca o la fonte è <200 char → legacy
+  o skip (mai parafrasi in un vault riaperto senza fonte).
+- **Verifica sui dati reali** (harness Node, P2 vs padre col covered cumulativo):
+  Elvezia 16/33 D-nodes scartati (48%), Carta 24/35 (69%) — coerente con l'audit.
+  Suite **636/636** ✅ (621 + 12 + 3).
+- ⚠️ **Da testare in Electron vivo**: generazione MM multi-pass reale su una fonte →
+  contare i D-node risultanti (attesi molti meno) e verificare che siano dettagli
+  nuovi, non parafrasi; log `[Deepening]` in console; A/B col flag legacy.
+- **Round 2 (21/7/26, commit `18a8a56`) — P1-bis + P3 dopo la prima generazione reale.**
+  La mappa "Storia della Carta" (2A) ha mostrato il modo di fallimento successivo:
+  retrieval per-foglia indipendente → stessa frase della fonte depositata come figlio
+  in 4 rami diversi, anche sotto padri fuori tema ("Produzione Papiro" riceveva i
+  magli idraulici di Fabriano — lessico di superficie condiviso). Fix, tutto
+  deterministico in `mappai-deepen-core.js` + wiring nel pass:
+  - **P1-bis `assignResidues`**: assegnazione GLOBALE frase→foglia (argmax pertinenza).
+    Competono TUTTI i nodi; i non-approfondibili sono ASSORBITORI: uccidono la frase
+    solo se davvero coperta (novità <3) o reclamata con pertinenza ≥`absorberClaimMin`
+    0.5; vittoria "di superficie" → ripiego sulla miglior foglia eligible (senza,
+    i padri a desc ricca mangiano il recall — finding review). A parità eligible >
+    assorbitore.
+  - **P2 esteso**: coperto = catena antenati fino al L1 (prima solo padre); cresce solo
+    coi fratelli DAVVERO inseriti.
+  - **P3 `isNearDuplicate`**: gate globale all'inserimento — candidato vs TUTTI i nodi
+    (Jaccard ≥0.55 o containment ≥0.75), antenati esclusi (già governati da P2).
+  - Review avversaria via workflow (2 verificatori con probe): 1 major + 3 minor,
+    tutti fixati. Suite **646/646** (+8 test, incl. regressione realistica del bug
+    "martello di legno" papiro↔magli e coppia reale D5/D7).
+- Limite noto residuo: metro LESSICALE → i quasi-duplicati con lessico davvero
+  disgiunto (sinonimi puri) restano per l'eventuale variante embedding (riuso
+  `executeSemanticDedup` senza skip stesso-L1). Aperte P4-P7 dell'audit.
+- ⚠️ Perf nota (review): `assignResidues` sincrona ~560ms su corpus 60K parole ×
+  100 nodi (dietro overlay, ok); cresce lineare — se corpus/nodi raddoppiano
+  valutare yield periodici.
+
+### 🔵 IN CORSO (21/7/26): tetto di profondità reale — lo slider «Genera fino a» ora vincola i DATI
+Branch `fix/deepening-residuo`, NON committato con questo commit di doc. Origine: le mappe
+chieste «fino a L3» uscivano con nodi L4/L5. Diagnosi (3 difetti sovrapposti):
+1. **Prompt Fase 3 contraddittorio** — scriveva sempre `(L2, L3, L4, L5)` ignorando
+   `maxMapLevel` ([mm-extraction.js:819](public/js/mappai-mm-extraction.js:819) +
+   [generation-support.js:496](public/js/mappai-generation-support.js:496)) → il modello
+   seguiva l'elenco concreto, non il numero.
+2. **Zero clamp nei dati** — il tree-sanitizer etichetta la profondità topologica reale,
+   nessuno pota oltre il tetto.
+3. **Lo slider #level-slider è solo FILTRO VISTA** (`onLevelSliderInput`→`applyVisualFilters`,
+   [d3-render.js:1810](public/js/mappai-d3-render.js:1810)): nasconde i nodi profondi sul
+   canvas ma NON li elimina → una mappa «L3» era una L5 con L4/L5 **vivi nel vault** (quindi
+   in quiz, fogli nodi, materiali). `mm_dal_papiro.json` ha davvero `level:4/5`.
+
+**Decisioni utente**: (a) il dettaglio L4/L5 si **RIPIEGA nella desc** dell'antenato-al-tetto
+(niente info persa, desc più ricche — ideale BES/DSA); (b) **due controlli separati**
+«Genera fino a» (dati) + «Mostra fino a» (vista).
+
+**Implementato** (tutto deterministico, zero AI):
+- **`MappAIDeepenCore.foldBeyondDepth(nodes, links, maxLevel)`** (core puro): profondità
+  TOPOLOGICA (BFS da ROOT, non il campo `level`); ogni nodo oltre il tetto rimosso e la sua
+  desc **travasata** nella desc del cap (antenato a profondità = maxLevel), ma solo le frasi
+  con lessico nuovo (riuso `isNearDuplicate` anti-bloat) e finché la desc resta < 140 parole;
+  cross-link da nodi ripiegati ri-puntati al cap (self-loop/dup scartati). +5 test incl.
+  fixture reale.
+- **Prompt dinamici**: lista livelli e id-esempio generati da `maxMapLevel` (a 3 → «L2, L3»),
+  + regola «NON superare MAI il Livello N: riassumi il dettaglio più fine nella desc».
+- **`window.applyDepthCeiling(maxMapLevel)`** (generation-support.js): applica il fold su
+  `appState.db`, pulisce sourcesDict/customColors dei nodi ripiegati. Chiamato dopo
+  deepening+sanitize in **multipass E iterativa**, poi ri-sanitizza. Kill-switch
+  `mappai_depth_ceiling='0'`. Solo MM (no KG).
+- **`window.getGenDepth()`/`setGenDepth(v)`**: profondità di GENERAZIONE separata dallo
+  slider vista (`localStorage mappai_gen_depth`, fallback slider→5). `mm-extraction.js:785`
+  ora legge `getGenDepth()`.
+- **UI**: `#gen-depth-select` (L2 essenziale…L5 massimo) nel modale config AI accanto a
+  «Lingua delle mappe» (init in `mappai-ui-modals.js`); slider toolbar rietichettato
+  «Mostra fino a» con tooltip che chiarisce il ruolo. i18n `ui_show_depth`/`ui_gen_depth_label`
+  in ENTRAMBI i dizionari.
+- **Verificato in browser**: fold reale `mm_dal_papiro` a L3 = **70→47 nodi, 23 ripiegati,
+  16 dettagli confluiti, 5 parafrasi saltate**; lista livelli «L2, L3» a tetto 3; global
+  esposti; selettore presente. Suite **658/658** ✅.
+- ⚠️ **Da testare in Electron vivo**: generazione reale a L3 (attesi zero nodi L4/L5 nel
+  vault, log `[Tetto L3]` + `[Deepening]`); `applyDepthCeiling` usa `appState` (non
+  esercitabile da browser statico).
+- Flag nuovi: `mappai_depth_ceiling` (kill-switch tetto, default ON) · `mappai_gen_depth`
+  (profondità di generazione, default = slider).
+
+### ✅ FATTO (20/7/26): 011-pipeline-materiali — pipeline «Genera materiali» (spec-kit completo)
+Branch `011-pipeline-materiali` (NON ancora mergiato). Spec-kit completo
+(`specs/011-pipeline-materiali/`), 43 task, 8 commit puliti. Suite **621/621** ✅.
+Bottone **«Genera materiali»** in Costruisci → modale → pipeline crash-safe a 4 step
+(A mappa → B quiz/flashcard → C fogli nodi → D sintesi+voce) che orchestra i motori
+ESISTENTI e archivia tutto nel vault dentro cartelle di classe `[sede]-[classe]`.
+- **Core puri**: `mappai-pipeline-core.js` (UMD: manifest `mappai-pipeline@1` + macchina a
+  stati, validatori step, `estimateCalls`, `buildFileName`, preset) — 21 test; estensioni a
+  `files-core` (`mapClassFolder`/`vaultFolderName`/`sanitizeVaultRelPath`/`VAULT_CONTAINER_EXCLUDE`)
+  e `teach-core` (`matchesSelectedProject`). `usage-core`: categoria `pipeline` (7 sottovoci).
+- **Motori resi headless** (una funzione, due consumer — flusso manuale INVARIATO):
+  `buildQuizSetHtml`/`buildFlashcardSetHtml` (quiz-print), `printAllNodeLabels(opts)` con
+  `toDisk`→base64 (print-dossier), `window.MappAISynthesis {runWholeMap silent, buildHtml,
+  generateAudio}` (branch-synthesis), `window.buildVaultMapData()` (vault-io).
+- **IPC sottili** (main = solo I/O/finestre): `html-to-pdf` (finestra offscreen +
+  `printToPDF`), `save-vault-file` (sanitizz. da FilesCore), `vault-materials-list`,
+  `pipeline-open-folder`/`pipeline-open-file`; `get-all-vaults` esteso a **2 livelli**
+  (contenitori classe, shape invariata + `classDir`); `files-root-get` espone `mapsBaseDir`;
+  `sharedmat-add` accetta `mapName`.
+- **Orchestratore** `mappai-material-pipeline.js` (`window.MappAIPipeline`): modale config
+  (classe · quiz/fogli/sintesi · VERDE · adatta-livello · preset), pre-flight+stima live,
+  step A-D con manifest **file-first** (scritto a ogni transizione), riepilogo + **Riprova**
+  per step, **ripresa idempotente** (`checkResume` al load del vault → prompt → salta i done),
+  degrado voce non bloccante (FR-006).
+- **Insegna (US5)**: click riga «Progetti» = **seleziona** la mappa (evidenzia, 2° click
+  deseleziona); le 3 sezioni si filtrano; Materiali fonde archivio + file su disco. «Riprendi»
+  apre. Preset in `localStorage mappai_material_presets` (mai la classe). Sede sulla classe:
+  tendina da `MappAITeacherProfile.sediList()` nei DUE form.
+- **Kill-switch**: `mappai_teach_row_select='0'` → click riga Insegna apre (comportamento storico).
+- **Limite noto**: `open-vault-folder`/`zip-vault-to-materials` (flussi condivisione) risolvono
+  ancora il vault flat per basename → non trovano i vault ANNIDATI. La pipeline usa path
+  assoluti (`pipeline-open-folder/-file`) → non impattata. Follow-up se serve la condivisione
+  QR dei vault di classe.
+- ⚠️ **Da testare in Electron vivo** (quickstart Fase 1-3): builder da console + htmlToPdf,
+  pipeline reale su una fonte (4 step done su disco), crash a metà + ripresa (zero chiamate
+  ripetute), riprova step, degrado voce, collisione ` · 02`, preset, sede, selezione Insegna +
+  materiali da disco, consumi categoria «Pipeline materiali». Poi merge in main.
 
 ### 🔵 IN CORSO (18-19/7/26): branch `chore/electron-39` — Electron 39 + fix quiz + reveal risultati
 Branch NON ancora mergiato in main. Suite **493/493**. Cinque commit puliti:
@@ -1688,6 +1878,8 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
 | `mappai_kg_community_mode` | **KG Community (stile MiniMAP)**: single-pass + comunità GraphRAG invece dell'albero forzato. Solo modalità KG | OFF |
 | `mappai_legacy_float_btns` | **Ripristina i 7 bottoni flottanti storici** del bordo destro (Cloze 📝 20 · Padronanza 🎯 84 · Progressi 📈 148 · Percorso 🧭 212 · Palazzo 🏛️ 276 · Dungeon 🎮 340 · Lavoro 🔥 404). Con feature 001-menu-reorg tutto vive nel launcher Studio attivo (viste+strumenti) e la colonna è vuota; `'1'` torna alla disposizione precedente | OFF |
+| `mappai_deepening_enabled` | Kill-switch generale della **Fase 3.7 deepening** (nodi `_D` di approfondimento). `'false'` = niente pass di approfondimento | ON |
+| `mappai_deepen_residue` | Deepening in **modalità residuo+verdetto (P1+P2)**: materiale dalla fonte + scarto delle parafrasi. `'false'` = comportamento legacy (materiale = desc del padre, nessun verdetto anti-parafrasi) | ON |
 
 **Comandi console:**
 ```js

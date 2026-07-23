@@ -31,10 +31,18 @@ const StorageManager = {
         const existing = idx >= 0 ? projects[idx] : null;
         // Classe attiva al momento della CREAZIONE (congelata al primo salvataggio;
         // progetti legacy senza campo restano null — mai retro-etichettati)
-        let activeClsName = null;
+        let activeClsName = null, activeClsId = null;
         try {
-            const ac = window.MappAIClasses && window.MappAIClasses.getActive();
-            if (ac && ac.name) activeClsName = ac.name;
+            // L'ID classe attivo è in localStorage (sincrono, SEMPRE disponibile);
+            // il NOME vive nella lista classi caricata via IPC (async) → se il primo
+            // autosave parte prima del caricamento, getActive() → null e la classe
+            // resterebbe congelata a null. Congelando anche clsId il nome si risolve
+            // a render (renderProjects/renderElaboraProjects) quando lo store è pronto.
+            if (window.MappAIClasses) {
+                if (window.MappAIClasses.activeId) activeClsId = window.MappAIClasses.activeId() || null;
+                const ac = window.MappAIClasses.getActive && window.MappAIClasses.getActive();
+                if (ac && ac.name) activeClsName = ac.name;
+            }
         } catch (e) { /* store classi non disponibile */ }
         const pMeta = {
             id: this.currentProjectId,
@@ -42,6 +50,9 @@ const StorageManager = {
             date: Date.now(),                                          // ultima modifica
             created: (existing && (existing.created || existing.date)) || Date.now(), // creazione
             cls: existing ? (existing.cls || null) : activeClsName,
+            // ID classe congelato alla creazione (per risolvere il nome a render
+            // anche se lo store classi non era ancora caricato al primo salvataggio)
+            clsId: existing ? (existing.clsId || activeClsId) : activeClsId,
             // Grade del grafo (005-landing-insegna): PRESERVATO dall'esistente —
             // senza questo ogni autosave lo cancellerebbe (assegnazione in Costruisci
             // o eredità dal chip in Insegna).
@@ -58,7 +69,13 @@ const StorageManager = {
             // usato da renderRecentProjects per nascondere i progetti il cui vault è stato eliminato
             vault: appState.activeVaultPath
                 ? (String(appState.activeVaultPath).split(/[\\/]/).filter(Boolean).pop() || null)
-                : null
+                : null,
+            // Contenitore di classe che annida il vault (22/7, auto-vault): serve a
+            // disambiguare il match col disco (get-all-vaults ritorna folderName +
+            // classDir). null = vault flat in Mappe (progetto senza classe).
+            classDir: appState.activeVaultClassDir
+                || (existing ? existing.classDir : null)
+                || null
         };
 
         if (idx >= 0) projects[idx] = pMeta;
@@ -175,6 +192,12 @@ const StorageManager = {
                 }
             }, 200);
 
+            // Backfill pigro (22/7): se un progetto legacy non ha ancora una
+            // cartella su disco, creala all'apertura (nome ROOT, nesting classe).
+            if (!appState.activeVaultPath && window.ensureProjectVault) {
+                setTimeout(() => { try { window.ensureProjectVault({ reason: 'open' }); } catch (e) { } }, 400);
+            }
+
             return true;
         } catch (e) {
             console.error("Critical Load Error:", e);
@@ -284,6 +307,10 @@ const StorageManager = {
         const esc = (s) => String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         const core = window.MappAITeachCore;
+        // opts.rowAction : funzione (nome globale) chiamata al click riga, riceve l'id
+        //                  (default apre il progetto). opts.hideResume: nasconde «Riprendi».
+        const rowAction = opts.rowAction || 'window.loadSavedProject';
+        const hideResume = !!opts.hideResume;
 
         // Registro sessioni (per i chip): letto una volta, solo se richiesto.
         let registry = [];
@@ -368,7 +395,7 @@ const StorageManager = {
                     : '';
 
                 return `
-                    <div class="rp-row ${GRID} py-2 border-b border-slate-100 hover:bg-indigo-50 transition cursor-pointer group" onclick="window.loadSavedProject('${p.id}')">
+                    <div class="rp-row ${GRID} py-2 border-b border-slate-100 hover:bg-indigo-50 transition cursor-pointer group" onclick="${rowAction}('${p.id}')">
                         <span class="inline-flex items-center gap-1 text-indigo-400" title="${labelFull}">
                             <i data-lucide="${icon}" class="w-3 h-3 shrink-0"></i>
                             <span class="text-[9px] font-bold uppercase tracking-tight">${label}</span>
@@ -378,7 +405,7 @@ const StorageManager = {
                         ${gradeCell}
                         <span class="text-[11px] text-slate-500 text-right tabular-nums">${p.nodesCount}</span>
                         <span class="flex justify-end items-center gap-3">
-                            <span class="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-3 h-3"></i> ${T('rp_resume', 'Riprendi')}</span>
+                            ${hideResume ? '' : `<span class="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 group-hover:text-indigo-700"><i data-lucide="play-circle" class="w-3 h-3"></i> ${T('rp_resume', 'Riprendi')}</span>`}
                             <button type="button" onclick="StorageManager.deleteProject(event, '${p.id}')" class="text-slate-300 hover:text-red-500 transition p-1" title="${T('rp_delete', 'Elimina')}"><i data-lucide="trash" class="w-3 h-3"></i></button>
                         </span>
                     </div>`;

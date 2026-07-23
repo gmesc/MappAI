@@ -2132,7 +2132,12 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view .glass-card>div,
     #landing-view #setup-form,
     #landing-view .max-w-2xl,
-    #landing-view .max-w-3xl {
+    #landing-view .max-w-3xl,
+    /* INSEGNA/ELABORA: stessa larghezza di COSTRUISCI (1100px). Le sezioni e le
+       barre di questi tab usavano max-w-[806px]/820px → apparivano più strette. */
+    #landing-view .teach-section-card,
+    #landing-view #teach-content>div,
+    #landing-view #elabora-content>div {
         max-width: 1100px !important;
         width: 100% !important;
         margin-left: auto !important;

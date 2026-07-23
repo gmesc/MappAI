@@ -325,10 +325,14 @@ window.setPipeline = function (pipelineMode, silent) {
     if (!silent) window.showToast(`Logica KG ${pipelineMode === 'A' ? 'A · BERT Community' : 'B · MappAI classico'}`, "info");
 };
 
-// Toggle "logica MM": 'mappai' (default, prompt L1 pulito) | 'bert' (prompt L1 con REGOLA DI PERTINENZA).
+// Toggle "logica MM": 'mappai' (classico, default) | 'triage' (pre-pass di triage
+// adattivo — profondità del deepening dal TIPO di scheda, vedi mappai-mm-triage.js).
+// Riusa il vecchio bottone "BERT" (morto): guida il flag DEDICATO
+// `mappai_mm_triage_enabled` — NON riusa lo swap prompt L1_MACRO_CATEGORIES_BERT.
 window.setMMLogic = function (logic, silent) {
-    const mode = logic === 'bert' ? 'bert' : 'mappai';
+    const mode = logic === 'triage' ? 'triage' : 'mappai';
     localStorage.setItem('mappai_mm_logic', mode);
+    localStorage.setItem('mappai_mm_triage_enabled', mode === 'triage' ? '1' : '0');
     const btnM = document.getElementById('mmlogic-mappai-btn');
     const btnB = document.getElementById('mmlogic-bert-btn');
     if (btnM && btnB) {
@@ -338,9 +342,9 @@ window.setMMLogic = function (logic, silent) {
         sel.classList.add(...on); sel.classList.remove(...off);
         oth.classList.remove(...on); oth.classList.add(...off);
     }
-    if (!silent && typeof window.showToast === 'function') window.showToast(`Logica MM: ${mode === 'mappai' ? 'MappAI (consigliato)' : 'BERT sperimentale'}`, 'info');
+    if (!silent && typeof window.showToast === 'function') window.showToast(`Logica MM: ${mode === 'mappai' ? 'MappAI (classico)' : 'Adattiva (triage)'}`, 'info');
 };
-window.getMMLogic = function () { return localStorage.getItem('mappai_mm_logic') || 'mappai'; };
+window.getMMLogic = function () { return localStorage.getItem('mappai_mm_triage_enabled') === '1' ? 'triage' : 'mappai'; };
 
 window.getPipeline = function () {
     return appState.generationPipeline || localStorage.getItem('mappai_generation_pipeline') || 'B';
@@ -1379,12 +1383,30 @@ window.startGeneration = async function () {
         return;
     }
 
+    // #1 (22/7): rimuove intestazioni/piè di pagina ricorrenti dal corpus di
+    // generazione (es. "Storia IV Media · La Guerra Fredda · pag. 3") → la mappa
+    // non ingerisce il boilerplate come contenuto. Per-fonte (i repeat sono
+    // interni a un PDF). Default ON, kill-switch mappai_strip_boilerplate='0'.
+    try {
+        var _bpOn = true; try { _bpOn = localStorage.getItem('mappai_strip_boilerplate') !== '0'; } catch (e) { }
+        if (_bpOn && window.MappAIBoilerplate) {
+            var _bpTot = 0;
+            textParts = textParts.map(function (part) { var r = window.MappAIBoilerplate.stripBoilerplate(part); _bpTot += r.count; return r.text; });
+            if (_bpTot) console.log('[Boilerplate] rimosse ' + _bpTot + ' righe di intestazione/piè dal corpus di generazione');
+        }
+    } catch (e) { /* best-effort: se fallisce, corpus invariato */ }
+
     // Nuova mappa = chat nuove: mai ereditare il tutorState della mappa precedente
     if (window.setTutorState) window.setTutorState(null);
 
     window.showLoadingOverlay(true, window.t('lo_init', "Inizializzazione elaborazione ") + (appState.extractionMode === 'mindmap' ? window.t('lo_init_mm', "Mappa Mentale...") : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
     if (appState.extractionMode === 'mindmap') {
+        // PRE-PASS TRIAGE (gated da mappai_mm_triage_enabled; null se OFF/fallito → zero
+        // effetto). Legge la struttura della fonte e stima la profondità-essenziale;
+        // consumata dal deepening (Fase 3.7) per non approfondire il contenuto tassonomico.
+        appState.mmTriage = window.runMindMapTriage ? await window.runMindMapTriage(textParts, apiKey) : null;
+
         if (appState.multiPassMode) {
             await extractMindMapMultiPass(textParts, fileParts, apiKey);
         } else {
@@ -1643,6 +1665,11 @@ window.showGenerationReport = function () {
     const tokens = appState.generationUsage.totalTokens.toLocaleString();
 
     window.showToast(`${window.t('tst_gen_done', "Generazione completata!")} Token: ${tokens} | ${window.t('ui_cost', "Costo")}: ${costText}`, "success");
+
+    // Riordino su disco (22/7): a fine generazione crea/aggiorna in automatico la
+    // cartella vault della mappa in «Mappe» (nome = ROOT; annidata nella classe
+    // attiva se presente). Non bloccante — kill-switch mappai_autovault='0'.
+    try { if (window.ensureProjectVault) window.ensureProjectVault({ reason: 'generation' }); } catch (e) { }
 
     // Log for debugging
     console.log("--- Generation Report ---");

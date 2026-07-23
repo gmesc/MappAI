@@ -9,7 +9,6 @@ window.systemPromptsDescriptions = {
     "L1_MACRO_CATEGORIES": "admin_prompt_desc_l1",
     "MIND_MAP_FULL_TREE": "admin_prompt_desc_mm_full",
     "KNOWLEDGE_GRAPH_FULL_TREE": "admin_prompt_desc_kg_full",
-    "MIND_MAP_BRANCH": "admin_prompt_desc_branch",
     "KNOWLEDGE_GRAPH_SINGLE": "admin_prompt_desc_kg",
     "SEMANTIC_CORRELATION": "admin_prompt_desc_merge",
     "MULTIPLE_CHOICE_QUIZ": "admin_prompt_desc_quiz_flash",
@@ -34,7 +33,7 @@ window.systemPromptsDescriptions = {
 };
 
 window.systemPromptsCategories = {
-    "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE", "MIND_MAP_BRANCH"],
+    "MINDMAPS": ["L1_MACRO_CATEGORIES", "MIND_MAP_FULL_TREE"],
     "KGRAPHS": ["KNOWLEDGE_GRAPH_FULL_TREE", "KNOWLEDGE_GRAPH_SINGLE", "SEMANTIC_CORRELATION", "SOTA_SECOND_BRAIN"],
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR", "TUTOR_MODE_EXPLAIN", "TUTOR_MODE_ASK", "TUTOR_MODE_SOCRATIC", "TUTOR_MODE_DEVIL", "TUTOR_MODE_CONNECT", "TUTOR_MODE_RECALL"],
     "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR"],

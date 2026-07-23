@@ -1,0 +1,75 @@
+{
+  "codePrefix": "EAP",
+  "discipline": "Educazione alle arti plastiche",
+  "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-arti/ed-alle-arti-plastiche-traguardi-di-competenza/",
+  "license": "© Divisione della scuola – Repubblica e Cantone Ticino — materiale ufficiale DECS Ticino, uso educativo",
+  "items": [
+    {
+      "codeJson": "EAP.I.G1",
+      "codePortale": "EAP.I.G1",
+      "descrizione": "Descrivere le qualità dei materiali attraverso una manipolazione diretta per attribuirne finalità tecnico-espressive.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.I.G2",
+      "codePortale": "EAP.I.G2",
+      "descrizione": "Cogliere e descrivere aspetti formali basilari di opere artistiche e/o artigianali del proprio territorio e di quelle provenienti da culture diverse.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.I.G3",
+      "codePortale": "EAP.I.G3",
+      "descrizione": "Rappresentare ed esprimere un'emozione, un bisogno, un'idea attraverso l'esplorazione e la sperimentazione delle diverse tecniche plastiche chiarificando le proprie scelte.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.II.G1",
+      "codePortale": "EAP.II.G1",
+      "descrizione": "Riconoscere gli elementi principali del linguaggio visivo e plastico per comprendere il significato di immagini, filmati e prodotti multimediali.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.II.G2",
+      "codePortale": "EAP.II.G2",
+      "descrizione": "Descrivere opere d'arte (immagini, oggetti, sculture, installazioni) e messaggi multimediali per individuarne i principali aspetti formali- simbolici e situarli nel proprio territorio e in contesti culturali diversi dal proprio.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.II.G3",
+      "codePortale": "EAP.II.G3",
+      "descrizione": "Utilizzare le conoscenze e le abilità relative al linguaggio visivo e plastico per realizzare varie tipologie di produzioni espressive e/o narrative con molteplici tecniche, materiali e strumenti pittorici, plastici e multimediali.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.III.G1",
+      "codePortale": "EAP.III.G1",
+      "descrizione": "Analizzare gli elementi principali del linguaggio visivo e plastico per comprendere il significato di immagini, filmati e prodotti multimediali.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.III.G2",
+      "codePortale": "EAP.III.G2",
+      "descrizione": "Analizzare alcune opere d'arte e oggetti artigianali significativi del patrimonio culturale e ambientale collocandoli nei rispettivi contesti storici e geografici, utilizzando un linguaggio appropriato.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.III.G3",
+      "codePortale": "EAP.III.G3",
+      "descrizione": "Realizzare elaborati personali sulla base di un'ideazione e di una progettazione originale, applicando le conoscenze e le regole del linguaggio visivo e plastico e scegliendo in modo funzionale tecniche e materiali differenti.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.III.G4 (TPC)",
+      "codePortale": "EAP.III.G4 (TPC)",
+      "descrizione": "Ricavare informazioni da una serie di elementi dati per ideare e rappresentare graficamente un progetto utilizzando in modo efficace e autonomo gli strumenti del disegno tecnico tradizionale e digitale.",
+      "traguardi": []
+    },
+    {
+      "codeJson": "EAP.III.G5 (TPC)",
+      "codePortale": "EAP.III.G5 (TPC)",
+      "descrizione": "Realizzare il proprio progetto attraverso un prodotto tridimensionale mediante l'utilizzo delle diverse tecniche di costruzione giustificando le strategie applicate.",
+      "traguardi": []
+    }
+  ],
+  "note": "Tutti gli 11 codici attesi trovati e allineati 1:1 con i codici del portale, inclusi i due marcati TPC (EAP.III.G4 (TPC) ed EAP.III.G5 (TPC)). Il portale, per l'area Arti, pubblica ogni traguardo come pagina singola (URL /traguardo-di-competenza/<slug>/) contenente SOLO codice + descrittore di competenza + ciclo; NON esistono, a livello di traguardo, le declinazioni per categoria (Obiettivi di conoscenza, Obiettivi di abilità, Processi/Strategie, Atteggiamenti) → array 'traguardi' vuoto per ogni voce (nessuna categoria inventata). Verificato sia nell'HTML server-side sia nel DOM renderizzato. In EAP.II.G2 il testo di origine riporta 'formali- simbolici' (spazio dopo il trattino), riprodotto verbatim. Descrittori riprodotti verbatim."
+}

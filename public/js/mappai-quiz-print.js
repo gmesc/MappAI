@@ -87,149 +87,83 @@ const QP_PRINT_BAR = (accentColor, label) => `
 
 // ── STAMPA QUIZ ──────────────────────────────────────────
 
-window.printQuizSet = function (setId) {
-    const sets = appState?.db?.studySets || [];
-    const set = setId
-        ? sets.find(s => s.id === setId)
-        : sets[sets.length - 1]; // ultimo set generato
+// Risoluzione nome mappa (comportamento storico preservato: legge appState.nodes,
+// undefined → 'MappAI'; la pipeline passa opts.mapName esplicito).
+function _qpMapName() {
+    try {
+        const rootNode = appState?.nodes?.find(n => n.level === 0);
+        return rootNode ? cleanLabel(rootNode.label) : 'MappAI';
+    } catch (e) { return 'MappAI'; }
+}
 
-    if (!set || !set.items?.length) {
-        showToast('Nessun quiz trovato', 'warning');
-        return;
-    }
-
-    const rootNode = appState.nodes?.find(n => n.level === 0);
-    const mapName = rootNode ? cleanLabel(rootNode.label) : 'MappAI';
-    const now = new Date().toLocaleString('it-IT');
+// Builder PURO: ritorna la stringa HTML del quiz (risposte + foglio verifica).
+// opts: { mapName?, now?, includeBar? (default true) }. Non tocca il DOM principale.
+window.buildQuizSetHtml = function (set, opts) {
+    opts = opts || {};
+    const mapName = opts.mapName || _qpMapName();
+    const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#4f46e5';
+    const includeBar = opts.includeBar !== false;
 
-    // Genera HTML domande
+    const letters = ['A', 'B', 'C', 'D', 'E'];
+
+    // FOGLIO DOMANDE — versione distribuita agli allievi: NESSUNA risposta evidenziata.
+    // Font ingranditi per accessibilità DSA. La spiegazione NON compare qui (svelerebbe
+    // la soluzione): vive solo nel foglio soluzioni.
     let questionsHtml = '';
     set.items.forEach((item, idx) => {
-        const letters = ['A', 'B', 'C', 'D', 'E'];
-
         questionsHtml += `
         <div class="quiz-item" style="
             background:white; border-radius:12px;
-            padding:16px 20px; margin-bottom:16px;
+            padding:18px 22px; margin-bottom:16px;
             border-left:4px solid ${accentColor};
             page-break-inside:avoid;">
-
             <div style="
-                font-size:9px; font-weight:700;
-                text-transform:uppercase;
-                letter-spacing:0.06em;
-                color:${accentColor}; margin-bottom:6px;">
+                font-size:11px; font-weight:700;
+                text-transform:uppercase; letter-spacing:0.06em;
+                color:${accentColor}; margin-bottom:8px;">
                 Domanda ${idx + 1}
             </div>
-
             <div style="
-                font-size:12px; font-weight:bold;
-                color:#1e293b; margin-bottom:12px;
-                line-height:1.5;">
+                font-size:15px; font-weight:bold;
+                color:#1e293b; margin-bottom:14px;
+                line-height:1.55;">
                 ${escHtmlQP(item.question)}
             </div>
-
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
                 ${(item.options || []).map((opt, oi) => `
                 <div style="
                     display:flex; align-items:flex-start;
-                    gap:8px; padding:7px 10px;
-                    border-radius:7px;
-                    background:${oi === item.correctIndex
-                ? '#ecfdf5'
-                : '#f8fafc'};
-                    border:1px solid ${oi === item.correctIndex
-                ? '#6ee7b7'
-                : '#e2e8f0'};">
+                    gap:10px; padding:9px 12px;
+                    border-radius:8px;
+                    background:#f8fafc; border:1px solid #e2e8f0;">
                     <span style="
-                        flex-shrink:0; width:20px; height:20px;
-                        border-radius:50%;
-                        background:${oi === item.correctIndex
-                ? '#059669'
-                : '#e2e8f0'};
-                        color:${oi === item.correctIndex
-                ? 'white'
-                : '#64748b'};
-                        font-size:9px; font-weight:bold;
-                        display:flex; align-items:center;
-                        justify-content:center;">
-                        ${letters[oi]}
+                        flex-shrink:0; width:24px; height:24px;
+                        border-radius:50%; background:#e2e8f0;
+                        color:#475569; font-size:12px; font-weight:bold;
+                        display:flex; align-items:center; justify-content:center;">
+                        ${letters[oi] || (oi + 1)}
                     </span>
-                    <span style="
-                        font-size:10px; color:#1e293b;
-                        line-height:1.4;">
+                    <span style="font-size:13px; color:#1e293b; line-height:1.5; padding-top:2px;">
                         ${escHtmlQP(opt)}
-                        ${oi === item.correctIndex
-                ? '<span style="color:#059669;font-weight:bold;margin-left:6px;">✓</span>'
-                : ''}
                     </span>
                 </div>`).join('')}
             </div>
-
-            ${item.explanation ? `
-            <div style="
-                margin-top:10px; padding:8px 12px;
-                background:#f0f9ff; border-radius:6px;
-                border-left:3px solid #0ea5e9;
-                font-size:9px; color:#0369a1;
-                line-height:1.5;">
-                <strong>Spiegazione:</strong>
-                ${escHtmlQP(item.explanation)}
-            </div>` : ''}
         </div>`;
     });
 
-    // Versione senza risposte (per test)
-    let blankQuestionsHtml = '';
+    // FOGLIO SOLUZIONI — in coda, su pagina NUOVA (page-break-before) e compatto in 2
+    // colonne così sta su un solo A4: non finisce fotocopiato sulle schede degli allievi.
+    let answerKeyHtml = '';
     set.items.forEach((item, idx) => {
-        const letters = ['A', 'B', 'C', 'D', 'E'];
-        blankQuestionsHtml += `
-        <div class="quiz-item" style="
-            background:white; border-radius:12px;
-            padding:16px 20px; margin-bottom:16px;
-            border-left:4px solid #94a3b8;
-            page-break-inside:avoid;">
-            <div style="
-                font-size:9px; font-weight:700;
-                text-transform:uppercase;
-                letter-spacing:0.06em;
-                color:#64748b; margin-bottom:6px;">
-                Domanda ${idx + 1}
-            </div>
-            <div style="
-                font-size:12px; font-weight:bold;
-                color:#1e293b; margin-bottom:12px;
-                line-height:1.5;">
-                ${escHtmlQP(item.question)}
-            </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-                ${(item.options || []).map((opt, oi) => `
-                <div style="
-                    display:flex; align-items:flex-start;
-                    gap:8px; padding:7px 10px;
-                    border-radius:7px;
-                    background:#f8fafc;
-                    border:1px solid #e2e8f0;">
-                    <span style="
-                        flex-shrink:0; width:20px; height:20px;
-                        border-radius:50%; background:#e2e8f0;
-                        color:#64748b; font-size:9px;
-                        font-weight:bold; display:flex;
-                        align-items:center; justify-content:center;">
-                        ${letters[oi]}
-                    </span>
-                    <span style="font-size:10px; color:#1e293b; line-height:1.4;">
-                        ${escHtmlQP(opt)}
-                    </span>
-                </div>`).join('')}
-            </div>
-            <div style="
-                margin-top:10px; height:28px;
-                border-bottom:1px dashed #cbd5e1;
-                font-size:9px; color:#94a3b8;">
-                Risposta: ____
-            </div>
+        const ci = item.correctIndex;
+        const opts = item.options || [];
+        const corrText = (ci >= 0 && opts[ci] != null) ? opts[ci] : (item.answer != null ? item.answer : '—');
+        const corrLetter = (ci >= 0 && ci < letters.length) ? letters[ci] + ') ' : '';
+        answerKeyHtml += `
+        <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:8px; line-height:1.4;">
+            <span style="font-weight:900; color:${accentColor};">${idx + 1}.</span>
+            <span style="font-weight:800; color:#0f172a;">${corrLetter}</span><span style="color:#1e293b;">${escHtmlQP(corrText)}</span>
         </div>`;
     });
 
@@ -242,17 +176,19 @@ window.printQuizSet = function (setId) {
           rel="stylesheet">
     <style>
         ${QP_BASE_STYLES}
+        body { font-size: 13px; }
         .quiz-section-title {
-            font-size:13px; font-weight:900;
-            color:#4f46e5; margin:24px 0 12px;
-            padding-bottom:4px;
+            font-size:15px; font-weight:900;
+            color:#4f46e5; margin:20px 0 14px;
+            padding-bottom:5px;
             border-bottom:2px solid #e2e8f0;
             page-break-after:avoid;
         }
+        .answer-key-grid { column-count:2; column-gap:30px; font-size:13px; }
     </style>
 </head>
 <body>
-    ${QP_PRINT_BAR(accentColor, 'Quiz')}
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Quiz') : ''}
 
     <div class="qp-header">
         <div class="qp-title">${escHtmlQP(set.title)}</div>
@@ -264,16 +200,13 @@ window.printQuizSet = function (setId) {
         </div>
     </div>
 
-    <div class="quiz-section-title">
-        📋 Quiz con Risposte Corrette
-    </div>
+    <div class="quiz-section-title">Domande</div>
     ${questionsHtml}
 
-    <div class="quiz-section-title" style="margin-top:40px;
-         page-break-before:always;">
-        ✏️ Foglio di Verifica (senza risposte)
+    <div class="answer-key" style="page-break-before:always; page-break-inside:avoid;">
+        <div class="quiz-section-title">Soluzioni</div>
+        <div class="answer-key-grid">${answerKeyHtml}</div>
     </div>
-    ${blankQuestionsHtml}
 
     <div class="qp-footer">
         MappAI by insegnai.ch ·
@@ -282,37 +215,31 @@ window.printQuizSet = function (setId) {
 </body>
 </html>`;
 
+    return fullHtml;
+};
+
+// Consumer: risolve il set e apre la finestra di stampa (comportamento invariato).
+window.printQuizSet = function (setId) {
+    const sets = appState?.db?.studySets || [];
+    const set = setId ? sets.find(s => s.id === setId) : sets[sets.length - 1];
+    if (!set || !set.items?.length) { showToast('Nessun quiz trovato', 'warning'); return; }
     const win = window.open('', '_blank');
-    if (!win) {
-        showToast('Popup bloccato — abilita i popup', 'warning');
-        return;
-    }
-    win.document.write(fullHtml);
+    if (!win) { showToast('Popup bloccato — abilita i popup', 'warning'); return; }
+    win.document.write(window.buildQuizSetHtml(set));
     win.document.close();
-    showToast(
-        `✓ Quiz stampabile aperto — ${set.items.length} domande`,
-        'success'
-    );
+    showToast(`✓ Quiz stampabile aperto — ${set.items.length} domande`, 'success');
 };
 
 // ── STAMPA FLASHCARD ─────────────────────────────────────
 
-window.printFlashcardSet = function (setId) {
-    const sets = appState?.db?.studySets || [];
-    const set = setId
-        ? sets.find(s => s.id === setId)
-        : sets.find(s => s.mode === 'flashcard')
-        || sets[sets.length - 1];
-
-    if (!set || !set.items?.length) {
-        showToast('Nessuna flashcard trovata', 'warning');
-        return;
-    }
-
-    const rootNode = appState.nodes?.find(n => n.level === 0);
-    const mapName = rootNode ? cleanLabel(rootNode.label) : 'MappAI';
-    const now = new Date().toLocaleString('it-IT');
+// Builder PURO: ritorna la stringa HTML delle flashcard (2 colonne).
+// opts: { mapName?, now?, includeBar? (default true) }.
+window.buildFlashcardSetHtml = function (set, opts) {
+    opts = opts || {};
+    const mapName = opts.mapName || _qpMapName();
+    const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#059669';
+    const includeBar = opts.includeBar !== false;
 
     let cardsHtml = '';
     set.items.forEach((item, idx) => {
@@ -415,7 +342,7 @@ window.printFlashcardSet = function (setId) {
     </style>
 </head>
 <body>
-    ${QP_PRINT_BAR(accentColor, 'Flashcard')}
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Flashcard') : ''}
 
     <div class="qp-header">
         <div class="qp-title">${escHtmlQP(set.title)}</div>
@@ -445,17 +372,21 @@ window.printFlashcardSet = function (setId) {
 </body>
 </html>`;
 
+    return fullHtml;
+};
+
+// Consumer: risolve il set e apre la finestra di stampa (comportamento invariato).
+window.printFlashcardSet = function (setId) {
+    const sets = appState?.db?.studySets || [];
+    const set = setId
+        ? sets.find(s => s.id === setId)
+        : sets.find(s => s.mode === 'flashcard') || sets[sets.length - 1];
+    if (!set || !set.items?.length) { showToast('Nessuna flashcard trovata', 'warning'); return; }
     const win = window.open('', '_blank');
-    if (!win) {
-        showToast('Popup bloccato — abilita i popup', 'warning');
-        return;
-    }
-    win.document.write(fullHtml);
+    if (!win) { showToast('Popup bloccato — abilita i popup', 'warning'); return; }
+    win.document.write(window.buildFlashcardSetHtml(set));
     win.document.close();
-    showToast(
-        `✓ Flashcard stampabili aperte — ${set.items.length} carte`,
-        'success'
-    );
+    showToast(`✓ Flashcard stampabili aperte — ${set.items.length} carte`, 'success');
 };
 
 // ── STAMPA TUTTI I SET ───────────────────────────────────

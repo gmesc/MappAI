@@ -122,7 +122,10 @@
         .teach-filter-seg { @apply text-slate-400 hover:text-slate-600; } /* Segmento inattivo del filtro classe (005) */
         .teach-filter-seg.active { @apply bg-white text-indigo-600 shadow; } /* Segmento attivo del filtro classe */
         .teach-section-card { @apply max-w-[806px] mx-auto mb-4 border border-slate-200 rounded-2xl overflow-hidden; } /* Sezione collassabile della modalità Insegna (+20% larghezza, 19/7) */
-        .teach-qs-btn { @apply flex-1 basis-[180px] flex flex-col items-center justify-center gap-2 px-4 py-5 bg-white border border-indigo-100 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all text-indigo-600 font-bold text-sm; } /* Bottone quick-start QR (005) */
+        /* Bottone quick-start QR (005) — stile COSTRUISCI: grigio → hover emerald,
+           label centrata su due righe (leading-tight + min-h) così 4 stanno su una riga. */
+        .teach-qs-btn { @apply flex-1 basis-0 min-w-[150px] flex flex-col items-center justify-center gap-3 px-4 py-6 bg-slate-100 rounded-2xl shadow-sm hover:bg-emerald-400 hover:text-white transition-all text-slate-500 font-bold text-sm text-center; }
+        .teach-qs-btn span { @apply flex items-center justify-center text-center leading-tight min-h-[2.4em]; } /* label a 2 righe, altezza uniforme */
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
         .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
         .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
@@ -638,6 +641,11 @@
                         <i data-lucide="wrench" class="w-4 h-4"></i>
                         <span data-i18n="ui_landing_build">Costruisci</span>
                     </button>
+                    <button type="button" id="landing-mode-elabora" onclick="window.MappAITeach && window.MappAITeach.setMode('elabora')"
+                        class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span data-i18n="ui_landing_elabora">Elabora</span>
+                    </button>
                     <button type="button" id="landing-mode-teach" onclick="window.MappAITeach && window.MappAITeach.setMode('teach')"
                         class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
                         <i data-lucide="presentation" class="w-4 h-4"></i>
@@ -951,6 +959,27 @@
 
                     </div>
 
+                    <!-- Divisorio Sottile -->
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- SEZIONE: Profondità di generazione (tetto nei dati, ≠ filtro vista) -->
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col gap-0.5 max-w-[62%]">
+                                <span class="landing_label_primary mb-0" data-i18n="ui_gen_depth_title">Profondità di generazione</span>
+                                <span class="landing_label_secondary" data-i18n="ui_gen_depth_desc">Livello massimo dei rami nei dati. Il dettaglio più fine confluisce nelle descrizioni. Diverso dal filtro «Mostra fino a» sulla mappa.</span>
+                            </div>
+                            <select id="gen-depth-select"
+                                onchange="window.setGenDepth && window.setGenDepth(this.value)"
+                                class="text-[14px] font-bold bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 shrink-0 focus_ring_standard cursor-pointer">
+                                <option value="2" data-i18n="ui_gen_depth_l2">L2 — essenziale</option>
+                                <option value="3" data-i18n="ui_gen_depth_l3">L3 — consigliato</option>
+                                <option value="4" data-i18n="ui_gen_depth_l4">L4 — dettagliato</option>
+                                <option value="5" selected data-i18n="ui_gen_depth_l5">L5 — massimo</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- SEZIONE: Logica MM (MappAI / BERT) -->
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
@@ -961,8 +990,8 @@
                             <div class="flex bg-emerald-200 p-1 rounded-full w-36 h-16 shrink-0">
                                 <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
                                     class="flex-1 text-[13px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600">MappAI</button>
-                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('bert')"
-                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">BERT</button>
+                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('triage')"
+                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700" data-i18n="ui_mm_logic_adaptive">Adattiva</button>
                             </div>
                         </div>
                     </div>
@@ -983,19 +1012,28 @@
                         </div>
                     </div>
 
-                    <!-- Pulsante Generate -->
-                    <button type="submit" id="generate-btn" class="btn_salva_action w-full !h-32">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none"
+                    <!-- Pipeline «Genera materiali» (011): bottone PRINCIPALE — mappa + quiz + fogli + sintesi -->
+                    <button type="button" id="generate-materials-btn"
+                        onclick="window.MappAIPipeline && window.MappAIPipeline.openModal()"
+                        class="btn_salva_action w-full !h-32">
+                        <i data-lucide="package" class="w-8 h-8"></i>
+                        <span class="text-[32px]" data-i18n="mp_btn_generate_materials">Genera materiali</span>
+                    </button>
+
+                    <!-- Genera Mappa (solo mappa): accent-blue, submit del form → startGeneration -->
+                    <button type="submit" id="generate-btn"
+                        class="w-full mt-3 flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition-colors shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             class="lucide lucide-sparkles">
                             <path
-                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                             <path d="M5 3v4" />
                             <path d="M19 17v4" />
                             <path d="M3 5h4" />
                             <path d="M17 19h4" />
                         </svg>
-                        <span class="text-[32px]" id="btn-generate-label">Genera Mappa</span>
+                        <span id="btn-generate-label" data-i18n="ui_generate_map_only">Genera Mappa</span>
                     </button>
 
                     <div class="hidden">
@@ -1018,6 +1056,15 @@
                     <i id="build-projects-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform"></i>
                 </button>
                 <div id="build-projects-body" class="hidden mt-3 border border-slate-100 rounded-2xl overflow-hidden">
+                    <!-- Filtro classe (22/7/26): CLASSE/TUTTI, condiviso con Insegna/Elabora -->
+                    <div class="flex justify-end px-3 pt-2 pb-1">
+                        <div class="inline-flex rounded-full bg-slate-100 p-1 shadow-inner">
+                            <button type="button" id="build-filter-all" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('all')"
+                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_all">Tutti</span></button>
+                            <button type="button" id="build-filter-class" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('active')"
+                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_class">Classe</span></button>
+                        </div>
+                    </div>
                     <div id="recent-projects-container" class="flex flex-col pb-1"></div>
                 </div>
             </div>
@@ -1027,10 +1074,11 @@
 
             <!-- ===== MODALITÀ INSEGNA (popolata da mappai-landing-teach.js) ===== -->
             <div id="teach-content" class="hidden"></div>
+            <div id="elabora-content" class="hidden"></div>
 
 
-        <!-- QUICK ACTIONS SOTA -->
-        <div class="max-w-2xl mx-auto mt-12 mb-12">
+        <!-- QUICK ACTIONS SOTA (nascosta in modalità ELABORA) -->
+        <div id="landing-quick-actions" class="max-w-2xl mx-auto mt-12 mb-12">
             <div class="flex flex-col sm:flex-row gap-4">
                 <button onclick="window.startEmptyMap()" class="btn_quick_action">
                     <i data-lucide="plus-circle" class="w-[61px] h-[61px] shrink-0"></i>
@@ -1048,8 +1096,8 @@
             </div>
         </div>
 
-        <!-- Meta-analisi docente + Consumi AI (discreti, in fondo) -->
-        <div class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
+        <!-- Meta-analisi docente + Consumi AI (discreti, in fondo; nascosti in ELABORA) -->
+        <div id="landing-meta-links" class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
             <button onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
                 title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
@@ -1378,18 +1426,8 @@
                             </div>
                         </div>
 
-                        <button id="btn-generate-flashcards" onclick="window.generateGlobalFlashcards()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="brain-circuit" class="w-5 h-5"></i> <span data-i18n="ui_map_flashcards">Flashcard Mappa</span>
-                        </button>
-                        <button id="btn-generate-quiz" onclick="window.generateGlobalQuiz()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="graduation-cap" class="w-5 h-5"></i> <span data-i18n="ui_map_quiz">Quiz Mappa</span>
-                        </button>
-                        <button onclick="window.showAppTutorial()"
-                            class="w-full py-3 bg-amber-100 text-slate-500 hover:bg-amber-500 hover:text-white rounded-xl shadow-xs  text-sm font-bold  flex items-center justify-center gap-2 transition-colors ">
-                            <i data-lucide="book-open" class="w-5 h-5"></i> <span data-i18n="ui_study_tips">Consigli di Studio</span>
-                        </button>
+                        <!-- 011: rimossi i 3 bottoni gialli (Flashcard/Quiz/Consigli): i set
+                             pre-generati dalla pipeline vivono nella lista «Set di Studio» qui sotto. -->
                     </div>
 
                     <!-- Set Flashcard Generati -->
@@ -1445,26 +1483,35 @@
                          Le voci vivono nei modali di mappai-menu-hubs.js (card pulite +
                          tooltip hover). Gli input file restano QUI nascosti: i modali li
                          attivano via click() programmato. -->
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
-                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
-                    </button>
+                    <!-- Ordine (22/7/26, richiesta utente): Materiali · Live · Studio · Garden ·
+                         Graph manager · Sincronizza Vault · Revisione · Co-docente. -->
                     <button onclick="window.openStudyMaterialsModal && window.openStudyMaterialsModal()" title="Stampati e attività JIGSAW dalla mappa" data-i18n-title="tt_materials_hub">
                         <i data-lucide="printer"></i> <span data-i18n="ui_materials_hub">Materiali di studio</span>
                     </button>
-                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
-                        <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
+                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
+                        <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
+                    </button>
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
+                        <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
                     <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
                         <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
                     </button>
-                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
-                        <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
+                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
+                        <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
                     </button>
                     <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
                          mappai-vault-io/manager/storage-lang via getElementById → resta qui -->
                     <button id="sync-vault-btn" onclick="window.saveMapVault()" class="hidden"
                         title="Sincronizza modifiche nel Vault" data-i18n-title="tt_sync_vault">
                         <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
+                    </button>
+                    <!-- Sotto Sincronizza Vault (22/7/26): Revisione (correzioni annotate) + Co-docente -->
+                    <button onclick="window.MappAICorrection && (window.MappAICorrection.isActive() ? window.MappAICorrection.review() : window.MappAICorrection.start())" title="Revisione mappa: raccogli correzioni annotate come ground-truth" data-i18n-title="tt_revisione_hub">
+                        <i data-lucide="clipboard-pen"></i> <span data-i18n="ui_revisione_hub">Revisione</span>
+                    </button>
+                    <button onclick="window.MappAIElabora && window.MappAIElabora.openFromMap()" title="Elabora: analizza la scheda e arricchisci la mappa con citazioni dalla fonte" data-i18n-title="tt_elabora_hub">
+                        <i data-lucide="sparkles"></i> <span data-i18n="ui_elabora_hub">Co-docente (Elabora)</span>
                     </button>
                     <!-- input file nascosti (attivati dai modali hub) -->
                     <input type="file" id="menu-import-json" accept=".json" class="hidden"
@@ -1630,7 +1677,7 @@
                 <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
                 <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
                     <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_depth">Profondità</span>
+                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_show_depth" title="Filtro di vista: nasconde i nodi più profondi senza cancellarli. La profondità dei DATI si imposta con «Genera fino a» nella config AI.">Mostra fino a</span>
                         <span id="level-slider-val"
                             class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
                     </div>
@@ -2438,15 +2485,15 @@
 
     <!-- MODALE EDITING NODO -->
     <div id="edit-node-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
+        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white w-screen h-screen max-w-none rounded-none shadow-2xl p-8 flex flex-col transform scale-95 transition-transform duration-200 relative"
             id="edit-node-box">
             <button onclick="window.closeEditModal()"
                 class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
             <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
-            <div class="space-y-6 max-h-[70vh] overflow-y-auto pl-4 pr-4 modal-scroll">
+            <div class="space-y-6 flex-1 min-h-0 overflow-y-auto pl-4 pr-4 modal-scroll">
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="modal_field_title" data-i18n="lbl_node_name">Nome nodo</label>
@@ -3488,6 +3535,7 @@
     <script src="js/mappai-relations.js"></script>
 
     <script src="js/app.js"></script>
+    <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js"></script>
     <script src="js/mappai-storage-lang.js"></script>
     <script src="js/mappai-d3-render.js"></script>
@@ -3508,6 +3556,8 @@
     <script src="js/mappai-suggestions-panel.js"></script>
     <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
     <script src="js/mappai-study-export-core.js"></script>
+    <!-- Costruttore documento di studio adattato (shell condiviso #3/#4/#5 export HTML→PDF) -->
+    <script src="js/mappai-study-doc.js"></script>
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
     <script src="js/mappai-causal-chains.js"></script>
@@ -3520,6 +3570,14 @@
     <script src="js/mappai-undo.js"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-desc-fidelity.js"></script>
+    <script src="js/mappai-deepen-core.js"></script>
+    <!-- #1: rilevamento intestazioni/piè ricorrenti (ELABORA + corpus generazione) -->
+    <script src="js/mappai-boilerplate-core.js"></script>
+    <!-- Estrazione domande/esercizi dalla fonte (ELABORA → quiz) -->
+    <script src="js/mappai-questions-core.js"></script>
+    <script src="js/mappai-enrich-core.js"></script>
+    <script src="js/mappai-correction-core.js"></script>
+    <script src="js/mappai-correction-mode.js"></script>
     <script src="js/mappai-node-styling.js"></script>
     <script src="js/mappai-l1-checkpoint.js"></script>
     <script src="js/mappai-mastery.js"></script>
@@ -3549,7 +3607,11 @@
     <!-- Organizzazione file (010): core puro + impostazioni cartella + registro attività -->
     <script src="js/mappai-files-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
+    <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
+    <script src="js/mappai-pipeline-core.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
+    <script src="js/mappai-elabora.js"></script>
+    <script src="js/mappai-material-pipeline.js"></script>
     <script src="js/mappai-usage-core.js"></script>
     <script src="js/mappai-usage-tracker.js"></script>
     <script src="js/mappai-usage-dashboard.js"></script>

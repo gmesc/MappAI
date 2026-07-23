@@ -50,6 +50,7 @@ ios/App/App.xcodeproj/xcuserdata/
 # File di backup generati durante lo sviluppo
 *.bak
 *.bak_*
+*.bak-*
 prompts_config_backup_*.json
 
 # File workspace IDE

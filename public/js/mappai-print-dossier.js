@@ -248,33 +248,47 @@ window._nlSyncContentLock = function () {
     });
 };
 
-window.printAllNodeLabels = async function () {
-    // Leggi il livello selezionato dal modal (se aperto), poi chiudi il modal
-    var selectedDepthEl = document.querySelector('input[name="nl-depth"]:checked');
-    var maxLevel = selectedDepthEl && selectedDepthEl.value !== 'all'
-        ? parseInt(selectedDepthEl.value, 10)
-        : null;
+// Parametrica: le 6 opzioni oggi lette dal DOM (nl-depth/fmt/layout/bg/tune/causal)
+// diventano campi di `opts` con il DOM come FALLBACK → il modale la chiama senza
+// argomenti (comportamento invariato); la pipeline la chiama con opzioni esplicite.
+//   opts = { depth:'all'|number, fmt:'3x4'|'2x2'|'2x1', layout:'title'|'summary'|
+//            'keywords'|'card', bg:'none'|'grid', tuned:bool, causal:bool,
+//            toDisk:{vaultPath} }
+// Ritorna Promise<{ ok, base64?, fileName }>. Con toDisk: niente doc.save/archivio/toast.
+window.printAllNodeLabels = async function (opts) {
+    opts = opts || {};
+    // Livello massimo (depth): opts poi radio nl-depth, default 'all'.
+    var depthVal = (opts.depth != null) ? opts.depth
+        : (function () { var el = document.querySelector('input[name="nl-depth"]:checked'); return el ? el.value : 'all'; })();
+    var maxLevel = (depthVal !== 'all' && depthVal != null) ? parseInt(depthVal, 10) : null;
+    if (isNaN(maxLevel)) maxLevel = null;
 
     // Formato foglio (colonne × righe) e contenuto della card (title | summary | keywords)
     var FMT = { '3x4': { cols: 3, rows: 4 }, '2x2': { cols: 2, rows: 2 }, '2x1': { cols: 2, rows: 1 } };
-    var selectedFmtEl = document.querySelector('input[name="nl-fmt"]:checked');
-    var fmt = (selectedFmtEl && FMT[selectedFmtEl.value]) ? selectedFmtEl.value : '3x4';
+    var fmtVal = opts.fmt
+        || (function () { var el = document.querySelector('input[name="nl-fmt"]:checked'); return el ? el.value : '3x4'; })();
+    var fmt = FMT[fmtVal] ? fmtVal : '3x4';
     var cols = FMT[fmt].cols;
     var rowsPerPage = FMT[fmt].rows;
-    var selectedLayoutEl = document.querySelector('input[name="nl-layout"]:checked');
-    var layout = selectedLayoutEl ? selectedLayoutEl.value : 'title';
-    if (fmt === '3x4') layout = 'title'; // 3×4 = solo titolo
+    var layout = opts.layout
+        || (function () { var el = document.querySelector('input[name="nl-layout"]:checked'); return el ? el.value : 'title'; })();
+    if (fmt === '3x4') layout = 'title'; // 3×4 = solo titolo (vincolo motore)
 
     // Sfondo pagina: none | grid (quadretti 5 mm cyan)
-    var selectedBgEl = document.querySelector('input[name="nl-bg"]:checked');
-    var pageBg = selectedBgEl ? selectedBgEl.value : 'none';
+    var pageBg = opts.bg
+        || (function () { var el = document.querySelector('input[name="nl-bg"]:checked'); return el ? el.value : 'none'; })();
 
-    // Taratura AI (solo se layout keyword): leggi PRIMA di chiudere il modale
-    var nlTuneOn = !!(document.getElementById('nl-tune-toggle') && document.getElementById('nl-tune-toggle').checked);
+    // Taratura AI (solo se layout keyword)
+    var nlTuneOn = (opts.tuned != null) ? !!opts.tuned
+        : !!(document.getElementById('nl-tune-toggle') && document.getElementById('nl-tune-toggle').checked);
     var tuned = false;
 
     // «Catena dei perché»: pagine extra in coda al PDF (deterministico, zero AI)
-    var nlCausalOn = !!(document.getElementById('nl-causal-toggle') && document.getElementById('nl-causal-toggle').checked);
+    var nlCausalOn = (opts.causal != null) ? !!opts.causal
+        : !!(document.getElementById('nl-causal-toggle') && document.getElementById('nl-causal-toggle').checked);
+
+    // toDisk presente → modalità headless (pipeline): niente download/archivio/toast.
+    var toDisk = opts.toDisk || null;
 
     var modal = document.getElementById('node-labels-print-modal');
     if (modal) modal.remove();
@@ -285,8 +299,8 @@ window.printAllNodeLabels = async function () {
         : allNodes;
 
     if (nodes.length === 0) {
-        window.showToast(window.t('tst_no_nodes', "Nessun nodo presente nella mappa."), "warning");
-        return;
+        if (!toDisk) window.showToast(window.t('tst_no_nodes', "Nessun nodo presente nella mappa."), "warning");
+        return { ok: false, error: 'nessun nodo' };
     }
 
     const projectTitle = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Progetto MappAI";
@@ -520,7 +534,18 @@ window.printAllNodeLabels = async function () {
     }
 
     const verde = tuned ? '-[VERDE]' : '';
-    doc.save(`Label-${projectTitle}${verde}.pdf`);
+
+    // Modalità headless (pipeline): ritorna il PDF come base64, nessun effetto UI.
+    // Il nome canonico lo decide l'orchestratore; qui offriamo quello di default.
+    if (toDisk) {
+        var pipeName = (window.MappAIPipelineCore && window.MappAIPipelineCore.buildFileName)
+            ? window.MappAIPipelineCore.buildFileName('nodesheet', layout, tuned)
+            : ('Foglio-nodi-' + layout + verde + '.pdf');
+        return { ok: true, base64: doc.output('datauristring'), fileName: pipeName };
+    }
+
+    const domFileName = `Label-${projectTitle}${verde}.pdf`;
+    doc.save(domFileName);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 
     // Archivio documenti (005): il Foglio nodi è un PDF → salvato come data-URI,
@@ -535,6 +560,7 @@ window.printAllNodeLabels = async function () {
             });
         }
     } catch (e) { /* archivio best-effort */ }
+    return { ok: true, fileName: domFileName };
 };
 
 // ── Keyword per le etichette ──────────────────────────────────────────────────

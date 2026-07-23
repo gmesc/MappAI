@@ -796,6 +796,152 @@ ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultP
     }
 });
 
+// ── Pipeline «Genera materiali» (011) — 3 handler sottili (I/O + finestra) ──
+// Nessuna logica di dominio qui: naming/sanitizzazione/manifest vivono nei moduli
+// renderer e in FilesCore/PipelineCore (constitution VI).
+
+// html-to-pdf: HTML stampabile → PDF senza interazione (webContents.printToPDF).
+ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
+    let win = null;
+    try {
+        if (!html || typeof html !== 'string') return { ok: false, error: 'html mancante' };
+        const opts = options || {};
+        win = new BrowserWindow({
+            show: false,
+            webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false }
+        });
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        await new Promise(r => setTimeout(r, 150));   // settle del layout (font/immagini inline)
+        const pdf = await win.webContents.printToPDF({
+            pageSize: opts.pageSize || 'A4',
+            printBackground: true,
+            landscape: !!opts.landscape
+        });
+        return { ok: true, base64: pdf.toString('base64') };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    } finally {
+        if (win) { try { win.destroy(); } catch (e) { /* noop */ } }
+    }
+});
+
+// save-vault-file: scrittura generica dentro il vault (HTML/MP3/PDF/JSON manifest).
+// La sanitizzazione del percorso arriva da FilesCore — main NON reimplementa regole.
+ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        if (base64 == null && text == null) return { ok: false, error: 'nessun contenuto' };
+        const dest = path.join(vaultPath, safe);
+        // ifAbsent: non sovrascrivere (Fonti/ — il chiamante ritenta con suffisso)
+        if (ifAbsent && fs.existsSync(dest)) return { ok: false, error: 'exists', exists: true };
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        if (base64 != null) {
+            const b = (/^data:/i.test(base64) && base64.indexOf(',') >= 0) ? base64.slice(base64.indexOf(',') + 1) : base64;
+            fs.writeFileSync(dest, Buffer.from(b, 'base64'));
+        } else {
+            fs.writeFileSync(dest, String(text), 'utf-8');
+        }
+        return { ok: true, path: dest };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// read-vault-file: lettura simmetrica di save-vault-file (stesse guardie di path
+// via FilesCore — 22/7/26, anteprima PDF originali in ELABORA). Ritorna base64.
+ipcMain.handle('read-vault-file', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        const src = path.join(vaultPath, safe);
+        if (!fs.existsSync(src)) return { ok: false, error: 'file non trovato: ' + safe };
+        const stat = fs.statSync(src);
+        const MAX = 50 * 1024 * 1024; // cap 50MB: evita payload IPC enormi
+        if (stat.size > MAX) return { ok: false, error: 'file troppo grande (' + Math.round(stat.size / 1048576) + 'MB)' };
+        return { ok: true, base64: fs.readFileSync(src).toString('base64'), size: stat.size };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
+// pipeline-open-folder: apre nel Finder una cartella vault DENTRO mapsBaseDir
+// (i vault della pipeline sono annidati nei contenitori di classe → basename non basta).
+ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
+    try {
+        if (!folderPath) return { ok: false, error: 'percorso mancante' };
+        const base = mapsBaseDir();
+        const resolved = path.resolve(folderPath);
+        if (resolved !== path.resolve(base) && !resolved.startsWith(path.resolve(base) + path.sep)) {
+            return { ok: false, error: 'fuori da Mappe' };
+        }
+        if (!fs.existsSync(resolved)) return { ok: false, error: 'cartella-non-trovata' };
+        await shell.openPath(resolved);
+        return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
+});
+
+// delete-vault: sposta nel Cestino una cartella vault DENTRO mapsBaseDir (Elimina
+// dalla sezione Insegna). shell.trashItem = recuperabile (mai cancellazione dura);
+// validazione sotto Mappe + rifiuto della radice stessa.
+ipcMain.handle('delete-vault', async (event, { folderPath } = {}) => {
+    try {
+        if (!folderPath) return { success: false, error: 'percorso mancante' };
+        const base = path.resolve(mapsBaseDir());
+        const resolved = path.resolve(folderPath);
+        if (resolved === base || (!resolved.startsWith(base + path.sep))) {
+            return { success: false, error: 'fuori da Mappe' };
+        }
+        if (!fs.existsSync(resolved)) return { success: false, error: 'cartella-non-trovata' };
+        await shell.trashItem(resolved);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe
+// (materiali della pipeline dalla sezione Insegna). Validazione sotto mapsBaseDir.
+ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !relPath) return { ok: false, error: 'parametri mancanti' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido' };
+        const base = path.resolve(mapsBaseDir());
+        const target = path.resolve(path.join(vaultPath, safe));
+        if (target !== base && !target.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!fs.existsSync(target)) return { ok: false, error: 'file-non-trovato' };
+        await shell.openPath(target);
+        return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
+});
+
+// vault-materials-list: elenca i materiali su disco (Materiale Studio/) + manifest.
+ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        let manifest = null;
+        try {
+            const mp = path.join(vaultPath, 'pipeline.json');
+            if (fs.existsSync(mp)) manifest = JSON.parse(fs.readFileSync(mp, 'utf-8'));
+        } catch (e) { manifest = null; }   // parse tollerante: manifest corrotto ≠ errore
+        const dir = path.join(vaultPath, 'Materiale Studio');
+        const files = [];
+        if (fs.existsSync(dir)) {
+            fs.readdirSync(dir).forEach(name => {
+                try {
+                    const fp = path.join(dir, name);
+                    const st = fs.statSync(fp);
+                    if (st.isFile()) files.push({ name: name, relPath: 'Materiale Studio/' + name, size: st.size, mtime: st.mtimeMs });
+                } catch (e) { /* skip */ }
+            });
+        }
+        return { ok: true, manifest: manifest, files: files };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
 // IPC Handler to save chat transcripts
 ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
@@ -968,34 +1114,6 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const allegatiDir = path.join(folderPath, 'Allegati');
         if (!fs.existsSync(nodesDir)) fs.mkdirSync(nodesDir, { recursive: true });
         if (!fs.existsSync(allegatiDir)) fs.mkdirSync(allegatiDir, { recursive: true });
-
-        // 3a-bis. Memory Dungeon: cartella piani custom creata di default, con LEGGIMI
-        // per studenti/docenti (contratto: docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md).
-        // Vuota = nessun effetto: i piani senza file restano procedurali.
-        const dungeonPianiDir = path.join(folderPath, 'Memory Dungeon', 'piani');
-        if (!fs.existsSync(dungeonPianiDir)) fs.mkdirSync(dungeonPianiDir, { recursive: true });
-        const dungeonReadme = path.join(folderPath, 'Memory Dungeon', 'LEGGIMI.md');
-        if (!fs.existsSync(dungeonReadme)) {
-            fs.writeFileSync(dungeonReadme, [
-                '# Memory Dungeon — piani personalizzati',
-                '',
-                'In questa cartella vivono i piani del dungeon disegnati da te, dal tuo docente o dai compagni.',
-                '',
-                '## Hai ricevuto un file di piano? Due strade:',
-                '1. **Consigliata**: in MappAI, menu azioni (in basso a sinistra) → «Importa piano Dungeon».',
-                '   Il file viene controllato (niente piani ingiocabili) e copiato qui al posto giusto.',
-                '2. Manuale: trascina il file `.json` dentro la cartella `piani/`. Il nome del file non',
-                '   conta: il piano si riconosce dal campo `"id": "piano-N"` scritto dentro il file.',
-                '',
-                '## Come funziona',
-                '- Ogni file descrive UN piano del dungeon. Al prossimo avvio del Memory Dungeon quel',
-                '  piano sostituisce quello generato automaticamente.',
-                '- I piani senza file restano generati automaticamente: cartella vuota = tutto come prima.',
-                '- `ruleset.json` (facoltativo, accanto a `piani/`) è per docenti/OPI: regola le soglie di',
-                '  validazione (quante memorie, distanze minime, numero massimo di nemici).',
-                ''
-            ].join('\n'), 'utf-8');
-        }
 
         // 3b. Ponti JIGSAW isolati (contributi inter-area dello studente)
         const _pontiBridgesPath = path.join(nodesDir, '_ponti', '_bridges.json');
@@ -1986,7 +2104,7 @@ function _smWrite(items) {
     fs.writeFileSync(sharedMatIndexFile(), JSON.stringify({ schema: 'mappai-shared-materials@1', items }, null, 2));
 }
 function _smPublic(it) {
-    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null };
+    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null, mapName: it.mapName || '' };
 }
 
 ipcMain.handle('sharedmat-list', async () => {
@@ -1994,7 +2112,7 @@ ipcMain.handle('sharedmat-list', async () => {
     catch (err) { return { success: false, error: err.message }; }
 });
 
-ipcMain.handle('sharedmat-add', async () => {
+ipcMain.handle('sharedmat-add', async (event, { mapName } = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {
         title: 'Condividi da PC — scegli un file', properties: ['openFile', 'multiSelections']
     });
@@ -2010,7 +2128,7 @@ ipcMain.handle('sharedmat-add', async () => {
             const stored = id + '__' + name.replace(/[^a-zA-Z0-9._-]+/g, '_');
             fs.copyFileSync(src, path.join(sharedMatFilesDir(), stored));
             const st = fs.statSync(path.join(sharedMatFilesDir(), stored));
-            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null };
+            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null, mapName: mapName ? String(mapName) : '' };
             items.unshift(entry); added.push(_smPublic(entry));
         } catch (e) { console.warn('[sharedmat] copia fallita', src, e.message); }
     }
@@ -2226,42 +2344,60 @@ ipcMain.handle('get-all-vaults', async () => {
     try {
         const saveDir = mapsBaseDir();   // 010
         if (!fs.existsSync(saveDir)) return [];
+        const EXCLUDE = (FilesCore && FilesCore.VAULT_CONTAINER_EXCLUDE) || [];
 
-        const folders = fs.readdirSync(saveDir).filter(f => {
-            return fs.statSync(path.join(saveDir, f)).isDirectory();
-        });
+        // Legge un vault (cartella con index.yaml). classDir = basename del contenitore
+        // di classe se annidato (011), assente per i vault flat. Shape INVARIATA.
+        function readVaultInfo(vaultPath, folderName, classDir) {
+            const indexPath = path.join(vaultPath, 'index.yaml');
+            if (!fs.existsSync(indexPath)) return null;
+            const vaultInfo = { folderName: folderName, fullPath: vaultPath };
+            if (classDir) vaultInfo.classDir = classDir;
+            try {
+                const parsed = yaml.load(fs.readFileSync(indexPath, 'utf-8')) || {};
+                vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
+                vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || folderName;
+                vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
+                if (parsed.userProfile) {
+                    vaultInfo.nickname = parsed.userProfile.nickname;
+                    vaultInfo.age      = parsed.userProfile.age;
+                }
+            } catch (e) {
+                console.warn(`[MappAI] Errore parsing index.yaml in ${folderName}:`, e.message);
+                // Fallback legacy riga-per-riga
+                const indexContent = fs.readFileSync(indexPath, 'utf-8');
+                indexContent.split('\n').forEach(line => {
+                    if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
+                    if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
+                    if (line.startsWith('userProfile:')) {
+                        try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
+                    }
+                });
+            }
+            return vaultInfo;
+        }
 
         const vaults = [];
-        folders.forEach(f => {
-            const vaultPath = path.join(saveDir, f);
-            const indexPath = path.join(vaultPath, 'index.yaml');
-            if (fs.existsSync(indexPath)) {
-                const vaultInfo = { folderName: f, fullPath: vaultPath };
-                try {
-                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                    const parsed = yaml.load(indexContent) || {};
-                    vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
-                    vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || f;
-                    vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
-                    if (parsed.userProfile) {
-                        vaultInfo.nickname = parsed.userProfile.nickname;
-                        vaultInfo.age      = parsed.userProfile.age;
-                    }
-                } catch(e) {
-                    console.warn(`[MappAI] Errore parsing index.yaml in ${f}:`, e.message);
-                    // Fallback legacy
-                    const indexContent = fs.readFileSync(indexPath, 'utf-8');
-                    indexContent.split('\n').forEach(line => {
-                        if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
-                        if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
-                        if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
-                        if (line.startsWith('userProfile:')) {
-                            try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
-                        }
-                    });
-                }
-                vaults.push(vaultInfo);
+        fs.readdirSync(saveDir).forEach(f => {
+            const p = path.join(saveDir, f);
+            let st; try { st = fs.statSync(p); } catch (e) { return; }
+            if (!st.isDirectory() || EXCLUDE.indexOf(f) >= 0) return;
+            // Livello 1: cartella CON index.yaml = vault (comportamento storico).
+            if (fs.existsSync(path.join(p, 'index.yaml'))) {
+                const vi = readVaultInfo(p, f, null);
+                if (vi) vaults.push(vi);
+                return;
             }
+            // Livello 2: contenitore di classe (nessun index.yaml) → scandire 1 livello.
+            let children; try { children = fs.readdirSync(p); } catch (e) { return; }
+            children.forEach(c => {
+                const cp = path.join(p, c);
+                let cst; try { cst = fs.statSync(cp); } catch (e) { return; }
+                if (!cst.isDirectory()) return;
+                const vi = readVaultInfo(cp, c, f);   // folderName = basename del vault; classDir = contenitore
+                if (vi) vaults.push(vi);
+            });
         });
 
         // Sort by lastUpdated desc
@@ -2387,7 +2523,8 @@ ipcMain.handle('files-root-get', async () => {
         organized: filesOrganized(),
         filesRoot: s.filesRoot || null,
         rootDir: filesOrganized() ? mappaiRootDir() : null,
-        documentsDir: documentsDir()
+        documentsDir: documentsDir(),
+        mapsBaseDir: mapsBaseDir()   // 011: base per la pipeline (costruzione folderPath)
     };
 });
 

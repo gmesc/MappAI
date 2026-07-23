@@ -21,6 +21,10 @@ test('CATS: ogni categoria ha label e almeno una sottocategoria', () => {
     });
     assert.strictEqual(U.catLabel('map'), 'Generazione mappa');
     assert.strictEqual(U.subLabel('materials', 'timeline'), 'Timeline');
+    // categoria pipeline (011) con le 7 sottovoci per step
+    assert.strictEqual(U.catLabel('pipeline'), 'Pipeline materiali');
+    assert.strictEqual(U.subLabel('pipeline', 'quiz_mc'), 'Quiz a scelta multipla');
+    assert.strictEqual(U.subLabel('pipeline', 'tts'), 'Voce naturale');
     // fallback su categoria/sotto sconosciute
     assert.strictEqual(U.catLabel('boh'), U.CATS.other.label);
     assert.strictEqual(U.subLabel('map', 'boh'), U.CATS.other.subs.misc);

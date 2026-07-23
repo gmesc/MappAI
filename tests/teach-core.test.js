@@ -157,3 +157,19 @@ test('filterByClass: match via mapName (documenti/set)', () => {
   const out = TC.filterByClass(items, { name: '4D' }, reg, []);
   assert.strictEqual(out.length, 1);
 });
+
+// ── matchesSelectedProject (011/US5) ──────────────────────────────────────
+test('matchesSelectedProject: sel null → tutto passa', () => {
+  assert.strictEqual(TC.matchesSelectedProject({ mapName: 'X' }, null), true);
+  assert.strictEqual(TC.matchesSelectedProject({ mapName: 'X' }, { id: null, name: null }), true);
+});
+
+test('matchesSelectedProject: match per projectId poi mapName', () => {
+  const sel = { id: 'p1', name: 'Fotosintesi' };
+  assert.strictEqual(TC.matchesSelectedProject({ projectId: 'p1' }, sel), true);   // per id
+  assert.strictEqual(TC.matchesSelectedProject({ mapName: 'Fotosintesi' }, sel), true); // per nome mappa
+  assert.strictEqual(TC.matchesSelectedProject({ map: 'Fotosintesi' }, sel), true);     // campo map
+  assert.strictEqual(TC.matchesSelectedProject({ projectId: 'p2', mapName: 'Altro' }, sel), false);
+  assert.strictEqual(TC.matchesSelectedProject({}, sel), false);   // legacy senza metadato → escluso con selezione
+  assert.strictEqual(TC.matchesSelectedProject(null, sel), false);
+});

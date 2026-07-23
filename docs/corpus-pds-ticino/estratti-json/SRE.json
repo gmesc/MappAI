@@ -1,0 +1,39 @@
+{
+  "codePrefix": "SRE",
+  "discipline": "Storia delle religioni",
+  "pageUrl": "https://pianodistudio.edu.ti.ch/piani-disciplinari/aree-disciplinari/area-scienze-umane-sociali-e-naturali/storia-delle-religioni-traguardi-di-competenza/",
+  "license": "© Divisione della scuola – Repubblica e Cantone Ticino — materiale ufficiale DECS Ticino, uso educativo",
+  "items": [
+    {
+      "codeJson": "SRE.III.1",
+      "codePortale": "SRE.III.01",
+      "descrizione": "Individua nell'ambiente circostante e nei documenti incontrati simboli e contenuti religiosi o relativi a grandi tradizioni ideali e filosofiche",
+      "traguardi": []
+    },
+    {
+      "codeJson": "SRE.III.2",
+      "codePortale": "SRE.III.02",
+      "descrizione": "Coglie elementi rituali e normativi nell'esperienza delle tradizioni religiose, nei fenomeni sociali e nella propria vita personale",
+      "traguardi": []
+    },
+    {
+      "codeJson": "SRE.III.3",
+      "codePortale": "SRE.III.03",
+      "descrizione": "Conosce elementi della storia e dell'organizzazione delle comunità che vengono descritte nel corso e le sa riassumere in un quadro organico e coerente",
+      "traguardi": []
+    },
+    {
+      "codeJson": "SRE.III.4",
+      "codePortale": "SRE.III.04",
+      "descrizione": "Sa descrivere quanto appreso operando una sospensione del giudizio utilizzando un linguaggio rispettoso della diversità",
+      "traguardi": []
+    },
+    {
+      "codeJson": "SRE.III.5",
+      "codePortale": "SRE.III.05",
+      "descrizione": "Nella riflessione critica sa riconoscere ed ascoltare le ragioni altrui, anche in caso di netto dissenso.",
+      "traguardi": []
+    }
+  ],
+  "note": "5 traguardi di competenza (SRE.III.01–SRE.III.05). La pagina del portale riporta SOLO la descrizione di ciascun traguardo, senza declinazione per categoria: 'traguardi' resta vuoto per tutti gli item. Le descrizioni SRE.III.1–SRE.III.4 non terminano con punto nella fonte ufficiale (verbatim), SRE.III.5 sì. Descrizioni verificate contro public/data/piano-studio-ticino.json."
+}

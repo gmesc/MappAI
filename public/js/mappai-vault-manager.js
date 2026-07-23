@@ -192,6 +192,8 @@ window.directLoadVault = async function (folderPath) {
 
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
+            // 011: pipeline materiali incompleta su questo vault → proponi la ripresa.
+            if (window.MappAIPipeline && window.MappAIPipeline.checkResume) window.MappAIPipeline.checkResume(folderPath);
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }
@@ -203,6 +205,7 @@ window.directLoadVault = async function (folderPath) {
 
 window.resetVaultState = function () {
     appState.activeVaultPath = null;
+    appState.activeVaultClassDir = null;   // 22/7: nesting classe del vault auto-creato
     const syncBtn = document.getElementById('sync-vault-btn');
     if (syncBtn) {
         syncBtn.classList.add('hidden');

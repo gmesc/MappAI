@@ -470,6 +470,12 @@ window.parseJSONLResponse = function (text) {
 window.buildBranchPromptJSONL = function (branch, opts) {
     const { rootNodeLabel, maxMapLevel, userProfileStr, focusInjection, textParts, fileParts, siblingCatalog } = opts;
     const sc = siblingCatalog || '';
+    // Lista livelli DINAMICA dal tetto (vedi mm-extraction: niente più "(L2,L3,L4,L5)" fisso)
+    const _lvlList = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => 'L' + (i + 2)).join(', ');
+    const _idEx = Array.from({ length: Math.max(1, maxMapLevel - 1) }, (_, i) => {
+        const suff = ['A', 'A1', 'A1a', 'B2A', '1'][i] || String(i + 1);
+        return `${branch.id}_L${i + 2}_${suff}`;
+    }).join(', ');
 
     // ── C: Carta del ramo (gated dal flag branch boundaries; graceful se i campi mancano) ──
     const _ambitoPart = branch.ambito ? `\n- Ambito (concetti che DEVONO stare qui): ${branch.ambito}` : '';
@@ -493,9 +499,9 @@ Usa i verbi di Gerarchia (comprende, è formato da, fa parte di) SOLO se non esi
 Hai il compito di sviluppare in profondità il sotto-ramo per la macro-area "${branch.label}" (ID di partenza: "${branch.id}") all'interno della Mappa Mentale su "${rootNodeLabel}".
 ${charter}
 ISTRUZIONI PER IL RAMO:
-1. Genera tutti i sotto-nodi gerarchici spingendoti fino al Livello ${maxMapLevel} (L2, L3, L4, L5), fino al livello di dettaglio realmente coperto dalle fonti.
+1. Genera tutti i sotto-nodi gerarchici spingendoti AL MASSIMO fino al Livello ${maxMapLevel} (${_lvlList}), e solo fino al livello di dettaglio realmente coperto dalle fonti. NON superare MAI il Livello ${maxMapLevel}: se la fonte contiene dettaglio più fine, riassumilo dentro la desc del nodo di Livello ${maxMapLevel}.
 2. Ciascun sotto-nodo generato deve definire:
-   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${branch.id}_L2_A, ${branch.id}_L3_A1, ${branch.id}_L4_A1a, ${branch.id}_L5_1).
+   - "id": un ID unico in lettere maiuscole coerente con la gerarchia del ramo (es. ${_idEx}).
    - "label": titolo sintetico e focalizzato (max 3 parole).
    - "content": sintesi didattica brevissima (max 10 parole).
    - "desc": paragrafo descrittivo chiaro (50-80 parole quando la fonte lo permette, più corto altrimenti). Includi dati specifici dal testo (nomi, cifre, meccanismi concreti). Evita generalità: ogni desc deve essere comprensibile da sola, senza contesto aggiuntivo.
@@ -536,8 +542,9 @@ ${textParts.join('\n\n')}`;
 // label/desc dei nodi MM (Fase 3 inline, builder JSONL). Nato dal bug "desc
 // romanzate" (5 lug 2026): il modello drammatizzava oltre la fonte ("come un
 // funambolo", "terrore che Hitler...") e inventava nodi astratti a L4/L5
-// quando la fonte era esaurita. Stessa regola replicata nei template
-// MIND_MAP_FULL_TREE / MIND_MAP_BRANCH di prompts_config.json.
+// quando la fonte era esaurita. Stessa regola replicata nel template
+// MIND_MAP_FULL_TREE di prompts_config.json (il template MIND_MAP_BRANCH,
+// non usato a runtime, è stato rimosso il 21/7/26 — vedi CLAUDE.md §8).
 window.MM_FIDELITY_RULES_IT = `
 ⚓ REGOLA DI FEDELTÀ ALLA FONTE — PRIORITARIA SU OGNI ALTRA REGOLA ⚓
 - TONO ESPOSITIVO da manuale scolastico: la 'desc' riporta SOLO fatti, dati e relazioni presenti nelle fonti.
@@ -1682,17 +1689,24 @@ window.executePhase4Consolidation = async function () {
 };
 
 // ============================================================================
-// FASE 3.7 — DEEPENING SELETTIVO (P2 iterative-deepening + P3 depth-aware retry)
+// FASE 3.7 — DEEPENING SELETTIVO (residuo dalla fonte + verdetto anti-parafrasi)
 // ============================================================================
-// Problema: lo slider "Profondità" entrava nella pipeline solo come frase nel
-// prompt di Fase 3 → il modello, spinto anche dalla regola ⚓ di fedeltà
-// ("meglio un ramo corto che nodi inventati"), collassa in larghezza (L2-L3).
-// Soluzione: dopo il tree-sanitizer si misura la profondità TOPOLOGICA reale
-// di ogni ramo L1 (BFS dalla radice, soli link gerarchici). Se un ramo è sotto
-// lo slider, si "scava" nelle sue foglie dense usando SOLO il materiale locale
-// del nodo (desc + fonti) come contesto: profondità dove la fonte la sostiene,
-// zero conflitto con la regola di fedeltà. Default ON, disattivabile con
-// localStorage.setItem('mappai_deepening_enabled','false').
+// Storia: il pass nasceva per riempire la PROFONDITÀ mancante di un ramo e
+// riceveva come materiale la SOLA desc del nodo padre → l'audit 20/7/26
+// (mm_elvezia + mm_la_carta) ha misurato che ~40% dei nodi finali erano
+// parafrasi del padre (id _D<n>, rel 'approfondisce'). Riscrittura in due mosse
+// (MappAIDeepenCore, testato in tests/deepen-core.test.js):
+//   P1 RESIDUO — il materiale per approfondire una foglia non è più la sua desc
+//     (parafrasi per costruzione) ma le FRASI DELLA FONTE (textParts) che
+//     parlano del tema della foglia e portano lessico non ancora nella sua desc.
+//     Nessun residuo → niente approfondimento. Il contenuto guida la profondità,
+//     non lo slider. (Lo slider resta come TETTO di profondità, non come gate.)
+//   P2 VERDETTO — rete di sicurezza deterministica: ogni sotto-concetto proposto
+//     è scartato se il suo lessico è in gran parte già nel "coperto" (desc del
+//     padre + fratelli già accettati) o porta troppe poche parole nuove.
+// Default ON. Kill-switch generale: localStorage 'mappai_deepening_enabled'.
+// A/B col vecchio comportamento (materiale=desc, no verdetto): localStorage
+// 'mappai_deepen_residue'='false'.
 
 window.isDeepeningEnabled = function () {
     try { return localStorage.getItem('mappai_deepening_enabled') !== 'false'; }
@@ -1738,35 +1752,95 @@ window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
     const target = parseInt(maxMapLevel);
     if (isNaN(target) || target < 3) return;
 
-    const MIN_MATERIAL_WORDS = 45;  // materiale minimo perché una foglia sia "scavabile"
+    const DC = window.MappAIDeepenCore;
+    // Modalità residuo (P1+P2): default ON, richiede il core. Se il core manca o
+    // il flag è spento, si torna al comportamento legacy (materiale = desc padre).
+    let residueMode = false;
+    try { residueMode = !!DC && localStorage.getItem('mappai_deepen_residue') !== 'false'; } catch (e) { residueMode = !!DC; }
+
+    // Corpus fonte per il residuo: le fonti testuali di questa generazione.
+    const corpus = (Array.isArray(textParts) ? textParts : [textParts]).filter(Boolean).join('\n\n');
+    if (residueMode && corpus.trim().length < 200) {
+        // Senza fonte (es. vault riaperto) il residuo non è calcolabile: il pass
+        // legacy qui produrrebbe solo parafrasi → meglio non scavare affatto.
+        console.info('[Deepening] modalità residuo attiva ma fonte assente/troppo corta — skip (niente parafrasi).');
+        return;
+    }
+
+    const MIN_MATERIAL_WORDS = 45;  // materiale minimo per la modalità legacy
     const MAX_CANDIDATES = 4;       // foglie per ramo per chiamata (controllo costi)
 
     const eid = v => (v && typeof v === 'object') ? v.id : v;
     const wordCount = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
-    const nodeMaterial = (n) => {
+    const parentText = n => ((n.label || '') + '. ' + (n.desc || n.content || '')).trim();
+    const legacyMaterial = (n) => {
         const chunks = (appState.db.sourcesDict[n.id] || [])
             .map(c => c.text || c).filter(Boolean).join('\n');
         return ((n.desc || n.content || '') + '\n' + chunks).trim();
     };
 
     const { depthByBranch, labelByBranch } = window.computeBranchDepths();
-    const shallow = Object.keys(depthByBranch).filter(id => depthByBranch[id] < target);
-    if (!shallow.length) { console.info('[Deepening] tutti i rami raggiungono già L' + target); return; }
+    // P1: il gate NON è più la profondità del ramo ma la presenza di RESIDUO nelle
+    // sue foglie. In legacy si conserva il vecchio gate (solo rami sotto-profondi).
+    const branchIdsToScan = residueMode
+        ? Object.keys(depthByBranch)
+        : Object.keys(depthByBranch).filter(id => depthByBranch[id] < target);
+    if (!branchIdsToScan.length) { console.info('[Deepening] nessun ramo da approfondire'); return; }
 
     const links = appState.db.links || [];
     const hasChildren = new Set(links.filter(l => !l.isCross && !l.isBridge).map(l => eid(l.source)));
-    // Appartenenza al ramo: BFS discendente da ogni L1 sotto-profondo
-    const childrenOf = {};
+    const childrenOf = {}, parentOf = {};
     links.forEach(l => {
         if (l.isCross || l.isBridge) return;
         (childrenOf[eid(l.source)] = childrenOf[eid(l.source)] || []).push(eid(l.target));
+        if (parentOf[eid(l.target)] === undefined) parentOf[eid(l.target)] = eid(l.source);
     });
     const idToNode = new Map(appState.db.nodes.map(n => [n.id, n]));
     const existingLabels = new Set(appState.db.nodes.map(n => (n.label || '').toLowerCase().trim()));
 
-    let totalAdded = 0;
-    for (const l1Id of shallow) {
-        // raccogli discendenti del ramo
+    // Coperto esteso (P2): desc del nodo + di TUTTI gli antenati fino al L1.
+    // Senza, un figlio che riformula il nonno o la radice del ramo passa il
+    // verdetto ("Pergamena di Pergamo" al 76% col nonno, mappa 2A). Gli id
+    // della catena servono al gate P3 per ESCLUDERE gli antenati dal confronto
+    // (quel confronto è già di P2, con soglia più severa: senza esclusione un
+    // figlio legittimo di un padre a desc corta cadrebbe sul Jaccard 0.55).
+    const ancestorChain = (n) => {
+        const parts = [], ids = new Set();
+        let cur = n, hops = 0;
+        while (cur && cur.id !== 'ROOT' && hops < 12) {
+            parts.push((cur.label || '') + '. ' + (cur.desc || cur.content || ''));
+            ids.add(cur.id);
+            cur = idToNode.get(parentOf[cur.id]);
+            hops++;
+        }
+        return { text: parts.join('\n'), ids };
+    };
+
+    // Gate anti-duplicato globale (P3): testi label+desc di TUTTI i nodi della
+    // mappa, aggiornato a ogni inserimento → un candidato che rifà un nodo di
+    // QUALSIASI ramo (anche un D appena creato in un ramo precedente) è scartato.
+    const allNodeTexts = residueMode
+        ? appState.db.nodes.filter(n => n.id !== 'ROOT').map(n => ({ id: n.id, text: (n.label || '') + ' ' + (n.desc || n.content || '') }))
+        : null;
+
+    // P1-bis: assegnazione globale frase→foglia. TUTTI i nodi competono (i non
+    // approfondibili come assorbitori) → ogni frase della fonte finisce al più
+    // in UNA foglia, quella dove è davvero a tema.
+    let residueByLeaf = null;
+    if (residueMode) {
+        const competitors = appState.db.nodes
+            .filter(n => n.id !== 'ROOT')
+            .map(n => ({
+                id: n.id,
+                parentText: parentText(n),
+                eligible: n.level >= 2 && n.level < target && !hasChildren.has(n.id)
+            }));
+        residueByLeaf = DC.assignResidues(competitors, corpus);
+    }
+
+    let totalAdded = 0, totalParaphrase = 0, totalDupes = 0;
+    for (const l1Id of branchIdsToScan) {
+        // discendenti del ramo (BFS gerarchico)
         const branchIds = new Set([l1Id]);
         let frontier = [l1Id];
         while (frontier.length) {
@@ -1774,25 +1848,48 @@ window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
             frontier.forEach(id => (childrenOf[id] || []).forEach(c => { if (!branchIds.has(c)) { branchIds.add(c); next.push(c); } }));
             frontier = next;
         }
-        // foglie dense fra L2 e target-1, ordinate per ricchezza di materiale
+        // foglie fra L2 e target-1; il MATERIALE è il residuo ASSEGNATO (P1-bis:
+        // ogni frase vive in una sola foglia) in residueMode, il locale in legacy.
         const candidates = [...branchIds]
             .map(id => idToNode.get(id))
             .filter(n => n && n.level >= 2 && n.level < target && !hasChildren.has(n.id))
-            .map(n => ({ n, material: nodeMaterial(n) }))
-            .filter(x => wordCount(x.material) >= MIN_MATERIAL_WORDS)
+            .map(n => residueMode
+                ? { n, material: residueByLeaf.get(n.id) || '' }
+                : { n, material: legacyMaterial(n) })
+            .filter(x => residueMode ? x.material.length > 0 : wordCount(x.material) >= MIN_MATERIAL_WORDS)
             .sort((a, b) => b.material.length - a.material.length)
             .slice(0, MAX_CANDIDATES);
         if (!candidates.length) {
-            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}<${target} ma nessuna foglia con materiale sufficiente — onestà verso la fonte, skip`);
+            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": nessuna foglia con ${residueMode ? 'residuo dalla fonte' : 'materiale sufficiente'} — skip`);
             continue;
         }
 
         window.showLoadingOverlay(true, `Mappa HD - Fase 3.7: approfondimento ramo "${labelByBranch[l1Id]}"...`);
-        const blocks = candidates.map((c, i) =>
-            `### NODO ${i + 1} — id: ${c.n.id} — "${c.n.label}" (level ${c.n.level})\nMATERIALE DISPONIBILE:\n${c.material.slice(0, 2200)}`
-        ).join('\n\n');
+        const blocks = candidates.map((c, i) => {
+            const already = (c.n.desc || c.n.content || '').slice(0, 260);
+            return residueMode
+                ? `### NODO ${i + 1} — id: ${c.n.id} — "${c.n.label}" (level ${c.n.level})\n`
+                    + `GIÀ COPERTO dal nodo (NON ripeterlo): ${already}\n`
+                    + `NUOVO MATERIALE DALLA FONTE (estrai i sotto-concetti SOLO da qui):\n${c.material.slice(0, 2200)}`
+                : `### NODO ${i + 1} — id: ${c.n.id} — "${c.n.label}" (level ${c.n.level})\nMATERIALE DISPONIBILE:\n${c.material.slice(0, 2200)}`;
+        }).join('\n\n');
 
-        const prompt = `Stai APPROFONDENDO alcune foglie di una mappa mentale su "${appState.rootNodeLabel}".
+        const prompt = residueMode
+            ? `Stai APPROFONDENDO alcune foglie di una mappa mentale su "${appState.rootNodeLabel}".
+Per ogni nodo qui sotto trovi due parti: ciò che il nodo GIÀ dice, e del NUOVO MATERIALE estratto dalla fonte. Estrai da 0 a 3 sotto-concetti che aggiungono informazione NUOVA rispetto a ciò che il nodo già dice.
+
+⚓ REGOLE — PRIORITARIE:
+- Usa SOLO il "NUOVO MATERIALE DALLA FONTE". NIENTE conoscenza esterna, niente inferenze.
+- NON riformulare il "GIÀ COPERTO": se il nuovo materiale non aggiunge un dettaglio distinto, restituisci array vuoto. Meglio vuoto che una parafrasi.
+- Ogni sotto-concetto = UN dato/attore/causa/data/luogo/meccanismo specifico assente dal "GIÀ COPERTO".
+- desc: 30-60 parole, tono da manuale, solo fatti del nuovo materiale.
+- label: max 4 parole, il concetto specifico.
+
+${blocks}
+
+Rispondi SOLO con JSON puro:
+{"expansions":[{"parent":"<id del nodo>","children":[{"label":"...","desc":"...","children":[{"label":"...","desc":"..."}]}]}]}`
+            : `Stai APPROFONDENDO alcune foglie di una mappa mentale su "${appState.rootNodeLabel}".
 Per OGNI nodo elencato sotto, estrai 1-3 sotto-concetti PIÙ SPECIFICI del concetto padre, usando ESCLUSIVAMENTE il materiale fornito per quel nodo. Puoi annidare un ulteriore livello (figli di figli) solo se il materiale contiene davvero quel dettaglio.
 
 ⚓ REGOLA DI FEDELTÀ — PRIORITARIA:
@@ -1816,38 +1913,115 @@ Rispondi SOLO con JSON puro:
             const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
             const expansions = (data && data.expansions) || [];
 
-            let branchAdded = 0, seq = 0;
-            const addChildren = (parentNode, kids, depthLeft) => {
+            let branchAdded = 0, branchParaphrase = 0, branchDupes = 0, seq = 0;
+            // Ordine dei gate PER OGNI figlio, in sequenza (il coperto cresce solo
+            // coi fratelli DAVVERO inseriti — mai con candidati poi bocciati):
+            //   P2 parafrasi vs antenati+fratelli → label esatta → P3 duplicato
+            //   globale (antenati esclusi: quel confronto è già di P2).
+            const addChildren = (parentNode, kids, depthLeft, coveredBase, excludeIds) => {
                 if (!Array.isArray(kids) || depthLeft <= 0) return;
+                let covered = coveredBase;
                 kids.slice(0, 3).forEach(kid => {
                     const label = String(kid.label || '').trim();
+                    const desc = String(kid.desc || '').trim();
                     if (!label || existingLabels.has(label.toLowerCase())) return;
+                    const kidText = label + ' ' + desc;
+                    if (residueMode) {
+                        const v = DC.paraphraseVerdict(kidText, covered);
+                        if (!v.accept) { branchParaphrase++; return; }
+                        const otherTexts = allNodeTexts.filter(t => !excludeIds.has(t.id)).map(t => t.text);
+                        if (DC.isNearDuplicate(kidText, otherTexts) >= 0) { branchDupes++; return; }
+                    }
                     const newId = `${parentNode.id}_D${++seq}`.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
                     const newNode = {
                         id: newId, label, level: parentNode.level + 1,
-                        group: parentNode.group, desc: String(kid.desc || '').trim(),
+                        group: parentNode.group, desc,
                         content: '', studyStatus: 'none'
                     };
                     appState.db.nodes.push(newNode);
                     appState.db.links.push({ source: parentNode.id, target: newId, rel: 'approfondisce' });
                     appState.db.sourcesDict[newId] = [{ title: parentNode.label, source: 'Approfondimento', text: newNode.desc }];
                     existingLabels.add(label.toLowerCase());
+                    if (allNodeTexts) allNodeTexts.push({ id: newId, text: kidText });
                     branchAdded++;
-                    addChildren(newNode, kid.children, depthLeft - 1);
+                    if (residueMode) covered += '\n' + desc;
+                    // annidati: gli antenati del nipote = coveredBase della catena +
+                    // il nodo appena creato (NON i suoi fratelli/zii)
+                    addChildren(newNode, kid.children, depthLeft - 1,
+                        residueMode ? (coveredBase + '\n' + desc) : coveredBase,
+                        residueMode ? new Set([...excludeIds, newId]) : excludeIds);
                 });
             };
             expansions.forEach(exp => {
                 const parentNode = idToNode.get(exp.parent) ||
                     candidates.map(c => c.n).find(n => n.id.toUpperCase() === String(exp.parent || '').toUpperCase());
                 if (!parentNode) return;
-                addChildren(parentNode, exp.children, target - parentNode.level);
+                const chain = residueMode ? ancestorChain(parentNode) : { text: '', ids: null };
+                addChildren(parentNode, exp.children, target - parentNode.level, chain.text, chain.ids);
             });
             totalAdded += branchAdded;
+            totalParaphrase += branchParaphrase;
+            totalDupes += branchDupes;
             const after = window.computeBranchDepths().depthByBranch[l1Id];
-            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}→${after}, +${branchAdded} nodi`);
+            const skips = [];
+            if (branchParaphrase) skips.push(`${branchParaphrase} parafrasi`);
+            if (branchDupes) skips.push(`${branchDupes} duplicati globali`);
+            console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}→${after}, +${branchAdded} nodi${skips.length ? `, scartati: ${skips.join(' + ')}` : ''}`);
         } catch (e) {
             console.warn(`[Deepening] ramo "${labelByBranch[l1Id]}" fallito (non bloccante):`, e.message);
         }
     }
-    if (totalAdded > 0) console.info(`[Deepening] Fase 3.7 completata: +${totalAdded} nodi di approfondimento`);
+    if (totalAdded > 0 || totalParaphrase > 0 || totalDupes > 0) console.info(`[Deepening] Fase 3.7 completata: +${totalAdded} nodi${totalParaphrase ? `, ${totalParaphrase} parafrasi scartate (P2)` : ''}${totalDupes ? `, ${totalDupes} duplicati globali scartati (P3)` : ''}`);
+};
+
+// ── Profondità di GENERAZIONE (≠ filtro vista) ──────────────────────────────
+// Decisione utente (21/7/26): due controlli separati. "Genera fino a"
+// (mappai_gen_depth) è autoritativo sui DATI e guida Fase 3 + tetto; lo slider
+// #level-slider resta il filtro di VISTA (mostra fino a). Fallback allo slider
+// per retrocompatibilità, poi 5.
+window.getGenDepth = function () {
+    const stored = parseInt(localStorage.getItem('mappai_gen_depth'));
+    if (stored >= 1 && stored <= 5) return stored;
+    const el = document.getElementById('level-slider');
+    const sv = el ? parseInt(el.value) : NaN;
+    return (sv >= 1 && sv <= 5) ? sv : 5;
+};
+window.setGenDepth = function (v) {
+    const n = parseInt(v);
+    if (n >= 1 && n <= 5) localStorage.setItem('mappai_gen_depth', String(n));
+};
+// Il selettore «Profondità di generazione» vive nel form principale (sempre
+// visibile): riflette il valore salvato al caricamento.
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function () {
+        const sel = document.getElementById('gen-depth-select');
+        if (sel && window.getGenDepth) sel.value = String(window.getGenDepth());
+    });
+}
+
+// ── TETTO DI PROFONDITÀ — applica foldBeyondDepth su appState ────────────────
+// Rende "Genera fino a L{max}" una garanzia NEI DATI: i nodi oltre il tetto
+// (che la Fase 3 può ancora produrre nonostante il prompt) vengono ripiegati
+// nella desc dell'antenato-al-tetto invece di restare nascosti dal filtro vista.
+// Deterministico, zero AI. Kill-switch: mappai_depth_ceiling === '0'.
+window.applyDepthCeiling = function (maxMapLevel) {
+    try {
+        if (localStorage.getItem('mappai_depth_ceiling') === '0') return;
+        if (appState.extractionMode === 'kg') return;         // il tetto ha senso solo sulle MM gerarchiche
+        const DC = window.MappAIDeepenCore;
+        const max = parseInt(maxMapLevel);
+        if (!DC || !DC.foldBeyondDepth || !(max >= 1)) return;
+        const before = appState.db.nodes.length;
+        const res = DC.foldBeyondDepth(appState.db.nodes, appState.db.links, max);
+        if (!res.removed.length) return;                       // niente da ripiegare
+        const removedSet = new Set(res.removed);
+        appState.db.nodes = res.nodes;
+        appState.db.links = res.links;
+        // pulizia collaterale: sourcesDict e customColors dei nodi ripiegati
+        if (appState.db.sourcesDict) res.removed.forEach(id => { delete appState.db.sourcesDict[id]; });
+        if (appState.db.customColors) res.removed.forEach(id => { delete appState.db.customColors[id]; });
+        console.info(`[Tetto L${max}] ${before}→${appState.db.nodes.length} nodi · ${res.removed.length} ripiegati · ${res.report.appended} dettagli confluiti nelle desc · ${res.report.skippedDup} parafrasi scartate`);
+    } catch (e) {
+        console.warn('[Tetto profondità] errore non bloccante:', e.message);
+    }
 };

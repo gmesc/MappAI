@@ -440,6 +440,7 @@
       '<input id="cls-section" type="text" maxlength="4" placeholder="' + esc(t('cls_section_ph', 'Sezione (es. A)')) + '" style="flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff;text-transform:uppercase"></div></label>' +
       '<div id="cls-name-hint" style="font-size:11px;font-weight:600;margin-top:-6px;min-height:14px"></div>' +
       yearField(thisYear) +
+      sedeField('') +
       field('cls-count', t('cls_count', 'Numero allievi'), 'number', 'es. 18') +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">' +
       btn(t('cls_cancel', 'Annulla'), GHOST).replace('<button', '<button data-back="1"') +
@@ -491,7 +492,8 @@
       }
       if (count < 1) { toast(t('cls_need_count', 'Inserisci il numero di allievi.'), 'error'); return; }
       if (count > LC.MAX_IDENTITIES) { toast(t('cls_too_many', 'Numero allievi troppo alto') + ' (max ' + LC.MAX_IDENTITIES + ').', 'error'); return; }
-      var cls = { id: newId(), name: name, gradeNum: gradeNum, section: section, grade: String(gradeNum) + 'ª', system: pg.system, year: year, students: LC.buildCredentials(count) };
+      var sedeEl = ov.querySelector('#cls-sede');
+      var cls = { id: newId(), name: name, gradeNum: gradeNum, section: section, grade: String(gradeNum) + 'ª', system: pg.system, year: year, sede: (sedeEl && sedeEl.value) || '', students: LC.buildCredentials(count) };
       STORE.data.classes.push(cls);
       STORE.save();
       renderEdit(cls.id);
@@ -513,6 +515,17 @@
     return '<label style="display:block"><span style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">' + esc(label) + '</span>' +
       '<input id="' + id + '" type="' + type + '" placeholder="' + esc(ph) + '" ' + (type === 'number' ? 'inputmode="numeric" min="1"' : '') +
       ' style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff"></label>';
+  }
+
+  // Campo «Sede» (011/US4): tendina dalle sedi del profilo insegnante. Visibile
+  // SOLO se il profilo ha almeno una sede → altrimenti stringa vuota (naming senza prefisso).
+  function sedeField(current) {
+    var sedi = (window.MappAITeacherProfile && window.MappAITeacherProfile.sediList) ? window.MappAITeacherProfile.sediList() : [];
+    if (!sedi.length) return '';
+    var opts = '<option value="">' + esc(t('cls_sede_none', '— sede —')) + '</option>' +
+      sedi.map(function (s) { return '<option value="' + esc(s) + '"' + (current === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+    return '<label style="display:block"><span style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">' + esc(t('cls_sede', 'Sede')) + '</span>' +
+      '<select id="cls-sede" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;background:#fff">' + opts + '</select></label>';
   }
 
   // Modifica classe: nomi opzionali, credenziali, stampa, elimina
@@ -555,7 +568,8 @@
       '<div style="display:flex;gap:8px;align-items:center">' + gradeSelect('cls-grade-num', c.gradeNum != null ? c.gradeNum : '', c.system || '') +
       '<input id="cls-section" type="text" maxlength="4" value="' + esc(c.section || '') + '" placeholder="' + esc(t('cls_section_ph', 'Sezione (es. A)')) + '" style="flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;font:inherit;background:#fff;text-transform:uppercase"></div>' +
       '<div id="cls-name-hint" style="font-size:11px;font-weight:600;margin-top:6px;min-height:14px;color:#94a3b8"></div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + esc(t('cls_rename_note', 'Cambiare grado o sezione rinomina la classe. I materiali e le sessioni già create restano legati al vecchio nome.')) + '</div></div>';
+      '<div style="font-size:11px;color:#94a3b8;margin-top:2px;margin-bottom:8px">' + esc(t('cls_rename_note', 'Cambiare grado o sezione rinomina la classe. I materiali e le sessioni già create restano legati al vecchio nome.')) + '</div>' +
+      sedeField(c.sede) + '</div>';
 
     var body = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
       '<div style="flex:1"><div style="font-weight:800;font-size:15px;color:#0f172a">' + esc(c.name) + '</div>' +
@@ -625,6 +639,8 @@
       // taratura AI (grado e livello arrivano dalla sezione "Nome classe")
       c.register = ov.querySelector('#cls-register').value || '';
       c.notes = (ov.querySelector('#cls-notes').value || '').trim().slice(0, 400);
+      var sedeEl = ov.querySelector('#cls-sede');   // 011/US4: sede (se il profilo ne ha)
+      if (sedeEl) c.sede = sedeEl.value || '';
       STORE.save();
       if (STORE.activeId() === c.id) renderChip();
       toast(t('cls_saved', 'Classe salvata.'), 'success');
