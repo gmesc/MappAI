@@ -4,6 +4,11 @@ window.safeCreateIcons = function () {
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();
     }
+    // Modalità icone «Android»: converte le icone Lucide mappate in emoji (hub globale,
+    // definito in mappai-icon-style.js). No-op in modalità Lucide o se il modulo manca.
+    if (typeof window._emojifyIcons === 'function') {
+        try { if (localStorage.getItem('mappai_icon_style') === 'android') window._emojifyIcons(); } catch (e) { }
+    }
 };
 window.safeCreateIcons();
 // Secondary call to ensure all dynamic or hidden elements are caught

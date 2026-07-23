@@ -12,12 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
         rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
-    <style>
-        /* OpenMoji vendorizzato (offline) — stile emoji alternativo, scelto dal toggle nel Setup AI */
-        @font-face { font-family: 'OpenMoji'; src: url('fonts/OpenMoji-color.woff2') format('woff2'); font-display: swap; }
-        :root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
-    </style>
-    <script>/* Stile emoji precoce: applica OpenMoji prima del render per evitare il flash */try { if (localStorage.getItem('mappai_emoji_style') === 'openmoji') document.documentElement.style.setProperty('--emoji-font', "'OpenMoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif"); } catch (e) { }</script>
+    <style>:root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }</style>
 
     <!-- Tailwind CSS (Local) -->
     <script src="js/tailwind.js"></script>
@@ -3188,23 +3183,18 @@
                         id="lang-btn-en" title="English">🇬🇧</button>
                 </div>
             </div>
-            <!-- Stile emoji (Android/OpenMoji): sperimentale, OpenMoji vendorizzato offline. -->
+            <!-- Stile icone UI: Lucide SVG (default) oppure Android (emoji), su TUTTA l'app. -->
             <div class="flex flex-col gap-1.5 mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100 flex-shrink-0">
                 <div class="flex items-center justify-between">
-                    <span class="input_label_xs" data-i18n="ui_emoji_style">Stile emoji:</span>
-                    <div class="flex bg-slate-200 p-1 rounded-full w-48 h-9 shrink-0">
-                        <button type="button" id="emoji-android-btn" onclick="window.setEmojiStyle('android')"
-                            class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">Android</button>
-                        <button type="button" id="emoji-openmoji-btn" onclick="window.setEmojiStyle('openmoji')"
-                            class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">OpenMoji</button>
+                    <span class="input_label_xs" data-i18n="ui_icon_style">Stile icone:</span>
+                    <div class="flex bg-slate-200 p-1 rounded-full w-52 h-9 shrink-0">
+                        <button type="button" id="icon-lucide-btn" onclick="window.setIconStyle('lucide')"
+                            class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">Lucide SVG</button>
+                        <button type="button" id="icon-android-btn" onclick="window.setIconStyle('android')"
+                            class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">Android</button>
                     </div>
                 </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-[13px]" style="font-family: var(--emoji-font)" title="Anteprima">🎓 📚 🧠 ✅ 🌱</span>
-                    <a href="#" onclick="event.preventDefault(); (window.electronAPI && window.electronAPI.openExternal) ? window.electronAPI.openExternal('https://openmoji.org') : window.open('https://openmoji.org','_blank')"
-                        class="text-[10px] text-indigo-400 hover:text-indigo-600 hover:underline"
-                        data-i18n-tip="ui_emoji_credit" data-tip="Emoji OpenMoji — CC BY-SA 4.0. Apri openmoji.org">openmoji.org</a>
-                </div>
+                <span class="text-[10px] text-slate-400" data-i18n="ui_icon_style_hint">Cambia lo stile di tutte le icone dell'app. Le icone senza un'emoji corrispondente restano SVG.</span>
             </div>
             <div class="flex items-center gap-3 mb-4">
                 <span class="input_label_xs" data-i18n="ui_map_lang_label">Lingua delle mappe:</span>
@@ -3566,6 +3556,7 @@
     <script src="js/mappai-relations.js"></script>
 
     <script src="js/app.js"></script>
+    <script src="js/mappai-icon-style.js"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js"></script>
     <script src="js/mappai-storage-lang.js"></script>
