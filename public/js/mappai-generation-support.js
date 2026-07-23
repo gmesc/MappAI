@@ -1980,6 +1980,17 @@ Rispondi SOLO con JSON puro:
 // #level-slider resta il filtro di VISTA (mostra fino a). Fallback allo slider
 // per retrocompatibilità, poi 5.
 window.getGenDepth = function () {
+    // Profondità AUTOMATICA (toggle #auto-depth-toggle): se attiva e il triage ha
+    // prodotto un verdetto, la profondità-essenziale della scheda (mmTriage) governa
+    // la generazione — il menu manuale è ignorato. Nessun verdetto (KG, triage OFF/
+    // fallito) → fallback al valore manuale sotto.
+    try {
+        if (localStorage.getItem('mappai_auto_depth') === '1' &&
+            typeof appState !== 'undefined' && appState && appState.mmTriage) {
+            const ed = parseInt(appState.mmTriage.essentialDepth);
+            if (ed >= 1 && ed <= 5) return ed;
+        }
+    } catch (e) { /* soft → manuale */ }
     const stored = parseInt(localStorage.getItem('mappai_gen_depth'));
     if (stored >= 1 && stored <= 5) return stored;
     const el = document.getElementById('level-slider');
@@ -1990,12 +2001,46 @@ window.setGenDepth = function (v) {
     const n = parseInt(v);
     if (n >= 1 && n <= 5) localStorage.setItem('mappai_gen_depth', String(n));
 };
+// ── Profondità automatica (toggle vicino al menu #gen-depth-select) ──────────
+// Flag `mappai_auto_depth` (default OFF). ON → il triage sceglie il tetto dal
+// tipo di scheda (essentialDepth) e il menu manuale è disattivato. Il triage
+// (mappai-mm-triage.js) parte quando questo flag O «Adattiva» è attivo.
+window.getAutoDepth = function () { return localStorage.getItem('mappai_auto_depth') === '1'; };
+window.setAutoDepth = function (on) {
+    localStorage.setItem('mappai_auto_depth', on ? '1' : '0');
+    if (window.syncAutoDepthUI) window.syncAutoDepthUI();
+};
+window.syncAutoDepthUI = function () {
+    const on = window.getAutoDepth();
+    const btn = document.getElementById('auto-depth-toggle');
+    const sel = document.getElementById('gen-depth-select');
+    const hint = document.getElementById('auto-depth-hint');
+    if (btn) {
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.classList.toggle('bg-emerald-400', on);
+        btn.classList.toggle('text-white', on);
+        btn.classList.toggle('border-emerald-400', on);
+        btn.classList.toggle('bg-white', !on);
+        btn.classList.toggle('text-slate-500', !on);
+        btn.classList.toggle('border-slate-200', !on);
+        btn.classList.toggle('hover:text-emerald-500', !on);
+    }
+    if (sel) {
+        sel.disabled = on;
+        sel.classList.toggle('opacity-40', on);
+        sel.classList.toggle('cursor-not-allowed', on);
+        sel.classList.toggle('cursor-pointer', !on);
+    }
+    if (hint) hint.classList.toggle('hidden', !on);
+};
 // Il selettore «Profondità di generazione» vive nel form principale (sempre
-// visibile): riflette il valore salvato al caricamento.
+// visibile): riflette il valore salvato al caricamento + lo stato del toggle auto.
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', function () {
         const sel = document.getElementById('gen-depth-select');
-        if (sel && window.getGenDepth) sel.value = String(window.getGenDepth());
+        if (sel && window.getGenDepth) sel.value = String(
+            (parseInt(localStorage.getItem('mappai_gen_depth')) >= 1) ? parseInt(localStorage.getItem('mappai_gen_depth')) : 5);
+        if (window.syncAutoDepthUI) window.syncAutoDepthUI();
     });
 }
 

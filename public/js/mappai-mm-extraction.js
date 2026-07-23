@@ -47,7 +47,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             .map(lbl => ({ label: lbl, rel: "include" }));
 
         const autoGenerateL1 = document.getElementById('l1-auto-generate-toggle').checked;
-        const maxBranches = parseInt(document.getElementById('branches-slider').value) || 0;
+        // Slider densità rimosso dalla UI: se assente → 0 (nessun minimo forzato di sotto-rami).
+        const maxBranches = parseInt(document.getElementById('branches-slider')?.value) || 0;
 
         if (l1Data.length === 0 || autoGenerateL1) {
             window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Individuazione delle Macro-Categorie...`);

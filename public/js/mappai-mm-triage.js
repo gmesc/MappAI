@@ -99,7 +99,10 @@
     // API: async, ritorna il verdetto {contentType, essentialDepth, ...} o null.
     window.runMindMapTriage = async function (textParts, apiKey) {
         try {
-            if (localStorage.getItem('mappai_mm_triage_enabled') !== '1') return null;   // gate flag (default OFF)
+            // Gate: parte con «Adattiva» (logica MM) O con «Profondità automatica»
+            // (toggle vicino al menu gen-depth). Entrambi consumano essentialDepth.
+            if (localStorage.getItem('mappai_mm_triage_enabled') !== '1' &&
+                localStorage.getItem('mappai_auto_depth') !== '1') return null;   // default OFF
             const S = _getAppState();
             if (!apiKey || !S || S.extractionMode !== 'mindmap') return null;             // gate modalità
             if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'triage');

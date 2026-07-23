@@ -507,6 +507,11 @@ window.changeLanguage = function (lang, silent) {
         const key = el.getAttribute('data-i18n-title');
         if (t[key]) el.setAttribute('title', t[key]);
     });
+    // Tooltip hover STILIZZATI (MappAITips): data-tip="" tradotto via data-i18n-tip
+    document.querySelectorAll('[data-i18n-tip]').forEach(el => {
+        const key = el.getAttribute('data-i18n-tip');
+        if (t[key]) el.setAttribute('data-tip', t[key]);
+    });
 
     // --- 1b. LOCALIZZAZIONE PRICING (Inner HTML) ---
     const pricingFree = document.getElementById('pricing-free');
@@ -676,6 +681,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('mappai_mm_logic', 'mappai');
         }
         localStorage.setItem('mappai_mm_logic_migrated', '1');
+    }
+    // Default ADATTIVA (triage): se il flag non è mai stato impostato, attivalo.
+    // Così sia getMMLogic sia il gate del triage (mm-triage.js, === '1') sono coerenti.
+    // Opt-out esplicito → setMMLogic('mappai') scrive '0' e persiste.
+    if (localStorage.getItem('mappai_mm_triage_enabled') === null) {
+        localStorage.setItem('mappai_mm_triage_enabled', '1');
     }
     if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic(), true);
     const desc = document.getElementById('pipeline-desc');

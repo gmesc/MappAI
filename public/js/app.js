@@ -904,7 +904,9 @@ window.updateTokenCostEstimator = function () {
     const mode = document.getElementById('extraction-mode')?.value || 'mindmap';
     let outputTokens = 0;
     if (mode === 'mindmap') {
-        const branchesVal = parseInt(document.getElementById('branches-slider')?.value || '2', 10);
+        // Slider «Densità Diramazioni» rimosso dalla UI (era inerte in multi-pass,
+        // confondibile con la profondità). Stima nodi su una costante di riferimento.
+        const branchesVal = 4;
         // MM formula: N_nodes = 20 + maxBranches * 5
         const nNodes = 20 + branchesVal * 5;
         outputTokens = nNodes * 120;

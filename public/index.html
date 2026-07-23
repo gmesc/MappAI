@@ -862,47 +862,98 @@
                     </div>
                 </div>
 
-                <!-- STEP 4: Slider Densità (L4/L5) -->
-                <div id="step-density-container" class="mt-15 transition-all duration-300">
+                <!-- STEP 4: Impostazioni generazione (compatte, sempre visibili in MM e KG).
+                     Sostituisce il vecchio slider «Densità Diramazioni» (rimosso: inerte in
+                     multi-pass, confondibile con la profondità). I 4 setting migrati qui dal
+                     box stima costi. Descrizioni lunghe → tooltip (data-i18n-title). -->
+                <div id="step-gen-settings-container" class="mt-15 transition-all duration-300">
                     <label class="step_container">
                         <span class="step_badge step_badge_yellow">4</span>
-                        <span id="step-l1-title" class="step_title" data-i18n="ui_branch_density">Densità Diramazioni</span>
+                        <span class="step_title" data-i18n="ui_gen_settings">Impostazioni generazione</span>
                     </label>
-                    <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
-                        <span class="input_label_sm font-bold">3</span>
-                        <input type="range" id="branches-slider" min="3" max="5"
-                            class="w-full outline-none accent-indigo-500 cursor-pointer"
-                            oninput="document.getElementById('branches-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
-                        <span class="input_label_sm font-bold">5</span>
-                        <span id="branches-val"
-                            class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">3</span>
-                    </div>
-                    <p class="landing_label_secondary !mt-4" data-i18n="ui_density_desc">I rami fino a L3 vengono generati sempre. Scegli quanti
-                        rami
-                        generare nei livelli più profondi.
-                    </p>
-                </div>
-                <!-- STEP 4 bis: Slider Numero Nodi per Knowledge Graph -->
-                <div id="step-kg-density-container" class="mt-15 transition-all duration-300 hidden">
-                    <label class="step_container">
-                        <span class="step_badge step_badge_yellow">4</span>
-                        <span id="step-l1-title" class="step_title" data-i18n="ui_kg_step_title">Numero di Concetti/Entità (Livello
-                            2)</span>
-                    </label>
+                    <div class="bg-slate-100 p-3.5 rounded-xl flex flex-col gap-2.5">
 
-                    <div class="flex items-center gap-4 bg-slate-100 p-4 rounded-xl">
-                        <span class="input_label_sm font-bold">10</span>
-                        <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
-                            class="w-full outline-none accent-indigo-500 cursor-pointer"
-                            oninput="document.getElementById('kg-nodes-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
-                        <span class="input_label_sm font-bold">35</span>
-                        <span id="kg-nodes-val"
-                            class="text-2xl font-extrabold text-indigo-600 min-w-[2rem] text-center">20</span>
+                        <!-- Profondità (tetto dati) + toggle Automatica -->
+                        <div class="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                            data-i18n-tip="tip_gen_depth" data-tip="Fino a che livello di dettaglio MappAI genera i rami; il dettaglio più fine confluisce nelle descrizioni. «Automatica»: MappAI sceglie il livello dal tipo di scheda. Diverso da «Mostra fino a», che è solo un filtro di vista.">
+                            <span class="text-[13px] font-bold text-slate-700 shrink-0" data-i18n="ui_gen_depth_title">Profondità di generazione</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" id="auto-depth-toggle"
+                                    onclick="window.setAutoDepth && window.setAutoDepth(!window.getAutoDepth())"
+                                    aria-pressed="false" data-i18n-tip="tip_auto_depth"
+                                    data-tip="Attiva o disattiva la scelta automatica della profondità. Se attiva, MappAI analizza la scheda e decide il livello giusto, e il menu a fianco si disattiva."
+                                    class="flex items-center gap-1.5 text-[12px] font-bold rounded-lg px-2.5 py-1.5 border border-slate-200 bg-white text-slate-500 hover:text-emerald-500 transition-all">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                    <span data-i18n="ui_auto_depth">Automatica</span>
+                                </button>
+                                <select id="gen-depth-select"
+                                    onchange="window.setGenDepth && window.setGenDepth(this.value)"
+                                    data-i18n-tip="tip_gen_depth_select" data-tip="Livello massimo dei rami quando la profondità automatica è spenta: L2 essenziale, L3 consigliato, fino a L5 massimo."
+                                    class="text-[13px] font-bold bg-white border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 shrink-0 focus_ring_standard cursor-pointer">
+                                    <option value="2" data-i18n="ui_gen_depth_l2">L2 — essenziale</option>
+                                    <option value="3" data-i18n="ui_gen_depth_l3">L3 — consigliato</option>
+                                    <option value="4" data-i18n="ui_gen_depth_l4">L4 — dettagliato</option>
+                                    <option value="5" selected data-i18n="ui_gen_depth_l5">L5 — massimo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="auto-depth-hint" class="hidden text-[11px] text-emerald-600 flex items-center gap-1.5 -mt-1 px-1">
+                            <i data-lucide="wand-2" class="w-3.5 h-3.5 shrink-0"></i>
+                            <span data-i18n="ui_auto_depth_on">MappAI sceglie la profondità dal tipo di scheda. Il menu è disattivato.</span>
+                        </div>
+
+                        <!-- 3 toggle binari compatti: Multi-Pass · Logica MM · Logica KG.
+                             Default: Multi-Pass ON, MindMap Adattiva (attivi = bg-white shadow-sm). -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                                data-i18n-tip="tip_multipass" data-tip="OFF: genera tutta la mappa in una volta (più veloce, adatto a schede brevi). ON (consigliato): genera a fasi sequenziali per mappe grandi senza saturare la memoria.">
+                                <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_multipass">Multi-Pass</span>
+                                <div class="flex bg-orange-200 p-0.5 rounded-full w-[72px] h-8 shrink-0">
+                                    <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">OFF</button>
+                                    <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">ON</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                                data-i18n-tip="tip_mm_logic" data-tip="MappAI: costruzione classica della mappa. Adattiva (consigliata): analizza il tipo di scheda e adatta la profondità — meno rami inventati su schede povere di contenuto.">
+                                <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_mm_logic_short">MindMap</span>
+                                <div class="flex bg-emerald-200 p-0.5 rounded-full w-[128px] h-8 shrink-0">
+                                    <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
+                                        class="flex-1 text-[11px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">MappAI</button>
+                                    <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('triage')"
+                                        class="flex-1 text-[11px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600" data-i18n="ui_mm_logic_adaptive">Adattiva</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                                data-i18n-tip="tip_kg_logic" data-tip="Solo per Knowledge Graph. A: BERT Community (hub + comunità GraphRAG, relazioni più ricche). B: MappAI classico (single/multi-pass).">
+                                <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_kg_logic_short">KG (A/B)</span>
+                                <div class="flex bg-indigo-200 p-0.5 rounded-full w-[72px] h-8 shrink-0">
+                                    <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">A</button>
+                                    <button type="button" id="pipeline-b-btn" onclick="window.setPipeline('B')"
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">B</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KG: numero di concetti/entità (visibile solo in modalità KG, gestito da setMode) -->
+                        <div id="step-kg-density-container" class="hidden bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                            data-i18n-tip="tip_kg_nodes" data-tip="Solo per Knowledge Graph. Quanti concetti/entità generare nel grafo: 15-25 per grafi ordinati, 30+ per grafi più completi.">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_kg_step_title">Numero di Concetti/Entità (Livello 2)</span>
+                                <span id="kg-nodes-val" class="text-lg font-extrabold text-indigo-600 min-w-[2rem] text-center">20</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="input_label_sm font-bold">10</span>
+                                <input type="range" id="kg-nodes-slider" min="10" max="35" value="20"
+                                    class="w-full outline-none accent-indigo-500 cursor-pointer"
+                                    oninput="document.getElementById('kg-nodes-val').innerText = this.value; if(window.updateTokenCostEstimator) window.updateTokenCostEstimator();">
+                                <span class="input_label_sm font-bold">35</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-2" id="label-step4-kg-desc" data-i18n="ui_kg_density_desc">Numero di concetti/entità da generare all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a 30+ per grafi completi).</p>
+                        </div>
                     </div>
-                    <p class="landing_label_secondary !mt-4" id="label-step4-kg-desc" data-i18n="ui_kg_density_desc">Numero di concetti/entità da
-                        generare
-                        all'interno del grafo relazionale (consigliato 15-25 per grafi ordinati, fino a
-                        30+ per grafi completi).</p>
                 </div>
 
                 <!-- Box Unificato: Generazione HD & Stima Costi -->
@@ -937,80 +988,9 @@
                         </div>
                     </div>
 
-                    <!-- Divisorio Sottile -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- SEZIONE: Generazione HD (Multi-Pass) -->
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0" data-i18n="ui_multipass">Generazione Multi-Pass</span>
-                                <span class="landing_label_secondary" data-i18n="ui_multipass_desc">Genera rami e nodi in fasi sequenziali per
-                                    evitare
-                                    di saturare la memoria.</span>
-                            </div>
-                            <div class="flex bg-orange-200 p-1 rounded-full w-36 h-16 shrink-0">
-                                <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
-                                    class="flex-1 text-[14px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-500">OFF</button>
-                                <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
-                                    class="flex-1 text-[14px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">ON</button>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- Divisorio Sottile -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- SEZIONE: Profondità di generazione (tetto nei dati, ≠ filtro vista) -->
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex flex-col gap-0.5 max-w-[62%]">
-                                <span class="landing_label_primary mb-0" data-i18n="ui_gen_depth_title">Profondità di generazione</span>
-                                <span class="landing_label_secondary" data-i18n="ui_gen_depth_desc">Livello massimo dei rami nei dati. Il dettaglio più fine confluisce nelle descrizioni. Diverso dal filtro «Mostra fino a» sulla mappa.</span>
-                            </div>
-                            <select id="gen-depth-select"
-                                onchange="window.setGenDepth && window.setGenDepth(this.value)"
-                                class="text-[14px] font-bold bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 shrink-0 focus_ring_standard cursor-pointer">
-                                <option value="2" data-i18n="ui_gen_depth_l2">L2 — essenziale</option>
-                                <option value="3" data-i18n="ui_gen_depth_l3">L3 — consigliato</option>
-                                <option value="4" data-i18n="ui_gen_depth_l4">L4 — dettagliato</option>
-                                <option value="5" selected data-i18n="ui_gen_depth_l5">L5 — massimo</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- SEZIONE: Logica MM (MappAI / BERT) -->
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0" data-i18n="ui_mm_logic">Logica MindMap</span>
-                                <span class="landing_label_secondary" id="mmlogic-desc" data-i18n="ui_mm_logic_desc">MappAI (consigliato) — BERT sperimentale (regola pertinenza)</span>
-                            </div>
-                            <div class="flex bg-emerald-200 p-1 rounded-full w-36 h-16 shrink-0">
-                                <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
-                                    class="flex-1 text-[13px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600">MappAI</button>
-                                <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('triage')"
-                                    class="flex-1 text-[13px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700" data-i18n="ui_mm_logic_adaptive">Adattiva</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SEZIONE: Selezione Pipeline A/B -->
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex flex-col gap-0.5 max-w-[70%]">
-                                <span class="landing_label_primary mb-0" data-i18n="ui_kg_logic">Logica KG (A/B)</span>
-                                <span class="landing_label_secondary" id="pipeline-desc" data-i18n="ui_kg_logic_desc">A · BERT Community — B · MappAI classico</span>
-                            </div>
-                            <div class="flex bg-indigo-200 p-1 rounded-full w-36 h-16 shrink-0">
-                                <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"
-                                    class="flex-1 text-[14px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">A</button>
-                                <button type="button" id="pipeline-b-btn" onclick="window.setPipeline('B')"
-                                    class="flex-1 text-[14px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">B</button>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Impostazioni generazione (Multi-Pass · Profondità · Logica MM · Logica KG)
+                         spostate nella sezione 4 «Impostazioni generazione» sopra. Qui resta solo
+                         la stima costi. -->
 
                     <!-- Pipeline «Genera materiali» (011): bottone PRINCIPALE — mappa + quiz + fogli + sintesi -->
                     <button type="button" id="generate-materials-btn"
