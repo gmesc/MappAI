@@ -117,6 +117,36 @@
         else openStart();
     };
 
+    // Bottone «Lavagna QR» in fondo all'albero: porta la profondità mappa a 0
+    // (proiezione pulita a L0, dove appare l'overlay lavagna) e mostra il QR a
+    // schermo intero. Se non c'è sessione attiva apre il wizard di avvio e, dopo
+    // lo start, proietta il QR (flag _projectAfterStart).
+    function _setMapDepthZero() {
+        try {
+            const sl = document.getElementById('level-slider');
+            if (!sl) return;
+            const ctrl = document.getElementById('level-filter-control');
+            if (ctrl) ctrl.classList.remove('hidden');
+            sl.value = 0;
+            if (window.onLevelSliderInput) window.onLevelSliderInput(0);
+        } catch (e) { /* slider assente → non bloccare */ }
+    }
+    window.openCollabQrProjection = async function () {
+        _setMapDepthZero();
+        const st = S();
+        if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
+            toast(t('tst_collab_need_map', 'Apri una mappa per avviare la lavagna'), 'warning');
+            return;
+        }
+        if (!window.electronAPI || !window.electronAPI.collabStartSession) {
+            toast(t('tst_collab_electron', 'La lavagna collaborativa richiede l\'app desktop'), 'warning');
+            return;
+        }
+        const info = await window.electronAPI.collabSessionInfo();
+        if (info && info.success) { CT.info = info; showDashboard(); openQrFull(studentUrl()); }
+        else { CT._projectAfterStart = true; openStart(); }
+    };
+
     // ── Avvio sessione ──────────────────────────────────────────────────────
     function rootLabel() {
         const st = S();
@@ -238,6 +268,8 @@
         closeModal();
         if (r.resumed) toast(t('tst_collab_resumed', 'Sessione RIPRESA: il QR precedente è ancora valido'), 'success');
         showDashboard();
+        // Avvio partito dal bottone «Lavagna QR» → proietta subito il QR a schermo intero.
+        if (CT._projectAfterStart) { CT._projectAfterStart = false; try { openQrFull(studentUrl()); } catch (e) { /* QR non pronto */ } }
     }
 
     // ── QR ──────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ const it_translations = {
     ui_revisione_hub: "Revisione",
     tt_revisione_hub: "Revisione mappa: raccogli correzioni annotate come ground-truth",
     ui_build_projects: "Progetti salvati",
-    ui_collab_start_qr: "Condividi la Lavagna (QR)",
+    ui_collab_start_qr: "Lavagna QR",
     new_map_btn: "Genera Mappa",
     new_kg_btn: "Genera Knowledge Graph",
 

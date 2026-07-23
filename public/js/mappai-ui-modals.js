@@ -668,25 +668,20 @@ window.renderTreeView = function () {
         const isCollapsed = window.collapsedTreeNodes.has(rn.id);
         const arrowIcon = isCollapsed ? 'chevron-right' : 'chevron-down';
 
+        const idEsc = rn.id.replace(/'/g, "\\'");
+        // Pallino colorato GRAFICO: se il nodo ha figli è il toggle collassa/espandi
+        // (segno bianco al centro: "+" collassato, "−" esteso); altrimenti dot statico.
+        const sign = isCollapsed ? '+' : '−'; // + / − (minus U+2212)
         html += `<div class="mb-1 w-full">`;
-        html += `<div class="w-full flex items-center rounded-lg hover:bg-indigo-50/50 group transition">`;
+        html += `<div class="w-full flex items-center gap-2 pl-1 pr-2 rounded-lg hover:bg-indigo-50/50 group transition">`;
         if (hasKids) {
-            html += `<button onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" class="p-2 text-slate-400 hover:text-indigo-600 transition shrink-0" title="${treeCollapseTitle}">`;
-            html += `<i data-lucide="${arrowIcon}" class="w-3.5 h-3.5 flex-shrink-0"></i>`;
-            html += `</button>`;
+            html += `<button type="button" onclick="event.stopPropagation(); window.toggleTreeCollapse('${idEsc}')" class="tree-dot-toggle shrink-0" style="background:${mColor}" title="${treeCollapseTitle}" aria-label="${treeCollapseTitle}"><span class="tree-dot-sign">${sign}</span></button>`;
         } else {
-            html += `<div class="w-7.5 h-7.5 flex-shrink-0"></div>`;
+            html += `<span class="tree-dot-static shrink-0" style="background:${mColor}"></span>`;
         }
-        html += `<div class="flex-grow py-1.5 pr-2 flex items-center gap-2 truncate text-left">`;
-        if (hasKids) {
-            html += `<i onclick="event.stopPropagation(); window.toggleTreeCollapse('${rn.id.replace(/'/g, "\\'")}')" data-lucide="circle-dot" class="w-3 h-3 flex-shrink-0 cursor-pointer hover:scale-125 transition" style="color: ${mColor}; stroke: ${mColor}; fill: ${mColor};" title="${treeCollapseTitle}"></i>`;
-        } else {
-            html += `<i data-lucide="circle" class="w-3 h-3 flex-shrink-0" style="color: ${mColor}; stroke: ${mColor}; fill: ${mColor};"></i>`;
-        }
-        html += `<button onclick="window.onSidebarNodeClick(event, '${rn.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${rn.id.replace(/'/g, "\\'")}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left">`;
+        html += `<button onclick="window.onSidebarNodeClick(event, '${idEsc}')" ondblclick="window.onSidebarNodeDblClick(event, '${idEsc}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left py-1.5">`;
         html += `${rn.label}${degreeInfo}`;
         html += `</button>`;
-        html += `</div>`;
         html += `</div>`;
 
         if (isMindmap) {
@@ -706,7 +701,7 @@ window.renderTreeView = function () {
                         html += `<div class="w-full flex items-center rounded hover:bg-slate-50 group transition">`;
                         html += `<div class="w-5 h-5 flex-shrink-0"></div>`; // no chevron button for flat child
                         html += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
-                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
+                        html += `<span class="tree-child-dot flex-shrink-0"></span>`;
                         html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
                         html += `<span class="font-semibold text-indigo-400 mr-1">L${c.level}</span> ${c.label}`;
                         html += `</button>`;
@@ -731,7 +726,7 @@ window.renderTreeView = function () {
                     html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
                     children.forEach(c => {
                         html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
-                        html += `<i data-lucide="circle" class="w-2.5 h-2.5 flex-shrink-0" style="color: #cbd5e1; stroke: #cbd5e1; fill: #cbd5e1;"></i>`;
+                        html += `<span class="tree-child-dot flex-shrink-0"></span>`;
                         html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
                         html += `</button>`;
                     });
