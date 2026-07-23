@@ -1392,9 +1392,18 @@ window.startGeneration = async function () {
     try {
         var _bpOn = true; try { _bpOn = localStorage.getItem('mappai_strip_boilerplate') !== '0'; } catch (e) { }
         if (_bpOn && window.MappAIBoilerplate) {
-            var _bpTot = 0;
-            textParts = textParts.map(function (part) { var r = window.MappAIBoilerplate.stripBoilerplate(part); _bpTot += r.count; return r.text; });
+            var _bpTot = 0, _stTot = 0;
+            textParts = textParts.map(function (part) {
+                var r = window.MappAIBoilerplate.stripBoilerplate(part); _bpTot += r.count;
+                // #1: righe strutturali (domande, «Doc. N», titoli, righe vuote) → la mappa
+                // non le tratta come contenuto (evita nodi-risposta su schede di esercizi).
+                if (window.MappAIBoilerplate.stripStructuralLines) {
+                    var s = window.MappAIBoilerplate.stripStructuralLines(r.text); _stTot += s.count; return s.text;
+                }
+                return r.text;
+            });
             if (_bpTot) console.log('[Boilerplate] rimosse ' + _bpTot + ' righe di intestazione/piè dal corpus di generazione');
+            if (_stTot) console.log('[Boilerplate] rimosse ' + _stTot + ' righe strutturali (domande/titoli/vuote) dal corpus di generazione');
         }
     } catch (e) { /* best-effort: se fallisce, corpus invariato */ }
 

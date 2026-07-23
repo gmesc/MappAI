@@ -133,5 +133,40 @@
         return { text: lines.join('\n'), removed: removed, count: count };
     }
 
-    return { findRepeatedLines: findRepeatedLines, stripBoilerplate: stripBoilerplate, _norm: _norm };
+    // ── Righe STRUTTURALI (non-prosa): domande/esercizi, riferimenti a documenti,
+    //    titoli ALL-CAPS corti, righe di soli puntini (spazi risposta di una scheda).
+    //    Diverse dal boilerplate ricorrente: qui basta UNA occorrenza. Servono a non
+    //    trattare le DOMANDE di una scheda come contenuto (evidenziazione + mappa).
+    //    Conservativo: pattern che NON toccano la prosa vera (niente stem a lettera
+    //    singola tipo "E. coli", niente anni "2026.").
+    function isStructuralLine(line) {
+        var t = String(line == null ? '' : line).trim();
+        if (!t) return false;
+        // A) riga di soli puntini/underscore/trattini (spazio risposta), nessun testo
+        if (/^[.·_…—–\-\s]{6,}$/.test(t) && !/[0-9A-Za-zÀ-ſ]/.test(t)) return true;
+        // B) stem numerato di domanda/esercizio: "1)", "2.", "10)" a inizio riga + testo
+        if (/^\d{1,2}\s*[\).]\s+\S/.test(t)) return true;
+        // C) riferimento a documento/figura/tabella: "Doc. 1", "Documento 2", "Fig. 3"
+        if (/^(doc\.?|documento|allegato|fig\.?|figura|tab\.?|tabella)\s*\d/i.test(t)) return true;
+        // D) titolo ALL-CAPS corto (heading): <=6 parole, >=80% lettere maiuscole
+        var upper = (t.match(/[A-ZÀ-Þ]/g) || []).length;
+        var lower = (t.match(/[a-zß-ÿ]/g) || []).length;
+        if (upper + lower >= 3 && t.split(/\s+/).length <= 6 && upper / (upper + lower) >= 0.8) return true;
+        return false;
+    }
+
+    // Rimuove le righe strutturali dal testo. → { text, removed:[sample], count }
+    function stripStructuralLines(text) {
+        var removed = [], count = 0, kept = [];
+        String(text == null ? '' : text).split('\n').forEach(function (ln) {
+            if (isStructuralLine(ln)) { removed.push(ln.trim().slice(0, 60)); count++; }
+            else kept.push(ln);
+        });
+        return { text: kept.join('\n'), removed: removed, count: count };
+    }
+
+    return {
+        findRepeatedLines: findRepeatedLines, stripBoilerplate: stripBoilerplate,
+        isStructuralLine: isStructuralLine, stripStructuralLines: stripStructuralLines, _norm: _norm
+    };
 });

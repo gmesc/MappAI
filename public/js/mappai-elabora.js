@@ -61,7 +61,12 @@
         const s = _appState();
         try {
             let c = (window.MappAIDescFidelity && window.MappAIDescFidelity.corpusFromState(s)) || '';
-            if (c && window.MappAIBoilerplate && _stripBoilerplateOn()) c = window.MappAIBoilerplate.stripBoilerplate(c).text;
+            if (c && window.MappAIBoilerplate && _stripBoilerplateOn()) {
+                c = window.MappAIBoilerplate.stripBoilerplate(c).text;
+                // #1: righe strutturali (domande, «Doc. N», titoli, righe vuote) fuori dal
+                // corpus → non vengono evidenziate come contenuto della mappa.
+                if (window.MappAIBoilerplate.stripStructuralLines) c = window.MappAIBoilerplate.stripStructuralLines(c).text;
+            }
             return c;
         } catch (e) { return ''; }
     }

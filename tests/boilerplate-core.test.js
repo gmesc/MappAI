@@ -103,3 +103,40 @@ test('stripBoilerplate MODO A: prefisso comune ma corpo diverso — non divora i
     assert.ok(r.text.indexOf('bipolarismo') >= 0);
     assert.ok(r.text.indexOf('blocco orientale') >= 0);
 });
+
+// ── #1: righe STRUTTURALI (domande/titoli/vuote di una scheda) ──────────────
+test('isStructuralLine: riconosce domande, Doc.N, titoli ALL-CAPS, righe vuote', () => {
+    assert.ok(BP.isStructuralLine('1) Durante le lezioni precedenti formula la tua ipotesi.'));
+    assert.ok(BP.isStructuralLine('2. Riassumi schematicamente le ipotesi della classe.'));
+    assert.ok(BP.isStructuralLine('Doc. 1 Da cosa dipende il fatto di avere capelli lisci o ricci?'));
+    assert.ok(BP.isStructuralLine('Documento 2 Spiega cosa sono gli alleli.'));
+    assert.ok(BP.isStructuralLine('LA GUERRA FREDDA'));
+    assert.ok(BP.isStructuralLine('...................................................'));
+    assert.ok(BP.isStructuralLine('______________________________'));
+});
+
+test('isStructuralLine: NON tocca la prosa, "E. coli", anni, frasi normali', () => {
+    assert.ok(!BP.isStructuralLine('L\'apparato radicale svolge funzioni di assorbimento idrico e minerale.'));
+    assert.ok(!BP.isStructuralLine('E. coli è un batterio comune nell\'intestino.'));   // stem a lettera singola: NON toccato
+    assert.ok(!BP.isStructuralLine('Nel 2026. la situazione cambiò radicalmente ancora.'));
+    assert.ok(!BP.isStructuralLine('Gli USA erano uno stato liberal-democratico.'));   // acronimo, ma frase lunga
+    assert.ok(!BP.isStructuralLine(''));
+});
+
+test('stripStructuralLines: toglie domande e vuoti, conserva il contenuto', () => {
+    const sheet = [
+        'LA GUERRA FREDDA',
+        'Al termine della guerra l\'Europa era impoverita e semidistrutta.',
+        '1) Formula la tua ipotesi personale.',
+        '...................................................',
+        'Doc. 2 Spiega cosa sono gli alleli del gene tipo di capelli.',
+        'Gli alleli sono versioni alternative di uno stesso gene.'
+    ].join('\n');
+    const r = BP.stripStructuralLines(sheet);
+    assert.strictEqual(r.count, 4);
+    assert.ok(r.text.indexOf('impoverita e semidistrutta') >= 0);   // contenuto conservato
+    assert.ok(r.text.indexOf('versioni alternative') >= 0);
+    assert.ok(r.text.indexOf('Formula la tua ipotesi') < 0);        // domanda rimossa
+    assert.ok(r.text.indexOf('Doc. 2') < 0);                         // riferimento rimosso
+    assert.ok(r.text.indexOf('LA GUERRA FREDDA') < 0);              // titolo rimosso
+});
