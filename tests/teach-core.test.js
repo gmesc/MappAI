@@ -84,8 +84,9 @@ test('rankMapsForClass: 3 fasce, totale = tutti i progetti', () => {
   const r = TC.rankMapsForClass(projects, reg, { name: '1A', grade: '1a media' });
   assert.deepStrictEqual(r.started.map(p => p.id), ['p1']);
   assert.deepStrictEqual(r.sameGrade.map(p => p.id), ['p2']);   // non-started, grade uguale
-  assert.deepStrictEqual(r.others.map(p => p.id).sort(), ['p3', 'p4']);
-  assert.strictEqual(r.started.length + r.sameGrade.length + r.others.length, 4);
+  assert.deepStrictEqual(r.others.map(p => p.id), ['p4']);      // senza grade → generica
+  assert.deepStrictEqual(r.otherGrade.map(p => p.id), ['p3']);  // grade di altra classe
+  assert.strictEqual(r.started.length + r.sameGrade.length + r.others.length + r.otherGrade.length, 4);
 });
 
 test('rankMapsForClass: nessun grade classe → started + others', () => {

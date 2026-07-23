@@ -491,6 +491,7 @@
       quickStartBar() + filesBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
+      sectionShell('teach-lavagna', 'presentation', _t('ui_teach_lavagna', 'Lavagna interattiva'), 'teach-lavagna-body') +
       sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
     renderProjects();
     renderMaterials(docs);
@@ -980,17 +981,25 @@
   function activeClassName() { var ac = activeClass(); return ac && ac.name ? ac.name : null; }
   function normName(s) { return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 
+  // Etichetta attività lato registro per la Lavagna (activityLabel('lavagna'))
+  var LAVAGNA_LABEL = 'Lavagna';
   function renderActivities(sets) {
     var body = document.getElementById('teach-activities-body');
+    var lav = document.getElementById('teach-lavagna-body');
     if (!body) return;
     var setsHtml = savedSetsHtml(sets);
+    var lavEmpty = function () {
+      if (lav) { lav.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_lavagna', 'Nessuna sessione di lavagna interattiva. Avviala da «Lavagna interattiva» con una classe: qui compariranno le sessioni salvate.')) + '</p>'; }
+    };
     if (!window.electronAPI || !window.electronAPI.studySessionsList) {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
         esc(_t('lt_activities_desktop', 'Il registro delle attività somministrate è disponibile nell\'app desktop.')) + '</p>' + setsHtml;
+      lavEmpty();
       if (window.safeCreateIcons) window.safeCreateIcons();
       return;
     }
     body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_activities_loading', 'Carico le attività…')) + '</p>';
+    if (lav) lav.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_activities_loading', 'Carico le attività…')) + '</p>';
     window.electronAPI.studySessionsList().then(function (res) {
       var rows = (res && res.success && res.rows) ? res.rows : [];
       // filtro "solo classe attiva"
@@ -1000,16 +1009,24 @@
       }
       // US5: filtro sulla mappa selezionata (le righe attività hanno il campo .map)
       rows = filterBySelection(rows);
-      if (!rows.length) {
+      // La Lavagna interattiva ha una sezione dedicata (stesse colonne).
+      var lavRows = rows.filter(function (r) { return r.activity === LAVAGNA_LABEL; });
+      var actRows = rows.filter(function (r) { return r.activity !== LAVAGNA_LABEL; });
+      if (lav) {
+        lav.innerHTML = lavRows.length ? actTable(lavRows.map(activityRow).join('')) : '';
+        if (!lavRows.length) lavEmpty();
+      }
+      if (!actRows.length) {
         body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
           esc(_t('lt_no_activities', 'Nessuna attività somministrata. Avvia un quiz, un tutor o una timeline con una classe: qui compariranno le somministrazioni con i loro report.')) + '</p>' + setsHtml;
         if (window.safeCreateIcons) window.safeCreateIcons();
         return;
       }
-      body.innerHTML = actTable(rows.map(activityRow).join('')) + setsHtml;
+      body.innerHTML = actTable(actRows.map(activityRow).join('')) + setsHtml;
       if (window.safeCreateIcons) window.safeCreateIcons();
     }).catch(function () {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_activities', 'Nessuna attività somministrata.')) + '</p>' + setsHtml;
+      lavEmpty();
       if (window.safeCreateIcons) window.safeCreateIcons();
     });
   }
@@ -1165,10 +1182,32 @@
             (p.grade ? '<span style="font-size:10px;color:#94a3b8">' + esc(p.grade) + '</span>' : '') + '</button>';
         }).join('');
     };
+    var otherGrade = (ranked.otherGrade || []);
     var inner = band('lt_band_started', 'Già usate con la classe', ranked.started) +
       band('lt_band_grade', 'Stesso grado', ranked.sameGrade) +
-      band('lt_band_others', 'Altre mappe', ranked.others);
+      band('lt_band_others', 'Mappe generiche', ranked.others);
+    // Mappe assegnate ad ALTRE classi: nascoste di default (il docente non è
+    // bloccato → toggle per mostrarle). Se non c'è nessun'altra mappa da mostrare
+    // sopra, le espande subito così il picker non resta vuoto.
+    var hasVisible = ranked.started.length || ranked.sameGrade.length || ranked.others.length;
+    if (otherGrade.length) {
+      var toggleLabel = _t('lt_band_other_grade', 'Mappe di altre classi') + ' (' + otherGrade.length + ')';
+      inner += '<button type="button" class="lt-other-toggle" style="width:100%;text-align:left;margin-top:12px;padding:8px 10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px">' +
+        '<i data-lucide="chevron-right" class="lt-other-chev" style="width:14px;height:14px"></i>' + esc(toggleLabel) + '</button>' +
+        '<div class="lt-other-wrap" style="display:' + (hasVisible ? 'none' : 'block') + '">' +
+        band('lt_band_other_grade_h', 'Assegnate ad altre classi', otherGrade) + '</div>';
+    }
     var ov = makeOverlay('git-merge', _t('lt_pick_map', 'Scegli la mappa'), inner, '520px');
+    var tgl = ov.querySelector('.lt-other-toggle');
+    if (tgl) tgl.onclick = function () {
+      var wrap = ov.querySelector('.lt-other-wrap');
+      var chev = ov.querySelector('.lt-other-chev');
+      if (!wrap) return;
+      var open = wrap.style.display !== 'none';
+      wrap.style.display = open ? 'none' : 'block';
+      if (chev) chev.setAttribute('data-lucide', open ? 'chevron-right' : 'chevron-down');
+      if (window.safeCreateIcons) window.safeCreateIcons();
+    };
     ov.querySelectorAll('.lt-map').forEach(function (b) {
       b.onclick = function () {
         var p = projects.find(function (x) { return x.id === b.dataset.id; });

@@ -93,11 +93,14 @@
   }
 
   // ── rankMapsForClass ──────────────────────────────────────────────────────
-  // Ordina i progetti in 3 fasce per una classe (FR-020). Il totale contiene
+  // Ordina i progetti in 4 fasce per una classe (FR-020). Il totale contiene
   // SEMPRE tutti i progetti (il docente non è mai bloccato). cls = {name, grade}.
-  //   started   = già avviati su questa classe (registro, per projectId o map)
-  //   sameGrade = non-started con grade == grade della classe (normGrade)
-  //   others    = tutti gli altri (incl. progetti senza grade)
+  //   started    = già avviati su questa classe (registro, per projectId o map)
+  //   sameGrade  = non-started con grade == grade della classe (normGrade)
+  //   others     = non-started SENZA grade (generiche, valide per ogni classe)
+  //   otherGrade = non-started con grade SETTATO ma != grade classe (di altre
+  //                classi) → il picker le nasconde di default. Se la classe non
+  //                ha grade non si può giudicare: tutto finisce in others.
   function rankMapsForClass(projects, registry, cls) {
     var list = Array.isArray(projects) ? projects.slice() : [];
     var reg = Array.isArray(registry) ? registry : [];
@@ -122,14 +125,16 @@
       return false;
     }
 
-    var started = [], sameGrade = [], others = [];
+    var started = [], sameGrade = [], others = [], otherGrade = [];
     for (var j = 0; j < list.length; j++) {
       var p = list[j];
+      var pGrade = p && p.grade != null && p.grade !== '' ? p.grade : null;
       if (isStarted(p)) started.push(p);
-      else if (clsGrade != null && _sameGrade(p && p.grade, clsGrade)) sameGrade.push(p);
-      else others.push(p);
+      else if (clsGrade != null && _sameGrade(pGrade, clsGrade)) sameGrade.push(p);
+      else if (clsGrade != null && pGrade != null) otherGrade.push(p); // grade di altra classe
+      else others.push(p); // senza grade (o classe senza grade) → generica
     }
-    return { started: started, sameGrade: sameGrade, others: others };
+    return { started: started, sameGrade: sameGrade, others: others, otherGrade: otherGrade };
   }
 
   // ── buildSetsIndex ────────────────────────────────────────────────────────

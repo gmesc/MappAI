@@ -1830,15 +1830,24 @@ ipcMain.handle('collab-start-session', async (event, opts) => {
         const legacySlug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
             .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sessione';
         const requestedMode = (opts && opts.loginMode) === 'individual' ? 'individual' : 'group';
-        // Progressivo per somministrazione (…-00, …-01, …). Crash-safe: riprende l'ultima
-        // Lavagna del giorno SOLO se è ancora aperta (phase ≠ closed → "Ferma server" la
-        // chiude) E la modalità login coincide con quella scelta ora. Modalità diversa o
-        // sessione conclusa → nuova cartella pulita (niente più ripresa della vecchia).
-        const { dir, resuming } = progressiveSessionDir(
-            { name, activity: 'lavagna', className: (opts && opts.className) || '', scope: (opts && opts.scope) || '', legacyBase: 'MappAI - Lavagna', legacySlug },
-            doc => doc && doc.session && doc.session.phase !== 'closed'
-                && ((doc.session.loginMode === 'individual' ? 'individual' : 'group') === requestedMode)
-        );
+        // Ripresa ESPLICITA di una sessione scelta dal docente (menu «Riprendi» nel modale):
+        // punta il server alla cartella indicata → ne recupera board/gruppi/QR. Prevale sul
+        // naming progressivo. Il loginMode effettivo lo detta il session.json su disco.
+        let dir, resuming;
+        const resumeDir = opts && opts.resumeDir ? String(opts.resumeDir) : '';
+        if (resumeDir && fs.existsSync(path.join(resumeDir, 'session.json'))) {
+            dir = resumeDir; resuming = true;
+        } else {
+            // Progressivo per somministrazione (…-00, …-01, …). Crash-safe: riprende l'ultima
+            // Lavagna del giorno SOLO se è ancora aperta (phase ≠ closed → "Ferma server" la
+            // chiude) E la modalità login coincide con quella scelta ora. Modalità diversa o
+            // sessione conclusa → nuova cartella pulita (niente più ripresa della vecchia).
+            ({ dir, resuming } = progressiveSessionDir(
+                { name, activity: 'lavagna', className: (opts && opts.className) || '', scope: (opts && opts.scope) || '', legacyBase: 'MappAI - Lavagna', legacySlug },
+                doc => doc && doc.session && doc.session.phase !== 'closed'
+                    && ((doc.session.loginMode === 'individual' ? 'individual' : 'group') === requestedMode)
+            ));
+        }
         fs.mkdirSync(dir, { recursive: true });
         collabSrv = createCollabServer({
             repoRoot: __dirname,
@@ -1894,6 +1903,44 @@ ipcMain.handle('collab-open-folder', async () => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     shell.openPath(dir);
     return { success: true, dir };
+});
+
+// Elenca le sessioni Lavagna salvate su disco (per il menu «Riprendi» del modale).
+// Cammina la base (organizzata o storica) cercando i session.json della lavagna.
+ipcMain.handle('collab-sessions-list', async () => {
+    try {
+        const out = [];
+        const walk = (root, depth) => {
+            if (depth > 4) return;
+            let entries = [];
+            try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch (e) { return; }
+            const sj = path.join(root, 'session.json');
+            if (entries.some(e => e.isFile() && e.name === 'session.json')) {
+                try {
+                    const doc = JSON.parse(fs.readFileSync(sj, 'utf8'));
+                    const s = doc.session || doc;
+                    if (s && (doc.schema === 'mappai-collab-session@1' || s.activity === 'lavagna')) {
+                        let groupCount = Array.isArray(doc.groups) ? doc.groups.length : 0;
+                        try {
+                            const bp = path.join(root, 'board.json');
+                            if (fs.existsSync(bp)) groupCount = (JSON.parse(fs.readFileSync(bp, 'utf8')).groups || []).length;
+                        } catch (e) { /* board illeggibile → conteggio dai gruppi indice */ }
+                        out.push({
+                            dir: root, name: s.name || 'Lavagna', className: s.className || '',
+                            loginMode: s.loginMode === 'individual' ? 'individual' : 'group',
+                            phase: s.phase || 'open', startedAt: s.startedAt || null, groupCount
+                        });
+                    }
+                } catch (e) { /* session.json illeggibile → salta */ }
+                return; // cartella-sessione: niente sotto-sessioni
+            }
+            entries.filter(e => e.isDirectory()).forEach(e => walk(path.join(root, e.name), depth + 1));
+        };
+        const base = collabBaseDir();
+        if (fs.existsSync(base)) walk(base, 0);
+        out.sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
+        return { success: true, sessions: out };
+    } catch (err) { return { success: false, error: err.message, sessions: [] }; }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2661,6 +2708,19 @@ function readSessionFolder(absDir, type) {
     const rec = FilesCore.sessionRecordFrom({ folder: absDir, activityType: type === 'auto' ? '' : type, session, results, reportFiles: files });
     rec.reports = rec.reports.map(r => ({ which: r.which, label: r.label, file: path.join(absDir, r.file) }));
     rec.dir = absDir;
+    // Lavagna: nessun report HTML né roster → i gruppi (board.json) fanno da partecipanti,
+    // altrimenti la sessione sparirebbe dal registro (filtro reports/total nel list).
+    const sObj = session.session || session;
+    if ((session.schema === 'mappai-collab-session@1' || (sObj && sObj.activity === 'lavagna'))) {
+        try {
+            const bp = path.join(absDir, 'board.json');
+            if (fs.existsSync(bp)) {
+                const groups = JSON.parse(fs.readFileSync(bp, 'utf8')).groups || [];
+                rec.total = groups.length;
+                rec.participants = groups.filter(g => g && g.done).length;
+            }
+        } catch (e) { /* board illeggibile → resta 0 (verrà filtrata) */ }
+    }
     return rec;
 }
 // Cammina ricorsivamente (max 3 livelli: sub/classe/sessione) cercando session.json.

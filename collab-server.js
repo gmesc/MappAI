@@ -108,7 +108,8 @@ function createCollabServer(opts) {
       groups: Object.keys(groups).map(k => {
         const g = groups[k];
         return {
-          nick: g.nick, color: g.color, nodes: g.nodes, links: g.links || [],
+          nick: g.nick, emojiLabel: g.emojiLabel || CC.comboEmojiLabel(g.nick) || undefined,
+          color: g.color, nodes: g.nodes, links: g.links || [],
           done: !!g.done, rev: g.rev, updatedAt: g.updatedAt
         };
       })
@@ -170,7 +171,10 @@ function createCollabServer(opts) {
           schema: 'mappai-collab-session@1',
           session: { name: session.name, rootLabel: session.rootLabel, startedAt: session.startedAt },
           palette: CC.PALETTE, sizes: CC.SIZES, limits: CC.LIMITS,
-          loginMode: session.loginMode, emojiSet: session.loginMode === 'individual' ? LC.EMOJI_SET : undefined
+          loginMode: session.loginMode,
+          emojiSet: session.loginMode === 'individual' ? LC.EMOJI_SET : undefined,
+          // Group mode: i 3 set (animali/frutti/mezzi) per l'identità a emoji.
+          groupEmoji: session.loginMode === 'individual' ? undefined : CC.GROUP_EMOJI
         });
       }
 
@@ -185,7 +189,7 @@ function createCollabServer(opts) {
           session: { name: session.name, rootLabel: session.rootLabel, startedAt: session.startedAt },
           groups: Object.keys(groups).map(k => {
             const g = groups[k];
-            return { nick: g.nick, color: g.color, nodeCount: (g.nodes || []).length, linkCount: (g.links || []).length, done: !!g.done, rev: g.rev, updatedAt: g.updatedAt };
+            return { nick: g.nick, emojiLabel: g.emojiLabel || CC.comboEmojiLabel(g.nick) || undefined, color: g.color, nodeCount: (g.nodes || []).length, linkCount: (g.links || []).length, done: !!g.done, rev: g.rev, updatedAt: g.updatedAt };
           }),
           board: boardPublic()
         });
@@ -198,13 +202,20 @@ function createCollabServer(opts) {
           if (p === '/api/join') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
             if (!body.deviceId || typeof body.deviceId !== 'string') return json(res, 400, { error: 'bad-device' });
-            let nick;
+            let nick, emojiLabel;
             if (session.loginMode === 'individual') {
               // US5: identità dal roster (emoji + numero). nick = nome allievo o "volpe-03".
               const rEntry = roster.find(r => r.emojiKey === body.emojiKey && String(r.num) === String(body.num));
               if (!rEntry) return json(res, 401, { error: 'not-in-roster' });
               nick = (rEntry.name && String(rEntry.name).trim()) ? String(rEntry.name).trim() : (body.emojiKey + '-' + body.num);
+            } else if (Array.isArray(body.combo)) {
+              // Group mode a emoji: la tripletta È l'identità (nick ASCII stabile,
+              // display = emoji). Vedi mappai-collab-core.validateGroupCombo.
+              const v = CC.validateGroupCombo(body.combo);
+              if (!v.ok) return json(res, 400, { error: 'bad-combo' });
+              nick = v.nick; emojiLabel = v.emojiLabel;
             } else {
+              // Legacy: nickname libero (sessioni vecchie / client non aggiornati)
               nick = CC.sanitizeNick(body.nick);
               if (!nick) return json(res, 400, { error: 'bad-nick' });
             }
@@ -221,7 +232,8 @@ function createCollabServer(opts) {
             }
             if (!existing) {
               groups[slug] = {
-                nick, deviceId: body.deviceId,
+                nick, emojiLabel: emojiLabel || CC.comboEmojiLabel(nick) || undefined,
+                deviceId: body.deviceId,
                 color: CC.groupColor(Object.keys(groups).length),
                 nodes: [], rev: 0, updatedAt: new Date().toISOString()
               };
@@ -229,7 +241,7 @@ function createCollabServer(opts) {
               persist();
             }
             const g = groups[slug];
-            return json(res, 200, { ok: true, nick: g.nick, color: g.color, nodes: g.nodes });
+            return json(res, 200, { ok: true, nick: g.nick, emojiLabel: g.emojiLabel || CC.comboEmojiLabel(g.nick) || undefined, color: g.color, nodes: g.nodes });
           }
 
           if (p === '/api/nodes') {
