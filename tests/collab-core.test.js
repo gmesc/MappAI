@@ -188,3 +188,30 @@ test('mergeGroupLinks: conserva i link dal root anche dopo rimerge', () => {
   const r2 = C.mergeGroupLinks(r.links, [], ['n1', 'n2']);
   assert.ok(r2.links.some(l => l.source === C.ROOT_ID), 'link dal root sopravvive al rimerge');
 });
+
+// ── Identità a gruppi via emoji (3 set × 4) ──────────────────────────────────
+test('GROUP_EMOJI: 3 set × 4 emoji, chiavi uniche', () => {
+  assert.strictEqual(C.GROUP_EMOJI.length, 3);
+  const keys = [];
+  C.GROUP_EMOJI.forEach(s => { assert.strictEqual(s.items.length, 4); s.items.forEach(it => keys.push(it.key)); });
+  assert.strictEqual(new Set(keys).size, 12);
+});
+
+test('validateGroupCombo: combo valida → nick ASCII + emojiLabel', () => {
+  const v = C.validateGroupCombo(['volpe', 'fragola', 'razzo']);
+  assert.strictEqual(v.ok, true);
+  assert.strictEqual(v.nick, 'volpe-fragola-razzo');
+  assert.strictEqual(v.emojiLabel, '🦊🍓🚀');
+});
+
+test('validateGroupCombo: chiave fuori set o lunghezza errata → ko', () => {
+  assert.strictEqual(C.validateGroupCombo(['volpe', 'treno', 'razzo']).ok, false); // treno non è un frutto
+  assert.strictEqual(C.validateGroupCombo(['volpe', 'fragola']).ok, false);          // manca il mezzo
+  assert.strictEqual(C.validateGroupCombo(null).ok, false);
+});
+
+test('comboEmojiLabel: nick combo → emoji; nick libero legacy → null', () => {
+  assert.strictEqual(C.comboEmojiLabel('gatto-mela-treno'), '🐱🍎🚂');
+  assert.strictEqual(C.comboEmojiLabel('I Leoni'), null);   // nickname libero non è una combo
+  assert.strictEqual(C.comboEmojiLabel('volpe-treno-razzo'), null); // ordine set errato
+});

@@ -491,6 +491,7 @@
       quickStartBar() + filesBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
       sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
+      sectionShell('teach-lavagna', 'presentation', _t('ui_teach_lavagna', 'Lavagna interattiva'), 'teach-lavagna-body') +
       sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
     renderProjects();
     renderMaterials(docs);
@@ -980,17 +981,25 @@
   function activeClassName() { var ac = activeClass(); return ac && ac.name ? ac.name : null; }
   function normName(s) { return String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 
+  // Etichetta attività lato registro per la Lavagna (activityLabel('lavagna'))
+  var LAVAGNA_LABEL = 'Lavagna';
   function renderActivities(sets) {
     var body = document.getElementById('teach-activities-body');
+    var lav = document.getElementById('teach-lavagna-body');
     if (!body) return;
     var setsHtml = savedSetsHtml(sets);
+    var lavEmpty = function () {
+      if (lav) { lav.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_lavagna', 'Nessuna sessione di lavagna interattiva. Avviala da «Lavagna interattiva» con una classe: qui compariranno le sessioni salvate.')) + '</p>'; }
+    };
     if (!window.electronAPI || !window.electronAPI.studySessionsList) {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
         esc(_t('lt_activities_desktop', 'Il registro delle attività somministrate è disponibile nell\'app desktop.')) + '</p>' + setsHtml;
+      lavEmpty();
       if (window.safeCreateIcons) window.safeCreateIcons();
       return;
     }
     body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_activities_loading', 'Carico le attività…')) + '</p>';
+    if (lav) lav.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_activities_loading', 'Carico le attività…')) + '</p>';
     window.electronAPI.studySessionsList().then(function (res) {
       var rows = (res && res.success && res.rows) ? res.rows : [];
       // filtro "solo classe attiva"
@@ -1000,16 +1009,24 @@
       }
       // US5: filtro sulla mappa selezionata (le righe attività hanno il campo .map)
       rows = filterBySelection(rows);
-      if (!rows.length) {
+      // La Lavagna interattiva ha una sezione dedicata (stesse colonne).
+      var lavRows = rows.filter(function (r) { return r.activity === LAVAGNA_LABEL; });
+      var actRows = rows.filter(function (r) { return r.activity !== LAVAGNA_LABEL; });
+      if (lav) {
+        lav.innerHTML = lavRows.length ? actTable(lavRows.map(activityRow).join('')) : '';
+        if (!lavRows.length) lavEmpty();
+      }
+      if (!actRows.length) {
         body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
           esc(_t('lt_no_activities', 'Nessuna attività somministrata. Avvia un quiz, un tutor o una timeline con una classe: qui compariranno le somministrazioni con i loro report.')) + '</p>' + setsHtml;
         if (window.safeCreateIcons) window.safeCreateIcons();
         return;
       }
-      body.innerHTML = actTable(rows.map(activityRow).join('')) + setsHtml;
+      body.innerHTML = actTable(actRows.map(activityRow).join('')) + setsHtml;
       if (window.safeCreateIcons) window.safeCreateIcons();
     }).catch(function () {
       body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' + esc(_t('lt_no_activities', 'Nessuna attività somministrata.')) + '</p>' + setsHtml;
+      lavEmpty();
       if (window.safeCreateIcons) window.safeCreateIcons();
     });
   }

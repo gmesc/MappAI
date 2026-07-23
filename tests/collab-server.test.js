@@ -310,3 +310,34 @@ test('collab phase: open all\'avvio, markClosed → closed su disco (naming prog
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(d, 'session.json'), 'utf8')).session.phase, 'closed');
   if (s2.stop) await s2.stop().catch(() => {});
 });
+
+test('group mode: /api/session espone i 3 set emoji; join con combo → nick ASCII + emojiLabel', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-combo-'));
+  const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
+  const p = await s.listen(0, '127.0.0.1');
+  const get = (u) => fetch('http://127.0.0.1:' + p + u).then(r => r.json().then(b => ({ status: r.status, body: b })));
+  const post = (u, o) => fetch('http://127.0.0.1:' + p + u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) }).then(r => r.json().then(b => ({ status: r.status, body: b })));
+  const tk = s.state().session.token;
+
+  const sess = await get('/api/session?s=' + tk);
+  assert.ok(Array.isArray(sess.body.groupEmoji) && sess.body.groupEmoji.length === 3);
+  assert.strictEqual(sess.body.emojiSet, undefined);
+
+  const j = await post('/api/join', { token: tk, deviceId: 'devA', combo: ['volpe', 'fragola', 'razzo'] });
+  assert.strictEqual(j.status, 200);
+  assert.strictEqual(j.body.nick, 'volpe-fragola-razzo');
+  assert.strictEqual(j.body.emojiLabel, '🦊🍓🚀');
+
+  // stessa combo da altro device → 409 (identità presa)
+  const dup = await post('/api/join', { token: tk, deviceId: 'devB', combo: ['volpe', 'fragola', 'razzo'] });
+  assert.strictEqual(dup.status, 409);
+
+  // combo invalida → 400
+  const bad = await post('/api/join', { token: tk, deviceId: 'devC', combo: ['volpe', 'treno', 'razzo'] });
+  assert.strictEqual(bad.status, 400);
+
+  // board espone emojiLabel
+  const board = await get('/api/board?s=' + tk);
+  assert.strictEqual(board.body.groups[0].emojiLabel, '🦊🍓🚀');
+  await s.stop();
+});

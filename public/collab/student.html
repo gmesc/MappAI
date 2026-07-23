@@ -37,6 +37,13 @@
                padding: 0; font-size: 30px; line-height: 1; border: 2px solid #e2e8f0;
                border-radius: 14px; background: #fff; color: #0f172a; font-family: var(--emoji); }
   #join .emoji-btn.sel { border-color: #4f46e5; background: #eef2ff; }
+  /* Login a gruppi: 3 file di emoji (animali/frutti/mezzi), una scelta per fila */
+  #join-group { width: min(340px, 88vw); margin: 0 auto 6px; }
+  .combo-set { margin-bottom: 12px; }
+  .combo-label { font-size: 12px; font-weight: 700; color: #64748b; text-align: center;
+                 text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .combo-row { display: grid; grid-template-columns: repeat(4, 60px); gap: 10px; justify-content: center; }
+  .combo-preview { font-family: var(--emoji); font-size: 30px; text-align: center; min-height: 38px; margin: 2px 0 8px; }
 
   /* ── Editor ── */
   #editor { flex: 1; display: none; flex-direction: column; min-height: 0; }
@@ -130,7 +137,11 @@
 <div id="join">
   <h1>Lavagna collaborativa</h1>
   <div class="map-name" id="join-map"></div>
-  <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off">
+  <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off" style="display:none">
+  <div id="join-group" style="display:none">
+    <div style="font-size:13px;color:#475569;text-align:center;margin-bottom:10px">Scegli un'emoji per ogni fila: sarà l'identità del gruppo.</div>
+    <div class="combo-preview" id="combo-preview"></div>
+  </div>
   <div id="join-individual" style="display:none">
     <div id="emoji-grid"></div>
     <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="Il tuo numero (es. 07)" autocomplete="off">
@@ -246,8 +257,54 @@
         };
         g.appendChild(b);
       });
-    } else if (S.nick) { $('nick').value = S.nick; }
+    } else {
+      // Group mode: 3 file di emoji (animali/frutti/mezzi), una scelta per fila.
+      buildGroupCombo(r.body.groupEmoji || C.GROUP_EMOJI || []);
+    }
   }).catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
+
+  // ── Login a gruppi via emoji ───────────────────────────────────────────────
+  var SET_LABELS = { animali: 'Animali', frutti: 'Frutti', mezzi: 'Mezzi' };
+  function buildGroupCombo(sets) {
+    $('nick').style.display = 'none';
+    var host = $('join-group'); host.style.display = 'block';
+    // ripulisci eventuali file già montate (tieni la preview in coda)
+    Array.prototype.slice.call(host.querySelectorAll('.combo-set')).forEach(function (x) { x.remove(); });
+    var preview = $('combo-preview');
+    S.combo = new Array(sets.length).fill(null);   // chiave scelta per fila
+    // eventuale ripresa: pre-seleziona dalla combo salvata
+    var saved = (localStorage.getItem('collab_combo_' + TOKEN) || '').split('-');
+    sets.forEach(function (setDef, si) {
+      var wrap = document.createElement('div'); wrap.className = 'combo-set';
+      var lab = document.createElement('div'); lab.className = 'combo-label';
+      lab.textContent = SET_LABELS[setDef.set] || setDef.set;
+      var row = document.createElement('div'); row.className = 'combo-row';
+      (setDef.items || []).forEach(function (it) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'emoji-btn';
+        b.textContent = it.emoji; b.setAttribute('data-key', it.key);
+        b.onclick = function () {
+          S.combo[si] = it.key;
+          row.querySelectorAll('.emoji-btn').forEach(function (x) { x.classList.toggle('sel', x === b); });
+          updateComboPreview(sets);
+        };
+        if (saved[si] === it.key) { S.combo[si] = it.key; b.classList.add('sel'); }
+        row.appendChild(b);
+      });
+      wrap.appendChild(lab); wrap.appendChild(row);
+      host.insertBefore(wrap, preview);
+    });
+    updateComboPreview(sets);
+  }
+  function updateComboPreview(sets) {
+    var out = '';
+    for (var i = 0; i < sets.length; i++) {
+      var k = S.combo[i]; if (!k) { out = ''; break; }
+      var it = (sets[i].items || []).find(function (x) { return x.key === k; });
+      if (it) out += it.emoji;
+    }
+    $('combo-preview').textContent = out;
+  }
 
   $('join-btn').onclick = function () {
     var payload = { token: TOKEN, deviceId: deviceId };
@@ -256,20 +313,22 @@
       if (!S.chosenEmoji || !num) { $('join-err').textContent = 'Scegli emoji e numero.'; return; }
       payload.emojiKey = S.chosenEmoji; payload.num = num;
     } else {
-      var nick = C.sanitizeNick($('nick').value);
-      if (!nick) { $('join-err').textContent = 'Nome gruppo: da 2 a 24 caratteri.'; return; }
-      payload.nick = nick;
+      // Group mode: identità = 3 emoji (una per fila).
+      if (!S.combo || S.combo.some(function (k) { return !k; })) { $('join-err').textContent = 'Scegli un\'emoji per ogni fila.'; return; }
+      payload.combo = S.combo.slice();
     }
     api('/api/join', { method: 'POST', body: JSON.stringify(payload) })
       .then(function (r) {
-        if (r.status === 409) { $('join-err').textContent = 'Nome già in uso da un altro gruppo — scegline un altro.'; return; }
+        if (r.status === 409) { $('join-err').textContent = 'Identità già in uso da un altro gruppo — scegline un\'altra.'; return; }
         if (r.status !== 200) { $('join-err').textContent = 'Errore di accesso (' + r.status + ').'; return; }
         S.nick = r.body.nick; S.color = r.body.color;
+        S.emojiLabel = r.body.emojiLabel || (C.comboEmojiLabel && C.comboEmojiLabel(S.nick)) || S.nick;
         S.myNodes = r.body.nodes || [];
         localStorage.setItem('collab_nick_' + TOKEN, S.nick);
+        if (payload.combo) localStorage.setItem('collab_combo_' + TOKEN, payload.combo.join('-'));
         $('join').style.display = 'none';
         $('editor').style.display = 'flex';
-        var b = $('hd-nick'); b.textContent = S.nick; b.style.background = S.color;
+        var b = $('hd-nick'); b.textContent = S.emojiLabel; b.style.background = S.color;
         S.curColor = S.color;
         buildChips();
         // ripresa: recupera link e stato "fatto" dal board

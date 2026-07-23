@@ -137,8 +137,12 @@
             <div style="font-size:13px;color:#0f172a;margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
             <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_login', 'Accesso allievi')}</label>
             <select id="cl-login" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;margin-bottom:14px">
-                <option value="group">${t('cl_login_grp', 'A gruppi (nickname)')}</option>
+                <option value="group">${t('cl_login_grp', 'A gruppi (3 emoji)')}</option>
                 <option value="individual">${t('cl_login_ind', 'Individuale (roster della classe attiva)')}</option>
+            </select>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_resume', 'Riprendi una sessione precedente')}</label>
+            <select id="cl-resume" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;margin-bottom:14px">
+                <option value="">${t('cl_resume_new', 'Nuova sessione')}</option>
             </select>
             ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('cl') : ''}
             <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700;margin-top:14px">
@@ -146,16 +150,51 @@
         `, '520px');
         const ovStart = document.getElementById('collab-hub-modal');
         if (window.MappAINetMode) window.MappAINetMode.bind(ovStart, 'cl');
+        // Popola «Riprendi» con le sessioni salvate su disco (tutte, più recenti prima).
+        populateResume(ovStart);
+        const loginSel = ovStart.querySelector('#cl-login');
+        const resumeSel = ovStart.querySelector('#cl-resume');
+        // Riprendere una sessione ne eredita la modalità login (la detta il disco):
+        // allinea e blocca il selettore modalità per evitare incoerenze.
+        if (resumeSel) resumeSel.onchange = () => {
+            const opt = resumeSel.selectedOptions[0];
+            const mode = opt && opt.dataset ? opt.dataset.mode : '';
+            if (resumeSel.value && mode && loginSel) { loginSel.value = mode; loginSel.disabled = true; }
+            else if (loginSel) loginSel.disabled = false;
+        };
         ovStart.querySelector('#cl-start').onclick = async () => {
-            const loginMode = (document.getElementById('cl-login') || {}).value || 'group';
+            const resumeDir = resumeSel ? resumeSel.value : '';
+            const loginMode = (loginSel || {}).value || 'group';
             let roster = [];
             if (loginMode === 'individual') {
                 roster = rosterFromClass();
                 if (!roster) return;
             }
             const netMode = window.MappAINetMode ? window.MappAINetMode.get() : 'lan';
-            await doStart({ name, rootLabel: rootLabel(), loginMode, roster, netMode });
+            await doStart({ name, rootLabel: rootLabel(), loginMode, roster, netMode, resumeDir });
         };
+    }
+
+    // Riempie il menu «Riprendi» con le sessioni Lavagna su disco.
+    async function populateResume(ov) {
+        const sel = ov && ov.querySelector('#cl-resume');
+        if (!sel || !window.electronAPI || !window.electronAPI.collabSessionsList) return;
+        try {
+            const r = await window.electronAPI.collabSessionsList();
+            const list = (r && r.success && r.sessions) ? r.sessions : [];
+            list.forEach(s => {
+                const d = s.startedAt ? new Date(s.startedAt) : null;
+                const date = d && !isNaN(d) ? d.toLocaleDateString() : '';
+                const modeLbl = s.loginMode === 'individual' ? t('cl_login_ind_s', 'individuale') : t('cl_login_grp_s', 'gruppi');
+                const parts = [s.name || 'Lavagna', s.className, date].filter(Boolean).join(' · ');
+                const grp = s.groupCount ? ' — ' + s.groupCount + (s.loginMode === 'individual' ? '👤' : '👥') : '';
+                const opt = document.createElement('option');
+                opt.value = s.dir;
+                opt.dataset.mode = s.loginMode;
+                opt.textContent = parts + ' (' + modeLbl + ')' + grp;
+                sel.appendChild(opt);
+            });
+        } catch (e) { /* elenco non disponibile → resta solo "Nuova sessione" */ }
     }
 
     // Roster della classe attiva (login individuale) — null + toast se assente
@@ -431,7 +470,7 @@
                     CT.board = data.board;
                     (CT.board.groups || []).forEach(g => {
                         const slug = C.slugify(g.nick);
-                        if (!CT.layers[slug]) CT.layers[slug] = { visible: true, label: g.nick };
+                        if (!CT.layers[slug]) CT.layers[slug] = { visible: true, label: g.emojiLabel || g.nick };
                     });
                     renderGroupsList();
                     renderOverlay();
@@ -457,7 +496,7 @@
         if (!groups.length) return `<div style="color:#94a3b8;font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>`;
         return groups.map(g => {
             const slug = C.slugify(g.nick);
-            const lay = CT.layers[slug] || (CT.layers[slug] = { visible: true, label: g.nick });
+            const lay = CT.layers[slug] || (CT.layers[slug] = { visible: true, label: g.emojiLabel || g.nick });
             const focused = CT.focusSlug === slug;
             const doneBadge = g.done
                 ? `<span title="${t('cl_done_tip', 'Il gruppo ha premuto Fatto')}" style="font-size:10px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 7px">✓</span>`
@@ -552,7 +591,7 @@
         const layer = inner.append('g').attr('id', 'collab-overlay');
         (CT.board.groups || []).forEach(grp => {
             const slug = C.slugify(grp.nick);
-            const lay = CT.layers[slug];
+            const lay = CT.layers[slug] || (CT.layers[slug] = { visible: true, label: grp.emojiLabel || grp.nick });
             if (!lay) return;
             // in focus mostro SOLO il gruppo isolato; altrimenti rispetto il toggle ON/OFF
             if (CT.focusSlug) { if (slug !== CT.focusSlug) return; }

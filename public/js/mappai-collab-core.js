@@ -38,6 +38,60 @@
                           // (area ampia: lo studente naviga con pan/zoom + "Centra")
   };
 
+  // ── Identità a gruppi via emoji (3 set × 4) ─────────────────────────────
+  // In modalità "group" ogni gruppo sceglie UN'emoji da ciascuno dei 3 set
+  // (animali · frutti · mezzi): la tripletta ordinata È l'identità. Vantaggio
+  // sul nickname libero: deterministica → stesso gruppo = stessa chiave (slug)
+  // → la ripresa di una sessione ritrova i suoi contributi; vocabolario chiuso
+  // (64 combinazioni) leggibile dai bambini. La chiave interna resta ASCII
+  // (es. "volpe-fragola-razzo") per uno slug stabile; il display sono le emoji.
+  var GROUP_EMOJI = [
+    { set: 'animali', items: [
+      { key: 'gatto', emoji: '🐱' }, { key: 'cane', emoji: '🐶' },
+      { key: 'volpe', emoji: '🦊' }, { key: 'coniglio', emoji: '🐰' } ] },
+    { set: 'frutti', items: [
+      { key: 'mela', emoji: '🍎' }, { key: 'banana', emoji: '🍌' },
+      { key: 'fragola', emoji: '🍓' }, { key: 'uva', emoji: '🍇' } ] },
+    { set: 'mezzi', items: [
+      { key: 'treno', emoji: '🚂' }, { key: 'razzo', emoji: '🚀' },
+      { key: 'bici', emoji: '🚲' }, { key: 'barca', emoji: '⛵' } ] }
+  ];
+
+  function _emojiForSet(setIdx, key) {
+    var s = GROUP_EMOJI[setIdx];
+    if (!s) return null;
+    for (var i = 0; i < s.items.length; i++) if (s.items[i].key === key) return s.items[i].emoji;
+    return null;
+  }
+
+  // combo = [keyAnimale, keyFrutto, keyMezzo] (una chiave per set, in ordine).
+  // → { ok, keys, nick (ASCII), emojiLabel } oppure { ok:false, errors }.
+  function validateGroupCombo(combo) {
+    if (!Array.isArray(combo) || combo.length !== GROUP_EMOJI.length) return { ok: false, errors: ['bad-combo-length'] };
+    var keys = [], emojis = [];
+    for (var i = 0; i < GROUP_EMOJI.length; i++) {
+      var e = _emojiForSet(i, combo[i]);
+      if (!e) return { ok: false, errors: ['bad-combo-' + i] };
+      keys.push(combo[i]); emojis.push(e);
+    }
+    return { ok: true, keys: keys, nick: keys.join('-'), emojiLabel: emojis.join('') };
+  }
+
+  // Da un nick ASCII "volpe-fragola-razzo" → "🦊🍓🚀" per il display. Ritorna
+  // null se il nick non è una combo valida (nickname libero legacy) → il
+  // chiamante ripiega sul testo.
+  function comboEmojiLabel(nick) {
+    var parts = String(nick == null ? '' : nick).split('-');
+    if (parts.length !== GROUP_EMOJI.length) return null;
+    var out = [];
+    for (var i = 0; i < GROUP_EMOJI.length; i++) {
+      var e = _emojiForSet(i, parts[i]);
+      if (!e) return null;
+      out.push(e);
+    }
+    return out.join('');
+  }
+
   // ── Sanitizzazione input studente ───────────────────────────────────────
   // Nickname: 2-24 char, niente markup/controlli. Ritorna stringa o null.
   function sanitizeNick(raw) {
@@ -200,6 +254,9 @@
     PALETTE: PALETTE,
     SIZES: SIZES,
     LIMITS: LIMITS,
+    GROUP_EMOJI: GROUP_EMOJI,
+    validateGroupCombo: validateGroupCombo,
+    comboEmojiLabel: comboEmojiLabel,
     sanitizeNick: sanitizeNick,
     sanitizeText: sanitizeText,
     slugify: slugify,
