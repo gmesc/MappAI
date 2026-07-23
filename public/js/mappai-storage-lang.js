@@ -439,6 +439,28 @@ setInterval(() => {
 // Aggiungo il gestore lingue per i modali
 window.currentLanguage = localStorage.getItem('mappai_language') || 'it';
 
+// ── Stile emoji: Android (Noto, default) / OpenMoji (vendorizzato offline) ───
+// Cambia la var CSS --emoji-font per tutta l'app. Flag mappai_emoji_style.
+window.getEmojiStyle = function () {
+    try { return localStorage.getItem('mappai_emoji_style') === 'openmoji' ? 'openmoji' : 'android'; }
+    catch (e) { return 'android'; }
+};
+window.setEmojiStyle = function (style, silent) {
+    const om = style === 'openmoji';
+    try { localStorage.setItem('mappai_emoji_style', om ? 'openmoji' : 'android'); } catch (e) { }
+    document.documentElement.style.setProperty('--emoji-font',
+        om ? "'OpenMoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif"
+            : "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif");
+    const a = document.getElementById('emoji-android-btn'), o = document.getElementById('emoji-openmoji-btn');
+    const on = 'flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700';
+    const off = 'flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700';
+    if (a) a.className = om ? off : on;
+    if (o) o.className = om ? on : off;
+    if (!silent && typeof window.showToast === 'function') {
+        window.showToast(window.t ? window.t('tst_emoji_style', 'Stile emoji: ' + (om ? 'OpenMoji' : 'Android')) : ('Stile emoji: ' + (om ? 'OpenMoji' : 'Android')), 'info');
+    }
+};
+
 window.changeLanguage = function (lang, silent) {
     window.currentLanguage = lang;
     localStorage.setItem('mappai_language', lang);
@@ -689,6 +711,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('mappai_mm_triage_enabled', '1');
     }
     if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic(), true);
+    // Stile emoji (Android/OpenMoji): applica la scelta salvata + sincronizza il toggle.
+    if (typeof window.setEmojiStyle === 'function') window.setEmojiStyle(window.getEmojiStyle(), true);
     const desc = document.getElementById('pipeline-desc');
     if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
 

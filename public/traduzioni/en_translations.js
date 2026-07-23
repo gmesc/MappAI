@@ -709,6 +709,8 @@ const en_translations = {
     tip_mm_logic: "MappAI: classic map building. Adaptive (recommended): analyses the worksheet type and adapts the depth — fewer invented branches on content-poor worksheets.",
     tip_kg_logic: "Knowledge Graph only. A: BERT Community (hub + GraphRAG communities, richer relations). B: classic MappAI (single/multi-pass).",
     tip_kg_nodes: "Knowledge Graph only. How many concepts/entities to generate in the graph: 15-25 for tidy graphs, 30+ for fuller graphs.",
+    ui_emoji_style: "Emoji style:",
+    ui_emoji_credit: "OpenMoji emoji — CC BY-SA 4.0. Open openmoji.org",
     ui_edit_node: "Edit node",
     tip_edit_color: "Node colour: open the eyedropper or pick from the quick palette below.",
     tip_edit_from_map: "Edit this node: name, content, colour, links, images and documents.",
