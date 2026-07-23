@@ -1,8 +1,9 @@
 # Implementation plan — Deploy del relay «variante WEB» (modalità Internet delle attività QR)
 
-> Stato: **DA FARE** — piano da riprendere in una sessione dedicata.
+> Stato: **IN ARCHIVIO** (parcheggiato il 23/7/26 — ripresa futura in sessione dedicata).
+> La modalità WiFi aula funziona già; questo piano abilita la modalità Internet quando si riprende.
 > Autore piano: Claude Code · Data: 23 luglio 2026 · Contatto progetto: giacomo@insegnai.ch
-> Priorità: media (la modalità WiFi aula funziona già; questo abilita la modalità Internet).
+> Priorità: media, non attiva.
 
 ---
 
