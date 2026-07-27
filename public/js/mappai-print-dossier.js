@@ -263,7 +263,9 @@ window.printAllNodeLabels = async function (opts) {
     var maxLevel = (depthVal !== 'all' && depthVal != null) ? parseInt(depthVal, 10) : null;
     if (isNaN(maxLevel)) maxLevel = null;
 
-    // Formato foglio (colonne × righe) e contenuto della card (title | summary | keywords)
+    // Formato foglio (colonne × righe) e contenuto della card (title | summary | keywords).
+    // ⚠️ Il foglio dei nodi ha misure PROPRIE e resta indipendente dal foglio
+    // flashcard (mappai-print-layout.js): non condividono nulla di proposito.
     var FMT = { '3x4': { cols: 3, rows: 4 }, '2x2': { cols: 2, rows: 2 }, '2x1': { cols: 2, rows: 1 } };
     var fmtVal = opts.fmt
         || (function () { var el = document.querySelector('input[name="nl-fmt"]:checked'); return el ? el.value : '3x4'; })();
@@ -561,6 +563,309 @@ window.printAllNodeLabels = async function (opts) {
         }
     } catch (e) { /* archivio best-effort */ }
     return { ok: true, fileName: domFileName };
+};
+
+// ── FOGLIO FLASHCARD PDF (jsPDF) ─────────────────────────────────────────────
+// È lo stesso foglio del builder HTML (mappai-quiz-print.js): stessa griglia,
+// stessa testata, stessa metà verde, stesse linee di taglio. Le misure e i corpi
+// del testo NON stanno qui: arrivano da mappai-print-layout.js, così i due
+// motori non possono divergere di un millimetro.
+//
+// opts: { items:[{question,answer,explanation}], title, mapName, rootLabel, theme,
+//         fmt:'2x2v'(default)|'2x2'|'2x1'|'3x2'|'4x3'|'2x3'|'2x4',
+//         backside:bool → ❄️ FRONTE-RETRO IN FREEZE (decisione utente, 27/7/26):
+//           il percorso c'è e funziona (pagina domande + pagina risposte
+//           specchiate per riga), ma NON è rifinito né provato su carta. Mancano:
+//           opzione per il lato di ribaltamento (lungo/corto), margine di
+//           sicurezza per la deriva di registro, testata anche sul retro, foglio
+//           di prova con crocini. Non svilupparlo senza riaprire la decisione.
+//         fontMode:'uniform'|'card', bg:'none'|'grid', explanation:bool, toDisk:{} }
+// Ritorna Promise<{ok, base64?, fileName}>. Con toDisk: nessun download, nessun toast.
+window.printFlashcardSheet = async function (opts) {
+    opts = opts || {};
+    const DE = window.MappAIDocEdit;
+    const PL = window.MappAIPrintLayout;
+    if (!PL) {
+        if (!opts.toDisk) window.showToast('Layout di stampa non caricato', 'error');
+        return { ok: false, error: 'mappai-print-layout.js mancante' };
+    }
+    const items = DE ? DE.normItems(opts.items) : (opts.items || []);
+    if (!items.length) {
+        if (!opts.toDisk) window.showToast(window.t('fc_no_cards', 'Nessuna carta da stampare.'), 'warning');
+        return { ok: false, error: 'nessuna carta' };
+    }
+
+    const G = PL.flashGeom(opts.fmt);
+    const fmt = G.key;
+    const duplex = !!opts.backside;
+    const withExpl = opts.explanation !== false;
+
+    // Testata: stessa risoluzione del foglio HTML (mappa + macro-area del ramo).
+    const head = (window.MappAIQuizPrint && window.MappAIQuizPrint.cardHeader)
+        ? window.MappAIQuizPrint.cardHeader({ title: opts.title || '' },
+            { rootLabel: opts.rootLabel || opts.mapName || '', theme: opts.theme || '' })
+        : { root: String(opts.rootLabel || opts.mapName || ''), theme: String(opts.theme || '') };
+    // Etichette vuote per default (più aria): niente «TEMA:» davanti all'area
+    // tematica, niente «RISPOSTA» sopra il retro. Si rimettono dai token.
+    const themeWord = String(G.labels.themePrefix || '');
+    const answerWord = String(G.labels.answer || '');
+
+    const cards = items.map(function (it) {
+        const ex = String((withExpl && it.explanation) || '');
+        return {
+            question: String(it.question || ''),
+            answer: String(it.answer || '—'),
+            explanation: ex.length > G.explMax
+                ? ex.slice(0, G.explMax).replace(/[\s.,;:]+$/, '') + '…' : ex
+        };
+    });
+
+    // Corpi del testo: calcolati PRIMA di disegnare, come nel foglio HTML.
+    const fontMode = (opts.fontMode === 'card') ? 'card' : 'uniform';
+    // Le righe della testata sono quelle che verranno DISEGNATE: il modello deve
+    // contare le stesse, altrimenti promette spazio che sulla carta non c'è.
+    const headLinesDrawn = [
+        String(head.root || ''),
+        head.theme ? (themeWord ? themeWord + ' ' + head.theme : head.theme) : ''
+    ];
+    const fit = PL.fitFlash(cards, G, { lines: headLinesDrawn },
+        { policy: fontMode, withExpl: withExpl, duplex: duplex });
+    // Testi definitivi (spiegazioni tolte dove non stavano, «…» dove serviva):
+    // gli stessi che disegna il foglio HTML.
+    const finali = fit.items;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: G.landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+
+    let fontName = 'courier';
+    try {
+        if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) fontName = 'Space Mono';
+    } catch (e) { /* fallback courier: anche lui monospazio, quindi il calcolo tiene */ }
+
+    // ── utilità di disegno ───────────────────────────────────────────────────
+    function rgb(hex) {
+        const h = String(hex || '#000').replace('#', '');
+        const n = h.length === 3 ? h.split('').map(function (c) { return c + c; }).join('') : h;
+        return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+    }
+    function dash(pattern) {
+        if (typeof doc.setLineDashPattern !== 'function') return;
+        doc.setLineDashPattern(pattern && pattern.length ? pattern : [], 0);
+    }
+    function stroke(hex, widthMm, pattern) {
+        const c = rgb(hex);
+        doc.setDrawColor(c[0], c[1], c[2]);
+        doc.setLineWidth(widthMm);
+        dash(pattern);
+    }
+    function fill(hex) { const c = rgb(hex); doc.setFillColor(c[0], c[1], c[2]); }
+    function ink(hex) { const c = rgb(hex); doc.setTextColor(c[0], c[1], c[2]); }
+
+    // Righe di testo con a-capo sulle parole, misurate col font vero.
+    function lines(text, pt, style, widthMm, spacedPt) {
+        doc.setFont(fontName, style || 'normal');
+        doc.setFontSize(pt);
+        // La testata è disegnata con lo spazio fra le lettere (setCharSpace), che
+        // getTextWidth non misura come lo disegna. Per la testata si usa quindi lo
+        // stesso metro del modello (avanzamento monospazio + spaziatura): così
+        // modello, HTML e PDF mandano a capo nello stesso punto.
+        const measure = spacedPt
+            ? function (s) { return s.length * (G.headAdvance || G.advance) * pt * PL.PT2MM; }
+            : function (s) { return doc.getTextWidth(s); };
+        return PL.wrapLines(text, measure, widthMm);
+    }
+    // Righe di un blocco senza disegnarlo (serve per centrarlo verticalmente).
+    function blockLines(text, pt, style, widthMm, spaced) {
+        return lines(spaced ? String(text || '').toUpperCase() : text, pt, style, widthMm, spaced);
+    }
+    // Corsivo SINTETICO: Space Mono ha solo tondo e grassetto, e chiedere
+    // 'italic' a jsPDF fa cadere il testo su un font PROPORZIONALE — che manda a
+    // capo dove il modello non prevede. Qui si inclina il testo con una matrice,
+    // tenendo lo stesso font: le larghezze restano quelle monospazio.
+    const ITALIC_SLANT = 0.21;
+    function textSlanted(txt, x, baselineY) {
+        if (typeof doc.setCurrentTransformationMatrix !== 'function' || !doc.Matrix) {
+            doc.text(txt, x, baselineY);   // motore senza matrici: testo dritto
+            return;
+        }
+        doc.saveGraphicsState();
+        // L'inclinazione va applicata ATTORNO alla baseline: senza compensare, il
+        // testo scivolerebbe di 0,21 × la sua distanza dal fondo pagina. La
+        // matrice finisce nel flusso PDF in PUNTI, quindi la compensazione va
+        // scalata col fattore di conversione del documento.
+        const k = (doc.internal && doc.internal.scaleFactor) || 1;
+        const yPdfPt = (G.pageH - baselineY) * k;
+        doc.setCurrentTransformationMatrix(new doc.Matrix(1, 0, ITALIC_SLANT, 1, -ITALIC_SLANT * yPdfPt, 0));
+        doc.text(txt, x, baselineY);
+        doc.restoreGraphicsState();
+    }
+
+    // Disegna righe già calcolate a partire dalla cima del blocco.
+    function draw(ls, x, y, pt, style, color, lineH, spaced, italic) {
+        if (!ls.length) return y;
+        doc.setFont(fontName, style || 'normal');
+        doc.setFontSize(pt);
+        if (spaced && typeof doc.setCharSpace === 'function') {
+            doc.setCharSpace(G.headLetterSpacing * pt * PL.PT2MM);
+        }
+        ink(color);
+        const step = pt * PL.PT2MM * (lineH || G.lineH);
+        let cy = y + pt * PL.PT2MM;   // baseline della prima riga
+        ls.forEach(function (ln) {
+            if (italic) textSlanted(ln, x, cy); else doc.text(ln, x, cy);
+            cy += step;
+        });
+        if (spaced && typeof doc.setCharSpace === 'function') doc.setCharSpace(0);
+        return y + ls.length * step;
+    }
+    // Scrive un blocco e ritorna la y di fine. `spaced` = testata: MAIUSCOLO e
+    // lettere distanziate, come nel foglio HTML (text-transform + letter-spacing).
+    function write(text, x, y, pt, style, color, widthMm, lineH, spaced) {
+        return draw(blockLines(text, pt, style, widthMm, spaced), x, y, pt, style, color, lineH, spaced);
+    }
+
+    // Sfondo a quadretti (opzione storica del foglio).
+    function drawBg() {
+        if (opts.bg !== 'grid') return;
+        let useG = false;
+        try {
+            if (doc.GState && doc.setGState) { doc.setGState(new doc.GState({ 'stroke-opacity': 0.1 })); useG = true; }
+        } catch (e) { useG = false; }
+        if (useG) doc.setDrawColor(0, 255, 255); else doc.setDrawColor(230, 255, 255);
+        doc.setLineWidth(0.3); dash([]);
+        for (let gx = 0; gx <= G.pageW + 0.01; gx += 5) doc.line(gx, 0, gx, G.pageH);
+        for (let gy = 0; gy <= G.pageH + 0.01; gy += 5) doc.line(0, gy, G.pageW, gy);
+        if (useG) { try { doc.setGState(new doc.GState({ 'stroke-opacity': 1 })); } catch (e) { } }
+    }
+
+    // Linee di taglio: un rettangolo per carta ('card') oppure linee continue da
+    // bordo a bordo del blocco ('grid', più comode con la taglierina).
+    function drawCutSheet() {
+        if (G.cut.style !== 'grid') return;
+        stroke(G.cut.color, G.cut.width, G.cut.dash);
+        PL.cutLines(G).forEach(function (s) { doc.line(s.x1, s.y1, s.x2, s.y2); });
+        dash([]);
+    }
+    function drawCutMarks() {
+        if (!G.cut.marks) return;
+        stroke(G.cut.color, G.cut.width, []);
+        PL.cropMarks(G).forEach(function (s) { doc.line(s.x1, s.y1, s.x2, s.y2); });
+    }
+    function drawCardBorder(b) {
+        if (G.cut.style === 'grid') return;   // già disegnate come griglia continua
+        stroke(G.cut.color, G.cut.width, G.cut.dash);
+        doc.roundedRect(b.x, b.y, b.w, b.h, G.card.radius, G.card.radius, 'D');
+        dash([]);
+    }
+
+    // ── una carta ────────────────────────────────────────────────────────────
+    // face: 'fold' (domanda sopra, risposta sotto) · 'front' · 'back' (duplex)
+    function drawCard(item, b, idx, face) {
+        const innerW = b.w - 2 * G.card.padX;
+        const pc = (fontMode === 'card' && fit.perCard[idx]) ? fit.perCard[idx] : fit;
+        const frontH = (face === 'fold') ? b.h * fit.split / 100 : b.h;
+
+        if (face !== 'front') {
+            // Metà (o carta intera) della risposta: fondo verde.
+            fill(G.colors.back);
+            const by = (face === 'fold') ? b.y + frontH : b.y;
+            const bh = (face === 'fold') ? b.h - frontH : b.h;
+            doc.rect(b.x, by, b.w, bh, 'F');
+        }
+        drawCardBorder(b);
+
+        const x = b.x + G.card.padX;
+        const H = function (n, pt, lh) { return n * pt * PL.PT2MM * (lh || G.lineH); };
+
+        if (face !== 'back') {
+            // TESTATA ancorata in cima: è l'identità della carta ritagliata.
+            let y = b.y + G.card.padTop;
+            if (headLinesDrawn[0]) {
+                y = write(headLinesDrawn[0], x, y, G.head, 'bold', G.colors.accent, innerW, G.headLineH, true);
+            }
+            if (headLinesDrawn[1]) {
+                y = write(headLinesDrawn[1], x, y, G.head, 'bold', G.colors.muted, innerW, G.headLineH, true);
+            }
+            y += G.card.headGap;
+            // DOMANDA centrata verticalmente nello spazio che resta: cresce verso
+            // l'alto e verso il basso, come nel foglio HTML.
+            const qls = blockLines(item.question, pc.q, 'bold', innerW);
+            const spazio = (b.y + frontH - G.card.padBottom) - y;
+            const alto = Math.max(0, (spazio - H(qls.length, pc.q)) / 2);
+            draw(qls, x, y + alto, pc.q, 'bold', G.colors.ink);
+        }
+
+        if (face !== 'front') {
+            const top = (face === 'fold') ? b.y + frontH : b.y;
+            const lblLs = answerWord ? blockLines(answerWord, G.head, 'bold', innerW, true) : [];
+            const als = blockLines(item.answer, pc.a, 'normal', innerW);
+            const els = item.explanation ? blockLines(item.explanation, pc.e, 'normal', innerW) : [];
+            // Blocco della risposta (etichetta + testo + spiegazione) centrato
+            // verticalmente nella sua metà.
+            const alt = (lblLs.length ? H(lblLs.length, G.head, G.headLineH) + G.card.lblGap : 0)
+                + H(als.length, pc.a)
+                + (els.length ? G.card.explGap + H(els.length, pc.e) : 0);
+            const disp = (b.h - (face === 'fold' ? frontH : 0)) - G.card.backPadTop - G.card.padBottom;
+            let y = top + G.card.backPadTop + Math.max(0, (disp - alt) / 2);
+            if (lblLs.length) {
+                y = draw(lblLs, x, y, G.head, 'bold', G.colors.muted, G.headLineH, true) + G.card.lblGap;
+            }
+            y = draw(als, x, y, pc.a, 'normal', G.colors.ink);
+            // Spiegazione: stesso corpo della risposta, in corsivo.
+            if (els.length) draw(els, x, y + G.card.explGap, pc.e, 'normal', G.colors.expl, null, false, true);
+        }
+
+        if (face === 'fold') {
+            // Linea di piega: si piega qui per nascondere la risposta.
+            stroke(G.fold.color, G.fold.width, G.fold.dash);
+            const fy = b.y + frontH;
+            doc.line(b.x + G.fold.inset, fy, b.x + b.w - G.fold.inset, fy);
+            dash([]);
+        }
+    }
+
+    // ── impaginazione ────────────────────────────────────────────────────────
+    const boxes = PL.cardBoxes(G);
+    const perPage = G.perPage;
+    const pages = Math.ceil(finali.length / perPage);
+    for (let p = 0; p < pages; p++) {
+        const pageItems = finali.slice(p * perPage, (p + 1) * perPage);
+        if (p > 0) doc.addPage();
+        drawBg(); drawCutSheet(); drawCutMarks();
+        pageItems.forEach(function (it, i) {
+            drawCard(it, boxes[i], p * perPage + i, duplex ? 'front' : 'fold');
+        });
+        if (!duplex) continue;
+        // RETRO: ogni riga specchiata, altrimenti con la stampa fronte/retro sul
+        // lato lungo la risposta finisce dietro la carta sbagliata.
+        doc.addPage();
+        drawBg(); drawCutSheet(); drawCutMarks();
+        const order = DE && DE.backsideOrder
+            ? DE.backsideOrder(pageItems.length, fmt)
+            : pageItems.map(function (_, i) { return i; });
+        order.forEach(function (srcIdx, slot) {
+            if (srcIdx == null || !pageItems[srcIdx]) return;
+            drawCard(pageItems[srcIdx], boxes[slot], p * perPage + srcIdx, 'back');
+        });
+    }
+
+    const title = String(opts.title || 'Flashcard').replace(/[\\/:*?"<>|]/g, '-');
+    const fileName = 'Flashcard-' + title + '-' + fmt + '.pdf';
+    if (opts.toDisk) return { ok: true, base64: doc.output('datauristring'), fileName: fileName };
+
+    doc.save(fileName);
+    window.showToast(window.t('fc_sheet_done', '✓ Foglio flashcard generato'), 'success');
+    try {
+        if (window.MappAIStudyDocs) {
+            window.MappAIStudyDocs.save({
+                kind: 'flashsheet',
+                title: (opts.title || 'Flashcard') + ' — ' + fmt,
+                mapName: opts.mapName || (appState.rootNodeLabel || 'MappAI'),
+                pdf: doc.output('datauristring')
+            });
+        }
+    } catch (e) { /* archivio best-effort */ }
+    return { ok: true, fileName: fileName };
 };
 
 // ── Keyword per le etichette ──────────────────────────────────────────────────

@@ -117,7 +117,11 @@
   // ══════════════════════════════════════════════════════════════════════
   async function _genFlashcards(material, nodeLabel, quantity, apiKey) {
     const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
-    const prompt = window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce });
+    // Vincolo di stampa nel prompt: genera già corto invece di far accorciare
+    // tutto al docente dopo (e vieta URL/formule, che sulla carta non entrano).
+    const PLx = window.MappAIPrintLayout;
+    const regola = PLx ? PLx.promptRule(PLx.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : 'it') : '';
+    const prompt = window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola;
     const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
     let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
@@ -170,11 +174,43 @@
         _state().db.studySets.push(set);
         // PDF (forma stampabile)
         const printItems = (t === 'flashcards') ? _flashToPrintItems(raw) : _toPrintItems(raw);
+        // SOGLIA CARATTERI (solo flashcard). Le carte oltre soglia si stampano
+        // lo stesso — il motore le fa entrare rimpicciolendo o accorciando — ma
+        // il docente viene avvisato: le controlla e le sistema in ELABORA →
+        // Documenti, dove ogni carta ha il contatore, e ristampa da lì.
+        let scartate = [];
+        if (t === 'flashcards') {
+          try {
+            const PL = window.MappAIPrintLayout, QP2 = window.MappAIQuizPrint;
+            if (PL) {
+              const head = (QP2 && QP2.cardHeader) ? QP2.cardHeader({ title: setTitle }, { rootLabel: mapName }) : null;
+              const lim = PL.charLimits(PL.flashGeom(), head);
+              const norm = printItems.map(it => ({
+                question: String(it.question || ''),
+                answer: String(it.options?.[it.correctIndex] || it.answer || '')
+              }));
+              scartate = PL.overLimit(norm, lim);
+              if (scartate.length) {
+                // Segnate nel set: INSEGNA mostra il badge sulla riga del
+                // materiale e l'editor le elenca in cima al foglio.
+                set._overLimit = scartate.length;
+                console.warn('[Pipeline] ' + scartate.length + ' carte oltre soglia (' +
+                  lim.question + '/' + lim.answer + ' caratteri): stampate comunque, da rivedere.');
+                _toast(_t('mp_cards_over', '{n} carte superano la soglia di caratteri: controllale in ELABORA → Documenti')
+                  .replace('{n}', scartate.length), 'warning');
+              }
+            }
+          } catch (e) { /* soglia non applicabile: si stampa tutto, come prima */ }
+        }
         const printSet = { title: setTitle, items: printItems };
         const html = (t === 'flashcards')
           ? window.buildFlashcardSetHtml(printSet, { mapName, includeBar: false })
           : window.buildQuizSetHtml(printSet, { mapName, includeBar: false });
-        const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape: false } });
+        // Il foglio flashcard è orizzontale (carte affiancate come il foglio nodi):
+        // l'orientamento lo dichiara la geometria del foglio, non questo call site.
+        const QP = window.MappAIQuizPrint;
+        const landscape = (t === 'flashcards') && !!(QP && QP.flashSheet && QP.flashSheet().landscape);
+        const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape } });
         if (!pdf || !pdf.ok) throw new Error('PDF quiz non generato: ' + ((pdf && pdf.error) || '?'));
         const v = PC().validatePdfB64(pdf.base64);
         if (!v.ok) throw new Error('Quiz ' + spec.typeLabel + ': ' + v.error);

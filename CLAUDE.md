@@ -608,6 +608,98 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (23/7/26): ELABORA hub documenti — editor quiz/sintesi, foglio flashcard, «Quiz cartacei» in INSEGNA
+Richiesta utente: la pagina ELABORA diventa hub di elaborazione anche per i DOCUMENTI DI
+OUTPUT. **Principio non negoziabile**: si edita la SORGENTE (item degli studySets, blocchi
+della sintesi), mai l'HTML stampato — i builder di stampa restano l'unica resa, così
+schermo · stampa · PDF · QR · vault non divergono. Suite **740/740** ✅ (+34 nuovi test,
+2 skip preesistenti).
+- **Core puro** `public/js/mappai-docedit-core.js` (UMD, `window.MappAIDocEdit`, +34 test
+  `tests/docedit-core.test.js`): normalizzazione item (le tre forme storiche `q/correct`,
+  `front/back`, `question/correctIndex` diventano una sola — **idempotente**), `docFromSet`/
+  `applyToSet` (round-trip che preserva id e campi non gestiti), operazioni di lista
+  immutabili, `validateDoc`, `sanitizeInline` (whitelist `b/i/u/sup/br/span[color]` +
+  `<font color>` di execCommand → span; **nessun controllo di dimensione**: la taglia
+  dipende dal tag di blocco), modello a BLOCCHI della sintesi (`blocksFromHtml`/
+  `blocksToHtml`, con blocchi **`raw`** per i `<div>` generati), `audioStale`,
+  `createHistory` (undo cap 20), slot colore, `FLASH_FMT` + `backsideOrder`.
+- **Editor UI** `public/js/mappai-doc-editor.js` (`window.MappAIDocEditor`): lista documenti
+  (quiz · flashcard · sintesi in memoria e in archivio) e due editor **identici al foglio di
+  stampa** (stesse misure/colori/gerarchia di `buildQuizSetHtml` e `_buildSynthesisPrintHtml`):
+  quiz/flashcard con campi contenteditable, aggiungi/elimina/sposta domanda e opzione, click
+  sulla lettera = risposta corretta; sintesi a blocchi con barra stile (B/I/U + color picker
+  RGB + 5 slot persistiti in `mappai_doc_colors` + **pipetta** via EyeDropper API). Salva ·
+  Annulla (undo del documento) · Stampa · Nel vault · HTML (solo sintesi).
+- **ELABORA**: nuova **modalità** `_mode` `'source'|'docs'` (segmento «Fonte / Documenti»
+  accanto al titolo, `MappAIElabora.setMode`); in `docs` la barra mostra solo le azioni
+  dell'editor e il corpo è `#elab-doc-host`. Uscire con modifiche pendenti chiede conferma.
+- **Riuso dei builder**: `buildQuizSetHtml(set, {includeAnswers, includeBar, mapName})` +
+  namespace `window.MappAIQuizPrint` (STYLES, toPrintItems, setFromHtml). **Bug risolto**:
+  i set in forma `q/correct` (generateDynamicQuiz) stampavano domande VUOTE e soluzione «—»
+  dalla sidebar — ora i builder normalizzano. Il foglio incorpora la sorgente in
+  `<script type="application/json" id="qp-set">` → si ristampa con/senza soluzioni senza
+  riaprire la mappa.
+- **Foglio flashcard** `window.printFlashcardSheet({items, fmt, backside, bg, toDisk})` in
+  print-dossier: A4 **landscape**, geometria IDENTICA ai fogli nodi (margini 10/15, card
+  138.5×90 mm a 2×2, tratteggio arancio di taglio), formati **2×1 · 2×2 · 4×3**, testo
+  auto-rimpicciolito per stare nella card; default «piega» (domanda sopra / risposta sotto),
+  opzione **fronte-retro** con retro **specchiato per riga** (stampa sul lato lungo).
+- **Sintesi**: `_buildSynthesisPrintHtml` accetta `data.editedBlocks`; `MappAIBranchSynthesis`
+  espone `getData/setData/bodyHtml`. **Il TTS regge** perché i blocchi editati mantengono
+  tag e ordine (h3/h4/p/li) che il lettore si aspetta; l'audio con voce naturale viene
+  **invalidato** quando cambia il testo letto (`audioStale`) e l'editor lo segnala.
+  ⚠️ Nella sintesi «tutta la mappa» le citazioni vivono DENTRO il corpo, sezione per sezione:
+  sono conservate come blocchi `raw` e NON vengono riappese in coda (evita duplicati e il
+  crash su `sourcesArr` inesistente).
+- **INSEGNA → «Quiz cartacei»**: sezione nuova (archivio `quizpaper`/`flashsheet` +
+  file `Quiz-*`/`Flashcard-*` su disco della mappa selezionata) con **stampa via modale
+  con/senza soluzioni** e **condivisione QR** (agli allievi va sempre la copia senza
+  soluzioni). `DOC_KINDS` esteso; i cartacei non compaiono più tra i Materiali.
+- **Timeline**: cornice (header card, badge, footer) allineata al foglio quiz/sintesi.
+- i18n: chiavi `de_*`/`el_mode_*`/`fc_*`/`lt_qp_*`/`ui_teach_quizpaper` in
+  `en_translations.js`, fallback IT inline (regola 13). Audit: 0 mancanti.
+- ✅ Verificato in browser (server statico, licensing bypassato solo lato-DOM): lista
+  documenti, editor quiz (edit → undo → salva → studySets in forma storage, `angle`
+  preservato), archivio + round-trip `setFromHtml` con virgolette/tag nel testo, varianti
+  con/senza soluzioni, editor sintesi (blocchi, `<sup>` preservati, colore applicato),
+  sintesi «tutta la mappa» (citazioni per sezione conservate, 6 blocchi leggibili dal TTS),
+  4 formati di foglio flashcard + geometria verificata numericamente con un jsPDF finto,
+  guardie (conferma all'uscita, Ctrl+Z che NON tocca il grafo), sezione INSEGNA e i due
+  modali. Zero errori console.
+- **Round 2 — review avversaria (5 lenti + verificatori che provano a confutare)**: 41 reperti,
+  **29 confermati e tutti chiusi**. I sostanziali:
+  1. **Listener duplicati**: `_bind` riagganciava i 6 handler a ogni render sullo STESSO
+     `#elab-doc-host` (che `innerHTML` non distrugge) → un incolla inseriva il testo N volte
+     e Ctrl+Z annullava N operazioni. Fix: guardia `host._deBound` (il picker colore, che è
+     un figlio rigenerato, resta fuori dalla guardia).
+  2. **Quiz per nodo/ramo persi**: quelli generati da `mappai-flashcards-sr.js` usano
+     `{q, a1, a2, a3, correct: <numero>}` → il core mostrava zero opzioni e come risposta un
+     NUMERO. Fix: `_optsFromAn` + `shapeOfItems`/`doc.shape`; `applyToSet` ricostruisce
+     `a1/a2/a3` con `correct` 1-based → il player in-app continua a funzionare (+4 test).
+  3. **Invio nei blocchi di sintesi** incollava le parole (il `<div>` del browser veniva
+     scartato): ora `insertLineBreak` + normalizzazione dei `<br>` fantasma nel core.
+  4. **Salvataggio nel progetto sbagliato**: cambiando mappa in ELABORA l'editor restava
+     aperto sul documento della precedente. Fix: `_mapKey` (id progetto + titolo) verificato
+     al salvataggio, editor azzerato in `openProject`, conferma se il set è sparito.
+  5. **Doppione in archivio** della sintesi (chiave di dedup diversa dall'auto-salvataggio):
+     ora passa da `MappAIBranchSynthesis.archiveDoc` (stessa chiave) e le voci riaperte
+     dall'archivio si aggiornano per id.
+  6. **`sanitizeInline`**: la chiusura di uno `<span>`/`<font>` scartato chiudeva lo span
+     COLORATO che lo conteneva (il colore si troncava a metà frase).
+  7. Foglio flashcard archiviato come `flashsheet` (era `quizpaper` → etichetta «Quiz» e QR
+     attivo per errore); tipo nel titolo per evitare collisioni MC/VF dello stesso ramo;
+     `Sintesi.html` del vault non più sovrascritta (nome per ramo + « (rivista)»); i file
+     `Quiz-*`/`Flashcard-*` su disco non compaiono più in due sezioni; `deleteDoc` ridisegna
+     anche «Quiz cartacei»; salvataggio rifiutato se la sintesi resta senza testo.
+  8. A11y: risposta corretta segnalata anche da un ✓ e da `aria-checked` (non solo dal
+     colore), `aria-label` su tutti i campi editabili, strumenti di riga visibili anche da
+     tastiera (`:focus-within`), contrasto dei testi grigi portato a ≥4.5:1, ESC + gestione
+     del focus nei due modali nuovi.
+- ⚠️ **Da testare in Electron vivo**: «Nel vault» (IPC `html-to-pdf` + `save-vault-file` →
+  il PDF compare in `Materiale Studio/` e nella sezione Quiz cartacei), condivisione QR da
+  telefono, pipetta EyeDropper, stampa reale su carta dei 3 formati flashcard (fronte-retro
+  sul lato lungo), sintesi con voce naturale già generata → messaggio di audio da rigenerare.
+
 ### 🔵 IN CORSO (21/7/26): branch `fix/deepening-residuo` — P1+P2 anti-parafrasi nel deepening
 Branch NON ancora mergiato. Origine: audit pedagogico su mm_elvezia + mm_la_carta
 (vedi memoria `audit-deepening-dnodes.md`) → i nodi `_D<n>` (Fase 3.7 "deepening

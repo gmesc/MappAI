@@ -203,7 +203,9 @@ window.regenerateStudySet = async function (setId) {
             const raw = data.candidates[0].content.parts[0].text;
             newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
         } else if (set.mode === 'flashcard') {
-            const promptText = window.fillPromptTemplate("FLASHCARD_GENERATOR", { quantity: set.quantity || set.items.length || 5, nodeLabel: set.title, nonce });
+            const _PLfc = window.MappAIPrintLayout;
+            const _regolaFc = _PLfc ? _PLfc.promptRule(_PLfc.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : "it") : "";
+            const promptText = window.fillPromptTemplate("FLASHCARD_GENERATOR", { quantity: set.quantity || set.items.length || 5, nodeLabel: set.title, nonce }) + _regolaFc;
             const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { front: { type: "STRING" }, back: { type: "STRING" } }, required: ["front", "back"] } };
             if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'flashcards');
             const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: promptText + "\n\nMateriale:\n" + set.material }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);

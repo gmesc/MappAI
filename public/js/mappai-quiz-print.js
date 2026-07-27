@@ -1,7 +1,12 @@
 /**
  * mappai-quiz-print.js
  * Stampa quiz e flashcard come pagine HTML per MappAI
- * Dipende da: app.js (appState, cleanLabel, showToast)
+ * Dipende da: app.js (appState, cleanLabel, showToast), mappai-docedit-core.js
+ *
+ * I builder (buildQuizSetHtml / buildFlashcardSetHtml) sono PURI e sono l'unica
+ * resa del foglio: li usano la stampa dalla sidebar, la pipeline materiali,
+ * l'editor documenti di ELABORA e la condivisione QR di INSEGNA. Chi edita un
+ * quiz edita gli item, mai questo HTML.
  */
 
 function escHtmlQP(s) {
@@ -96,16 +101,110 @@ function _qpMapName() {
     } catch (e) { return 'MappAI'; }
 }
 
-// Builder PURO: ritorna la stringa HTML del quiz (risposte + foglio verifica).
-// opts: { mapName?, now?, includeBar? (default true) }. Non tocca il DOM principale.
+// ── TESTATA DELLA CARTA (root + macro-area) ──────────────
+// Una carta ritagliata perde il contesto del foglio: la testata porta con sé
+// il titolo della mappa e il ramo di appartenenza. Risolutore condiviso fra il
+// foglio HTML (qui) e il foglio PDF (mappai-print-dossier.js).
+
+function _qpClean(s) {
+    try { return (typeof cleanLabel === 'function') ? cleanLabel(s) : String(s || ''); }
+    catch (e) { return String(s || ''); }
+}
+
+// Etichetta del nodo ROOT (L0). _qpMapName resta com'è: è storico e legge
+// appState.nodes, che di norma è undefined → 'MappAI'.
+function _qpRootLabel() {
+    try {
+        const st = (typeof appState !== 'undefined') ? appState : window.appState;
+        const root = (st?.db?.nodes || []).find(n => (n.level || 0) === 0);
+        return _qpClean(root?.label || st?.db?.rootNodeLabel || st?.rootNodeLabel || '') || '';
+    } catch (e) { return ''; }
+}
+
+// «Nodo: X» · «Hub: X» · «Ramo: X» → «X» (i titoli dei set generati dall'app).
+function _qpStripSetPrefix(title) {
+    return String(title || '')
+        .replace(/^\s*(nodo|hub|ramo|node|branch|quiz|flashcard)\s*:\s*/i, '')
+        .trim();
+}
+
+function _qpFindNodeByLabel(label) {
+    try {
+        const st = (typeof appState !== 'undefined') ? appState : window.appState;
+        const target = String(label || '').trim().toLowerCase();
+        if (!target) return null;
+        return (st?.db?.nodes || []).find(n => _qpClean(n.label).trim().toLowerCase() === target) || null;
+    } catch (e) { return null; }
+}
+
+// Risale la gerarchia fino al nodo di livello 1 (macro-area). Null se il nodo
+// è la radice o se la catena si interrompe (KG senza padri, link orfani).
+function _qpMacroArea(node) {
+    try {
+        const st = (typeof appState !== 'undefined') ? appState : window.appState;
+        const nodes = st?.db?.nodes || [];
+        const links = st?.db?.links || [];
+        let cur = node, seen = {}, hops = 0;
+        while (cur && hops++ < 12) {
+            if ((cur.level || 0) === 1) return cur;
+            if ((cur.level || 0) === 0 || seen[cur.id]) return null;
+            seen[cur.id] = 1;
+            const up = links.find(l => ((l.target?.id ?? l.target) === cur.id));
+            if (!up) return null;
+            const pid = up.source?.id ?? up.source;
+            cur = nodes.find(n => n.id === pid) || null;
+        }
+        return null;
+    } catch (e) { return null; }
+}
+
+// { root, theme } per la testata della carta.
+// opts.rootLabel / opts.theme forzano i due valori (pipeline, editor documenti).
+function _qpCardHeader(set, opts) {
+    opts = opts || {};
+    const root = String(opts.rootLabel || _qpRootLabel() || opts.mapName || '').trim();
+    let theme = String(opts.theme || '').trim();
+    if (!theme) {
+        const rawTitle = (set && set.title) || opts.title || '';
+        // I set generati dall'app si chiamano «Nodo: X» · «Hub: X» · «Ramo: X»:
+        // solo quelli nominano un pezzo di mappa. Un titolo libero («Domande
+        // della scheda») non è un tema e non deve finire sulla carta.
+        const tagged = /^\s*(nodo|hub|ramo|node|branch)\s*:/i.test(rawTitle);
+        const cand = _qpStripSetPrefix(rawTitle);
+        const l1 = cand ? _qpMacroArea(_qpFindNodeByLabel(cand)) : null;
+        // Senza corrispondenza nella mappa (set d'archivio, mappa cambiata) resta
+        // il titolo del set: è quasi sempre il ramo. Mai la radice ripetuta.
+        theme = l1 ? _qpClean(l1.label)
+            : (tagged && cand && cand.toLowerCase() !== root.toLowerCase() ? cand : '');
+    }
+    return { root: root, theme: theme.trim() };
+}
+
+// Normalizza gli item nella forma che il foglio si aspetta ({question, options,
+// correctIndex}). In archivio convivono la forma di generateDynamicQuiz
+// ({q, correct}) e quella delle flashcard ({front, back}): senza questo passaggio
+// la stampa usciva con le domande vuote e la soluzione «—».
+function _qpPrintItems(set) {
+    const D = window.MappAIDocEdit;
+    const items = (set && set.items) || [];
+    if (!D) return items;                       // core assente → comportamento storico
+    return D.normItems(items);
+}
+
+// Builder PURO: ritorna la stringa HTML del quiz (domande + foglio soluzioni).
+// opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true) }.
+// includeAnswers:false = copia per gli allievi, senza il foglio soluzioni in coda.
+// Non tocca il DOM principale.
 window.buildQuizSetHtml = function (set, opts) {
     opts = opts || {};
     const mapName = opts.mapName || _qpMapName();
     const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#4f46e5';
     const includeBar = opts.includeBar !== false;
+    const includeAnswers = opts.includeAnswers !== false;
+    set = Object.assign({}, set, { items: _qpPrintItems(set) });
 
-    const letters = ['A', 'B', 'C', 'D', 'E'];
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
     // FOGLIO DOMANDE — versione distribuita agli allievi: NESSUNA risposta evidenziata.
     // Font ingranditi per accessibilità DSA. La spiegazione NON compare qui (svelerebbe
@@ -172,7 +271,7 @@ window.buildQuizSetHtml = function (set, opts) {
 <head>
     <meta charset="UTF-8">
     <title>Quiz — ${escHtmlQP(set.title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
           rel="stylesheet">
     <style>
         ${QP_BASE_STYLES}
@@ -203,10 +302,20 @@ window.buildQuizSetHtml = function (set, opts) {
     <div class="quiz-section-title">Domande</div>
     ${questionsHtml}
 
-    <div class="answer-key" style="page-break-before:always; page-break-inside:avoid;">
+    ${includeAnswers ? `<div class="answer-key" style="page-break-before:always; page-break-inside:avoid;">
         <div class="quiz-section-title">Soluzioni</div>
         <div class="answer-key-grid">${answerKeyHtml}</div>
-    </div>
+    </div>` : ''}
+
+    <!-- Sorgente del quiz, incorporata nel foglio: permette di ristampare lo
+         stesso documento con o senza soluzioni (INSEGNA → Quiz cartacei) senza
+         ricorrere alla mappa che l'ha generato. Non viene mai renderizzata.
+         SOLO nella copia del docente: nella copia per gli allievi — che viaggia
+         via QR — le risposte non devono esistere nemmeno nel sorgente HTML. -->
+    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify({
+        id: set.id || '', title: set.title || '', type: set.type || '', mode: set.mode || 'quiz',
+        items: set.items
+    }).replace(/<\//g, '<\\/')}<\/script>` : ''}
 
     <div class="qp-footer">
         MappAI by insegnai.ch ·
@@ -218,95 +327,111 @@ window.buildQuizSetHtml = function (set, opts) {
     return fullHtml;
 };
 
-// Consumer: risolve il set e apre la finestra di stampa (comportamento invariato).
-window.printQuizSet = function (setId) {
+// Consumer: risolve il set e apre la finestra di stampa.
+// opts: { includeAnswers? } — la scelta «con/senza soluzioni» arriva da INSEGNA.
+window.printQuizSet = function (setId, opts) {
     const sets = appState?.db?.studySets || [];
     const set = setId ? sets.find(s => s.id === setId) : sets[sets.length - 1];
     if (!set || !set.items?.length) { showToast('Nessun quiz trovato', 'warning'); return; }
     const win = window.open('', '_blank');
     if (!win) { showToast('Popup bloccato — abilita i popup', 'warning'); return; }
-    win.document.write(window.buildQuizSetHtml(set));
+    win.document.write(window.buildQuizSetHtml(set, opts || {}));
     win.document.close();
     showToast(`✓ Quiz stampabile aperto — ${set.items.length} domande`, 'success');
 };
 
 // ── STAMPA FLASHCARD ─────────────────────────────────────
 
-// Builder PURO: ritorna la stringa HTML delle flashcard (2 colonne).
-// opts: { mapName?, now?, includeBar? (default true) }.
+// GEOMETRIA DEL FOGLIO — gemello del foglio dei nodi: A4 con margini 15/10 mm,
+// carte affiancate SENZA spazi vuoti, tratteggio arancione = linea di taglio.
+// I NUMERI non stanno qui: vivono in mappai-print-layout.js, che li condivide
+// con il foglio PDF (mappai-print-dossier.js) — un solo posto da ritoccare, e
+// i due motori non possono divergere.
+function _PL() {
+    const PL = (typeof window !== 'undefined' && window.MappAIPrintLayout)
+        || (typeof MappAIPrintLayout !== 'undefined' ? MappAIPrintLayout : null);
+    if (!PL) throw new Error('mappai-print-layout.js non caricato: il foglio non ha misure');
+    return PL;
+}
+// Misure derivate di un foglio. Esposta come MappAIQuizPrint.flashSheet: chi
+// converte l'HTML in PDF (editor documenti, pipeline) deve sapere l'orientamento.
+function _fcGeom(key) { return _PL().flashGeom(key); }
+
+// Builder PURO: ritorna la stringa HTML del foglio flashcard.
+// opts: { mapName?, now?, includeBar? (default true), sheet? ('2x2' default,
+//         '3x2' | '4x3' | '2x3' | '2x4'), rootLabel?, theme? }.
 window.buildFlashcardSetHtml = function (set, opts) {
     opts = opts || {};
     const mapName = opts.mapName || _qpMapName();
     const now = opts.now || new Date().toLocaleString('it-IT');
     const accentColor = '#059669';
     const includeBar = opts.includeBar !== false;
+    const G = _fcGeom(opts.sheet);
+    set = Object.assign({}, set, { items: _qpPrintItems(set) });
+
+    // Testata di ogni carta: mappa + macro-area, come sul foglio dei nodi.
+    // Sostituisce il progressivo «01 · Domanda»: una carta ritagliata deve dire
+    // da sola a quale mappa e a quale ramo appartiene.
+    const head = _qpCardHeader(set, opts);
+    // Etichette vuote per default: la seconda riga è la sola area tematica e la
+    // risposta parte subito. Chi vuole «TEMA:»/«RISPOSTA» li rimette dai token.
+    const themePrefix = String(G.labels.themePrefix || '');
+    const answerLabel = String(G.labels.answer || '');
+    // Le due righe della testata si risolvono UNA volta: le stesse stringhe
+    // vanno nell'HTML e nel calcolo dello spazio. (Con il ripiego su mapName
+    // dentro il template, il calcolo contava una riga in meno di quelle
+    // stampate e l'ultima riga della domanda finiva tagliata.)
+    const rootLine = String(head.root || mapName || '');
+    const themeLine = head.theme ? (themePrefix ? themePrefix + ' ' + head.theme : head.theme) : '';
+    const headHtml =
+        `<div class="fc-head">
+                    <div class="fc-root">${escHtmlQP(rootLine)}</div>` +
+        (themeLine ? `
+                    <div class="fc-theme">${escHtmlQP(themeLine)}</div>` : '') +
+        `
+                </div>`;
+
+    // IMPAGINAZIONE DECISA QUI, non nel browser. Space Mono è monospazio: il
+    // punto di a-capo si conta in caratteri, quindi il corpo del testo che fa
+    // stare ogni carta nel suo spazio si calcola mentre si costruisce il foglio.
+    // Conseguenza importante: la carta esce giusta anche dove JavaScript non
+    // gira (anteprime, printToPDF che stampa subito, pagine servite via QR).
+    const PL = _PL();
+    const explCap = s => {
+        const t = String(s || '');
+        return t.length > G.explMax ? t.slice(0, G.explMax).replace(/[\s.,;:]+$/, '') + '…' : t;
+    };
+    const printItems = set.items.map(item => ({
+        question: String(item.question || ''),
+        answer: String(item.options?.[item.correctIndex] || item.answer || '—'),
+        explanation: explCap(item.explanation)
+    }));
+    const fontMode = (opts.fontMode === 'card') ? 'card' : 'uniform';
+    const fit = PL.fitFlash(printItems, G, { lines: [rootLine, themeLine] }, { policy: fontMode });
+    // fit.items = i testi definitivi: senza le spiegazioni tolte alle carte che
+    // non le reggevano, e già accorciati con «…» dove nemmeno il corpo minimo
+    // bastava. Stessa cosa disegna il foglio PDF.
+    const finali = fit.items;
 
     let cardsHtml = '';
-    set.items.forEach((item, idx) => {
-        // Layout carta fisica — fronte e retro
-        // Stampa su foglio A4: 2 colonne, 4 righe = 8 flashcard per pagina
+    finali.forEach((item, i) => {
+        // Carta fisica: metà superiore = domanda, metà inferiore = risposta,
+        // piega tratteggiata sulla linea di divisione. Bordo arancione
+        // tratteggiato = linea di taglio; le carte si toccano, senza spazi.
+        const pc = (fontMode === 'card' && fit.perCard[i]) ? fit.perCard[i] : null;
+        const fStyle = pc ? ` style="--fs:${pc.q}pt"` : '';
+        const bStyle = pc ? ` style="--fs:${pc.a}pt"` : '';
+        const eStyle = pc ? ` style="font-size:${pc.e}pt"` : '';
         cardsHtml += `
-        <div class="fc-card" style="
-            background:white;
-            border-radius:12px;
-            border:1.5px solid #e2e8f0;
-            overflow:hidden;
-            break-inside:avoid;
-            page-break-inside:avoid;">
-
-            <!-- FRONTE -->
-            <div style="
-                padding:14px 16px;
-                border-bottom:1px dashed #e2e8f0;
-                min-height:80px;
-                display:flex; flex-direction:column;
-                justify-content:center;">
-                <div style="
-                    font-size:8px; font-weight:700;
-                    text-transform:uppercase;
-                    letter-spacing:0.06em;
-                    color:${accentColor};
-                    margin-bottom:6px;">
-                    ${String(idx + 1).padStart(2, '0')} · Domanda
-                </div>
-                <div style="
-                    font-size:11px; font-weight:bold;
-                    color:#1e293b; line-height:1.4;">
-                    ${escHtmlQP(item.question)}
-                </div>
+        <div class="fc-card">
+            <div class="fc-front"${fStyle}>
+                ${headHtml}
+                <div class="fc-qbox"><div class="fc-q">${escHtmlQP(item.question)}</div></div>
             </div>
-
-            <!-- RETRO -->
-            <div style="
-                padding:12px 16px;
-                background:#f0fdf4;
-                min-height:60px;
-                display:flex; flex-direction:column;
-                justify-content:center;">
-                <div style="
-                    font-size:8px; font-weight:700;
-                    text-transform:uppercase;
-                    letter-spacing:0.06em;
-                    color:#64748b; margin-bottom:4px;">
-                    Risposta
-                </div>
-                <div style="
-                    font-size:10px; color:#1e293b;
-                    line-height:1.4;">
-                    ${escHtmlQP(
-            item.options?.[item.correctIndex]
-            || item.answer
-            || '—'
-        )}
-                </div>
-                ${item.explanation ? `
-                <div style="
-                    margin-top:6px; font-size:9px;
-                    color:#475569; font-style:italic;
-                    line-height:1.3;">
-                    ${escHtmlQP(item.explanation.slice(0, 120))}
-                    ${item.explanation.length > 120 ? '…' : ''}
-                </div>` : ''}
+            <div class="fc-back"${bStyle}>
+                ${answerLabel ? `<div class="fc-lbl">${escHtmlQP(answerLabel)}</div>` : ''}
+                <div class="fc-a">${escHtmlQP(item.answer)}</div>
+                ${item.explanation ? `<div class="fc-e"${eStyle}>${escHtmlQP(item.explanation)}</div>` : ''}
             </div>
         </div>`;
     });
@@ -316,59 +441,105 @@ window.buildFlashcardSetHtml = function (set, opts) {
 <head>
     <meta charset="UTF-8">
     <title>Flashcard — ${escHtmlQP(set.title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
           rel="stylesheet">
     <style>
         ${QP_BASE_STYLES}
-        .fc-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+        /* Pagina: stesse misure del foglio dei nodi (A4, margini 15/10 mm). */
+        @page { size: A4 ${G.landscape ? 'landscape' : 'portrait'}; margin: ${G.marginY}mm ${G.marginX}mm; }
+        body { max-width:none; margin:0; padding:0; background:#eef2f7; }
+        .fc-sheet { width:${G.gridW}mm; margin:0 auto; }
+        /* Carte affiancate: nessun gutter. Ogni carta porta il proprio bordo
+           tratteggiato, quindi la linea di taglio resta visibile fra due carte. */
+        .fc-grid { display:grid; grid-template-columns:repeat(${G.cols}, ${G.cardW}mm); grid-auto-rows:${G.cardH}mm; gap:0; justify-content:center; }
+        .fc-card { box-sizing:border-box; background:#fff;
+                   border:${G.cut.width}mm dashed ${G.cut.color};
+                   border-radius:${G.card.radius}mm; overflow:hidden; display:flex; flex-direction:column;
+                   break-inside:avoid; page-break-inside:avoid; }
+        /* Metà domanda e metà risposta. La piega non è per forza a metà: la
+           quota la decide il testo (una domanda lunga si prende più spazio),
+           uguale per tutte le carte del foglio → il foglio si piega dritto. */
+        /* Il testo è centrato verticalmente nella sua metà: cresce verso l'alto e
+           verso il basso secondo la lunghezza, invece di appoggiarsi al bordo.
+           La testata resta ancorata in cima (è l'identità della carta). */
+        .fc-front { box-sizing:border-box; flex:0 0 ${fit.split}%;
+                    padding:${G.card.padTop}mm ${G.card.padX}mm ${G.card.padBottom}mm;
+                    border-bottom:${G.fold.width}mm dashed ${G.fold.color};
+                    overflow:hidden; display:flex; flex-direction:column; --fs:${fit.q}pt; }
+        .fc-head { flex:0 0 auto; }
+        .fc-qbox { flex:1 1 auto; display:flex; align-items:center; overflow:hidden; }
+        .fc-back  { box-sizing:border-box; flex:1 1 ${100 - fit.split}%;
+                    padding:${G.card.backPadTop}mm ${G.card.padX}mm ${G.card.padBottom}mm;
+                    background:${G.colors.back}; overflow:hidden;
+                    display:flex; flex-direction:column; justify-content:center; --fs:${fit.a}pt; }
+        .fc-head { margin-bottom:${G.card.headGap}mm; flex:0 0 auto; }
+        /* Termini lunghissimi (senza spazi dove andare a capo) vanno spezzati,
+           altrimenti escono dalla carta e finiscono sopra quella accanto. */
+        .fc-q, .fc-a, .fc-e, .fc-root, .fc-theme, .fc-lbl { overflow-wrap:anywhere; }
+        .fc-root, .fc-theme, .fc-lbl { font-size:${G.head}pt; font-weight:700;
+                    text-transform:uppercase; letter-spacing:0.06em; line-height:${G.headLineH}; }
+        .fc-root { color:${G.colors.accent}; }
+        .fc-theme, .fc-lbl { color:${G.colors.muted}; }
+        .fc-lbl { margin-bottom:${G.card.lblGap}mm; }
+        /* Testo a bandiera: spaziature regolari (leggibilità DSA) e resa
+           identica nel PDF jsPDF, che non sa giustificare. */
+        .fc-q { font-size:var(--fs); font-weight:bold; color:${G.colors.ink}; line-height:${G.lineH}; }
+        .fc-a { font-size:var(--fs); color:${G.colors.ink}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-e { margin-top:${G.card.explGap}mm; font-size:${fit.e}pt; font-style:italic; color:${G.colors.expl}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-instructions { background:${G.colors.back}; border-radius:10px; padding:12px 16px;
+                margin:0 auto 16px; max-width:${G.gridW}mm; font-size:10px; color:#374151;
+                border-left:3px solid ${accentColor}; }
+        /* A schermo il foglio si vede come una pagina; in stampa i margini li
+           mette @page, quindi il contenitore non ne aggiunge altri. */
+        @media screen {
+            .fc-sheet { box-sizing:border-box; width:${G.pageW}mm;
+                        padding:${G.marginY}mm ${G.marginX}mm;
+                        background:#fff; box-shadow:0 2px 18px rgba(15,23,42,.14); margin:16px auto 32px; }
+            .fc-sheet .fc-grid { margin:0 auto; }
+            .qp-header, .fc-instructions { margin-left:auto; margin-right:auto; max-width:${G.pageW}mm; }
         }
         @media print {
-            .fc-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        .fc-instructions {
-            background:#f0fdf4;
-            border-radius:10px;
-            padding:12px 16px;
-            margin-bottom:20px;
-            font-size:10px;
-            color:#374151;
-            border-left:3px solid ${accentColor};
+            body { background:#fff; padding:0; }
+            .fc-sheet { width:auto; padding:0; margin:0; box-shadow:none; }
         }
     </style>
 </head>
 <body>
     ${includeBar ? QP_PRINT_BAR(accentColor, 'Flashcard') : ''}
 
-    <div class="qp-header">
-        <div class="qp-title">${escHtmlQP(set.title)}</div>
-        <div class="qp-subtitle">
-            ${escHtmlQP(mapName)} · Flashcard · ${now}
+    <!-- Intestazione e istruzioni: SOLO a schermo. Il foglio che esce in stampa
+         è la sola griglia di carte, come il foglio dei nodi. -->
+    <div class="no-print">
+        <div class="qp-header">
+            <div class="qp-title">${escHtmlQP(set.title)}</div>
+            <div class="qp-subtitle">
+                ${escHtmlQP(mapName)} · Flashcard · ${now}
+            </div>
+            <div class="qp-badge" style="background:#dcfce7;color:#059669;">
+                ${set.items.length} carte · ${G.cols}×${G.rows} ${G.landscape ? 'orizzontale' : 'verticale'}
+            </div>
         </div>
-        <div class="qp-badge" style="background:#dcfce7;color:#059669;">
-            ${set.items.length} carte
+
+        <div class="fc-instructions">
+            ✂️ <strong>Come usare:</strong>
+            Ritaglia ogni carta lungo il bordo tratteggiato.
+            La metà superiore è la domanda, quella inferiore la risposta.
+            Piega lungo la linea a metà carta per nascondere la risposta
+            durante il ripasso.
         </div>
     </div>
 
-    <div class="fc-instructions">
-        ✂️ <strong>Come usare:</strong>
-        Ritaglia ogni carta lungo il bordo.
-        La parte superiore è la domanda, quella inferiore la risposta.
-        Piega lungo la linea tratteggiata per nascondere la risposta
-        durante il ripasso.
+    <div class="qp-footer no-print">MappAI by insegnai.ch · ${now}</div>
+
+    <div class="fc-sheet">
+        <div class="fc-grid">
+            ${cardsHtml}
+        </div>
     </div>
 
-    <div class="fc-grid">
-        ${cardsHtml}
-    </div>
-
-    <div class="qp-footer">
-        MappAI by insegnai.ch · ${now}
-    </div>
+    <!-- Nessuno script: i corpi del testo sono già decisi (vedi fitFlash).
+         Un foglio che dipendesse da JavaScript uscirebbe tagliato ovunque lo
+         script non giri: anteprime, printToPDF, pagine aperte offline. -->
 </body>
 </html>`;
 
@@ -409,6 +580,35 @@ window.printAllStudySets = function () {
             }
         }, idx * 300); // delay per non bloccare i popup
     });
+};
+
+// ── API riusabile ────────────────────────────────────────
+// Gli stessi stili e builder usati dal foglio stampato servono all'editor di
+// ELABORA: l'anteprima editabile deve essere il foglio, non una sua imitazione.
+window.MappAIQuizPrint = {
+    STYLES: QP_BASE_STYLES,
+    printBar: QP_PRINT_BAR,
+    accent: { quiz: '#4f46e5', flashcards: '#059669' },
+    toPrintItems: _qpPrintItems,
+    // Testata delle carte (root + macro-area) — condivisa col foglio PDF.
+    cardHeader: _qpCardHeader,
+    rootLabel: _qpRootLabel,
+    // Geometria del foglio flashcard: chi manda l'HTML a printToPDF deve sapere
+    // l'orientamento (landscape) e quante carte stanno in una pagina.
+    flashSheet: _fcGeom,
+    flashSheets: function () { return _PL().flashFormats(); },
+    // Recupera il set incorporato in un foglio già generato (vedi <script id="qp-set">).
+    setFromHtml: function (html) {
+        try {
+            const m = /<script type="application\/json" id="qp-set">([\s\S]*?)<\/script>/i.exec(String(html || ''));
+            if (!m) return null;
+            const obj = JSON.parse(m[1].replace(/<\\\//g, '</'));
+            return (obj && Array.isArray(obj.items) && obj.items.length) ? obj : null;
+        } catch (e) { return null; }
+    },
+    buildQuizSetHtml: function (set, opts) { return window.buildQuizSetHtml(set, opts); },
+    buildFlashcardSetHtml: function (set, opts) { return window.buildFlashcardSetHtml(set, opts); },
+    mapName: _qpMapName
 };
 
 console.log('[MappAI] mappai-quiz-print.js caricato ✓');
