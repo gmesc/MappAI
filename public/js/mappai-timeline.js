@@ -943,11 +943,14 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '    --pdf-text-secondary: #475569; --pdf-text-muted: #94a3b8;',
         '    --pdf-border: #e2e8f0; --pdf-bg-subtle: #f8fafc;',
         '}',
+        // Cornice ALLINEATA agli altri fogli stampabili (quiz, flashcard, sintesi):
+        // stessa header card, stesso badge pillola, stesso piè di pagina. Cambia
+        // solo il corpo, che è proprio di ogni tipo di documento.
         'body { font-family: "Space Mono", monospace; font-size: 11pt; color: var(--pdf-text-primary); margin: 0; padding: 24px 32px; background: #f8fafc; }',
-        '.tl-header { text-align: center; padding: 32px 16px 24px; background: white; border-radius: 16px; margin-bottom: 32px; border-bottom: 3px solid var(--pdf-accent-color); }',
-        '.tl-title { font-size: 22pt; font-weight: 900; color: var(--pdf-text-primary); margin-bottom: 4px; }',
-        '.tl-subtitle { font-size: 10pt; color: var(--pdf-text-muted); }',
-        '.tl-count { display: inline-block; margin-top: 8px; background: #ede9fe; color: var(--pdf-accent-color); border-radius: 999px; padding: 3px 14px; font-size: 10pt; font-weight: 700; }',
+        '.tl-header { text-align: center; padding: 28px 16px 20px; background: white; border-radius: 16px; margin-bottom: 28px; border-bottom: 2px solid var(--pdf-accent-color); page-break-after: avoid; }',
+        '.tl-title { font-size: 20pt; font-weight: 900; color: var(--pdf-text-primary); margin-bottom: 4px; }',
+        '.tl-subtitle { font-size: 10pt; color: #64748b; }',
+        '.tl-count { display: inline-block; margin-top: 8px; background: #ede9fe; color: var(--pdf-accent-color); border-radius: 999px; padding: 2px 12px; font-size: 10pt; font-weight: 700; }',
         '.tl-container { position: relative; max-width: 960px; margin: 0 auto; padding: 0 16px; }',
         '.tl-container::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--pdf-border); transform: translateX(-50%); }',
         '.tl-event { display: flex; margin-bottom: 40px; position: relative; page-break-inside: avoid; }',
@@ -967,7 +970,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '.dossier-section-label { display: block; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--pdf-text-muted); margin-bottom: 8pt; }',
         '.tl-chunk-source { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8pt; border-left: 3pt solid currentColor; padding-left: 8pt; }',
         '.dossier-desc { font-size: 11pt; line-height: 1.7; color: var(--pdf-text-secondary); margin: 0; font-style: italic; }',
-        '.tl-footer { text-align: center; margin-top: 40px; font-size: 9pt; color: var(--pdf-text-muted); border-top: 1px solid var(--pdf-border); padding-top: 16px; }',
+        '.tl-footer { text-align: center; margin-top: 32px; font-size: 9pt; color: var(--pdf-text-muted); border-top: 1px solid #f1f5f9; padding-top: 12px; }',
         '.tl-card-manual { box-shadow: 0 2px 12px rgba(79,70,229,0.20); }',
         '.tl-gap { border: 2px dashed #cbd5e1 !important; }',
         '.tl-toolbtn { display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:bold; font-family:inherit; }',

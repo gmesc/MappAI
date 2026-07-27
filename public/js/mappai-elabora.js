@@ -39,6 +39,10 @@
     let _ignored = new Set();      // card ignorate in sessione (chiave)
     let _stylesInjected = false;
     let _forceEmpty = false;       // uscita manuale dal workspace fullscreen → torna al picker
+    // MODALITÀ di elaborazione: 'source' = lavoro sulla fonte (analisi, copertura,
+    // evidenziazione); 'docs' = lavoro sui documenti di output già generati (quiz,
+    // flashcard, sintesi) — editor in mappai-doc-editor.js.
+    let _mode = 'source';
     let _srcView = 'text';         // vista pannello fonte: 'text' | 'pdf'
     let _rightView = 'cards';      // vista pannello destro: 'cards' | 'tree'
     let _treeCollapsed = new Set();// nodi collassati nell'albero ELABORA (indipendente dalla sidebar)
@@ -109,6 +113,12 @@
         overlay.innerHTML = _shell(s, _R, pdfs);
         document.body.classList.add('elab-fullscreen');
         if (window.safeCreateIcons) window.safeCreateIcons({ root: overlay });
+        if (_mode === 'docs') {
+            // L'editor documenti si disegna da sé nel proprio host: mantiene lo stato
+            // (documento aperto, cronologia annulla) tra un render e l'altro.
+            if (window.MappAIDocEditor) window.MappAIDocEditor.render();
+            return;
+        }
         if (_srcView === 'pdf' && pdfs.length) _mountPdf(pdfs);
     }
 
@@ -184,6 +194,13 @@
             // vista fonte (evita di ereditare un'anteprima PDF di un'altra mappa).
             _pdfFiles.clear(); _srcView = 'text'; _pdfIdx = 0;
             _forceEmpty = false;
+            // L'editor documenti resterebbe aperto sul documento della mappa
+            // precedente: azzeralo (i quiz appartengono alla loro mappa).
+            if (window.MappAIDocEditor) {
+                if (window.MappAIDocEditor.hasUnsaved && window.MappAIDocEditor.hasUnsaved() &&
+                    !confirm(t('el_docs_unsaved', 'Ci sono modifiche non salvate nel documento. Uscire comunque?'))) return;
+                window.MappAIDocEditor.reset();
+            }
             window.loadSavedProject(id);
             setTimeout(function () { openFromMap(); }, 350);
         }
@@ -200,20 +217,24 @@
             (R.text.signals || []).filter(x => !_ignored.has('sig:' + x.key)).length +
             (R.structural || []).filter((x, i) => !_ignored.has('str:' + i)).length;
 
-        return '' +
-        '<div class="elab-ws">' +
-          '<div class="elab-bar">' +
-            '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
-            '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
-            '<div class="elab-spacer"></div>' +
+        // Selettore di MODALITÀ: la fonte da una parte, i documenti già prodotti
+        // dall'altra. Le azioni della barra valgono solo per la modalità «Fonte»
+        // (in «Documenti» le uscite sono nella barra dell'editor).
+        const modeSeg =
+            '<div class="elab-srcseg elab-modeseg">' +
+              '<button type="button" class="elab-seg' + (_mode === 'source' ? ' active' : '') + '" onclick="MappAIElabora.setMode(\'source\')" title="' + t('el_mode_src_tip', 'Analisi della fonte: copertura, evidenziazione, suggerimenti') + '">' + t('el_mode_src', 'Fonte') + '</button>' +
+              '<button type="button" class="elab-seg' + (_mode === 'docs' ? ' active' : '') + '" onclick="MappAIElabora.setMode(\'docs\')" title="' + t('el_mode_docs_tip', 'Rivedi quiz, flashcard e sintesi già generati prima di stamparli o condividerli') + '">' + t('el_mode_docs', 'Documenti') + '</button>' +
+            '</div>';
+
+        const srcActions =
             '<button type="button" class="elab-btn" onclick="MappAIElabora.openQuestions()" title="' + t('el_questions_tip', 'Recupera le domande/esercizi della scheda per usarle in un quiz') + '">❓ ' + t('el_questions', 'Domande scheda') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlightedPdf()" title="' + t('el_export_hl_tip', 'Esporta il PDF originale con le frasi evidenziate per macro-area (fonte solo-testo → documento riflowato)') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
             '<button type="button" class="elab-btn elab-primary" onclick="MappAIElabora.pickPdf()">' + emo('add') + ' ' + t('el_add_pdf', 'Aggiungi PDF') + '</button>' +
-            '<input type="file" id="elab-pdf-input" accept="application/pdf,.pdf" class="hidden" onchange="MappAIElabora.onPdf(this)">' +
-            '<button type="button" class="elab-close" onclick="MappAIElabora.exitWorkspace()" title="' + t('el_exit', 'Chiudi ed esci dal fullscreen') + '">✕</button>' +
-          '</div>' +
+            '<input type="file" id="elab-pdf-input" accept="application/pdf,.pdf" class="hidden" onchange="MappAIElabora.onPdf(this)">';
+
+        const sourceBody =
           _triageStrip(s, R) +
           '<div class="elab-split">' +
             _srcPaneHTML(corpus, pdfs) +
@@ -233,7 +254,19 @@
                   '</div></div>') +
             '</section>' +
           '</div>' +
-          _legend() +
+          _legend();
+
+        return '' +
+        '<div class="elab-ws">' +
+          '<div class="elab-bar">' +
+            '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
+            '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
+            modeSeg +
+            '<div class="elab-spacer"></div>' +
+            (_mode === 'source' ? srcActions : '') +
+            '<button type="button" class="elab-close" onclick="MappAIElabora.exitWorkspace()" title="' + t('el_exit', 'Chiudi ed esci dal fullscreen') + '">✕</button>' +
+          '</div>' +
+          (_mode === 'docs' ? '<div id="elab-doc-host"></div>' : sourceBody) +
         '</div>';
     }
 
@@ -858,6 +891,18 @@
     function _guard(n, verbo) { return !(window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(n, verbo)); }
 
     function setRightView(v) { _rightView = (v === 'tree') ? 'tree' : 'cards'; render(); }
+    // Cambio di modalità: se l'editor documenti ha modifiche non salvate, si chiede
+    // conferma qui (uscendo dalla modalità il DOM dell'editor viene distrutto).
+    function setMode(v) {
+        const next = (v === 'docs') ? 'docs' : 'source';
+        if (next === _mode) return;
+        if (_mode === 'docs' && window.MappAIDocEditor && window.MappAIDocEditor.hasUnsaved && window.MappAIDocEditor.hasUnsaved()) {
+            if (!confirm(t('el_docs_unsaved', 'Ci sono modifiche non salvate nel documento. Uscire comunque?'))) return;
+            window.MappAIDocEditor.reset();
+        }
+        _mode = next;
+        render();
+    }
     function toggleTreeRow(id) { if (_treeCollapsed.has(id)) _treeCollapsed.delete(id); else _treeCollapsed.add(id); render(); }
 
     function treeRowClick(id) {
@@ -1488,6 +1533,10 @@
         .elab-bpchip:hover{border-color:var(--eaccr);color:var(--eacc)}
         .elab-bpchip.on{background:var(--eaccs);border-color:var(--eaccr);color:var(--eacc)}
         .elab-srcseg{display:inline-flex;background:var(--epanel3);border-radius:8px;padding:2px}
+        /* selettore di modalità (Fonte / Documenti) accanto al titolo */
+        .elab-modeseg{margin-left:14px}
+        /* host dell'editor documenti: occupa tutto lo spazio sotto la barra */
+        #elab-doc-host{flex:1;min-height:0}
         .elab-seg{font:inherit;font-size:11px;font-weight:700;border:0;background:transparent;color:var(--esoft);padding:4px 12px;border-radius:7px;cursor:pointer}
         .elab-seg.active{background:var(--epanel);color:var(--eacc);box-shadow:0 1px 2px rgba(15,23,42,.06)}
         .elab-pdf-body{padding:0;display:flex;flex-direction:column;min-height:0}
@@ -1563,7 +1612,7 @@
         open, render, addCitation, ignore, pickPdf, onPdf, addTextPrompt, hasMap,
         openFromMap, backToMap, openProject, exitWorkspace, setSrcView, setPdfIdx,
         teardown, revealCard, revealInSource,
-        setRightView, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
+        setRightView, setMode, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
         flushSourcesToVault, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
         openQuestions

@@ -93,7 +93,9 @@
     const DOCS_CAP = 30; // 005-landing-insegna: era 12; la landing Insegna ci vive sopra
     // Tipi di documento archiviabili (005): synthesis/dossier storici + fogli nodi/timeline
     // + 'causal' (Catena dei perché, deterministico — 19/7/26)
-    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map', 'causal'];
+    // 'quizpaper' e 'flashsheet' = fogli cartacei generati dall'editor documenti di
+    // ELABORA (quiz stampabile, foglio flashcard) → richiamabili da INSEGNA.
+    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map', 'causal', 'quizpaper', 'flashsheet'];
 
     function _docsRead() {
         try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '[]'); }
@@ -133,6 +135,9 @@
             cls: rec.cls !== undefined ? rec.cls : _activeClassName(),
             date: Date.now(),
             html: rec.html || '',
+            // n. di carte oltre la soglia di caratteri: INSEGNA ci mette il badge
+            // «da rivedere» sulla riga del foglio flashcard.
+            overLimit: parseInt(rec.overLimit, 10) || 0,
             pdf: rec.pdf || ''
         };
         const key = entry.kind + '|' + entry.title + '|' + entry.mapName;
@@ -144,7 +149,7 @@
         return entry.id;
     }
     // list() → SOLO metadati (niente html: array leggero per il rendering).
-    function listDocs() { return _docsRead().map(d => ({ id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls, date: d.date })); }
+    function listDocs() { return _docsRead().map(d => ({ id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls, date: d.date, overLimit: d.overLimit || 0 })); }
     function getDoc(id) { return _docsRead().find(d => d.id === id) || null; }
     function removeDoc(id) { _docsWrite(_docsRead().filter(d => d.id !== id)); }
 
