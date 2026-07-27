@@ -389,8 +389,11 @@
   }
   // Cella TITOLO (bollino opzionale + sottotitolo).
   function titleTd(o) {
+    // titleHtmlExtra: badge accanto al titolo (es. «3 da rivedere» sui fogli
+    // flashcard con carte oltre la soglia di caratteri). HTML già costruito.
     return td('<div class="flex items-center gap-1.5 min-w-0" title="' + esc(o.titleTip || o.title) + '">' + (o.dot || '') +
-      '<div class="min-w-0"><div class="text-[12px] font-bold text-slate-700 truncate">' + esc(o.title) + '</div>' +
+      '<div class="min-w-0"><div class="text-[12px] font-bold text-slate-700 truncate">' + esc(o.title) +
+      (o.titleHtmlExtra || '') + '</div>' +
       (o.sub ? '<div class="text-[10px] text-slate-400 truncate">' + o.sub + '</div>' : '') + '</div></div>');
   }
   // ── Tabella sezioni "file" (Progetti · Materiali · File condivisi) ──────────
@@ -490,11 +493,13 @@
     host.innerHTML =
       quickStartBar() + filesBar() +
       sectionShell('teach-projects', 'folder-open', _t('ui_teach_projects', 'Progetti esistenti'), 'teach-projects-body') +
-      sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.length) +
+      sectionShell('teach-materials', 'file-text', _t('ui_teach_materials', 'Materiali di studio'), 'teach-materials-body', docs.filter(function (d) { return PAPER_KINDS.indexOf(d.kind) < 0; }).length) +
+      sectionShell('teach-quizpaper', 'printer', _t('ui_teach_quizpaper', 'Quiz cartacei'), 'teach-quizpaper-body', docs.filter(function (d) { return PAPER_KINDS.indexOf(d.kind) >= 0; }).length) +
       sectionShell('teach-lavagna', 'presentation', _t('ui_teach_lavagna', 'Lavagna interattiva'), 'teach-lavagna-body') +
       sectionShell('teach-activities', 'clipboard-list', _t('ui_teach_activities', 'Attività di studio e report'), 'teach-activities-body');
     renderProjects();
     renderMaterials(docs);
+    renderQuizPaper(docs);
     renderActivities(sets);
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
@@ -896,19 +901,171 @@
     synthesis: { icon: 'sparkles', label: 'Sintesi' },
     dossier: { icon: 'files', label: 'Dossier' },
     nodesheet: { icon: 'scissors', label: 'Foglio nodi' },
-    timeline: { icon: 'gantt-chart', label: 'Timeline' }
+    timeline: { icon: 'gantt-chart', label: 'Timeline' },
+    quizpaper: { icon: 'list-checks', label: 'Quiz' },
+    flashsheet: { icon: 'copy', label: 'Flashcard' }
   };
+  // I fogli cartacei hanno una sezione propria: si stampano (con o senza
+  // soluzioni) e si condividono via QR, non si "aprono" come un dossier.
+  var PAPER_KINDS = ['quizpaper', 'flashsheet'];
+
+  // File su disco che appartengono alla sezione «Quiz cartacei» (e non ai Materiali).
+  function _isPaperFile(name) { return /^(Quiz|Flashcard)-/i.test(String(name || '')); }
+
+  // ── Quiz cartacei (fogli stampabili generati dall'editor documenti) ────────
+  // Sorgente doppia, come i Materiali: archivio localStorage + file su disco del
+  // vault della mappa selezionata (Quiz-*/Flashcard-* in Materiale Studio/).
+  function renderQuizPaper(docs) {
+    var body = document.getElementById('teach-quizpaper-body');
+    if (!body) return;
+    var archive = filterBySelection(filterItems((docs || [])
+      .filter(function (d) { return PAPER_KINDS.indexOf(d.kind) >= 0; })
+      .map(function (d) { return Object.assign({}, d); })));
+    var p = _selectedProject ? projectsRead().find(function (x) { return x.id === _selectedProject.id; }) : null;
+    if (p && p.vault) {
+      _paintQuizPaper(body, archive);
+      _diskMaterialsFor(p).then(function (disk) {
+        _paintQuizPaper(body, archive.concat(disk.filter(function (f) { return _isPaperFile(f.title); })));
+      });
+    } else {
+      _paintQuizPaper(body, archive);
+    }
+  }
+  function _paintQuizPaper(body, list) {
+    if (!list.length) {
+      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
+        esc(_t('lt_no_quizpaper', 'Nessun quiz cartaceo. Genera un quiz e rivedilo in ELABORA → Documenti: il foglio comparirà qui, pronto da stampare o condividere.')) + '</p>';
+      return;
+    }
+    body.innerHTML = fileTable(list.map(_quizPaperRowHtml).join(''), true);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+  }
+  function _quizPaperRowHtml(d) {
+    if (d._disk) {
+      var dk = _diskKind(d.title);
+      return fileRow({
+        tipo: tipoCell(dk.icon, dk.label, dk.label),
+        title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
+        cls: classCell(d.cls), date: dateCell(d.date),
+        block: actIcon('printer', _t('lt_qp_open_file', 'Apri il file (stampa dal visualizzatore)'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false),
+        onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
+      });
+    }
+    var meta = KIND_META[d.kind] || KIND_META.quizpaper;
+    var typeLbl = _t('lt_kind_' + d.kind, meta.label);
+    var isPdf = d.kind === 'flashsheet';   // foglio flashcard = PDF: niente QR, niente varianti
+    // Badge «da rivedere»: il foglio contiene carte con più caratteri di quanti
+    // ne entrino nella carta stampata. Si sistemano in ELABORA → Documenti.
+    var over = parseInt(d.overLimit, 10) || 0;
+    var badge = over
+      ? '<span class="ml-2 inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-800 ' +
+        'text-[10px] font-bold px-2 py-0.5 align-middle" title="' +
+        esc(_t('lt_over_tip', '{n} carte superano la soglia di caratteri: rivedile in ELABORA → Documenti').replace('{n}', over)) +
+        '">' + over + ' ' + esc(_t('lt_over_badge', 'da rivedere')) + '</span>'
+      : '';
+    return fileRow({
+      tipo: tipoCell(meta.icon, typeLbl, typeLbl),
+      title: d.title, titleHtmlExtra: badge, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
+      cls: classCell(d.cls), date: dateCell(d.date),
+      block:
+        actIcon('printer', _t('lt_qp_print', 'Stampa (con o senza soluzioni)'), "window.MappAITeach.printQuizPaper('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
+        actIcon('qr-code', isPdf ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareQuizPaper('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isPdf) +
+        actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
+        actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false),
+      onClick: "window.MappAITeach.printQuizPaper('" + esc(d.id) + "')"
+    });
+  }
+
+  // Stampa di un quiz cartaceo: modale «con o senza soluzioni». La sorgente del
+  // quiz viaggia dentro il foglio (<script id="qp-set">) → si ricostruisce la
+  // variante voluta senza dover riaprire la mappa che l'ha generato.
+  function printQuizPaper(id) {
+    var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
+    if (!doc) { toast(_t('lt_qp_missing', 'Documento non trovato.'), 'warning'); return; }
+    if (doc.pdf) { window.open(doc.pdf, '_blank'); return; }
+    var QP = window.MappAIQuizPrint;
+    var set = QP && QP.setFromHtml && QP.setFromHtml(doc.html);
+    if (!set) { _openPrintableHtml(doc.html); return; }   // foglio vecchio senza sorgente
+    _paperModal(doc.title, function (withAnswers) {
+      _openPrintableHtml(QP.buildQuizSetHtml(set, { includeAnswers: withAnswers, mapName: doc.mapName }));
+    });
+  }
+  function _openPrintableHtml(html) {
+    if (window.MappAIStudyExport && window.MappAIStudyExport.openPrintable) return window.MappAIStudyExport.openPrintable(html, {});
+    var w = window.open('', '_blank');
+    if (!w) { toast(_t('tst_popup_blocked', 'Popup bloccato.'), 'warning'); return; }
+    w.document.write(html); w.document.close();
+  }
+  // Condivisione QR: agli allievi va SEMPRE la copia senza soluzioni.
+  function shareQuizPaper(id) {
+    var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
+    if (!doc || !doc.html) { toast(_t('lt_doc_no_qr', 'Questo materiale non è condivisibile via QR (solo i documenti HTML lo sono).'), 'warning'); return; }
+    var QP = window.MappAIQuizPrint;
+    var set = QP && QP.setFromHtml && QP.setFromHtml(doc.html);
+    var html = set ? QP.buildQuizSetHtml(set, { includeAnswers: false, includeBar: false, mapName: doc.mapName }) : doc.html;
+    if (window.MappAILive && window.MappAILive.shareDocQr) {
+      window.MappAILive.shareDocQr(_safeFile(doc.title) + '.html', html);
+      // 'materiali' (non 'materials'): è la chiave che FilesCore.activityLabel conosce.
+      try { logSession({ activity: 'materiali', map: doc.mapName || '', cls: doc.cls || null }); } catch (e) { }
+    } else {
+      toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+    }
+  }
+  function _safeFile(s) { return String(s || 'Quiz').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80); }
+  // Modale a due opzioni (stile .pm-* dell'app).
+  function _paperModal(title, onPick) {
+    var old = document.getElementById('qp-print-modal'); if (old) old.remove();
+    var m = document.createElement('div');
+    m.id = 'qp-print-modal';
+    m.className = 'fixed inset-0 z-[1200] flex items-center justify-center';
+    m.innerHTML = '<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>' +
+      '<div class="relative bg-white rounded-2xl shadow-2xl w-[92vw] max-w-[520px] p-6 space-y-5">' +
+      '<div class="flex items-center gap-3">' +
+      '<div class="pm-icon-wrap"><i data-lucide="printer" class="w-5 h-5 text-indigo-600"></i></div>' +
+      '<div><div class="pm-title">' + esc(_t('lt_qp_print_t', 'Stampa il quiz')) + '</div>' +
+      '<div class="pm-subtitle">' + esc(title) + '</div></div></div>' +
+      '<div class="pm-section"><p class="pm-body-text">' +
+      esc(_t('lt_qp_hint', 'La copia per gli allievi non contiene il foglio soluzioni. Quella del docente lo aggiunge in coda, su una pagina a parte.')) + '</p></div>' +
+      '<div class="flex gap-3">' +
+      '<button type="button" id="qp-x" class="pm-btn-cancel">' + esc(_t('lt_cancel', 'Annulla')) + '</button>' +
+      '<button type="button" id="qp-without" class="pm-btn-cancel">' + esc(_t('lt_qp_without', 'Senza soluzioni')) + '</button>' +
+      '<button type="button" id="qp-with" class="pm-btn-primary">' + esc(_t('lt_qp_with', 'Con soluzioni')) + '</button>' +
+      '</div></div>';
+    document.body.appendChild(m);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+    var prevFocus = document.activeElement;
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      m.remove();
+      try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) { }
+    }
+    document.addEventListener('keydown', onKey, true);
+    m.querySelector('#qp-x').onclick = close;
+    m.querySelector('.absolute').onclick = close;
+    m.querySelector('#qp-with').onclick = function () { close(); onPick(true); };
+    m.querySelector('#qp-without').onclick = function () { close(); onPick(false); };
+    setTimeout(function () { var b = m.querySelector('#qp-with'); if (b) b.focus(); }, 20);
+  }
 
   function renderMaterials(docs) {
     var body = document.getElementById('teach-materials-body');
     if (!body) return;
-    // Archivio localStorage (filtro classe + selezione mappa).
-    var archive = filterBySelection(filterItems((docs || []).map(function (d) { return Object.assign({}, d); })));
+    // Archivio localStorage (filtro classe + selezione mappa). I fogli cartacei
+    // hanno la loro sezione: qui non compaiono due volte.
+    var archive = filterBySelection(filterItems((docs || [])
+      .filter(function (d) { return PAPER_KINDS.indexOf(d.kind) < 0; })
+      .map(function (d) { return Object.assign({}, d); })));
     // Con una mappa selezionata: fonde i materiali su DISCO del suo vault (pipeline 011).
     var p = _selectedProject ? projectsRead().find(function (x) { return x.id === _selectedProject.id; }) : null;
     if (p && p.vault) {
       _paintMaterials(body, archive);   // dipingi subito l'archivio
-      _diskMaterialsFor(p).then(function (disk) { _paintMaterials(body, archive.concat(disk)); });
+      // I fogli Quiz-*/Flashcard-* stanno nella sezione «Quiz cartacei»: qui
+      // comparirebbero una seconda volta.
+      _diskMaterialsFor(p).then(function (disk) {
+        _paintMaterials(body, archive.concat(disk.filter(function (f) { return !_isPaperFile(f.title); })));
+      });
     } else {
       _paintMaterials(body, archive);
     }
@@ -971,6 +1128,7 @@
       if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
       var docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [];
       renderMaterials(docs);
+      renderQuizPaper(docs);   // stessa lista: senza questo la riga eliminata resta a video
       if (window.safeCreateIcons) window.safeCreateIcons();
     });
   }
@@ -1368,6 +1526,8 @@
     openDoc: openDoc,
     shareDoc: shareDoc,
     deleteDoc: deleteDoc,
+    printQuizPaper: printQuizPaper,
+    shareQuizPaper: shareQuizPaper,
     openSet: openSet,
     openReport: openReport,
     logSession: logSession,

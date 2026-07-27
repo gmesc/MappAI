@@ -3581,6 +3581,11 @@
     <script src="js/mappai-timeline-core.js"></script>
     <script src="js/mappai-timeline.js"></script>
     <script src="js/mappai-glossary.js"></script>
+    <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
+    <script src="js/mappai-docedit-core.js"></script>
+    <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
+         (mappai-quiz-print.js) sia i fogli PDF (mappai-print-dossier.js). -->
+    <script src="js/mappai-print-layout.js"></script>
     <script src="js/mappai-quiz-print.js"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
@@ -3644,6 +3649,8 @@
     <script src="js/mappai-pipeline-core.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
     <script src="js/mappai-elabora.js"></script>
+    <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
+    <script src="js/mappai-doc-editor.js"></script>
     <script src="js/mappai-material-pipeline.js"></script>
     <script src="js/mappai-usage-core.js"></script>
     <script src="js/mappai-usage-tracker.js"></script>

@@ -64,3 +64,7 @@ brain/
 # Claude Code — credenziali/log locali (spec-kit warning)
 .claude/settings.local.json
 .claude/*.log
+
+# File personali del docente, non del progetto
+Piano-di-studio-perfezionato.pdf
+assessment-*.html

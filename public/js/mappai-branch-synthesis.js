@@ -582,9 +582,24 @@
 
         const now = new Date().toLocaleString('it-IT');
         const accentColor = '#4f46e5';
-        const contentHtml = data.whole
-            ? _wholeBodyHtml(data, 'print')
-            : _mdToHtml(data.rawText, 'print') + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr, 'print');
+        // `editedBlocks` = testo rivisto dal docente nell'editor documenti (ELABORA).
+        // Sono gli STESSI tag di blocco (h3/h4/p/li) prodotti da _mdToHtml: il lettore
+        // TTS e i cue dell'audio continuano a trovarli. Citazioni e box causale
+        // restano quelli generati (non editabili).
+        const editedHtml = (data.editedBlocks && data.editedBlocks.length && window.MappAIDocEdit)
+            ? window.MappAIDocEdit.blocksToHtml(data.editedBlocks)
+            : null;
+        // Con i blocchi editati: nella sintesi di RAMO citazioni e box causale si
+        // riappendono in coda (vivono fuori dal corpo); in quella di TUTTA LA MAPPA
+        // stanno già dentro il corpo, sezione per sezione (blocchi `raw`) → non si
+        // duplicano, e data.sourcesArr lì non esiste nemmeno.
+        const contentHtml = editedHtml != null
+            ? (data.whole
+                ? editedHtml
+                : editedHtml + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr || [], 'print'))
+            : (data.whole
+                ? _wholeBodyHtml(data, 'print')
+                : _mdToHtml(data.rawText, 'print') + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr, 'print'));
         const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';
@@ -975,7 +990,26 @@
 
     // Superficie pubblica: costruzione dell'HTML stampabile/esportabile (usata
     // anche per la ri-apertura dall'archivio documenti).
-    window.MappAIBranchSynthesis = { buildPrintHtml: _buildSynthesisPrintHtml };
+    // getData/setData: l'editor documenti di ELABORA lavora sull'ultima sintesi
+    // prodotta (o su una ricaricata dall'archivio) senza rigenerarla.
+    window.MappAIBranchSynthesis = {
+        buildPrintHtml: _buildSynthesisPrintHtml,
+        getData: function () { return _lastSynthesis; },
+        setData: function (d) { _lastSynthesis = d || null; return _lastSynthesis; },
+        // Archivia con LA STESSA chiave dell'auto-salvataggio (kind|titolo|mappa):
+        // l'editor documenti aggiorna la voce esistente invece di affiancargliene
+        // una nuova, altrimenti la versione non corretta resterebbe stampabile.
+        archiveDoc: function (data) { return _saveSynthesisDoc(data || _lastSynthesis); },
+        // HTML del solo CORPO (senza citazioni): sorgente dei blocchi editabili.
+        bodyHtml: function (data) {
+            const d = data || _lastSynthesis;
+            if (!d) return '';
+            if (d.editedBlocks && d.editedBlocks.length && window.MappAIDocEdit) {
+                return window.MappAIDocEdit.blocksToHtml(d.editedBlocks);
+            }
+            return d.whole ? _wholeBodyHtml(d, 'print') : _mdToHtml(d.rawText, 'print');
+        }
+    };
 
     // Namespace pipeline (011): sintesi «tutta la mappa» headless.
     //   runWholeMap({apiKey?, tuned?, silent?}) → Promise<data|null> (forma _lastSynthesis)

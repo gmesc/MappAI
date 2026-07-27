@@ -235,11 +235,14 @@ window.startStudySession = async function () {
         } else {
             // Flashcard: template diverso (FLASHCARD_GENERATOR, schema front/back), resta qui.
             if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'flashcards');
+            const _PLfc = window.MappAIPrintLayout;
+            // vincolo di stampa (soglia caratteri + niente URL/formule)
+            const _regolaFc = _PLfc ? _PLfc.promptRule(_PLfc.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : "it") : "";
             const prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
                 quantity: window.studyConfig.quantity,
                 nodeLabel: targetLabel,
                 nonce: window.quizNonce()
-            });
+            }) + _regolaFc;
             const schema = {
                 type: "ARRAY",
                 items: {
