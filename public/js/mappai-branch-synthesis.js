@@ -505,8 +505,12 @@
     // voce sarebbero rumore). '' se modulo assente o nessun nesso.
     function _causalBoxHtml(triples) {
         try {
-            return (triples && triples.length && window.MappAICausal && window.MappAICausal.htmlBlock)
+            const html = (triples && triples.length && window.MappAICausal && window.MappAICausal.htmlBlock)
                 ? window.MappAICausal.htmlBlock(triples) : '';
+            // `data-ap-skip`: è uno schema, non prosa — ad alta voce sarebbe
+            // rumore (stessa ragione per cui non sta nel modale) e sfaserebbe
+            // i cue dell'audio rispetto ai blocchi editabili.
+            return html ? '<div data-ap-skip>' + html + '</div>' : '';
         } catch (e) { return ''; }
     }
 
@@ -703,7 +707,7 @@
       function build(){
         chunks=[]; nBlocks=0; var blocks=body.querySelectorAll('h3,h4,p,li,blockquote');
         for(var bx=0;bx<blocks.length;bx++){ var bl=blocks[bx];
-          if(bl.closest&&bl.closest('.bs-citations')) continue;
+          if(bl.closest&&(bl.closest('.bs-citations')||bl.closest('[data-ap-skip]'))) continue;
           var pc=pieces(bl); if(!pc.text.trim()) continue;
           var myBi=nBlocks; nBlocks++;
           var tg=bl.tagName.toLowerCase(), head=(tg==='h3'||tg==='h4'), item=(tg==='li');
@@ -892,7 +896,10 @@
         const full = _buildSynthesisPrintHtml(data);
         let doc; try { doc = new DOMParser().parseFromString(full, 'text/html'); } catch (e) { return []; }
         const bodyEl = doc.querySelector('.bs-body'); if (!bodyEl) return [];
-        bodyEl.querySelectorAll('.bs-citations, sup').forEach(n => n.remove());
+        // Stessa regola dei lettori: materiale generato fuori dal parlato.
+        // Se qui e nei lettori i blocchi non coincidessero, i cue finirebbero
+        // sul paragrafo sbagliato.
+        bodyEl.querySelectorAll('.bs-citations, [data-ap-skip], sup').forEach(n => n.remove());
         const out = [];
         bodyEl.querySelectorAll('h3,h4,p,li,blockquote').forEach(bl => {
             const txt = _cleanPlain(bl.textContent || '');
@@ -939,7 +946,17 @@
         pcmParts.forEach(p => { all.set(p, off); off += p.length; });
         window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_encoding', 'Comprimo l\'audio…'));
         const enc = _encodeAudio(all, rate); // MP3 se possibile
-        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext };
+        // Firma del parlato al momento della registrazione: serve a non
+        // consegnare mai un documento con testo nuovo e voce vecchia.
+        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, sig: blocks.join('') };
+    }
+
+    /** Il testo di adesso è ancora quello registrato? (altrimenti i cue slittano) */
+    function _audioMatchesText(res, data) {
+        try {
+            const now = _blocksForAudio(_lastSynthesis || data).join('');
+            return !res || !res.sig || res.sig === now;
+        } catch (e) { return true; }   // nel dubbio non blocchiamo il docente
     }
 
     // Menù dopo la generazione: condividi con audio (QR) · scarica HTML+audio · scarica WAV.
@@ -966,17 +983,35 @@
             '</div>';
         document.body.appendChild(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
+        // Guardia: fra la registrazione e la consegna il testo può essere stato
+        // modificato (l'editor documenti è aperto lì accanto). In quel caso
+        // l'HTML uscirebbe con parole nuove e voce vecchia, e i cue slittati.
+        const guard = function () {
+            if (_audioMatchesText(res, data)) return true;
+            window.showToast && window.showToast(window.t('bs_audio_changed', 'Il testo è cambiato dopo la registrazione: rigenera la voce naturale.'), 'warning');
+            return false;
+        };
         const wavBtn = modal.querySelector('#bsa-wav');
         if (wavBtn) wavBtn.onclick = function () { _downloadBlob(blob, fname + '.' + ext); modal.remove(); window.showToast && window.showToast(window.t('bs_audio_done', '✓ Audio scaricato'), 'success'); };
         const htmlBtn = modal.querySelector('#bsa-html');
-        if (htmlBtn) htmlBtn.onclick = async function () { const uri = await _blobToDataUri(blob); _downloadHtml(_buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues }), fname + '.html'); modal.remove(); window.showToast && window.showToast(window.t('bs_audio_html_done', '✓ HTML con audio scaricato'), 'success'); };
+        if (htmlBtn) htmlBtn.onclick = async function () { if (!guard()) return; const uri = await _blobToDataUri(blob); _downloadHtml(_buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues }), fname + '.html'); modal.remove(); window.showToast && window.showToast(window.t('bs_audio_html_done', '✓ HTML con audio scaricato'), 'success'); };
         const shareBtn = modal.querySelector('#bsa-share');
-        if (shareBtn) shareBtn.onclick = async function () { const uri = await _blobToDataUri(blob); modal.remove(); window.MappAILive.shareDocQr(fname + '.html', _buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues })); };
+        if (shareBtn) shareBtn.onclick = async function () { if (!guard()) return; const uri = await _blobToDataUri(blob); modal.remove(); window.MappAILive.shareDocQr(fname + '.html', _buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues })); };
     }
 
     window.generateSynthesisAudio = async function (dataOverride) {
         const data = dataOverride || _lastSynthesis;
         if (!data) { window.showToast && window.showToast(window.t('bs_audio_need', 'Genera prima una sintesi'), 'warning'); return; }
+        // La voce naturale è un PASSO FINALE: è una registrazione, non segue le
+        // modifiche. Con l'editor aperto e il testo non salvato registreremmo
+        // una versione già superata (e una chiamata AI per blocco, a vuoto).
+        try {
+            const ED = window.MappAIDocEditor;
+            if (ED && ED.kind && ED.kind() === 'synthesis' && ED.hasUnsaved && ED.hasUnsaved()) {
+                window.showToast && window.showToast(window.t('bs_audio_dirty', 'Salva prima le modifiche: la voce naturale registra il testo com\'è adesso.'), 'warning');
+                return;
+            }
+        } catch (e) { /* editor assente: si procede */ }
         try {
             const res = await _generateSynthesisAudioWithCues(data);
             window.showLoadingOverlay && window.showLoadingOverlay(false);

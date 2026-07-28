@@ -130,7 +130,10 @@
         var list = blocks.length ? blocks : [bodyEl];
         for (var bi = 0; bi < list.length; bi++) {
             var block = list[bi];
-            if (block.closest && block.closest('.bs-citations')) continue;
+            // Materiale generato (citazioni, catena dei perché, box) e comandi
+            // dell'interfaccia: muti. `data-ap-skip` è lo stesso marcatore che
+            // usa il lettore dentro l'HTML esportato — una regola sola.
+            if (block.closest && (block.closest('.bs-citations') || block.closest('[data-ap-skip]'))) continue;
             var pieces = _blockPieces(block);
             if (!pieces.text.trim()) continue;
             var tag = block.tagName ? block.tagName.toLowerCase() : 'p';
@@ -560,8 +563,28 @@
         try { document.addEventListener('visibilitychange', function () { if (document.hidden) _pause(); }); } catch (e) {}
     }
 
+    /**
+     * Butta via i chunk: il testo sotto è cambiato.
+     *
+     * Serve perché i chunk portano dei Range sui NODI DI TESTO di prima: dopo
+     * una modifica quei riferimenti non valgono più (l'evidenziazione finirebbe
+     * altrove, o su niente). Ferma anche la lettura in corso — chi sta
+     * riscrivendo una frase non vuole sentirsela leggere nella vecchia
+     * versione. Al play successivo `_load` ricostruisce tutto dal DOM di adesso:
+     * è questo che rende la voce di sistema sempre allineata al testo, senza
+     * nulla da rigenerare.
+     */
+    function invalidate() {
+        _stop();
+        E.chunks = []; E.durations = []; E.starts = []; E.total = 0;
+        // i controlli smontati (l'editor ri-disegna il foglio) escono dall'elenco
+        _mounted = _mounted.filter(function (m) {
+            try { return m && m.wrap && m.wrap.isConnected; } catch (e) { return false; }
+        });
+    }
+
     window.MappAITTS = {
-        isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle,
+        isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle, invalidate: invalidate,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
         playFloating: playFloating, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,

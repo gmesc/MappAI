@@ -36,10 +36,15 @@
 
     // ── stato di modulo ─────────────────────────────────────────────────────
     let _view = 'list';        // 'list' | 'doc'
-    let _kind = null;          // 'quiz' | 'flashcards' | 'synthesis'
+    let _kind = null;          // 'quiz' | 'flashcards' | 'synthesis' | 'nodesheet'
     let _doc = null;           // documento editabile corrente (quiz/flashcard)
     let _srcSet = null;        // set di studio di provenienza (per il round-trip)
     let _syn = null;           // { data, blocks:[{tag,html}], base:[…], archiveId }
+    let _sheet = null;         // foglio nodi: { fmt, bg, depth, cards:[…], excluded:[…] }
+    let _nsMenu = -1;          // card con il menu «+ contenuto» aperto (-1 = nessuno)
+    // Sintesi: quale menu dei tipi è aperto. i = «cambia il tipo del blocco i»;
+    // -100 - i = «aggiungi un blocco sotto il blocco i». -1 = nessuno.
+    let _bMenu = -1;
     let _hist = null;          // cronologia annulla (core)
     let _dirty = false;
     const _flashFmt = '2x2v';   // unico formato del foglio flashcard
@@ -57,6 +62,40 @@
         return (pid || '') + '|' + ((s && s.rootNodeLabel) || '');
     }
     function _sameMap() { return _mapKey === null || _mapKey === _currentMapKey(); }
+
+    // ── DIMENSIONE DELL'ANTEPRIMA ───────────────────────────────────────────
+    // Quanto è grande il foglio a schermo, deciso dal docente e ricordato PER
+    // TIPO di documento: il foglio dei nodi si guarda da lontano (tante card
+    // insieme), la sintesi da vicino (si legge). Un solo valore per tutti
+    // avrebbe costretto a rimetterlo a mano a ogni cambio di documento.
+    const ZOOM_KEY = 'mappai_doc_zoom_';
+    function _zoom() {
+        try {
+            const raw = localStorage.getItem(ZOOM_KEY + (_kind || 'doc'));
+            if (raw != null) return DE().nearestZoom(raw);
+        } catch (e) { /* default */ }
+        return 1;
+    }
+    function _saveZoom(v) { try { localStorage.setItem(ZOOM_KEY + (_kind || 'doc'), String(v)); } catch (e) { } }
+
+    /** − / + sulla dimensione dell'anteprima. Non tocca il documento: niente undo, niente «da salvare». */
+    function zoomStep(dir) {
+        const next = DE().stepZoom(_zoom(), dir);
+        _saveZoom(next);
+        _paintZoom();
+    }
+    function zoomReset() { _saveZoom(1); _paintZoom(); }
+
+    /** Applica la dimensione senza ridisegnare (un re-render sposterebbe il cursore). */
+    function _paintZoom() {
+        const host = _host(); if (!host) return;
+        const z = _zoom();
+        host.querySelectorAll('.de-sheet').forEach(function (el) { el.style.setProperty('--de-user', z); });
+        const lbl = host.querySelector('#de-zoom-lbl');
+        if (lbl) lbl.textContent = Math.round(z * 100) + '%';
+        const box = host.querySelector('.de-zoom');
+        if (box) box.classList.toggle('changed', z !== 1);
+    }
 
     const COLOR_KEY = 'mappai_doc_colors';
     function _slots() {
@@ -82,9 +121,21 @@
             if (cur) out.push({ id: 'current', title: cur.branchLabel || t('de_synth', 'Sintesi'), live: true });
         } catch (e) { /* nessuna sintesi in memoria */ }
         try {
+            const s = _appState();
+            const mapNow = (s && s.rootNodeLabel) || '';
             const docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list && window.MappAIStudyDocs.list()) || [];
-            docs.filter(d => d.kind === 'synthesis' && d.html).forEach(d => out.push({ id: d.id, title: d.title, date: d.date }));
+            // `hasHtml`, non `html`: l'elenco dell'archivio porta i soli metadati
+            // (il corpo si legge con get(id) all'apertura).
+            docs.filter(d => d.kind === 'synthesis' && d.hasHtml !== false)
+                .forEach(d => out.push({
+                    id: d.id, title: d.title, date: d.date, mapName: d.mapName || '',
+                    // Le sintesi di ALTRE mappe restano visibili — nasconderle
+                    // sarebbe l'ennesimo elenco vuoto senza spiegazione — ma
+                    // vanno in fondo e la riga dice a quale mappa appartengono.
+                    other: !!(mapNow && d.mapName && d.mapName !== mapNow)
+                }));
         } catch (e) { /* archivio vuoto */ }
+        out.sort(function (a, b) { return (a.other ? 1 : 0) - (b.other ? 1 : 0); });
         return out;
     }
 
@@ -128,6 +179,7 @@
             archiveId: archiveId, archiveTitle: archiveTitle, id: id
         };
         _kind = 'synthesis'; _doc = null; _srcSet = null;
+        _bMenu = -1;
         _hist = DE().createHistory(20);
         _dirty = false;
         _mapKey = _currentMapKey();
@@ -135,22 +187,299 @@
         render();
     }
 
+    // ── FOGLIO DEI NODI ─────────────────────────────────────────────────────
+    // Una card per nodo, ognuna col PROPRIO tipo di contenuto (solo titolo ·
+    // titolo + spazio da scrivere · titolo + parole chiave · titolo + descrizione).
+    // Il foglio storico applicava lo stesso tipo a tutte le card: qui il docente
+    // lo decide card per card, e quello che vede è la card che esce dalla
+    // stampante (stesse proporzioni, stesse soglie di testo).
+    function NS() { return window.MappAINodeSheet; }
+
+    /** Nodi della mappa fino alla profondità scelta, già ripuliti per la stampa. */
+    function _sheetNodes(depth) {
+        const s = _appState();
+        const all = (s && s.db && s.db.nodes) || [];
+        const max = (depth == null || depth === 'all') ? null : parseInt(depth, 10);
+        return all
+            .filter(n => (max == null || isNaN(max)) ? true : (n.level || 0) <= max)
+            .map(n => ({
+                id: n.id,
+                label: (window.cleanLabel ? window.cleanLabel(n.label) : String(n.label || '')),
+                desc: String(n.desc || n.content || '').trim()
+            }));
+    }
+    /** Livello massimo presente nella mappa (per il selettore di profondità). */
+    function _maxLevel() {
+        const s = _appState();
+        return ((s && s.db && s.db.nodes) || []).reduce((m, n) => Math.max(m, n.level || 0), 0);
+    }
+    function _nodeById(id) {
+        const s = _appState();
+        return ((s && s.db && s.db.nodes) || []).find(n => n.id === id) || null;
+    }
+
+    function openNodeSheet() {
+        if (!NS()) { toast(t('de_ns_no_core', 'Modulo del foglio nodi non caricato.'), 'error'); return; }
+        const s = _appState();
+        if (!((s && s.db && s.db.nodes) || []).length) { toast(t('de_ns_no_nodes', 'Questa mappa non ha nodi.'), 'warning'); return; }
+        const saved = (s.db && s.db.nodeSheet) || null;
+        let doc;
+        if (saved && Array.isArray(saved.cards) && saved.cards.length) {
+            doc = NS().normDoc(saved);
+            doc.excluded = Array.isArray(saved.excluded) ? saved.excluded.slice() : [];
+            // La mappa può essere cambiata dopo l'ultimo salvataggio: i nodi nuovi
+            // entrano col solo titolo, quelli spariti escono. I testi rivisti dal
+            // docente restano com'erano.
+            const sync = NS().syncCards(doc.cards, _sheetNodes(doc.depth), { exclude: doc.excluded });
+            doc.cards = sync.cards;
+            if (sync.added || sync.removed) {
+                toast(t('de_ns_synced', 'Foglio riallineato alla mappa: {a} card nuove, {r} rimosse.')
+                    .replace('{a}', sync.added).replace('{r}', sync.removed), 'info');
+            }
+        } else {
+            doc = NS().docFromNodes(_sheetNodes('all'), {
+                fmt: '2x2', layout: 'title', depth: 'all',
+                title: (s && s.rootNodeLabel) || ''
+            });
+            doc.excluded = [];
+        }
+        _sheet = doc;
+        _kind = 'nodesheet'; _doc = null; _syn = null; _srcSet = null;
+        _hist = DE().createHistory(20);
+        _dirty = false;
+        _nsMenu = -1;
+        _mapKey = _currentMapKey();
+        _view = 'doc';
+        render();
+    }
+
+    function _nsSnapshot(label) {
+        if (!_hist) return;
+        _hist.push({ cards: _sheet.cards, fmt: _sheet.fmt, bg: _sheet.bg, depth: _sheet.depth, excluded: _sheet.excluded }, label);
+    }
+
+    function nsSetFmt(v) {
+        _nsSnapshot(t('de_ns_op_fmt', 'formato foglio'));
+        const before = _sheet.cards;
+        const next = NS().setFmt(_sheet, v);
+        _sheet.fmt = next.fmt;
+        _sheet.cards = next.cards;
+        // 3×4: card troppo piccola per un contenuto sotto il titolo → il tipo
+        // torna «solo titolo». Lo diciamo, invece di farlo di nascosto.
+        const lost = before.filter(c => c.layout !== 'title').length;
+        if (!NS().allowsContent(_sheet.fmt) && lost) {
+            toast(t('de_ns_fmt_reset', 'Con 3 × 4 entra solo il titolo: {n} card hanno perso il contenuto sotto (torna a 2 × 2 per riaverlo).').replace('{n}', lost), 'warning');
+        }
+        _dirty = true; _nsMenu = -1; render();
+    }
+    function nsSetBg(v) {
+        _sheet.bg = (v === 'grid') ? 'grid' : 'none';
+        _dirty = true; render();
+    }
+    function nsSetDepth(v) {
+        _nsSnapshot(t('de_ns_op_depth', 'profondità del foglio'));
+        _sheet.depth = (v === 'all') ? 'all' : parseInt(v, 10);
+        const sync = NS().syncCards(_sheet.cards, _sheetNodes(_sheet.depth), { exclude: _sheet.excluded });
+        _sheet.cards = sync.cards;
+        _dirty = true; _nsMenu = -1; render();
+    }
+
+    /** Menu «+ contenuto» di una card (apri/chiudi). */
+    function nsMenu(i) {
+        if (!NS().allowsContent(_sheet.fmt)) {
+            toast(t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.'), 'info');
+            return;
+        }
+        _nsMenu = (_nsMenu === i) ? -1 : i;
+        render();
+    }
+
+    /**
+     * Dà (o toglie) un contenuto alla card. Passando da «solo titolo» a
+     * qualunque altro tipo il titolo smette di essere centrato e sale in alto:
+     * lo fa la resa, qui cambia solo il tipo di contenuto. I campi vuoti vengono
+     * riempiti con quello che la mappa già sa (figli del nodo → parole chiave,
+     * descrizione del nodo → testo della scheda); se la mappa non ha nulla, la
+     * card resta vuota e la si scrive a mano.
+     */
+    function nsSetLayout(i, layout) {
+        _nsSnapshot(t('de_ns_op_layout', 'contenuto della card'));
+        const card = _sheet.cards[i] || {};
+        const node = _nodeById(card.id);
+        const prefill = {};
+        if (layout === 'keywords' && node && typeof window._fallbackKeywords === 'function') {
+            try { prefill.keywords = window._fallbackKeywords(node) || []; } catch (e) { /* niente prefill */ }
+        }
+        if (layout === 'card' && node) prefill.desc = String(node.desc || node.content || '').trim();
+        _sheet.cards = NS().setLayout(_sheet.cards, i, layout, prefill);
+        _dirty = true; _nsMenu = -1; render();
+    }
+    /** Applica lo stesso tipo di contenuto a tutte le card (punto di partenza). */
+    function nsSetAll(layout) {
+        if (!NS().allowsContent(_sheet.fmt) && layout !== 'title') {
+            toast(t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.'), 'info');
+            return;
+        }
+        _nsSnapshot(t('de_ns_op_layout_all', 'contenuto di tutte le card'));
+        _sheet.cards = NS().setAllLayouts(_sheet.cards, layout, function (c) {
+            const node = _nodeById(c.id);
+            const p = {};
+            if (layout === 'keywords' && node && typeof window._fallbackKeywords === 'function') {
+                try { p.keywords = window._fallbackKeywords(node) || []; } catch (e) { }
+            }
+            if (layout === 'card' && node) p.desc = String(node.desc || node.content || '').trim();
+            return p;
+        });
+        _dirty = true; _nsMenu = -1; render();
+    }
+
+    function nsAddKeyword(i) {
+        _nsSnapshot(t('de_ns_op_kw', 'parola chiave'));
+        const before = (_sheet.cards[i] && _sheet.cards[i].keywords.length) || 0;
+        _sheet.cards = NS().addKeyword(_sheet.cards, i, '');
+        if ((_sheet.cards[i].keywords.length) === before) {
+            toast(t('de_ns_kw_max', 'Sette parole chiave sono il massimo che entra nella card.'), 'info');
+            return;
+        }
+        _dirty = true; render();
+        setTimeout(function () {
+            const el = _host() && _host().querySelector('[data-i="' + i + '"][data-ns="kw:' + before + '"]');
+            if (el) el.focus();
+        }, 30);
+    }
+    function nsDelKeyword(i, ki) {
+        _nsSnapshot(t('de_ns_op_kw_del', 'elimina parola chiave'));
+        _sheet.cards = NS().removeKeyword(_sheet.cards, i, ki);
+        _dirty = true; render();
+    }
+    function nsMove(i, dir) {
+        _nsSnapshot(t('de_ns_op_move', 'sposta card'));
+        _sheet.cards = NS().moveCard(_sheet.cards, i, i + dir);
+        _dirty = true; _nsMenu = -1; render();
+    }
+    /** Toglie la card dal FOGLIO (il nodo resta nella mappa). */
+    function nsDelCard(i) {
+        const c = _sheet.cards[i]; if (!c) return;
+        if (!confirm(t('de_ns_del', 'Togliere questa card dal foglio? Il nodo resta nella mappa.') + '\n\n' + c.label)) return;
+        _nsSnapshot(t('de_ns_op_del', 'togli card'));
+        _sheet.excluded = (_sheet.excluded || []).concat([c.id]);
+        _sheet.cards = NS().removeAt(_sheet.cards, i);
+        _dirty = true; _nsMenu = -1; render();
+    }
+    function nsRestoreAll() {
+        _nsSnapshot(t('de_ns_op_restore', 'ripristina card'));
+        _sheet.excluded = [];
+        const sync = NS().syncCards(_sheet.cards, _sheetNodes(_sheet.depth), { exclude: [] });
+        _sheet.cards = sync.cards;
+        _dirty = true; render();
+        toast(t('de_ns_restored', 'Card ripristinate: {n}.').replace('{n}', sync.added), 'success');
+    }
+
+    /**
+     * Parole chiave con l'AI per le card che le hanno vuote. Stesso motore del
+     * foglio automatico (_generateNodeKeywords in mappai-print-dossier.js): qui
+     * riempie solo i buchi, senza toccare quello che il docente ha scritto.
+     */
+    async function nsKeywordsAI() {
+        const todo = _sheet.cards
+            .map((c, i) => ({ c: c, i: i }))
+            .filter(x => x.c.layout === 'keywords' && !x.c.keywords.length)
+            .map(x => x.i);
+        if (!todo.length) { toast(t('de_ns_kw_none', 'Nessuna card «parole chiave» da riempire: prima dai quel contenuto a una card con «+».'), 'info'); return; }
+        const apiKey = window.getSystemKey ? window.getSystemKey() : '';
+        if (!apiKey) { toast(t('de_ns_kw_nokey', 'Serve la chiave AI: le parole chiave si possono comunque scrivere a mano.'), 'warning'); return; }
+        if (typeof window._generateNodeKeywords !== 'function') { toast(t('de_ns_kw_noengine', 'Motore parole chiave non disponibile.'), 'error'); return; }
+        const nodes = todo.map(i => _nodeById(_sheet.cards[i].id)).filter(Boolean);
+        if (!nodes.length) { toast(t('de_ns_kw_nonodes', 'Le card da riempire non hanno più un nodo nella mappa.'), 'warning'); return; }
+        _nsSnapshot(t('de_ns_op_kw_ai', 'parole chiave AI'));
+        try {
+            if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('de_ns_kw_wait', 'Genero le parole chiave…'));
+            const map = (await window._generateNodeKeywords(nodes, apiKey)) || {};
+            let filled = 0;
+            todo.forEach(function (i) {
+                const id = _sheet.cards[i].id;
+                let kw = map[id];
+                if (!Array.isArray(kw) || !kw.length) {
+                    const n = _nodeById(id);
+                    kw = (n && typeof window._fallbackKeywords === 'function') ? window._fallbackKeywords(n) : [];
+                }
+                if (kw && kw.length) {
+                    _sheet.cards[i].keywords = NS().normKeywords(kw);
+                    filled++;
+                }
+            });
+            _dirty = true; render();
+            toast(t('de_ns_kw_done', 'Parole chiave riempite su {n} card — controllale prima di stampare.').replace('{n}', filled), filled ? 'success' : 'warning');
+        } catch (e) {
+            toast(t('de_ns_kw_ko', 'Generazione non riuscita') + ': ' + e.message, 'error');
+        } finally {
+            if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+        }
+    }
+
+    function _saveNodeSheet() {
+        const s = _appState();
+        if (!_sameMap()) {
+            toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
+            return;
+        }
+        const problems = NS().validateDoc(_sheet);
+        if (problems.length && !confirm(
+            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
+            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
+            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
+        const out = NS().normDoc(_sheet);
+        out.excluded = (_sheet.excluded || []).slice();
+        out.editedAt = Date.now();
+        s.db.nodeSheet = out;
+        try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        _dirty = false; _paintDirty();
+        toast(t('de_ns_saved', '✓ Foglio nodi salvato — {n} card').replace('{n}', out.cards.length), 'success');
+    }
+
+    /** Opzioni di stampa comuni (foglio rivisto → il motore usa le card). */
+    function _nsPrintOpts(extra) {
+        return Object.assign({
+            cards: NS().toPrintCards(_sheet),
+            fmt: _sheet.fmt,
+            bg: _sheet.bg,
+            causal: false,
+            tuned: false
+        }, extra || {});
+    }
+    async function _printNodeSheet() {
+        if (typeof window.printAllNodeLabels !== 'function') { toast(t('de_ns_no_engine', 'Motore di stampa non disponibile.'), 'error'); return; }
+        const over = NS().overCards(_sheet.cards, _sheet.fmt);
+        if (over.length && !confirm(
+            t('de_ns_over_confirm', '{n} card hanno più testo di quanto entra nella card stampata: uscirebbero tagliate.').replace('{n}', over.length) +
+            '\n\n' + t('de_ns_over_which', 'Card:') + ' ' + over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ') +
+            (over.length > 12 ? '…' : '') + '\n\n' + t('de_ns_print_anyway', 'Stampare comunque?'))) return;
+        await window.printAllNodeLabels(_nsPrintOpts());
+    }
+
     function backToList() {
         if (_dirty && !confirm(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'))) return;
-        _view = 'list'; _doc = null; _syn = null; _kind = null; _dirty = false;
+        _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
         render();
     }
 
     // ── cronologia ──────────────────────────────────────────────────────────
     function _snapshot(label) {
         if (!_hist) return;
+        if (_kind === 'nodesheet') return _nsSnapshot(label);
         _hist.push(_kind === 'synthesis' ? { blocks: _syn.blocks } : { items: _doc.items, title: _doc.title }, label);
     }
     function undo() {
         if (!_hist || !_hist.canUndo()) { toast(t('de_no_undo', 'Niente da annullare'), 'info'); return; }
         const prev = _hist.undo();
         if (!prev) return;
-        if (_kind === 'synthesis') _syn.blocks = prev.state.blocks;
+        if (_kind === 'synthesis') { _syn.blocks = prev.state.blocks; _bMenu = -1; }
+        else if (_kind === 'nodesheet') {
+            _sheet.cards = prev.state.cards;
+            _sheet.fmt = prev.state.fmt; _sheet.bg = prev.state.bg;
+            _sheet.depth = prev.state.depth; _sheet.excluded = prev.state.excluded || [];
+            _nsMenu = -1;
+        }
         else { _doc.items = prev.state.items; _doc.title = prev.state.title; }
         _dirty = true;
         render();
@@ -214,7 +543,25 @@
         _dirty = true;
         _paintDirty();
     }
+    /** Apre/chiude il menu «che tipo è questo blocco». */
+    function blockMenu(i) { _bMenu = (_bMenu === i) ? -1 : i; render(); }
+    /** Apre/chiude il menu «che tipo di blocco aggiungo qui sotto». */
+    function blockAddMenu(i) { const k = -100 - i; _bMenu = (_bMenu === k) ? -1 : k; render(); }
+
+    function setBlockTag(i, tag) {
+        _bMenu = -1;
+        // Il core potrebbe essere una versione più vecchia (cache del browser):
+        // meglio un avviso che un menu che non fa niente senza dire perché.
+        if (!DE().setBlockTag) { toast(t('de_tag_no_core', 'Ricarica la pagina: il modulo dei documenti è una versione precedente.'), 'warning'); render(); return; }
+        const next = DE().setBlockTag(_syn.blocks, i, tag);
+        if (next === _syn.blocks || next[i].tag === _syn.blocks[i].tag) { render(); return; }
+        _snapshot(t('de_op_tag_b', 'cambia tipo di blocco'));
+        _syn.blocks = next;
+        _dirty = true; render();
+    }
+
     function addBlock(i, tag) {
+        _bMenu = -1;
         _snapshot(t('de_op_add_b', 'aggiungi blocco'));
         _syn.blocks = DE().insertBlock(_syn.blocks, i + 1, tag || 'p');
         _dirty = true; render();
@@ -281,6 +628,7 @@
     // ── salvataggio ─────────────────────────────────────────────────────────
     function save() {
         if (_kind === 'synthesis') return _saveSynthesis();
+        if (_kind === 'nodesheet') return _saveNodeSheet();
         return _saveQuiz();
     }
 
@@ -400,6 +748,7 @@
     }
 
     function print() {
+        if (_kind === 'nodesheet') return _printNodeSheet();
         if (_kind === 'synthesis') {
             const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
             const html = window.MappAIBranchSynthesis.buildPrintHtml(data);
@@ -484,6 +833,19 @@
         if (!vaultPath) { toast(t('de_no_vault', 'Questa mappa non ha ancora una cartella vault: salvala nel vault dalla mappa.'), 'warning'); return; }
         try {
             let relPath, payload;
+            if (_kind === 'nodesheet') {
+                // Il foglio nodi è un PDF: lo produce il motore di stampa in modalità
+                // headless (stesse card, stesso formato) e lo scriviamo dov'è il resto
+                // del materiale della mappa.
+                const res = await window.printAllNodeLabels(_nsPrintOpts({ toDisk: { vaultPath: vaultPath } }));
+                if (!res || !res.ok || !res.base64) { toast(t('de_ns_pdf_ko', 'PDF del foglio nodi non generato.'), 'error'); return; }
+                const out0 = await window.electronAPI.saveVaultFile({
+                    vaultPath: vaultPath, relPath: 'Materiale Studio/' + res.fileName, base64: res.base64
+                });
+                if (out0 && out0.ok) toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success');
+                else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out0 && out0.error ? ': ' + out0.error : ''), 'error');
+                return;
+            }
             if (_kind === 'synthesis') {
                 const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
                 // Nome per RAMO: «Sintesi.html» secco è il file della pipeline
@@ -564,7 +926,23 @@
         host.innerHTML = (_view === 'doc') ? _docHtml() : _listHtml();
         if (window.safeCreateIcons) window.safeCreateIcons({ root: host });
         _bind(host);
+        _mountTts(host);
         _paintDirty();
+        _paintZoom();
+    }
+
+    /**
+     * Chip di lettura sul foglio sintesi. Il DOM è stato appena riscritto: i
+     * chunk del lettore puntavano ai nodi di prima, quindi si invalida sempre —
+     * anche quando il chip non c'è (l'utente potrebbe aver chiuso il documento
+     * mentre leggeva).
+     */
+    function _mountTts(host) {
+        try { if (window.MappAITTS && window.MappAITTS.invalidate) window.MappAITTS.invalidate(); } catch (e) {}
+        if (_view !== 'doc' || _kind !== 'synthesis') return;
+        const slot = host.querySelector('#de-tts-slot');
+        if (!slot || !window.MappAITTS || !window.MappAITTS.mountSlot) return;
+        try { window.MappAITTS.mountSlot(slot); } catch (e) {}
     }
 
     function _listHtml() {
@@ -603,11 +981,30 @@
                     s.items.length + ' ' + t('de_cards', 'carte'),
                     'MappAIDocEditor.openSet(\'' + _q(s.id) + '\')')).join(''),
                 t('de_g_flash_e', 'Nessun set di flashcard.')) +
+            group('scissors', t('de_g_ns', 'Foglio dei nodi'), _nsRow(row),
+                t('de_g_ns_e', 'Questa mappa non ha nodi da stampare.')) +
             group('file-text', t('de_g_synth', 'Sintesi'),
-                syn.map(d => row('file-text', d.title, d.live ? t('de_current', 'in memoria') : _date(d.date),
+                syn.map(d => row('file-text', d.title,
+                    d.live ? t('de_current', 'in memoria')
+                        : (d.other ? d.mapName + ' · ' + _date(d.date) : _date(d.date)),
                     'MappAIDocEditor.openSynthesis(\'' + _q(d.id) + '\')')).join(''),
                 t('de_g_synth_e', 'Nessuna sintesi: generane una da «Materiali di studio → Sintesi».')) +
             '</div>';
+    }
+
+    // Riga «Foglio dei nodi» nell'elenco documenti: c'è sempre (finché la mappa ha
+    // nodi), perché il foglio si costruisce dalla mappa — non serve averlo generato
+    // prima. Se è già stato rivisto, la riga lo dice e riapre quello.
+    function _nsRow(row) {
+        const s = _appState();
+        const nodes = (s && s.db && s.db.nodes) || [];
+        if (!nodes.length || !NS()) return '';
+        const saved = (s.db && s.db.nodeSheet) || null;
+        const n = (saved && Array.isArray(saved.cards) && saved.cards.length) ? saved.cards.length : nodes.length;
+        return row('scissors', t('de_ns', 'Foglio dei nodi') + ' — ' + ((s && s.rootNodeLabel) || ''),
+            n + ' ' + t('de_ns_cards', 'card'),
+            'MappAIDocEditor.openNodeSheet()',
+            saved ? t('de_ns_revised', 'rivisto') : '');
     }
 
     function _q(s) { return String(s).replace(/'/g, "\\'"); }
@@ -619,18 +1016,23 @@
 
     // ── foglio quiz/flashcard editabile ─────────────────────────────────────
     function _docHtml() {
-        return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' +
-            (_kind === 'synthesis' ? _synthSheet() : _quizSheet()) + '</div></div>';
+        const sheet = (_kind === 'synthesis') ? _synthSheet()
+            : (_kind === 'nodesheet') ? _nodeSheet() : _quizSheet();
+        return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' + sheet + '</div></div>';
     }
 
     function _docBar() {
         const isSyn = _kind === 'synthesis';
-        const title = isSyn ? (_syn.data.branchLabel || t('de_synth', 'Sintesi')) : (_doc.title || t('de_quiz', 'Quiz'));
+        const isNs = _kind === 'nodesheet';
+        const title = isSyn ? (_syn.data.branchLabel || t('de_synth', 'Sintesi'))
+            : isNs ? t('de_ns', 'Foglio dei nodi')
+            : (_doc.title || t('de_quiz', 'Quiz'));
         return '<div class="de-bar">' +
             '<button type="button" class="de-btn de-ghost" onclick="MappAIDocEditor.backToList()">‹ ' + esc(t('de_back', 'Documenti')) + '</button>' +
             '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>' +
             (isSyn ? _styleBar() : '') +
             '<div class="de-spacer"></div>' +
+            _zoomBar() +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
             (isSyn
                 ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.exportHtml()" title="' + esc(t('de_html_tip', 'Scarica la pagina HTML: conserva il lettore audio')) + '"><i data-lucide="file-code-2" class="w-4 h-4"></i> HTML</button>'
@@ -638,6 +1040,24 @@
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.saveToVault()" title="' + esc(t('de_vault_tip', 'Scrive il foglio in Materiale Studio, dentro la cartella della mappa')) + '"><i data-lucide="folder-down" class="w-4 h-4"></i> ' + esc(t('de_vault', 'Nel vault')) + '</button>' +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
             '<button type="button" class="de-btn de-primary" onclick="MappAIDocEditor.save()"><i data-lucide="save" class="w-4 h-4"></i> ' + esc(t('de_save', 'Salva')) + '</button>' +
+            '</div>';
+    }
+
+    /**
+     * Dimensione dell'anteprima: − / percentuale / +. La percentuale è cliccabile
+     * e riporta a 100. Il titolo dice a chiare lettere che la stampa non cambia:
+     * senza, ingrandire sembra «ci sta più testo nella card».
+     */
+    function _zoomBar() {
+        const z = _zoom();
+        const tip = esc(t('de_zoom_tip', 'Quanto è grande il foglio a schermo. Non cambia nulla di quello che esce dalla stampante.'));
+        return '<div class="de-zoom' + (z !== 1 ? ' changed' : '') + '" title="' + tip + '">' +
+            '<button type="button" class="de-zbtn" onclick="MappAIDocEditor.zoomStep(-1)" aria-label="' +
+            esc(t('de_zoom_out', 'Rimpicciolisci l\'anteprima')) + '">−</button>' +
+            '<button type="button" class="de-zlbl" id="de-zoom-lbl" onclick="MappAIDocEditor.zoomReset()" title="' +
+            esc(t('de_zoom_reset', 'Torna alla dimensione normale')) + '">' + Math.round(z * 100) + '%</button>' +
+            '<button type="button" class="de-zbtn" onclick="MappAIDocEditor.zoomStep(1)" aria-label="' +
+            esc(t('de_zoom_in', 'Ingrandisci l\'anteprima')) + '">+</button>' +
             '</div>';
     }
 
@@ -778,7 +1198,7 @@
                 '</div>';
         }).join('');
 
-        return '<div class="de-sheet' + (isFlash ? ' flash' : '') + '">' +
+        return '<div class="de-sheet' + (isFlash ? ' flash' : ' quiz') + '">' +
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title" contenteditable="true" data-f="title" data-ph="' + esc(t('de_ph_title', 'Titolo del documento')) + '">' + esc(_doc.title) + '</div>' +
             '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' + esc(isFlash ? t('de_flash', 'Flashcard') : t('de_quiz', 'Quiz')) + '</div>' +
@@ -794,9 +1214,232 @@
                     : '') +
                 '</div>' : '') +
             '<div class="de-sec-title">' + esc(isFlash ? t('de_cards_c', 'Carte') : t('de_questions_c', 'Domande')) + '</div>' +
-            items +
+            // Le carte/domande stanno in una griglia: a schermo largo vanno su due
+            // colonne (solo la PREVIEW — la stampa resta a una colonna come prima).
+            '<div class="de-items">' + items + '</div>' +
             '<button type="button" class="de-add" onclick="MappAIDocEditor.addQuestion()"><i data-lucide="plus" class="w-4 h-4"></i> ' +
             esc(isFlash ? t('de_add_card', 'Aggiungi una carta') : t('de_add_q', 'Aggiungi una domanda')) + '</button>' +
+            '</div>';
+    }
+
+    // ── FOGLIO DEI NODI: la card come esce dalla stampante ──────────────────
+    // Le card sono disegnate con le PROPORZIONI vere (A4 orizzontale diviso per
+    // il formato) e con i corpi del testo in scala: quello che qui sta dentro la
+    // card, sta dentro anche sulla carta.
+    // Le misure DENTRO la card non sono più pixel calcolati su un foglio da 800:
+    // sono FRAZIONI della card stessa (unità `cqw`, la card è il contenitore di
+    // misura). Così la card può crescere quanto vuole con la finestra e il testo
+    // resta nella stessa proporzione che avrà sulla carta.
+    function _nsPx(fmt) {
+        const g = NS().geom(fmt);
+        const cq = mm => (mm / g.cardW) * 100;           // mm → % della larghezza card
+        const pt = p => cq(p * g.PT2MM);                 // pt → idem
+        return {
+            g: g,
+            title: pt(g.titlePt), kw: pt(g.kwPt), desc: pt(g.descPt), cardTitle: pt(g.cardTitlePt),
+            padX: cq(g.padX), rule: cq(8)                // 8 mm = passo delle righe guida
+        };
+    }
+
+    /** Conteggi mostrati sulla card: testo scritto vs testo che ci entra. */
+    function _nsCountText(i) {
+        const c = _sheet.cards[i]; if (!c) return '';
+        const L = NS().charLimits(_sheet.fmt, c.layout, c.label);
+        let s = c.label.length + '/' + L.title;
+        if (c.layout === 'keywords') s += ' · ' + c.keywords.length + '/' + L.keywords + ' ' + t('de_ns_kw_short', 'parole');
+        if (c.layout === 'card') s += ' · ' + c.desc.length + '/' + L.desc;
+        return s;
+    }
+    function _nsOver(i) {
+        const c = _sheet.cards[i];
+        return c ? NS().overFields(c, _sheet.fmt).length > 0 : false;
+    }
+    /** Aggiorna badge e bordo di UNA card senza ri-renderizzare (il cursore resta dov'è). */
+    function _paintNsCount(i) {
+        const host = _host(); if (!host) return;
+        const el = host.querySelector('.de-count[data-nscount="' + i + '"]');
+        const card = host.querySelector('.de-ns-card[data-card="' + i + '"]');
+        const over = _nsOver(i);
+        if (el) {
+            el.textContent = _nsCountText(i);
+            el.className = 'de-count' + (over ? ' over' : '');
+        }
+        if (card) card.classList.toggle('over', over);
+    }
+
+    function _nodeSheet() {
+        const s = _appState();
+        const NSC = NS();
+        const P = _nsPx(_sheet.fmt);
+        const g = P.g;
+        const canContent = NSC.allowsContent(_sheet.fmt);
+        const counts = NSC.countsByLayout(_sheet.cards);
+        const over = NSC.overCards(_sheet.cards, _sheet.fmt);
+        const maxLv = _maxLevel();
+
+        // Selettore di profondità: le stesse scelte del modale storico.
+        let depthOpts = '<option value="all"' + (_sheet.depth === 'all' ? ' selected' : '') + '>' +
+            esc(t('de_ns_depth_all', 'Tutti i livelli')) + '</option>';
+        for (let lv = 1; lv <= maxLv; lv++) {
+            depthOpts += '<option value="' + lv + '"' + (String(_sheet.depth) === String(lv) ? ' selected' : '') + '>' +
+                esc(t('de_ns_depth_upto', 'Fino al livello') + ' ' + lv) + '</option>';
+        }
+
+        const fmtBtn = (v, label, sub) =>
+            '<button type="button" class="de-ns-fmt' + (_sheet.fmt === v ? ' active' : '') + '" onclick="MappAIDocEditor.nsSetFmt(\'' + v + '\')">' +
+            esc(label) + '<small>' + esc(sub) + '</small></button>';
+
+        const allBtn = (v, label) =>
+            '<button type="button" class="de-ns-all" onclick="MappAIDocEditor.nsSetAll(\'' + v + '\')"' +
+            (!canContent && v !== 'title' ? ' disabled title="' + esc(t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.')) + '"' : '') +
+            '>' + esc(label) + '</button>';
+
+        const ctrl =
+            '<div class="de-ns-ctrl">' +
+            '<div class="de-ns-ctrl-row">' +
+            '<span class="de-ns-lbl">' + esc(t('de_ns_fmt', 'Formato foglio')) + '</span>' +
+            fmtBtn('3x4', '3 × 4', t('de_ns_fmt_12', '12 per foglio · solo titolo')) +
+            fmtBtn('2x2', '2 × 2', t('de_ns_fmt_4', '4 per foglio')) +
+            fmtBtn('2x1', '2 × 1', t('de_ns_fmt_2', '2 per foglio')) +
+            '<span class="de-spacer"></span>' +
+            '<span class="de-ns-lbl">' + esc(t('de_ns_depth', 'Profondità')) + '</span>' +
+            '<select class="de-ns-sel" onchange="MappAIDocEditor.nsSetDepth(this.value)">' + depthOpts + '</select>' +
+            '<label class="de-ns-check"><input type="checkbox"' + (_sheet.bg === 'grid' ? ' checked' : '') +
+            ' onchange="MappAIDocEditor.nsSetBg(this.checked?\'grid\':\'none\')"> ' + esc(t('de_ns_grid', 'Quadretti 5 mm')) + '</label>' +
+            '</div>' +
+            '<div class="de-ns-ctrl-row">' +
+            '<span class="de-ns-lbl">' + esc(t('de_ns_apply_all', 'A tutte le card')) + '</span>' +
+            allBtn('title', t('de_ns_l_title', 'Solo titolo')) +
+            allBtn('summary', t('de_ns_l_summary', 'Titolo + spazio')) +
+            allBtn('keywords', t('de_ns_l_keywords', 'Titolo + parole chiave')) +
+            allBtn('card', t('de_ns_l_card', 'Titolo + descrizione')) +
+            '<span class="de-spacer"></span>' +
+            '<button type="button" class="de-ns-ai" onclick="MappAIDocEditor.nsKeywordsAI()" title="' +
+            esc(t('de_ns_ai_tip', 'Riempie con l\'AI solo le card «parole chiave» ancora vuote: quello che hai scritto tu non si tocca.')) + '">' +
+            '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + esc(t('de_ns_ai', 'Parole chiave con AI')) + '</button>' +
+            '</div>' +
+            '</div>';
+
+        const cards = _sheet.cards.map(function (c, i) {
+            const L = NSC.charLimits(_sheet.fmt, c.layout, c.label);
+            const isOver = NSC.overFields(c, _sheet.fmt).length > 0;
+
+            let body = '';
+            if (c.layout === 'keywords') {
+                const kws = c.keywords.map(function (k, ki) {
+                    return '<div class="de-ns-kw' + (k.length > L.keyword ? ' over' : '') + '">' +
+                        '<div class="de-ns-kw-t" contenteditable="true" role="textbox" aria-label="' +
+                        esc(t('de_ns_a11y_kw', 'Parola chiave') + ' ' + (ki + 1) + ' — ' + t('de_ns_a11y_card', 'Card') + ' ' + (i + 1)) + '"' +
+                        ' data-i="' + i + '" data-ns="kw:' + ki + '" data-ph="' + esc(t('de_ns_ph_kw', 'parola chiave…')) + '"' +
+                        ' style="font-size:' + P.kw.toFixed(2) + 'cqw">' + esc(k) + '</div>' +
+                        '<button type="button" class="de-x" onclick="MappAIDocEditor.nsDelKeyword(' + i + ',' + ki + ')" title="' +
+                        esc(t('de_ns_kw_del', 'Elimina parola chiave')) + '">×</button></div>';
+                }).join('');
+                body = '<div class="de-ns-kws">' + kws +
+                    (c.keywords.length < NSC.MAX_KEYWORDS
+                        ? '<button type="button" class="de-ns-addkw" onclick="MappAIDocEditor.nsAddKeyword(' + i + ')">+ ' + esc(t('de_ns_kw_add', 'parola chiave')) + '</button>'
+                        : '') + '</div>';
+            } else if (c.layout === 'card') {
+                body = '<div class="de-ns-desc" contenteditable="true" role="textbox" aria-label="' +
+                    esc(t('de_ns_a11y_desc', 'Descrizione') + ' — ' + t('de_ns_a11y_card', 'Card') + ' ' + (i + 1)) + '"' +
+                    ' data-i="' + i + '" data-ns="desc" data-ph="' + esc(t('de_ns_ph_desc', 'Descrizione stampata sulla card…')) + '"' +
+                    ' style="font-size:' + P.desc.toFixed(2) + 'cqw">' + esc(c.desc) + '</div>';
+            } else if (c.layout === 'summary') {
+                // Righe guida: lo spazio dove lo studente scrive a mano. Passo di
+                // 8 mm come sul PDF, ma espresso in frazione di card (mai sotto
+                // 7px, altrimenti sulle card piccole diventano una campitura).
+                const step = 'max(7px,' + P.rule.toFixed(2) + 'cqw)';
+                body = '<div class="de-ns-rules" aria-hidden="true" style="background-image:' +
+                    'repeating-linear-gradient(to bottom,transparent 0,transparent calc(' + step + ' - 1px),' +
+                    '#e2e8f0 calc(' + step + ' - 1px),#e2e8f0 ' + step + ')"></div>';
+            }
+
+            // Menu «+»: dà alla card un contenuto sotto il titolo (o glielo toglie).
+            const menu = (_nsMenu === i)
+                ? '<div class="de-ns-menu">' +
+                ['summary', 'keywords', 'card'].map(function (lay) {
+                    const lbl = { summary: t('de_ns_l_summary', 'Titolo + spazio'), keywords: t('de_ns_l_keywords', 'Titolo + parole chiave'), card: t('de_ns_l_card', 'Titolo + descrizione') }[lay];
+                    const sub = { summary: t('de_ns_l_summary_d', 'righe vuote da riempire a mano'), keywords: t('de_ns_l_keywords_d', 'fino a 7 parole, una per riga'), card: t('de_ns_l_card_d', 'il testo della scheda, giustificato') }[lay];
+                    return '<button type="button" class="de-ns-mi' + (c.layout === lay ? ' active' : '') + '" onclick="MappAIDocEditor.nsSetLayout(' + i + ',\'' + lay + '\')">' +
+                        '<b>' + esc(lbl) + '</b><small>' + esc(sub) + '</small></button>';
+                }).join('') +
+                (c.layout !== 'title'
+                    ? '<button type="button" class="de-ns-mi de-ns-mi-off" onclick="MappAIDocEditor.nsSetLayout(' + i + ',\'title\')">' +
+                    '<b>' + esc(t('de_ns_l_title', 'Solo titolo')) + '</b><small>' + esc(t('de_ns_l_title_d', 'il titolo torna al centro della card')) + '</small></button>'
+                    : '') +
+                '</div>'
+                : '';
+
+            return '<div class="de-ns-card lay-' + c.layout + (isOver ? ' over' : '') + '" data-card="' + i + '">' +
+                '<div class="de-ns-head">' +
+                '<span class="de-ns-n">#' + (i + 1) + '</span>' +
+                '<span class="de-count' + (isOver ? ' over' : '') + '" data-nscount="' + i + '" title="' +
+                esc(t('de_ns_count_tip', 'Caratteri scritti rispetto a quelli che entrano davvero nella card stampata')) + '">' +
+                esc(_nsCountText(i)) + '</span>' +
+                '<span class="de-ns-tools">' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.nsMove(' + i + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.nsMove(' + i + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t de-ns-plus' + (_nsMenu === i ? ' active' : '') + '"' + (canContent ? '' : ' disabled') +
+                ' onclick="MappAIDocEditor.nsMenu(' + i + ')" aria-expanded="' + (_nsMenu === i ? 'true' : 'false') + '" title="' +
+                esc(canContent ? t('de_ns_plus_tip', 'Aggiungi un contenuto sotto il titolo') : t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.')) +
+                '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t de-del" onclick="MappAIDocEditor.nsDelCard(' + i + ')" title="' + esc(t('de_ns_del_tip', 'Togli la card dal foglio')) + '"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+                '</span></div>' +
+                // Le proporzioni vere della card stampata stanno QUI, non sulla
+                // cornice: la barra degli strumenti non fa parte del foglio.
+                // Il corpo è il CONTENITORE DI MISURA (container-type): tutto ciò
+                // che sta dentro è espresso in frazioni della sua larghezza. Il
+                // padding sta sull'involucro interno, non qui: un contenitore non
+                // può misurare sé stesso.
+                '<div class="de-ns-body" style="aspect-ratio:' +
+                g.cardW.toFixed(2) + ' / ' + g.cardH.toFixed(2) + '">' +
+                '<div class="de-ns-inner" style="padding:' + P.padX.toFixed(2) + 'cqw">' +
+                '<div class="de-ns-title" contenteditable="true" role="textbox" aria-label="' +
+                esc(t('de_ns_a11y_title', 'Titolo della card') + ' ' + (i + 1)) + '"' +
+                ' data-i="' + i + '" data-ns="label" data-ph="' + esc(t('de_ns_ph_title', 'Titolo…')) + '"' +
+                ' style="font-size:' + (c.layout === 'card' ? P.cardTitle : P.title).toFixed(2) + 'cqw">' + esc(c.label) + '</div>' +
+                body +
+                '</div></div>' + menu +
+                '</div>';
+        }).join('');
+
+        const nPages = NSC.pages(_sheet.cards.length, _sheet.fmt);
+        const limNote = (function () {
+            // La regola scritta: quanto testo entra, per il tipo di contenuto più
+            // ricco presente sul foglio.
+            const L = NSC.charLimits(_sheet.fmt, canContent ? 'keywords' : 'title', '');
+            const Lc = NSC.charLimits(_sheet.fmt, 'card', '');
+            return t('de_ns_limit', 'In questo formato entrano circa {t} caratteri di titolo, {k} parole chiave (max {kc} caratteri l\'una) e {d} caratteri di descrizione. Le card oltre soglia hanno il badge ambra: sulla carta uscirebbero tagliate.')
+                .replace('{t}', L.title).replace('{k}', L.keywords).replace('{kc}', L.keyword || 0).replace('{d}', Lc.desc);
+        })();
+
+        // La classe del formato serve al CSS: i fogli a poche card per pagina
+        // (2 × 2, 2 × 1) hanno un tetto di larghezza più basso, altrimenti a
+        // schermo intero due card sole diventano enormi.
+        return '<div class="de-sheet ns fmt-' + esc(_sheet.fmt) + '">' +
+            '<div class="de-sheet-head">' +
+            '<div class="de-sheet-title">' + esc(t('de_ns', 'Foglio dei nodi')) + '</div>' +
+            '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' +
+            esc(t('de_ns_sub', 'A4 orizzontale, card da ritagliare')) + '</div>' +
+            '<div class="de-badge">' + _sheet.cards.length + ' ' + esc(t('de_ns_cards', 'card')) + ' · ' +
+            nPages + ' ' + esc(nPages === 1 ? t('de_ns_page', 'pagina') : t('de_ns_pages', 'pagine')) + '</div>' +
+            '<div class="de-ns-mix">' +
+            esc(t('de_ns_l_title', 'Solo titolo')) + ' ' + counts.title + ' · ' +
+            esc(t('de_ns_l_summary', 'Titolo + spazio')) + ' ' + counts.summary + ' · ' +
+            esc(t('de_ns_l_keywords', 'Titolo + parole chiave')) + ' ' + counts.keywords + ' · ' +
+            esc(t('de_ns_l_card', 'Titolo + descrizione')) + ' ' + counts.card +
+            '</div>' +
+            '</div>' +
+            ctrl +
+            '<div class="de-limit' + (over.length ? ' warn' : '') + '">' + esc(limNote) +
+            (over.length ? ' <b>' + esc(t('de_ns_over', 'Fuori soglia adesso: {n}.').replace('{n}', over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ')) + (over.length > 12 ? '…' : '')) + '</b>' : '') +
+            '</div>' +
+            '<div class="de-ns-grid" style="grid-template-columns:repeat(' + g.cols + ',1fr)">' + cards + '</div>' +
+            ((_sheet.excluded && _sheet.excluded.length)
+                ? '<button type="button" class="de-add" onclick="MappAIDocEditor.nsRestoreAll()"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> ' +
+                esc(t('de_ns_restore', 'Rimetti le card tolte dal foglio') + ' (' + _sheet.excluded.length + ')') + '</button>'
+                : '') +
+            '<div class="de-note">' + esc(t('de_ns_note', 'Le card si stampano nell\'ordine che vedi, con il tratteggio di taglio. Il nodo nella mappa non viene toccato: qui si lavora solo sul foglio.')) + '</div>' +
             '</div>';
     }
 
@@ -804,23 +1447,57 @@
     // → il lettore audio continua a trovarli.
     function _synthSheet() {
         const TAGS = { h3: t('de_tag_h3', 'Titolo'), h4: t('de_tag_h4', 'Sottotitolo'), p: t('de_tag_p', 'Testo'), li: t('de_tag_li', 'Elenco'), blockquote: t('de_tag_q', 'Nota') };
+        // Il menu dei tipi: sottotitolo esplicativo, così «Nota» non resta un
+        // tipo che esiste nel modello ma che nessuno sa come ottenere.
+        const TAG_DESC = {
+            h3: t('de_tag_h3_d', 'apre una sezione'),
+            h4: t('de_tag_h4_d', 'divide la sezione'),
+            p: t('de_tag_p_d', 'il testo che si legge'),
+            li: t('de_tag_li_d', 'voce puntata'),
+            blockquote: t('de_tag_q_d', 'a margine, in corsivo')
+        };
+        const TAG_ORDER = ['h3', 'h4', 'p', 'li', 'blockquote'];
+        /** Menu dei tipi: `mode` 'set' cambia il blocco i, 'add' ne aggiunge uno sotto. */
+        const tagMenu = (i, mode, cur) => '<div class="de-b-menu">' +
+            TAG_ORDER.map(function (tg) {
+                return '<button type="button" class="de-ns-mi' + (mode === 'set' && tg === cur ? ' active' : '') + '"' +
+                    ' onclick="MappAIDocEditor.' + (mode === 'set' ? 'setBlockTag' : 'addBlock') + '(' + i + ',\'' + tg + '\')">' +
+                    '<b>' + esc(TAGS[tg]) + '</b><small>' + esc(TAG_DESC[tg]) + '</small></button>';
+            }).join('') + '</div>';
+
         const blocks = _syn.blocks.map(function (b, i) {
             // Blocco generato (citazioni numerate, catena dei perché): resta com'è,
             // in posizione. Non si edita — il suo contenuto viene dalla fonte.
             if (b.tag === 'raw') {
+                // `data-ap-skip`: il lettore ad alta voce salta il materiale
+                // generato, qui come nel documento stampabile.
                 return '<div class="de-block de-b-raw">' +
-                    '<span class="de-b-tag">' + esc(t('de_tag_raw', 'Generato')) + '</span>' +
-                    '<div class="de-b-locked">' + b.html + '</div>' +
+                    '<span class="de-b-tag de-b-tag-off">' + esc(t('de_tag_raw', 'Generato')) + '</span>' +
+                    '<div class="de-b-locked" data-ap-skip>' + b.html + '</div>' +
                     '</div>';
             }
+            // Il campo editabile porta il TAG VERO del blocco (h3/h4/p/blockquote;
+            // «li» diventa un p, un <li> fuori da una lista non è HTML valido).
+            // Senza, il lettore non riconoscerebbe i blocchi e leggerebbe tutto
+            // il foglio in un fiato, etichette comprese.
+            const et = (b.tag === 'li') ? 'p' : b.tag;
             return '<div class="de-block de-b-' + b.tag + '">' +
-                '<span class="de-b-tag">' + esc(TAGS[b.tag] || b.tag) + '</span>' +
-                '<div class="de-b-txt" contenteditable="true" role="textbox" aria-label="' + esc((TAGS[b.tag] || b.tag) + ' ' + (i + 1)) + '"' +
-                ' data-b="' + i + '" data-ph="' + esc(t('de_ph_b', 'Scrivi…')) + '">' + b.html + '</div>' +
+                // L'etichetta È il selettore del tipo: cliccandola si passa da
+                // TESTO a TITOLO, ELENCO, NOTA… Prima il tipo si poteva solo
+                // leggere e il «+» aggiungeva sempre e solo un paragrafo: metà
+                // dei tipi (nota compresa) era irraggiungibile dall'editor.
+                '<button type="button" class="de-b-tag' + (_bMenu === i ? ' active' : '') + '"' +
+                ' onclick="MappAIDocEditor.blockMenu(' + i + ')" aria-expanded="' + (_bMenu === i ? 'true' : 'false') +
+                '" title="' + esc(t('de_tag_tip', 'Cambia il tipo di questo blocco')) + '">' +
+                esc(TAGS[b.tag] || b.tag) + '</button>' +
+                (_bMenu === i ? tagMenu(i, 'set', b.tag) : '') +
+                (_bMenu === -100 - i ? tagMenu(i, 'add', null) : '') +
+                '<' + et + ' class="de-b-txt" contenteditable="true" role="textbox" aria-label="' + esc((TAGS[b.tag] || b.tag) + ' ' + (i + 1)) + '"' +
+                ' data-b="' + i + '" data-ph="' + esc(t('de_ph_b', 'Scrivi…')) + '">' + b.html + '</' + et + '>' +
                 '<span class="de-b-tools">' +
                 '<button type="button" class="de-t" onclick="MappAIDocEditor.moveBlock(' + i + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
                 '<button type="button" class="de-t" onclick="MappAIDocEditor.moveBlock(' + i + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
-                '<button type="button" class="de-t" onclick="MappAIDocEditor.addBlock(' + i + ',\'p\')" title="' + esc(t('de_add_p', 'Aggiungi un paragrafo qui sotto')) + '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t' + (_bMenu === -100 - i ? ' de-t-on' : '') + '" onclick="MappAIDocEditor.blockAddMenu(' + i + ')" title="' + esc(t('de_add_b_tip', 'Aggiungi un blocco qui sotto: scegli il tipo')) + '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
                 '<button type="button" class="de-t de-del" onclick="MappAIDocEditor.delBlock(' + i + ')" title="' + esc(t('de_del', 'Elimina')) + '"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
                 '</span></div>';
         }).join('');
@@ -829,12 +1506,32 @@
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title">' + esc(_syn.data.branchLabel || t('de_synth', 'Sintesi')) + '</div>' +
             '<div class="de-sheet-sub">' + esc(_syn.data.mapName || '') + ' · ' + esc(t('de_synth', 'Sintesi')) + '</div>' +
+            // Lettura ad alta voce del testo IN EDITING: il chip legge i blocchi
+            // qui sotto, non una copia. L'evidenziazione usa la CSS Custom
+            // Highlight API (Range, nessun tag iniettato) → si può leggere un
+            // campo contenteditable senza sporcare quello che poi si salva.
+            '<div class="de-tts-row"><span class="de-tts-lbl">' + esc(t('de_tts_label', 'Ascolta come suona')) + '</span>' +
+            '<span id="de-tts-slot" data-tts-body="#de-blocks"></span></div>' +
             '</div>' +
-            (stale ? '<div class="de-warn">' + esc(t('de_audio_stale', 'Il testo è cambiato: se avevi generato la voce naturale, va rigenerata (la lettura seguirebbe il testo vecchio).')) + '</div>' : '') +
-            '<div class="de-blocks">' + blocks + '</div>' +
+            (stale ? '<div class="de-warn">' + esc(t('de_audio_stale', 'Il testo è cambiato: la lettura qui sopra segue sempre le tue parole, ma la VOCE NATURALE (se l\'avevi generata) è una registrazione del testo vecchio — va rifatta a modifiche finite.')) + '</div>' : '') +
+            '<div class="de-blocks" id="de-blocks">' + blocks + '</div>' +
             '<button type="button" class="de-add" onclick="MappAIDocEditor.addBlock(' + (_syn.blocks.length - 1) + ',\'p\')"><i data-lucide="plus" class="w-4 h-4"></i> ' + esc(t('de_add_block', 'Aggiungi un paragrafo')) + '</button>' +
             '<div class="de-note">' + esc(t('de_synth_note', 'Citazioni numerate e fonti restano quelle generate: non si modificano da qui.')) + '</div>' +
             '</div>';
+    }
+
+    // Testo di una card del foglio nodi → modello (senza re-render: il cursore
+    // resta dov'è; badge e bordo ambra si aggiornano da soli).
+    function _commitNs(el) {
+        const i = parseInt(el.getAttribute('data-i'), 10);
+        if (isNaN(i) || !_sheet) return;
+        const ns = el.getAttribute('data-ns');
+        const txt = el.innerText.replace(/\n+/g, ' ');
+        const m = /^kw:(\d+)$/.exec(ns);
+        if (m) _sheet.cards = NS().setKeyword(_sheet.cards, i, parseInt(m[1], 10), txt);
+        else if (ns === 'label' || ns === 'desc') _sheet.cards = NS().setField(_sheet.cards, i, ns, txt);
+        else return;
+        _dirty = true; _paintDirty(); _paintNsCount(i);
     }
 
     // ── binding ─────────────────────────────────────────────────────────────
@@ -856,7 +1553,15 @@
         host.addEventListener('input', function (e) {
             const el = e.target;
             if (!el || !el.hasAttribute) return;
-            if (el.hasAttribute('data-b')) { _commitBlock(parseInt(el.getAttribute('data-b'), 10), el.innerHTML); return; }
+            if (el.hasAttribute('data-b')) {
+                _commitBlock(parseInt(el.getAttribute('data-b'), 10), el.innerHTML);
+                // Il testo sotto la lettura è cambiato: via i chunk (e stop, se
+                // stava leggendo la frase che si sta riscrivendo). Al prossimo
+                // ▶ il lettore ricostruisce dal testo di adesso.
+                try { if (window.MappAITTS && window.MappAITTS.invalidate) window.MappAITTS.invalidate(); } catch (er) {}
+                return;
+            }
+            if (el.hasAttribute('data-ns')) { _commitNs(el); return; }
             const f = el.getAttribute('data-f');
             if (!f) return;
             if (f === 'title') { _doc.title = el.innerText.replace(/\s+/g, ' ').trim(); _dirty = true; _paintDirty(); return; }
@@ -870,7 +1575,7 @@
         // primo tasto su un campo = punto di ripristino per l'annulla
         host.addEventListener('focusin', function (e) {
             const el = e.target;
-            if (el && el.hasAttribute && (el.hasAttribute('data-f') || el.hasAttribute('data-b'))) {
+            if (el && el.hasAttribute && (el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns'))) {
                 _snapshot(t('de_op_text', 'modifica testo'));
             }
         });
@@ -879,7 +1584,7 @@
         // foglio non sa rendere (e che il sanitizer butterebbe comunque).
         host.addEventListener('paste', function (e) {
             const el = e.target;
-            if (!el || !el.hasAttribute || !(el.hasAttribute('data-f') || el.hasAttribute('data-b'))) return;
+            if (!el || !el.hasAttribute || !(el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns'))) return;
             e.preventDefault();
             const txt = (e.clipboardData || window.clipboardData).getData('text/plain');
             document.execCommand('insertText', false, txt);
@@ -911,6 +1616,9 @@
                 _commitBlock(parseInt(el.getAttribute('data-b'), 10), el.innerHTML);
                 return;
             }
+            // Foglio nodi: nessun campo è multiriga (titolo, parola chiave e
+            // descrizione vengono impaginati dal motore di stampa).
+            if (el.hasAttribute('data-ns')) { e.preventDefault(); el.blur(); return; }
             const f = el.getAttribute('data-f');
             if (f && f !== 'explanation') { e.preventDefault(); el.blur(); }
         });
@@ -960,9 +1668,40 @@
 .de-slot { width:16px; height:16px; border-radius:4px; border:1px solid rgba(15,23,42,.18); cursor:pointer; padding:0; }
 .de-slot:hover { transform:scale(1.15); }
 
-.de-sheet-wrap { flex:1 1 auto; overflow:auto; padding:24px 16px 80px; }
-/* Il foglio: stesse misure del PDF (A4 a 800px, Space Mono, header card). */
-.de-sheet { max-width:800px; margin:0 auto; font-family:'Space Mono',var(--emoji-font),monospace; color:#1e293b; }
+/* Dimensione dell'anteprima: − 100% + . Sta a destra, staccata dalle azioni del
+   documento (salva/stampa): non è una modifica al documento, è come lo si guarda. */
+.de-zoom { display:inline-flex; align-items:center; gap:2px; padding:2px 4px; margin-right:4px;
+           background:#f8fafc; border:1px solid #e2e8f0; border-radius:9px; }
+.de-zoom.changed { border-color:#a5b4fc; background:#eef2ff; }
+.de-zbtn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
+           border:0; background:transparent; color:#475569; border-radius:6px; cursor:pointer;
+           font:700 14px 'Space Mono',monospace; line-height:1; }
+.de-zbtn:hover { background:#e0e7ff; color:#4f46e5; }
+.de-zlbl { min-width:44px; border:0; background:transparent; color:#64748b; cursor:pointer;
+           font:700 10px 'Space Mono',monospace; }
+.de-zoom.changed .de-zlbl { color:#4f46e5; }
+.de-zbtn:focus-visible, .de-zlbl:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
+
+/* Il contenitore di misura: le regole responsive guardano LA LARGHEZZA DI QUESTO
+   riquadro, non quella della finestra — l'editor vive in un pannello di ELABORA
+   (affiancato alla fonte), quindi le unità di viewport mentirebbero sullo
+   spazio davvero disponibile. */
+.de-sheet-wrap { flex:1 1 auto; overflow:auto; container-type:inline-size;
+                 padding:24px clamp(14px,3%,56px) 80px; }
+/* Il foglio: stesse misure del PDF (A4 a 800px, Space Mono, header card).
+   --de-max = quanto può allargarsi · --de-zoom = ingrandimento proporzionale
+   sugli schermi grandi. Nessuno dei due tocca la stampa: il PDF esce dai builder,
+   che non leggono nulla di questa preview. */
+/* --de-user = la dimensione scelta dal docente (bottoni − / + nella barra), che
+   MOLTIPLICA quella automatica. Il max-width min(…, 100%): con lo zoom il 100%
+   vale la larghezza del pannello diviso lo zoom, quindi il foglio si ferma al
+   bordo del pannello per costruzione — a qualunque ingrandimento, senza dover
+   ricalcolare i tetti a mano. Nulla di tutto questo tocca la stampa: i builder
+   del PDF non leggono il CSS dell'anteprima. */
+.de-sheet { --de-max:800px; --de-zoom:1; --de-user:1;
+            zoom:calc(var(--de-zoom) * var(--de-user));
+            width:100%; max-width:min(var(--de-max), 100%); margin:0 auto;
+            font-family:'Space Mono',var(--emoji-font),monospace; color:#1e293b; }
 .de-sheet-head { text-align:center; padding:26px 16px 18px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid #4f46e5; }
 .de-sheet.flash .de-sheet-head { border-bottom-color:#059669; }
 .de-sheet-title { font-size:20px; font-weight:900; color:#1e293b; outline:none; }
@@ -971,7 +1710,14 @@
 .de-sheet.flash .de-badge { background:#dcfce7; color:#059669; }
 .de-sec-title { font-size:15px; font-weight:900; color:#4f46e5; margin:20px 0 14px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; }
 .de-sheet.flash .de-sec-title { color:#059669; }
-.de-item { background:#fff; border-radius:12px; padding:16px 20px; margin-bottom:16px; border-left:4px solid #4f46e5; }
+/* ── Griglia della preview ────────────────────────────────────────────────
+   Una colonna di default; due quando il pannello è largo abbastanza perché
+   una colonna resti leggibile (~520px l'una). align-items:start = le card
+   non si allungano per pareggiare la vicina (altezze diverse = altezze vere).
+   L'ordine resta quello di lettura: sinistra→destra, riga per riga, e ogni
+   card porta il proprio numero («CARTA 3») — riordinare resta chiaro. */
+.de-items { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
+.de-item { background:#fff; border-radius:12px; padding:16px 20px; border-left:4px solid #4f46e5; }
 .de-sheet.flash .de-item { border-left-color:#059669; }
 .de-item-h { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .de-qn { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#4f46e5; }
@@ -1015,13 +1761,122 @@
 .de-add { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:6px; padding:12px; border:2px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:12px; font:700 12px 'Space Mono',monospace; cursor:pointer; }
 .de-add:hover { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
 
+/* La carta in preview richiama la carta stampata: domanda sopra, piega
+   tratteggiata, retro sul fondo verde. Solo resa a schermo — le misure vere
+   della stampa restano quelle di mappai-print-layout.js. */
+.de-sheet.flash .de-answer { margin-top:14px; padding-top:12px; border-top:1px dashed #cbd5e1; }
+.de-sheet.flash .de-item { display:flex; flex-direction:column; }
+
+/* ── Larghezza e ingrandimento, a scaglioni sulla larghezza del PANNELLO ────
+   Le soglie sono scelte perché ogni colonna resti sopra ~520px. Il prodotto
+   (max-width × zoom) sta sempre sotto la soglia: il foglio non sborda mai. */
+@container (min-width:1120px) {
+  .de-sheet.flash, .de-sheet.ns { --de-max:1180px; }
+  .de-sheet.flash .de-items { grid-template-columns:1fr 1fr; }
+}
+@container (min-width:1360px) {
+  .de-sheet.flash, .de-sheet.quiz, .de-sheet.ns { --de-max:1400px; }
+  .de-sheet.quiz .de-items { grid-template-columns:1fr 1fr; }
+}
+/* Full HD: la larghezza in più va tutta al contenuto (margini minimi), non a
+   colonne più larghe — la carta è contenuto corto, quindi passa a TRE colonne.
+   Il quiz resta a due: le opzioni A/B/C hanno bisogno di riga. */
+@container (min-width:1700px) {
+  .de-sheet.flash, .de-sheet.ns { --de-max:1660px; }
+  .de-sheet.flash .de-items { grid-template-columns:repeat(3,1fr); }
+  .de-sheet.quiz { --de-max:1500px; }
+}
+/* Tetto per formato: con 2 card per riga oltre ~1400 la singola card diventa
+   sproporzionata rispetto al resto dell'interfaccia. Il 3 × 4 (3 colonne, card
+   piccole) può invece usare tutta la larghezza. */
+.de-sheet.ns.fmt-2x2 { --de-max:1400px; }
+/* 2 × 1: la card è verticale (138 × 180 mm). Tetto ancora più basso, se no una
+   sola card è più alta dello schermo. */
+.de-sheet.ns.fmt-2x1 { --de-max:1180px; }
+/* Da 2K in su lo schermo è grande davvero: invece di allargare ancora (righe
+   troppo lunghe da leggere) si INGRANDISCE tutto in proporzione. */
+@container (min-width:1900px) {
+  .de-sheet { --de-zoom:1.12; }
+  .de-sheet.flash, .de-sheet.ns { --de-max:1660px; }
+  .de-sheet.quiz { --de-max:1440px; }
+}
+@container (min-width:2300px) {
+  .de-sheet { --de-zoom:1.28; }
+  .de-sheet.flash, .de-sheet.ns { --de-max:1720px; }
+  .de-sheet.quiz { --de-max:1500px; }
+}
+
+/* ── Sintesi: stessa scala degli altri, ma per un documento di TESTO ────────
+   Allargare la colonna come il quiz darebbe righe da 200 caratteri: illeggibili,
+   e per un allievo con DSA peggio che mai. Quindi la sintesi tiene la misura di
+   stampa (800px = i caratteri per riga del foglio) e cresce in SCALA, come fa la
+   card del foglio nodi: stessa larghezza visiva degli altri editor, stessi
+   caratteri per riga, testo più grande. La larghezza di impaginazione resta
+   800; il numero che cambia è lo zoom, e 800 × zoom sta sempre sotto la
+   larghezza del pannello. */
+@container (min-width:1120px) { .de-sheet.synth { --de-zoom:1.3; } }   /* → 1040 */
+@container (min-width:1360px) { .de-sheet.synth { --de-zoom:1.6; } }   /* → 1280 */
+@container (min-width:1700px) { .de-sheet.synth { --de-zoom:1.85; } }  /* → 1480 */
+@container (min-width:1900px) { .de-sheet.synth { --de-zoom:2; } }     /* → 1600 */
+@container (min-width:2300px) { .de-sheet.synth { --de-zoom:2.4; } }   /* → 1920 */
+
 /* Sintesi: le dimensioni del testo dipendono dal tipo di blocco, non dall'utente. */
 .de-sheet.synth .de-blocks { background:#fff; border-radius:16px; padding:20px 24px; }
-.de-block { position:relative; display:flex; align-items:flex-start; gap:10px; padding:3px 0; }
-.de-b-tag { flex:0 0 66px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#64748b; padding-top:6px; }
-.de-b-txt { flex:1 1 auto; outline:none; padding:3px 6px; border-radius:6px; min-height:1.2em; }
-.de-b-h3 .de-b-txt { font-size:14px; font-weight:900; color:#4f46e5; margin:12px 0 4px; }
-.de-b-h4 .de-b-txt { font-size:12px; font-weight:700; color:#1e293b; margin:8px 0 2px; }
+/* align-items:baseline — la targhetta si allinea alla PRIMA RIGA del blocco da
+   sola, qualunque siano i corpi in gioco. Con flex-start servivano quattro
+   scostamenti a mano (uno per tipo di blocco) da ricalibrare a ogni ritocco
+   tipografico: la linea di base non si ricalibra mai. */
+.de-block { position:relative; display:flex; align-items:baseline; gap:10px; padding:3px 0; }
+/* La colonna delle etichette: larga in CARATTERI (12ch ≥ «SOTTOTITOLO», che è
+   la più lunga), non in px — così regge qualunque corpo del testo senza andare
+   a capo e senza spingere la colonna del testo. Allineata a DESTRA, contro il
+   testo: l'occhio scende su un bordo solo. Il -10px la fa sporgere nel margine
+   del foglio: l'etichetta è un'indicazione di servizio, non parte del testo, e
+   la colonna del testo resta dov'era (la larghezza compensa lo spostamento). */
+/* L'etichetta NON è il documento: è la targhetta che dice che cos'è il blocco.
+   Quindi non segue l'ingrandimento del foglio — resta della stessa dimensione a
+   schermo a qualunque zoom, e la sua colonna con lei. Si ottiene dividendo il
+   corpo per lo zoom in vigore (il foglio poi lo rimoltiplica): 9px sullo schermo,
+   sempre. La larghezza, espressa in caratteri (ch), segue il corpo compensato:
+   anche la colonna resta ferma e i due bordi di allineamento non si separano
+   mentre il documento cresce.
+   Il padding-top invece NON si compensa: serve a mettere la targhetta sulla prima
+   riga del testo, e quella riga sta in px del foglio, non dello schermo.
+   (Longhand e non la scorciatoia «font»: con un calc() la barra prima
+   dell'interlinea diventa ambigua e la dichiarazione viene scartata.) */
+.de-b-tag { --de-zsum:calc(var(--de-zoom, 1) * var(--de-user, 1));
+            flex:0 0 15ch; box-sizing:border-box; min-width:0; white-space:nowrap;
+            margin-left:calc(-10px / var(--de-zsum)); padding:0 calc(10px / var(--de-zsum)) 0 0;
+            font-family:'Space Mono',monospace; font-weight:700; line-height:1.2;
+            font-size:calc(9px / var(--de-zsum));
+            text-align:right; text-transform:uppercase;
+            letter-spacing:.05em; color:#94a3b8; background:transparent;
+            border:0; border-radius:6px; cursor:pointer; }
+.de-b-tag:hover, .de-b-tag.active { color:#4f46e5; background:#eef2ff; }
+/* Il blocco generato non cambia tipo: la sua etichetta è solo un'etichetta. */
+.de-b-tag-off { cursor:default; pointer-events:none; }
+.de-b-tag:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
+/* Menu dei tipi di blocco (stessa forma di quello del foglio nodi). */
+.de-b-menu { position:absolute; left:0; top:26px; z-index:6; width:min(250px,90%);
+             background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+             box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
+.de-b-menu .de-ns-mi b { font-size:11px; }
+.de-t.de-t-on { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
+/* margin:0 — il campo editabile ora è il tag vero (p/h3/h4/blockquote), che
+   porterebbe i margini di default del browser. */
+.de-b-txt { flex:1 1 auto; outline:none; padding:3px 6px; border-radius:6px; min-height:1.2em; margin:0; }
+/* Lettura ad alta voce del testo in editing */
+.de-tts-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.de-tts-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
+/* Lo spazio sopra un titolo sta sulla RIGA, non sul testo. Messo sul testo,
+   spingeva giù solo la colonna di destra: l'etichetta restava in cima (è l'altro
+   elemento della riga) e TITOLO/SOTTOTITOLO risultavano più alti del testo che
+   annunciano — 14px e 9px di scarto, misurati. Sulla riga scendono insieme, come
+   già accadeva a TESTO e a GENERATO, che margini sopra non ne hanno. */
+.de-block + .de-b-h3 { margin-top:12px; }
+.de-block + .de-b-h4 { margin-top:8px; }
+.de-b-h3 .de-b-txt { font-size:14px; font-weight:900; color:#4f46e5; margin:0 0 4px; }
+.de-b-h4 .de-b-txt { font-size:12px; font-weight:700; color:#1e293b; margin:0 0 2px; }
 .de-b-p .de-b-txt { font-size:11px; line-height:1.7; color:#334155; }
 .de-b-li .de-b-txt { font-size:11px; line-height:1.7; color:#334155; margin-left:18px; list-style:disc; }
 .de-b-li .de-b-txt:before { content:'•'; color:#94a3b8; margin-right:7px; }
@@ -1033,6 +1888,69 @@
 .de-b-tools { position:absolute; right:-2px; top:0; display:inline-flex; gap:2px; opacity:0; background:#fff; border-radius:7px; padding:1px; transition:opacity .12s; }
 .de-warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:10px; padding:9px 13px; font-size:11px; line-height:1.5; margin-bottom:14px; }
 .de-note { font-size:10px; color:#64748b; font-style:italic; margin-top:14px; text-align:center; }
+
+/* ── Foglio dei nodi: le card hanno le proporzioni della carta ────────────── */
+.de-sheet.ns .de-sheet-head { border-bottom-color:#f97316; }
+.de-sheet.ns .de-badge { background:#ffedd5; color:#c2410c; }
+.de-ns-mix { font-size:10px; color:#64748b; margin-top:7px; }
+.de-ns-ctrl { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; margin-bottom:14px; }
+.de-ns-ctrl-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.de-ns-ctrl-row + .de-ns-ctrl-row { margin-top:9px; padding-top:9px; border-top:1px solid #f1f5f9; }
+.de-ns-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
+.de-ns-fmt { border:1px solid #e2e8f0; background:#f8fafc; color:#475569; border-radius:9px; padding:5px 10px; font:800 11px 'Space Mono',monospace; cursor:pointer; text-align:left; }
+.de-ns-fmt small { display:block; font-size:9px; font-weight:400; color:#94a3b8; margin-top:1px; }
+.de-ns-fmt.active { border-color:#f97316; background:#fff7ed; color:#c2410c; }
+.de-ns-fmt.active small { color:#ea580c; }
+.de-ns-sel { border:1px solid #e2e8f0; border-radius:8px; padding:5px 8px; font:700 11px 'Space Mono',monospace; color:#475569; background:#fff; cursor:pointer; }
+.de-ns-check { display:inline-flex; align-items:center; gap:6px; font:700 11px 'Space Mono',monospace; color:#475569; cursor:pointer; }
+.de-ns-all { border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:5px 10px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
+.de-ns-all:hover:not(:disabled) { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
+.de-ns-all:disabled { opacity:.4; cursor:not-allowed; }
+.de-ns-ai { display:inline-flex; align-items:center; gap:6px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; border-radius:9px; padding:5px 11px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
+.de-ns-ai:hover { background:#eef2ff; color:#4f46e5; }
+.de-ns-grid { display:grid; gap:10px; }
+/* La card: proporzioni reali (aspect-ratio dalla geometria del foglio). */
+.de-ns-card { position:relative; background:#fff; border:1px dashed #fb923c; border-radius:10px; display:flex; flex-direction:column; overflow:hidden; }
+.de-ns-card.over { border-color:#f59e0b; box-shadow:0 0 0 2px #fef3c7 inset; }
+.de-ns-head { display:flex; align-items:center; gap:6px; padding:4px 6px; background:#f8fafc; border-bottom:1px solid #f1f5f9; flex:0 0 auto; }
+.de-ns-n { font-size:10px; font-weight:800; color:#c2410c; }
+.de-ns-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
+.de-ns-card:hover .de-ns-tools, .de-ns-card:focus-within .de-ns-tools { opacity:1; }
+.de-ns-plus.active { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
+/* box-sizing esplicito: l'aspect-ratio deve valere sul RIQUADRO della card
+   (padding compreso), altrimenti le proporzioni a schermo non sono quelle
+   della carta. container-type: la card è l'unità di misura di quel che contiene
+   (corpi del testo e margini interni sono frazioni di questa larghezza). */
+.de-ns-body { box-sizing:border-box; flex:1 1 auto; display:flex; min-height:0; overflow:hidden;
+              container-type:inline-size; }
+.de-ns-inner { box-sizing:border-box; flex:1 1 auto; min-width:0; min-height:0;
+               display:flex; flex-direction:column; overflow:hidden;
+              /* Il GRUPPO titolo + contenuto sta al centro della card e cresce nei
+                 due versi: una sola parola chiave non spinge il titolo in cima.
+                 «safe» = quando il blocco è più alto della card riparte dall'alto,
+                 così non si taglia la testa del testo. */
+              justify-content:safe center; }
+/* Centratura: la regola vale per TUTTI i tipi di contenuto (vedi .de-ns-inner).
+   Con «spazio da scrivere» le righe riempiono la card (.de-ns-rules cresce),
+   quindi lì il titolo resta in alto — come nel foglio stampato. */
+.de-ns-title { font-weight:900; color:#1e293b; line-height:1.25; text-align:center; outline:none; border-radius:5px; word-break:break-word; }
+.de-ns-card.lay-card .de-ns-title { text-align:left; line-height:1.2; margin-bottom:4px; }
+.de-ns-kws { flex:0 1 auto; display:flex; flex-direction:column; gap:2px; margin-top:5px; overflow:auto; }
+.de-ns-kw { display:flex; align-items:center; gap:4px; }
+.de-ns-kw-t { flex:1 1 auto; text-align:center; color:#5a5a5a; outline:none; border-radius:4px; padding:1px 3px; word-break:break-word; }
+.de-ns-kw.over .de-ns-kw-t { background:#ffedd5; color:#7c2d12; }
+.de-ns-addkw { align-self:center; margin-top:3px; border:1px dashed #cbd5e1; background:#fff; color:#94a3b8; border-radius:7px; padding:2px 9px; font:700 10px 'Space Mono',monospace; cursor:pointer; }
+.de-ns-addkw:hover { border-color:#4f46e5; color:#4f46e5; }
+.de-ns-desc { flex:0 1 auto; color:#1e1e1e; line-height:1.4; text-align:justify; outline:none; border-radius:5px; overflow:auto; word-break:break-word; }
+.de-ns-rules { flex:1 1 auto; margin-top:6px; }
+.de-ns-menu { position:absolute; right:6px; top:30px; z-index:5; width:min(230px,92%); background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
+.de-ns-mi { display:block; width:100%; text-align:left; border:0; background:transparent; border-radius:7px; padding:6px 8px; cursor:pointer; font:inherit; }
+.de-ns-mi:hover { background:#eef2ff; }
+.de-ns-mi b { display:block; font-size:11px; font-weight:800; color:#1e293b; }
+.de-ns-mi small { display:block; font-size:10px; color:#94a3b8; margin-top:1px; }
+.de-ns-mi.active b { color:#4f46e5; }
+.de-ns-mi-off { border-top:1px solid #f1f5f9; margin-top:2px; }
+.de-ns-mi-off b { color:#64748b; }
 
 .de-radio { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer; }
 .de-radio:hover { border-color:#a5b4fc; background:#f8fafc; }
@@ -1054,12 +1972,26 @@
     // ── superficie pubblica ─────────────────────────────────────────────────
     window.MappAIDocEditor = {
         render: render,
-        reset: function () { _view = 'list'; _doc = null; _syn = null; _kind = null; _dirty = false; },
+        reset: function () { _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1; },
         hasUnsaved: function () { return _dirty; },
+        // «Il documento aperto appartiene alla mappa che è aperta adesso?» — ELABORA
+        // lo chiede all'entrata per non mostrare i documenti di un'altra mappa.
+        sameMap: function () { return _sameMap(); },
+        // Che tipo di documento è aperto: serve alla voce naturale, che si
+        // genera solo a sintesi salvata (è una registrazione, non segue le
+        // modifiche come la lettura a voce di sistema).
+        kind: function () { return (_view === 'doc') ? _kind : null; },
         openSet: openSet, openSynthesis: openSynthesis, backToList: backToList,
+        // foglio dei nodi
+        openNodeSheet: openNodeSheet, nsSetFmt: nsSetFmt, nsSetBg: nsSetBg, nsSetDepth: nsSetDepth,
+        nsMenu: nsMenu, nsSetLayout: nsSetLayout, nsSetAll: nsSetAll, nsAddKeyword: nsAddKeyword,
+        nsDelKeyword: nsDelKeyword, nsMove: nsMove, nsDelCard: nsDelCard, nsRestoreAll: nsRestoreAll,
+        nsKeywordsAI: nsKeywordsAI,
         addQuestion: addQuestion, delQuestion: delQuestion, moveQ: moveQ,
         addOption: addOption, delOption: delOption, setCorrect: setCorrect,
         addBlock: addBlock, delBlock: delBlock, moveBlock: moveBlock,
+        blockMenu: blockMenu, blockAddMenu: blockAddMenu, setBlockTag: setBlockTag,
+        zoomStep: zoomStep, zoomReset: zoomReset,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
         openAnswersModal: openAnswersModal, openFlashModal: openFlashModal

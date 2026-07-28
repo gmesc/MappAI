@@ -286,9 +286,12 @@ test('blocksToHtml: il blocco raw torna verbatim e resta in mezzo alle sezioni',
     assert.ok(/<b>riscritto<\/b>/.test(html));
 });
 
-test('blocksToHtml: il raw non viene sanitizzato (è HTML generato, non input)', () => {
+test('blocksToHtml: il raw non viene sanitizzato ed esce marcato data-ap-skip', () => {
     const html = D.blocksToHtml([{ tag: 'raw', html: '<div class="x"><span class="y">1</span></div>' }]);
-    assert.strictEqual(html, '<div class="x"><span class="y">1</span></div>');
+    // contenuto verbatim, dentro l'involucro che i lettori TTS saltano
+    assert.strictEqual(html, '<div data-ap-skip><div class="x"><span class="y">1</span></div></div>');
+    // idempotente: un secondo giro non annida un altro involucro
+    assert.strictEqual(D.blocksToHtml(D.blocksFromHtml(html)), html);
 });
 
 test('blocksFromHtml: div annidati chiusi correttamente', () => {
@@ -313,6 +316,39 @@ test('audioStale: cambio di testo o di numero blocchi invalida l\'audio', () => 
     // solo grassetto in più = stesso testo letto → audio ancora buono
     const c = a.slice(); c[0] = { tag: 'h3', html: '<b>Le funzioni urbane</b>' };
     assert.ok(!D.audioStale(a, c));
+});
+
+// ── blocchi leggibili (definizione unica per TTS, audio e avvisi) ───────────
+test('readableBlocks: fuori i raw, fuori i blocchi vuoti, dentro il testo vero', () => {
+    const b = [
+        { tag: 'h3', html: 'Titolo' },
+        { tag: 'raw', html: '<div class="bs-citations"><p>fonte 1</p></div>' },
+        { tag: 'p', html: '   ' },                 // vuoto: niente da leggere
+        { tag: 'p', html: 'Un <b>paragrafo</b> vero.' },
+        { tag: 'li', html: 'una voce' },
+        { tag: 'div', html: 'tag non previsto' }   // fuori dallo schema dei blocchi
+    ];
+    assert.deepStrictEqual(D.readableBlocks(b).map(x => x.tag), ['h3', 'p', 'li']);
+    assert.deepStrictEqual(D.readableTexts(b), ['Titolo', 'Un paragrafo vero.', 'una voce']);
+});
+
+test('readableTexts: coincide con i blocchi che il generatore audio leggerebbe', () => {
+    // la citazione generata è materiale muto: non entra nel parlato
+    const b = D.blocksFromHtml(WHOLE_BODY);
+    assert.ok(b.some(x => x.tag === 'raw'), 'la fixture contiene un blocco generato');
+    assert.ok(D.readableTexts(b).every(t => t && t.trim()), 'nessun testo vuoto fra quelli letti');
+    assert.strictEqual(D.readableBlocks(b).length, b.filter(x => x.tag !== 'raw' && D.plainText(x.html).trim()).length);
+});
+
+test('speechSignature: uguale se cambia solo la formattazione, diversa se cambia il parlato', () => {
+    const a = D.blocksFromHtml(SYNTH_BODY);
+    const soloGrassetto = a.slice(); soloGrassetto[0] = { tag: 'h3', html: '<b>Le funzioni urbane</b>' };
+    assert.strictEqual(D.speechSignature(a), D.speechSignature(soloGrassetto));
+    const altroTag = a.slice(); altroTag[0] = { tag: 'h4', html: 'Le funzioni urbane' };
+    assert.notStrictEqual(D.speechSignature(a), D.speechSignature(altroTag), 'il livello di titolo cambia la lettura');
+    // un paragrafo svuotato esce dal parlato → firma diversa
+    const svuotato = a.slice(); svuotato[1] = { tag: 'p', html: '' };
+    assert.notStrictEqual(D.speechSignature(a), D.speechSignature(svuotato));
 });
 
 // ── cronologia ──────────────────────────────────────────────────────────────
@@ -365,4 +401,43 @@ test('backsideOrder: ogni riga specchiata (stampa fronte/retro sul lato lungo)',
 test('flashFmt: formato sconosciuto → 2x2', () => {
     assert.strictEqual(D.flashFmt('9x9'), '2x2');
     assert.strictEqual(D.flashFmt('4x3'), '4x3');
+});
+
+test('setBlockTag: cambia il tipo tenendo il testo, immutabile', () => {
+    const blocks = [{ tag: 'p', html: 'Il <b>Ridotto</b> nazionale' }, { tag: 'h3', html: 'Sezione' }];
+    const out = D.setBlockTag(blocks, 0, 'blockquote');
+    assert.strictEqual(out[0].tag, 'blockquote');
+    assert.strictEqual(out[0].html, 'Il <b>Ridotto</b> nazionale');
+    assert.strictEqual(blocks[0].tag, 'p');            // l'originale non si tocca
+    assert.strictEqual(out[1], blocks[1]);             // gli altri blocchi restano gli stessi
+});
+
+test('setBlockTag: il materiale generato non si converte, i tipi ignoti nemmeno', () => {
+    const blocks = [{ tag: 'raw', html: '<div>citazioni</div>' }, { tag: 'p', html: 'testo' }];
+    assert.strictEqual(D.setBlockTag(blocks, 0, 'p')[0].tag, 'raw');
+    assert.strictEqual(D.setBlockTag(blocks, 1, 'script')[1].tag, 'p');
+    assert.strictEqual(D.setBlockTag(blocks, 9, 'h3').length, 2);   // indice fuori range: nessun crash
+});
+
+test('setBlockTag: da nota a elenco e ritorno, il round-trip HTML regge', () => {
+    let b = D.blocksFromHtml('<p>uno</p><blockquote>due</blockquote>');
+    b = D.setBlockTag(b, 1, 'li');
+    assert.strictEqual(D.blocksToHtml(b), '<p>uno</p><ul><li>due</li></ul>');
+    b = D.setBlockTag(b, 1, 'blockquote');
+    assert.strictEqual(D.blocksToHtml(b), '<p>uno</p><blockquote>due</blockquote>');
+});
+
+test('stepZoom: sale e scende sulla scala, senza uscirne', () => {
+    assert.strictEqual(D.stepZoom(1, 1), 1.15);
+    assert.strictEqual(D.stepZoom(1, -1), 0.85);
+    assert.strictEqual(D.stepZoom(0.85, -1), 0.85);      // fondo scala
+    assert.strictEqual(D.stepZoom(1.5, 1), 1.5);         // cima scala
+});
+
+test('nearestZoom: valori sporchi o vecchi → il gradino più vicino', () => {
+    assert.strictEqual(D.nearestZoom('1.2'), 1.15);
+    assert.strictEqual(D.nearestZoom(3), 1.5);
+    assert.strictEqual(D.nearestZoom(0.1), 0.85);
+    assert.strictEqual(D.nearestZoom('boh'), 1);
+    assert.strictEqual(D.nearestZoom(null), 1);
 });

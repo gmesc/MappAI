@@ -433,7 +433,15 @@
         arr.forEach(function (b) {
             if (b.tag === 'raw') {                            // generato: verbatim, mai sanitizzato
                 if (inList) { out += '</ul>'; inList = false; }
-                out += b.html;
+                // `data-ap-skip`: il materiale generato (citazioni, box) non va
+                // letto ad alta voce. È il marcatore che i lettori — quello
+                // in-app e quello dentro l'HTML esportato — saltano, così quel
+                // che si sente è esattamente quel che si edita.
+                // (idempotente: se il blocco è già marcato non lo si ri-avvolge,
+                // altrimenti ogni round-trip HTML → blocchi → HTML anniderebbe
+                // un div in più)
+                var rawHtml = String(b.html || '');
+                out += /^\s*<div[^>]*\bdata-ap-skip\b/i.test(rawHtml) ? rawHtml : '<div data-ap-skip>' + rawHtml + '</div>';
                 return;
             }
             var inner = sanitizeInline(b.html);
@@ -452,22 +460,58 @@
     function moveBlock(blocks, from, to) { return moveItem(blocks, from, to); }
     function removeBlock(blocks, i) { return removeAt(blocks, i); }
     function insertBlock(blocks, i, tag) { return insertAt(blocks, i, { tag: BLOCK_OK[tag] ? tag : 'p', html: '' }); }
+    /**
+     * Cambia il TIPO di un blocco tenendone il testo (titolo ↔ testo ↔ nota…).
+     * Il materiale generato (`raw`) non si converte: il suo contenuto non è
+     * prosa scritta dal docente e cambiargli tag lo darebbe in pasto al lettore
+     * ad alta voce, che invece deve saltarlo.
+     */
+    function setBlockTag(blocks, i, tag) {
+        var arr = (blocks || []).slice();
+        if (i < 0 || i >= arr.length) return arr;
+        var b = arr[i];
+        if (!b || b.tag === 'raw' || !BLOCK_OK[tag] || b.tag === tag) return arr;
+        arr[i] = { tag: tag, html: b.html };
+        return arr;
+    }
+
+    /**
+     * BLOCCHI LEGGIBILI — una definizione sola, valida ovunque.
+     *
+     * Prima ce n'erano quattro che non coincidevano (l'avviso dell'editor, il
+     * generatore audio, il lettore in-app, il lettore dell'HTML esportato): il
+     * risultato era che l'indice dei blocchi e quello dei cue potevano sfasarsi
+     * e l'evidenziazione finiva sul paragrafo sbagliato. Qui la regola è: si
+     * legge ad alta voce solo un blocco di testo VERO (h3/h4/p/li/blockquote)
+     * scritto dall'utente; i blocchi `raw` (citazioni numerate, catena dei
+     * perché) sono materiale generato e restano muti — nel documento HTML
+     * portano `data-ap-skip`, che i lettori saltano.
+     */
+    function isReadableBlock(b) {
+        return !!(b && b.tag !== 'raw' && BLOCK_OK[b.tag] && plainText(b.html).trim());
+    }
+    function readableBlocks(blocks) {
+        return (blocks || []).filter(isReadableBlock);
+    }
+    /** Solo i testi, nell'ordine in cui verranno letti (base di confronto e di TTS). */
+    function readableTexts(blocks) {
+        return readableBlocks(blocks).map(function (b) { return plainText(b.html).trim(); });
+    }
+    /** Firma del parlato: due documenti con la stessa firma si leggono uguale. */
+    function speechSignature(blocks) {
+        return readableBlocks(blocks).map(function (b) {
+            return b.tag + '' + plainText(b.html).trim();
+        }).join('');
+    }
 
     /**
      * L'audio della voce naturale è allineato ai BLOCCHI: se cambia il loro numero
      * (o il testo), i cue non corrispondono più. `true` = l'audio va rigenerato.
+     * (La lettura a voce di sistema NON ha questo problema: legge il testo di
+     * adesso, basta invalidarne la cache — vedi MappAITTS.invalidate.)
      */
     function audioStale(before, after) {
-        // I blocchi `raw` (citazioni, box generati) non vengono letti ad alta voce:
-        // fuori dal confronto, altrimenti invaliderebbero l'audio per nulla.
-        var noRaw = function (x) { return (x || []).filter(function (b) { return b && b.tag !== 'raw'; }); };
-        var a = noRaw(before), b = noRaw(after);
-        if (a.length !== b.length) return true;
-        for (var i = 0; i < a.length; i++) {
-            if (a[i].tag !== b[i].tag) return true;
-            if (plainText(a[i].html) !== plainText(b[i].html)) return true;
-        }
-        return false;
+        return speechSignature(before) !== speechSignature(after);
     }
 
     // ── 5. cronologia (annulla) ─────────────────────────────────────────────
@@ -494,6 +538,28 @@
     // ── 6. slot colore del picker ───────────────────────────────────────────
     var COLOR_SLOTS = 5;
     var DEFAULT_SLOTS = ['#1e293b', '#4f46e5', '#dc2626', '#059669', '#d97706'];
+
+    /* ── DIMENSIONE DELL'ANTEPRIMA ────────────────────────────────────────
+       Quanto è grande il foglio a schermo. Moltiplica l'ingrandimento
+       automatico (quello che dipende dalla larghezza del pannello), non lo
+       sostituisce: chi non tocca niente vede quel che vedeva prima (1).
+       Sotto 1 si sta più larghi (si vedono più card per volta), sopra si legge
+       meglio. NON tocca la stampa: la carta esce dai builder del PDF. */
+    var ZOOM_STEPS = [0.85, 1, 1.15, 1.3, 1.5];
+    /** Il gradino successivo/precedente, senza uscire dalla scala. */
+    function stepZoom(cur, dir) {
+        var i = ZOOM_STEPS.indexOf(nearestZoom(cur));
+        var j = Math.min(ZOOM_STEPS.length - 1, Math.max(0, i + (dir < 0 ? -1 : 1)));
+        return ZOOM_STEPS[j];
+    }
+    /** Il gradino più vicino a un valore qualunque (valore salvato da una versione precedente, o rovinato). */
+    function nearestZoom(v) {
+        var n = parseFloat(v);
+        if (!isFinite(n)) return 1;
+        return ZOOM_STEPS.reduce(function (best, s) {
+            return Math.abs(s - n) < Math.abs(best - n) ? s : best;
+        }, ZOOM_STEPS[0]);
+    }
 
     /** Aggiunge un colore in testa agli slot (dedup, cap 5). Ritorna un nuovo array. */
     function pushColorSlot(slots, hex) {
@@ -545,10 +611,13 @@
         // inline / blocchi
         sanitizeInline: sanitizeInline, plainText: plainText, normColor: normColor, escHtml: escHtml,
         blocksFromHtml: blocksFromHtml, blocksToHtml: blocksToHtml, moveBlock: moveBlock,
-        removeBlock: removeBlock, insertBlock: insertBlock, audioStale: audioStale,
+        removeBlock: removeBlock, insertBlock: insertBlock, setBlockTag: setBlockTag, audioStale: audioStale,
+        isReadableBlock: isReadableBlock, readableBlocks: readableBlocks,
+        readableTexts: readableTexts, speechSignature: speechSignature,
         // cronologia / colori / formati
         createHistory: createHistory, pushColorSlot: pushColorSlot,
         COLOR_SLOTS: COLOR_SLOTS, DEFAULT_SLOTS: DEFAULT_SLOTS,
+        ZOOM_STEPS: ZOOM_STEPS, stepZoom: stepZoom, nearestZoom: nearestZoom,
         FLASH_FMT: FLASH_FMT, flashFmt: flashFmt, flashPages: flashPages, backsideOrder: backsideOrder
     };
 });

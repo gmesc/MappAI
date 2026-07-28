@@ -125,10 +125,21 @@
     // save({kind,title,mapName,cls?,html?,pdf?}) → id. Dedup per (kind|title|mapName):
     // rigenerare lo stesso ramo AGGIORNA la voce invece di duplicare.
     // pdf = data-URI (Foglio nodi = jsPDF, non HTML): riaperto con window.open.
+    // Id univoco. `Date.now()` da solo NON basta: la pipeline «Genera materiali»
+    // archivia quiz, flashcard, foglio nodi e sintesi in raffica, e due documenti
+    // salvati nello stesso millisecondo finivano con lo STESSO id — get() e
+    // remove() poi colpivano il documento sbagliato.
+    let _docSeq = 0;
+    function _newDocId(arr) {
+        let id;
+        do { _docSeq = (_docSeq + 1) % 100000; id = 'doc_' + Date.now() + '_' + _docSeq; }
+        while (arr.some(d => d.id === id));
+        return id;
+    }
     function saveDoc(rec) {
         const arr = _docsRead();
         const entry = {
-            id: rec.id || ('doc_' + Date.now()),
+            id: rec.id || _newDocId(arr),
             kind: DOC_KINDS.indexOf(rec.kind) >= 0 ? rec.kind : 'dossier',
             title: rec.title || 'Documento',
             mapName: rec.mapName || '',
@@ -149,7 +160,16 @@
         return entry.id;
     }
     // list() → SOLO metadati (niente html: array leggero per il rendering).
-    function listDocs() { return _docsRead().map(d => ({ id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls, date: d.date, overLimit: d.overLimit || 0 })); }
+    // `hasHtml`/`hasPdf` dicono COSA c'è dentro senza portarselo appresso: chi
+    // deve mostrare solo i documenti riapribili filtra su questi. (Filtrare su
+    // `d.html`, che qui non c'è mai, svuotava silenziosamente gli elenchi.)
+    function listDocs() {
+        return _docsRead().map(d => ({
+            id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls,
+            date: d.date, overLimit: d.overLimit || 0,
+            hasHtml: !!d.html, hasPdf: !!d.pdf
+        }));
+    }
     function getDoc(id) { return _docsRead().find(d => d.id === id) || null; }
     function removeDoc(id) { _docsWrite(_docsRead().filter(d => d.id !== id)); }
 
