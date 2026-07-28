@@ -608,6 +608,57 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (27/7/26): editor del FOGLIO DEI NODI in ELABORA → Documenti (contenuto per-card)
+Richiesta utente: il foglio nodi diventa un documento editabile, con il tipo di contenuto
+scelto CARD PER CARD (solo titolo · titolo + spazio da scrivere · titolo + parole chiave ·
+titolo + descrizione), la possibilità di aggiungere a mano i campi che l'AI non ha generato,
+il titolo che sale in alto appena la card riceve un contenuto, e il badge ambra sul testo
+troppo lungo. Suite **803** (801 pass, 2 skip preesistenti, +27 nuovi test).
+- **Core puro** `public/js/mappai-nodesheet-core.js` (UMD, `window.MappAINodeSheet`,
+  +27 test `tests/nodesheet-core.test.js`): geometria del foglio (A4 orizzontale, margini
+  10/15, griglia per formato, corpi in pt) — **ora è l'unica fonte**, `printAllNodeLabels`
+  la legge (fallback ai numeri storici se il core manca); `charLimits(fmt, layout, titolo)`
+  = soglie di caratteri ricavate dalla geometria (titolo · parola chiave · quante parole
+  chiave entrano sotto QUEL titolo · descrizione); modello card `{id,label,layout,keywords,
+  desc}` con operazioni immutabili; `syncCards` (riallineamento ai nodi: i nuovi in coda, gli
+  spariti fuori, i testi rivisti **mai riscritti**, `exclude` per le card tolte a mano);
+  `toPrintCards` (azzera i campi che il tipo non usa e scarta le righe vuote); `validateDoc`.
+  ⚠️ Le parole chiave VUOTE restano nel modello (è la riga appena aggiunta che si sta
+  scrivendo): spariscono solo alla stampa — filtrarle nel core le faceva sparire sotto le dita.
+- **Motore di stampa** (`printAllNodeLabels`): nuova opzione `opts.cards` — quando c'è,
+  ogni card porta il proprio `layout`/`label`/`keywords`/`desc` e sostituisce depth+layout
+  globali e la generazione AI delle parole chiave. Loop unificato su `entries` (foglio
+  rivisto **o** nodi+layout unico → stesso codice di disegno). Nome file/archivio distinti
+  (`Foglio-nodi-rivisto.pdf`, titolo « (rivisto)») per non sovrascrivere l'automatico.
+  Percorso storico (modale + pipeline materiali) **invariato**.
+- **Editor** (`mappai-doc-editor.js`, kind `'nodesheet'`): gruppo «Foglio dei nodi»
+  nell'elenco documenti (c'è sempre: il foglio si costruisce dalla mappa, non serve averlo
+  generato prima); card disegnate con le **proporzioni vere** della carta (`aspect-ratio`
+  dalla geometria sul CORPO della card, non sulla cornice) e corpi del testo in scala
+  (px/mm calcolati dal foglio a 800px); bottone **«+»** per-card → menu dei 3 contenuti
+  (+ «solo titolo» per togliere), con prefill da quello che la mappa già sa (figli del nodo
+  → parole chiave via `_fallbackKeywords`, desc del nodo → testo scheda) e campi vuoti da
+  riempire a mano quando la mappa non ha nulla; barra formato (3×4/2×2/2×1) · profondità ·
+  quadretti · «a tutte le card» · **«Parole chiave con AI»** (riempie SOLO le card vuote,
+  stesso motore `_generateNodeKeywords` del foglio automatico); badge contatore per card,
+  **ambra** quando il testo non entra (bordo card + badge), con la regola scritta in cima;
+  togli/ripristina card (il nodo resta nella mappa); Annulla (undo), Salva, Stampa (avvisa
+  sulle card fuori soglia), Nel vault (PDF headless in `Materiale Studio/`).
+- **Persistenza**: `appState.db.nodeSheet` (dentro il progetto, salvato da
+  `saveCurrentProject`); alla riapertura si riallinea alla mappa e lo dice.
+- i18n: chiavi `de_ns_*`/`ns_*` in `en_translations.js`, fallback IT inline (regola 13);
+  audit: 0 mancanti. Il modale storico del foglio nodi rimanda all'editor.
+- ✅ Verificato in browser (server statico + pagina reale con licensing nascosto lato-DOM):
+  proporzioni card = 1.539 (= 138,5/90 mm) e 2.052 in 3×4, titolo centrato → in alto al
+  primo contenuto, prefill figli/desc, parola chiave scritta a mano, badge ambra su desc
+  lunga, 3×4 che riporta tutto a «solo titolo» avvisando, togli/ripristina, round-trip
+  salva → riapri (layout + keyword + desc conservati), PDF headless (2 pagine per 5 card
+  2×2, 1 per 6 card 3×4, nessun crash con card orfana), percorso legacy invariato,
+  zero errori console.
+- ⚠️ **Da testare in Electron vivo**: «Parole chiave con AI» con chiave vera, «Nel vault»
+  (IPC `html-to-pdf` non serve qui: il PDF esce da jsPDF, ma serve `save-vault-file`),
+  stampa reale su carta dei 3 formati, foglio rivisto visibile in INSEGNA → Materiali.
+
 ### ✅ FATTO (23/7/26): ELABORA hub documenti — editor quiz/sintesi, foglio flashcard, «Quiz cartacei» in INSEGNA
 Richiesta utente: la pagina ELABORA diventa hub di elaborazione anche per i DOCUMENTI DI
 OUTPUT. **Principio non negoziabile**: si edita la SORGENTE (item degli studySets, blocchi
