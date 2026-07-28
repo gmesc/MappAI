@@ -115,7 +115,10 @@ window.openNodeLabelsPrintModal = function () {
 
                 '<p class="pm-body-text">' +
                     'Genera un foglio PDF ritagliabile con le etichette dei nodi della mappa. ' +
-                    'Scegli fino a che livello di profondità includere.' +
+                    'Scegli fino a che livello di profondità includere.<br>' +
+                    '<span style="color:#64748b">' +
+                    window.t('ns_hint_editor', 'Per decidere il contenuto card per card (e correggere i testi prima di stampare): ELABORA → Documenti → Foglio dei nodi.') +
+                    '</span>' +
                 '</p>' +
 
                 '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">' +
@@ -253,7 +256,12 @@ window._nlSyncContentLock = function () {
 // argomenti (comportamento invariato); la pipeline la chiama con opzioni esplicite.
 //   opts = { depth:'all'|number, fmt:'3x4'|'2x2'|'2x1', layout:'title'|'summary'|
 //            'keywords'|'card', bg:'none'|'grid', tuned:bool, causal:bool,
-//            toDisk:{vaultPath} }
+//            toDisk:{vaultPath},
+//            cards:[{id,label,layout,keywords[],desc}] }
+// `cards` = foglio RIVISTO dall'editor (ELABORA → Documenti): ogni card porta il
+// PROPRIO tipo di contenuto, il proprio titolo e i propri testi. Quando c'è,
+// sostituisce depth/layout e la generazione AI delle parole chiave (già decise
+// dal docente); il resto del motore — griglia, tratteggio, sfondo — è lo stesso.
 // Ritorna Promise<{ ok, base64?, fileName }>. Con toDisk: niente doc.save/archivio/toast.
 window.printAllNodeLabels = async function (opts) {
     opts = opts || {};
@@ -266,6 +274,10 @@ window.printAllNodeLabels = async function (opts) {
     // Formato foglio (colonne × righe) e contenuto della card (title | summary | keywords).
     // ⚠️ Il foglio dei nodi ha misure PROPRIE e resta indipendente dal foglio
     // flashcard (mappai-print-layout.js): non condividono nulla di proposito.
+    // Le misure vivono nel core del foglio nodi (mappai-nodesheet-core.js), così
+    // l'editor mostra le stesse soglie che il PDF rispetta; se il core manca, i
+    // numeri storici qui sotto restano il fallback.
+    var NS = window.MappAINodeSheet || null;
     var FMT = { '3x4': { cols: 3, rows: 4 }, '2x2': { cols: 2, rows: 2 }, '2x1': { cols: 2, rows: 1 } };
     var fmtVal = opts.fmt
         || (function () { var el = document.querySelector('input[name="nl-fmt"]:checked'); return el ? el.value : '3x4'; })();
@@ -275,6 +287,9 @@ window.printAllNodeLabels = async function (opts) {
     var layout = opts.layout
         || (function () { var el = document.querySelector('input[name="nl-layout"]:checked'); return el ? el.value : 'title'; })();
     if (fmt === '3x4') layout = 'title'; // 3×4 = solo titolo (vincolo motore)
+
+    // Foglio già rivisto nell'editor: le card decidono da sé cosa mostrano.
+    var editedCards = Array.isArray(opts.cards) && opts.cards.length ? opts.cards : null;
 
     // Sfondo pagina: none | grid (quadretti 5 mm cyan)
     var pageBg = opts.bg
@@ -296,11 +311,11 @@ window.printAllNodeLabels = async function (opts) {
     if (modal) modal.remove();
 
     const allNodes = appState.db.nodes || [];
-    const nodes = maxLevel !== null
+    const nodes = editedCards ? [] : (maxLevel !== null
         ? allNodes.filter(function (n) { return (n.level || 0) <= maxLevel; })
-        : allNodes;
+        : allNodes);
 
-    if (nodes.length === 0) {
+    if (!editedCards && nodes.length === 0) {
         if (!toDisk) window.showToast(window.t('tst_no_nodes', "Nessun nodo presente nella mappa."), "warning");
         return { ok: false, error: 'nessun nodo' };
     }
@@ -310,7 +325,7 @@ window.printAllNodeLabels = async function (opts) {
     // Modalità "keywords": genera le parole chiave con AI (fallback deterministico
     // sui figli/desc se la chiamata fallisce o non c'è una API key)
     var keywordsMap = {};
-    if (layout === 'keywords') {
+    if (!editedCards && layout === 'keywords') {
         var kwApiKey = window.getSystemKey ? window.getSystemKey() : '';
         if (kwApiKey) {
             window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi…');
@@ -368,22 +383,23 @@ window.printAllNodeLabels = async function (opts) {
         console.warn("Impossibile caricare Space Mono, uso Courier come fallback:", err);
     }
 
-    const marginX = 10;
-    const marginY = 15;
-    const pageWidth = 297;
-    const pageHeight = 210;
-
     // Geometria: le card riempiono la pagina secondo il formato (colonne × righe).
+    const G = NS ? NS.geom(fmt) : null;
+    const marginX = G ? G.marginX : 10;
+    const marginY = G ? G.marginY : 15;
+    const pageWidth = G ? G.pageW : 297;
+    const pageHeight = G ? G.pageH : 210;
+
     const colWidth = (pageWidth - 2 * marginX) / cols;
     const rowHeight = (pageHeight - 2 * marginY) / rowsPerPage;
     const PT2MM = 0.352778;
-    const padX = 4;
+    const padX = G ? G.padX : 4;
 
     // Font per formato (card più grande = titolo/keyword più grandi)
     // Titoli in grassetto e +2pt rispetto alla versione base.
-    const TITLE_PT = ({ '3x4': 22, '2x2': 28, '2x1': 32 })[fmt] || 22;
-    const KW_PT = ({ '2x2': 13, '2x1': 15 })[fmt] || 12;
-    const CARD_DESC_PT = ({ '2x2': 11, '2x1': 13 })[fmt] || 11; // corpo desc scheda
+    const TITLE_PT = G ? G.titlePt : (({ '3x4': 22, '2x2': 28, '2x1': 32 })[fmt] || 22);
+    const KW_PT = G ? G.kwPt : (({ '2x2': 13, '2x1': 15 })[fmt] || 12);
+    const CARD_DESC_PT = G ? G.descPt : (({ '2x2': 11, '2x1': 13 })[fmt] || 11); // corpo desc scheda
 
     // Sfondo pagina: griglia a quadretti 5 mm, linee 0,3 mm cyan al 10%
     function drawPageGrid() {
@@ -402,9 +418,35 @@ window.printAllNodeLabels = async function (opts) {
         if (useG) { try { doc.setGState(new doc.GState({ 'stroke-opacity': 1 })); } catch (e) {} }
     }
 
+    // Una VOCE per card stampata: dal foglio rivisto (ogni card col suo tipo di
+    // contenuto) oppure dai nodi con il tipo scelto una volta per tutte nel modale.
+    const nodeById = {};
+    allNodes.forEach(function (n) { nodeById[n.id] = n; });
+    const entries = editedCards
+        ? editedCards.map(function (c) {
+            const n = nodeById[c.id] || { id: c.id, label: c.label, desc: c.desc || '' };
+            const lay = (fmt === '3x4') ? 'title' : String(c.layout || 'title');
+            return {
+                node: n,
+                label: String(c.label != null ? c.label : cleanLabel(n.label)).trim(),
+                layout: lay,
+                keywords: Array.isArray(c.keywords) ? c.keywords : [],
+                desc: String(c.desc || '')
+            };
+        })
+        : nodes.map(function (n) {
+            return {
+                node: n,
+                label: cleanLabel(n.label),
+                layout: layout,
+                keywords: keywordsMap[n.id] || [],
+                desc: String(n.desc || n.content || '').trim()
+            };
+        });
+
     let currentNodeIndex = 0;
 
-    while (currentNodeIndex < nodes.length) {
+    while (currentNodeIndex < entries.length) {
         if (currentNodeIndex > 0) {
             doc.addPage();
         }
@@ -412,9 +454,11 @@ window.printAllNodeLabels = async function (opts) {
 
         for (let r = 0; r < rowsPerPage; r++) {
             for (let c = 0; c < cols; c++) {
-                if (currentNodeIndex >= nodes.length) break;
+                if (currentNodeIndex >= entries.length) break;
 
-                const node = nodes[currentNodeIndex];
+                const entry = entries[currentNodeIndex];
+                const node = entry.node;
+                const cardLayout = entry.layout;
                 currentNodeIndex++;
 
                 const x = marginX + c * colWidth;
@@ -432,11 +476,11 @@ window.printAllNodeLabels = async function (opts) {
                     doc.setLineDashPattern([], 0);
                 }
 
-                const labelText = cleanLabel(node.label);
+                const labelText = entry.label;
                 doc.setTextColor(0, 0, 0);
                 const maxTextWidth = colWidth - 2 * padX;
 
-                if (layout === 'title') {
+                if (cardLayout === 'title') {
                     // Titolo centrato verticalmente nella card (grassetto)
                     doc.setFont(fontName, "bold");
                     doc.setFontSize(TITLE_PT);
@@ -449,10 +493,13 @@ window.printAllNodeLabels = async function (opts) {
                         doc.text(line, x + colWidth / 2, currentY, { align: 'center' });
                         currentY += lineHeight;
                     });
-                } else if (layout === 'card') {
-                    // "card": titolo compatto in alto + descrizione giustificata,
-                    // sillabata, con concetti in grassetto, margini 4 mm dal taglio
-                    const CARD_TITLE_PT = ({ '2x2': 20, '2x1': 24 })[fmt] || 20;
+                } else if (cardLayout === 'card') {
+                    // "card": titolo + descrizione giustificata, sillabata, con
+                    // concetti in grassetto, margini 4 mm dal taglio.
+                    // Il GRUPPO titolo+descrizione è centrato in verticale: una
+                    // descrizione di una riga sta al centro della card, e il blocco
+                    // cresce verso l'alto e verso il basso man mano che si allunga.
+                    const CARD_TITLE_PT = G ? G.cardTitlePt : (({ '2x2': 20, '2x1': 24 })[fmt] || 20);
                     const boxLeft = x + 4;
                     const boxW = colWidth - 8;
                     doc.setFont(fontName, "bold");
@@ -460,51 +507,90 @@ window.printAllNodeLabels = async function (opts) {
                     const cTitleFH = CARD_TITLE_PT * PT2MM;
                     const cTitleLH = cTitleFH * 1.2;
                     const cTitleLines = doc.splitTextToSize(labelText, boxW).slice(0, 3);
-                    let cty = y + 4 + cTitleFH;
+                    // Altezza del blocco titolo come nella resa storica: la prima
+                    // linea di base sta un corpo sotto il bordo alto, poi un'interlinea
+                    // per riga.
+                    const cTitleH = cTitleFH + cTitleLines.length * cTitleLH;
+                    const descText = String(entry.desc || node.desc || node.content || '').trim();
+                    const CARD_GAP = 1.5;
+                    // Quanto è alta davvero la descrizione: la misuriamo con lo stesso
+                    // impaginatore che poi la disegna (a vuoto), così il centraggio
+                    // non è una stima.
+                    const availDesc = rowHeight - 8 - cTitleH - CARD_GAP;
+                    const descH = descText
+                        ? _drawJustifiedDesc(doc, descText, boxLeft, 0, boxW, availDesc, fontName, CARD_DESC_PT, null, { measureOnly: true })
+                        : 0;
+                    const blockH = cTitleH + (descH ? CARD_GAP + descH : 0);
+                    // Se il blocco è più alto della card, si riparte dall'alto: meglio
+                    // tagliato in fondo che tagliato in testa.
+                    const top = y + Math.max(4, (rowHeight - blockH) / 2);
+                    doc.setFont(fontName, "bold");
+                    doc.setFontSize(CARD_TITLE_PT);
+                    let cty = top + cTitleFH;
                     cTitleLines.forEach(function (line) {
                         doc.text(line, boxLeft, cty, { align: 'left' });
                         cty += cTitleLH;
                     });
-                    const descText = String(node.desc || node.content || '').trim();
-                    if (descText) {
-                        const descTop = cty + 1.5;
-                        const descBottom = y + rowHeight - 4;
+                    if (descText && descH) {
                         doc.setTextColor(30, 30, 30);
-                        _drawJustifiedDesc(doc, descText, boxLeft, descTop, boxW, descBottom - descTop, fontName, CARD_DESC_PT, _cardBoldSet(node));
+                        _drawJustifiedDesc(doc, descText, boxLeft, top + cTitleH + CARD_GAP, boxW, descH + 0.01, fontName, CARD_DESC_PT, _cardBoldSet(node));
                         doc.setTextColor(0, 0, 0);
                     }
                 } else {
-                    // "summary" e "keywords": titolo ancorato in alto (grassetto)
+                    // "summary" e "keywords": titolo + contenuto sotto.
+                    // Il gruppo è CENTRATO in verticale — una sola parola chiave non
+                    // deve spingere il titolo in cima alla card lasciando il vuoto
+                    // sotto. Con «spazio da scrivere» il blocco riempie la card (le
+                    // righe da riempire sono il contenuto), quindi il titolo resta in
+                    // alto come prima.
                     doc.setFont(fontName, "bold");
                     doc.setFontSize(TITLE_PT);
                     const titleFH = TITLE_PT * PT2MM;
                     const titleLH = titleFH * 1.25;
                     const titleLines = doc.splitTextToSize(labelText, maxTextWidth).slice(0, 3);
-                    let ty = y + 8 + titleFH;
+                    const titleH = titleFH + titleLines.length * titleLH;
+                    const KW_GAP = 3;
+                    const kwFH = KW_PT * PT2MM;
+                    const kwLH = kwFH * 1.55;
+
+                    // Le parole chiave si impaginano PRIMA di disegnarle: senza sapere
+                    // quante righe occupano non si può centrare il gruppo.
+                    let kwLines = [];
+                    if (cardLayout === 'keywords') {
+                        const maxKwLines = Math.max(0, Math.floor((rowHeight - 8 - titleH - KW_GAP - 3) / kwLH));
+                        doc.setFont(fontName, "normal");
+                        doc.setFontSize(KW_PT);
+                        (entry.keywords || []).slice(0, 7).forEach(function (k) {
+                            doc.splitTextToSize(String(k), maxTextWidth).forEach(function (ln) {
+                                if (kwLines.length < maxKwLines) kwLines.push(ln);
+                            });
+                        });
+                    }
+                    const kwBlockH = kwLines.length * kwLH;
+                    const blockH = titleH + (kwBlockH ? KW_GAP + kwBlockH : 0);
+                    const top = (cardLayout === 'summary')
+                        ? (y + 8)
+                        : (y + Math.max(4, (rowHeight - blockH) / 2));
+
+                    doc.setFont(fontName, "bold");
+                    doc.setFontSize(TITLE_PT);
+                    let ty = top + titleFH;
                     titleLines.forEach(function (line) {
                         doc.text(line, x + colWidth / 2, ty, { align: 'center' });
                         ty += titleLH;
                     });
 
-                    if (layout === 'keywords') {
-                        // Keyword impaginate IN COLONNA, una per riga
-                        const kws = (keywordsMap[node.id] || []).slice(0, 7);
-                        if (kws.length) {
+                    if (cardLayout === 'keywords') {
+                        if (kwLines.length) {
                             doc.setFont(fontName, "normal");
                             doc.setFontSize(KW_PT);
                             doc.setTextColor(90, 90, 90);
-                            const kwFH = KW_PT * PT2MM;
-                            const kwLH = kwFH * 1.55;
                             const maxKwBottom = y + rowHeight - 3;
-                            ty += 3;
-                            for (let ki = 0; ki < kws.length; ki++) {
-                                if (ty + kwFH > maxKwBottom) break;
-                                const kwLines = doc.splitTextToSize(kws[ki], maxTextWidth);
-                                for (let li = 0; li < kwLines.length; li++) {
-                                    if (ty + kwFH > maxKwBottom) break;
-                                    doc.text(kwLines[li], x + colWidth / 2, ty, { align: 'center' });
-                                    ty += kwLH;
-                                }
+                            ty = top + titleH + KW_GAP + kwFH;
+                            for (let li = 0; li < kwLines.length; li++) {
+                                if (ty > maxKwBottom) break;
+                                doc.text(kwLines[li], x + colWidth / 2, ty, { align: 'center' });
+                                ty += kwLH;
                             }
                             doc.setTextColor(0, 0, 0);
                         }
@@ -520,7 +606,7 @@ window.printAllNodeLabels = async function (opts) {
                     }
                 }
             }
-            if (currentNodeIndex >= nodes.length) break;
+            if (currentNodeIndex >= entries.length) break;
         }
     }
 
@@ -536,17 +622,23 @@ window.printAllNodeLabels = async function (opts) {
     }
 
     const verde = tuned ? '-[VERDE]' : '';
+    // Foglio rivisto nell'editor: le card hanno tipi di contenuto diversi, quindi
+    // il nome non può dire «keywords» o «card» — e non deve sovrascrivere il
+    // foglio generato in automatico con lo stesso tipo.
+    const layoutName = editedCards ? 'rivisto' : layout;
 
-    // Modalità headless (pipeline): ritorna il PDF come base64, nessun effetto UI.
-    // Il nome canonico lo decide l'orchestratore; qui offriamo quello di default.
+    // Modalità headless (pipeline / «Nel vault» dell'editor): ritorna il PDF come
+    // base64, nessun effetto UI. Il nome canonico lo decide l'orchestratore.
     if (toDisk) {
         var pipeName = (window.MappAIPipelineCore && window.MappAIPipelineCore.buildFileName)
-            ? window.MappAIPipelineCore.buildFileName('nodesheet', layout, tuned)
-            : ('Foglio-nodi-' + layout + verde + '.pdf');
+            ? window.MappAIPipelineCore.buildFileName('nodesheet', layoutName, tuned)
+            : ('Foglio-nodi-' + layoutName + verde + '.pdf');
         return { ok: true, base64: doc.output('datauristring'), fileName: pipeName };
     }
 
-    const domFileName = `Label-${projectTitle}${verde}.pdf`;
+    const domFileName = editedCards
+        ? `Foglio-nodi-${projectTitle} (rivisto)${verde}.pdf`
+        : `Label-${projectTitle}${verde}.pdf`;
     doc.save(domFileName);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 
@@ -556,7 +648,10 @@ window.printAllNodeLabels = async function (opts) {
         if (window.MappAIStudyDocs) {
             window.MappAIStudyDocs.save({
                 kind: 'nodesheet',
-                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle + (tuned ? ' [VERDE]' : ''),
+                // Il foglio rivisto è un documento a sé: senza il suffisso l'archivio
+                // (che deduplica per tipo|titolo|mappa) sovrascriverebbe l'automatico.
+                title: window.t('ui_node_sheet_btn', 'Foglio nodi') + ' — ' + projectTitle +
+                    (editedCards ? ' ' + window.t('ns_revised', '(rivisto)') : '') + (tuned ? ' [VERDE]' : ''),
                 mapName: projectTitle,
                 pdf: doc.output('datauristring')
             });
@@ -1101,8 +1196,12 @@ function _cardBoldSet(node) {
 
 // Impagina `text` giustificato a pacchetto in un box (mm), con sillabazione,
 // grassetto per-token e troncamento con "..." quando finisce lo spazio.
-function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt, boldSet) {
-    if (!text || boxH <= 0 || boxW <= 0) return;
+// Ritorna l'ALTEZZA occupata (mm). `opts.measureOnly` impagina senza disegnare:
+// serve a chi deve centrare il blocco e quindi sapere quanto è alto prima di
+// piazzarlo — misura e resa vengono dallo stesso impaginatore, non da una stima.
+function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt, boldSet, opts) {
+    opts = opts || {};
+    if (!text || boxH <= 0 || boxW <= 0) return 0;
     var PT2MM = 0.352778;
     var lineH = sizePt * PT2MM * 1.4;
     var maxLines = Math.max(1, Math.floor(boxH / lineH + 0.001));
@@ -1187,6 +1286,8 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
         last.natural = true; // riga troncata non va giustificata
     }
 
+    if (opts.measureOnly) return lines.length * lineH;
+
     var yline = boxY + sizePt * PT2MM;
     for (var li = 0; li < lines.length; li++) {
         var parts = lines[li].parts;
@@ -1203,6 +1304,7 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
         }
         yline += lineH;
     }
+    return lines.length * lineH;
 }
 
 window.printAllNodeDossiers = function () {
