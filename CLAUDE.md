@@ -608,6 +608,89 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (28/7/26): editor documenti — tipi di blocco, dimensione dell'anteprima, etichette ferme; strumenti a11y per contesto
+Sessione di rifinitura sull'editor documenti di ELABORA + gating degli strumenti compensativi.
+Suite **809 pass / 0 fail** (804 + 5 nuovi). Tutto verificato con misure nel browser su un
+harness che carica i moduli VERI (mai stime a occhio); niente di questo è provato in Electron.
+
+**(1) Mockup comparativi degli editor (fuori dal repo).** 4 editor × 3 pannelli larghi DAVVERO
+900/1920/2560 px, generati dall'HTML+CSS veri di `mappai-doc-editor.js` (harness con stub
+minimi + cattura), con interruttore prima/dopo e misure scritte nel file. Materiale usa-e-getta
+nello scratchpad di sessione. La skill globale `~/.claude/skills/mockup-layout` è stata estesa
+con questa seconda ricetta (schermate dell'app alle larghezze vere), un passo di DOMANDE
+iniziali e i modelli riusabili in `assets/`.
+- **Proposta di scala tipografica NON applicata al codice**: a 900px 12/13/14 px con crescita
+  continua (+25% a 2560) via `clamp()` + `cqi`. Vive solo nel mockup, in attesa di decisione.
+  Se la si adotta: la sintesi è un caso a parte (lì lo zoom del foglio vale già ×1.85 a 1920 e
+  ×2.4 a 2300 — sostituirlo con +25% RIMPICCIOLIREBBE il testo di oggi).
+
+**(2) Colonna delle etichette dei blocchi (sintesi)** — [mappai-doc-editor.js](public/js/mappai-doc-editor.js):
+- `flex:0 0 15ch` + `white-space:nowrap` + `text-align:right` + `margin-left:-10px`. In **px** la
+  colonna andava a capo appena il corpo cresceva («SOTTOTITOLO» è la più lunga); in CARATTERI
+  regge qualunque dimensione. Misurato: un solo bordo di allineamento a 900/1920/2560.
+- **Le etichette non seguono lo zoom del foglio**: `--de-zsum` = zoom automatico × zoom utente,
+  `font-size: calc(9px / var(--de-zsum))` → 9px a schermo SEMPRE, e la colonna con loro (83px).
+  Prima a ×2.4 diventavano titoli. È il criterio che già aveva l'etichetta «GENERATO».
+- **`align-items:baseline` sulla riga** (`.de-block`): la targhetta si allinea da sola alla prima
+  riga del blocco. Prima il margine superiore dei titoli stava sul TESTO e spingeva giù solo la
+  colonna di destra → TITOLO 14px più in alto del suo testo, SOTTOTITOLO 9px. La variante con
+  quattro scostamenti a mano (uno per tipo di blocco) è stata scartata: andava ricalibrata a
+  ogni ritocco tipografico. Misurato: scarto 0.0 su h3/h4/p/li/blockquote/raw a ogni zoom.
+  ⚠️ Per verificarlo serve la baseline VERA (sonda `<span style="display:inline-block;width:0;
+  height:0;vertical-align:baseline">`): il `rect.bottom` di un Range include il discendente e dà
+  scarti finti.
+
+**(3) Tipo di blocco cambiabile (sintesi).** Prima il «+» aggiungeva SEMPRE E SOLO un paragrafo e
+il tipo non si poteva cambiare: `blockquote` («Nota») esisteva nel modello, nel lettore TTS e
+nella stampa, ma dall'editor era irraggiungibile.
+- Core puro: `MappAIDocEdit.setBlockTag(blocks, i, tag)` — immutabile, tiene il testo, **rifiuta
+  i blocchi `raw`** (convertirli li darebbe in pasto al lettore ad alta voce, che deve saltarli).
+- UI: l'ETICHETTA è il selettore (clic → menu dei 5 tipi con sottotitolo); il «+» apre lo stesso
+  menu per il blocco nuovo. Stato `_bMenu` (i = cambia il tipo di i, −100−i = aggiungi sotto i).
+- Le citazioni «GENERATO» restano in sola lettura (scelta utente).
+
+**(4) Dimensione dell'anteprima** (richiesta utente): barra dell'editor `− 100% +`, la percentuale
+riporta a 100.
+- Core: `ZOOM_STEPS` `[0.85, 1, 1.15, 1.3, 1.5]` + `stepZoom`/`nearestZoom` (valori vecchi o
+  sporchi → gradino più vicino).
+- `--de-user` MOLTIPLICA lo zoom automatico, non lo sostituisce → chi non tocca niente vede
+  quello di prima. Ricordato **per tipo di documento** (`mappai_doc_zoom_<kind>`): il foglio nodi
+  si guarda da lontano, la sintesi da vicino.
+- Guardia anti-sbordo: `max-width: min(var(--de-max), 100%)` — con lo zoom il 100% vale la
+  larghezza del pannello diviso lo zoom, quindi il foglio si ferma al bordo per costruzione
+  (a 150% in un pannello da 900: 846px invece di 1200). Verificato a ogni gradino.
+- Non è una modifica al documento: niente undo, niente «da salvare». Il tooltip dice che la
+  stampa non cambia (i builder del PDF non leggono il CSS dell'anteprima).
+
+**(5) Strumenti compensativi solo dove si legge** — [mappai-a11y.js](public/js/mappai-a11y.js):
+- Contesto di lettura = `map-view` attiva **e** nessun workspace ELABORA davanti (copre mappa,
+  schede dei nodi, sidebar/Raccoglitore). Fuori: bottone `display:none !important` (l'inline
+  normale perde contro `style.css`) e `tabindex="-1"`.
+- **Gli effetti si SOSPENDONO e si RIPRISTINANO**: nascondere e basta lasciava chi aveva acceso
+  «inverti colori» con lo schermo invertito e senza il bottone per spegnerlo. Classi su `<html>`,
+  riga di lettura e zoom testo tornano com'erano al rientro.
+- Due bug trovati provando: (a) `offsetParent !== null` non rileva `#elab-overlay` — per un
+  elemento `position:fixed` è SEMPRE null → si usa `getComputedStyle(...).display`; (b) il
+  `requestAnimationFrame` che accodava il ricalcolo non scatta a finestra in secondo piano: la
+  richiesta restava appesa, il flag «già in coda» non si riabbassava e da lì in poi nessun cambio
+  di vista veniva più visto → `setTimeout` + `visibilitychange`.
+- Kill-switch `mappai_a11y_everywhere='1'` → comportamento storico.
+
+**Test nuovi** (`tests/docedit-core.test.js`): `setBlockTag` (round-trip HTML, `raw` non
+convertibile, indice fuori range), `stepZoom` (cima/fondo scala), `nearestZoom` (valori sporchi).
+
+**Flag nuovi**: `mappai_doc_zoom_<kind>` (dimensione anteprima per tipo di documento) ·
+`mappai_a11y_everywhere` (strumenti a11y ovunque, comportamento storico).
+
+⚠️ **Da testare in Electron vivo**: menu dei tipi su una sintesi vera (compreso il round-trip
+salva → riapri con un blocco convertito in NOTA) · zoom dell'anteprima sui 4 tipi di documento e
+la sua memoria per tipo · bottone a11y che sparisce entrando in ELABORA e riappare tornando alla
+mappa, con gli effetti ripristinati · stampa invariata dopo aver toccato lo zoom.
+
+🐛 **Difetto PREESISTENTE trovato misurando** (non introdotto qui, non ancora corretto): nel
+foglio dei nodi 7 titoli di card vengono tagliati di ~3px dall'ultima riga (`overflow:hidden` su
+`.de-ns-inner`). Verificato col CSS attuale e Space Mono caricato, identico a 900/1920/2560.
+
 ### ✅ FATTO (27/7/26): editor del FOGLIO DEI NODI in ELABORA → Documenti (contenuto per-card)
 Richiesta utente: il foglio nodi diventa un documento editabile, con il tipo di contenuto
 scelto CARD PER CARD (solo titolo · titolo + spazio da scrivere · titolo + parole chiave ·
@@ -2023,6 +2106,8 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_legacy_float_btns` | **Ripristina i 7 bottoni flottanti storici** del bordo destro (Cloze 📝 20 · Padronanza 🎯 84 · Progressi 📈 148 · Percorso 🧭 212 · Palazzo 🏛️ 276 · Dungeon 🎮 340 · Lavoro 🔥 404). Con feature 001-menu-reorg tutto vive nel launcher Studio attivo (viste+strumenti) e la colonna è vuota; `'1'` torna alla disposizione precedente | OFF |
 | `mappai_deepening_enabled` | Kill-switch generale della **Fase 3.7 deepening** (nodi `_D` di approfondimento). `'false'` = niente pass di approfondimento | ON |
 | `mappai_deepen_residue` | Deepening in **modalità residuo+verdetto (P1+P2)**: materiale dalla fonte + scarto delle parafrasi. `'false'` = comportamento legacy (materiale = desc del padre, nessun verdetto anti-parafrasi) | ON |
+| `mappai_doc_zoom_<kind>` | **Dimensione dell'anteprima** nell'editor documenti, per tipo (`quiz`/`flashcards`/`synthesis`/`nodesheet`). Gradini 0.85·1·1.15·1.3·1.5; moltiplica lo zoom automatico, non tocca la stampa | 1 |
+| `mappai_a11y_everywhere` | `'1'` = **strumenti compensativi ovunque** (comportamento storico). Di default il bottone a11y vive solo nel contesto di lettura — mappa, schede dei nodi, sidebar/Raccoglitore — e fuori di lì gli effetti si sospendono e si ripristinano al rientro | OFF |
 
 **Comandi console:**
 ```js
