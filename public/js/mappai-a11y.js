@@ -99,9 +99,13 @@ window.applyTextZoom = function (idx) {
     if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
     if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
-    // On the landing page, force the zoom level to 1.0 to prevent any enlargement
-    const isLandingVisible = !document.getElementById('map-view')?.classList.contains('active');
-    const effectiveZ = isLandingVisible ? 1.0 : z;
+    // Fuori dal contesto di lettura (landing, COSTRUISCI, INSEGNA, workspace di
+    // ELABORA) lo zoom vale 1: là gli strumenti compensativi non agiscono, e il
+    // bottone che li governa non c'è nemmeno. Vedi in fondo al file.
+    const inContext = window.a11yInReadingContext
+        ? window.a11yInReadingContext()
+        : !!document.getElementById('map-view')?.classList.contains('active');
+    const effectiveZ = inContext ? z : 1.0;
 
     // Imposta la variabile CSS per permettere l'anti-zoom sui bottoni
     document.documentElement.style.setProperty('--app-zoom', effectiveZ);
@@ -232,3 +236,118 @@ window.resetA11yTools = function () {
     });
     document.documentElement.style.fontSize = '';
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// DOVE VIVONO GLI STRUMENTI COMPENSATIVI
+// ══════════════════════════════════════════════════════════════════════════
+// Servono a LEGGERE: la mappa, le schede dei nodi, il raccoglitore in sidebar.
+// Sulla landing (COSTRUISCI / INSEGNA / ELABORA) non hanno niente da compensare
+// e anzi fanno danno — invertono i colori di un'interfaccia di lavoro, ingrandiscono
+// una griglia di bottoni. Quindi lì il bottone sparisce.
+//
+// Sparire non basta: se il docente aveva acceso «inverti colori» e poi entra in
+// ELABORA, senza il bottone resterebbe con lo schermo invertito e nessun modo di
+// tornare indietro. Quindi gli effetti si SOSPENDONO all'uscita e si RIPRISTINANO
+// al rientro — lo stato scelto non si perde, semplicemente non agisce dove non serve.
+//
+// Kill-switch: localStorage `mappai_a11y_everywhere = '1'` → comportamento storico.
+(function () {
+    'use strict';
+
+    // Le classi che gli strumenti mettono su <html>: sono globali, quindi sono
+    // quelle che vanno sospese fuori contesto.
+    const HTML_FX = ['a11y-invert', 'a11y-low-contrast', 'a11y-high-contrast', 'a11y-grayscale', 'dyslexic-font'];
+    let _suspended = null;      // classi sospese (null = strumenti attivi)
+
+    /** Il contesto di lettura: mappa aperta e nessun workspace di ELABORA davanti. */
+    function inReadingContext() {
+        try {
+            const mv = document.getElementById('map-view');
+            if (!mv || !mv.classList.contains('active')) return false;   // landing / Costruisci / Insegna
+            // ELABORA a tutto schermo. `offsetParent` NON serve: per un elemento
+            // position:fixed è sempre null, e il controllo direbbe «non c'è»
+            // mentre copre lo schermo. L'overlay viene rimosso all'uscita, quindi
+            // esistere + non essere display:none basta e avanza.
+            const ov = document.getElementById('elab-overlay');
+            if (ov && getComputedStyle(ov).display !== 'none') return false;
+            return true;
+        } catch (e) { return true; }
+    }
+    window.a11yInReadingContext = inReadingContext;
+
+    function suspend() {
+        if (_suspended) return;
+        const html = document.documentElement;
+        const ruler = document.getElementById('reading-ruler');
+        _suspended = {
+            html: HTML_FX.filter(function (c) { return html.classList.contains(c); }),
+            ruler: !!(ruler && ruler.classList.contains('active'))
+        };
+        _suspended.html.forEach(function (c) { html.classList.remove(c); });
+        if (_suspended.ruler) ruler.classList.remove('active');
+        const panel = document.getElementById('a11y-panel');
+        if (panel) panel.classList.add('hidden-panel');
+        if (window.applyTextZoom) window.applyTextZoom(_zoomIdx());   // fuori contesto → x1 (lo decide applyTextZoom)
+    }
+
+    function restore() {
+        if (!_suspended) return;
+        const html = document.documentElement;
+        _suspended.html.forEach(function (c) { html.classList.add(c); });
+        if (_suspended.ruler) {
+            const r = document.getElementById('reading-ruler');
+            if (r) r.classList.add('active');
+        }
+        _suspended = null;
+        if (window.applyTextZoom) window.applyTextZoom(_zoomIdx());
+    }
+
+    function _zoomIdx() {
+        const v = parseInt(localStorage.getItem('mappai-a11y-zoom') || '0', 10);
+        return isNaN(v) ? 0 : v;
+    }
+
+    function sync() {
+        if (localStorage.getItem('mappai_a11y_everywhere') === '1') return;
+        const btn = document.getElementById('a11y-panel-toggle');
+        const ok = inReadingContext();
+        if (btn) {
+            // `!important` con `!important`: la regola in style.css impone
+            // display:flex, un inline normale non la batte.
+            if (ok) btn.style.removeProperty('display');
+            else btn.style.setProperty('display', 'none', 'important');
+            // Nascosto NON basta per la tastiera: fuori contesto esce dal giro del TAB.
+            if (ok) btn.removeAttribute('tabindex'); else btn.setAttribute('tabindex', '-1');
+            btn.setAttribute('aria-hidden', ok ? 'false' : 'true');
+        }
+        if (ok) restore(); else suspend();
+    }
+    window.syncA11yVisibility = sync;
+
+    // Il contesto cambia in tre modi: map-view che si attiva/disattiva, l'overlay di
+    // ELABORA che compare/sparisce, e i cambi di vista fatti da altri moduli. Un solo
+    // osservatore su <body> li copre tutti; il rAF evita di ricalcolare N volte per tick.
+    // NB: setTimeout e non requestAnimationFrame. In una finestra in secondo piano
+    // il rAF non scatta: la richiesta resta appesa, il flag «già in coda» non si
+    // riabbassa più e da lì in poi nessun cambio di vista viene più visto.
+    let _queued = false;
+    function schedule() {
+        if (_queued) return;
+        _queued = true;
+        setTimeout(function () { _queued = false; sync(); }, 0);
+    }
+    function boot() {
+        sync();
+        try {
+            new MutationObserver(schedule).observe(document.body, {
+                childList: true, subtree: false, attributes: true, attributeFilter: ['class', 'style']
+            });
+            const mv = document.getElementById('map-view');
+            if (mv) new MutationObserver(schedule).observe(mv, { attributes: true, attributeFilter: ['class'] });
+        } catch (e) { /* niente osservatore: resta la sync all'avvio */ }
+        window.addEventListener('hashchange', schedule);
+        document.addEventListener('visibilitychange', schedule);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();

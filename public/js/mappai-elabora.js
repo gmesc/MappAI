@@ -41,8 +41,10 @@
     let _forceEmpty = false;       // uscita manuale dal workspace fullscreen → torna al picker
     // MODALITÀ di elaborazione: 'source' = lavoro sulla fonte (analisi, copertura,
     // evidenziazione); 'docs' = lavoro sui documenti di output già generati (quiz,
-    // flashcard, sintesi) — editor in mappai-doc-editor.js.
-    let _mode = 'source';
+    // flashcard, sintesi, foglio dei nodi) — editor in mappai-doc-editor.js.
+    // Si ENTRA sempre dai DOCUMENTI (scelta utente 27/7/26): è il motivo per cui si
+    // apre ELABORA. L'analisi della fonte resta a un clic sul segmento.
+    let _mode = 'docs';
     let _srcView = 'text';         // vista pannello fonte: 'text' | 'pdf'
     let _rightView = 'cards';      // vista pannello destro: 'cards' | 'tree'
     let _treeCollapsed = new Set();// nodi collassati nell'albero ELABORA (indipendente dalla sidebar)
@@ -76,7 +78,21 @@
     }
 
     // ── entrata nel tab ─────────────────────────────────────────────────────
-    function open() { _injectStyles(); render(); }
+    function open() {
+        // Ogni ENTRATA in ELABORA riparte dai Documenti (il segmento resta lì per
+        // passare alla fonte). Solo qui, non in render(): dentro la sessione il
+        // tab scelto dal docente non deve saltare via da solo.
+        _mode = 'docs';
+        // Editor rimasto aperto su un ALTRO progetto (si cambia mappa senza passare
+        // dal picker): azzeralo, così i Documenti sono quelli della mappa corrente.
+        // Con modifiche non salvate lo lasciamo stare — le perderemmo in silenzio, e
+        // il salvataggio ha già la sua guardia sulla mappa sbagliata.
+        try {
+            const DE = window.MappAIDocEditor;
+            if (DE && DE.sameMap && !DE.sameMap() && !(DE.hasUnsaved && DE.hasUnsaved())) DE.reset();
+        } catch (e) { /* editor assente */ }
+        _injectStyles(); render();
+    }
 
     function render() {
         const host = document.getElementById('elabora-content');
@@ -201,6 +217,10 @@
                     !confirm(t('el_docs_unsaved', 'Ci sono modifiche non salvate nel documento. Uscire comunque?'))) return;
                 window.MappAIDocEditor.reset();
             }
+            // Aprendo un progetto da ELABORA si entra dai DOCUMENTI: è il motivo
+            // per cui ci si arriva (rivedere quiz, flashcard e sintesi prima di
+            // stamparli). L'analisi della fonte resta a un clic sul segmento.
+            _mode = 'docs';
             window.loadSavedProject(id);
             setTimeout(function () { openFromMap(); }, 350);
         }

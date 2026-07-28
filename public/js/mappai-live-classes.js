@@ -129,8 +129,41 @@
   }
 
   // ── Modale ────────────────────────────────────────────────────────────────
+  // Azione di INVIO della schermata corrente: le liste (Classi/Studenti) la
+  // impostano su «conferma e chiudi» — la selezione è già applicata al clic, e
+  // all'avvio di MappAI il picker si toglie di mezzo con un tasto. I form
+  // (crea/modifica) la lasciano vuota: lì Invio resta il tasto dei campi.
+  var _onEnter = null;
+  var _keyHandler = null;
+
+  function _bindEnter(ov) {
+    if (_keyHandler) document.removeEventListener('keydown', _keyHandler, true);
+    _keyHandler = function (e) {
+      // Invio anche dal tastierino numerico; `keyCode` come rete per le tastiere
+      // (e i telecomandi da lavagna) che non riempiono `key`.
+      var isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13);
+      if (!isEnter || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!document.getElementById('class-accounts-modal')) return;
+      if (!_onEnter) return;
+      // Invio dentro un campo appartiene al campo, non al modale.
+      var el = e.target;
+      if (el && el.closest && el.closest('input,textarea,select,[contenteditable="true"]')) return;
+      e.preventDefault(); e.stopPropagation();
+      _onEnter();
+    };
+    document.addEventListener('keydown', _keyHandler, true);
+    // Senza fuoco dentro il modale i tasti finirebbero alla pagina sotto.
+    setTimeout(function () {
+      try {
+        var card = ov.querySelector('[role="dialog"]');
+        if (card && !ov.contains(document.activeElement)) { card.tabIndex = -1; card.focus({ preventScroll: true }); }
+      } catch (e) { /* fuoco best-effort */ }
+    }, 0);
+  }
+
   function overlay(bodyHtml, maxWidth) {
     closeModal();
+    _onEnter = null;   // ogni schermata dichiara la sua (default: Invio non fa nulla)
     var ov = document.createElement('div');
     ov.id = 'class-accounts-modal';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9992;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
@@ -144,9 +177,14 @@
     ov.querySelector('.cls-close').onclick = closeModal;
     document.body.appendChild(ov);
     if (window.safeCreateIcons) window.safeCreateIcons();
+    _bindEnter(ov);
     return ov;
   }
-  function closeModal() { var m = document.getElementById('class-accounts-modal'); if (m) m.remove(); }
+  function closeModal() {
+    var m = document.getElementById('class-accounts-modal'); if (m) m.remove();
+    if (_keyHandler) { document.removeEventListener('keydown', _keyHandler, true); _keyHandler = null; }
+    _onEnter = null;
+  }
 
   function btn(label, style) {
     return '<button type="button" style="border:none;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:700;font-size:12px;' + style + '">' + esc(label) + '</button>';
@@ -218,13 +256,16 @@
 
     var body = tabBar('classi') +
       '<div style="font-size:12px;color:#64748b;margin-bottom:12px">' +
-      esc(t('cls_intro_sel', 'Clicca una classe per renderla ATTIVA (tara la generazione e filtra la sezione Insegna). "Gestisci" per modificarla.')) + '</div>' +
+      esc(t('cls_intro_sel', 'Clicca una classe per renderla ATTIVA (tara la generazione e filtra la sezione Insegna). "Gestisci" per modificarla. Premi Invio per confermare e chiudere.')) + '</div>' +
       rows +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px">' +
       (activeId ? btn(t('cls_generic', 'Generico'), GHOST).replace('<button', '<button data-cgeneric="1"') : '<span></span>') +
       btn('+ ' + t('cls_new', 'Nuova classe'), PRIMARY).replace('<button', '<button data-new="1"') + '</div>';
 
     var ov = overlay(body);
+    // Invio = «va bene così»: la classe evidenziata è già quella attiva (il clic
+    // la imposta), quindi confermare vuol dire chiudere e proseguire.
+    _onEnter = closeModal;
     wireTabs(ov);
     ov.querySelectorAll('[data-activate]').forEach(function (b) { b.onclick = function () { STORE.setActive(b.getAttribute('data-activate')); renderList(); }; });
     ov.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function (e) { e.stopPropagation(); renderEdit(b.getAttribute('data-edit')); }; });
@@ -249,12 +290,13 @@
         '</div>';
     }).join('') : '<div style="text-align:center;color:#94a3b8;padding:24px 0;font-size:13px">' + esc(t('stu_empty', 'Nessuna scheda studente. Creane una per un allievo che segui (es. sostegno).')) + '</div>';
     var body = tabBar('studenti') +
-      '<div style="font-size:12px;color:#64748b;margin-bottom:12px">' + esc(t('stu_intro', 'Schede allievo per la taratura AI individuale (utile al docente di sostegno). "Attiva" una scheda per generare al livello di quello studente.')) + '</div>' +
+      '<div style="font-size:12px;color:#64748b;margin-bottom:12px">' + esc(t('stu_intro', 'Schede allievo per la taratura AI individuale (utile al docente di sostegno). "Attiva" una scheda per generare al livello di quello studente. Premi Invio per confermare e chiudere.')) + '</div>' +
       rows +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px">' +
       (active ? btn(t('stu_generic', 'Nessuno (generico)'), GHOST).replace('<button', '<button data-sgeneric="1"') : '<span></span>') +
       btn('+ ' + t('stu_new', 'Nuova scheda studente'), PRIMARY).replace('<button', '<button data-snew="1"') + '</div>';
     var ov = overlay(body);
+    _onEnter = closeModal;   // come nelle classi: Invio conferma la scheda attiva e chiude
     wireTabs(ov);
     ov.querySelectorAll('[data-sedit]').forEach(function (b) { b.onclick = function () { renderStudentEdit(parseInt(b.getAttribute('data-sedit'), 10)); }; });
     var nb = ov.querySelector('[data-snew]'); if (nb) nb.onclick = renderStudentCreate;
