@@ -1,0 +1,26 @@
+[
+  {
+    "source": "ROOT",
+    "target": "L1_1",
+    "rel": "gestisce",
+    "isCross": false
+  },
+  {
+    "source": "ROOT",
+    "target": "L1_3",
+    "rel": "promuove",
+    "isCross": false
+  },
+  {
+    "source": "L1_1",
+    "target": "L1_1_L2_A",
+    "rel": "include",
+    "isCross": false
+  },
+  {
+    "source": "L1_3",
+    "target": "L1_1",
+    "rel": "genera",
+    "isCross": true
+  }
+]

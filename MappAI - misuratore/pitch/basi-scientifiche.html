@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MappAI — Basi scientifiche e proposta di sperimentazione didattica</title>
+<style>
+:root{
+  --bg:#f0f4ff; --surface:#ffffff; --ink:#1e293b; --ink-2:#475569;
+  --muted:#64748b; --faint:#94a3b8; --line:#e2e8f0;
+  --indigo:#6366f1; --indigo-d:#4f46e5; --emerald:#10b981; --emerald-l:#34d399;
+  --blue:#3b82f6; --yellow:#facc15; --orange:#f97316; --pink:#f43f5e;
+  --violet:#8b5cf6; --teal:#2dd4bf;
+  --radius:24px; --radius-sm:14px;
+  --shadow:0 10px 40px -12px rgba(30,41,59,.18);
+  --shadow-sm:0 4px 18px -8px rgba(30,41,59,.20);
+  /* Colonna più larga: il documento contiene tabelle a cinque colonne che a
+     1100px si comprimevano. 1240 le fa respirare senza rompere la misura di
+     lettura, perché la prosa resta comunque limitata a 74ch (.prose). */
+  --maxw:1240px;
+  /* Colonna unica di lettura, centrata: titoli, prosa e schede stanno tutti
+     sullo stesso asse. A 19px di corpo, 860px valgono circa 75 battute. */
+  --col:min(100%, 860px);
+  /* Deroga per le tabelle: cinque colonne di ancoraggi in 860px diventerebbero
+     illeggibili, e comprimerle vanificherebbe il senso di pubblicarle. */
+  --col-wide:min(100%, 1160px);
+  --pad:clamp(18px, 4vw, 30px);
+  /* Scala tipografica fluida: nessun salto brusco fra telefono e desktop. */
+  --fs-body:clamp(17px, 0.72vw + 15.2px, 19px);
+  --fs-prosa:clamp(16.5px, 0.62vw + 14.9px, 18.5px);
+  --fs-small:clamp(15px, 0.4vw + 14px, 16.5px);
+  --fs-tab:clamp(14px, 0.38vw + 13px, 15.5px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  font-family:'Space Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  background:var(--bg); color:var(--ink);
+  font-size:var(--fs-body); line-height:1.68;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+#progress{position:fixed;top:0;left:0;height:4px;width:0;z-index:100;
+  background:linear-gradient(90deg,var(--indigo),var(--emerald-l));transition:width .1s linear}
+#topbar{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;align-items:center;
+  justify-content:space-between;gap:14px;padding:13px var(--pad);
+  backdrop-filter:blur(10px);background:rgba(240,244,255,.72);border-bottom:1px solid transparent;
+  transition:border-color .3s, background .3s}
+#topbar.scrolled{border-color:var(--line);background:rgba(240,244,255,.94)}
+.brand{display:flex;align-items:baseline;gap:9px;font-weight:700;font-size:17px;letter-spacing:-.4px;
+  flex-wrap:wrap}
+.brand em{font-style:normal;color:var(--muted);font-weight:400;font-size:12.5px}
+.topmeta{font-size:12px;color:var(--muted);text-align:right;line-height:1.45}
+/* Sul telefono la testata si asciuga: resta il marchio e un accesso all'indice,
+   perché i punti laterali lì non ci sono. */
+@media(max-width:820px){
+  .topmeta{display:none}
+  .brand em{display:none}
+}
+
+#dots{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:90;
+  display:flex;flex-direction:column;gap:12px}
+#dots a{width:10px;height:10px;border-radius:50%;background:#cbd5e1;display:block;
+  transition:all .25s;position:relative}
+#dots a.active{background:var(--indigo);transform:scale(1.4)}
+#dots a span{position:absolute;right:19px;top:50%;transform:translateY(-50%);
+  white-space:nowrap;font-size:11px;color:var(--muted);background:var(--surface);
+  padding:4px 9px;border-radius:6px;border:1px solid var(--line);opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#dots a:hover span{opacity:1}
+@media(max-width:1080px){#dots{display:none}}
+
+/* Navigazione di sostituzione per telefono e tablet: un menu a tendina che
+   porta alle sezioni. Compare solo dove i punti spariscono. */
+#navmob{display:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--indigo-d);
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:8px 12px;max-width:52vw;min-height:38px}
+@media(max-width:1080px){#navmob{display:block}}
+
+section{position:relative;padding:clamp(56px,8vw,96px) var(--pad);max-width:var(--col-wide);margin:0 auto}
+
+/* ── UNA COLONNA SOLA, CENTRATA ────────────────────────────────────────────
+   Titoli, prosa, schede e riquadri condividono lo stesso asse verticale e la
+   stessa larghezza. Prima il testo si appoggiava al bordo sinistro mentre le
+   schede attraversavano tutta la pagina: due allineamenti diversi nello stesso
+   documento, che l'occhio legge come due impaginazioni sovrapposte. */
+section > h1, section > h2, section > h3, section > p,
+section > .lead, section > .prose, section > .grid,
+section > .card, section > .callout, section > .toc,
+section > .pipe, section > .src, section > .kicker, section > .voci{
+  max-width:var(--col); margin-inline:auto;
+}
+/* Le tabelle escono dalla colonna e si allargano, restando centrate. */
+section > .tbl-wrap{max-width:var(--col-wide); margin-inline:auto}
+/* Deroga alla deroga: una tabella di poche colonne discorsive sta meglio
+   allineata alla prosa che allargata. Due classi battono elemento+classe,
+   quindi questa vince sulla regola qui sopra senza !important. */
+.tbl-wrap.in-colonna{max-width:var(--col)}
+
+/* Sillabazione: l'italiano ha parole lunghe e la colonna è stretta, quindi
+   senza sillabazione restano buchi bianchi in mezzo alla riga. Sui titoli no:
+   lì si bilanciano le righe, che è la cura giusta per i testi corti. */
+p, li, td, .prose p, .callout p, .small, .biblio li, .toc a{
+  hyphens:auto; -webkit-hyphens:auto; hyphenate-limit-chars:7 3 3;
+  text-wrap:pretty;
+}
+h1, h2, h3, h4, .lab, .tag{hyphens:none; -webkit-hyphens:none; text-wrap:balance}
+/* Niente flex-wrap: con l'a-capo il testo lungo diventa un elemento a sé e
+   spinge il pallino su una riga tutta sua. Senza, il testo si restringe e va
+   a capo DENTRO la propria riga, restando accanto al pallino. */
+/* flex e non inline-flex: da elemento in linea i margini automatici non fanno
+   presa, e il sopratitolo resterebbe incollato al bordo della sezione invece
+   di allinearsi alla colonna. */
+/* align-items:baseline e non flex-start: allineando i BORDI SUPERIORI, la
+   pastiglia alta 26px scendeva di 3,8px sotto il centro ottico della scritta,
+   che è alta 12,5px in maiuscolo e occupa solo la parte alta della sua riga.
+   Sulla linea di base i due centri ottici coincidono entro 0,2px, e con
+   un'etichetta che va a capo la pastiglia resta agganciata alla PRIMA riga. */
+.kicker{display:flex;justify-content:flex-start;align-items:baseline;gap:9px;font-size:12.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.14em;color:var(--indigo-d);margin-bottom:18px;
+  line-height:1.45;max-width:100%}
+.kicker .badge{min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:var(--indigo);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+h1{font-size:clamp(38px,7.6vw,76px);line-height:1.04;letter-spacing:-.03em;font-weight:700;
+  overflow-wrap:break-word}
+h2{font-size:clamp(27px,4.8vw,47px);line-height:1.12;letter-spacing:-.025em;font-weight:700;
+  margin-bottom:18px;overflow-wrap:break-word}
+h3{font-size:clamp(19px,1.3vw + 16px,23px);font-weight:700;margin-bottom:11px;letter-spacing:-.012em;
+  line-height:1.28}
+h4{font-size:clamp(14.5px,0.34vw + 13.7px,15.5px);font-weight:700;letter-spacing:.035em;margin-bottom:8px}
+p{margin-bottom:16px}
+.lead{font-size:clamp(17.5px,1.5vw,21.5px);color:var(--ink-2);margin-bottom:14px;line-height:1.58}
+.muted{color:var(--muted)} .small{font-size:var(--fs-small);color:var(--muted);line-height:1.6}
+.src{font-size:13px;color:var(--faint);margin-top:14px}
+strong{font-weight:700}
+a{color:var(--indigo-d)}
+.prose p{color:var(--ink-2);font-size:var(--fs-prosa);line-height:1.66}
+.prose p b, .prose p strong{color:var(--ink)}
+
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.19,1,.22,1),transform .7s cubic-bezier(.19,1,.22,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.07s}.reveal.d2{transition-delay:.14s}
+.reveal.d3{transition-delay:.21s}.reveal.d4{transition-delay:.28s}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:clamp(20px,2.4vw,28px);box-shadow:var(--shadow-sm)}
+.card.tight{padding:clamp(17px,1.8vw,22px);border-radius:var(--radius-sm)}
+.grid{display:grid;gap:18px}
+/* auto-fit: le colonne si riducono da sole quando lo spazio manca, senza
+   dover indovinare un punto di rottura per ogni griglia. */
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,224px),1fr))}
+/* Il testo dentro le schede eredita il corpo della prosa: una scheda non è
+   una nota a piè di pagina, si legge come il resto. */
+.card p, .card .small{font-size:var(--fs-small);line-height:1.6}
+
+.stat .num{font-size:clamp(46px,6.2vw,68px);font-weight:700;letter-spacing:-.04em;line-height:.98;display:block}
+.stat .lab{font-size:clamp(14px,0.34vw + 13.2px,15.5px);font-weight:700;margin-top:12px;line-height:1.38;display:block}
+.stat .sub{font-size:clamp(13px,0.28vw + 12.3px,14px);color:var(--muted);margin-top:6px;line-height:1.48}
+
+/* ── Schede della sezione Evidenze: bottoni veri ───────────────────────────
+   Sono <button> e non <div> con un gestore di clic: così tastiera, lettori di
+   schermo e tasto Invio funzionano senza doverli reimplementare a mano.
+
+   Colore: #2563eb invece di --blue (#3b82f6). Il bianco sul blu chiaro dà un
+   contrasto di circa 3,6:1, sotto la soglia AA di 4,5:1 per il testo normale;
+   sul blu più scuro sale a circa 4,9:1. Stesso accento, contrasto conforme:
+   in un documento sull'accessibilità la scorciatoia si vedrebbe. */
+button.card.stat{
+  font:inherit; text-align:left; width:100%; cursor:pointer;
+  display:flex; flex-direction:column;
+  background:#2563eb; border-color:#2563eb; color:#fff;
+  transition:transform .18s cubic-bezier(.19,1,.22,1), box-shadow .18s,
+             background .18s, border-color .18s, color .18s;
+}
+button.card.stat .num, button.card.stat .lab{color:#fff}
+button.card.stat .bar{width:100%; background:rgba(255,255,255,.26)}
+button.card.stat .bar i{background:#fff}
+
+button.card.stat:hover,
+button.card.stat:focus-visible{
+  background:var(--yellow); border-color:var(--yellow);
+  color:var(--slate-800, #1e293b); transform:translateY(-3px); box-shadow:var(--shadow);
+}
+button.card.stat:hover .num, button.card.stat:hover .lab,
+button.card.stat:focus-visible .num, button.card.stat:focus-visible .lab{color:#1e293b}
+button.card.stat:hover .bar, button.card.stat:focus-visible .bar{background:rgba(30,41,59,.20)}
+button.card.stat:hover .bar i, button.card.stat:focus-visible .bar i{background:#1e293b}
+/* Il contorno di messa a fuoco resta scuro su entrambi i fondi. */
+button.card.stat:focus-visible{outline:3px solid #1e293b; outline-offset:3px}
+
+/* ── Sezione 2 · le due schede di misura ───────────────────────────────────
+   Fondo pieno con l'accento chiaro di ciascuna e testo bianco: scelta grafica
+   voluta. ATTENZIONE — è l'unico punto del documento sotto la soglia AA: il
+   bianco dà 2,54:1 sul verde e 2,15:1 sull'ambra, contro 4,5:1 richiesti (3:1
+   per il numero, che è testo grande). Le varianti scure #047857 e #c2410c
+   riporterebbero entrambe attorno a 5:1, se si volesse rientrare. */
+.card.metrica{display:flex; flex-direction:column; color:#fff; border:none}
+.card.metrica.verde{background:#10b981}
+.card.metrica.ambra{background:#f59e0b}
+.card.metrica .num{
+  font-size:clamp(46px, 6.2vw, 68px); font-weight:700; letter-spacing:-.04em;
+  line-height:.98; display:block; color:#fff;
+}
+.card.metrica .lab{
+  font-size:clamp(15px, 0.4vw + 14px, 17px); font-weight:700; margin-top:12px;
+  display:block; color:#fff; line-height:1.35;
+}
+/* Bianco pieno, mai trasparente: attenuarlo abbasserebbe ancora un contrasto
+   già sotto soglia. La gerarchia la fa il corpo del testo. */
+.card.metrica .sub{
+  font-size:var(--fs-small); margin-top:7px; display:block;
+  color:#fff; line-height:1.5;
+}
+
+/* ── Sezione 2 · le quattro schede dei modi d'uso ───────────────────────── */
+.card-uso{background:#2563eb; border-color:#2563eb; color:#fff}
+/* Il titolo deve stare sopra il corpo della descrizione (18,5px), altrimenti
+   la gerarchia dentro la scheda si appiattisce. */
+.card-uso h4{color:#fff; font-size:clamp(19px,0.8vw + 17px,22.5px); line-height:1.26;
+  letter-spacing:-.015em; margin-bottom:12px}
+.card-uso .desc{
+  font-size:var(--fs-prosa); line-height:1.62;
+  color:#fff; margin-bottom:0;
+}
+.card-uso .desc b{color:#fff}
+/* I rimandi bibliografici dentro le schede blu: l'indigo sparirebbe. */
+.card-uso .ref{color:#fff; text-decoration:underline; text-underline-offset:2px}
+
+/* ── Sezione 9 · le domande di ricerca ──────────────────────────────────────
+   Due schede a fondo verde pieno: la PRINCIPALE sul tono più scuro
+   (emerald-500), le SECONDARIE sul più chiaro (emerald-400). Il testo delle
+   domande non sta mai sul verde: vive dentro una scheda bianca (.q) con
+   inchiostro slate-800, che dà 14,63:1 — il contrasto più alto del documento.
+   Sul verde restano solo i titoli, brevi e in corpo grande.
+
+     .q-main       la domanda principale, una sola
+     .q-sec        il contenitore delle secondarie, titolo compreso
+     .q-main .q    la scheda bianca con il testo della domanda
+     .q-sec .q     idem, una per domanda secondaria                            */
+.q-main{background:#10b981; border:none; color:#fff}
+.q-sec{background:#34d399; border:none; color:#fff}
+/* Respiro in testa ridotto del 45% rispetto a quello di .card: il titolo è
+   una sola riga breve, e i 28px pieni lo staccavano dal proprio contenuto.
+   La clamp è quella di .card scalata dello stesso fattore, così la riduzione
+   vale a ogni larghezza e non solo sul desktop. */
+.q-main, .q-sec{padding-top:clamp(9.1px, 1.1vw, 12.8px)}
+
+/* I due titoli hanno lo stesso corpo di un <h3> e si rispondono. Niente
+   maiuscoletto spaziato, che a questo corpo diventa un'insegna. */
+.q-main > h4, .q-sec > h3{color:#fff; font-size:clamp(19px, 1.3vw + 16px, 23px);
+  letter-spacing:-.012em; line-height:1.2; margin-bottom:16px}
+
+/* La scheda bianca, identica nelle due famiglie. */
+.q-main .q, .q-sec .q{background:#fff; border-radius:var(--radius-sm);
+  padding:clamp(15px, 1.6vw, 20px)}
+.q-main .q p, .q-sec .q p{color:#1e293b; margin:0}
+.q-main .q b, .q-sec .q b{color:#1e293b}
+.q-sec .q + .q{margin-top:12px}
+
+/* 20,4px = i 17px di partenza aumentati del 20%. Il tetto della clamp è quel
+   valore esatto: sotto scala, sopra non va. */
+.q-main .q p{font-size:clamp(18px, 0.55vw + 15.2px, 20.4px); line-height:1.5}
+/* Titoli +15% e testi +10% rispetto a <h4> e .small: i tetti delle clamp sono
+   quei due valori, calcolati sui massimi di partenza (15,5px e 16,5px). */
+/* Maiuscolo, e interlinea stretta: con l'1,68 ereditato dal corpo il titoletto
+   si portava dietro 6px di vuoto sopra la maiuscola, che sommati al margine
+   della scheda staccavano l'etichetta dal suo stesso testo. */
+.q-sec .q h4{color:#1e293b; font-size:clamp(14.2px, 0.33vw + 13.43px, 15.13px);
+  text-transform:uppercase; line-height:1.18; margin-bottom:4px}
+/* Meno respiro sopra l'etichetta: la scheda bianca è breve, e il vuoto in
+   testa la faceva sembrare un blocco vuoto. */
+.q-sec .q{padding-top:clamp(11px, 1.1vw, 13px)}
+.q-sec .q p{font-size:clamp(16.5px, 0.44vw + 15.4px, 18.15px); line-height:1.6}
+
+/* Chip delle abilità cognitive: fondo bianco, testo blu d'accento. */
+.chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:16px}
+.chip{
+  background:#fff; color:#1d4ed8;
+  font-size:12.5px; font-weight:700; letter-spacing:.02em; line-height:1.3;
+  padding:6px 11px; border-radius:999px; white-space:nowrap;
+}
+@media(max-width:520px){.chip{white-space:normal}}
+
+/* ── Modale della fonte ────────────────────────────────────────────────── */
+#velo{
+  position:fixed; inset:0; z-index:200; display:none;
+  background:rgba(30,41,59,.42); backdrop-filter:blur(3px);
+  align-items:center; justify-content:center; padding:var(--pad);
+}
+#velo[open]{display:flex}
+#modale{
+  background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+  max-width:min(100%, 620px); width:100%; max-height:min(86vh, 760px); overflow:auto;
+  padding:clamp(24px,3vw,34px); position:relative;
+}
+#modale h3{margin:0 0 4px; padding-right:44px}
+#modale .cifra{
+  font-size:clamp(30px,4vw,42px); font-weight:700; line-height:1; letter-spacing:-.03em;
+  margin-bottom:10px;
+}
+#modale .corpo{font-size:var(--fs-prosa); color:var(--ink-2); line-height:1.66; margin-top:16px}
+#modale .corpo p{margin-bottom:12px}
+#modale .corpo p:last-child{margin-bottom:0}
+#modale .corpo b{color:var(--ink)}
+#modale .corpo .tit{
+  display:block; font-size:12.5px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--indigo-d); margin-bottom:3px;
+}
+#modale .cita{
+  display:block; margin-top:22px; padding-top:16px; border-top:1px solid var(--line);
+  font-size:var(--fs-small); color:var(--ink-2); text-decoration:none; line-height:1.55;
+}
+#modale .cita:hover{color:var(--indigo-d)}
+#modale .cita .vai{display:block; margin-top:6px; font-size:12.5px; font-weight:700; color:var(--indigo-d)}
+#modale .cita .vai::after{content:' ↓'}
+#chiudi{
+  position:absolute; top:16px; right:16px; width:38px; height:38px; border-radius:50%;
+  border:1px solid var(--line); background:var(--surface); color:var(--muted);
+  font:inherit; font-size:19px; line-height:1; cursor:pointer;
+}
+#chiudi:hover{background:var(--bg); color:var(--ink)}
+#chiudi:focus-visible{outline:3px solid var(--indigo); outline-offset:2px}
+.esc-hint{
+  position:absolute; bottom:14px; right:20px;
+  font-size:11.5px; color:var(--faint); letter-spacing:.06em;
+}
+@media(max-width:620px){.esc-hint{display:none}}
+.bar{display:block;height:5px;border-radius:999px;background:var(--line);margin-top:14px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:999px;transition:width 1.1s cubic-bezier(.19,1,.22,1)}
+
+/* indice */
+.toc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px}
+.toc ol{list-style:none;counter-reset:t}
+.toc li{counter-increment:t;border-bottom:1px dashed var(--line)}
+.toc li:last-child{border-bottom:none}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:13px 4px;text-decoration:none;color:var(--ink);
+  flex-wrap:wrap}
+.toc a:hover{background:#f8fafc}
+.toc a::before{content:counter(t,decimal-leading-zero);color:var(--indigo);font-size:13px;font-weight:700;min-width:28px}
+.toc a b{font-size:var(--fs-prosa);font-weight:700}
+.toc a span{font-size:var(--fs-small);color:var(--muted);margin-left:auto;text-align:right;max-width:48%}
+/* Sul telefono il sottotitolo va sotto il titolo, non stretto a destra. */
+@media(max-width:700px){
+  .toc a span{margin-left:42px;text-align:left;max-width:100%;flex-basis:100%}
+}
+
+/* tabella */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);
+  -webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-tab)}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;
+  background:#f8fafc;position:sticky;top:0}
+/* Sotto i 780px le tabelle a più colonne non si comprimono: scorrono, e un
+   indizio visivo lo dice. Comprimerle renderebbe illeggibili gli ancoraggi. */
+@media(max-width:780px){
+  table{min-width:640px}
+  .tbl-wrap{position:relative}
+  .tbl-wrap::after{content:'→ scorri';position:sticky;left:0;bottom:0;display:block;
+    font-size:11px;color:var(--faint);padding:5px 12px;background:linear-gradient(90deg,var(--surface),transparent)}
+}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td b{color:var(--ink)}
+
+/* ── CALLOUT · il riquadro che anticipa un'obiezione ────────────────────────
+   Famiglia unica per tutti i blocchi di trasparenza: cautele degli autori,
+   obiezioni per esteso, limiti dichiarati, scelte discutibili. Filetto
+   verticale a sinistra, colore secondo la variante. Quattro varianti:
+
+     .callout          indigo   — nota di metodo, chiarimento
+     .callout.key      verde    — vincolo o principio che governa il resto
+     .callout.warn     arancio  — obiezione, cautela, avvertenza
+     .callout.limit    rosa     — limite dichiarato di ciò che si è misurato
+
+   Il titoletto è un <h4>. Resta maiuscolo, ma la spaziatura fra lettere
+   scende da .11em a .045em: la crenatura va in ragione inversa del corpo, e
+   a 17px la tracciatura da occhiello diventa illeggibile.                    */
+.callout{border-left:4px solid var(--indigo);background:var(--surface);border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  padding:20px 24px;box-shadow:var(--shadow-sm)}
+.callout.warn{border-left-color:var(--orange)}
+.callout.limit{border-left-color:var(--pink)}
+.callout.key{border-left-color:var(--emerald)}
+.callout h4{color:var(--indigo-d);text-transform:uppercase;letter-spacing:.045em;
+  font-size:17.25px;line-height:1.3;margin-bottom:11px}
+.callout.warn h4{color:#c2410c} .callout.limit h4{color:#be123c} .callout.key h4{color:#047857}
+.callout p{font-size:var(--fs-prosa);color:var(--ink-2);margin-bottom:9px;line-height:1.66}
+.callout p:last-child{margin-bottom:0}
+.callout .small{font-size:var(--fs-small)}
+
+/* ── VOCI · elenco di paragrafi con titoletto, in colonna unica ─────────────
+   Alternativa alla griglia di schede quando le voci sono molte o lunghe: in
+   tre colonne strette il testo va a capo ogni quattro parole e la sillabazione
+   spezza le parole a ogni riga. Qui la misura di riga resta quella della prosa,
+   e la suddivisione la fanno il titoletto e il filetto.                       */
+.voci .voce + .voce{margin-top:20px; padding-top:20px; border-top:1px solid var(--line)}
+.voci h4{font-size:clamp(17px, 0.4vw + 16px, 18.5px); letter-spacing:-.005em; margin-bottom:6px}
+.voci p{font-size:var(--fs-prosa); color:var(--ink-2); line-height:1.66; margin:0}
+/* Una voce può avere più capoversi: senza questo si incollerebbero. */
+.voci p + p{margin-top:11px}
+
+/* citazione bibliografica inline — area di tocco adeguata su telefono */
+.ref{font-size:12px;vertical-align:super;color:var(--indigo-d);text-decoration:none;font-weight:700;
+  padding:0 3px;margin:0 -1px}
+.ref:hover{text-decoration:underline}
+@media(pointer:coarse){.ref{padding:2px 5px;font-size:12.5px}}
+
+/* meccanismo → output */
+.mech{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;
+  border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface)}
+.mech > div{padding:18px 20px}
+.mech .m-left{background:#f8fafc}
+.mech .m-arrow{display:flex;align-items:center;justify-content:center;color:var(--faint);
+  border-left:1px solid var(--line);border-right:1px solid var(--line);padding:0 14px;font-size:19px}
+.mech h4{margin-bottom:5px}
+.mech p{font-size:var(--fs-small);color:var(--muted);margin:0;line-height:1.6}
+@media(max-width:880px){
+  .mech{grid-template-columns:1fr}
+  .mech .m-arrow{border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding:7px;transform:rotate(90deg) scale(.9)}
+}
+
+/* pipeline */
+.pipe{display:flex;flex-direction:column;gap:10px}
+.pipe .ph{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+.pipe .ph .tag{font-size:11px;font-weight:700;letter-spacing:.07em;color:#fff;background:var(--indigo);
+  padding:6px 11px;border-radius:999px;white-space:nowrap}
+.pipe .ph p{font-size:var(--fs-small);color:var(--muted);margin:0;line-height:1.6}
+.pipe .ph b{font-size:var(--fs-prosa);display:block;margin-bottom:4px}
+@media(max-width:620px){
+  .pipe .ph{grid-template-columns:1fr;gap:10px}
+  .pipe .ph .tag{justify-self:start}
+}
+
+/* bibliografia */
+.biblio{counter-reset:b}
+.biblio li{counter-increment:b;display:grid;grid-template-columns:auto 1fr;gap:14px;
+  padding:15px 0;border-bottom:1px dashed var(--line);font-size:var(--fs-small);
+  color:var(--ink-2);list-style:none;line-height:1.6;scroll-margin-top:90px}
+.biblio li:last-child{border-bottom:none}
+.biblio li::before{content:'[' counter(b) ']';color:var(--indigo);font-weight:700;font-size:12.5px}
+.biblio li:target{background:#eef2ff;border-radius:8px;padding-left:10px;padding-right:10px}
+.biblio b{color:var(--ink)}
+.biblio .doi{display:block;font-size:12.5px;color:var(--faint);margin-top:4px;overflow-wrap:anywhere}
+
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);
+  max-width:var(--maxw);margin:0 auto}
+
+footer{padding:60px 28px 80px;max-width:var(--maxw);margin:0 auto;
+  border-top:1px solid var(--line);margin-top:40px}
+footer p{font-size:12px;color:var(--muted)}
+
+@media print{
+  #dots,#progress,#topbar{display:none}
+  body{background:#fff}
+  section{padding:26px 0;page-break-inside:avoid}
+  .reveal{opacity:1!important;transform:none!important}
+  .card,.callout,.tbl-wrap{box-shadow:none}
+  h2{page-break-after:avoid}
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- Modale delle fonti: uno solo, riempito di volta in volta. -->
+<div id="velo" role="presentation">
+  <div id="modale" role="dialog" aria-modal="true" aria-labelledby="modale-tit">
+    <button id="chiudi" type="button" aria-label="Chiudi">✕</button>
+    <div class="cifra" id="modale-cifra"></div>
+    <h3 id="modale-tit"></h3>
+    <div class="corpo" id="modale-corpo"></div>
+    <a class="cita" id="modale-cita" href="#biblio"></a>
+    <span class="esc-hint">ESC per chiudere</span>
+  </div>
+</div>
+
+<div id="topbar">
+  <div class="brand">MappAI <em>· basi scientifiche</em></div>
+  <select id="navmob" aria-label="Vai alla sezione"></select>
+  <div class="topmeta">
+    Proposta di sperimentazione didattica<br>
+    Giacomo Meschini · giacomo@insegnai.ch
+  </div>
+</div>
+
+<nav id="dots" aria-label="Sezioni">
+  <a href="#apertura" data-d class="active"><span>Apertura</span></a>
+  <a href="#indice" data-d><span>Indice</span></a>
+  <a href="#evidenze" data-d><span>1 · Evidenze</span></a>
+  <a href="#nodo" data-d><span>2 · Il nodo</span></a>
+  <a href="#impalcatura" data-d><span>3 · Impalcatura</span></a>
+  <a href="#pipeline" data-d><span>4 · Pipeline</span></a>
+  <a href="#principi" data-d><span>5 · Principi</span></a>
+  <a href="#taratura" data-d><span>6 · Taratura</span></a>
+  <a href="#indici" data-d><span>7 · Indici</span></a>
+  <a href="#soglie" data-d><span>8 · Soglie</span></a>
+  <a href="#disegno" data-d><span>9 · Disegno</span></a>
+  <a href="#protocollo" data-d><span>10 · Protocollo</span></a>
+  <a href="#limiti" data-d><span>11 · Limiti</span></a>
+  <a href="#biblio" data-d><span>12 · Bibliografia</span></a>
+</nav>
+
+<!-- ══════════════════════════ APERTURA ══════════════════════════ -->
+<section id="apertura" style="padding-top:150px">
+  <div class="kicker reveal in"><span class="badge">◆</span> Proposta di sperimentazione didattica</div>
+  <h1 class="reveal in">Costruire mappe,<br>non riceverle.</h1>
+  <p class="lead reveal in d1" style="margin-top:26px;font-size:clamp(16px,2.2vw,22px)">
+    La meta-analisi più solida del campo dice che <b>costruire</b> una mappa concettuale vale
+    <b>g&nbsp;=&nbsp;0,72</b>, mentre <b>studiarne</b> una già fatta vale <b>g&nbsp;=&nbsp;0,43</b><a href="#r2" class="ref">2</a>.
+    Per un allievo con dislessia o ADHD, però, costruire una mappa da una scheda didattica che non riesce
+    a leggere è un compito impossibile: il divario si chiude dalla parte sbagliata.
+  </p>
+  <p class="lead reveal in d2">
+    MappAI non consegna mappe da studiare: genera il <b>materiale intermedio</b> (fogli di nodi da
+    riempire, sintesi accessibili, schede per concetto) che mette quell'allievo nella condizione di
+    costruirsela. Questa proposta chiede di verificare se funzioni davvero.
+  </p>
+
+  <div class="grid g3 reveal in d3" style="margin-top:46px">
+    <div class="card tight">
+      <h4 style="color:var(--indigo-d)">DESTINATARI</h4>
+      <p class="small" style="margin:0">DECS: CERDD, Sezione dell'insegnamento medio, Servizio di sostegno pedagogico. E SUPSI‑DFA.</p>
+    </div>
+    <div class="card tight">
+      <h4 style="color:var(--indigo-d)">CONTESTO</h4>
+      <p class="small" style="margin:0">Scuola media ticinese: allievi con bisogni educativi speciali, con i loro docenti di sostegno e operatori per l'inclusione.</p>
+    </div>
+    <div class="card tight">
+      <h4 style="color:var(--indigo-d)">STATO</h4>
+      <p class="small" style="margin:0">Lo strumento funziona, ma <b>nessuno ne ha ancora misurato gli effetti sugli apprendimenti</b>: è ciò che si chiede di produrre.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ INDICE ══════════════════════════ -->
+<section id="indice">
+  <div class="kicker reveal"><span class="badge">☰</span> Indice</div>
+  <h2 class="reveal">Che cosa contiene questo documento.</h2>
+  <div class="toc reveal d1" style="margin-top:26px">
+    <ol>
+      <li><a href="#evidenze"><b>Che cosa dice la ricerca</b><span>Cinque meta-analisi e studi primari, con numeri verificati</span></a></li>
+      <li><a href="#nodo"><b>Il nodo: costruire non è studiare</b><span>Il moderatore che decide la posizione di MappAI</span></a></li>
+      <li><a href="#impalcatura"><b>Perché il materiale generato è impalcatura</b><span>Effetto completamento, scaffolding, carico cognitivo</span></a></li>
+      <li><a href="#pipeline"><b>Come funziona la pipeline di MappAI</b><span>Le fasi di generazione in funzione di questi obiettivi</span></a></li>
+      <li><a href="#principi"><b>I principi con cui MappAI costruisce i documenti</b><span>Nove regole dichiarate e vincolanti</span></a></li>
+      <li><a href="#taratura"><b>Come funziona la taratura AI</b><span>Profilo di classe, registro, note; e che cosa NON fa</span></a></li>
+      <li><a href="#indici"><b>Gli indici usati per calcolare le metriche</b><span>Gulpease, Flesch-Vacca, struttura, copertura, nessi</span></a></li>
+      <li><a href="#soglie"><b>Le soglie di validazione formulate</b><span>Indice composito 0-100, otto componenti, pesi e ancoraggi</span></a></li>
+      <li><a href="#disegno"><b>Il disegno della sperimentazione</b><span>Domanda, ipotesi, campione, metodo, analisi, etica</span></a></li>
+      <li><a href="#protocollo"><b>Il protocollo di misura</b><span>Che cosa misura lo strumento e che cosa resta a mano</span></a></li>
+      <li><a href="#limiti"><b>Limiti dichiarati</b><span>Ciò che questo impianto non può dimostrare</span></a></li>
+      <li><a href="#biblio"><b>Bibliografia</b><span>Riferimenti completi con DOI</span></a></li>
+    </ol>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 1 · EVIDENZE ══════════════════════════ -->
+<section id="evidenze">
+  <div class="kicker reveal"><span class="badge">1</span> Che cosa dice la ricerca</div>
+  <h2 class="reveal">Quarant'anni di studi sulle mappe, e un dato che riguarda proprio i nostri allievi.</h2>
+  <p class="lead reveal">Ogni cifra qui sotto è stata verificata sulla fonte primaria. Dove un numero circolava
+  senza riscontro, è stato tolto.</p>
+
+  <div class="grid g3" style="margin-top:38px">
+    <button type="button" class="card stat reveal" data-fonte="schroeder"
+            aria-haspopup="dialog" aria-label="Effetto medio delle mappe (g): apri la scheda della fonte">
+      <span class="num"><span data-count="0.58" data-dec="2">0</span></span>
+      <span class="lab">Effetto medio delle mappe (g)</span>
+      <span class="bar"><i data-fill="42%"></i></span>
+    </button>
+    <button type="button" class="card stat reveal d1" data-fonte="arischio"
+            aria-haspopup="dialog" aria-label="Effetto sugli allievi a rischio (d): apri la scheda della fonte">
+      <span class="num"><span data-count="1.38" data-dec="2">0</span></span>
+      <span class="lab">Effetto sugli allievi a rischio (d)</span>
+      <span class="bar"><i data-fill="100%"></i></span>
+    </button>
+    <button type="button" class="card stat reveal d2" data-fonte="dsa"
+            aria-haspopup="dialog" aria-label="Effetto sugli allievi con DSA (d): apri la scheda della fonte">
+      <span class="num"><span data-count="1.15" data-dec="2">0</span></span>
+      <span class="lab">Effetto sugli allievi con DSA (d)</span>
+      <span class="bar"><i data-fill="83%"></i></span>
+    </button>
+    <button type="button" class="card stat reveal" data-fonte="hattie"
+            aria-haspopup="dialog" aria-label="Soglia di rilevanza didattica: apri la scheda della fonte">
+      <span class="num"><span data-count="0.40" data-dec="2">0</span></span>
+      <span class="lab">Soglia di rilevanza didattica</span>
+      <span class="bar"><i data-fill="29%"></i></span>
+    </button>
+    <button type="button" class="card stat reveal d1" data-fonte="nesbit"
+            aria-haspopup="dialog" aria-label="Partecipanti, prima meta-analisi: apri la scheda della fonte">
+      <span class="num"><span data-count="5818">0</span></span>
+      <span class="lab">Partecipanti, prima meta-analisi</span>
+    </button>
+    <button type="button" class="card stat reveal d2" data-fonte="dexter"
+            aria-haspopup="dialog" aria-label="Allievi con DSA, organizzatori grafici: apri la scheda della fonte">
+      <span class="num"><span data-count="808">0</span></span>
+      <span class="lab">Allievi con DSA, organizzatori grafici</span>
+    </button>
+    <button type="button" class="card stat reveal" data-fonte="cognitiva"
+            aria-haspopup="dialog" aria-label="Effetto della mappa cognitiva (d): apri la scheda della fonte">
+      <span class="num"><span data-count="1.05" data-dec="2">0</span></span>
+      <span class="lab">Effetto della mappa cognitiva (d)</span>
+      <span class="bar"><i data-fill="76%"></i></span>
+    </button>
+    <button type="button" class="card stat reveal d1" data-fonte="lingue"
+            aria-haspopup="dialog" aria-label="Studi su mappe mentali e lingue: apri la scheda della fonte">
+      <span class="num"><span data-count="33">0</span></span>
+      <span class="lab">Studi su mappe mentali e lingue</span>
+    </button>
+    <button type="button" class="card stat reveal d2" data-fonte="ritroso"
+            aria-haspopup="dialog" aria-label="Peso della catena causale a ritroso: apri la scheda della fonte">
+      <span class="num"><span data-count="3" data-suffix="×">0</span></span>
+      <span class="lab">Peso della catena causale a ritroso</span>
+    </button>
+  </div>
+  <p class="src reveal">Le barre compaiono solo sulle misure d'effetto e sono proporzionali al valore,
+  con <b>1,38</b> come fondo scala. Le schede che riportano conteggi non hanno barra: partecipanti e studi
+  non stanno su una scala comune, e disegnarne una li farebbe sembrare confrontabili.</p>
+
+  <div class="callout warn reveal" style="margin-top:20px">
+    <h4>La cautela che gli stessi autori impongono</h4>
+    <p>An e Kim non si fermano ai confronti fra sottogruppi. La loro <b>meta-regressione</b> mostra che,
+    tenendo sotto controllo le altre variabili, gli unici moderatori davvero significativi sono la
+    <b>dimensione del gruppo</b> e la <b>frequenza</b> degli interventi, mentre il profilo dell'allievo,
+    la materia e l'ordine di scuola perdono significatività. Le differenze fra i sottogruppi restano il dato descrittivo più
+    rilevante che abbiamo, ma non sono state isolate dagli altri fattori.</p>
+    <p>Questo ha una conseguenza pratica diretta sul §9: le condizioni più efficaci (<b>gruppi piccoli</b>,
+    da 3 a 5 volte a settimana, su un arco da 1 a 9 settimane) non sono un dettaglio metodologico:
+    sono il disegno che la sperimentazione deve adottare, se vuole misurare lo strumento là dove gli
+    organizzatori grafici funzionano davvero.</p>
+  </div>
+
+  <div class="card reveal" style="margin-top:20px">
+    <h3>Mappe, AI e disturbi del neurosviluppo: lo studio più vicino a questa proposta</h3>
+    <p class="small" style="color:var(--ink-2)">Fang, Abdallah e Vorfolomeyeva<a href="#r5" class="ref">5</a> hanno
+    studiato il mind mapping digitale <b>collaborativo</b> con suggerimenti generati dall'AI in gruppi inclusivi:
+    163 partecipanti, di cui <b>28 con disturbi del neurosviluppo</b>. Esito misurato con il Torrance Figural
+    Creativity Test: miglioramento su originalità, elaborazione e punteggio complessivo. Le interviste
+    semi-strutturate riportano soprattutto effetti sulla <b>qualità dell'interazione sociale</b> e sulla
+    <b>possibilità di partecipare alla pari</b>.</p>
+    <p class="small" style="color:var(--ink-2)">Due avvertenze che questo documento fa proprie: l'esito misurato è
+    il <b>pensiero creativo</b>, non il rendimento disciplinare; e gli allievi con disturbi del neurosviluppo che
+    <b>non</b> usavano l'AI sono migliorati anch'essi, sia pure un po' meno. L'AI aiuta, ma la letteratura
+    disponibile non consente di attribuirle da sola il risultato.</p>
+  </div>
+  <p class="src reveal">Verifica delle fonti: luglio 2026. Ogni valore riportato compare nell'abstract o nel testo
+  della pubblicazione citata.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 2 · IL NODO ══════════════════════════ -->
+<section id="nodo">
+  <div class="kicker reveal"><span class="badge">2</span> Il nodo</div>
+  <h2 class="reveal">Costruire una mappa non è studiarne una.</h2>
+  <p class="lead reveal">È la distinzione che decide se uno strumento come MappAI abbia senso; va
+  affrontata prima di ogni altra cosa, poiché è la prima obiezione che il progetto dovrà reggere.</p>
+
+  <h3 class="reveal d1" style="margin-top:36px">Miglioramento osservato, secondo come la mappa viene usata</h3>
+  <p class="small reveal d1" style="margin-bottom:16px">Misure d'effetto (g) ricavate dall'analisi dei
+  moderatori: di quanto migliora l'apprendimento rispetto alle condizioni di confronto.</p>
+
+  <div class="grid g2 reveal d1">
+    <div class="card metrica verde">
+      <span class="num">0,72</span>
+      <span class="lab">Costruire la mappa</span>
+      <span class="sub">l'allievo produce nodi e relazioni</span>
+    </div>
+    <div class="card metrica ambra">
+      <span class="num">0,43</span>
+      <span class="lab">Mappa già fatta</span>
+      <span class="sub">l'allievo riceve la mappa e la legge</span>
+    </div>
+  </div>
+  <p class="small reveal" style="margin-top:12px">Schroeder, Nesbit, Anguiano e Adesope 2018<a href="#r2" class="ref">2</a>,
+  analisi dei moderatori sulla meta-analisi di 142 effect size. Entrambi i valori sono statisticamente
+  significativi (p&nbsp;&lt;&nbsp;0,001); la differenza fra i due è il punto.</p>
+
+  <div class="callout warn reveal" style="margin-top:26px">
+    <h4>L'obiezione, per esteso</h4>
+    <p>Uno strumento che genera automaticamente una mappa e la consegna all'allievo lo colloca nella
+    condizione meno efficace delle due. Se MappAI fosse questo, la letteratura suggerirebbe di
+    <b>non</b> usarlo: meglio far costruire la mappa a mano, anche se costa due o tre ore.</p>
+  </div>
+
+  <div class="prose reveal" style="margin-top:30px">
+    <h3>Ma il confronto presuppone un allievo che possa costruirla</h3>
+    <p>Gli studi sui moderatori confrontano allievi che, in entrambe le condizioni, <b>hanno accesso alla
+    fonte</b>. Un ragazzo di prima media con dislessia grave, davanti a una scheda di geografia scritta per
+    lettori competenti, non è nella condizione di costruire una mappa: è nella condizione di non leggere il
+    testo. La scelta reale, per lui, non corre fra costruire e ricevere: corre fra <b>ricevere qualcosa</b>
+    e <b>non fare nulla</b>.</p>
+    <p>È qui che si colloca la proposta. MappAI produce il materiale che sta <b>fra</b> la fonte inaccessibile
+    e la mappa costruita: sintesi leggibili, fogli di nodi da completare, schede per concetto. Materiale che
+    il docente di sostegno o l'operatore per l'inclusione usa per portare l'allievo a costruire.</p>
+  </div>
+
+  <h3 class="reveal" style="margin-top:34px">4 modi di costruire con MappAI</h3>
+  <div class="grid g2 reveal d1" style="margin-top:16px">
+    <div class="card tight card-uso">
+      <h4>1:1 con il Docente di Sostegno o l'OPI</h4>
+      <p class="desc">Si legge insieme, non si consegna: serve a mostrare com'è fatta una mappa, che cos'è
+      un nodo, perché quel ramo stia proprio lì. Alfabetizza allo strumento invece di sostituire
+      il lavoro.</p>
+      <div class="chips" aria-label="Abilità cognitive sostenute">
+        <span class="chip">Metacognizione</span>
+        <span class="chip">Riconoscimento della struttura</span>
+        <span class="chip">Lessico delle relazioni</span>
+      </div>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Il foglio dei nodi come compito da completare</h4>
+      <p class="desc">Le card portano il solo titolo, oppure titolo e spazio bianco. L'allievo riceve i
+      concetti e costruisce da sé la gerarchia: è un <b>problema da completare</b> nel senso tecnico
+      della teoria del carico cognitivo<a href="#r8" class="ref">8</a>.</p>
+      <div class="chips" aria-label="Abilità cognitive sostenute">
+        <span class="chip">Categorizzazione</span>
+        <span class="chip">Gerarchizzazione</span>
+        <span class="chip">Inferenza delle relazioni</span>
+        <span class="chip">Memoria di lavoro</span>
+      </div>
+    </div>
+    <div class="card tight card-uso">
+      <h4>La sintesi come accesso alla fonte</h4>
+      <p class="desc">Non sostituisce la mappa ma la <b>scheda illeggibile</b>. Chi non riesce a leggere
+      l'originale legge la sintesi, e da lì costruisce la mappa propria: diversa da quella generata,
+      com'è giusto che sia.</p>
+      <div class="chips" aria-label="Abilità cognitive sostenute">
+        <span class="chip">Comprensione del testo</span>
+        <span class="chip">Selezione delle informazioni</span>
+        <span class="chip">Autonomia di lettura</span>
+      </div>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Costruzione a gruppi con negoziazione delle gerarchie</h4>
+      <p class="desc">Gli allievi ricevono gli stessi nodi e devono <b>accordarsi</b> su come organizzarli.
+      È la condizione dello studio di Fang<a href="#r5" class="ref">5</a>, dove i ragazzi con disturbi del
+      neurosviluppo segnalavano soprattutto di aver potuto partecipare alla pari.</p>
+      <div class="chips" aria-label="Abilità cognitive sostenute">
+        <span class="chip">Argomentazione</span>
+        <span class="chip">Assunzione di prospettiva</span>
+        <span class="chip">Negoziazione del significato</span>
+        <span class="chip">Autoregolazione</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="margin-top:36px">Costruire non è un'attività indistinta: si può fare meglio o peggio</h3>
+  <div class="prose reveal d1" style="margin-top:12px">
+    <p>Jeong e Shin<a href="#r19" class="ref">19</a> hanno registrato le azioni sullo schermo di studenti che
+    costruivano mappe causali e le hanno analizzate con uno strumento che ricostruisce la <b>sequenza</b>
+    in cui i nodi vengono posati. Il risultato interessante non è che costruire funziona — quello lo sapevamo —
+    ma che <b>una strategia batte le altre</b>: procedere <i>a ritroso</i>, partendo dall'esito e risalendo
+    alle cause, pesa <b>tre volte</b> più che procedere in profondità ramo per ramo. Concatenare gli eventi
+    all'indietro produce mappe di qualità superiore.</p>
+    <p>Perché conta qui: se la strategia di costruzione è un fattore, allora <b>insegnarla</b> è un intervento
+    didattico a sé, distinto dal fornire il materiale. È esattamente ciò che il docente di sostegno fa nella
+    lettura uno a uno della mappa generata; diventa perciò una variabile da osservare nella
+    sperimentazione, non uno sfondo indifferenziato.</p>
+    <p>Gli autori indicano anche una direzione tecnica: strumenti che <b>analizzano il processo mentre
+    accade</b> e restituiscono sostegno in tempo reale. MappAI oggi non lo fa, e non lo promette.</p>
+  </div>
+
+  <div class="card reveal d1" style="margin-top:22px;border-left:4px solid var(--violet)">
+    <h3>Costruire insieme, con un grafo di conoscenza sotto</h3>
+    <p class="small" style="color:var(--ink-2)">Jia e colleghi<a href="#r20" class="ref">20</a> hanno
+    confrontato la costruzione collaborativa di mappe mentali in un ambiente immersivo con la stessa attività
+    su una piattaforma di videoconferenza. Gli studenti mostravano un coinvolgimento più alto
+    <b>proprio mentre disegnavano la mappa assistiti dal grafo di conoscenza incorporato</b>, e la
+    compresenza aumentava il contributo collaborativo al compito.</p>
+    <p class="small" style="color:var(--ink-2)">È il precedente più diretto per due scelte di MappAI: la
+    doppia modalità <b>mappa mentale e grafo di conoscenza</b>, e l'uso del materiale generato come base per
+    una costruzione <b>a gruppi</b>, dove gli allievi negoziano fra loro la gerarchia. Con una differenza da
+    dichiarare: lo studio riguarda studenti universitari in realtà virtuale, non allievi di scuola media
+    con bisogni educativi speciali in aula. Il meccanismo è suggestivo, il contesto non è il nostro.</p>
+  </div>
+
+  <div class="callout key reveal" style="margin-top:24px">
+    <h4>Come si trasforma in domanda di ricerca</h4>
+    <p>Il divario 0,72 contro 0,43 non è un ostacolo da aggirare: è la <b>misura di ciò che c'è da recuperare</b>.
+    La domanda diventa: <i>un allievo con bisogni educativi speciali che costruisce la propria mappa a partire
+    dal materiale generato da MappAI si avvicina all'effetto della costruzione autonoma, o resta a quello
+    dello studio passivo?</i> È una domanda a cui si può rispondere con i dati, e nessuno l'ha ancora fatto.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 3 · IMPALCATURA ══════════════════════════ -->
+<section id="impalcatura">
+  <div class="kicker reveal"><span class="badge">3</span> I meccanismi</div>
+  <h2 class="reveal">Perché il materiale generato rinforza le abilità che servono a fare mappe.</h2>
+  <p class="lead reveal">Ogni output di MappAI corrisponde a un meccanismo descritto in letteratura. Non è
+  una coincidenza felice: è il criterio con cui sono stati progettati.</p>
+
+  <div class="grid" style="gap:14px;margin-top:34px">
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Effetto completamento</h4>
+        <p>Un problema con soluzione <b>parzialmente</b> data spinge a elaborare i passaggi in profondità
+        e produce schemi cognitivi più complessi rispetto sia all'esempio svolto sia al problema nudo
+        (van Merriënboer e Krammer; Paas e van Merriënboer<a href="#r8" class="ref">8</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Foglio dei nodi</h4>
+        <p>Card A4 con il solo titolo del concetto, o titolo più spazio da riempire, o titolo più parole
+        chiave. La soluzione data è l'<b>insieme dei concetti</b>; ciò che manca è la struttura, cioè
+        proprio l'operazione cognitiva che la mappa allena.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Impalcatura e zona di sviluppo prossimale</h4>
+        <p>Il sostegno che consente di svolgere un compito altrimenti fuori portata, e che va <b>ritirato</b>
+        man mano che la competenza cresce (Wood, Bruner e Ross<a href="#r9" class="ref">9</a>;
+        Vygotskij<a href="#r10" class="ref">10</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Tre livelli di completezza della card</h4>
+        <p>Solo titolo · titolo e parole chiave · titolo e descrizione. Il docente sceglie <b>quanta</b>
+        impalcatura dare, e la riduce nelle somministrazioni successive. È la strategia di completamento
+        con dissolvenza della guida.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Carico cognitivo estraneo</h4>
+        <p>La memoria di lavoro è limitata; il carico speso a decifrare un testo difficile è sottratto
+        all'apprendimento. Ridurlo libera risorse per il carico <b>germano</b>, quello che costruisce schemi
+        (Sweller, van Merriënboer e Paas<a href="#r7" class="ref">7</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Sintesi e descrizioni per nodo</h4>
+        <p>Frasi corte, blocchi di lunghezza uniforme, nessi causali dichiarati. L'obiettivo non è
+        «semplificare»: è spostare il costo dalla decodifica alla comprensione. È ciò che l'indice
+        di accessibilità (§8) misura.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Doppia codifica e apprendimento multimediale</h4>
+        <p>Informazione verbale e visivo-spaziale sono elaborate da sistemi distinti; la loro integrazione
+        migliora la ritenzione (Paivio<a href="#r11" class="ref">11</a>; Mayer<a href="#r12" class="ref">12</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Grafo interattivo e colori per ramo</h4>
+        <p>Il nodo-collegamento è la forma canonica su cui è costruita tutta la letteratura sulle mappe.
+        Le famiglie di relazione hanno un colore proprio: la relazione diventa oggetto visivo, non solo
+        parola.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Effetto generazione</h4>
+        <p>L'informazione prodotta dal soggetto si ricorda meglio di quella letta, a parità di contenuto
+        (Slamecka e Graf<a href="#r13" class="ref">13</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Editor dei documenti e revisione della mappa</h4>
+        <p>L'allievo, o il docente con l'allievo, riscrive le descrizioni, cambia il tipo di blocco,
+        aggiunge parole chiave. Il materiale nasce generato e <b>diventa</b> prodotto: è la leva con cui
+        si prova a recuperare il divario del §2.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Sostituzione e semplificazione</h4>
+        <p>La didattica dell'adattamento distingue due strade. La <b>sostituzione</b> — primo principio
+        dell'Universal Design for Learning<a href="#r21" class="ref">21</a>, fornire molteplici modalità di
+        rappresentazione — <b>non</b> cambia la difficoltà del testo: cambia il canale. La
+        <b>semplificazione</b> modifica il testo, e procede dividendolo in blocchi, evidenziando le parole
+        chiave, sintetizzandolo con mappe concettuali<a href="#r22" class="ref">22</a>.</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>I quattro formati della card, e la lettura ad alta voce</h4>
+        <p>Non sono varianti estetiche: sono le due strade. Titolo, parole chiave, descrizione e scheda
+        sono <b>gradi di semplificazione</b>; la lettura ad alta voce e la mappa visiva sono
+        <b>sostituzione</b>, stesso contenuto per un altro canale. Il docente sceglie quale strada
+        percorrere, e può percorrerle insieme.</p>
+      </div>
+    </div>
+
+    <div class="mech reveal">
+      <div class="m-left">
+        <h4>Effetto test e pratica distribuita</h4>
+        <p>Recuperare attivamente un contenuto lo consolida più che rileggerlo, e distribuire le
+        ripetizioni nel tempo batte concentrarle (Roediger e Karpicke<a href="#r14" class="ref">14</a>;
+        Cepeda e colleghi<a href="#r15" class="ref">15</a>).</p>
+      </div>
+      <div class="m-arrow">→</div>
+      <div>
+        <h4>Quiz, flashcard, ripetizione dilazionata</h4>
+        <p>Generati dagli stessi nodi della mappa, quindi ancorati alla stessa struttura. Gli intervalli
+        di ripasso sono calcolati sulla padronanza registrata, non su una tabella fissa.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout reveal" style="margin-top:26px">
+    <h4>Una precisazione onesta sui meccanismi</h4>
+    <p>Ciascuno di questi effetti è documentato <b>in generale</b>. Nessuno di essi è stato dimostrato
+    <b>per MappAI</b>: la corrispondenza fra meccanismo e output è una scelta progettuale motivata, non un
+    risultato. Questo documento chiede di poterla verificare, non afferma che sia verificata.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 4 · PIPELINE ══════════════════════════ -->
+<section id="pipeline">
+  <div class="kicker reveal"><span class="badge">4</span> Il funzionamento</div>
+  <h2 class="reveal">Come MappAI costruisce una mappa, e perché in questo ordine.</h2>
+  <p class="lead reveal">La generazione non è una singola richiesta a un modello linguistico. È una catena di
+  fasi, ciascuna con un compito circoscritto e verificabile, pensata per un vincolo preciso: <b>restare
+  fedele alla fonte del docente</b>.</p>
+
+  <div class="pipe reveal d1" style="margin-top:34px">
+    <div class="ph"><span class="tag">FASE 1</span><div>
+      <b>Estrazione delle macro-aree</b>
+      <p>Dalla fonte si ricavano da tre a sette aree tematiche di primo livello, ciascuna con ambito,
+      descrizione e confini espliciti. Il tetto di sette non è estetico: oltre quella soglia la mappa smette
+      di essere afferrabile a colpo d'occhio, che è la sua ragione d'essere.</p>
+    </div></div>
+    <div class="ph"><span class="tag">FASE 1.5</span><div>
+      <b>Validazione e scomposizione delle aree composte</b>
+      <p>Un'area dal nome doppio — «Turismo e tempo libero» — viene spezzata in due aree atomiche.
+      Un concetto composto costringe l'allievo a tenere insieme due cose mentre ne studia una.</p>
+    </div></div>
+    <div class="ph"><span class="tag">FASE 3</span><div>
+      <b>Espansione dei rami</b>
+      <p>Ogni macro-area viene sviluppata separatamente, ricevendo nel prompt il catalogo dei rami fratelli
+      e la propria carta d'identità. Serve a evitare che due rami si contendano lo stesso contenuto.</p>
+    </div></div>
+    <div class="ph"><span class="tag">FASE 3.7</span><div>
+      <b>Approfondimento sul residuo</b>
+      <p>Si approfondisce solo dove la fonte contiene materiale <b>non ancora usato</b>. Un controllo
+      automatico scarta i sotto-concetti che ripetono con altre parole ciò che il nodo padre già dice:
+      su due mappe reali questo filtro ha eliminato il 48% e il 69% dei nodi proposti.</p>
+    </div></div>
+    <div class="ph"><span class="tag">FASE 4</span><div>
+      <b>Fusione dei duplicati e relazioni trasversali</b>
+      <p>Concetti comparsi in due rami vengono fusi verso quello più pertinente. I collegamenti trasversali
+      nascono <b>solo</b> da queste fusioni: la mappa non produce legami inventati per sembrare più ricca.</p>
+    </div></div>
+    <div class="ph"><span class="tag">FASE 5</span><div>
+      <b>Tetto di profondità e ripiegamento</b>
+      <p>Il docente sceglie fino a che livello generare. Il dettaglio più fine non viene buttato: viene
+      <b>ripiegato nella descrizione</b> del nodo antenato, e solo se porta lessico nuovo. Meno nodi e
+      descrizioni più ricche: il profilo che serve a un lettore in difficoltà.</p>
+    </div></div>
+  </div>
+
+  <div class="callout reveal" style="margin-top:24px">
+    <h4>Il vincolo che governa tutte le fasi</h4>
+    <p>In nessun punto della catena il modello è autorizzato a introdurre contenuto assente dalla fonte.
+    Ogni descrizione viene confrontata con il testo di partenza, e la quota di descrizioni non ancorate è
+    una delle metriche riportate. Una mappa <b>bella ma inventata</b> è un danno didattico, non un risultato
+    intermedio accettabile.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 5 · PRINCIPI ══════════════════════════ -->
+<section id="principi">
+  <div class="kicker reveal"><span class="badge">5</span> I principi</div>
+  <h2 class="reveal">Le regole con cui i documenti vengono costruiti.</h2>
+  <p class="lead reveal">Sono vincoli dichiarati e verificabili nel codice, non intenzioni. Ciascuno risponde
+  a un problema osservato.</p>
+
+  <div class="tbl-wrap reveal d1" style="margin-top:30px">
+    <table>
+      <colgroup><col style="width:26%"><col style="width:41%"><col style="width:33%"></colgroup>
+      <thead><tr><th>Principio</th><th>Che cosa impone</th><th>Perché</th></tr></thead>
+      <tbody>
+        <tr><td><b>Fedeltà alla fonte</b></td>
+            <td>Nessun contenuto che non provenga dal materiale caricato dal docente.</td>
+            <td>Il docente resta l'autore del contenuto disciplinare; l'AI ne cambia la forma, non la sostanza.</td></tr>
+        <tr><td><b>Atomicità dei concetti</b></td>
+            <td>Un nodo, un concetto. Le etichette composte vengono scomposte.</td>
+            <td>Un concetto doppio raddoppia il carico proprio dove l'allievo è più fragile.</td></tr>
+        <tr><td><b>La descrizione è lo strumento di studio</b></td>
+            <td>Tutte le superfici di studio mostrano la descrizione ricca, mai il testo breve di servizio.</td>
+            <td>È il testo su cui l'allievo con BES effettivamente lavora: non può essere il campo secondario.</td></tr>
+        <tr><td><b>Relazioni da un vocabolario unico</b></td>
+            <td>I verbi che etichettano i legami vengono da una tassonomia di otto famiglie, non inventati caso per caso.</td>
+            <td>Una relazione nominata sempre allo stesso modo è una relazione che si può imparare.</td></tr>
+        <tr><td><b>Nessun legame trasversale sintetico</b></td>
+            <td>I collegamenti fra rami nascono solo da fusioni di duplicati reali.</td>
+            <td>Aumentare la densità del grafo per sembrare più ricchi produce nessi che l'allievo non può ricostruire.</td></tr>
+        <tr><td><b>Blocchi brevi e uniformi</b></td>
+            <td>Le descrizioni tendono a una lunghezza simile fra loro.</td>
+            <td>La prevedibilità della lunghezza riduce il costo di iniziare a leggere. È misurata come deviazione standard.</td></tr>
+        <tr><td><b>Il dettaglio si ripiega, non si perde</b></td>
+            <td>Oltre il tetto di profondità il contenuto confluisce nella descrizione dell'antenato.</td>
+            <td>Tagliare impoverisce; ripiegare mantiene l'informazione riducendo il numero di unità da gestire.</td></tr>
+        <tr><td><b>Niente informazione dal solo colore</b></td>
+            <td>Ogni distinzione cromatica è raddoppiata da etichetta, forma o simbolo.</td>
+            <td>Requisito di accessibilità di base, e condizione perché il materiale stampato in bianco e nero resti leggibile.</td></tr>
+        <tr><td><b>Ogni soglia è dichiarata</b></td>
+            <td>Nessun parametro numerico vive solo nel codice: ognuno porta definizione, motivo e limite.</td>
+            <td>Vedi §7 e §11. È la condizione perché una misura sia ripetibile da altri.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 6 · TARATURA ══════════════════════════ -->
+<section id="taratura">
+  <div class="kicker reveal"><span class="badge">6</span> La taratura</div>
+  <h2 class="reveal">Come il profilo della classe entra nella generazione.</h2>
+  <p class="lead reveal">MappAI non produce lo stesso materiale per tutte le classi. Il docente descrive
+  una volta la classe, e quella descrizione entra in ogni successiva generazione.</p>
+
+  <div class="grid g3 reveal d1" style="margin-top:32px">
+    <div class="card tight card-uso">
+      <h4>Che cosa dichiara il docente</h4>
+      <p class="desc">Anno e ordine di scuola, <b>registro linguistico</b> fra semplice, medio e ricco, e
+      note libere sulla classe: «dieci allievi con ADHD, sei con dislessia grave».</p>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Dove entra</h4>
+      <p class="desc">In un punto solo della catena, come blocco «profilo classe». Da lì raggiunge
+      <b>ogni</b> generatore: mappa, sintesi, quiz, flashcard, tutor, cronologia.</p>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Che cosa chiede al modello</h4>
+      <p class="desc">Di restare fedele alla fonte e adattare <b>solo il come</b> si esprime. L'istruzione
+      è esplicita: la taratura non autorizza a omettere contenuto.</p>
+    </div>
+  </div>
+
+  <div class="callout warn reveal" style="margin-top:26px">
+    <h4>Che cosa la taratura fa davvero, misurato su due classi reali</h4>
+    <p>Nel luglio 2026 la stessa scheda di geografia è stata generata per due prime medie: la 1A con registro
+    medio e nessuna nota, la 1B con registro semplice e la nota sui profili ADHD e dislessia. Stesso giorno,
+    stesso modello, stesse impostazioni di stampa.</p>
+    <p>La taratura ha agito sulla <b>struttura</b> e sulla <b>prosa continua</b>: 32 nodi contro 43, blocchi
+    più uniformi (deviazione standard 9,7 contro 7,8), frasi della sintesi più corte (19,1 contro 15,9 parole),
+    indice Gulpease della sintesi da 49,0 a 53,4, elenchi puntati da zero a nove.</p>
+    <p>Non ha agito sul <b>lessico del singolo nodo</b>: la 1B ha più nominalizzazioni e più parole lunghe
+    della 1A, perché introduce concetti più concreti e specifici che portano con sé termini propri.
+    <b>Semplificare il lessico nodo per nodo è una leva distinta, oggi non attivata dal solo registro.</b>
+    È uno dei punti che la sperimentazione deve chiarire.</p>
+  </div>
+
+  <div class="callout limit reveal" style="margin-top:18px">
+    <h4>Limite di questa osservazione</h4>
+    <p>Una sola coppia di mappe, una sola scheda, una sola materia, nessun dato sugli allievi. È un indizio
+    su come si comporta il sistema, <b>non</b> un risultato sull'apprendimento. Serve appunto a motivare
+    la richiesta di un campione vero.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 7 · INDICI ══════════════════════════ -->
+<section id="indici">
+  <div class="kicker reveal"><span class="badge">7</span> Gli indici</div>
+  <h2 class="reveal">Che cosa viene misurato, e con quale formula.</h2>
+  <p class="lead reveal">Tutte le metriche sono calcolate da codice deterministico e testato: stesso testo,
+  stessi numeri, sempre. Nessuna cifra è prodotta da un modello linguistico.</p>
+
+  <h3 class="reveal" style="margin-top:34px">Leggibilità</h3>
+  <div class="grid g2 reveal d1" style="margin-top:14px">
+    <div class="card">
+      <h3>Indice Gulpease</h3>
+      <p class="small" style="color:var(--ink-2)">Prima formula di leggibilità costruita <b>per l'italiano</b>,
+      elaborata nel 1988 dal Gruppo Universitario Linguistico Pedagogico della Sapienza<a href="#r16" class="ref">16</a>.
+      Usa la lunghezza delle parole in <b>lettere</b> anziché in sillabe, il che la rende calcolabile in modo
+      esatto e non stimato.</p>
+      <p class="small" style="font-family:inherit;background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid var(--line)">
+      89 + (300 × frasi − 10 × lettere) ÷ parole</p>
+      <p class="small" style="color:var(--ink-2)">Soglie di riferimento: sotto <b>40</b> difficile per chi ha
+      un diploma superiore; sotto <b>60</b> difficile per chi ha la licenza media; sotto <b>80</b> difficile
+      per chi ha la licenza elementare.</p>
+    </div>
+    <div class="card">
+      <h3>Indice Flesch-Vacca</h3>
+      <p class="small" style="color:var(--ink-2)">Adattamento italiano della formula di Flesch<a href="#r17" class="ref">17</a>,
+      basato su sillabe per cento parole e lunghezza media della frase. Serve a <b>triangolare</b> il Gulpease:
+      due formule che concordano riducono il rischio di un artefatto della singola misura.</p>
+      <p class="small" style="font-family:inherit;background:#f8fafc;padding:10px 12px;border-radius:8px;border:1px solid var(--line)">
+      206 − 0,65 × sillabe per 100 parole − parole per frase</p>
+      <p class="small" style="color:var(--ink-2)"><b>Limite dichiarato:</b> il conteggio sillabico è calcolato
+      per gruppi vocalici e approssima gli iati. L'italiano ha ortografia trasparente, quindi l'errore è
+      contenuto, ma esiste.</p>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="margin-top:34px">Le altre famiglie di metriche</h3>
+  <div class="tbl-wrap reveal d1" style="margin-top:14px">
+    <table>
+      <colgroup><col style="width:23%"><col style="width:45%"><col style="width:32%"></colgroup>
+      <thead><tr><th>Famiglia</th><th>Che cosa conta</th><th>Limite dichiarato</th></tr></thead>
+      <tbody>
+        <tr><td><b>Struttura</b></td>
+            <td>Nodi totali e per livello, macro-aree, profondità, legami, verbi di relazione distinti, quota di legami generici.</td>
+            <td>Nessuno rilevante: sono conteggi esatti su dati strutturati.</td></tr>
+        <tr><td><b>Granularità</b></td>
+            <td>Parole per nodo: media, intervallo e deviazione standard di popolazione, complessive e per livello.</td>
+            <td>Premia l'uniformità anche dove un concetto meriterebbe più spazio degli altri.</td></tr>
+        <tr><td><b>Densità terminologica</b></td>
+            <td>Percentuale di parole lunghe (otto caratteri o più) e nominalizzazioni per cento parole.</td>
+            <td>Riconoscimento per <b>suffisso</b>, non per lemma: «momento» e «potenza» sono falsi positivi.</td></tr>
+        <tr><td><b>Carico sintattico</b></td>
+            <td>Connettivi subordinanti e costruzioni passive per cento parole.</td>
+            <td>Ricerca per stringa senza disambiguazione; «è andato» viene contato come passivo.</td></tr>
+        <tr><td><b>Nessi logici</b></td>
+            <td>Connettivi causali per cento parole; e quota di legami del grafo con relazione causale, condizionale o oppositiva.</td>
+            <td>Non verifica che il nesso dichiarato sia <b>corretto</b>: un «quindi» messo male viene premiato.</td></tr>
+        <tr><td><b>Copertura della fonte</b></td>
+            <td>Quota di frasi del testo originale che trovano corrispondenza lessicale in almeno un nodo.</td>
+            <td>Metro lessicale: una frase riformulata con sinonimi risulta scoperta. <b>Sottostima</b> la copertura reale.</td></tr>
+        <tr><td><b>Ridondanza fra fratelli</b></td>
+            <td>Sovrapposizione di sequenze di quattro parole fra nodi che condividono il genitore.</td>
+            <td>Cieco alla ridondanza concettuale espressa con parole diverse.</td></tr>
+        <tr><td><b>Carico temporale</b></td>
+            <td>Minuti stimati di lettura e di ascolto del materiale completo, alle velocità dichiarate di
+            <b>120 parole al minuto</b> per la lettura e <b>150</b> per l'ascolto con sintesi vocale.</td>
+            <td>Le 120 parole al minuto sono il profilo di un allievo di prima media <b>con difficoltà</b>,
+            non di un lettore adulto competente (oltre 200) né di un normolettore della stessa età (circa 150).
+            È una media su una popolazione che di media ne ha poca: serve a confrontare materiali fra loro,
+            non a promettere un tempo reale. Non tiene conto delle riletture, che per questo profilo sono la norma.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout key reveal" style="margin-top:22px">
+    <h4>Perché l'indice è scomposto in componenti invece di essere un numero solo</h4>
+    <p>Tonelli, Tran Manh e Pianta<a href="#r23" class="ref">23</a> muovono ai sistemi di leggibilità
+    un'obiezione precisa: le informazioni che restituiscono «spesso non mostrano in modo chiaro e
+    comprensibile <b>quanto</b> un documento sia difficile e <b>quali aspetti</b> contribuiscano» alla sua
+    difficoltà. Il loro lavoro colma il divario fra l'approccio italiano standard, fondato sul Gulpease, e
+    gli approcci più articolati disponibili per l'inglese, ispirati a Coh-Metrix: un insieme di indici che
+    coprono livelli linguistici distinti, dal lessico al discorso, e una resa grafica che confronta il
+    documento con i tre livelli della scuola dell'obbligo italiana.</p>
+    <p>È la ragione per cui il §8 non presenta un punteggio unico ma <b>otto componenti separati</b>, ciascuno
+    con il proprio punteggio, i propri ancoraggi e il proprio limite. Un docente che vede «indice 41» non sa
+    che cosa cambiare; uno che vede «leggibilità 30, lunghezza delle frasi 62, nessi logici 18» sa dove
+    intervenire. La stessa logica dei tre livelli scolastici governa gli ancoraggi del Gulpease.</p>
+  </div>
+
+  <div class="callout limit reveal" style="margin-top:18px">
+    <h4>Perché i limiti sono scritti accanto a ogni metrica, e non in fondo</h4>
+    <p>Nel luglio 2026 lo stesso confronto fra 1A e 1B è stato fatto a mano, con uno script che non
+    documentava le proprie liste di parole. A distanza di pochi giorni <b>metà di quelle cifre non era più
+    riproducibile</b>: sui connettivi subordinanti lo scarto fra due implementazioni ragionevoli è di tre volte
+    e mezzo, sui causali di quattro. Da qui la regola: ogni soglia porta con sé definizione, motivo e limite,
+    e nessun documento viene emesso senza la propria sezione di limiti.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 8 · SOGLIE ══════════════════════════ -->
+<section id="soglie">
+  <div class="kicker reveal"><span class="badge">8</span> Le soglie</div>
+  <h2 class="reveal">L'indice di accessibilità e i valori di riferimento proposti.</h2>
+  <p class="lead reveal">Per confrontare materiali nel tempo serve un numero unico. Ogni componente è
+  normalizzato da 0 a 100 con ancoraggi <b>fissi e dichiarati</b>, mai standardizzati sul campione: un
+  punteggio non deve cambiare perché nel frattempo sono state caricate altre analisi.</p>
+
+  <div class="tbl-wrap reveal d1" style="margin-top:30px">
+    <table>
+      <colgroup><col style="width:5%"><col style="width:23%"><col style="width:8%"><col style="width:30%"><col style="width:34%"></colgroup>
+      <thead><tr><th class="num">#</th><th>Componente</th><th class="num">Peso</th><th>Ancoraggi (valore → punti)</th><th>Motivazione del peso</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td><b>Leggibilità</b></td><td class="num">22</td>
+            <td>Gulpease 40→0 · 60→45 · 70→75 · 80→100<br>Flesch-Vacca 30→0 · 50→45 · 60→75 · 70→100</td>
+            <td>Unica metrica con soglie scolastiche riconosciute. Resta la più pesante ma non domina.</td></tr>
+        <tr><td class="num">2</td><td><b>Lunghezza delle frasi</b></td><td class="num">12</td>
+            <td>25→0 · 18→50 · 12→100 parole per frase</td>
+            <td>Meno materiale da tenere in memoria di lavoro prima di chiudere il senso.</td></tr>
+        <tr><td class="num">3</td><td><b>Densità terminologica</b></td><td class="num">12</td>
+            <td>Parole lunghe 35%→0 · 25%→50 · 15%→100<br>Nominalizzazioni 12→0 · 7→50 · 3→100</td>
+            <td>Tenuta separata dalle altre: è la dimensione che il registro semplice <b>non</b> ha migliorato.</td></tr>
+        <tr><td class="num">4</td><td><b>Carico sintattico</b></td><td class="num">8</td>
+            <td>1,5→0 · 0,8→50 · 0,2→100 per cento parole</td>
+            <td>Pesa poco perché già in parte catturato dalla lunghezza delle frasi.</td></tr>
+        <tr><td class="num">5</td><td><b>Granularità dei blocchi</b></td><td class="num">12</td>
+            <td>Media 70→0 · 55→50 · 40→100<br>Dev. std. 20→0 · 12→50 · 6→100</td>
+            <td>Blocchi corti e prevedibili: l'allievo sa quanto gli costerà ogni unità prima di iniziarla.</td></tr>
+        <tr><td class="num">6</td><td><b>Dispositivi di scansione</b></td><td class="num">15</td>
+            <td>0→0 · 4→60 · 10→100 per mille parole<br><i>moderato dal fattore di sostanza</i></td>
+            <td>Per un lettore ADHD entrare e uscire dal testo senza perdere il filo vale quanto la facilità della frase.</td></tr>
+        <tr><td class="num">7</td><td><b>Carico temporale</b></td><td class="num">9</td>
+            <td>30 min→0 · 15 min→50 · 5 min→100<br><i>a 120 parole al minuto</i></td>
+            <td>Un materiale facile che chiede quaranta minuti continui non è accessibile a chi non li ha.</td></tr>
+        <tr><td class="num">8</td><td><b>Nessi logici espliciti</b></td><td class="num">10</td>
+            <td>Causali 0,3→0 · 1,0→55 · 2,0→100<br>Legami logici 10%→0 · 35%→55 · 60%→100</td>
+            <td>Il costo maggiore spesso non è leggere la frase, è ricostruire il rapporto fra due frasi.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid g2 reveal" style="margin-top:22px">
+    <div class="callout key">
+      <h4>Il fattore di sostanza</h4>
+      <p>Il punteggio dei dispositivi di scansione viene moltiplicato per un coefficiente fra <b>0,4 e 1,0</b>
+      che scende quando gli elenchi sono gusci vuoti — poche parole di contenuto per riga — o quando i nodi
+      fratelli si ripetono. Senza, il peso 15 si guadagnerebbe spezzettando il nulla. Non azzera il
+      componente, perché anche una formattazione povera aiuta a orientarsi: può però dimezzarlo.</p>
+    </div>
+    <div class="callout">
+      <h4>Componenti non calcolabili</h4>
+      <p>La granularità richiede una struttura a nodi, che una scheda in PDF non ha; i dispositivi di
+      scansione richiedono formattazione. Quando un componente non è calcolabile il suo peso si
+      <b>ridistribuisce</b> sugli altri, e l'indice porta con sé il conteggio dei componenti attivi. Nel
+      confronto fonte → prodotto si usano <b>solo i componenti attivi da entrambi i lati</b>.</p>
+    </div>
+  </div>
+
+  <div class="callout warn reveal" style="margin-top:20px">
+    <h4>La scelta più discutibile, dichiarata come tale</h4>
+    <p>La soglia Gulpease «licenza media» vale <b>45</b> punti su 100, non 60: la sufficienza piena cade
+    attorno a Gulpease 66. È la lettura più severa fra le due possibili, e la ragione è che il destinatario
+    non è l'allievo nominale di prima media ma quello con dislessia o ADHD, per cui la soglia nominale è il
+    limite superiore della fatica, non una condizione confortevole. Effetto concreto sui dati reali: la
+    sintesi della 1A passa da 27 a circa 15 punti, quella della 1B da 40 a circa 25. Entrambe restano
+    insufficienti — <b>correttamente</b> — ma la distanza fra loro resta leggibile.</p>
+  </div>
+
+  <div class="callout limit reveal" style="margin-top:18px">
+    <h4>Che cosa questo indice non è</h4>
+    <p>Non è una misura di apprendimento e non è validato. È uno <b>strumento di confronto fra materiali</b>,
+    costruito con pesi scelti da un ex insegnante sulla base della letteratura citata e della propria
+    esperienza. La sperimentazione serve anche a capire se questi pesi corrispondono a qualcosa di reale:
+    se l'indice non correla con nessun esito osservato negli allievi, va rifatto.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 9 · DISEGNO ══════════════════════════ -->
+<section id="disegno">
+  <div class="kicker reveal"><span class="badge">9</span> Il disegno</div>
+  <h2 class="reveal">Che cosa si propone di verificare, e come.</h2>
+
+  <div class="card q-main reveal d1" style="margin-top:30px">
+    <h4>Domanda principale</h4>
+    <div class="q">
+      <p>
+        Un allievo con bisogni educativi speciali che <b>costruisce la propria mappa</b> a partire dal materiale
+        intermedio generato da MappAI ottiene risultati di <b>comprensione e ritenzione</b> più vicini alla
+        <b>costruzione autonoma</b> o allo <b>studio passivo di una mappa già fatta</b>?
+      </p>
+    </div>
+  </div>
+
+  <div class="card q-sec reveal d1" style="margin-top:32px">
+    <h3>Domande secondarie</h3>
+    <div class="q">
+      <h4>Sul materiale</h4>
+      <p>L'indice di accessibilità <b>correla con ciò che si osserva negli allievi</b>: tempo sul compito,
+      <b>completezza della mappa prodotta</b>, autonomia percepita dal docente?</p>
+    </div>
+    <div class="q">
+      <h4>Sulla taratura</h4>
+      <p>A parità di fonte, il registro «semplice» produce un <b>vantaggio osservabile</b> su quello «medio»,
+      oppure l'effetto resta <b>soltanto strutturale</b>, come suggerisce il confronto fra 1A e 1B?</p>
+    </div>
+    <div class="q">
+      <h4>Sul lavoro del docente</h4>
+      <p><b>Quanto tempo di preparazione si risparmia</b> davvero, e <b>in che cosa viene reinvestito</b>?
+      Misura la <b>sostenibilità</b>, non l'efficacia.</p>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="margin-top:34px">Ipotesi operative</h3>
+  <div class="tbl-wrap in-colonna reveal d1" style="margin-top:14px">
+    <table>
+      <colgroup><col style="width:9%"><col style="width:53%"><col style="width:38%"></colgroup>
+      <thead><tr><th>N.</th><th>Ipotesi</th><th>Come si falsifica</th></tr></thead>
+      <tbody>
+        <tr><td><b>H1</b></td><td>Costruire la mappa dal foglio dei nodi produce ritenzione superiore rispetto a ricevere la mappa completa.</td>
+            <td>Nessuna differenza, o differenza a favore della mappa completa, alla verifica differita.</td></tr>
+        <tr><td><b>H2</b></td><td>Il vantaggio di H1 è maggiore negli allievi con BES che nei compagni senza, coerentemente con An e Kim<a href="#r3" class="ref">3</a>.</td>
+            <td>Interazione assente o di segno opposto fra condizione e profilo dell'allievo.</td></tr>
+        <tr><td><b>H3</b></td><td>La sintesi generata consente l'accesso alla fonte ad allievi che con l'originale non completerebbero il compito.</td>
+            <td>Tasso di completamento invariato rispetto alla fonte originale.</td></tr>
+        <tr><td><b>H4</b></td><td>L'indice di accessibilità del materiale correla positivamente con il tasso di completamento del compito.</td>
+            <td>Correlazione nulla o negativa: l'indice andrebbe rifatto.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="reveal" style="margin-top:34px">Disegno, campione, misure</h3>
+  <div class="voci reveal d1" style="margin-top:14px">
+    <div class="voce">
+      <h4>Disegno</h4>
+      <p>Quasi-sperimentale a misure ripetute intra-soggetto, con contrappeso dell'ordine delle condizioni.
+      Ogni allievo affronta due unità didattiche confrontabili, una per condizione, così che ciascuno faccia
+      da controllo di sé stesso: scelta obbligata dalla numerosità attesa e dalla forte variabilità
+      individuale di questa popolazione.</p>
+      <p><b>Condizioni:</b> (A) mappa completa generata, da studiare · (B) foglio dei nodi da completare più
+      sintesi · (C) fonte originale, come riferimento di base.</p>
+      <p><b>Parametri vincolati dalla letteratura</b>, non scelti per comodità: la meta-regressione di An e
+      Kim<a href="#r3" class="ref">3</a> individua nella <b>dimensione ridotta del gruppo</b> e nella
+      <b>frequenza</b> gli unici moderatori che resistono al controllo delle altre variabili. Il lavoro si
+      svolge quindi in piccolo gruppo, da 3 a 5 volte a settimana, su un arco compreso fra 1 e 9 settimane
+      per unità.</p>
+    </div>
+    <div class="voce">
+      <h4>Campione</h4>
+      <p>Da concordare con il Servizio di sostegno pedagogico: indicativamente da quattro a sei classi di
+      scuola media, con presenza documentata di allievi con bisogni educativi speciali, e i rispettivi
+      docenti di materia, docenti di sostegno e operatori per l'inclusione. Durata indicativa: un semestre,
+      due unità didattiche per classe.</p>
+      <p>Il numero non è fissato qui perché dipende dalla disponibilità reale delle sedi: la potenza
+      statistica va calcolata sul campione effettivamente ottenibile, non promessa in anticipo.</p>
+    </div>
+    <div class="voce">
+      <h4>Misure sull'allievo</h4>
+      <p>Verifica di comprensione immediata e differita a due settimane (prova costruita dal docente, uguale
+      fra condizioni) · completezza e correttezza della mappa prodotta dall'allievo, valutata con griglia
+      condivisa · tempo sul compito · tasso di completamento · breve autovalutazione di fatica percepita.</p>
+    </div>
+    <div class="voce">
+      <h4>Misure sul materiale e sul docente</h4>
+      <p>Indice di accessibilità e tutte le metriche del §7, calcolate automaticamente su ogni materiale
+      prodotto · tempo di preparazione dichiarato dal docente · intervista semi-strutturata di fine percorso
+      a docenti di sostegno e operatori per l'inclusione, sul modello delle interviste di Fang e
+      colleghi<a href="#r5" class="ref">5</a>.</p>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="margin-top:34px">Analisi previste</h3>
+  <p class="small reveal d1" style="color:var(--ink-2);max-width:74ch">Modelli lineari a effetti misti con
+  allievo e classe come fattori casuali, condizione come effetto fisso, e profilo dell'allievo (con o senza
+  BES) come moderatore, che è precisamente il termine di interazione richiesto da H2. Le misure sul
+  materiale entrano come covariate a livello di unità didattica. Analisi qualitativa tematica delle interviste,
+  condotta separatamente e non usata per confermare le ipotesi quantitative.</p>
+
+  <div class="callout reveal" style="margin-top:26px">
+    <h4>Consenso, minori e trattamento dei dati</h4>
+    <p>Consenso informato delle famiglie e assenso dell'allievo, con possibilità di ritiro in qualsiasi
+    momento senza conseguenze sul percorso scolastico. Nessun dato personale identificabile lascia la sede:
+    le analisi automatiche girano <b>in locale</b>, sui materiali didattici e non sui testi degli allievi.
+    Le produzioni degli allievi vengono pseudonimizzate alla raccolta. Il profilo di classe usato per la
+    taratura contiene <b>descrizioni aggregate</b> — «dieci allievi con ADHD» — e mai nomi o diagnosi
+    individuali. Protocollo da sottoporre all'organo di valutazione etica competente prima dell'avvio.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 10 · PROTOCOLLO ══════════════════════════ -->
+<section id="protocollo">
+  <div class="kicker reveal"><span class="badge">10</span> Il protocollo di misura</div>
+  <h2 class="reveal">Come i materiali vengono misurati durante la sperimentazione.</h2>
+  <p class="lead reveal">La raccolta dati sul materiale è automatizzata da uno strumento dedicato, separato
+  dall'applicazione che genera. La separazione è voluta: chi misura non deve essere chi produce.</p>
+
+  <div class="grid g3 reveal d1" style="margin-top:30px">
+    <div class="card tight card-uso">
+      <h4>Profilo congelato</h4>
+      <p class="desc">All'avvio i parametri vengono fissati e <b>versionati</b>. Ogni report porta dentro di
+      sé il profilo con cui è nato: un dato di marzo resta interpretabile a giugno, anche se nel frattempo
+      le soglie sono cambiate.</p>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Misura automatica</h4>
+      <p class="desc">Per ogni materiale: struttura, leggibilità, granularità, densità, nessi logici,
+      ridondanza, tempo di lettura e indice composito. Dove la fonte esiste, anche la distanza dalla
+      scheda di partenza, con la <b>copertura</b> accanto.</p>
+    </div>
+    <div class="card tight card-uso">
+      <h4>Riproducibilità</h4>
+      <p class="desc">Il materiale viene copiato e conservato, così nessuna modifica successiva può
+      invalidare l'analisi. Due esecuzioni sullo stesso testo danno numeri identici, e i test
+      automatici lo verificano.</p>
+    </div>
+  </div>
+
+  <div class="callout key reveal" style="margin-top:24px">
+    <h4>Il vincolo che rende leggibili i risultati</h4>
+    <p>La differenza di accessibilità fra fonte e prodotto non viene <b>mai</b> mostrata senza la copertura
+    della fonte accanto. Un guadagno ottenuto eliminando il quaranta per cento del contenuto non è un
+    guadagno, e senza questo accostamento sembrerebbe tale. Il vincolo è implementato nel codice: la
+    funzione che costruisce il confronto <b>rifiuta</b> di produrlo se la copertura manca.</p>
+  </div>
+
+  <div class="callout limit reveal" style="margin-top:18px">
+    <h4>Che cosa nessuno strumento vede, e va raccolto a mano</h4>
+    <p>La qualità didattica del contenuto · la correttezza disciplinare · se la mappa prodotta dall'allievo
+    ha senso · la relazione fra allievo e docente di sostegno durante il lavoro · la fatica reale
+    dell'allievo. Le metriche automatiche sono un <b>pre-vaglio</b> sul materiale, non una valutazione
+    dell'apprendimento: nessuna decisione della sperimentazione può poggiare su di esse da sole.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 11 · LIMITI ══════════════════════════ -->
+<section id="limiti">
+  <div class="kicker reveal"><span class="badge">11</span> Limiti</div>
+  <h2 class="reveal">Che cosa questo impianto non può dimostrare.</h2>
+
+  <div class="voci reveal d1" style="margin-top:28px">
+    <div class="voce"><h4>Nessun dato sugli apprendimenti, oggi</h4>
+      <p>Esiste soltanto un confronto fra due mappe generate lo stesso giorno. La letteratura
+      citata sostiene le <b>mappe</b>, non questo strumento.</p></div>
+    <div class="voce"><h4>Le metriche linguistiche sono approssimazioni</h4>
+      <p>Suffissi al posto dei lemmi, stringhe al posto dell'analisi grammaticale. Sono indizi
+      confrontabili fra materiali, non descrizioni linguistiche.</p></div>
+    <div class="voce"><h4>Gulpease non conosce il singolo allievo</h4>
+      <p>È tarato su medie di popolazione scolastica. Non sa nulla dei sei allievi dislessici
+      di una classe, né di quanto siano diversi fra loro.</p></div>
+    <div class="voce"><h4>Il livello tipografico non è misurato</h4>
+      <p>Carattere, interlinea e spaziatura non entrano nell'indice. MappAI ha opzioni per la
+      dislessia che nel confronto disponibile erano spente: leva probabilmente complementare, da studiare
+      a parte.</p></div>
+    <div class="voce"><h4>Il modello linguistico cambia sotto i piedi</h4>
+      <p>I modelli evolvono e vengono ritirati, e un risultato non si trasferisce da solo al
+      successore. La versione va registrata con ogni misura, ed è previsto.</p></div>
+    <div class="voce"><h4>Il ruolo dell'AI non è isolabile</h4>
+      <p>Nello studio più vicino al nostro<a href="#r5" class="ref">5</a> sono migliorati anche
+      gli allievi che l'AI non la usavano. Separare l'effetto dello strumento da quello del lavoro sulle
+      mappe chiede un disegno che qui si prevede ma non si può garantire.</p></div>
+  </div>
+
+  <div class="callout reveal" style="margin-top:24px">
+    <h4>Perché questi limiti sono scritti qui e non nascosti</h4>
+    <p>Uno strumento che misura l'accessibilità dei materiali didattici e non dichiara i propri limiti
+    chiede fiducia esattamente dove dovrebbe offrire verificabilità. La sezione dei limiti è generata
+    automaticamente in ogni report prodotto, a partire da ciò che è realmente accaduto in quella misura:
+    un report senza limiti dichiarati non viene emesso.</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════ 12 · BIBLIOGRAFIA ══════════════════════════ -->
+<section id="biblio">
+  <div class="kicker reveal"><span class="badge">12</span> Bibliografia</div>
+  <h2 class="reveal">Riferimenti.</h2>
+  <p class="lead reveal">Le fonti <b>[1]–[5]</b>, <b>[16]</b>, <b>[18]–[20]</b> e <b>[23]</b> sono state
+  verificate direttamente sulla pubblicazione: per [3], [18], [19], [20] e [23] sul testo integrale del
+  documento, per le altre sull'abstract. Ogni valore riportato in questo documento compare nella fonte
+  citata. Le voci <b>[6]–[15]</b>, <b>[17]</b>, <b>[21]</b> e <b>[22]</b> sono opere di riferimento citate
+  per il quadro teorico e non portano cifre.</p>
+
+  <div class="card reveal d1" style="margin-top:26px">
+    <ul class="biblio">
+      <li id="r1"><div><b>Nesbit, J. C., &amp; Adesope, O. O.</b> (2006). Learning with concept and knowledge
+        maps: A meta-analysis. <i>Review of Educational Research</i>, 76(3), 413–448.
+        <span class="doi">55 studi · 67 effect size · 5.818 partecipanti · doi:10.3102/00346543076003413</span></div></li>
+      <li id="r2"><div><b>Schroeder, N. L., Nesbit, J. C., Anguiano, C. J., &amp; Adesope, O. O.</b> (2018).
+        Studying and constructing concept maps: A meta-analysis. <i>Educational Psychology Review</i>, 30(2), 431–455.
+        <span class="doi">142 effect size · n = 11.814 · g = 0,58 · costruire g = 0,72 vs studiare g = 0,43 · doi:10.1007/s10648-017-9403-9</span></div></li>
+      <li id="r3"><div><b>An, J., &amp; Kim, D.</b> (2024). Effects of interventions using graphic organizer
+        in Korea: a meta-analysis. <i>Asia Pacific Education Review</i>. Education Research Institute,
+        Seoul National University.
+        <span class="doi">49 studi e tesi su vent'anni · d globale 0,78 (IC 95% [0,63; 0,94], τ² = 0,28) · a rischio 1,38 · DSA 1,15 · DI 0,76 · senza disabilità 0,52 · mappa cognitiva 1,05 · meta-regressione: solo dimensione del gruppo e frequenza restano moderatori significativi · doi:10.1007/s12564-024-09965-2</span></div></li>
+      <li id="r4"><div><b>Dexter, D. D., &amp; Hughes, C. A.</b> (2011). Graphic organizers and students with
+        learning disabilities: A meta-analysis. <i>Learning Disability Quarterly</i>, 34(1), 51–72.
+        <span class="doi">16 studi · 55 effect size · 808 partecipanti · dalla 4ª alla 12ª classe · doi:10.1177/073194871103400104</span></div></li>
+      <li id="r5"><div><b>Fang, M., Abdallah, A. K., &amp; Vorfolomeyeva, O.</b> (2024). Collaborative
+        AI-enhanced digital mind-mapping as a tool for stimulating creative thinking in inclusive education
+        for students with neurodevelopmental disorders. <i>BMC Psychology</i>, 12, 488.
+        <span class="doi">163 partecipanti di cui 28 con disturbi del neurosviluppo · Torrance Figural Creativity Test · doi:10.1186/s40359-024-01975-4</span></div></li>
+      <li id="r6"><div><b>Hattie, J.</b> (2009). <i>Visible Learning: A Synthesis of Over 800 Meta-Analyses
+        Relating to Achievement</i>. Routledge.
+        <span class="doi">Origine della soglia convenzionale d = 0,40 come cerniera di rilevanza didattica</span></div></li>
+      <li id="r7"><div><b>Sweller, J., van Merriënboer, J. J. G., &amp; Paas, F.</b> (2019). Cognitive
+        architecture and instructional design: 20 years later. <i>Educational Psychology Review</i>, 31, 261–292.
+        <span class="doi">doi:10.1007/s10648-019-09465-5</span></div></li>
+      <li id="r8"><div><b>van Merriënboer, J. J. G., &amp; Krammer, H. P. M.</b> (1987); <b>Paas, F. G. W. C.,
+        &amp; van Merriënboer, J. J. G.</b> (1994). Instructional control of cognitive load in the training of
+        complex cognitive tasks. <i>Educational Psychology Review</i>, 6(4), 351–371.
+        <span class="doi">Effetto completamento e strategia di completamento con dissolvenza della guida</span></div></li>
+      <li id="r9"><div><b>Wood, D., Bruner, J. S., &amp; Ross, G.</b> (1976). The role of tutoring in problem
+        solving. <i>Journal of Child Psychology and Psychiatry</i>, 17(2), 89–100.
+        <span class="doi">Formulazione originale del concetto di impalcatura (scaffolding)</span></div></li>
+      <li id="r10"><div><b>Vygotskij, L. S.</b> (1978). <i>Mind in Society: The Development of Higher
+        Psychological Processes</i>. Harvard University Press.
+        <span class="doi">Zona di sviluppo prossimale</span></div></li>
+      <li id="r11"><div><b>Paivio, A.</b> (1986). <i>Mental Representations: A Dual Coding Approach</i>.
+        Oxford University Press.</div></li>
+      <li id="r12"><div><b>Mayer, R. E.</b> (2009). <i>Multimedia Learning</i> (2ª ed.). Cambridge
+        University Press.</div></li>
+      <li id="r13"><div><b>Slamecka, N. J., &amp; Graf, P.</b> (1978). The generation effect: Delineation of
+        a phenomenon. <i>Journal of Experimental Psychology: Human Learning and Memory</i>, 4(6), 592–604.</div></li>
+      <li id="r14"><div><b>Roediger, H. L., &amp; Karpicke, J. D.</b> (2006). Test-enhanced learning: Taking
+        memory tests improves long-term retention. <i>Psychological Science</i>, 17(3), 249–255.</div></li>
+      <li id="r15"><div><b>Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., &amp; Rohrer, D.</b> (2006).
+        Distributed practice in verbal recall tasks: A review and quantitative synthesis.
+        <i>Psychological Bulletin</i>, 132(3), 354–380.</div></li>
+      <li id="r16"><div><b>Lucisano, P., &amp; Piemontese, M. E.</b> (1988). GULPEASE: una formula per la
+        predizione della difficoltà dei testi in lingua italiana. <i>Scuola e Città</i>, 39(3), 110–124.
+        <span class="doi">Gruppo Universitario Linguistico Pedagogico, Università di Roma «La Sapienza» · soglie 40 / 60 / 80</span></div></li>
+      <li id="r17"><div><b>Franchina, V., &amp; Vacca, R.</b> (1986). Adattamento italiano della formula di
+        Flesch per la misura della leggibilità.
+        <span class="doi">Base dell'indice Flesch-Vacca usato come controllo incrociato del Gulpease</span></div></li>
+      <li id="r18"><div><b>Zheng, H., Abd Halim, N. D., &amp; Song, X.</b> (2025). The use of mindmap and its
+        effectiveness in different fields of foreign language learning: A systematic review (2014-2024).
+        <i>International Journal of Academic Research in Progressive Education and Development</i>, 14(1).
+        <span class="doi">33 studi empirici da WoS e Scopus, gennaio 2014 – giugno 2024 · efficacia su ritenzione lessicale, comprensione della lettura e fase di pre-scrittura · il software di mappatura e l'integrazione dell'AI contribuiscono agli esiti · doi:10.6007/IJARPED/v14-i1/24359</span></div></li>
+      <li id="r19"><div><b>Jeong, A., &amp; Shin, H. S.</b> (2023). Mining, analyzing, and modeling the
+        cognitive strategies students use to construct higher quality causal maps. In <i>Proceedings of the
+        International Conference on Cognition and Exploratory Learning in the Digital Age (CELDA 2023)</i>.
+        <span class="doi">43 partecipanti, analisi sui primi cinque nodi posati (n = 37) · la costruzione a ritroso pesa tre volte più della costruzione in profondità sulla qualità della mappa</span></div></li>
+      <li id="r20"><div><b>Jia, Y., Wang, X. E., Sin, Z. P. T., Li, C., Ng, P. H. F., Huang, X., Baciu, G.,
+        Cao, J., &amp; Li, Q.</b> (2024). Knowledge-graph-driven mind mapping for immersive collaborative
+        learning: A pilot study in edu-metaverse. <i>IEEE Transactions on Learning Technologies</i>, 17, 1794–…
+        <span class="doi">Coinvolgimento più alto rispetto alla videoconferenza proprio durante il disegno della mappa assistito dal grafo di conoscenza · la compresenza aumenta il contributo collaborativo · doi:10.1109/TLT.2024.3406638</span></div></li>
+      <li id="r21"><div><b>CAST</b> (2018). <i>Universal Design for Learning Guidelines</i>, versione 2.2.
+        <span class="doi">Primo principio: fornire molteplici modalità di rappresentazione — fondamento della distinzione fra sostituzione e semplificazione usata nel §3</span></div></li>
+      <li id="r22"><div><b>Simoneschi, G.</b> <i>La disabilità che è negli oggetti</i>. Edizioni ETS.
+        <span class="doi">Citato in materiali di formazione docenti sull'adattamento dei testi: divisione in blocchi, sottolineatura delle parole chiave, sintesi mediante mappe concettuali</span></div></li>
+      <li id="r23"><div><b>Tonelli, S., Tran Manh, K., &amp; Pianta, E.</b> (2012). Making readability indices
+        readable. In <i>Proceedings of the First Workshop on Predicting and Improving Text Readability for
+        Target Reader Populations (PITR 2012)</i>, NAACL-HLT, pp. 40–48. Montréal, Association for
+        Computational Linguistics.
+        <span class="doi">Primo sistema di analisi della leggibilità dell'italiano ispirato a Coh-Metrix · resa grafica del confronto con i tre livelli della scuola dell'obbligo · aclanthology.org/W12-2206</span></div></li>
+    </ul>
+  </div>
+
+  <div class="callout reveal" style="margin-top:22px">
+    <h4>Due fonti valutate e non usate</h4>
+    <p><b>Luo Xinge &amp; Baharudin (2024)</b>, sull'efficacia della mappa mentale interattiva su prestazione
+    e motivazione di 120 matricole di inglese all'Università del Sichuan, riporta effetti positivi su
+    entrambe. Non è citata come evidenza perché la rivista che la ospita non offre garanzie editoriali
+    verificabili: in una domanda di ricerca una fonte contestabile indebolisce anche le altre. Resta agli
+    atti come indicazione convergente, non come prova.</p>
+    <p><b>Lee, Woo e Yu</b>, sul sistema di realtà virtuale per la simulazione di manutenzione aeronautica,
+    riguarda la presenza spaziale e la ritenzione in ambienti immersivi, non le mappe. Non ha attinenza con
+    questa proposta e inserirla sarebbe stato riempitivo.</p>
+  </div>
+
+  <div class="callout limit reveal" style="margin-top:22px">
+    <h4>Una fonte rimossa</h4>
+    <p>Una versione precedente del materiale di presentazione riportava un riferimento «EFM-KG 2025»
+    con d&nbsp;=&nbsp;0,80 e una riduzione del divario di rendimento del 28,1%, e una citazione virgolettata
+    su «profili neurodivergenti» attribuita a Schroeder e colleghi. <b>Nessuno dei due ha riscontro.</b>
+    Sono stati rimossi. Ogni cifra di questo documento è stata ricondotta alla propria fonte primaria prima
+    di essere scritta.</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>MappAI — basi scientifiche e proposta di sperimentazione didattica.</b> Documento preparato da
+  Giacomo Meschini per DECS (CERDD, Sezione dell'insegnamento medio, Servizio di sostegno pedagogico) e
+  SUPSI‑DFA. Contatto: giacomo@insegnai.ch</p>
+  <p style="margin-top:8px">Fonti verificate nel luglio 2026. Le metriche e le soglie descritte nelle
+  sezioni 7 e 8 sono implementate in codice aperto all'ispezione e coperto da test automatici.</p>
+</footer>
+
+<!-- Il font va caricato PRIMA dello script che lo inietta come @font-face. -->
+<script src="../public/js/vendor/spacemono-font.js"></script>
+
+<script>
+/* Space Mono incorporato: nessuna richiesta di rete (l'app deve funzionare offline). */
+(function(){
+  try{
+    var f = window.MappAISpaceMono;
+    if (!f) return;
+    function face(b64, peso){
+      if (typeof b64 !== 'string' || b64.length < 1000) return '';
+      return "@font-face{font-family:'Space Mono';src:url(data:font/truetype;charset=utf-8;base64,"
+        + b64 + ") format('truetype');font-weight:" + peso + ";font-style:normal;font-display:swap}";
+    }
+    var css = face(f.regular, 400) + face(f.bold, 700);
+    if (!css) return;
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.appendChild(st);
+  }catch(e){/* si resta sul monospace di sistema: il documento resta leggibile */}
+})();
+
+/* barra di avanzamento */
+var prog=document.getElementById('progress');
+addEventListener('scroll',function(){
+  var h=document.documentElement;
+  var p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);
+  prog.style.width=(p*100)+'%';
+  document.getElementById('topbar').classList.toggle('scrolled',h.scrollTop>20);
+},{passive:true});
+
+/* comparsa progressiva */
+var revO=new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); revO.unobserve(e.target);} });
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(function(el){revO.observe(el);});
+
+/* contatori e barre */
+function anima(el){
+  var target=parseFloat(el.dataset.count), dec=parseInt(el.dataset.dec||'0',10);
+  var suf=el.dataset.suffix||'', t0=null, dur=1100;
+  function step(ts){
+    if(!t0)t0=ts;
+    var k=Math.min((ts-t0)/dur,1), e=1-Math.pow(1-k,3);
+    var v=target*e;
+    // Convenzione italiana: virgola per i decimali, punto per le migliaia.
+    // Senza, la scheda scriveva «0.58» mentre il testo accanto diceva «0,58».
+    // Il raggruppamento va forzato: in modalità automatica i numeri di quattro
+    // cifre restano senza punto, e «5818» stonava con «5.818» in bibliografia.
+    el.textContent=(dec ? v.toFixed(dec).replace('.', ',')
+                        : Math.round(v).toLocaleString('it-IT', {useGrouping:true}))+suf;
+    if(k<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+var numO=new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){
+    var n=e.target.querySelector('[data-count]'); if(n)anima(n);
+    var b=e.target.querySelector('.bar i'); if(b)b.style.width=b.dataset.fill;
+    numO.unobserve(e.target);
+  }});
+},{threshold:.4});
+document.querySelectorAll('.card.stat').forEach(function(c){numO.observe(c);});
+
+/* ── Schede della sezione Evidenze → modale della fonte ───────────────────
+   Ogni testo sta sotto i 700 caratteri e riporta solo elementi presenti nella
+   pubblicazione citata. Nessuna interpretazione: il contesto del dato. */
+var FONTI = {
+  schroeder:{
+    cifra:'g = 0,58', colore:'var(--indigo-d)',
+    tit:'Studiare e costruire mappe concettuali: una meta-analisi',
+    corpo:'<p><span class="tit">Che cosa è stato misurato</span>Centoquarantadue misure d\'effetto indipendenti su <b>11.814 studenti</b>, dalla quarta elementare all\'università, in scienze, psicologia, statistica e infermieristica. Modello a effetti casuali.</p><p><span class="tit">Il risultato</span>Imparare con mappe concettuali e mappe della conoscenza produce un effetto moderato e statisticamente significativo: <b>g = 0,58</b> (p &lt; 0,001) rispetto alle condizioni di confronto.</p><p><span class="tit">Il dettaglio che pesa</span>L\'analisi dei moderatori separa due usi: <b>costruire</b> una mappa vale g = 0,72, <b>studiarne</b> una già fatta g = 0,43.</p>',
+    cita:'Schroeder, N. L., Nesbit, J. C., Anguiano, C. J., &amp; Adesope, O. O. (2018). Studying and constructing concept maps: A meta-analysis. <i>Educational Psychology Review</i>, 30(2), 431–455.', anc:'#r2'},
+  arischio:{
+    cifra:'d = 1,38', colore:'var(--emerald)',
+    tit:'Organizzatori grafici: l\'effetto cambia con il profilo dell\'allievo',
+    corpo:'<p><span class="tit">L\'ordine per profilo</span>Dal più forte al più debole: allievi <b>a rischio d = 1,38</b>, con disturbo specifico dell\'apprendimento d = 1,15, con disabilità intellettiva d = 0,76, <b>senza disabilità d = 0,52</b>.</p><p><span class="tit">Che cosa significa</span>L\'effetto è più che doppio proprio per chi fa più fatica: non uno strumento che aiuta tutti un poco, ma uno che aiuta molto chi ne ha bisogno.</p><p><span class="tit">La cautela degli autori</span>La meta-regressione mostra che, controllando le altre variabili, restano significativi soltanto la <b>dimensione del gruppo</b> e la <b>frequenza</b>.</p>',
+    cita:'An, J., &amp; Kim, D. (2024). Effects of interventions using graphic organizer in Korea: a meta-analysis. <i>Asia Pacific Education Review</i>.', anc:'#r3'},
+  dsa:{
+    cifra:'d = 1,15', colore:'var(--violet)',
+    tit:'Allievi con disturbo specifico dell\'apprendimento',
+    corpo:'<p><span class="tit">Il dato</span>Fra gli allievi con DSA l\'effetto degli organizzatori grafici è <b>d = 1,15</b>: più del doppio del valore rilevato negli allievi senza disabilità (d = 0,52).</p><p><span class="tit">Da dove viene</span>Quarantanove fra articoli con revisione fra pari e tesi degli ultimi vent\'anni. Effetto globale <b>d = 0,78</b>, intervallo di confidenza al 95% fra 0,63 e 0,94.</p><p><span class="tit">Condizioni più efficaci</span>Gruppi piccoli, da tre a cinque volte a settimana, su archi compresi fra una e nove settimane.</p>',
+    cita:'An, J., &amp; Kim, D. (2024). Effects of interventions using graphic organizer in Korea: a meta-analysis. <i>Asia Pacific Education Review</i>.', anc:'#r3'},
+  hattie:{
+    cifra:'d = 0,40', colore:'var(--orange)',
+    tit:'La cerniera di rilevanza didattica',
+    corpo:'<p><span class="tit">Che cos\'è</span>Sintetizzando oltre <b>ottocento meta-analisi</b> sul rendimento scolastico, Hattie propone d = 0,40 come soglia convenzionale: sotto quel valore un intervento produce effetti paragonabili a quelli del normale procedere dell\'anno scolastico.</p><p><span class="tit">Perché compare qui</span>Serve a dare scala agli altri numeri della sezione: 0,58 la supera, 1,38 la supera di oltre tre volte.</p><p><span class="tit">Il limite</span>È una convenzione utile per ordinare gli interventi, discussa in letteratura, non una legge.</p>',
+    cita:'Hattie, J. (2009). <i>Visible Learning: A Synthesis of Over 800 Meta-Analyses Relating to Achievement</i>. Routledge.', anc:'#r6'},
+  nesbit:{
+    cifra:'5.818', colore:'var(--blue)',
+    tit:'La prima sintesi del campo',
+    corpo:'<p><span class="tit">Materiale</span>Cinquantacinque studi sperimentali e quasi sperimentali, sessantasette misure d\'effetto, <b>5.818 partecipanti</b> dalla quarta elementare all\'università.</p><p><span class="tit">Che cosa hanno confrontato</span>Studenti che imparavano <b>costruendo</b>, <b>modificando</b> oppure <b>osservando</b> diagrammi a nodi e collegamenti, in scienze, psicologia, statistica e infermieristica.</p><p><span class="tit">Il risultato</span>L\'uso delle mappe si associa a una maggiore ritenzione della conoscenza, con effetti che vanno da piccoli a grandi secondo l\'uso che se ne fa e il tipo di confronto adottato.</p>',
+    cita:'Nesbit, J. C., &amp; Adesope, O. O. (2006). Learning with concept and knowledge maps: A meta-analysis. <i>Review of Educational Research</i>, 76(3), 413–448.', anc:'#r1'},
+  dexter:{
+    cifra:'808', colore:'var(--teal)',
+    tit:'Organizzatori grafici e disturbi dell\'apprendimento',
+    corpo:'<p><span class="tit">Popolazione</span><b>Ottocentootto allievi</b> con disturbo specifico dell\'apprendimento, dalla quarta alla dodicesima classe, nelle materie di base: lingua e lettura, scienze, studi sociali, matematica.</p><p><span class="tit">Materiale</span>Cinquantacinque misure d\'effetto ricavate da sedici articoli.</p><p><span class="tit">Risultati</span>L\'uso degli organizzatori grafici si associa a incrementi nella <b>conoscenza del lessico</b>, nella <b>comprensione</b> e nella <b>conoscenza inferenziale</b>, con effetti da moderati a grandi secondo il tipo di misura, di organizzatore e la materia.</p>',
+    cita:'Dexter, D. D., &amp; Hughes, C. A. (2011). Graphic organizers and students with learning disabilities: A meta-analysis. <i>Learning Disability Quarterly</i>, 34(1), 51–72.', anc:'#r4'},
+  cognitiva:{
+    cifra:'d = 1,05', colore:'var(--pink)',
+    tit:'Quale organizzatore grafico funziona meglio',
+    corpo:'<p><span class="tit">Il confronto fra tipi</span>Fra le forme di organizzatore grafico messe a confronto, la <b>mappatura cognitiva</b> ottiene l\'effetto più alto: <b>d = 1,05</b>. È la forma più vicina alla mappa mentale.</p><p><span class="tit">Per collocarlo</span>Nella stessa sintesi l\'insegnamento della matematica raggiunge d = 1,43 e quello della lingua coreana d = 0,96.</p><p><span class="tit">Perché conta</span>Il dato riguarda proprio la famiglia di strumenti che MappAI produce, e non un organizzatore grafico qualsiasi.</p>',
+    cita:'An, J., &amp; Kim, D. (2024). Effects of interventions using graphic organizer in Korea: a meta-analysis. <i>Asia Pacific Education Review</i>.', anc:'#r3'},
+  lingue:{
+    cifra:'33 studi', colore:'var(--yellow)',
+    tit:'Mappe mentali nell\'apprendimento delle lingue',
+    corpo:'<p><span class="tit">Perimetro</span><b>Trentatré studi empirici</b> tratti da Web of Science e Scopus, pubblicati fra il gennaio 2014 e il giugno 2024.</p><p><span class="tit">Dove funziona</span>Ritenzione del <b>lessico</b>, <b>comprensione della lettura</b> e fase di preparazione alla scrittura; effetti promettenti anche su produzione orale e grammatica.</p><p><span class="tit">Nota</span>Gli autori segnalano che il software di mappatura e l\'integrazione dell\'AI contribuiscono agli esiti. Il campo però è l\'apprendimento linguistico, non i bisogni educativi speciali.</p>',
+    cita:'Zheng, H., Abd Halim, N. D., &amp; Song, X. (2025). The use of mindmap and its effectiveness in different fields of foreign language learning: A systematic review (2014-2024). <i>IJARPED</i>, 14(1).', anc:'#r18'},
+  ritroso:{
+    cifra:'3 ×', colore:'var(--indigo)',
+    tit:'Come si costruisce una mappa causale migliore',
+    corpo:'<p><span class="tit">Come hanno misurato</span>Registrando le azioni sullo schermo di quarantatré studenti mentre costruivano mappe causali, e ricostruendo la sequenza con cui posavano i nodi. L\'analisi si concentra sui primi cinque nodi (n = 37).</p><p><span class="tit">Il risultato</span>Procedere <b>a ritroso</b>, dall\'esito verso le cause, pesa <b>tre volte</b> più che procedere in profondità ramo per ramo. Per il resto le quattro strategie confrontate producono mappe di qualità simile.</p><p><span class="tit">Implicazione</span>Concatenare gli eventi all\'indietro è una via concreta per costruire mappe causali migliori.</p>',
+    cita:'Jeong, A., &amp; Shin, H. S. (2023). Mining, analyzing, and modeling the cognitive strategies students use to construct higher quality causal maps. <i>CELDA 2023 Proceedings</i>.', anc:'#r19'}
+};
+
+(function(){
+  var velo=document.getElementById('velo'), modale=document.getElementById('modale');
+  var elCifra=document.getElementById('modale-cifra'), elTit=document.getElementById('modale-tit');
+  var elCorpo=document.getElementById('modale-corpo'), elCita=document.getElementById('modale-cita');
+  var chiudiBtn=document.getElementById('chiudi');
+  var apritore=null;                    // a chi restituire il fuoco alla chiusura
+
+  function apri(k, sorgente){
+    var f=FONTI[k]; if(!f) return;
+    apritore=sorgente||null;
+    elCifra.textContent=f.cifra; elCifra.style.color=f.colore;
+    elTit.textContent=f.tit;
+    elCorpo.innerHTML=f.corpo;
+    elCita.innerHTML=f.cita+'<span class="vai">Vai alla voce in bibliografia</span>';
+    elCita.setAttribute('href', f.anc);
+    velo.setAttribute('open','');
+    document.body.style.overflow='hidden';
+    chiudiBtn.focus();
+  }
+  function chiudi(){
+    velo.removeAttribute('open');
+    document.body.style.overflow='';
+    if(apritore && apritore.focus) apritore.focus();   // il fuoco torna da dove è partito
+    apritore=null;
+  }
+  window.misChiudiFonte=chiudi;
+
+  document.querySelectorAll('[data-fonte]').forEach(function(b){
+    b.addEventListener('click', function(){ apri(b.dataset.fonte, b); });
+  });
+
+  chiudiBtn.addEventListener('click', chiudi);
+  // Clic sul velo, non sul contenuto del riquadro.
+  velo.addEventListener('click', function(e){ if(e.target===velo) chiudi(); });
+  // La citazione porta in bibliografia: prima si chiude, poi si salta.
+  elCita.addEventListener('click', function(){ chiudi(); });
+
+  document.addEventListener('keydown', function(e){
+    if(!velo.hasAttribute('open')) return;
+    if(e.key==='Escape'){ e.preventDefault(); chiudi(); return; }
+    // Il fuoco resta dentro il riquadro finché è aperto.
+    if(e.key==='Tab'){
+      var f=modale.querySelectorAll('button, a[href]');
+      if(!f.length) return;
+      var primo=f[0], ultimo=f[f.length-1];
+      if(e.shiftKey && document.activeElement===primo){ e.preventDefault(); ultimo.focus(); }
+      else if(!e.shiftKey && document.activeElement===ultimo){ e.preventDefault(); primo.focus(); }
+    }
+  });
+})();
+
+/* navigazione a punti + tendina di sostituzione su schermi stretti */
+var dots=[].slice.call(document.querySelectorAll('#dots a'));
+var secs=dots.map(function(a){return document.querySelector(a.getAttribute('href'));});
+
+var sel=document.getElementById('navmob');
+if(sel){
+  dots.forEach(function(a){
+    var o=document.createElement('option');
+    o.value=a.getAttribute('href');
+    o.textContent=a.querySelector('span').textContent;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change',function(){
+    var t=document.querySelector(sel.value);
+    if(t) t.scrollIntoView({behavior:'smooth'});
+  });
+}
+
+var secO=new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){
+    var i=secs.indexOf(e.target);
+    dots.forEach(function(d,di){d.classList.toggle('active',di===i);});
+    if(sel && dots[i]) sel.value=dots[i].getAttribute('href');
+  }});
+},{rootMargin:'-45% 0px -45% 0px'});
+secs.forEach(function(s){ if(s) secO.observe(s); });
+</script>
+</body>
+</html>

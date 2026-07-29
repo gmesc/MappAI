@@ -1,0 +1,26 @@
+{
+  "name": "mappai-misuratore",
+  "version": "1.0.0",
+  "description": "MappAI - misuratore — misura l'accessibilità del materiale didattico generato da MappAI",
+  "main": "main.js",
+  "author": {
+    "name": "Giacomo Meschini",
+    "email": "giacomo@insegnai.ch"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0"
+  },
+  "allowScripts": {
+    "electron@39.8.10": true
+  }
+}

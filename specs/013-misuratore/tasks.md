@@ -27,21 +27,21 @@ L'ordine **non** segue la priorità grezza delle user story: **US8 (profilo di p
 
 **Purpose**: guscio Electron funzionante e dipendenze in casa.
 
-- [ ] T001 Creare `MappAI - misuratore/package.json` con electron ^39, js-yaml, script `start`/`test`/`pack`, autore `giacomo@insegnai.ch`
-- [ ] T002 Creare `MappAI - misuratore/main.js`: finestra principale 1280×860, caricamento di `public/index.html`, `contextIsolation: true`, `nodeIntegration: false`
-- [ ] T003 Creare `MappAI - misuratore/preload.js` con `contextBridge.exposeInMainWorld('misAPI', …)` — scheletro vuoto, riempito per canale nelle fasi successive
-- [ ] T004 Creare `MappAI - misuratore/.gitignore` che esclude `MappAI - misuratore - FILE/` e `node_modules/`
-- [ ] T005 Implementare in `main.js` la risoluzione della radice dati e il canale IPC `dati-radice`, creando `MappAI - misuratore - FILE/Upload/` e `/Report/` se assenti — **unico punto** in cui il percorso dati è deciso (plan, Complexity Tracking)
-- [ ] T006 Creare `public/index.html`: tre tab ANALIZZA · ANDAMENTO · METODO con il pattern di commutazione della landing MappAI (FR-047)
-- [ ] T007 Creare `public/css/misuratore.css` con i token MappAI scritti a mano: contenuto 1100px, bottoni `slate-100` → hover `emerald-400` con label centrata su due righe, header di sezione `slate-600` con icona indigo e chevron, Space Mono con `Noto Color Emoji` **nello stack effettivo**, date GG/MM/AAAA (FR-048, R4)
-- [ ] T008 [P] Copiare `pdf.min.js` da `public/js/` di MappAI in `public/js/vendor/pdf.min.js` con intestazione di origine e data (R3, R6)
-- [ ] T009 [P] Vendorizzare Lucide in `public/js/vendor/lucide.min.js` e js-yaml in `public/js/vendor/js-yaml.min.js` (FR-051)
-- [ ] T010 [P] Copiare tokenizzazione e stemming italiani da `mappai-desc-fidelity.js` in `public/js/riuso/it-tokens.js`, con intestazione origine/commit/data (R6)
-- [ ] T011 [P] Copiare `EDGE_FAMILIES` da `mappai-relations.js` in `public/js/riuso/edge-families.js`, con intestazione origine/commit/data (R6, FR-030-ter)
-- [ ] T012 [P] Copiare la normalizzazione degli item di quiz da `mappai-docedit-core.js` in `public/js/riuso/quiz-normalize.js` (R6, FR-024)
-- [ ] T013 [P] Copiare `safeName` e `isoDate` da `mappai-files-core.js` in `public/js/riuso/files-names.js` (R6)
-- [ ] T014 Creare `RIUSO.md` con l'inventario delle copie: file d'origine, commit, data, motivo (R6)
-- [ ] T015 [P] Creare `public/js/i18n/it.js` con tutte le stringhe centralizzate — mai stringhe sparse nel codice, così l'inglese resterà un file in più (plan, Complexity Tracking)
+- [X] T001 Creare `MappAI - misuratore/package.json` con electron ^39, js-yaml, script `start`/`test`/`pack`, autore `giacomo@insegnai.ch`
+- [X] T002 Creare `MappAI - misuratore/main.js`: finestra principale 1280×860, caricamento di `public/index.html`, `contextIsolation: true`, `nodeIntegration: false`
+- [X] T003 Creare `MappAI - misuratore/preload.js` con `contextBridge.exposeInMainWorld('misAPI', …)` — scheletro vuoto, riempito per canale nelle fasi successive
+- [X] T004 Creare `MappAI - misuratore/.gitignore` che esclude `MappAI - misuratore - FILE/` e `node_modules/`
+- [X] T005 Implementare in `main.js` la risoluzione della radice dati e il canale IPC `dati-radice`, creando `MappAI - misuratore - FILE/Upload/` e `/Report/` se assenti — **unico punto** in cui il percorso dati è deciso (plan, Complexity Tracking)
+- [X] T006 Creare `public/index.html`: tre tab ANALIZZA · ANDAMENTO · METODO con il pattern di commutazione della landing MappAI (FR-047)
+- [X] T007 Creare `public/css/misuratore.css` con i token MappAI scritti a mano: contenuto 1100px, bottoni `slate-100` → hover `emerald-400` con label centrata su due righe, header di sezione `slate-600` con icona indigo e chevron, Space Mono con `Noto Color Emoji` **nello stack effettivo**, date GG/MM/AAAA (FR-048, R4)
+- [X] T008 [P] Copiare `pdf.min.js` da `public/js/` di MappAI in `public/js/vendor/pdf.min.js` con intestazione di origine e data (R3, R6)
+- [X] T009 [P] Vendorizzare Lucide in `public/js/vendor/lucide.min.js` e js-yaml in `public/js/vendor/js-yaml.min.js` (FR-051)
+- [X] T010 [P] Copiare tokenizzazione e stemming italiani da `mappai-desc-fidelity.js` in `public/js/riuso/it-tokens.js`, con intestazione origine/commit/data (R6)
+- [X] T011 [P] Copiare `EDGE_FAMILIES` da `mappai-relations.js` in `public/js/riuso/edge-families.js`, con intestazione origine/commit/data (R6, FR-030-ter)
+- [X] T012 [P] Copiare la normalizzazione degli item di quiz da `mappai-docedit-core.js` in `public/js/riuso/quiz-normalize.js` (R6, FR-024)
+- [X] T013 [P] Copiare `safeName` e `isoDate` da `mappai-files-core.js` in `public/js/riuso/files-names.js` (R6)
+- [X] T014 Creare `RIUSO.md` con l'inventario delle copie: file d'origine, commit, data, motivo (R6)
+- [X] T015 [P] Creare `public/js/i18n/it.js` con tutte le stringhe centralizzate — mai stringhe sparse nel codice, così l'inglese resterà un file in più (plan, Complexity Tracking)
 
 ---
 
@@ -49,14 +49,14 @@ L'ordine **non** segue la priorità grezza delle user story: **US8 (profilo di p
 
 **Purpose**: fondamenta senza cui nessuna user story può partire. **Da completare prima della Phase 3.**
 
-- [ ] T016 Definire in `public/js/core/README.md` la convenzione UMD dei core: `module.exports` in Node, `window.Mis<Nome>` nel renderer, zero DOM, zero rete, zero `require` di Electron, nessuna data implicita (contracts/core-api.md)
-- [ ] T017 Predisporre `tests/` e verificare che `npm test` (`node --test`) esegua un test di prova — file: `tests/smoke.test.js`
-- [ ] T018 Creare `tests/fixtures/` con nodi, `links.json` e sintesi ridotti estratti da `1A/Funzioni Urbane` e `1B/Funzioni Urbane`, più i due vault interi referenziati per percorso nel test di riferimento
-- [ ] T019 Creare `public/profili/predefinito.json` = `indice-accessibilita@1` dell'Allegato A: 8 componenti con pesi 22·12·12·8·12·15·9·10, ancoraggi, liste (suffissi di nominalizzazione, connettivi subordinanti, causali, marcatori), soglie, velocità 120/150 — **ogni voce con `definizione`, `motivo`, `limite`** (FR-053, data-model §3)
-- [ ] T020 Implementare `public/js/core/mis-profile-core.js`: `validate`, `derive`, `fingerprint`, `describe` (contracts/core-api.md)
-- [ ] T021 Scrivere `tests/profile-core.test.js`: pesi che non sommano a 100 → rifiuto; ancoraggi non monotòni → rifiuto; parametro senza `limite` → rifiuto; `derive` non muta l'originale; `fingerprint` deterministico e insensibile ai soli testi (FR-033-ter)
-- [ ] T022 Implementare `public/js/app.js`: bootstrap, commutazione dei tre tab, stato dell'applicazione, `safeCreateIcons` dopo ogni append (regola MappAI 10)
-- [ ] T023 Creare `public/report-viewer.html`: finestra che mostra un report generato dentro l'app, non nel browser di sistema (US2 scenario 5)
+- [X] T016 Definire in `public/js/core/README.md` la convenzione UMD dei core: `module.exports` in Node, `window.Mis<Nome>` nel renderer, zero DOM, zero rete, zero `require` di Electron, nessuna data implicita (contracts/core-api.md)
+- [X] T017 Predisporre `tests/` e verificare che `npm test` (`node --test`) esegua un test di prova — file: `tests/smoke.test.js`
+- [X] T018 Creare `tests/fixtures/` con nodi, `links.json` e sintesi ridotti estratti da `1A/Funzioni Urbane` e `1B/Funzioni Urbane`, più i due vault interi referenziati per percorso nel test di riferimento
+- [X] T019 Creare `public/profili/predefinito.json` = `indice-accessibilita@1` dell'Allegato A: 8 componenti con pesi 22·12·12·8·12·15·9·10, ancoraggi, liste (suffissi di nominalizzazione, connettivi subordinanti, causali, marcatori), soglie, velocità 120/150 — **ogni voce con `definizione`, `motivo`, `limite`** (FR-053, data-model §3)
+- [X] T020 Implementare `public/js/core/mis-profile-core.js`: `validate`, `derive`, `fingerprint`, `describe` (contracts/core-api.md)
+- [X] T021 Scrivere `tests/profile-core.test.js`: pesi che non sommano a 100 → rifiuto; ancoraggi non monotòni → rifiuto; parametro senza `limite` → rifiuto; `derive` non muta l'originale; `fingerprint` deterministico e insensibile ai soli testi (FR-033-ter)
+- [X] T022 Implementare `public/js/app.js`: bootstrap, commutazione dei tre tab, stato dell'applicazione, `safeCreateIcons` dopo ogni append (regola MappAI 10)
+- [X] T023 Creare `public/report-viewer.html`: finestra che mostra un report generato dentro l'app, non nel browser di sistema (US2 scenario 5)
 
 **Checkpoint**: l'app si apre, i tre tab commutano, `npm test` è verde, il profilo predefinito è valido.
 
@@ -71,7 +71,7 @@ L'ordine **non** segue la priorità grezza delle user story: **US8 (profilo di p
 ### Tests for User Story 2
 
 - [ ] T024 [P] [US2] Scrivere `tests/ingest-vault.test.js`: nomi disambiguati con la classe, collisione suffissata ` · 02`, contesto fotografato completo (FR-003, FR-004)
-- [ ] T025 [P] [US2] Scrivere `tests/riuso-divergenza.test.js`: confronta i verbi di `public/js/riuso/edge-families.js` con l'originale MappAI se raggiungibile, fallendo con l'istruzione di cosa aggiornare; **si salta** se MappAI non è raggiungibile (R6)
+- [X] T025 [P] [US2] Scrivere `tests/riuso-divergenza.test.js`: confronta i verbi di `public/js/riuso/edge-families.js` con l'originale MappAI se raggiungibile, fallendo con l'istruzione di cosa aggiornare; **si salta** se MappAI non è raggiungibile (R6)
 
 ### Implementation for User Story 2
 
@@ -101,18 +101,18 @@ L'ordine **non** segue la priorità grezza delle user story: **US8 (profilo di p
 
 ### Tests for User Story 1
 
-- [ ] T039 [P] [US1] Scrivere `tests/text-core.test.js`: tokenizzatore (apostrofo dentro, trattino separa), segmentazione per blocco, Gulpease, Flesch-Vacca, sillabe, proxy lessicali letti dal profilo
-- [ ] T040 [P] [US1] Scrivere `tests/struct-core.test.js`: parsing frontmatter, metriche di grafo, `rel` assente → `include`, parole per nodo con deviazione **di popolazione** (R1, DAL Protocol)
-- [ ] T041 [US1] Scrivere `tests/riferimento-2026.test.js` — **il test che vale SC-001**: sui due vault reali, i 18 valori strutturali esatti, le 8 righe di parole per nodo, le due deviazioni standard, e per il corpus nodi parole/frasi/parole per frase/parole lunghe esatti con Gulpease entro 0,2. Documentare nel test che nominalizzazioni, connettivi, passive, marcatori e sintesi **non** sono verificabili contro il 2026 e perché (R1)
+- [X] T039 [P] [US1] Scrivere `tests/text-core.test.js`: tokenizzatore (apostrofo dentro, trattino separa), segmentazione per blocco, Gulpease, Flesch-Vacca, sillabe, proxy lessicali letti dal profilo
+- [X] T040 [P] [US1] Scrivere `tests/struct-core.test.js`: parsing frontmatter, metriche di grafo, `rel` assente → `include`, parole per nodo con deviazione **di popolazione** (R1, DAL Protocol)
+- [X] T041 [US1] Scrivere `tests/riferimento-2026.test.js` — **il test che vale SC-001**: sui due vault reali, i 18 valori strutturali esatti, le 8 righe di parole per nodo, le due deviazioni standard, e per il corpus nodi parole/frasi/parole per frase/parole lunghe esatti con Gulpease entro 0,2. Documentare nel test che nominalizzazioni, connettivi, passive, marcatori e sintesi **non** sono verificabili contro il 2026 e perché (R1)
 
 ### Implementation for User Story 1
 
-- [ ] T042 [P] [US1] Implementare in `public/js/core/mis-text-core.js` `tokenize` e `splitSentences` con abbreviazioni protette dal profilo e segmentazione per blocco (R1, R9)
-- [ ] T043 [P] [US1] Implementare in `mis-text-core.js` `countSyllables` a gruppi vocalici con dittonghi e trittonghi, e `fleschVacca` (R2)
-- [ ] T044 [US1] Implementare in `mis-text-core.js` `gulpease` e `lexicalProfile`, con **tutte le liste lette dal profilo** e mai costanti nel modulo (R1, FR-012)
-- [ ] T045 [US1] Implementare in `mis-text-core.js` `formatDevices` e `detectLanguage` (FR-016, edge case lingua non italiana)
-- [ ] T046 [P] [US1] Implementare `public/js/core/mis-struct-core.js`: `parseNode`, `graphMetrics`, `wordsPerNode` (FR-013, FR-014)
-- [ ] T047 [US1] Implementare in `mis-text-core.js` la stima di tempo di lettura e ascolto con le velocità dal profilo (FR-015)
+- [X] T042 [P] [US1] Implementare in `public/js/core/mis-text-core.js` `tokenize` e `splitSentences` con abbreviazioni protette dal profilo e segmentazione per blocco (R1, R9)
+- [X] T043 [P] [US1] Implementare in `mis-text-core.js` `countSyllables` a gruppi vocalici con dittonghi e trittonghi, e `fleschVacca` (R2)
+- [X] T044 [US1] Implementare in `mis-text-core.js` `gulpease` e `lexicalProfile`, con **tutte le liste lette dal profilo** e mai costanti nel modulo (R1, FR-012)
+- [X] T045 [US1] Implementare in `mis-text-core.js` `formatDevices` e `detectLanguage` (FR-016, edge case lingua non italiana)
+- [X] T046 [P] [US1] Implementare `public/js/core/mis-struct-core.js`: `parseNode`, `graphMetrics`, `wordsPerNode` (FR-013, FR-014)
+- [X] T047 [US1] Implementare in `mis-text-core.js` la stima di tempo di lettura e ascolto con le velocità dal profilo (FR-015)
 - [ ] T048 [US1] Implementare `public/js/core/mis-compare-core.js`: `pairConcepts`, `isHomogeneous`, e il calcolo dei Δ per N=2 (FR-017)
 - [ ] T049 [US1] Implementare `public/js/report/mis-report-style.js`: foglio editoriale come stringa — colonna 920px, serif nei titoli, carta crema, accenti per elemento, tema chiaro e scuro (FR-050)
 - [ ] T050 [US1] Implementare `public/js/report/mis-report-build.js`: testata con data, elementi, modello, preset, versione formula e versione misuratore (FR-042)
@@ -145,8 +145,8 @@ L'ordine **non** segue la priorità grezza delle user story: **US8 (profilo di p
 
 ### Implementation for User Story 8
 
-- [ ] T062 [P] [US8] Implementare in `mis-struct-core.js` `causalStructure` con `edgeFamilies` **iniettato** e non importato, per rendere testabile la divergenza (FR-030-ter, R6)
-- [ ] T063 [P] [US8] Implementare in `mis-struct-core.js` `siblingRedundancy` a sovrapposizione di n-grammi, deterministica (FR-027)
+- [X] T062 [P] [US8] Implementare in `mis-struct-core.js` `causalStructure` con `edgeFamilies` **iniettato** e non importato, per rendere testabile la divergenza (FR-030-ter, R6)
+- [X] T063 [P] [US8] Implementare in `mis-struct-core.js` `siblingRedundancy` a sovrapposizione di n-grammi, deterministica (FR-027)
 - [ ] T064 [US8] Implementare in `mis-text-core.js` il piano lessicale del componente 8: connettivi causali e logici, catene causali esplicite, marcatori di conseguenza e condizione (FR-030-bis)
 - [ ] T065 [US8] Implementare `public/js/core/mis-index-core.js`: `scoreComponent` e `computeIndex` con ridistribuzione proporzionale dei pesi (FR-031, FR-033)
 - [ ] T066 [US8] Implementare in `mis-index-core.js` `substanceFactor` — minore fra densità per dispositivo e non-ridondanza, limitato a `[0,4 – 1,0]`, applicato **solo** al componente 6 (FR-033-bis)

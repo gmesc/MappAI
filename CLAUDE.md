@@ -608,6 +608,72 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### 🔵 IN CORSO (28-29/7/26): 013-misuratore — app di misura separata + documento «basi scientifiche»
+Branch `013-misuratore`, **nulla committato**. Punto di ripresa completo in
+[`MappAI - misuratore/HANDOFF.md`](../MappAI%20-%20misuratore/HANDOFF.md); spec-kit in `specs/013-misuratore/`
+(spec 62 requisiti · plan · research · data-model · contracts · quickstart · 120 task).
+**35 task su 120 · suite 79/79 ✅** (`cd "MappAI - misuratore" && npm test`).
+
+**Che cos'è.** Applicazione Electron **separata** che misura l'accessibilità del materiale generato da
+MappAI. La separazione è voluta: chi misura non deve essere chi produce. Non importa nulla da MappAI a
+runtime — le porzioni riusate sono **copiate** in `public/js/riuso/` con origine, commit e data
+(`RIUSO.md`), e `tests/riuso-divergenza.test.js` confronta i verbi di `EDGE_FAMILIES` con l'originale
+fallendo con l'istruzione di cosa aggiornare (si **salta** se MappAI non è raggiungibile).
+
+**Il risultato che regge tutto.** `tests/riferimento-2026.test.js` è verde: sui vault reali `1A` e `1B`
+riproduce **30 valori** dell'assessment del 24/07/2026. Tre definizioni sono **calibrate** (research.md R1)
+e non si toccano senza rifare la calibrazione: (a) corpo del nodo = dopo il frontmatter **meno la riga del
+titolo markdown**; (b) tokenizzatore `/[A-Za-zÀ-ÿ0-9']+/g` — apostrofo DENTRO la parola, trattino SEPARA;
+(c) deviazione standard **di popolazione** (÷n). ⚠️ Nominalizzazioni, connettivi, passive e il corpus
+sintesi **non** sono riproducibili: le liste del 2026 non furono scritte da nessuna parte (scarto 3,5× sui
+subordinanti, 4× sui causali). Da qui la regola: ogni soglia porta definizione, motivo e limite.
+
+**Vincoli architetturali già decisi.** `buildBaseline` **lancia** se riceve un Δ accessibilità senza la
+copertura della fonte (nessuna via di codice produce l'uno senza l'altra); il profilo di parametri è
+promosso prima di US3/US4 perché un'analisi senza profilo incorporato nasce rotta; deroghe consapevoli alla
+costituzione su provider (solo Google: all'AI arrivano numeri aggregati, mai testi di allievi) e lingua
+(solo italiano, stringhe comunque in `i18n/it.js`).
+
+**Prossimo blocco**: fase 3 (14 task) — import dei vault e archivio dei report, che rende cliccabili i tre
+bottoni della landing. Poi fase 4, costruttore del report editoriale, che chiude l'MVP.
+
+**Documento pubblico** `pitch/basi-scientifiche.html` (~110 KB, autoconsistente, tab BASI SCIENTIFICHE):
+14 sezioni, 35 riferimenti in linea, 23 voci di bibliografia, tutte le àncore valide. Fonti verificate una
+per una; **«EFM-KG 2025» rimossa perché inesistente**, con nota che lo dichiara. Perno: Schroeder 2018
+(costruire g = 0,72 vs studiare g = 0,43) → MappAI non consegna mappe da studiare, produce l'impalcatura
+per costruirle.
+
+### 🎨 REGOLA NUOVA (29/7/26): stile delle pagine-documento (≠ token della landing, §10.16)
+Fissata da Giacomo correggendo `basi-scientifiche.html`. Vale per ogni pagina-documento futura.
+- **Colonna unica centrata**: titoli, prosa, riquadri e schede condividono larghezza e asse. Le tabelle
+  sono l'unica deroga e si allargano, restando centrate.
+- **Schede**: fondo pieno d'accento + testo bianco; hover fondo giallo + testo slate-800. **Niente testo
+  grigio di corollario** sotto il dato e **niente riga d'invito** («Apri la fonte →»): il colore pieno
+  annuncia da sé che la scheda è cliccabile. Chip a fondo bianco e testo blu per le voci brevi.
+- **Approfondimenti**: le schede con un dato sono `<button>` veri e aprono un modale con testo **≤700
+  caratteri** (titoletti + grassetti) e in fondo la citazione cliccabile verso la bibliografia. ESC, clic
+  sul velo e crocetta chiudono; il fuoco torna alla scheda e resta prigioniero nel modale.
+- **Tipografia**: corpo 19px desktop, titoli ben sopra il corpo, `hyphens:auto` sulla prosa e
+  `text-wrap:balance` sui titoli. Il testo delle schede eredita il corpo della prosa.
+- **Contrasto ≥ 4,5:1 sempre, misurato.** ⚠️ I toni chiari della palette col bianco NON reggono:
+  `--emerald` 2,5:1 · `--orange` 2,4:1 · `--blue` 3,6:1. Usare `#047857`, `#c2410c`, `#2563eb` (~5:1).
+  Mai bianco trasparente per fare gerarchia: all'85% scende sotto soglia.
+- **Numeri**: virgola decimale e punto per le migliaia, con `toLocaleString('it-IT',{useGrouping:true})` —
+  in modalità automatica i numeri di 4 cifre restano senza punto.
+- **Un grafico deve misurare qualcosa**: barre solo dove proporzionali a una scala dichiarata.
+
+### ⚠️ TRAPPOLE DI VERIFICA (29/7/26) — due errori commessi, da non ripetere
+1. **`clamp()` senza spazi attorno all'operatore è un errore di sintassi scartato in silenzio.**
+   `clamp(19px,0.8vw+17px,22.5px)` ✗ · `clamp(19px, 0.8vw + 17px, 22.5px)` ✓. Sei regole ne erano affette:
+   gli elementi mostravano la dimensione della **cascata** (h3 a 22,23px = 1,17 × corpo, il default del
+   browser), abbastanza verosimile da non insospettire. `getComputedStyle` dice quale valore è in vigore,
+   **non da dove viene**: prima di riportare l'effetto di una regola appena scritta, verificare che sia
+   quella che vince.
+2. **Il pannello browser lavora con `visibilityState: hidden`** → `requestAnimationFrame` sospeso (zero
+   fotogrammi in 600ms, misurato). Schermate bianche o stantie, contatori animati fermi a zero: **non è un
+   difetto della pagina**. Verificare interrogando il DOM e dichiarare esplicitamente che la verifica
+   visiva d'insieme non è stata fatta.
+
 ### ✅ FATTO (28/7/26): editor documenti — tipi di blocco, dimensione dell'anteprima, etichette ferme; strumenti a11y per contesto
 Sessione di rifinitura sull'editor documenti di ELABORA + gating degli strumenti compensativi.
 Suite **809 pass / 0 fail** (804 + 5 nuovi). Tutto verificato con misure nel browser su un

@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  [data-deck]::-webkit-scrollbar{display:none;}
+  @media print{
+    @page{ size:1280px 720px; margin:0; }
+    html,body{ background:#fff !important; }
+    [data-deck]{ height:auto !important; overflow:visible !important; background:#fff !important; }
+    [data-slide]{ height:720px !important; width:1280px !important; page-break-after:always; display:block !important; padding:0 !important; }
+    [data-stage]{ transform:none !important; box-shadow:none !important; border-radius:0 !important; }
+    [data-nav]{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+<div data-root="mappai-deck" style="--accent:#6366f1;font-family:'Space Mono',monospace;color:#1e293b;">
+<div data-deck style="height:100vh;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;scrollbar-width:none;background:#eceff3;">
+
+  <!-- ============ 01 · COVER ============ -->
+  <section data-slide data-screen-label="01 Cover" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">01 / 18</div>
+      </div>
+      <div style="position:absolute;top:172px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:30px;">Investor Deck · Pre-seed 2026</div>
+        <div style="font-size:108px;font-weight:700;letter-spacing:-5px;line-height:0.88;color:#1e293b;">MappAI</div>
+        <div style="font-size:24px;color:#475569;line-height:1.5;max-width:600px;margin-top:26px;">AI-generated semantic maps for students with learning differences.</div>
+        <div style="display:flex;align-items:flex-end;gap:44px;margin-top:54px;">
+          <div>
+            <div style="font-size:62px;font-weight:700;letter-spacing:-2px;color:#1e293b;line-height:1;">2–3 hrs</div>
+            <div style="font-size:12px;color:#64748b;letter-spacing:1.5px;margin-top:12px;text-transform:uppercase;line-height:1.5;">A teacher, one concept<br>map, by hand</div>
+          </div>
+          <div style="font-size:42px;color:#10b981;font-weight:700;padding-bottom:34px;">→</div>
+          <div>
+            <div style="font-size:62px;font-weight:700;letter-spacing:-2px;color:#4f46e5;line-height:1;">2.5 min</div>
+            <div style="font-size:12px;color:#64748b;letter-spacing:1.5px;margin-top:12px;text-transform:uppercase;line-height:1.5;">MappAI, from a<br>20-page PDF</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:16px;">
+        <div style="font-size:15px;color:var(--accent,#6366f1);font-weight:700;">"Designed for the few, useful to everyone."</div>
+        <div style="font-size:13px;color:#94a3b8;">CHF 100'000 · Ticino, Switzerland</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 · PROBLEM ============ -->
+  <section data-slide data-screen-label="02 Problem" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">02 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">01 · The Problem</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Neurodivergent students are failing school — not because of their minds, but because of the tools.</div>
+      </div>
+      <div style="position:absolute;top:330px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:72px;">
+        <div>
+          <div style="font-size:18px;line-height:1.6;color:#475569;margin-bottom:30px;"><strong style="color:#1e293b;">~20% of every classroom</strong> is neurodivergent — dyslexia, ADHD, ASD. A growing, underserved population.</div>
+          <div style="font-size:52px;font-weight:700;letter-spacing:-2px;color:#1e293b;line-height:1;">2–3 hrs</div>
+          <div style="font-size:14px;color:#64748b;line-height:1.55;margin-top:10px;max-width:400px;">spent by a teacher building a single concept map — the cornerstone of every Personalized Learning Plan. And there's no AI tool that generates them.</div>
+        </div>
+        <div>
+          <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:14px;">Nobody fills the gap</div>
+          <div style="display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid #e2e8f0;">
+            <div style="font-size:15px;font-weight:700;color:#1e293b;min-width:200px;">Generalist tools</div>
+            <div style="font-size:13px;color:#64748b;line-height:1.5;">Manual, no accessibility, no AI. <span style="color:#94a3b8;">MindMeister, XMind, Coggle</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid #e2e8f0;">
+            <div style="font-size:15px;font-weight:700;color:#1e293b;min-width:200px;">Compensatory software</div>
+            <div style="font-size:13px;color:#64748b;line-height:1.5;">Static maps, teacher-made, zero generative AI. <span style="color:#94a3b8;">Algor, SuperMappe</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-top:2px solid var(--accent,#6366f1);border-bottom:2px solid var(--accent,#6366f1);background:#fafaff;">
+            <div style="font-size:15px;font-weight:700;color:#4f46e5;min-width:200px;padding-left:8px;">MappAI</div>
+            <div style="font-size:13px;color:#475569;line-height:1.5;padding-right:8px;"><strong style="color:#1e293b;">The only one:</strong> generative AI + semantic maps + accessibility-first + offline. Any source, 2.5 minutes.</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:48px;left:72px;font-size:11px;color:#94a3b8;letter-spacing:0.5px;">Source: MIM Italia 2025 · Eurostat 2024 · McKinsey/Stanford 2024</div>
+    </div>
+  </section>
+
+  <!-- ============ 03 · SCIENCE ============ -->
+  <section data-slide data-screen-label="03 Science" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">03 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">02 · Scientific Foundation</div>
+        <div style="font-size:34px;font-weight:700;letter-spacing:-1.2px;line-height:1.25;color:#1e293b;max-width:1010px;">Maps are not a teaching method. They are the most evidence-backed learning tool that exists.</div>
+      </div>
+      <div style="position:absolute;top:268px;left:72px;right:72px;display:flex;align-items:flex-start;gap:36px;border-bottom:1px solid #e2e8f0;padding-bottom:26px;">
+        <div style="flex-shrink:0;">
+          <div style="font-size:60px;font-weight:700;letter-spacing:-2px;color:#8b5cf6;line-height:1;">g = 0.58</div>
+          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-top:8px;">Effect size</div>
+        </div>
+        <div style="max-width:620px;">
+          <div style="font-size:19px;line-height:1.55;color:#1e293b;">A student who uses concept maps outperforms <strong>72% of those who don't</strong> — starting from the same level.</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:8px;">142 independent studies · 11,814 students · Schroeder et al., 2018 — largest meta-analysis to date</div>
+        </div>
+      </div>
+      <div style="position:absolute;top:440px;left:72px;right:72px;display:grid;grid-template-columns:repeat(3,1fr);gap:40px;">
+        <div style="border-top:2px solid #e2e8f0;padding-top:14px;">
+          <div style="font-size:30px;font-weight:700;color:#1e293b;letter-spacing:-1px;">Top 8%</div>
+          <div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:8px;">ND students using maps (d=1.38) outperform 92% of at-risk peers. <span style="color:#94a3b8;">Kim et al., Seoul 2024</span></div>
+        </div>
+        <div style="border-top:2px solid #e2e8f0;padding-top:14px;">
+          <div style="font-size:30px;font-weight:700;color:#1e293b;letter-spacing:-1px;">#1 method</div>
+          <div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:8px;">Hattie's Visible Learning: ES 0.60 across 800+ interventions, 300M students. <span style="color:#94a3b8;">Hattie</span></div>
+        </div>
+        <div style="border-top:2px solid #e2e8f0;padding-top:14px;">
+          <div style="font-size:30px;font-weight:700;color:#1e293b;letter-spacing:-1px;">p &lt; 0.001</div>
+          <div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:8px;">AI maps help neurodivergent students <em>more</em> than typical ones. <span style="color:#94a3b8;">Fang et al. 2024</span></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:46px;left:72px;right:72px;font-size:13px;color:#475569;line-height:1.5;"><strong style="color:#4f46e5;">Not a hypothesis.</strong> MappAI is the technological implementation of 40 years of peer-reviewed literature — finally possible because AI crossed the capability threshold in 2024.</div>
+    </div>
+  </section>
+
+  <!-- ============ 04 · SOLUTION ============ -->
+  <section data-slide data-screen-label="04 Solution" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">04 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">03 · Solution &amp; Technology</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Any source → semantic map in three steps, under two minutes.</div>
+      </div>
+      <div style="position:absolute;top:268px;left:72px;right:72px;display:grid;grid-template-columns:1.15fr 1fr;gap:56px;align-items:start;">
+        <div>
+          <div style="display:flex;gap:18px;padding:13px 0;border-top:1px solid #e2e8f0;">
+            <div style="font-size:22px;font-weight:700;color:var(--accent,#6366f1);min-width:28px;">1</div>
+            <div style="font-size:14px;color:#475569;line-height:1.5;"><strong style="color:#1e293b;">Upload</strong> — PDF, URL, YouTube, DOCX, text, audio. Any source, any length.</div>
+          </div>
+          <div style="display:flex;gap:18px;padding:13px 0;border-top:1px solid #e2e8f0;">
+            <div style="font-size:22px;font-weight:700;color:var(--accent,#6366f1);min-width:28px;">2</div>
+            <div style="font-size:14px;color:#475569;line-height:1.5;"><strong style="color:#1e293b;">Choose</strong> — Mind Map (hierarchical L0→L5) or Knowledge Graph (55+ semantic relation types).</div>
+          </div>
+          <div style="display:flex;gap:18px;padding:13px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+            <div style="font-size:22px;font-weight:700;color:var(--accent,#6366f1);min-width:28px;">3</div>
+            <div style="font-size:14px;color:#475569;line-height:1.5;"><strong style="color:#1e293b;">Generate</strong> — interactive map in &lt;2 min. Export to PDF, Obsidian vault, print dossier.</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px;">
+            <div><div style="font-size:26px;font-weight:700;color:#1e293b;letter-spacing:-1px;">77 / 0</div><div style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:5px;line-height:1.4;">Map nodes / truncations</div></div>
+            <div><div style="font-size:26px;font-weight:700;color:#10b981;letter-spacing:-1px;">38 / 47%</div><div style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:5px;line-height:1.4;">KG nodes / cross-links</div></div>
+            <div><div style="font-size:26px;font-weight:700;color:#8b5cf6;letter-spacing:-1px;">2.5 min</div><div style="font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-top:5px;line-height:1.4;">From 20-page PDF</div></div>
+          </div>
+        </div>
+        <div>
+          <img data-lb="assets/kg-coldwar.png" data-cap="Knowledge Graph — auto-generated from a history text" src="assets/kg-coldwar.png" alt="MappAI Knowledge Graph" style="width:100%;height:300px;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc;display:block;cursor:zoom-in;">
+          <div style="font-size:11px;color:#94a3b8;margin-top:10px;">Real output — Knowledge Graph auto-generated from a history text</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 · SCREENSHOT ============ -->
+  <section data-slide data-screen-label="05 Screenshot" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:54px 72px;">
+      <img data-lb="assets/screenshot-app.png" data-cap="MappAI — full application view" src="assets/screenshot-app.png" alt="Screenshot" style="width:100%;height:auto;max-width:1136px;border-radius:12px;object-fit:contain;cursor:zoom-in;">
+    </div>
+  </section>
+
+  <!-- ============ 06 · MIND MAP ============ -->
+  <section data-slide data-screen-label="06 Mind Map" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">06 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">Output · Mind Map</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Hierarchical at a glance — from a single history text.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;width:calc(100% - 144px);height:380px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+        <img data-lb="assets/screenshot-6.png" data-cap="Mind Map — hierarchical view generated from a text" src="assets/screenshot-6.png" alt="MappAI Mind Map" style="width:100%;height:100%;object-fit:contain;padding:16px;display:block;cursor:zoom-in;">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 · KNOWLEDGE GRAPH ============ -->
+  <section data-slide data-screen-label="07 Knowledge Graph" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">07 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">Output · Knowledge Graph</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Connected relationships — 55+ semantic relation types.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;width:calc(100% - 144px);height:380px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+        <img data-lb="assets/screenshot-7.png" data-cap="Knowledge Graph — 55+ semantic relation types" src="assets/screenshot-7.png" alt="MappAI Knowledge Graph" style="width:100%;height:100%;object-fit:contain;padding:16px;display:block;cursor:zoom-in;">
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 08 · PRODUCT ============ -->
+  <section data-slide data-screen-label="08 Product" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">08 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">04 · Product</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Intelligence becomes visual — with a full study environment around it.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;">
+        <div>
+          <img data-lb="assets/app-graph-new.png" data-cap="Knowledge Graph + Tree View sidebar (v1.0)" src="assets/app-graph-new.png" alt="MappAI app" style="width:100%;height:316px;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc;display:block;cursor:zoom-in;">
+          <div style="font-size:11px;color:#94a3b8;margin-top:10px;">App screenshot: Knowledge Graph + Tree View sidebar, v1.0</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Interactive D3 graph</div><div style="font-size:12px;color:#94a3b8;text-align:right;">drag · zoom · radial/tree</div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Node editor</div><div style="font-size:12px;color:#94a3b8;text-align:right;">Markdown · images · sources</div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Socratic AI tutor</div><div style="font-size:12px;color:#94a3b8;text-align:right;">guides, never answers</div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Flashcards &amp; quizzes</div><div style="font-size:12px;color:#94a3b8;text-align:right;">per node / branch / vault</div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Study progress</div><div style="font-size:12px;color:#94a3b8;text-align:right;">Todo / Review / Done · Pomodoro</div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Printable dossiers &amp; labels</div><div style="font-size:12px;color:#94a3b8;text-align:right;">classroom-ready PDF</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 09 · OUTPUT MATERIALS ============ -->
+  <section data-slide data-screen-label="09 Output Materials" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">09 / 18</div>
+      </div>
+      <div style="position:absolute;top:104px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Product · Output Materials</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;color:#1e293b;">Study materials — on screen and on paper.</div>
+        <div style="font-size:12.5px;color:#64748b;line-height:1.55;margin-top:10px;max-width:1010px;">Every map auto-generates ready-to-use study supports, digital or printable. The node labels in particular let students rebuild maps on paper and power recall and metacognition activities — a feature shaped by early feedback from pedagogists who tested the beta.</div>
+      </div>
+      <div style="position:absolute;top:248px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:24px 28px;">
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:158px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/out-sintesi.png" data-cap="Branch synthesis — full prose of a branch, with citations to the source" src="assets/out-sintesi.png" alt="Branch synthesis" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Branch synthesis</strong> — full prose of a branch, with citations back to the source.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:158px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/out-dossier.png" data-cap="Node dossier — a print-ready hierarchical outline of the whole map" src="assets/out-dossier.png" alt="Node dossier" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Node dossier</strong> — a print-ready hierarchical outline of the whole map.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:158px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/out-flashcards.png" data-cap="Printable node labels — cut out to build paper maps and run recall activities" src="assets/out-flashcards.png" alt="Printable node labels" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Printable node labels</strong> — cut out to build paper maps and run recall games.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:158px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/out-kg-full.png" data-cap="Full Knowledge Graph — a real, dense map generated from one text" src="assets/out-kg-full.png" alt="Full Knowledge Graph" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Full Knowledge Graph</strong> — a real, dense map generated from a single text.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10 · QUIZ SETUP ============ -->
+  <section data-slide data-screen-label="10 Quiz" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">10 / 18</div>
+      </div>
+      <div style="position:absolute;top:104px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Product · Quiz &amp; Active Recall</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;color:#1e293b;">Active recall, built into every map.</div>
+        <div style="font-size:12.5px;color:#64748b;line-height:1.55;margin-top:10px;max-width:1010px;">For teachers: every generated map ships with ready-made quizzes and flashcards. For students: a way to self-test their knowledge, any time and autonomously.</div>
+      </div>
+      <div style="position:absolute;top:250px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:28px;">
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:322px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/quiz-config.png" data-cap="Configure — pick quiz type, length and an optional fluency timer" src="assets/quiz-config.png" alt="Quiz configuration" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Configure</strong> — pick quiz type, length and an optional fluency timer.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:322px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/quiz-question.png" data-cap="Answer — multiple-choice questions generated straight from the map" src="assets/quiz-question.png" alt="Quiz question" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Answer</strong> — multiple-choice questions generated straight from the map.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11 · QUIZ FEEDBACK ============ -->
+  <section data-slide data-screen-label="11 Quiz Feedback" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">11 / 18</div>
+      </div>
+      <div style="position:absolute;top:104px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Product · Quiz &amp; Active Recall</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;color:#1e293b;">Instant feedback, then a full error review.</div>
+        <div style="font-size:12.5px;color:#64748b;line-height:1.55;margin-top:10px;max-width:1010px;">Every answer is explained on the spot, and the session closes with a recap of exactly what to review — turning each quiz into a guided study loop.</div>
+      </div>
+      <div style="position:absolute;top:250px;left:72px;right:72px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:228px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/quiz-wrong.png" data-cap="Wrong answer — the correct one is revealed with a plain-language explanation" src="assets/quiz-wrong.png" alt="Quiz wrong answer" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Wrong answer</strong> — the correct one is revealed with a plain-language explanation.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:228px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/quiz-correct.png" data-cap="Correct answer — reinforced with the reasoning behind it" src="assets/quiz-correct.png" alt="Quiz correct answer" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Correct answer</strong> — reinforced with the reasoning behind it.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:228px;display:flex;align-items:center;justify-content:center;">
+            <img data-lb="assets/quiz-done.png" data-cap="Session report — score, time, and a review of every question missed" src="assets/quiz-done.png" alt="Quiz session report" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in;display:block;">
+          </div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.4;margin-top:8px;"><strong style="color:#1e293b;">Session report</strong> — score, time, and a review of every question missed.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 12 · ARCHITECTURE ============ -->
+  <section data-slide data-screen-label="12 Architecture" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">12 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">05 · Architecture &amp; Privacy</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Offline-first by design. The data never leaves the device.</div>
+      </div>
+      <div style="position:absolute;top:258px;left:72px;right:72px;display:grid;grid-template-columns:1.25fr 1fr;gap:52px;align-items:start;">
+        <div>
+          <div style="padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Cross-platform, one codebase</div><div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:3px;">Electron (Win/Mac/Linux) + Capacitor (iPadOS).</div></div>
+          <div style="padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Open local vault</div><div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:3px;">Markdown + YAML + JSON. Obsidian-compatible, portable for decades.</div></div>
+          <div style="padding:11px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Zero cloud</div><div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:3px;">No proprietary servers; only explicit AI calls leave the machine.</div></div>
+          <div style="padding:11px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">GDPR / nLPD ready</div><div style="font-size:12.5px;color:#64748b;line-height:1.5;margin-top:3px;">Swiss provider Infomaniak option — no US CLOUD Act exposure.</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#4f46e5;font-weight:700;">Renderer — D3 graph UI (Chromium)</div>
+          <div style="text-align:center;color:#94a3b8;font-size:11px;">↓ secure IPC bridge (context-isolated)</div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#1e293b;font-weight:700;">Main process — Node.js, 22 handlers</div>
+          <div style="text-align:center;color:#94a3b8;font-size:11px;">↓</div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#1e293b;font-weight:700;">Local file system — MappAI Vault</div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:46px;left:72px;right:72px;border-top:1px solid #e2e8f0;padding-top:14px;">
+        <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+          <div style="font-size:12px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:1px;">Accessibility-first —</div>
+          <div style="font-size:12px;color:#64748b;">OpenDyslexic · TTS · Reading ruler · Magnifier · High contrast · Invert · Grayscale · <strong style="color:#4f46e5;">Student Mode</strong>. Built in, not bolted on.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10 · COMPETITION ============ -->
+  <section data-slide data-screen-label="13 Competition" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">13 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">06 · Competitive Advantage</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">No one else combines all of this — and the moats compound.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;display:grid;grid-template-columns:1.55fr 1fr;gap:48px;align-items:start;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:700;padding:0 0 10px;">Capability</th>
+            <th style="text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#4f46e5;font-weight:700;padding:0 0 10px;">MappAI</th>
+            <th style="text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;font-weight:700;padding:0 0 10px;">NotebookLM</th>
+            <th style="text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;font-weight:700;padding:0 0 10px;">Algor</th>
+            <th style="text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;font-weight:700;padding:0 0 10px;">XMind</th>
+          </tr></thead>
+          <tbody style="font-size:13px;color:#475569;">
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;">AI from PDF / URL / YouTube</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓ full</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#f59e0b;">~ partial</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td></tr>
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;">Semantic Knowledge Graph (55+)</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td></tr>
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;">Accessibility-first (DSA)</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td></tr>
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;">Offline + GDPR EU provider</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#f59e0b;">~</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">n/a</td></tr>
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;">Socratic tutor + quizzes</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;color:#cbd5e1;">✕</td></tr>
+            <tr><td style="padding:11px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">Obsidian vault / no lock-in</td><td style="text-align:center;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#10b981;font-weight:700;">✓</td><td style="text-align:center;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#cbd5e1;">✕</td><td style="text-align:center;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#cbd5e1;">✕</td></tr>
+          </tbody>
+        </table>
+        <div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:12px;">Four compounding moats</div>
+          <div style="font-size:13px;color:#475569;line-height:1.5;padding:8px 0;border-top:1px solid #e2e8f0;"><strong style="color:#1e293b;">Multi-phase AI</strong> — 0 truncations on long docs.</div>
+          <div style="font-size:13px;color:#475569;line-height:1.5;padding:8px 0;border-top:1px solid #e2e8f0;"><strong style="color:#1e293b;">KG depth</strong> — 55+ relation types.</div>
+          <div style="font-size:13px;color:#475569;line-height:1.5;padding:8px 0;border-top:1px solid #e2e8f0;"><strong style="color:#1e293b;">EU privacy</strong> — offline + Infomaniak.</div>
+          <div style="font-size:13px;color:#475569;line-height:1.5;padding:8px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><strong style="color:#1e293b;">A11y-first design</strong> — built in.</div>
+          <div style="margin-top:14px;font-size:12px;color:#4f46e5;line-height:1.5;"><strong>Regulatory tailwind:</strong> GDPR/nLPD closes the door to US cloud tools in schools.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11 · MARKET ============ -->
+  <section data-slide data-screen-label="14 Market" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">14 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">07 · Market</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Regulated, growing, underserved.</div>
+      </div>
+      <div style="position:absolute;top:250px;left:72px;right:72px;display:grid;grid-template-columns:1.2fr 1fr;gap:56px;align-items:start;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:700;padding:0 0 10px;">Country</th>
+            <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:700;padding:0 0 10px;">SEN / ND students</th>
+            <th style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:700;padding:0 0 10px;">Trend</th>
+          </tr></thead>
+          <tbody style="font-size:13px;color:#475569;">
+            <tr><td style="padding:10px 0;border-top:1px solid #e2e8f0;font-weight:700;color:#1e293b;">Switzerland <span style="color:#94a3b8;font-weight:400;">(HQ)</span></td><td style="padding:10px 0;border-top:1px solid #e2e8f0;">~50–80K (4.8%)</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;text-align:right;">↑ tripled since 2008</td></tr>
+            <tr><td style="padding:10px 0;border-top:1px solid #e2e8f0;font-weight:700;color:#1e293b;">Italy</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;">~1.2M BES (6.0%)</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;text-align:right;">+6% / yr</td></tr>
+            <tr><td style="padding:10px 0;border-top:1px solid #e2e8f0;font-weight:700;color:#1e293b;">France</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;">~520K</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;text-align:right;">+10% / yr</td></tr>
+            <tr><td style="padding:10px 0;border-top:1px solid #e2e8f0;font-weight:700;color:#1e293b;">Germany</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;">~600K (7.5%)</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;text-align:right;">↑ since 2000</td></tr>
+            <tr><td style="padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;">UK</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">~1.77M (20.5%)</td><td style="padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;text-align:right;">DfE 2025</td></tr>
+          </tbody>
+        </table>
+        <div>
+          <div style="font-size:48px;font-weight:700;letter-spacing:-2px;color:#1e293b;line-height:1;">&gt; €220M</div>
+          <div style="font-size:13px;color:#64748b;line-height:1.5;margin-top:8px;">TAM across 5 markets · <strong style="color:#1e293b;">€91M</strong> in the IT / CH / FR / DE core.</div>
+          <div style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px;">
+            <div style="font-size:13px;color:#475569;line-height:1.6;">EU AI-in-Education: <strong style="color:#4f46e5;">USD 1.6B → 20B</strong> by 2034 <span style="color:#94a3b8;">(32.5% CAGR)</span></div>
+            <div style="font-size:13px;color:#475569;line-height:1.6;margin-top:6px;">SAM (3 yr) ~€1.6M · SOM (Y1) ~€159K</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:46px;left:72px;font-size:11px;color:#94a3b8;">Source: MIM Italia · BFS CH · MEN France · KMK 2024/25 · DfE 2025 · MarketDataForecast 2025</div>
+    </div>
+  </section>
+
+  <!-- ============ 12 · IMPACT ============ -->
+  <section data-slide data-screen-label="15 Impact" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">15 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">08 · Societal Impact</div>
+        <div style="font-size:33px;font-weight:700;letter-spacing:-1.2px;line-height:1.22;color:#1e293b;max-width:1010px;">Inclusion isn't charity. It's one of the highest-ROI investments a society can make.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:start;">
+        <div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:8px;">Measured social return (peer-reviewed)</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tbody style="font-size:13px;color:#475569;">
+              <tr><td style="padding:9px 0;border-top:1px solid #e2e8f0;">Project SEARCH® · Portugal</td><td style="padding:9px 0;border-top:1px solid #e2e8f0;text-align:right;font-weight:700;color:#10b981;">€4.02 : €1</td></tr>
+              <tr><td style="padding:9px 0;border-top:1px solid #e2e8f0;">Project SEARCH® · Scotland</td><td style="padding:9px 0;border-top:1px solid #e2e8f0;text-align:right;font-weight:700;color:#10b981;">£3.96 : £1</td></tr>
+              <tr><td style="padding:9px 0;border-top:1px solid #e2e8f0;">Flourish · Scottish Autism</td><td style="padding:9px 0;border-top:1px solid #e2e8f0;text-align:right;font-weight:700;color:#10b981;">£7.49 : £1</td></tr>
+              <tr><td style="padding:9px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;">Switzerland proxy · UFAS 2024</td><td style="padding:9px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#4f46e5;">~CHF 12.6 : 1</td></tr>
+            </tbody>
+          </table>
+          <div style="font-size:12px;color:#64748b;line-height:1.5;margin-top:14px;"><strong style="color:#1e293b;">Switzerland today:</strong> CHF 886M/yr on disability integration · 45% success · Mozione Kutter approved (168 votes, 2025).</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:8px;">Over-represented at the top, not just in school</div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid #e2e8f0;"><div style="font-size:26px;font-weight:700;color:#8b5cf6;min-width:78px;">26%</div><div style="font-size:12.5px;color:#64748b;line-height:1.45;">of UK startup founders are ND — over-represented by 73%.</div></div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid #e2e8f0;"><div style="font-size:26px;font-weight:700;color:#1e293b;min-width:78px;">20%</div><div style="font-size:12.5px;color:#64748b;line-height:1.45;">of self-made millionaires are dyslexic.</div></div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid #e2e8f0;"><div style="font-size:26px;font-weight:700;color:#10b981;min-width:78px;">+30%</div><div style="font-size:12.5px;color:#64748b;line-height:1.45;">productivity in ND-inclusive teams (Deloitte, McKinsey).</div></div>
+          <div style="display:flex;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><div style="font-size:26px;font-weight:700;color:#1e293b;min-width:78px;">~20%</div><div style="font-size:12.5px;color:#64748b;line-height:1.45;">of the population is neurodivergent. Not a minority market.</div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:46px;left:72px;font-size:11px;color:#94a3b8;">Source: U. of Surrey 2025 · UK Start Up Awards 2024 · McKinsey 2024 · UFAS / Eurostat 2024</div>
+    </div>
+  </section>
+
+  <!-- ============ 13 · BUSINESS & ROADMAP ============ -->
+  <section data-slide data-screen-label="16 Business" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">16 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">09 · Business Model &amp; Roadmap</div>
+        <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1.2;color:#1e293b;max-width:1000px;">Freemium PLG — near-zero marginal cost, offline-first.</div>
+      </div>
+      <div style="position:absolute;top:262px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:start;">
+        <div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:8px;">Pricing</div>
+          <div style="display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Free</div><div style="font-size:12.5px;color:#64748b;text-align:right;">€0 · 3 maps/mo</div></div>
+          <div style="display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Pro Individual</div><div style="font-size:12.5px;color:#64748b;text-align:right;">€4.99/mo · €39.99/yr</div></div>
+          <div style="display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">Educator</div><div style="font-size:12.5px;color:#64748b;text-align:right;">€9.99/mo · classes</div></div>
+          <div style="display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e293b;">School License</div><div style="font-size:12.5px;color:#64748b;text-align:right;">€150–500/yr · 30 users</div></div>
+          <div style="font-size:12px;color:#4f46e5;line-height:1.5;margin-top:12px;"><strong>Italy channel:</strong> PNRR funds via MEPA for school licenses.</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;font-weight:700;margin-bottom:8px;">Roadmap to Series A</div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">Jul 2026</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">v1.0</strong> — security audit, 50 SEN beta users</div></div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">Sep 2026</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">Open Beta</strong> — 500 users, first 10 school licenses</div></div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">Q4 2026</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">Seed</strong> — Boldbrain + TiVentures + Angels</div></div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">Jun 2027</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">5,000 users</strong> — ~CHF 12.5K MRR, 30 B2B schools</div></div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">2027</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">v2.0 + iPad</strong> — optional cloud collaboration</div></div>
+          <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"><div style="font-size:12px;font-weight:700;color:var(--accent,#6366f1);min-width:78px;">2028</div><div style="font-size:12.5px;color:#475569;line-height:1.45;"><strong style="color:#1e293b;">Series A</strong> — 50K users, DE/FR expansion</div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:46px;left:72px;right:72px;font-size:11.5px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:13px;"><strong style="color:#1e293b;">Go-to-market:</strong> SEO for SEN educators · AID / AIRIPA partnerships · PNRR via MEPA (IT) · Boldbrain + Innosuisse (CH) · referrals from speech therapists.</div>
+    </div>
+  </section>
+
+  <!-- ============ 14 · TEAM ============ -->
+  <section data-slide data-screen-label="17 Team" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">17 / 18</div>
+      </div>
+      <div style="position:absolute;top:118px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:18px;">10 · Team</div>
+        <div style="font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1;color:#1e293b;white-space:nowrap;">Built by the people who understand the problem.</div>
+      </div>
+      <div style="position:absolute;top:240px;left:72px;right:72px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;">
+
+        <!-- Giacomo -->
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="position:relative;width:280px;height:280px;border-radius:50%;overflow:hidden;flex-shrink:0;margin-bottom:14px;">
+            <img src="assets/giacomo_processed.png" alt="Giacomo Meschini" style="width:100%;height:100%;object-fit:cover;display:block;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.1;">Giacomo Meschini</div>
+            <div style="font-size:12px;color:#64748b;margin-top:3px;">Founder — Product Designer</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:8px;">Minusio, Ticino, CH</div>
+            <div style="font-size:12px;color:#475569;line-height:1.6;margin-top:12px;max-width:260px;">Visual-arts &amp; humanities teacher<br/>with 12 years of work experience<br/>also with SEN/DSA students.</div>
+          </div>
+        </div>
+
+        <!-- Remo -->
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="position:relative;width:280px;height:280px;border-radius:50%;overflow:hidden;flex-shrink:0;margin-bottom:14px;">
+            <img src="assets/profilo_REMO.png" alt="Remo Storni" style="width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:18px;font-weight:700;color:#1e293b;line-height:1.1;">Remo Storni</div>
+            <div style="font-size:12px;color:#64748b;margin-top:3px;">Co-Founder — Software Developer</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:8px;">Los Gatos, California, USA</div>
+            <div style="font-size:12px;color:#475569;line-height:1.6;margin-top:12px;max-width:260px;">Software &amp; ML Engineer working on<br/>Data Science, ML and Data Processing.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 15 · THE ASK ============ -->
+  <section data-slide data-screen-label="18 Ask" style="height:100vh;width:100vw;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+    <div data-stage style="width:1280px;height:720px;position:relative;background:#fff;border-radius:10px;box-shadow:0 12px 50px rgba(30,41,59,0.14);transform:scale(var(--deck-scale,0.78));transform-origin:center center;flex-shrink:0;overflow:hidden;">
+      <div style="position:absolute;top:54px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.5px;">MappAI</div>
+        <div style="font-size:12px;color:#94a3b8;letter-spacing:3px;">18 / 18</div>
+      </div>
+      <div style="position:absolute;top:150px;left:72px;right:72px;">
+        <div style="font-size:13px;letter-spacing:4px;color:var(--accent,#6366f1);font-weight:700;text-transform:uppercase;margin-bottom:26px;">11 · The Ask</div>
+        <div style="font-size:92px;font-weight:700;letter-spacing:-3px;line-height:1;color:#10b981;">CHF 100'000</div>
+        <div style="font-size:20px;color:#475569;line-height:1.5;max-width:680px;margin-top:22px;">Pre-seed / angel round, 2026. To reach the first real milestones — <strong style="color:#1e293b;">500 validated users, 5 school contracts, v1.0 security-audited</strong> — and raise seed on traction, not promises.</div>
+      </div>
+      <div style="position:absolute;top:438px;left:72px;right:72px;display:grid;grid-template-columns:repeat(3,1fr);gap:36px;">
+        <div style="border-top:2px solid var(--accent,#6366f1);padding-top:12px;"><div style="font-size:28px;font-weight:700;color:#1e293b;">40%</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Dev &amp; security audit</div></div>
+        <div style="border-top:2px solid var(--accent,#6366f1);padding-top:12px;"><div style="font-size:28px;font-weight:700;color:#1e293b;">30%</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Beta user acquisition</div></div>
+        <div style="border-top:2px solid var(--accent,#6366f1);padding-top:12px;"><div style="font-size:28px;font-weight:700;color:#1e293b;">30%</div><div style="font-size:12px;color:#64748b;margin-top:4px;">GTM + first partnerships</div></div>
+      </div>
+      <div style="position:absolute;bottom:50px;left:72px;right:72px;display:flex;justify-content:space-between;align-items:center;gap:24px;border-top:1px solid #e2e8f0;padding-top:16px;">
+        <div></div>
+        <img src="assets/qr_vcard.PNG" alt="QR Code vCard" style="width:120px;height:120px;object-fit:contain;flex-shrink:0;">
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ SIDE NAVIGATION ============ -->
+<div data-nav style="position:fixed;right:26px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:9px;z-index:60;">
+  <div data-counter style="font-size:11px;color:#64748b;letter-spacing:1px;font-weight:700;margin-bottom:4px;">01</div>
+  <div data-dot="0" style="width:8px;height:22px;border-radius:99px;background:var(--accent,#6366f1);cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="1" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="2" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="3" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="4" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="5" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="6" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="7" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="8" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="9" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="10" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="11" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="12" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="13" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="14" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="15" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="16" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+  <div data-dot="17" style="width:8px;height:8px;border-radius:99px;background:#c7d2fe;cursor:pointer;transition:all .25s ease;"></div>
+</div>
+
+<!-- ============ LIGHTBOX ============ -->
+<div data-lightbox style="position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.93);">
+  <div data-lb-close style="position:absolute;top:22px;right:30px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:30px;font-weight:700;cursor:pointer;border-radius:50%;background:rgba(255,255,255,0.08);">×</div>
+  <div data-lb-prev style="position:absolute;left:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:34px;font-weight:700;cursor:pointer;border-radius:50%;background:rgba(255,255,255,0.08);">‹</div>
+  <div data-lb-next style="position:absolute;right:24px;top:50%;transform:translateY(-50%);width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:34px;font-weight:700;cursor:pointer;border-radius:50%;background:rgba(255,255,255,0.08);">›</div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:18px;max-width:92vw;">
+    <img data-lb-img alt="" style="max-width:90vw;max-height:80vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);background:#fff;">
+    <div data-lb-cap style="color:#cbd5e1;font-size:14px;font-family:'Space Mono',monospace;text-align:center;max-width:680px;line-height:1.5;"></div>
+  </div>
+</div>
+
+</div>
+<script>
+class DeckComponent {
+  constructor() {
+    this.init();
+  }
+
+  init() {
+    const root = document.querySelector('[data-root="mappai-deck"]');
+    if (!root) return;
+
+    const deck = root.querySelector('[data-deck]');
+    const slides = Array.from(root.querySelectorAll('[data-slide]'));
+    const dots = Array.from(root.querySelectorAll('[data-dot]'));
+    const counter = root.querySelector('[data-counter]');
+    const accent = getComputedStyle(root).getPropertyValue('--accent').trim() || '#6366f1';
+
+    const fit = () => {
+      const s = Math.min((window.innerWidth - 120) / 1280, (window.innerHeight - 64) / 720);
+      document.documentElement.style.setProperty('--deck-scale', String(Math.max(0.2, s)));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+
+    const setActive = (i) => {
+      dots.forEach((d, j) => {
+        const a = j === i;
+        d.style.background = a ? accent : '#c7d2fe';
+        d.style.height = a ? '22px' : '8px';
+      });
+      if (counter) counter.textContent = String(i + 1).padStart(2, '0');
+    };
+
+    dots.forEach((d, i) => d.addEventListener('click', () => {
+      deck.scrollTo({ top: i * window.innerHeight, behavior: 'smooth' });
+    }));
+
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+          setActive(slides.indexOf(e.target));
+        }
+      });
+    }, { root: deck, threshold: 0.5 });
+    slides.forEach((s) => io.observe(s));
+    setActive(0);
+
+    const onKey = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault();
+        deck.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        deck.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        deck.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        deck.scrollTo({ top: (slides.length - 1) * window.innerHeight, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+
+    // ===== Lightbox =====
+    const lbImgs = Array.from(root.querySelectorAll('[data-lb]'));
+    const lb = root.querySelector('[data-lightbox]');
+    if (lb && lbImgs.length) {
+      const lbImg = lb.querySelector('[data-lb-img]');
+      const lbCap = lb.querySelector('[data-lb-cap]');
+      let lbIdx = 0;
+      const lbShow = (i) => {
+        lbIdx = (i + lbImgs.length) % lbImgs.length;
+        const el = lbImgs[lbIdx];
+        lbImg.src = el.getAttribute('data-lb');
+        lbCap.textContent = el.getAttribute('data-cap') || '';
+      };
+      const lbOpen = (i) => { lbShow(i); lb.style.display = 'flex'; };
+      const lbClose = () => { lb.style.display = 'none'; };
+      lbImgs.forEach((el, i) => el.addEventListener('click', () => lbOpen(i)));
+      lb.addEventListener('click', lbClose);
+      lbImg.addEventListener('click', (e) => e.stopPropagation());
+      lb.querySelector('[data-lb-close]').addEventListener('click', (e) => { e.stopPropagation(); lbClose(); });
+      lb.querySelector('[data-lb-prev]').addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbIdx - 1); });
+      lb.querySelector('[data-lb-next]').addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbIdx + 1); });
+      window.addEventListener('keydown', (e) => {
+        if (lb.style.display !== 'flex') return;
+        if (e.key === 'Escape') lbClose();
+        else if (e.key === 'ArrowRight') { e.preventDefault(); lbShow(lbIdx + 1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); lbShow(lbIdx - 1); }
+      });
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => new DeckComponent());
+</script>
+</body>
+</html>
