@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Harness — Vista studio (moduli VERI + appState finto)</title>
+<!-- Carica i moduli REALI dell'app con uno stub minimo di appState e dei
+     servizi (StorageManager, toast, tab). Serve a esercitare enter/exit,
+     i 7 motori, il menu contestuale, il Focus e l'export PDF senza licensing.
+     Aprire via server statico: http://localhost:PORT/dev/studio-harness.html -->
+<style>
+  body{font-family:monospace;margin:0;display:flex;height:100vh}
+  #left{width:340px;border-right:1px solid #ccc;overflow:auto;padding:8px}
+  #main{flex:1;display:flex;flex-direction:column}
+  #d3-container{flex:1;position:relative;background:#eee}
+  #log{height:130px;overflow:auto;border-top:1px solid #ccc;font-size:11px;padding:6px;white-space:pre-wrap}
+  button{font:inherit;margin:2px}
+  .hidden{display:none!important}
+  .flex{display:flex}
+</style>
+</head>
+<body>
+<div id="left">
+  <div><b>Harness vista studio</b></div>
+  <div>
+    <button onclick="MappAIStudioView.enter()">enter()</button>
+    <button onclick="MappAIStudioView.exit()">exit()</button>
+    <button onclick="runAll()">prova i 7 motori</button>
+    <button onclick="MappAIStudioView.openFocus('Circuito Elettrico','vicini')">focus vicini</button>
+    <button onclick="MappAIStudioView.openFocus('Circuito Elettrico','parenti')">focus parenti</button>
+  </div>
+  <div class="flex" style="border-bottom:1px solid #ccc">
+    <button id="sidebar-tab-structure" onclick="switchSidebarTab('structure')">struttura</button>
+    <button id="sidebar-tab-vista" class="hidden" onclick="switchSidebarTab('vista')">vista studio</button>
+  </div>
+  <div id="sidebar-panel-structure">[pannello struttura]</div>
+  <div id="sidebar-panel-vista" class="hidden"></div>
+</div>
+<div id="main">
+  <div>
+    <button id="card-btn-layout" onclick="toggleLayout()">LAYOUT: <span id="layout-label-text">LAYOUT</span></button>
+    <span id="esiti"></span>
+  </div>
+  <div id="d3-container"><svg id="map-svg" style="width:100%;height:100%"><g></g></svg></div>
+  <div id="log"></div>
+</div>
+
+<script src="../js/d3.v7.min.js"></script>
+<script src="../js/jspdf.umd.min.js"></script>
+<script src="../js/vendor/svg2pdf.umd.min.js"></script>
+<script>
+/* ── stub dell'ambiente app (PRIMA dei moduli veri) ── */
+const log = m => { const el = document.getElementById('log'); el.textContent += m + '\n'; el.scrollTop = 1e9; };
+window.onerror = (m, u, l) => log('ERRORE: ' + m + ' @' + l);
+window.t = (k, f) => f;
+window.showToast = (m, k) => log('toast[' + (k||'info') + '] ' + m);
+window.safeCreateIcons = () => {};
+window.switchSidebarTab = function (tab) {
+  ['structure','vista'].forEach(t => {
+    const p = document.getElementById('sidebar-panel-' + t);
+    if (p) p.classList.toggle('hidden', t !== tab);
+  });
+};
+window.StorageManager = { saveCurrentProject: () => { window._saved = (window._saved||0)+1; } };
+
+/* appState finto con la mappa KG vera (Elettricità) caricata da fetch */
+let appState = {
+  extractionMode: 'kg', rootNodeLabel: 'Elettricità',
+  layoutMode: 'radial',           // un passo prima di STUDIO nel ciclo
+  savedLayouts: [], db: { nodes: [], links: [], customColors: { 3: '#047857' } }
+};
+/* pezzi del ciclo LAYOUT usati da toggleLayout (stub del force) */
+const simulation = { alpha: () => ({ restart: () => {} }), stop: () => {} };
+window.applyLayoutForces = () => log('applyLayoutForces (force)');
+const zoom = null;
+</script>
+<!-- moduli VERI dell'app -->
+<script src="../js/mappai-studio-layouts.js"></script>
+<script src="../js/mappai-studio-draw.js"></script>
+<script src="../js/mappai-studio-view.js"></script>
+<script>
+/* toggleLayout: copia FEDELE del ramo del ciclo patchato in mappai-d3-render.js
+   (qui il file intero non è caricabile: dipende da tutto il canvas). Se il
+   ciclo vero cambia, aggiornare anche questo blocco. */
+window.toggleLayout = function () {
+  if (!simulation) return;
+  const isMindmap = appState.extractionMode === 'mindmap';
+  const span = document.getElementById('layout-label-text');
+  const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
+  const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
+  const studioOn = localStorage.getItem('mappai_studio_view') !== '0' && window.MappAIStudioView;
+  const wasStudio = appState.layoutMode === 'studio';
+  if (appState.layoutMode === 'default') appState.layoutMode = 'orbit';
+  else if (appState.layoutMode === 'orbit') appState.layoutMode = isMindmap ? 'radial' : 'separated';
+  else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
+    if (studioOn) appState.layoutMode = 'studio';
+    else appState.layoutMode = 'default';
+  } else if (appState.layoutMode === 'studio') {
+    appState.layoutMode = 'default';
+  } else appState.layoutMode = 'default';
+  if (wasStudio && appState.layoutMode !== 'studio') window.MappAIStudioView.exit();
+  span.innerText = appState.layoutMode.toUpperCase();
+  if (appState.layoutMode === 'studio') window.MappAIStudioView.enter();
+  else window.applyLayoutForces();
+};
+
+/* dati veri dal banco (stessa cartella pubblica) */
+fetch('../dev/banco-data.json').then(r => r.json()).then(D => {
+  appState.db.nodes = D.kg.nodes.map(n => ({ id: n.id, label: n.label, group: n.group, level: n.level, desc: n.desc }));
+  appState.db.links = D.kg.links.map(l => ({ source: l.source, target: l.target, rel: l.rel, isCross: l.isCross }));
+  log('mappa caricata: ' + appState.db.nodes.length + ' nodi, ' + appState.db.links.length + ' link');
+}).catch(e => log('dati non caricati: ' + e.message));
+
+function runAll() {
+  const p = MappAIStudioView.profile();
+  const esiti = [];
+  ['dag','td','anelli','colonne','percorso','fasci','matrice'].forEach(mode => {
+    try {
+      p.mode = mode; MappAIStudioView.render();
+      const cards = document.querySelectorAll('#studio-svg g g g').length;
+      esiti.push(mode + ':ok');
+      log('motore ' + mode + ' → elementi disegnati, svg presente: ' + !!document.getElementById('studio-svg'));
+    } catch (e) { esiti.push(mode + ':ERR ' + e.message); log('motore ' + mode + ' ERRORE: ' + e.message); }
+  });
+  document.getElementById('esiti').textContent = esiti.join(' ');
+  return esiti;
+}
+</script>
+</body>
+</html>

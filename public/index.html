@@ -1227,6 +1227,13 @@
                     title="LIM" data-i18n-title="tt_lim_tab">
                     <i data-lucide="presentation" class="w-5 h-5"></i>
                 </button>
+                <!-- Tab Vista studio (1/8): compare SOLO col ciclo LAYOUT su STUDIO.
+                     Kill-switch: localStorage mappai_studio_view='0' → lo step non esiste. -->
+                <button id="sidebar-tab-vista" onclick="window.switchSidebarTab('vista')"
+                    class="flex-1 py-4 hidden items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    title="Vista studio" data-i18n-title="tt_vista_tab">
+                    <i data-lucide="layout-panel-top" class="w-5 h-5"></i>
+                </button>
             </div>
 
             <!-- ═══ TAB: STRUTTURA ═══ -->
@@ -1370,6 +1377,8 @@
 
             <!-- ═══ TAB: LIM (008) — attività collaborative da lavagna interattiva ═══ -->
             <div id="sidebar-panel-lim" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col p-4"></div>
+            <!-- Pannello Vista studio (1/8): comandi del layout di studio, popolato da mappai-studio-view.js -->
+            <div id="sidebar-panel-vista" class="flex-grow overflow-y-auto overflow-x-hidden modal-scroll hidden flex-col p-4"></div>
 
             <!-- ═══ TAB: STUDIO ═══ -->
             <div id="sidebar-panel-study" class="flex-grow overflow-y-auto modal-scroll hidden">
@@ -3657,6 +3666,11 @@
     <script src="js/mappai-causal-chains.js"></script>
     <script src="js/mappai-branch-synthesis.js"></script>
     <script src="js/mappai-node-merge.js"></script>
+    <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
+         renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
+    <script src="js/mappai-studio-layouts.js"></script>
+    <script src="js/mappai-studio-draw.js"></script>
+    <script src="js/mappai-studio-view.js"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>

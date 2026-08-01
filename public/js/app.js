@@ -1979,6 +1979,14 @@ window.applyAppTranslations = null;
     window.currentEditingLayoutId = null;
 
     window.openLayoutModal = async function () {
+        // Vista studio (1/8): il bottone FISSA resta cliccabile sopra
+        // l'overlay (z-30 > 5), ma catturerebbe anteprima e posizioni dal
+        // force layout NASCOSTO sotto — uno snapshot incoerente. Si blocca
+        // con spiegazione (review 1/8).
+        if (appState.layoutMode === 'studio') {
+            window.showToast(window.t('tst_layout_in_studio', "Sei nella vista studio: per salvare un layout di posizioni torna prima al layout libero (bottone LAYOUT)."), "warning");
+            return;
+        }
         const modal = document.getElementById('layout-manager-modal');
         const box = document.getElementById('layout-manager-box');
         if (!modal || !box) return;

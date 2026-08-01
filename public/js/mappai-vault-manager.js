@@ -86,6 +86,13 @@ window.directLoadVault = async function (folderPath) {
     // Mappa in sostituzione: chiudi un'eventuale sessione di Studio attivo
     // (ripristino snapshot) prima di caricare il vault.
     if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
+    // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
+    // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
+    // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.
+    if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+        window.MappAIStudioView.exit();
+        appState.layoutMode = 'default';
+    }
     window.showLoadingOverlay(true, "Caricamento Vault...");
     try {
         const loadRes = await window.electronAPI.loadVault(folderPath);

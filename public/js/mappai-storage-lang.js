@@ -138,6 +138,15 @@ const StorageManager = {
             const data = localStorage.getItem(id);
             if (!data) return false;
 
+            // Vista studio (1/8): stessa guardia di backToLanding/importGraph/
+            // loadMapVault/directLoadVault — senza, l'overlay resterebbe attivo
+            // (S.active true, tab visibile) su un canvas ricostruito da zero e
+            // il primo tocco del pannello lancerebbe un TypeError.
+            if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+                window.MappAIStudioView.exit();
+                appState.layoutMode = 'default';
+            }
+
             const loadedState = JSON.parse(data);
             if (!loadedState) return false;
 
@@ -151,6 +160,11 @@ const StorageManager = {
             if (!Array.isArray(loadedState.db.timelineEvents)) loadedState.db.timelineEvents = [];
             if (!Array.isArray(loadedState.db.timelineAI)) loadedState.db.timelineAI = [];
             if (!loadedState.extractionMode) loadedState.extractionMode = 'mindmap';
+
+            // Uno snapshot salvato CON la vista studio attiva porta
+            // layoutMode='studio': al load l'overlay non esiste, quindi il
+            // ciclo ripartirebbe desincronizzato. Si normalizza al default.
+            if (loadedState.layoutMode === 'studio') loadedState.layoutMode = 'default';
 
             // Overwrite global appState
             appState = loadedState;

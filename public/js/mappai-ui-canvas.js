@@ -179,6 +179,13 @@ window.backToLanding = function () {
     // alterati): ripristina lo snapshot PRIMA di salvare, altrimenti il reload
     // rende permanente lo stato dell'esercizio e la gerarchia è persa.
     if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
+    // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
+    // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
+    // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.
+    if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+        window.MappAIStudioView.exit();
+        appState.layoutMode = 'default';
+    }
     StorageManager.saveCurrentProject();
     window.location.reload();
 }
@@ -952,6 +959,13 @@ window.importGraph = function (event) {
     // La mappa sta per essere sostituita: chiudi un'eventuale sessione di
     // Studio attivo (ripristino snapshot) prima che lo snapshot punti a nodi morti.
     if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
+    // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
+    // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
+    // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.
+    if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+        window.MappAIStudioView.exit();
+        appState.layoutMode = 'default';
+    }
     const file = event.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = function (e) {

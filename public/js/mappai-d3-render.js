@@ -1443,12 +1443,23 @@ window.toggleLayout = function () {
     const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
     const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
 
-    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Personal) -> (Custom Layouts)
+    // Vista studio (1/8): step STUDIO fra radiale/separato e personale.
+    // Kill-switch: mappai_studio_view='0' → lo step non esiste e il ciclo
+    // resta quello storico. Uscendo da STUDIO l'overlay si smonta da solo.
+    const studioOn = localStorage.getItem('mappai_studio_view') !== '0' && window.MappAIStudioView;
+    const wasStudio = appState.layoutMode === 'studio';
+
+    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Studio) -> (Personal) -> (Custom Layouts)
     if (appState.layoutMode === 'default') {
         appState.layoutMode = 'orbit';
     } else if (appState.layoutMode === 'orbit') {
         appState.layoutMode = isMindmap ? 'radial' : 'separated';
     } else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
+        if (studioOn) appState.layoutMode = 'studio';
+        else if (hasSnapshot) appState.layoutMode = 'personal';
+        else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
+        else appState.layoutMode = 'default';
+    } else if (appState.layoutMode === 'studio') {
         if (hasSnapshot) appState.layoutMode = 'personal';
         else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
         else appState.layoutMode = 'default';
@@ -1466,6 +1477,11 @@ window.toggleLayout = function () {
         }
     } else {
         appState.layoutMode = 'default';
+    }
+
+    // Transizioni della vista studio: smonta uscendo, monta entrando.
+    if (wasStudio && appState.layoutMode !== 'studio' && window.MappAIStudioView) {
+        window.MappAIStudioView.exit();
     }
 
     // Applica logic layout
@@ -1510,6 +1526,7 @@ window.toggleLayout = function () {
             if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
             if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
             if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
+            if (appState.layoutMode === 'studio') span.innerText = 'STUDIO';
             if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
                 const layoutId = appState.layoutMode.replace('custom_', '');
                 const layout = appState.savedLayouts.find(l => l.id === layoutId);
@@ -1522,7 +1539,10 @@ window.toggleLayout = function () {
         }
     }
 
-    if (appState.layoutMode !== 'personal' && (!appState.layoutMode || !appState.layoutMode.startsWith('custom_'))) {
+    if (appState.layoutMode === 'studio') {
+        // l'overlay disegna da sé; il force sotto resta congelato
+        window.MappAIStudioView.enter();
+    } else if (appState.layoutMode !== 'personal' && (!appState.layoutMode || !appState.layoutMode.startsWith('custom_'))) {
         window.applyLayoutForces();
     } else {
         simulation.alpha(0.3).restart();

@@ -506,7 +506,7 @@ window.closeUserProfileModal = function () {
 
 // ── Sidebar Tab System ──────────────────────
 window.switchSidebarTab = function (tab) {
-    const tabs = ['structure', 'notes', 'study', 'finder', 'tutor', 'lim'];
+    const tabs = ['structure', 'notes', 'study', 'finder', 'tutor', 'lim', 'vista'];
     tabs.forEach(t => {
         const panel = document.getElementById(`sidebar-panel-${t}`);
         const btn = document.getElementById(`sidebar-tab-${t}`);
