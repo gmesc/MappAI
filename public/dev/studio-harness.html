@@ -27,6 +27,9 @@
     <button onclick="runAll()">prova i 7 motori</button>
     <button onclick="MappAIStudioView.openFocus('Circuito Elettrico','vicini')">focus vicini</button>
     <button onclick="MappAIStudioView.openFocus('Circuito Elettrico','parenti')">focus parenti</button>
+    <button onclick="MappAIStudioView.closeFocus()">chiudi focus</button>
+    <button onclick="MappAIStudioView.openDescModal('Circuito Elettrico')">descrizione</button>
+    <button onclick="ctxOn('Circuito Elettrico')">menu contestuale</button>
   </div>
   <div class="flex" style="border-bottom:1px solid #ccc">
     <button id="sidebar-tab-structure" onclick="switchSidebarTab('structure')">struttura</button>
@@ -47,6 +50,7 @@
 <script src="../js/d3.v7.min.js"></script>
 <script src="../js/jspdf.umd.min.js"></script>
 <script src="../js/vendor/svg2pdf.umd.min.js"></script>
+<script src="../js/vendor/spacemono-font.js"></script>
 <script>
 /* ── stub dell'ambiente app (PRIMA dei moduli veri) ── */
 const log = m => { const el = document.getElementById('log'); el.textContent += m + '\n'; el.scrollTop = 1e9; };
@@ -109,6 +113,19 @@ fetch('../dev/banco-data.json').then(r => r.json()).then(D => {
   appState.db.links = D.kg.links.map(l => ({ source: l.source, target: l.target, rel: l.rel, isCross: l.isCross }));
   log('mappa caricata: ' + appState.db.nodes.length + ' nodi, ' + appState.db.links.length + ' link');
 }).catch(e => log('dati non caricati: ' + e.message));
+
+/* apre il menu contestuale sulla card di un nodo, come farebbe il tasto destro */
+function ctxOn(id) {
+  const svg = document.getElementById('sv-focus-svg') || document.getElementById('studio-svg');
+  if (!svg) { log('nessun svg studio'); return; }
+  const nodes = svg.querySelectorAll('g > g:last-of-type > g');
+  let hit = null;
+  nodes.forEach(n => { const ti = n.querySelector('title'); if (ti && ti.textContent.indexOf(id) === 0) hit = n; });
+  if (!hit) { log('card non trovata: ' + id); return; }
+  hit.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 320, clientY: 240 }));
+  log('menu contestuale su ' + id + ' → voci: ' +
+      [...document.querySelectorAll('#sv-ctxmenu button')].map(b => b.textContent).join(' | '));
+}
 
 function runAll() {
   const p = MappAIStudioView.profile();

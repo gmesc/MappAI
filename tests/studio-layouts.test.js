@@ -144,3 +144,71 @@ test('measure: pos vuoto ritorna zeri finiti, mai Infinity', () => {
   assert.strictEqual(m.larghezza, 0);
   assert.ok(isFinite(m.bbox.minX) && isFinite(m.bbox.maxX));
 });
+
+/* ── linking words: dove finiscono (1/8, round 4) ─────────────────────────
+   La parola-legame sta sul tratto; il posizionatore sceglie il punto meno
+   affollato invece del centro del segmento più lungo (che cadeva sugli
+   incroci). Casi costruiti a mano, geometria nota. */
+
+const _seg = (x1, y1, x2, y2) => ({ x: x1, y: y1, _b: { x: x2, y: y2 } });
+const _res = (list) => ({ kind: 'dag', pos: new Map(), opt: L.DEFAULTS, edges: list, extraEdges: [] });
+
+test('etichette: schiva la verticale che taglia il tratto a metà', () => {
+  // orizzontale lunga da (0,0) a (400,0); una verticale la incrocia in x=200
+  const orizz = { pts: [{x:0,y:0},{x:400,y:0}], edge: { s:'A', t:'B', rel:'causa' } };
+  const vert  = { pts: [{x:200,y:-60},{x:200,y:60}], edge: { s:'C', t:'D', rel:'' } };
+  const lista = [orizz, vert];
+  const r = L.placeEdgeLabels(lista, _res(lista), { fs: 10 });
+  const p = r.pos.get(0);
+  assert.ok(p, 'etichetta non piazzata');
+  const size = L.labelSize('causa', 10);
+  const box = L.labelRect(p, size);
+  // il riquadro NON deve contenere la verticale
+  assert.ok(!L.segRectHit({x:200,y:-60}, {x:200,y:60}, box),
+    'etichetta ancora sull incrocio: x=' + Math.round(p.x));
+  assert.ok(Math.abs(p.x - 200) > 20, 'non si è spostata dal centro: x=' + Math.round(p.x));
+  assert.strictEqual(r.conflitti, 0);
+});
+
+test('etichette: due tratti paralleli non si sovrappongono fra loro', () => {
+  // due orizzontali vicinissime (12px): le etichette devono scorrere
+  const a = { pts: [{x:0,y:0},{x:400,y:0}],  edge: { s:'A', t:'B', rel:'richiede' } };
+  const b = { pts: [{x:0,y:12},{x:400,y:12}], edge: { s:'C', t:'D', rel:'richiede' } };
+  const lista = [a, b];
+  const r = L.placeEdgeLabels(lista, _res(lista), { fs: 10 });
+  const size = L.labelSize('richiede', 10);
+  const A = L.labelRect(r.pos.get(0), size), B = L.labelRect(r.pos.get(1), size);
+  assert.ok(!L.rectHit(A, B), 'le due etichette si accavallano');
+});
+
+test('etichette: mai sopra una card', () => {
+  const e = { pts: [{x:0,y:0},{x:400,y:0}], edge: { s:'A', t:'B', rel:'include' } };
+  const lista = [e];
+  const res = _res(lista);
+  res.pos.set('X', { x: 200, y: 0, layer: 0 });      // card in mezzo al tratto
+  res.opt = Object.assign({}, L.DEFAULTS, { w: 120, h: 40 });
+  const r = L.placeEdgeLabels(lista, res, { fs: 10 });
+  const box = L.labelRect(r.pos.get(0), L.labelSize('include', 10));
+  const card = { x0: 140, x1: 260, y0: -20, y1: 20 };
+  assert.ok(!L.rectHit(box, card), 'etichetta sopra la card');
+});
+
+test('etichette: deterministico e senza etichetta se rel è vuoto', () => {
+  const a = { pts: [{x:0,y:0},{x:300,y:0}], edge: { s:'A', t:'B', rel:'causa' } };
+  const b = { pts: [{x:0,y:40},{x:300,y:40}], edge: { s:'C', t:'D', rel:'' } };
+  const lista = [a, b];
+  const r1 = L.placeEdgeLabels(lista, _res(lista), { fs: 10 });
+  const r2 = L.placeEdgeLabels(lista, _res(lista), { fs: 10 });
+  assert.deepStrictEqual(r1.pos.get(0), r2.pos.get(0));
+  assert.strictEqual(r1.pos.has(1), false, 'rel vuoto non deve avere posizione');
+  assert.strictEqual(r1.testati, 1);
+});
+
+test('etichette: polilinea a gomito → sceglie il braccio lungo', () => {
+  // gomito: 20px in giù, poi 300 a destra, poi 20 in giù
+  const e = { pts: [{x:0,y:0},{x:0,y:20},{x:300,y:20},{x:300,y:40}], edge: { s:'A', t:'B', rel:'precede' } };
+  const lista = [e];
+  const r = L.placeEdgeLabels(lista, _res(lista), { fs: 10 });
+  const p = r.pos.get(0);
+  assert.ok(Math.abs(p.y - 20) < 0.6, 'non è sul braccio orizzontale: y=' + p.y);
+});

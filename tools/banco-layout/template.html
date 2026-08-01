@@ -454,10 +454,24 @@ function compute(p, over){
 }
 
 
-/* Punto per l'etichetta di un arco: il centro del segmento PIÙ LUNGO della
-   polilinea, non l'indice di mezzo. Con gli instradamenti a gomito il tratto
-   centrale è spesso un raccordo corto e le etichette finivano tutte
-   ammucchiate sullo stesso punto. */
+/* Dove scrivere le linking words: si chiede al posizionatore dei motori
+   (placeEdgeLabels, la stessa funzione che usa l'app) e si ripiega su labelAt
+   solo se manca. Il banco DEVE mostrare quello che l'app disegna, altrimenti
+   le prove misurano una cosa e l'app ne mostra un'altra. */
+function labelPos(list, res, fs, cap){
+  const L = window.MappAIStudioLayouts;
+  const testo = ed => {
+    if(!ed || !ed.rel) return '';
+    return ed.rel.length>cap ? ed.rel.slice(0,cap-1)+'…' : ed.rel;
+  };
+  if(L && L.placeEdgeLabels){
+    const r = L.placeEdgeLabels(list, res, { fs, textOf: testo });
+    return i => r.pos.get(i) || labelAt(list[i].pts);
+  }
+  return i => labelAt(list[i].pts);
+}
+
+/* Ripiego storico: il centro del segmento PIÙ LUNGO della polilinea. */
 function labelAt(pts){
   let best=0, bestLen=-1;
   for(let i=0;i<pts.length-1;i++){
@@ -556,12 +570,16 @@ function render(p){
   let lSel = d3.selectAll('.__none__');
   if(s.labels!=='off'){
     const cap = s.labels==='short' ? 14 : 40;
-    const data = res.edges.filter(d=>d.edge.rel)
-      .concat((res.kind==='td'&&s.extra)?res.extraEdges.filter(d=>d.edge.rel):[]);
+    // le posizioni si calcolano su TUTTA la lista disegnata (gli archi senza
+    // verbo restano ostacoli, non etichette)
+    const lista = res.edges.concat((res.kind==='td'&&s.extra)?res.extraEdges:[]);
+    const dove = labelPos(lista, res, 10, cap);
+    // il dato tiene .edge (serve all'evidenziazione al passaggio) + l'indice
+    const data = lista.map((d,i)=>({ edge:d.edge, pts:d.pts, i })).filter(o=>o.edge.rel);
     lSel = gLab.selectAll('text').data(data).join('text')
       .attr('class','elab').attr('text-anchor','middle')
-      .attr('x',d=>labelAt(d.pts).x).attr('y',d=>labelAt(d.pts).y-3)
-      .text(d=>d.edge.rel.length>cap?d.edge.rel.slice(0,cap-1)+'…':d.edge.rel);
+      .attr('x',o=>dove(o.i).x).attr('y',o=>dove(o.i).y-3)
+      .text(o=>o.edge.rel.length>cap?o.edge.rel.slice(0,cap-1)+'…':o.edge.rel);
   }
 
   const custom = MAPS[p].data.customColors;
@@ -840,10 +858,12 @@ function drawInto(svg, res, nodes, custom, evidenzia, pfx){
     .attr('d',d=>line(d.pts)).attr('marker-end','url(#'+pfx+'-ah)');
   // etichette delle relazioni SEMPRE visibili nel focus: sono poche e sono
   // il contenuto didattico vero (il verbo che lega i due concetti)
-  g.append('g').selectAll('text').data(res.edges.filter(d=>d.edge.rel)).join('text')
+  const doveF = labelPos(res.edges, res, 11, 999);
+  g.append('g').selectAll('text')
+    .data(res.edges.map((d,i)=>({ edge:d.edge, i })).filter(o=>o.edge.rel)).join('text')
     .attr('class','elab').style('font-size','11px').attr('text-anchor','middle')
-    .attr('x',d=>labelAt(d.pts).x).attr('y',d=>labelAt(d.pts).y-5)
-    .text(d=>d.edge.rel);
+    .attr('x',o=>doveF(o.i).x).attr('y',o=>doveF(o.i).y-5)
+    .text(o=>o.edge.rel);
   const gh = g.append('g');
   if(res.hops && res.hops.length){   // solo se chi chiama li ha chiesti
     gh.selectAll('path.hopcase').data(res.hops).join('path')

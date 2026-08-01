@@ -484,13 +484,34 @@
        L'ampiezza occupata, (corsie-1)*passo, resta sempre minore di gapLayer,
        quindi nessuna corsia invade le card. Conseguenza voluta: lo slider
        «spazio fra livelli» ora governa DAVVERO la distanza fra le orizzontali. */
-    function makeLaner(opt) {
-        const lanes = new Map();
-        const n = Math.max(3, Math.min(9, Math.floor(opt.gapLayer / 16)));
-        const step = opt.gapLayer / (n + 1);
+    function laneKey(a, b) { return Math.round(a.ac) + '|' + Math.round(b.ac); }
+    // quante linee useranno DAVVERO ogni corridoio (i tratti dritti non piegano
+    // e quindi non consumano corsia)
+    function laneCounts(chains) {
+        const c = new Map();
+        chains.forEach(ch => {
+            for (let i = 0; i < ch.length - 1; i++) {
+                if (Math.abs(ch[i].al - ch[i + 1].al) < 1) continue;
+                const k = laneKey(ch[i], ch[i + 1]);
+                c.set(k, (c.get(k) || 0) + 1);
+            }
+        });
+        return c;
+    }
+    function makeLaner(opt, conteggi) {
+        const usate = new Map();
+        const nMax = Math.max(3, Math.min(11, Math.floor(opt.gapLayer / 14)));
         return (a, b) => {
-            const key = Math.round(a.ac) + '|' + Math.round(b.ac);
-            const k = lanes.get(key) || 0; lanes.set(key, k + 1);
+            if (Math.abs(a.al - b.al) < 1) return 0;      // dritto: nessun gomito
+            const key = laneKey(a, b);
+            const k = usate.get(key) || 0; usate.set(key, k + 1);
+            // Corsie APERTE QUANTE SERVONO, non sempre nMax: con 2 linee in un
+            // corridoio da 156px prendono ±52px invece di stare appiccicate in
+            // alto (prima l'indice partiva sempre dal bordo superiore e il
+            // centro del corridoio restava vuoto). Sopra nMax si ricicla.
+            const m = conteggi ? (conteggi.get(key) || 1) : nMax;
+            const n = Math.max(1, Math.min(nMax, m));
+            const step = opt.gapLayer / (n + 1);
             return ((k % n) - (n - 1) / 2) * step;
         };
     }
@@ -573,7 +594,7 @@
             offset += (mx - mn) + opt.packGutter;
         });
 
-        const lane = makeLaner(opt);
+        const lane = makeLaner(opt, laneCounts(chains.map(c => c.chain)));
         const drawn = chains.map(c => ({
             edge: c.edge,
             pts: routeChain(c.chain, opt.routing, i => lane(c.chain[i], c.chain[i + 1]))
@@ -686,7 +707,6 @@
             });
         });
 
-        const lane = makeLaner(opt);
         // porte distinte sul bordo, come nel DAG: gli archi d'albero e quelli
         // liberi condividono lo stesso conteggio, altrimenti due archi diversi
         // finirebbero sullo stesso punto di attacco
@@ -695,13 +715,20 @@
         const tutti = [].concat([...sf.treeEdge.values()], sf.extra);
         const ports = assignPorts(tutti, alOf, sizeAlong, opt);
 
-        const treeEdges = [], extraEdges = [];
+        // le catene si costruiscono PRIMA di disegnare: le corsie si assegnano
+        // sapendo quante linee passano davvero per ogni corridoio
+        const catene = [];
         sf.treeEdge.forEach(e => {
             const a = P.get(e.s), b = P.get(e.t);
             if (!a || !b) return;
-            const ch = portedEnds([a, b], e, ports);
-            treeEdges.push({ edge: e, pts: routeChain(ch, opt.routing, () => lane(ch[0], ch[1])) });
+            catene.push({ e, ch: portedEnds([a, b], e, ports) });
         });
+        const lane = makeLaner(opt, laneCounts(catene.map(c => c.ch)));
+
+        const extraEdges = [];
+        const treeEdges = catene.map(c => ({
+            edge: c.e, pts: routeChain(c.ch, opt.routing, () => lane(c.ch[0], c.ch[1]))
+        }));
         sf.extra.forEach(e => {
             const a = P.get(e.s), b = P.get(e.t);
             if (!a || !b) return;
@@ -921,6 +948,198 @@
 
         res.ponticelli = count;
         return res;
+    }
+
+    /* =======================================================================
+       2-bis) DOVE SCRIVERE LE LINKING WORDS
+       La parola-legame sta SUL tratto (l'alone bianco taglia la linea: è la
+       resa che Giacomo ha scelto). Il punto però non può più essere il centro
+       del segmento più lungo: lì finiva spesso su un incrocio o su un fascio
+       di verticali, e la parola diventava illeggibile.
+       Qui si generano posizioni candidate LUNGO la polilinea (scorrendo i
+       segmenti lunghi) e si sceglie quella che tocca meno linee altrui, meno
+       etichette già poste e nessuna card. Greedy, in ordine deterministico
+       (etichetta più lunga per prima: è la più difficile da piazzare).
+       Puro: niente DOM, testato in Node.
+       ======================================================================= */
+    const LBL = {
+        adv: 0.6,        // Space Mono: avanzamento 0.6 em
+        pad: 3,          // mezzo respiro attorno al testo (l'alone è 3px)
+        dy: 4,           // il testo è scritto dy sopra il punto di ancoraggio
+        maxSeg: 5,       // quanti segmenti (i più lunghi) si esplorano
+        maxPos: 13,      // quante posizioni per segmento
+        margine: 6,      // quanto stare lontani dagli estremi del segmento
+        passate: 3,      // giri di riassestamento dopo la prima assegnazione
+        pesoCard: 12, pesoLinea: 3, pesoEtichetta: 5, pesoCorto: 1.5, pesoCentro: 0.6
+    };
+
+    function labelSize(text, fs) {
+        return { w: String(text).length * fs * LBL.adv + LBL.pad * 2, h: fs * 1.15 + LBL.pad };
+    }
+    // riquadro dell'inchiostro attorno al punto di ancoraggio p
+    function labelRect(p, size) {
+        const cy = p.y - LBL.dy - size.h * 0.35;
+        return { x0: p.x - size.w / 2, x1: p.x + size.w / 2, y0: cy - size.h / 2, y1: cy + size.h / 2 };
+    }
+    function rectHit(A, B) {
+        return !(A.x1 < B.x0 || B.x1 < A.x0 || A.y1 < B.y0 || B.y1 < A.y0);
+    }
+    // segmento × rettangolo (Liang–Barsky, con rifiuto rapido)
+    function segRectHit(a, b, R) {
+        if (Math.max(a.x, b.x) < R.x0 || Math.min(a.x, b.x) > R.x1 ||
+            Math.max(a.y, b.y) < R.y0 || Math.min(a.y, b.y) > R.y1) return false;
+        if ((a.x >= R.x0 && a.x <= R.x1 && a.y >= R.y0 && a.y <= R.y1) ||
+            (b.x >= R.x0 && b.x <= R.x1 && b.y >= R.y0 && b.y <= R.y1)) return true;
+        let t0 = 0, t1 = 1;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const p = [-dx, dx, -dy, dy];
+        const q = [a.x - R.x0, R.x1 - a.x, a.y - R.y0, R.y1 - a.y];
+        for (let i = 0; i < 4; i++) {
+            if (p[i] === 0) { if (q[i] < 0) return false; }
+            else {
+                const r = q[i] / p[i];
+                if (p[i] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+                else { if (r < t0) return false; if (r < t1) t1 = r; }
+            }
+        }
+        return true;
+    }
+
+    /* list: [{pts, edge}] nell'ordine di disegno (edges + extraEdges)
+       opt: { fs, textOf(edge)→stringa già troncata ('' = niente etichetta) }
+       → { pos: Map(indice → {x, y}), conflitti, testati } */
+    function placeEdgeLabels(list, res, opt) {
+        opt = opt || {};
+        const fs = opt.fs || 10;
+        const textOf = opt.textOf || (e => (e && e.rel) || '');
+        const out = { pos: new Map(), conflitti: 0 };
+        if (!list || !list.length) return out;
+
+        // ostacoli: tutti i segmenti disegnati, in una griglia (senza, il
+        // confronto è O(etichette × segmenti) e su mappe grosse si sente)
+        const CELL = 128;
+        const grid = new Map(), segs = [];
+        const push = (gx, gy, i) => {
+            const k = gx + ':' + gy;
+            if (!grid.has(k)) grid.set(k, []);
+            grid.get(k).push(i);
+        };
+        list.forEach((pl, pi) => {
+            for (let k = 0; k < pl.pts.length - 1; k++) {
+                const a = pl.pts[k], b = pl.pts[k + 1];
+                if (Math.hypot(b.x - a.x, b.y - a.y) < 0.5) continue;
+                const i = segs.push({ a, b, pi }) - 1;
+                const x0 = Math.floor(Math.min(a.x, b.x) / CELL), x1 = Math.floor(Math.max(a.x, b.x) / CELL);
+                const y0 = Math.floor(Math.min(a.y, b.y) / CELL), y1 = Math.floor(Math.max(a.y, b.y) / CELL);
+                for (let gx = x0; gx <= x1; gx++) for (let gy = y0; gy <= y1; gy++) push(gx, gy, i);
+            }
+        });
+        const vicini = R => {
+            const set = new Set();
+            for (let gx = Math.floor(R.x0 / CELL); gx <= Math.floor(R.x1 / CELL); gx++)
+                for (let gy = Math.floor(R.y0 / CELL); gy <= Math.floor(R.y1 / CELL); gy++)
+                    (grid.get(gx + ':' + gy) || []).forEach(i => set.add(i));
+            return set;
+        };
+
+        // card: una parola-legame non ci deve MAI finire sopra
+        const cards = [];
+        if (res && res.pos && res.opt) {
+            const hw = res.opt.w / 2, hh = res.opt.h / 2;
+            res.pos.forEach(p => cards.push({ x0: p.x - hw, x1: p.x + hw, y0: p.y - hh, y1: p.y + hh }));
+        }
+
+        // le più lunghe per prime: hanno meno posti dove stare
+        const ordine = list.map((pl, i) => i)
+            .filter(i => String(textOf(list[i].edge)).length > 0)
+            .sort((a, b) => {
+                const d = String(textOf(list[b].edge)).length - String(textOf(list[a].edge)).length;
+                return d !== 0 ? d : a - b;      // deterministico a parità di lunghezza
+            });
+
+        // il posto migliore per l'etichetta idx, viste le altre già piazzate
+        const poste = new Map();          // idx → riquadro
+        function cercaPosto(idx) {
+            const pl = list[idx];
+            const size = labelSize(textOf(pl.edge), fs);
+            const cand = [];
+            for (let k = 0; k < pl.pts.length - 1; k++) {
+                const a = pl.pts[k], b = pl.pts[k + 1];
+                const len = Math.hypot(b.x - a.x, b.y - a.y);
+                if (len > 1) cand.push({ a, b, len });
+            }
+            if (!cand.length) return null;
+            cand.sort((x, y) => y.len - x.len);
+            const maxLen = cand[0].len;
+            let best = null;
+            cand.slice(0, LBL.maxSeg).forEach(s => {
+                const ux = (s.b.x - s.a.x) / s.len, uy = (s.b.y - s.a.y) / s.len;
+                const mezza = size.w / 2 + LBL.margine;
+                const da = Math.min(mezza, s.len / 2);
+                const a_ = Math.max(0, Math.min(da, s.len - da));
+                const b_ = Math.max(a_, s.len - da);
+                const n = (b_ - a_) < 1 ? 1 : LBL.maxPos;
+                for (let i = 0; i < n; i++) {
+                    const d = n === 1 ? s.len / 2 : a_ + (b_ - a_) * (i / (n - 1));
+                    const p = { x: s.a.x + ux * d, y: s.a.y + uy * d };
+                    const R = labelRect(p, size);
+                    let linee = 0;
+                    vicini(R).forEach(si => {
+                        const sg = segs[si];
+                        if (sg.pi === idx) return;             // la propria linea non conta
+                        if (segRectHit(sg.a, sg.b, R)) linee++;
+                    });
+                    let card = 0;
+                    cards.forEach(c => { if (rectHit(R, c)) card++; });
+                    let etich = 0;
+                    poste.forEach((q, j) => { if (j !== idx && rectHit(R, q)) etich++; });
+                    const corto = size.w > s.len ? 1 : 0;
+                    const t = s.len ? d / s.len : 0.5;
+                    const costo = LBL.pesoCard * card + LBL.pesoLinea * linee + LBL.pesoEtichetta * etich +
+                        LBL.pesoCorto * corto + LBL.pesoCentro * Math.abs(t - 0.5) +
+                        0.7 * (1 - s.len / maxLen);
+                    if (!best || costo < best.costo - 1e-9) best = { costo, p, R, linee, card, etich };
+                }
+            });
+            return best;
+        }
+        const scelte = new Map();
+        ordine.forEach(idx => {
+            const best = cercaPosto(idx);
+            if (!best) return;
+            scelte.set(idx, best);
+            poste.set(idx, best.R);
+        });
+
+        // Riassestamento: le prime etichette hanno scelto quando il campo era
+        // vuoto, le ultime hanno trovato tutto occupato. Si ripassano quelle
+        // ancora in conflitto — ora vedono il quadro completo. Poche passate:
+        // converge subito e resta deterministico.
+        for (let giro = 0; giro < LBL.passate; giro++) {
+            const guasti = ordine.filter(i => {
+                const s = scelte.get(i);
+                return s && (s.linee > 0 || s.card > 0 || s.etich > 0);
+            }).sort((a, b) => (scelte.get(b).costo - scelte.get(a).costo) || (a - b));
+            if (!guasti.length) break;
+            let migliorato = 0;
+            guasti.forEach(idx => {
+                const prima = scelte.get(idx);
+                const dopo = cercaPosto(idx);      // poste esclude già il proprio riquadro
+                if (dopo && dopo.costo < prima.costo - 1e-9) {
+                    scelte.set(idx, dopo); poste.set(idx, dopo.R); migliorato++;
+                }
+            });
+            if (!migliorato) break;
+        }
+
+        ordine.forEach(idx => {
+            const s = scelte.get(idx);
+            if (!s) return;
+            out.pos.set(idx, { x: s.p.x, y: s.p.y });
+            if (s.linee > 0 || s.card > 0 || s.etich > 0) out.conflitti++;
+        });
+        out.testati = ordine.length;
+        return out;
     }
 
     /* =======================================================================
@@ -1340,6 +1559,7 @@
     return {
         DEFAULTS, edgeList, components, breakCycles, assignLayers,
         spanningForest, layoutDAG, layoutTD, layoutAnelli, layoutColonne,
-        layoutPercorso, layoutFasci, layoutMatrice, run, measure, addHops, depths, assignPorts
+        layoutPercorso, layoutFasci, layoutMatrice, run, measure, addHops, depths, assignPorts,
+        placeEdgeLabels, labelSize, labelRect, segRectHit, rectHit
     };
 }));

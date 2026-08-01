@@ -44,6 +44,31 @@
         return out;
     }
 
+    // Punta della freccia: triangolo pieno sull'ULTIMO segmento della polilinea,
+    // vertice sul punto d'arrivo (dove stava il riferimento del marker).
+    function arrowHead(g, pts, color, sw) {
+        if (!pts || pts.length < 2) return null;
+        const tip = pts[pts.length - 1];
+        let i = pts.length - 2, dx = 0, dy = 0, L = 0;
+        while (i >= 0) {                       // salta i segmenti di lunghezza nulla
+            dx = tip.x - pts[i].x; dy = tip.y - pts[i].y;
+            L = Math.hypot(dx, dy);
+            if (L > 0.01) break;
+            i--;
+        }
+        if (!L) return null;
+        const ux = dx / L, uy = dy / L;
+        const len = 4.5 * sw, half = 2 * sw;
+        const bx = tip.x - ux * len, by = tip.y - uy * len;
+        const px = -uy * half, py = ux * half;
+        const r = v => Math.round(v * 100) / 100;
+        return g.append('path')
+            .attr('d', 'M' + r(tip.x) + ',' + r(tip.y) +
+                       'L' + r(bx + px) + ',' + r(by + py) +
+                       'L' + r(bx - px) + ',' + r(by - py) + 'Z')
+            .attr('fill', color).attr('stroke', 'none');
+    }
+
     // punto per l'etichetta: centro del segmento più lungo della polilinea
     function labelAt(pts) {
         let best = 0, bestLen = -1;
@@ -132,10 +157,11 @@
         const g = svg.append('g');
 
         let bbox;
+        const stats = { labelConflitti: 0 };
         if (res.kind === 'matrice') {
             bbox = drawMatrix(d3, g, res, byId, opts);
         } else {
-            bbox = drawGraph(d3, g, res, byId, opts, pfx);
+            bbox = drawGraph(d3, g, res, byId, opts, pfx, stats);
         }
 
         let zoom = null;
@@ -156,23 +182,20 @@
             }
             svg.call(zoom.transform, d3.zoomIdentity.translate(rw / 2 - k * cx, rh / 2 - k * cy).scale(k));
         }
-        return { svg, g, bbox, fit };
+        return { svg, g, bbox, fit, stats };
     }
 
-    function drawGraph(d3, g, res, byId, opts, pfx) {
+    // pfx: resta nella firma per compatibilità (serviva agli id dei marker,
+    // ora le punte sono geometria e non c'è più niente da nominare).
+    function drawGraph(d3, g, res, byId, opts, pfx, stats) {   // eslint-disable-line no-unused-vars
         const W = res.opt.w, H = res.opt.h;
         const fsBase = opts.fsNode || 12;
         const fsRel = opts.fsRel || 10;
         const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveLinear);
-        const svgRoot = d3.select(g.node().ownerSVGElement);
 
-        let defs = svgRoot.select('defs');
-        if (defs.empty()) defs = svgRoot.append('defs');
-        [['a', INK], ['b', INK_SOFT], ['c', ROSSO]].forEach(kc => {
-            defs.append('marker').attr('id', pfx + '-ah-' + kc[0]).attr('viewBox', '0 -5 10 10')
-                .attr('refX', 9).attr('refY', 0).attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
-                .append('path').attr('d', 'M0,-4L9,0L0,4').attr('fill', kc[1]);
-        });
+        // NIENTE <marker>: svg2pdf non li rende e nel PDF le frecce sparivano.
+        // Le punte sono GEOMETRIA come tutto il resto (vedi arrowHead), con le
+        // misure del marker che c'era prima: lungo 4.5×, largo 2× la stroke.
 
         // foglie = nodi senza archi uscenti reali (il filo del percorso non conta)
         const conUscita = new Set();
@@ -180,7 +203,7 @@
         const foglia = id => !conUscita.has(id);
 
         const gBand = g.append('g'), gEdge = g.append('g'), gHop = g.append('g'),
-              gLab = g.append('g'), gDum = g.append('g'), gNode = g.append('g');
+              gArrow = g.append('g'), gLab = g.append('g'), gDum = g.append('g'), gNode = g.append('g');
 
         if (opts.bands && res.bands && res.bands.length) {
             res.bands.forEach(b => {
@@ -204,15 +227,19 @@
             const col = e.edge.reversed ? ROSSO
                 : (res.kind === 'fasci' ? colorOf(byId.get(e.edge.s), opts.custom)
                     : (isPath ? '#4f46e5' : INK));
+            const sw = isPath ? 2.6 : (res.kind === 'fasci' ? 1.3 : 1.6);
             const p = gEdge.append('path').attr('fill', 'none')
                 .attr('stroke', col)
-                .attr('stroke-width', isPath ? 2.6 : (res.kind === 'fasci' ? 1.3 : 1.6))
+                .attr('stroke-width', sw)
                 .attr('stroke-opacity', res.kind === 'fasci' ? 0.55 : 1)
                 .attr('d', line(e.pts));
             if (e.edge.reversed) p.attr('stroke-dasharray', '5 4');
-            if (res.kind !== 'fasci') p.attr('marker-end', 'url(#' + pfx + '-ah-' + (e.edge.reversed ? 'c' : 'a') + ')');
             p.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: p, edge: e.edge });
+            if (res.kind !== 'fasci') {
+                const ah = arrowHead(gArrow, e.pts, col, sw);
+                if (ah) edgeEls.push({ el: ah, edge: e.edge });
+            }
         });
 
         // archi in filigrana: fuori-albero nel TD, grafo vero nel percorso,
@@ -221,10 +248,13 @@
             const q = gEdge.append('path').attr('fill', 'none')
                 .attr('stroke', INK_SOFT).attr('stroke-width', 1.1)
                 .attr('stroke-dasharray', '2 4').attr('stroke-opacity', res.kind === 'fasci' ? 0.5 : 0.85)
-                .attr('d', line(e.pts))
-                .attr('marker-end', res.kind === 'fasci' ? null : 'url(#' + pfx + '-ah-b)');
+                .attr('d', line(e.pts));
             q.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: q, edge: e.edge });
+            if (res.kind !== 'fasci') {
+                const ah = arrowHead(gArrow, e.pts, INK_SOFT, 1.1);
+                if (ah) edgeEls.push({ el: ah, edge: e.edge });
+            }
         });
 
         if (res.hops && res.hops.length) {
@@ -240,15 +270,30 @@
 
         if (opts.labels && opts.labels !== 'off') {
             const cap = opts.labels === 'short' ? 14 : 40;
-            res.edges.concat(res.extraEdges || []).forEach(e => {
+            const lista = res.edges.concat(res.extraEdges || []);
+            const testo = ed => {
+                if (!ed || !ed.rel) return '';
+                return ed.rel.length > cap ? ed.rel.slice(0, cap - 1) + '…' : ed.rel;
+            };
+            // Dove scrivere: non più il centro del segmento più lungo (finiva
+            // sugli incroci) ma il punto meno affollato lungo la polilinea.
+            // Il calcolo vive nei motori (puro, testato); se manca si ripiega
+            // sul vecchio labelAt.
+            const LAY = (typeof window !== 'undefined' && window.MappAIStudioLayouts) ||
+                        (typeof MappAIStudioLayouts !== 'undefined' ? MappAIStudioLayouts : null);
+            const piazz = (LAY && LAY.placeEdgeLabels)
+                ? LAY.placeEdgeLabels(lista, res, { fs: fsRel, textOf: testo })
+                : { pos: new Map(), conflitti: 0 };
+            if (stats) stats.labelConflitti = piazz.conflitti || 0;
+            lista.forEach((e, i) => {
                 if (!e.edge.rel) return;
-                const at = labelAt(e.pts);
+                const at = piazz.pos.get(i) || labelAt(e.pts);
                 const lt = gLab.append('text').attr('x', at.x).attr('y', at.y - 4)
                     .attr('text-anchor', 'middle').attr('font-family', FONT)
                     .attr('font-size', fsRel).attr('font-weight', 700).attr('fill', '#475569')
                     .attr('paint-order', 'stroke').attr('stroke', '#ffffff')
                     .attr('stroke-width', 3).attr('stroke-linejoin', 'round')
-                    .text(e.edge.rel.length > cap ? e.edge.rel.slice(0, cap - 1) + '…' : e.edge.rel);
+                    .text(testo(e.edge));
                 labelEls.push({ el: lt, edge: e.edge });
             });
         }
@@ -272,11 +317,16 @@
                 .attr('width', Wk).attr('height', Hk).attr('rx', 9)
                 .attr('fill', tint(col, 0.12)).attr('stroke', col)
                 .attr('stroke-width', id === opts.evidenzia ? 4 : 1.5);
+            // Solo identità e posto nella struttura: la descrizione NON sta più
+            // nel tooltip del browser (si apriva da sola, a caso, e copriva le
+            // card). Si legge dal comando «Descrizione» del menu contestuale.
             nd.append('title').text((node.label || id) +
-                (pt.ord ? '\npasso ' + pt.ord : '\nlivello ' + pt.layer) +
-                (node.desc ? '\n\n' + node.desc : ''));
+                (pt.ord ? '\npasso ' + pt.ord : '\nlivello ' + pt.layer));
 
-            const fs = Math.max(8, Math.min(16, Math.round(fsBase * hv.k)));
+            // Il tetto vale contro valori assurdi, non contro la leva del tab:
+            // a 16 il comando «Testo dei nodi» smetteva di avere effetto a
+            // metà corsa (misurato 1/8: slider a 20 → testo ancora 16).
+            const fs = Math.max(8, Math.min(24, Math.round(fsBase * hv.k)));
             const lines = wrap(node.label || id, Math.max(6, Math.floor(Wk / (fs * 0.62))), Hk >= 56 ? 3 : 2);
             const t = nd.append('text').attr('text-anchor', 'middle')
                 .attr('font-family', FONT).attr('font-size', fs).attr('font-weight', 700).attr('fill', col);
@@ -342,5 +392,5 @@
         return bboxOf(res);
     }
 
-    return { MAPPAI_COLORS, colorOf, tint, wrap, labelAt, hierOf, bboxOf, draw };
+    return { MAPPAI_COLORS, colorOf, tint, wrap, labelAt, hierOf, bboxOf, arrowHead, draw };
 }));
