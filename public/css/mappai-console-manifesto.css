@@ -1,0 +1,577 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   mappai-console-manifesto.css — la veste «manifesto» delle CONSOLE
+   (disegno di Giacomo: Inkscape/console cabina profilo insegnante.pdf, 4/8/26)
+
+   La console smette di essere una FINESTRA sopra l'app e diventa la SCHERMATA:
+   testata a tutta larghezza col marchio, e sotto — in fila — il rail delle tre
+   forme, la colonna della navigazione, l'area. Il rail è la costante della
+   finestra: non lo si copre, ci si lavora accanto.
+
+   ⚠️ Ogni regola sta sotto `html.manifesto`: senza quella classe il foglio è
+   INERTE e le console restano quelle di prima (kill-switch
+   `mappai_stile_manifesto='0'`). Le regole valgono solo sulle console a schermo
+   pieno (`.mm-box--piena.mm-box--console`): i modali normali non cambiano.
+
+   I pezzi dentro l'area — riquadri, titoli in maiuscoletto, pillole delle
+   materie, «+ Aggiungi …» tratteggiato, campi — NON sono ridichiarati qui:
+   c'erano già in `mappai-modal-tokens.css` e il disegno li conferma. Qui c'è
+   solo la CORNICE, che è ciò che cambia.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.manifesto {
+    /* Quanto spazio lasciare a sinistra perché il rail si veda: il rail sta a
+       `left:18px` ed è largo 46 → 64 di ingombro, 82 col respiro. */
+    --mnc-rail: 82px;
+    /* Il tetto di larghezza del contenuto. È lo STESSO numero della landing
+       (§10.16): una superficie dell'app si legge sempre sulla stessa colonna,
+       e su uno schermo largo restano fasce bianche ai lati — scelta di Giacomo,
+       4/8: meglio una colonna riconoscibile che una riga lunga il monitor. */
+    --mnc-max: 1240px;
+    --mnc-testata: 78px;
+}
+
+/* ── la testata: marchio a sinistra, nome della console in grande ────────── */
+html.manifesto .mm-box--piena.mm-box--console > .mm-head {
+    height: var(--mnc-testata);
+    margin: 0;
+    padding: 0 22px;
+    align-items: center;
+    border-bottom: 1px solid var(--mm-bordo);
+    flex: 0 0 auto;
+}
+
+/* Il PALLINO è il comando di uscita. Giacomo, 4/8: «si esce con ESC oppure
+   cliccando sul pallino viola». Lo diventa il JS, che gli mette
+   `data-azione="__chiudi"` — la stessa strada della × di prima, non una
+   seconda. A riposo viola col segno bianco; al passaggio (e col FUOCO da
+   tastiera, che un hover non ce l'ha) diventa emerald e il segno si riduce a
+   un puntino: è la stessa inversione del bottone Cabina sulla landing.
+   ⚠️ Sul verde il segno è SCURO (`--man-su-verde`, 12,3:1): bianco farebbe 1,6. */
+html.manifesto .mm-box--console .mm-head__ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--man-viola);
+    border: 0;
+    padding: 0;
+    position: relative;
+    transition: background .12s;
+}
+html.manifesto .mm-box--console button.mm-head__ico { cursor: pointer; }
+html.manifesto .mm-box--console .mm-head__ico svg {
+    width: 22px;
+    height: 22px;
+    color: #fff;
+}
+html.manifesto .mm-box--console button.mm-head__ico:hover,
+html.manifesto .mm-box--console button.mm-head__ico:focus-visible {
+    background: var(--man-verde);
+}
+html.manifesto .mm-box--console button.mm-head__ico:hover svg,
+html.manifesto .mm-box--console button.mm-head__ico:focus-visible svg { display: none; }
+html.manifesto .mm-box--console button.mm-head__ico::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 10px; height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--man-su-verde);
+    opacity: 0;
+}
+html.manifesto .mm-box--console button.mm-head__ico:hover::after,
+html.manifesto .mm-box--console button.mm-head__ico:focus-visible::after { opacity: 1; }
+
+/* ── fuori dalla Cabina, il pallino È il bottone della Cabina ────────────── */
+/* Stessa veste del `#btn-cabina` sulla landing: grigio col puntino scuro, viola
+   col puntino bianco al passaggio. Un solo comando con un solo aspetto in tutta
+   l'app — e si legge come «di qui si va alla Cabina», non come il marchio della
+   schermata in cui sei. Decisione di Giacomo, 4/8. */
+html.manifesto .mm-box--console .mm-head__ico--cabina {
+    background: var(--man-card);
+}
+html.manifesto .mm-box--console .mm-head__ico--cabina svg { display: none; }
+html.manifesto .mm-box--console button.mm-head__ico--cabina::after {
+    opacity: 1;
+    background: #404040;                      /* 9,4:1 sul grigio neutro */
+}
+html.manifesto .mm-box--console button.mm-head__ico--cabina:hover,
+html.manifesto .mm-box--console button.mm-head__ico--cabina:focus-visible {
+    background: var(--man-viola);
+}
+html.manifesto .mm-box--console button.mm-head__ico--cabina:hover::after,
+html.manifesto .mm-box--console button.mm-head__ico--cabina:focus-visible::after {
+    background: #fff;
+}
+
+/* ⚠️ Il corpo e il colore del titolo arrivano dai token della BARRA
+   (`mappai-stile-manifesto.css`): il nome della sezione è lo stesso pezzo, sulla
+   landing e qui. Con due numeri scritti in due fogli, questa regola vinceva
+   (stessa specificità, foglio caricato dopo) e il titolo della console restava a
+   26px mentre quello della landing era già a 30 — misurato. */
+html.manifesto .mm-box--console > .mm-head .mm-title {
+    font-size: var(--mn-tit-fs, 30px);
+    font-weight: 700;
+    color: var(--mn-tit-col, #404040);
+    letter-spacing: -.01em;
+}
+html.manifesto .mm-box--console > .mm-head .mm-subtitle { font-size: 12px; }
+/* La × sparisce: il pallino la sostituisce (e ESC resta). Due uscite a due
+   centimetri l'una dall'altra sono due modi di chiedersi quale sia quella
+   giusta. Il JS sposta su di lui `title` e `aria-label`. */
+html.manifesto .mm-box--piena.mm-box--console > .mm-head .mm-close { display: none; }
+
+/* ── sotto la testata: rail | colonna | area ─────────────────────────────── */
+/* Il rail non è dentro la console (è del manifesto, `position:fixed`): la
+   console gli lascia il posto e lui si alza sopra di lei — vedi la regola su
+   `html.man-console` in fondo. */
+html.manifesto .mm-box--piena.mm-box--console > .mm-body--console {
+    padding-left: var(--mnc-rail);
+}
+
+html.manifesto .mm-box--console .mm-console__side {
+    /* tutte le colonne della sidebar a fondo BIANCO (regola di Giacomo, 5/8):
+       così i bottoni grigi #f1f4f8 dei comandi si vedono, e il rail tondo
+       (anch'esso #f1f4f8) stacca sul bianco. */
+    background: #fff;
+    border-right: 1px solid var(--mm-bordo);
+}
+
+/* voce attiva: pillola chiara col testo viola, come nel disegno */
+html.manifesto .mm-box--console .mm-nav__v {
+    border-radius: 10px;
+    margin: 0 10px;
+}
+html.manifesto .mm-box--console .mm-nav__v.is-attiva {
+    background: #fff;
+    color: var(--man-viola);
+    box-shadow: inset 0 0 0 1px var(--mm-bordo);
+}
+html.manifesto .mm-box--console .mm-nav__v.is-attiva svg { color: var(--man-viola); }
+html.manifesto .mm-box--console .mm-nav__g { padding-left: 22px; }
+
+/* ── la maniglia: bottoncino a icona, non più linguetta sul confine ─────── */
+html.manifesto .mm-box--console .mm-console__man {
+    /* taglia · raggio · colori · posizione = leve dell'officina (gruppo «Maniglia»).
+       I fallback tengono l'aspetto di oggi se nessuno le scrive. */
+    width: var(--mnc-man-size, 34px);
+    height: var(--mnc-man-size, 34px);
+    border-radius: var(--mnc-man-radii, var(--mnc-man-r, 9px));
+    background: var(--mnc-man-bg, var(--mm-accent-soft));
+    border: 0;
+    box-shadow: none;
+    opacity: 1;
+    color: var(--mnc-man-fg, var(--man-viola));
+    top: var(--mnc-man-top, 14px);
+    /* ⚠️ `left` di un elemento assoluto si misura dal bordo interno del
+       contenitore e IGNORA il suo padding: col posto lasciato al rail la
+       maniglia finiva in mezzo alla colonna, sopra la prima voce (misurato:
+       centro a 272 invece che a 354). Il rail va sommato a mano. */
+    left: calc(var(--mm-console-side) + var(--mnc-rail) + var(--mnc-man-x, 0px));
+}
+html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man {
+    /* col rail come colonna vera (che si nasconde con la navigazione) la maniglia
+       chiusa torna al bordo sinistro, non al bordo del rail; e prende i colori del
+       suo stato «nascondi» (che l'officina può dare diversi da «mostra»). */
+    left: var(--mnc-man-x, 0px);
+    border-radius: var(--mnc-man-radii, var(--mnc-man-r, 9px));
+    transform: translateX(-50%);
+    background: var(--mnc-man-bg-chiusa, var(--mm-accent-soft));
+    color: var(--mnc-man-fg-chiusa, var(--man-viola));
+}
+html.manifesto .mm-box--console .mm-console__man:hover { background: #ddd6fe; }
+/* il glifo (panel-right-close) ruota per stato: mostra · nascondi. Il default
+   0°/180° riproduce le due pagine del disegno di Giacomo. */
+html.manifesto .mm-box--console .mm-console__man svg { width: 18px; height: 18px; transform: rotate(var(--mnc-man-rot, 0deg)); }
+html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man svg { transform: rotate(var(--mnc-man-rot-chiusa, 180deg)); }
+
+/* La navigazione parte sotto la maniglia: il comando ha la sua riga, e la
+   prima voce non gli finisce sotto. */
+html.manifesto .mm-box--console .mm-console__side { padding-top: var(--mnc-side-top, 14px); }
+
+/* ── il RAIL delle tre forme = PRIMA COLONNA della console (5/8) ─────────────
+   Regola di Giacomo: sempre presente, forma ROTONDA e posizione BLOCCATA come il
+   rail dell'app (fixed, left:18 · top:96 · gap:12). Qui è ASSOLUTO nel riquadro,
+   così sta sempre nello stesso punto, indipendente dal contenuto della colonna.
+   Lo spazio a sinistra glielo riserva `--mnc-rail` sul body (regola in cima al
+   file); si nasconde con la colonna, e allora il body riprende lo spazio. */
+html.manifesto .mm-box--console { position: relative; }
+html.manifesto .mm-console__rail {
+    position: absolute;
+    left: 18px;
+    top: 96px;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: none;
+    border: 0;
+    padding: 0;
+}
+/* le forme = gli stessi bottoni tondi del rail dell'app (.man-forma) */
+html.manifesto .mm-console__rail .mm-crail__f {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 0;
+    padding: 0;
+    background: var(--man-card);
+    color: #404040;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+}
+html.manifesto .mm-console__rail .mm-crail__f svg { width: 24px; height: 24px; }
+html.manifesto .mm-console__rail .mm-crail__f:hover,
+html.manifesto .mm-console__rail .mm-crail__f:focus-visible { transform: scale(1.07); }
+html.manifesto .mm-console__rail .mm-crail__f.is-on { background: var(--man-viola); color: #fff; }
+/* si nasconde con la colonna di navigazione, e il body riprende lo spazio */
+html.manifesto .mm-box--console.is-nav-chiusa .mm-console__rail { display: none; }
+html.manifesto .mm-box--console.is-nav-chiusa > .mm-body--console { padding-left: 0; }
+
+/* ── console-EDITOR: la tela riempie l'AREA a filo, senza box ────────────────
+   La regola generica (`.mm-box--piena:has(.mm-tela)`) perde contro il padding
+   d'area del manifesto (più specifico) → l'editor restava con 20/24px di margine
+   e un bordo attorno. Qui l'area non pad-a e la tela non ha raggio: il foglio è
+   esteso a tutta la console area, come chiesto. */
+html.manifesto .mm-box--console.mm-box--piena:has(.mm-tela) .mm-console__area { padding: 0; }
+html.manifesto .mm-box--console .mm-tela { border-radius: 0; }
+
+/* ── i comandi nella colonna: NIENTE box, bottoni in colonna, grigi ──────────
+   Regola di Giacomo (5/8): la sezione dei comandi del documento non è un
+   riquadro. I bottoni scendono in verticale, grigi come i bottoni-comando del
+   manifesto (--man-card), verdi al passaggio, testo #404040. */
+html.manifesto .mm-box--console .mm-console__side-sez .mm-sez {
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+html.manifesto .mm-box--console .mm-console__side-sez .mm-sez__azioni {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+}
+html.manifesto .mm-box--console .mm-console__side-sez .mm-btn {
+    /* larghezza allineata alle voci nav (inset di 14px), non a filo colonna: così
+       i bottoni-funzione leggono come bottoni ed è coerente con la colonna. Le
+       voci-materiali di D1 stanno in card più larghe: qui conta la coerenza della
+       sidebar (5/8). */
+    width: auto;
+    margin: 0 var(--mnc-col-pad);
+    justify-content: flex-start;
+    background: var(--man-card);
+    color: var(--man-nero);
+    border: 0;
+}
+html.manifesto .mm-box--console .mm-console__side-sez .mm-btn:hover,
+html.manifesto .mm-box--console .mm-console__side-sez .mm-btn:focus-visible {
+    background: var(--man-verde);
+    color: var(--man-su-verde);
+}
+
+/* ── la pill della voce nav non deve sforare la colonna ──────────────────────
+   `.mm-nav__v` ha `width:100%` (modal-tokens) + `margin:0 14px`: 100% + margini
+   sforava la colonna di ~14px a DESTRA (misurato: margine sx +14, dx −13), e il
+   counter finiva oltre il bordo. `width:auto` lascia che lo stretch del flex
+   rispetti i margini → 14/14 simmetrici, counter dentro. */
+html.manifesto .mm-box--console .mm-nav__v { width: auto; }
+
+/* ── il tetto di larghezza del contenuto ────────────────────────────────── */
+/* Vale per OGNI figlio diretto dell'area — riquadri, righe di schede, filtri,
+   elenchi, tela — perché il tetto è della COLONNA di lettura, non di un pezzo
+   in particolare: se lo mettessi solo sui riquadri, una tabella accanto
+   partirebbe da un'altra riga verticale. */
+html.manifesto .mm-box--console .mm-console__area > * {
+    max-width: var(--mnc-max);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA GRIGLIA DELLE CONSOLE — barra · colonna · area (5/8/26)
+   Richiesta di Giacomo: poter ridefinire la griglia su cui si allineano i pezzi
+   della colonna, la posizione globale del bento nell'area, e corpo e colore del
+   percorso nella barra.
+   Tutto passa da VARIABILI con un ripiego uguale a com'è oggi: senza che nessuno
+   le scriva, questo blocco non cambia un pixel. L'officina delle console le
+   scrive sull'anteprima; quando una console si monta, le scrive il suo dato.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto .mm-box--console {
+    /* colonna */
+    --mnc-voce-h: 44px;          /* altezza di una voce di navigazione */
+    --mnc-voce-fs: 13px;
+    --mnc-voce-gap: 2px;         /* passo fra le voci */
+    --mnc-voce-r: 10px;          /* raggio della voce */
+    --mnc-col-pad: 14px;         /* imballaggio della colonna */
+    --mnc-col-icona: 18px;
+    /* area */
+    --mnc-area-pad-x: 24px;
+    --mnc-area-pad-y: 20px;
+    --mnc-gap: 14px;             /* il passo del bento: lo stesso di CREA */
+    --mnc-col-n: 4;              /* le colonne del bento */
+    /* percorso nella barra */
+    --mnc-bric-op: .55;          /* i livelli precedenti */
+    --mnc-sep-op: .35;
+}
+
+/* ── la colonna: una griglia dichiarata, non una somma di margini ────────── */
+html.manifesto .mm-box--console .mm-console__side { padding: var(--mnc-side-top, 14px) 0 var(--mnc-col-pad); }
+html.manifesto .mm-box--console .mm-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mnc-voce-gap);
+}
+html.manifesto .mm-box--console .mm-nav__v {
+    min-height: var(--mnc-voce-h);
+    border-radius: var(--mnc-voce-r);
+    margin: 0 var(--mnc-col-pad);
+    font-size: var(--mnc-voce-fs);
+}
+html.manifesto .mm-box--console .mm-nav__v svg {
+    width: var(--mnc-col-icona);
+    height: var(--mnc-col-icona);
+}
+html.manifesto .mm-box--console .mm-nav__g {
+    margin: 10px var(--mnc-col-pad) 2px;
+}
+
+/* ── l'area: dove sta il bento, e quanto respira ─────────────────────────── */
+html.manifesto .mm-box--console .mm-console__area {
+    padding: var(--mnc-area-pad-y) var(--mnc-area-pad-x);
+}
+/* il bento dell'area: la stessa griglia di CREA, con le colonne dichiarate */
+html.manifesto .mn-bento-area {
+    display: grid;
+    grid-template-columns: repeat(var(--mnc-col-n), minmax(0, 1fr));
+    gap: var(--mnc-gap);
+    align-content: start;
+    width: 100%;
+    max-width: var(--mnc-max);
+    margin-inline: 0;
+}
+/* ⚠️ Centrato è una SCELTA, non il default: su uno schermo largo un bento
+   centrato lascia due fasce uguali, a bandiera resta agganciato alla colonna —
+   e quale delle due sia giusta dipende dalla console. */
+html.manifesto .mn-bento-area[data-allinea="centro"] { margin-inline: auto; }
+
+/* ── il percorso nella barra: i livelli precedenti si regolano da qui ────── */
+html.manifesto .mm-box--console .mn-briciole button.mn-briciole__l { opacity: var(--mnc-bric-op); }
+html.manifesto .mm-box--console .mn-briciole__sep { opacity: var(--mnc-sep-op); }
+
+/* ── i pezzi che il bento di una console disegna (e CREA non ha) ─────────── */
+html.manifesto .mn-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+html.manifesto .mn-seg__f {
+    border: none; border-radius: 999px; padding: 4px 10px; cursor: pointer;
+    background: var(--mn-btn-bg, var(--man-card));
+    color: var(--mn-btn-txt, var(--man-su-verde));
+    font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
+}
+html.manifesto .mn-seg__f.is-on { background: var(--man-verde); color: var(--man-su-verde); }
+html.manifesto .mn-elenco { display: flex; flex-direction: column; gap: 6px; }
+html.manifesto .mn-elenco__r {
+    padding: 6px 8px; border-radius: 8px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
+}
+/* la TELA: lo spazio che ospita un pezzo vero dell'app (l'editor dei documenti) */
+html.manifesto .mn-tela-doc {
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; min-height: 180px;
+    opacity: .55; line-height: 1.6;
+    font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
+}
+
+/* ── la forma «materiali»: le tabelle dei documenti per genere, su due colonne
+   (6/8) ────────────────────────────────────────────────────────────────────
+   Il «nuovo tipo di box» dell'INSEGNA a bento. Riusa `.mm-tabg`/`.mm-tab` del
+   motore → stessa veste delle tabelle dell'app (intestazione collassabile col
+   contatore, colonne NOME·CLASSE·MATERIA·DATA + cestino). L'unica aggiunta è la
+   griglia a due colonne e il cap di anteprima: cinque righe, poi scorre. */
+html.manifesto .mn-bento-area .mn-materiali {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 24px;
+    align-content: start;
+    width: 100%;
+}
+html.manifesto .mn-materiali .mm-tabg { margin: 0; }
+/* cap a cinque righe + scorrimento: l'anteprima di un genere non deve diventare
+   un muro. Misurato nel banco: intestazione ~33px + righe ~57px l'una (la riga
+   porta il bottone-cestino da 34px, non è alta come una riga di solo testo) →
+   5 righe ≈ 33 + 5×57 = 318px. Tetto 340 → cinque righe intere + un accenno
+   della sesta (segnala che sotto ce n'è ancora). L'intestazione resta in alto
+   mentre si scorre (è già `position:sticky` nel motore). */
+html.manifesto .mn-materiali .mm-tab-wrap {
+    max-height: 340px;
+    overflow-y: auto;
+}
+/* Con le tabelle DENTRO un modulo del bento (non in `s.tabelle`), l'area della
+   console non riceve `--scorre` → resterebbe a `overflow:hidden` e i generi
+   sotto la piega verrebbero tagliati. Qui l'area scorre in verticale: ogni
+   genere fa vedere 5 righe, e si scorre la pagina per passare da un genere
+   all'altro (lo stesso doppio scorrimento dell'INSEGNA reale). */
+html.manifesto .mm-box--console .mm-console__area:has(.mn-materiali) {
+    overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   I TOKEN DELLE CONSOLE — quello che vale per TUTTE (5/8/26)
+   Richiesta di Giacomo: i parametri divisi per gerarchia — «gli allineamenti
+   nella sidebar vanno applicati a tutte le sidebar».
+   Quindi: quello che è di tutte le console sta QUI, su `html.manifesto`, e una
+   console può sovrascriverlo sul suo riquadro. Chi non scrive niente vede
+   esattamente quello che vedeva prima: ogni variabile ha il valore di oggi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto {
+    /* il chip del contesto (classe · materia) — è lo stesso pezzo sulla landing
+       e in ogni testata: si regola una volta */
+    --mnc-chip-h: 43px;
+    --mnc-chip-r: 999px;
+    --mnc-chip-bg: var(--man-card);
+    --mnc-chip-txt: #404040;
+    --mnc-chip-bordo: transparent;
+    --mnc-chip-fs: 12px;
+    /* campi e tendine: la larghezza è una LEVA, non un caso — una tendina che si
+       allarga col testo più lungo fa ballare la riga a ogni scelta */
+    --mnc-campo-h: 32px;
+    --mnc-campo-r: 10px;
+    --mnc-campo-min: 120px;
+    --mnc-campo-max: 100%;
+    --mnc-tendina-w: 160px;
+    /* i riquadri dell'area */
+    --mnc-card-r: 18px;
+    --mnc-card-ombra: none;
+    /* la colonna: l'allineamento vale per tutte le sidebar */
+    --mnc-voce-just: flex-start;
+}
+
+/* il chip, ovunque compaia (barra della landing e testate delle console) */
+html.manifesto .mm-ctx {
+    min-height: var(--mnc-chip-h);
+    border-radius: var(--mnc-chip-r);
+    background: var(--mnc-chip-bg);
+    border-color: var(--mnc-chip-bordo);
+}
+html.manifesto .mm-ctx__p {
+    color: var(--mnc-chip-txt);
+    font-size: var(--mnc-chip-fs);
+}
+html.manifesto .mm-ctx__p svg { color: var(--mnc-chip-txt); }
+
+/* campi, tendine e la loro larghezza */
+html.manifesto .mm-box--console .mn-sel,
+html.manifesto .mn-bento-area .mn-sel {
+    min-height: var(--mnc-campo-h);
+    border-radius: var(--mnc-campo-r);
+    min-width: var(--mnc-campo-min);
+    max-width: var(--mnc-campo-max);
+}
+html.manifesto .mn-bento-area select.mn-sel { width: var(--mnc-tendina-w); }
+
+/* i riquadri dell'area: raggio e ombra dichiarati */
+html.manifesto .mn-bento-area .mn-card {
+    border-radius: var(--mnc-card-r);
+    box-shadow: var(--mnc-card-ombra);
+}
+
+/* ── i bottoni DENTRO un modulo della console leggono `bottoni.bg/testo` ──────
+   La regola che consuma `--mn-btn-bg` (scritto da presentazione) vive in
+   mappai-stile-manifesto.css sotto l'ID `#mn-bento` (il bento di CREA). La console
+   usa `.mn-bento-area`, fuori da quell'ID per costruzione → senza questo mirror i
+   colori dei bottoni scelti nell'officina non arrivavano mai (restavano al
+   color-mix 14% del testo). Stesso comportamento di CREA, altro contenitore. */
+html.manifesto .mn-bento-area .mn-card[data-btn] .mn-btn {
+    background: var(--mn-btn-bg, color-mix(in srgb, currentColor 14%, transparent)) !important;
+    color: var(--mn-btn-txt, currentColor) !important;
+}
+html.manifesto .mn-bento-area .mn-card[data-btn] .mn-btn:hover,
+html.manifesto .mn-bento-area .mn-card[data-btn] .mn-btn:focus-visible {
+    background: var(--mn-btn-hover, var(--man-verde)) !important;
+    color: var(--mn-btn-hover-txt, var(--man-su-verde)) !important;
+}
+
+/* ── il layout delle voci nel bento della console: mirror di CREA (6/8) ───────
+   Le regole che leggono `data-voci-n`/`data-voci="colonna"` (quante colonne di
+   voci ha un modulo) vivono sotto l'ID `#mn-bento` in mappai-stile-manifesto.css
+   → nella console (`.mn-bento-area`) non ricadono, ed è la STESSA trappola
+   ID-vs-classe dei colori dei bottoni qui sopra: un modulo a più voci restava
+   impilato in colonna. Serve alla riga di comandi a 4 bottoni dell'INSEGNA, che
+   senza questo mirror uscirebbe verticale. Stesse regole del bento di CREA. */
+html.manifesto .mn-bento-area .mn-card[data-voci-n] > .mn-card__b {
+    display: grid;
+    grid-template-columns: repeat(var(--mn-col-n), minmax(0, 1fr));
+    gap: 8px;
+    align-content: start;
+}
+html.manifesto .mn-bento-area .mn-card[data-voci="colonna"] > .mn-card__b {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── il comando stile azione: icona a riposo, etichetta al passaggio (6/8) ─────
+   I comandi della mappa (Mappa · Elabora · QR · Cartella) hanno la stessa veste
+   dei bottoni-azione del bento di CREA: l'icona sta al centro e al passaggio (e
+   col fuoco da tastiera) le si sostituisce l'etichetta, con la stessa dissolvenza.
+   Sono gli STESSI parametri di mappai-stile-manifesto.css `.mn-card--azione` —
+   icona 64px, testo 15/700, ritardo .09s + dissolvenza .18s — riscritti qui
+   perché quelle regole sono legate a un'altra classe (`.mn-card--azione`). Fondo
+   e tinte arrivano dal mirror dei bottoni qui sopra (`--mn-btn-bg/txt/hover`). */
+html.manifesto .mn-bento-area .mn-cmd {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 145px;
+    gap: 14px;
+    border-radius: var(--mnc-card-r, 18px);
+    font-size: var(--bn-fs-azione);
+    font-weight: var(--bn-fw-azione);
+}
+html.manifesto .mn-bento-area .mn-cmd > svg {
+    width: 64px;
+    height: 64px;
+    display: block;
+    transition: opacity .18s ease .09s;
+}
+html.manifesto .mn-bento-area .mn-cmd:hover > svg,
+html.manifesto .mn-bento-area .mn-cmd:focus-visible > svg {
+    opacity: 0;
+}
+/* l'etichetta è ASSOLUTA e centrata: comparendo non deve spostare il glifo
+   mentre sfuma (due movimenti per una cosa sola) */
+html.manifesto .mn-bento-area .mn-cmd > span {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    text-align: center;
+    opacity: 0;
+    transition: opacity .18s ease .09s;
+    /* ⚠️ `!important` come in CREA (`.mn-card--azione span`): la guardia dello zoom
+       della landing impone `.mn-btn { font-size: var(--bn-fs-voce) !important }`
+       (12px) e il bottone comando porta anche `.mn-btn` → senza important
+       l'etichetta resterebbe 12/600 invece del corpo azione 15/700. */
+    font-size: var(--bn-fs-azione) !important;
+    font-weight: var(--bn-fw-azione) !important;
+}
+html.manifesto .mn-bento-area .mn-cmd:hover > span,
+html.manifesto .mn-bento-area .mn-cmd:focus-visible > span {
+    opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+    html.manifesto .mn-bento-area .mn-cmd > svg,
+    html.manifesto .mn-bento-area .mn-cmd > span {
+        transition: none !important;
+    }
+}
+
+/* l'allineamento delle voci: vale per TUTTE le colonne */
+html.manifesto .mm-box--console .mm-nav__v { justify-content: var(--mnc-voce-just); }

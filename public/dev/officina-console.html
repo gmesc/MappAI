@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it" class="manifesto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Officina delle console — il bento dell'area</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+    <!-- i fogli VERI dell'app: la cornice e i riquadri sono quelli, non una copia -->
+    <link rel="stylesheet" href="../css/mappai-modal-tokens.css">
+    <link rel="stylesheet" href="../css/mappai-stile-manifesto.css">
+    <link rel="stylesheet" href="../css/mappai-console-manifesto.css">
+    <style>
+        :root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', sans-serif; }
+        * { font-family: 'Space Mono', var(--emoji-font), monospace; box-sizing: border-box; }
+        body { margin: 0; background: #f6f7fb; color: #404040; font-size: 13px; }
+        header { padding: 18px 24px; background: #fff; border-bottom: 1px solid #e6e8ef; }
+        h1 { font-size: 20px; margin: 0 0 4px; }
+        header p { margin: 0; opacity: .7; max-width: 90ch; line-height: 1.5; }
+        .oc-barra { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+        .oc-barra select, .oc-barra button { font-size: 13px; padding: 7px 12px; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; }
+        main { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 20px; padding: 20px 24px 60px; align-items: start; }
+        section > h2 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; opacity: .55; margin: 0 0 10px; }
+
+        /* editor */
+        .oc-mod { background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+        .oc-mod.is-preso { opacity: .4; }
+        .oc-mod__h { display: flex; gap: 6px; align-items: center; }
+        .oc-drag { cursor: grab; opacity: .5; padding: 0 2px; }
+        .oc-mod__p { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; align-items: center; opacity: .85; }
+        .oc-mod__p label { display: flex; gap: 5px; align-items: center; font-size: 11px; }
+        .oc-t { flex: 1 1 auto; min-width: 0; font-size: 12px; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .oc-t--s { width: 72px; flex: 0 0 auto; }
+        .oc-s { font-size: 12px; padding: 5px 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+        .oc-a { width: 100%; margin-top: 5px; font-size: 11px; padding: 5px 8px; border: 1px solid #eef0f5; border-radius: 8px; min-height: 34px; resize: vertical; }
+        .oc-voce { border-top: 1px dashed #eef0f5; padding-top: 7px; margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .oc-mini { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; width: 26px; height: 26px; cursor: pointer; }
+        .oc-mini--x { color: #dc2626; }
+        .oc-add { border: 1px dashed #cbd5e1; background: none; border-radius: 8px; padding: 5px 10px; font-size: 11px; cursor: pointer; margin-top: 8px; }
+        .oc-add--mod { width: 100%; padding: 10px; }
+
+        /* diagnosi e misure */
+        .oc-ok { color: #047857; }
+        .oc-err, .oc-avv { margin: 0 0 8px; padding-left: 18px; line-height: 1.5; }
+        .oc-err li { color: #b91c1c; }
+        .oc-avv li { color: #b45309; }
+        #oc-misure { font-size: 11px; line-height: 1.7; opacity: .8; }
+        #oc-json { width: 100%; min-height: 160px; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; }
+
+        /* la cornice: la console vera, alla misura di una FINESTRA vera.
+           ⚠️ L'altezza non è più scritta qui: la sceglie il banco (1440×900 e
+           compagnia) e la scrive sul riquadro. Con un'altezza fissa a 720 l'area
+           restava una striscia e il bento non si poteva impaginare — che è
+           l'unica cosa per cui questo banco esiste. */
+        #oc-anteprima { background: #fff; border: 1px solid #e6e8ef; border-radius: 14px; overflow: hidden; }
+        #oc-anteprima .mm-box { position: relative; box-shadow: none; }
+        #oc-anteprima .mm-overlay { position: static; }
+        /* l'anteprima resta agganciata in alto mentre si scorre la composizione:
+           si regola una leva a sinistra e si guarda l'effetto senza risalire */
+        main > section:last-child { position: sticky; top: 12px; }
+
+        /* ⚠️ I pezzi del bento (riquadri, segmenti, elenchi, tela) NON si vestono
+           qui: le loro regole stanno in mappai-console-manifesto.css, cioè nel
+           foglio dell'app. Un banco con un CSS suo mostra una superficie che a
+           schermo non esiste. Qui resta solo la veste del BANCO. */
+        .manifesto .mn-btn--primaria { background: var(--man-verde); color: var(--man-su-verde); }
+        .oc-ignoto { color: #b91c1c; font-size: 11px; }
+        .oc-nota { opacity: .6; padding: 20px; }
+        /* ⚠️ `hidden` e non `auto`: con la finestra rimpicciolita l'arrotondamento
+           di mezzo pixel faceva comparire una barra di scorrimento sotto
+           l'anteprima — una barra che non appartiene a niente. */
+        #oc-anteprima { overflow: hidden; max-width: 100%; }
+
+        /* la griglia: tre gruppi di leve */
+        .oc-gr { background: #fff; border: 1px solid #e6e8ef; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+        .oc-gr h3 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+        /* l'AMBITO accanto al nome del gruppo: chi tocca una leva deve sapere
+           subito quante superfici sta cambiando */
+        .oc-ambito { text-transform: none; letter-spacing: 0; font-size: 10px; color: #6d28d9; opacity: .9; font-weight: 700; }
+        .oc-gr__c { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+        .oc-gr__c label { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+        .oc-t--xs { width: 58px; flex: 0 0 auto; }
+        .oc-col { width: 34px; height: 26px; padding: 0; border: 1px solid #e2e8f0; border-radius: 7px; background: none; cursor: pointer; }
+        .oc-mod__p--asp { border-top: 1px dashed #eef0f5; padding-top: 8px; }
+        .oc-cr { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: #ecfdf5; color: #047857; }
+        .oc-cr.is-basso { background: #fef2f2; color: #b91c1c; }
+        .oc-fuori { color: #b45309; font-style: normal; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Officina delle console</h1>
+        <p>L'area di una console si compone con la <b>stessa grammatica del bento di CREA</b>: quattro colonne,
+            riquadri che ne occupano da 1 a 4, un passo solo. Qui si compone e si guarda <b>dentro la cornice vera</b>
+            (testata col pallino, il chip e il percorso, colonna di navigazione, area) — la cornice la disegna
+            <code>MappAIModal.render</code>, cioè il motore dell'app: se il banco ne disegnasse una sua, mostrerebbe
+            una console che a schermo non esiste.</p>
+        <div class="oc-barra">
+            <label>Area <select id="oc-area"></select></label>
+            <label>Finestra <select id="oc-larghezza">
+                <option value="1280">1280</option>
+                <option value="1440" selected>1440</option>
+                <option value="1680">1680</option>
+                <option value="1920">1920</option>
+            </select>×<select id="oc-altezza">
+                <option value="800">800</option>
+                <option value="900" selected>900</option>
+                <option value="1080">1080</option>
+                <option value="1200">1200</option>
+            </select></label>
+            <label>Zoom <select id="oc-zoom">
+                <option value="auto" selected>auto</option>
+                <option value="100">100%</option>
+                <option value="75">75%</option>
+                <option value="50">50%</option>
+            </select></label>
+            <label class="oc-chk"><input type="checkbox" id="oc-navchiusa"> colonna chiusa</label>
+            <button type="button" id="oc-reset">Riparti dal codice</button>
+            <button type="button" id="oc-copia">Copia il JSON</button>
+        </div>
+    </header>
+    <main>
+        <section>
+            <h2>① Token globali — valgono per TUTTE le console</h2>
+            <div id="oc-globali"></div>
+            <button type="button" class="oc-add" id="oc-reset-token">Riparti dai token del codice</button>
+            <h2 style="margin-top:18px">② Griglia di questa vista — barra · colonna · area</h2>
+            <div id="oc-griglia"></div>
+            <h2 style="margin-top:18px">③ Composizione — riquadri e voci di questa vista</h2>
+            <div id="oc-editor"></div>
+            <h2 style="margin-top:18px">Diagnosi</h2>
+            <div id="oc-diagnosi"></div>
+            <h2 style="margin-top:18px">Uscita</h2>
+            <textarea id="oc-json" spellcheck="false"></textarea>
+        </section>
+        <section>
+            <h2>Anteprima — la console vera</h2>
+            <div id="oc-anteprima"></div>
+            <h2 style="margin-top:14px">Misure</h2>
+            <div id="oc-misure"></div>
+        </section>
+    </main>
+
+    <script src="../js/lucide.min.js"></script>
+    <script src="../js/mappai-modal-core.js"></script>
+    <script src="../js/mappai-modal.js"></script>
+    <!-- il bento di CREA: da qui arrivano la scala, `presentazione()` e i
+         contrasti — le stesse leve, non una seconda copia -->
+    <script src="../js/mappai-bento-composizione.js"></script>
+    <script src="../js/mappai-console-bento.js"></script>
+    <script src="officina-console.js"></script>
+</body>
+</html>
