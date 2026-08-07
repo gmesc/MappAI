@@ -434,12 +434,15 @@
            nei DUE stati (mostra · nascondi) — così l'icona può cambiare veste quando
            la colonna è aperta o chiusa. */
         maniglia: {
-            top: 14, taglia: 34, raggio: 9,
+            top: 14, taglia: 34, raggio: 8,
             x: 0,                          /* spostamento orizzontale dal confine */
-            rot: '0', rotChiusa: '180',    /* orientamento del glifo (mostra · nascondi) */
+            /* l'icona dell'app è `panel-left-close` («‹»); il disegno di Giacomo
+               (maniglia.svg pag.1) è `panel-right-close` («›») → 180° da APERTO. */
+            rot: '180', rotChiusa: '0',    /* orientamento del glifo (mostra · nascondi) */
             angolo: 'basso-dx',            /* l'unico angolo arrotondato del box */
-            fondo: '#eef2ff', segno: '#ac72fe',
-            fondoChiusa: '#eef2ff', segnoChiusa: '#ac72fe'
+            /* box di sfondo BIANCO (Giacomo 7/8): sul bianco della colonna resta l'icona */
+            fondo: '#ffffff', segno: '#ac72fe',
+            fondoChiusa: '#ffffff', segnoChiusa: '#ac72fe'
         },
         /* la colonna di navigazione: il margine sopra i suoi contenuti (sotto la
            maniglia). 14 = com'è oggi; alzalo per dare aria in cima alla colonna. */
@@ -454,11 +457,13 @@
 
     var ASPETTO_BASE = {
         barra: {
-            altezza: 78,          /* --mnc-testata */
-            corpo: 30,            /* --mn-tit-fs: il percorso */
-            colore: '#404040',    /* --mn-tit-col */
-            opacitaPrec: 55,      /* i livelli prima di dove sei, in % */
-            opacitaSep: 35        /* i separatori › */
+            altezza: 76,          /* --mnc-testata (= la banda della landing, 76px) */
+            corpo: 30,            /* --mn-tit-fs: il livello «Cosa» a dimensione piena */
+            colore: '#404040',    /* --mn-tit-col: «Cosa» sempre piena (rgb 64,64,64) */
+            opacitaPrec: 55,      /* i livelli dopo «Cosa», in % */
+            opacitaSep: 35,       /* i separatori › */
+            scalaAltri: 60,       /* --mn-bric-scale: i livelli dopo «Cosa» al 60% del corpo */
+            hairline: '#ebebeb'   /* --mnc-hairline: il filetto sotto la barra (= la banda landing) */
         },
         colonna: {
             larghezza: 272,       /* --mm-console-side */
@@ -553,6 +558,8 @@
             '--mn-tit-col': s.barra.colore,
             '--mnc-bric-op': (s.barra.opacitaPrec / 100),
             '--mnc-sep-op': (s.barra.opacitaSep / 100),
+            '--mn-bric-scale': (s.barra.scalaAltri / 100),
+            '--mnc-hairline': s.barra.hairline,
             '--mm-console-side': s.colonna.larghezza + 'px',
             '--mnc-voce-h': s.colonna.altezzaVoce + 'px',
             '--mnc-voce-fs': s.colonna.corpoVoce + 'px',
@@ -725,12 +732,202 @@
         }
     };
 
+    /* ── montaPercorso: la cascata del percorso nella testata di una console ────
+       Trasforma la testata (pallino · titolo) nel percorso interattivo
+       «Cosa › A chi? › Materia › …»: ogni livello con un `menu` è una tendina
+       rettangolare a fondo bianco; i livelli `statico` restano etichette; l'ultimo
+       livello è in tondo corsivo. Qui c'è solo la MECCANICA (disegno, apertura,
+       chiusura, posizione): i DATI e le CALLBACK arrivano dallo `spec`, così la
+       usano sia l'app (dati veri) sia il banco (mock). Le classi CSS sono quelle
+       di mappai-console-manifesto.css (già caricata nell'app).
+         spec = { livelli: [
+           { et:'Cosa',    menu:{ tipo:'lista',   voci:[{et,on,onPick}], nuovo:{et,onPick} } },
+           { et:'A chi?',  menu:{ tipo:'colonne', colonne:[{h,voci:[{et,on,onPick}]}] } },
+           { statico:'La Fotosintesi' }
+         ] } */
+    function _escP(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function _chiudiPercorso() {
+        var m = document.querySelector('.mn-bric-menu');
+        if (m) { if (m._trg) m._trg.setAttribute('aria-expanded', 'false'); m.remove(); }
+    }
+    function _voceP(v, fs) {
+        var it = document.createElement('button');
+        it.type = 'button';
+        it.setAttribute('role', 'menuitemradio');
+        it.setAttribute('aria-checked', v.on ? 'true' : 'false');
+        it.className = 'mn-bric-menu__it' + (v.on ? ' is-on' : '') + (v.nuovo ? ' mn-bric-menu__nuovo' : '');
+        it.textContent = v.et;
+        it.style.fontSize = fs;
+        it.addEventListener('click', function (ev) { ev.stopPropagation(); _chiudiPercorso(); if (v.onPick) v.onPick(); });
+        return it;
+    }
+    function _apriPercorsoMenu(node, trigger, menuSpec, fs) {
+        var aperto = document.querySelector('.mn-bric-menu');
+        if (aperto) { var era = aperto._trg; aperto.remove(); if (era) era.setAttribute('aria-expanded', 'false'); if (era === trigger) return; }
+        var menu = document.createElement('div');
+        menu.className = 'mn-bric-menu';
+        menu.setAttribute('role', 'menu');
+        menu._trg = trigger;
+        if (menuSpec.tipo === 'colonne') {
+            menu.classList.add('mn-bric-menu--cols');
+            (menuSpec.colonne || []).forEach(function (col) {
+                var c = document.createElement('div'); c.className = 'mn-bric-col';
+                if (col.h) { var h = document.createElement('div'); h.className = 'mn-bric-col__h'; h.textContent = col.h; c.appendChild(h); }
+                (col.voci || []).forEach(function (v) { c.appendChild(_voceP(v, fs)); });
+                menu.appendChild(c);
+            });
+        } else {
+            (menuSpec.voci || []).forEach(function (v) { menu.appendChild(_voceP(v, fs)); });
+            if (menuSpec.nuovo) menu.appendChild(_voceP({ et: menuSpec.nuovo.et, nuovo: true, onPick: menuSpec.nuovo.onPick }, fs));
+        }
+        /* appeso al BOX (non alla testata: la ritaglierebbe e il corpo la coprirebbe);
+           posizione = somma degli offset lungo la catena fino al box */
+        var box = trigger.closest('.mm-box--console') || node;
+        box.appendChild(menu);
+        var top = 0, left = 0, el = trigger;
+        while (el && el !== box) { top += el.offsetTop; left += el.offsetLeft; el = el.offsetParent; }
+        menu.style.top = (top + trigger.offsetHeight + 6) + 'px';
+        /* clamp orizzontale rispetto al VIEWPORT, non alla larghezza del box:
+           sulla landing il box è `#header-utils`, stretto quanto le briciole, e
+           `box.offsetWidth - menu.offsetWidth` andava NEGATIVO → il menu veniva
+           forzato a sinistra (x=8) invece che sotto il trigger. Ora resta sotto
+           «Cosa» come nelle altre viste, e si sposta solo se sborderebbe (Giacomo). */
+        var boxLeft = box.getBoundingClientRect().left;
+        var wantScreen = boxLeft + left;
+        var maxScreen = window.innerWidth - menu.offsetWidth - 8;
+        menu.style.left = (Math.max(8, Math.min(wantScreen, maxScreen)) - boxLeft) + 'px';
+        trigger.setAttribute('aria-expanded', 'true');
+        setTimeout(function () {
+            document.addEventListener('mousedown', function chiudi(e) {
+                if (!menu.contains(e.target) && e.target !== trigger) { menu.remove(); trigger.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', chiudi); }
+            });
+        }, 0);
+    }
+    /* dati del contesto (A chi? · Materia) dai VERI store dell'app, con le callback
+       del chiamante. Fonte UNICA per console E landing (il banco usa i suoi mock).
+       ⚠️ label in italiano fisse: EN al giro dell'i18n. */
+    function _classi() { try { return (window.MappAIClasses && window.MappAIClasses.list) ? window.MappAIClasses.list() : []; } catch (e) { return []; } }
+    function _allievi() { try { var a = (typeof appState !== 'undefined') ? appState : window.appState; var arr = (a && a.allProfiles) || []; return arr.filter(function (p) { return p && p.nickname; }); } catch (e) { return []; } }
+    /* la sezione: se una console a schermo pieno è aperta, la SUA (scritta sul velo
+       da chi l'apre, come fa `modo()` in stile-manifesto) — non la modalità della
+       landing sotto, che per INSEGNA vale «build» (è dove si atterra chiudendo). Si
+       guarda anche `manSezionePendente` su <html> perché al primo giro la veste può
+       non aver ancora travasato il dato sul velo. Fuori da una console = readMode. */
+    function _sezioneAttiva() {
+        try {
+            var box = document.querySelectorAll('.mm-overlay .mm-box--piena.mm-box--console');
+            if (box.length) {
+                var velo = box[box.length - 1].closest('.mm-overlay');
+                var s = (velo && velo.dataset && velo.dataset.manSezione) || document.documentElement.dataset.manSezionePendente || '';
+                if (s && s !== 'cabina') return s;
+            }
+            return (window.MappAITeach && window.MappAITeach.readMode) ? window.MappAITeach.readMode() : (localStorage.getItem('mappai_landing_mode') || '');
+        } catch (e) { return ''; }
+    }
+    /* «A chi?» è scelto anche quando il target è «Generico» — che nello store non
+       lascia traccia (né classe né allievo). Un flag sticky ricorda che la scelta
+       è stata FATTA, così «Materia» resta svelata anche dopo. */
+    function _stickyAchi() { try { return localStorage.getItem('mappai_bento_achi') === '1'; } catch (e) { return false; } }
+    function _setStickyAchi() { try { localStorage.setItem('mappai_bento_achi', '1'); } catch (e) { } }
+    /* cb: { onCosa(modo)?, onGenerico, onClasse(c), onAllievo(p), onMateria(m), onNuovaMateria }
+       BRICIOLE PERSISTENTI e PROGRESSIVE (Giacomo, 6/8): ogni livello, una volta
+       scelto, mostra il VALORE (non più il prompt «Cosa/A chi?/Materia») e resta;
+       il livello successivo appare SOLO dopo aver scelto il precedente. Lo stato è
+       DERIVATO dai veri store (sezione attiva · classe/allievo attivi · materia
+       attiva) + il flag sticky per «A chi?» → persiste anche passando landing↔console
+       e cambiando «Cosa». `livello` non serve più (ignorato). */
+    function specContesto(cb, livello) {
+        var CL = window.MappAIClasses || {};
+        var cls = (CL.getActive && CL.getActive()) || null;
+        var mat = CL.activeDiscipline ? CL.activeDiscipline() : '';
+        var stud = CL.activeStudentName ? CL.activeStudentName() : '';
+        var sez = _sezioneAttiva();
+        var SEZ = { build: 'Crea', elabora: 'Elabora', teach: 'Insegna' };
+        var cosaScelto = !!sez;
+        var achiScelto = !!(cls || stud || _stickyAchi());
+        var livelli = [];
+        if (cb.onCosa) {
+            livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
+                { et: 'Crea', on: sez === 'build', onPick: function () { cb.onCosa('build'); } },
+                { et: 'Elabora', on: sez === 'elabora', onPick: function () { cb.onCosa('elabora'); } },
+                { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
+            ] } });
+        }
+        if (!cosaScelto) return livelli;                    // finché «Cosa» non è scelto, si vede solo «Cosa»
+        var achiLabel = achiScelto ? (stud || (cls && cls.name) || 'Generico') : 'A chi?';
+        livelli.push({ et: achiLabel, menu: { tipo: 'colonne', colonne: [
+            { h: '', voci: [{ et: 'Generico', on: achiScelto && !cls && !stud, onPick: function () { _setStickyAchi(); cb.onGenerico(); } }] },
+            { h: '', voci: _classi().map(function (c) { return { et: c.name, on: !!cls && cls.name === c.name, onPick: function () { _setStickyAchi(); cb.onClasse(c); } }; }) },
+            { h: '', voci: _allievi().map(function (p) { return { et: p.nickname + (p.grade ? ' — ' + p.grade : ''), on: !!stud && stud === p.nickname, onPick: function () { _setStickyAchi(); cb.onAllievo(p); } }; }) }
+        ] } });
+        if (!achiScelto) return livelli;                    // «Materia» solo dopo aver scelto «A chi?»
+        var materie = (cls && CL.disciplineChoices) ? (CL.disciplineChoices(cls) || [])
+            : ((window.MappAITeacherProfile && window.MappAITeacherProfile.disciplineList()) || []);
+        livelli.push({ et: mat || 'Materia', menu: { tipo: 'lista',
+            voci: materie.map(function (m) { return { et: m, on: mat === m, onPick: function () { cb.onMateria(m); } }; }),
+            nuovo: cls ? null : { et: '+ Nuova materia', onPick: cb.onNuovaMateria }
+        } });
+        return livelli;
+    }
+
+    function montaPercorso(node, spec, testiEl) {
+        if (!node || !spec || !spec.livelli) return;
+        /* il contenitore delle briciole: nella console è `.mm-head__testi`, sulla
+           landing lo passa il chiamante (l'header non ha quella struttura). */
+        var testi = testiEl || node.querySelector('.mm-head__testi') || node;
+        /* questa superficie ha il PERCORSO interattivo: la veste (console-manifesto)
+           non ci aggiunge il chip né ricostruisce le sue briciole statiche — lo sa
+           da questa classe. E qui si toglie l'eventuale chip già messo. */
+        node.classList.add('mn-percorso');
+        var chip = node.querySelector('.mm-ctx'); if (chip) chip.remove();
+        _chiudiPercorso();
+        /* via il titolo/sottotitolo del motore: il percorso li sostituisce */
+        var t = testi.querySelector('.mm-title'); if (t) t.style.display = 'none';
+        var st = testi.querySelector('.mm-subtitle'); if (st) st.style.display = 'none';
+        var vecchio = testi.querySelector('.mn-briciole'); if (vecchio) vecchio.remove();
+        var br = document.createElement('nav');
+        br.className = 'mn-briciole';
+        var livelli = spec.livelli;
+        livelli.forEach(function (lv, i) {
+            if (i) { var sep = document.createElement('span'); sep.className = 'mn-briciole__sep'; sep.textContent = '›'; br.appendChild(sep); }
+            /* «Cosa» (i=0) alla dimensione piena; TUTTI gli altri livelli a una
+               dimensione FISSA = 60% di «Cosa» (Giacomo), non più decrescente 10%/passo.
+               La scala è un token (`--mn-bric-scale`) → l'officina la specifica; l'app,
+               che non emette il token, usa il fallback 0.6 (= invariata). */
+            var fs = i === 0 ? 'var(--mn-tit-fs, 30px)' : 'calc(var(--mn-tit-fs, 30px) * var(--mn-bric-scale, 0.6))';
+            var ultima = (i === livelli.length - 1);
+            if (lv.menu) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'mn-briciole__l mn-briciole__l--menu';
+                b.setAttribute('aria-haspopup', 'true');
+                b.setAttribute('aria-expanded', 'false');
+                b.innerHTML = '<span>' + _escP(lv.et) + '</span>';   /* niente triangolino ▾ (Giacomo) */
+                b.style.fontSize = fs;
+                (function (btn, ms, f) { btn.addEventListener('click', function (ev) { ev.stopPropagation(); _apriPercorsoMenu(node, btn, ms, f); }); })(b, lv.menu, fs);
+                br.appendChild(b);
+            } else {
+                var el = document.createElement(ultima ? 'span' : 'button');
+                el.className = 'mn-briciole__l' + (ultima ? ' is-qui' : '');
+                if (el.tagName === 'BUTTON') el.type = 'button';
+                el.textContent = lv.statico || lv.et || '';
+                el.style.fontSize = fs;
+                if (ultima) { el.style.fontStyle = 'italic'; el.style.fontWeight = '400'; }
+                br.appendChild(el);
+            }
+        });
+        testi.appendChild(br);
+        testi.classList.add('ha-briciole');
+    }
+
     return {
         COLONNE: COLONNE, FORME: FORME, AREE: AREE, MAX_TELE: MAX_TELE, POPUP: POPUP,
         ASPETTO_BASE: ASPETTO_BASE, TOKEN_BASE: TOKEN_BASE, OMBRE: OMBRE,
         area: area, righe: righe, spanDi: spanDi, tele: tele,
         tokenDi: tokenDi, variabiliGlobali: variabiliGlobali,
         aspettoDi: aspettoDi, variabili: variabili, contrasto: contrasto,
-        valida: valida, larghezza: larghezza, firma: firma
+        valida: valida, larghezza: larghezza, firma: firma,
+        montaPercorso: montaPercorso, chiudiPercorso: _chiudiPercorso,
+        specContesto: specContesto
     };
 }));

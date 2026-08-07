@@ -1,0 +1,1681 @@
+{
+ "audits": [
+  {
+   "area": "Landing a 3 tab (Costruisci/Elabora/Insegna) — public/index.html righe 614-1113 + public/js/mappai-landing-teach.js",
+   "findings": [
+    {
+     "categoria": "coerenza",
+     "claim": "Le due CTA primarie impilate del form Costruisci usano due colori d'azione entrambi fuori standard: «Genera materiali» è btn_salva_action emerald-400 (testo bianco a contrasto 1,92:1) e «Genera Mappa» è bg-blue-600; in più il QR/condivisione usa green-600 come terzo colore d'azione (7 occorrenze) — contro la decisione token n.1 (un solo colore azione indigo #4f46e5, emerald = stato non bottone).",
+     "evidenza": "public/index.html:1016-1025 e :165 (def. btn_salva_action bg-emerald-400); contrasto misurato 1,92:1; grep 'text-green-600|bg-green-600|#16a34a' mappai-landing-teach.js = 7",
+     "gravita": "alta",
+     "proposta": "Portare «Genera materiali» e «Genera Mappa» su indigo (una sola primaria, l'altra secondaria bianca con bordo) e declassare il verde QR a icona neutra slate→indigo hover."
+    },
+    {
+     "categoria": "debito",
+     "claim": "La sezione «File condivisi» è orfana: renderSharedMat cerca #teach-sharedmat-body che refresh() non crea più (sostituita dal quick-start «Condividi»), quindi dopo shareFromPc l'elenco dei file condivisi non è visibile né eliminabile da nessuna parte della landing, mentre ~110 righe, 5 export su window.MappAITeach e il listener mappai-sharedmat-changed girano a vuoto.",
+     "evidenza": "grep -rn 'teach-sharedmat' public/ = 1 sola occorrenza (mappai-landing-teach.js:1042, il lettore); refresh() a :697-703 crea solo projects/materials/quizpaper/lavagna/activities",
+     "gravita": "alta",
+     "proposta": "Decidere: reintrodurre la sezione (o un modale elenco raggiunto dal quick-start) oppure rimuovere renderSharedMat/shareFile/removeSharedFile/openSharedFile/openSharedFolder e il listener."
+    },
+    {
+     "categoria": "gerarchia",
+     "claim": "Al primo avvio in Costruisci il docente vede ~35 punti di ingresso interattivi in un'unica colonna (29 <button> + 8 div cliccabili nella sola sezione landing), distribuiti su almeno 8 famiglie visive diverse: nessun percorso primario evidente per chi apre l'app la prima volta.",
+     "evidenza": "sed -n '614,1113p' public/index.html | grep -c '<button' = 29; stesso range grep -c 'btn_selezione_input|btn_mode_selector' = 8; famiglie: btn_selezione_input, btn_mode_selector, btn_header_setting, btn_quick_action, landing-mode-seg, teach-filter-seg, btn_salva_action, submit blu",
+     "gravita": "alta",
+     "proposta": "Collassare gli step 2-4 in «Avanzate» richiudibili e lasciare sopra la piega solo fonti + tema + una CTA, come già fatto per «Progetti salvati»."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "I 4 bottoni utility dell'header (Config AI, Guida, Tutorial, Profilo) sono solo-icona con le label commentate via: zero aria-label e zero title, quindi nessun nome accessibile per screen reader e nessuna affordance per il docente al primo avvio.",
+     "evidenza": "public/index.html:629-651; sed -n '629,651p' | grep -c 'aria-label|title=' = 0",
+     "gravita": "alta",
+     "proposta": "Aggiungere aria-label + data-tip (il sistema MappAITips esiste già) a ciascuno dei 4 bottoni."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Le tabelle di Insegna/Elabora usano micro-testo sotto soglia in un'app per BES/DSA: header 9px uppercase e date 10px in text-slate-400 (contrasto 2,56:1, richiesto ≥4,5:1; 26 usi nel file), e i bottoni-icona di riga (p-1.5 + icona 16px) danno bersagli da ~28px contro i 44 raccomandati dai token dell'officina.",
+     "evidenza": "mappai-landing-teach.js:507 (TH 9px slate-400), :579 (dateCell 10px), :581-588 (actIcon); contrasto #94a3b8 su bianco misurato 2,56:1; grep -o 'text-slate-400' = 26",
+     "gravita": "alta",
+     "proposta": "Portare header/date a ≥11px con slate-500/600 (≥4,5:1) e allargare il padding degli actIcon fino a bersagli ~40-44px."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Tre veli modali diversi nello stesso tab: _openAssignModal e _paperModal usano bg-slate-900/60 mentre makeOverlay usa rgba(15,23,42,.45) — solo il secondo rispetta la decisione token n.6 (velo unico --mm-velo rgba(15,23,42,.45) + blur).",
+     "evidenza": "mappai-landing-teach.js:295 e :1244 (slate-900/60) vs :1501 (.45); token in public/css/mappai-modal-tokens.css:42",
+     "gravita": "media",
+     "proposta": "Unificare i tre overlay sul velo token (var --mm-velo) in attesa della migrazione al motore Modal."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "18 usi di tracking-[0.2em] (con uppercase su btn_header_setting e sulla label del toggle macro-aree) sopravvivono nelle famiglie bottone della landing — in contrasto diretto con la decisione token n.3 (niente MAIUSCOLO + letter-spacing .2em: costo di lettura per BES/DSA).",
+     "evidenza": "grep -c 'tracking-\\[0.2em\\]' public/index.html = 18; def. a index.html:149-158,165 e label a :846",
+     "gravita": "media",
+     "proposta": "Rimuovere tracking e uppercase dalle famiglie landing (btn_selezione_input, btn_quick_action, btn_header_setting, btn_salva_action) allineandole ai token .mm-btn."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Esistono tre elenchi progetti con due fonti di verità diverse: «Progetti salvati» di Costruisci legge localStorage (StorageManager.renderRecentProjects) mentre «Progetti esistenti» di Insegna ed Elabora leggono il disco (getAllVaults) — la stessa mappa può comparire in un tab e mancare nell'altro (vault orfani vs progetti senza cartella), con tre renderer da mantenere.",
+     "evidenza": "mappai-landing-teach.js:165-169 (localStorage) vs :788-790 e :183-186 (disco)",
+     "gravita": "media",
+     "proposta": "Far leggere anche Costruisci da filterVaults (disco + merge metadati), riusando fileTable: un solo renderer e una sola verità."
+    },
+    {
+     "categoria": "debito",
+     "claim": "quickStartBar e filesBar hardcodano max-w-[806px], vietato da §10.16 («MAI un max-w-[NNNpx] custom»): oggi è neutralizzato solo dall'override !important a 1240px che però vive dentro @media (min-width:768px), quindi sotto i 768px o se il selettore #teach-content>div cambia, le barre tornano strette e disallineate dalle sezioni.",
+     "evidenza": "mappai-landing-teach.js:684 e :714; override in public/css/style.css:2106 (@media 768) + :2166 (1240px !important)",
+     "gravita": "media",
+     "proposta": "Sostituire max-w-[806px] con la classe token (teach-section-card o max-w-2xl mappata) nelle due barre."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Nello Step 4 tre segmented-toggle identici per funzione (Multi-Pass, Logica MM, Logica KG) usano tre accenti diversi — bg-orange-200, bg-emerald-200, bg-indigo-200 — tre famiglie cromatiche per lo stesso identico controllo nella stessa card.",
+     "evidenza": "public/index.html:931, :941, :951",
+     "gravita": "media",
+     "proposta": "Un solo stile di pill-toggle (fondo slate-200, attivo bianco+indigo come landing-mode-seg) per tutti e tre."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Tutti i modali della landing sono fatti a mano invece di usare il motore Modal (che centralizza ESC/Invio/focus trap/ritorno fuoco): makeOverlay (pickClass, pickMap, pickDoc, editGrade) non ripristina il fuoco all'elemento di origine e nessuno dei 6 overlay ha focus trap, in contrasto col contratto tastiera già costruito in mappai-modal.js.",
+     "evidenza": "mappai-landing-teach.js:1498-1514 (makeOverlay senza prevFocus/trap); grep 'focus' nel file: restore solo a :334 e :1264 (_openAssignModal/_paperModal)",
+     "gravita": "media",
+     "proposta": "Migrare i 6 overlay della landing a Modal.open(schema) come primi casi reali del piano di migrazione §8."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "L'eliminazione è incoerente col proprio standard: le tabelle usano confirmDeleteText (digitazione del nome esatto, regola §10.15) ma il cestino dentro pickDoc elimina con un semplice showConfirm generico — stesso gesto, due protezioni diverse.",
+     "evidenza": "mappai-landing-teach.js:1626-1638 (showConfirm) vs :641-650 (confirmDeleteText)",
+     "gravita": "bassa",
+     "proposta": "Usare confirmDeleteText anche nel cestino di pickDoc."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "Bottoni <button> nella sezione landing (614-1113)",
+     "valore": "29",
+     "comando": "sed -n '614,1113p' 'public/index.html' | grep -c '<button'"
+    },
+    {
+     "nome": "Div cliccabili (btn_selezione_input + btn_mode_selector) stessa sezione",
+     "valore": "8",
+     "comando": "sed -n '614,1113p' 'public/index.html' | grep -c 'btn_selezione_input\\|btn_mode_selector'"
+    },
+    {
+     "nome": "Contrasto bianco su emerald-400 (CTA «Genera materiali»)",
+     "valore": "1,92:1",
+     "comando": "node -e \"function lum(h){var c=h.match(/../g).map(x=>parseInt(x,16)/255).map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]}var a=lum('34d399'),b=lum('ffffff');console.log(((Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)).toFixed(2))\""
+    },
+    {
+     "nome": "Contrasto slate-400 su bianco (header/date tabelle)",
+     "valore": "2,56:1",
+     "comando": "node -e \"function lum(h){var c=h.match(/../g).map(x=>parseInt(x,16)/255).map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]}var a=lum('94a3b8'),b=lum('ffffff');console.log(((Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)).toFixed(2))\""
+    },
+    {
+     "nome": "Usi di text-slate-400 in mappai-landing-teach.js",
+     "valore": "26",
+     "comando": "grep -o 'text-slate-400' 'public/js/mappai-landing-teach.js' | wc -l"
+    },
+    {
+     "nome": "tracking-[0.2em] in index.html",
+     "valore": "18",
+     "comando": "grep -c 'tracking-\\[0.2em\\]' 'public/index.html'"
+    },
+    {
+     "nome": "Verde come colore azione in landing-teach.js",
+     "valore": "7",
+     "comando": "grep -c 'text-green-600\\|bg-green-600\\|#16a34a' 'public/js/mappai-landing-teach.js'"
+    },
+    {
+     "nome": "Veli modali a /60 (fuori token) nel file",
+     "valore": "2",
+     "comando": "grep -c 'bg-slate-900/60' 'public/js/mappai-landing-teach.js'"
+    },
+    {
+     "nome": "aria-label/title sui 4 bottoni header utils",
+     "valore": "0",
+     "comando": "sed -n '629,651p' 'public/index.html' | grep -c 'aria-label\\|title='"
+    },
+    {
+     "nome": "Occorrenze di teach-sharedmat nel repo (solo il lettore: sezione orfana)",
+     "valore": "1",
+     "comando": "grep -rn 'teach-sharedmat' public/ | wc -l"
+    },
+    {
+     "nome": "max-w-[806px] hardcoded nelle barre di Insegna",
+     "valore": "2",
+     "comando": "grep -c 'max-w-\\[806px\\]' 'public/js/mappai-landing-teach.js'"
+    }
+   ]
+  },
+  {
+   "area": "Cromo della vista mappa (map-view: toolbar/card di navigazione, sidebar, floating-actions-menu, menu lente, menu contestuale, toggle a11y)",
+   "findings": [
+    {
+     "categoria": "a11y",
+     "claim": "L'icona dei tre toggle principali del cromo (sidebar-toggle, floating-actions-toggle, a11y-panel-toggle) è ambra #fbbf24 su fondo bianco: contrasto 1,67:1, molto sotto il 3:1 richiesto per gli elementi grafici (WCAG 1.4.11) — in un'app per BES/DSA e ipovisione.",
+     "evidenza": "public/css/style.css:335 (color:#fbbf24 !important su sfondo #ffffff, style.css:333); contrasto calcolato 1,67:1",
+     "gravita": "alta",
+     "proposta": "Portare l'icona a slate-600 #475569 (7,5:1) o all'indigo dei token #4f46e5, riservando l'ambra al solo stato hover/attivo."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il menu Azioni Rapide contraddice la decisione 1 dei token (un solo colore d'azione, indigo): hover giallo #ffe62a e stato attivo emerald #34d399, e in più hover→bold e attivo→font 18px→20px, che fanno saltare il layout del testo sotto il cursore.",
+     "evidenza": "public/css/style.css:489-501 (hover #ffe62a + font-weight:bold; .active #34d399 + font-size:20px) vs public/css/mappai-modal-tokens.css:18-21 (--mm-accent:#4f46e5)",
+     "gravita": "alta",
+     "proposta": "Hover neutro slate + accento indigo per lo stato attivo, senza cambiare corpo né peso del font (usare un check o un bordo per lo stato)."
+    },
+    {
+     "categoria": "gerarchia",
+     "claim": "Sovraccarico di controlli simultanei: 43 <button> nel solo markup di map-view; all'apertura di una mappa l'utente vede ~25 controlli attivi contemporanei (13 bottoni + 1 slider nella card, 6 tab sidebar, 3 toggle flottanti, Lavagna QR, pomodoro), senza raggruppamento visivo oltre i 12 divisori verticali.",
+     "evidenza": "sed -n '1128,1710p' public/index.html | grep -c '<button' → 43; card: 14 bottoni e 12 divisori (righe 1555-1703)",
+     "gravita": "alta",
+     "proposta": "Ristrutturare la map-control-card in 3-4 cluster nominati (Vista · Fisica · Leggibilità · Filtri) con progressive disclosure sui comandi di taratura fine (distanza, testo)."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Controllo interattivo annidato in un altro: lo span cliccabile #lens-caret vive DENTRO il bottone TESTO — un solo <button> con due azioni smistate su event.target, bersaglio del caret ~19×17px (ben sotto i 44px), invisibile come controllo separato a tastiera e screen reader.",
+     "evidenza": "public/index.html:1632-1639 (span #lens-caret dentro #card-btn-labels); public/js/mappai-d3-render.js:1571-1578 (branch su event.target.id); caret 13px + padding 2/3px (index.html:316-328)",
+     "gravita": "alta",
+     "proposta": "Separare in due bottoni affiancati (TESTO e LENTE) o promuovere la lente a voce della card con proprio bottone 48×48."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Scala z-index incoerente nello stesso cromo — da 10 a 999999 in sei ordini di grandezza: card z-30, hint z-40, context-menu z-50, lens-menu 200, floating-menu 99999, toggle a11y 999999; il bottone-occhio (fixed, 999999) resta sopra i veli di TUTTI i modali z-[2000], violando il velo unico della decisione 6.",
+     "evidenza": "grep -n 'z-index\\|z-\\[' public/index.html public/css/style.css → style.css:349 (999999), style.css:424 (99999), index.html:282 (200), 1556 (z-30), 1707 (z-40), 1716 (z-50), 1726 (z-[2000])",
+     "gravita": "media",
+     "proposta": "Definire una scala documentata a 5 gradini (canvas 10 · cromo 30-50 · popover 200 · velo modale 2000 · sistema 10000) e ricondurvi i due valori a 5-6 cifre."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Il bottone che apre il hub principale (10 voci: Materiali, Live, Studio attivo, Garden, Graph manager…) usa l'icona log-out specchiata via CSS — un'icona di uscita per l'ingresso alle funzioni, scopribile solo dal tooltip nativo «Azioni Rapide».",
+     "evidenza": "public/index.html:1544-1547 (i data-lucide=\"log-out\") + public/css/style.css:393 (transform:scaleX(-1) per mascherarla)",
+     "gravita": "media",
+     "proposta": "Sostituire con un'icona semanticamente coerente (menu, layout-grid o sparkles) ed etichetta visibile, riservando log-out alla sola voce «Torna alla Home»."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "14 etichette MAIUSCOLE a 9px nella map-control-card (CENTRA, RIORDINA, PIN, ATTR, TESTO, LINK, PATH, FISSA…) contraddicono la decisione 3 dei token (niente maiuscolo: costo di lettura BES/DSA) e usano sigle criptiche (ATTR, PATH) sotto ogni soglia di leggibilità.",
+     "evidenza": "sed -n '1555,1703p' public/index.html | grep -c 'text-\\[9px\\]' → 14; decisione: public/css/mappai-modal-tokens.css:265",
+     "gravita": "media",
+     "proposta": "Etichette in tondo a ≥11px con parole intere (Attrazione, Percorso), eventualmente su card più alta o con label solo su hover+focus."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Tre sistemi di tooltip coesistono nella stessa vista (title nativo, data-i18n-title tradotto, data-tip custom di MappAITips) e 15 controlli di map-view hanno title hardcodato in italiano senza data-i18n-title: in inglese i tooltip di tab sidebar, layout, distanza, testo e slider restano italiani.",
+     "evidenza": "sed -n '1128,1710p' public/index.html | grep ' title=\"' | grep -vc 'data-i18n-title' → 15; data-tip usato solo 9 volte in tutto il file (grep -c 'data-tip=' public/index.html → 9)",
+     "gravita": "media",
+     "proposta": "Unificare su data-tip/MappAITips (già a resa coerente e senza il ritardo del title nativo) e aggiungere le 15 chiavi i18n mancanti nei due dizionari."
+    },
+    {
+     "categoria": "gerarchia",
+     "claim": "Il menu contestuale su un nodo (docente, MM) mostra 17 voci + 3 intestazioni in 224px di larghezza, con 7 colori d'accento decorativi sulle voci (sky, red, amber, emerald, indigo, purple, slate) che non codificano nulla di semantico e contraddicono il principio «un colore d'azione, rosso solo distruttivo».",
+     "evidenza": "sed -n '62,107p' public/js/mappai-context-menu.js | grep -c 'ctx-item' → 17; colori alle righe 69-103 (text-emerald/indigo/purple/amber/sky/red)",
+     "gravita": "media",
+     "proposta": "Voci in slate con icona neutra e rosso solo su Elimina; spostare i 4 stati di studio in un sottogruppo a pillole orizzontali per accorciare la lista a ~10 voci."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Nella stessa card due bottoni (PIN, ATTR) hanno fondo blu statico bg-blue-50/text-blue-600 tra fratelli slate-100 — sembrano perennemente «attivi» — e nella vista convivono 9 famiglie di colore d'accento (indigo, emerald, blue, violet, purple, sky, amber, rose, red) contro l'accento unico dei token.",
+     "evidenza": "public/index.html:1587,1596 (bg-blue-50) vs 1560 (bg-slate-100); conteggio famiglie: sed -n '1128,1710p' public/index.html | grep -o 'text-\\(indigo\\|emerald\\|amber\\|rose\\|red\\|blue\\|violet\\|purple\\|sky\\)-[0-9]*\\|bg-…' | sort -u",
+     "gravita": "media",
+     "proposta": "Bottoni a riposo tutti slate-100; il colore (indigo) compare solo come stato attivo del toggle, così PIN/ATTR comunicano davvero on/off."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "L'intero editing della mappa (rinomina, modifica, crea figlio, collega, fondi, cambia link, elimina) vive SOLO nel tasto destro / long-press di 500ms: nessun affordance visibile sul canvas, l'unico indizio è un paragrafo nella sidebar quando nessun nodo è selezionato.",
+     "evidenza": "public/js/mappai-context-menu.js:84-95 (editorHtml solo da showContextMenu) e :40 (long-press 500ms); unico hint: public/index.html:1245",
+     "gravita": "media",
+     "proposta": "Duplicare le 3-4 azioni principali come bottoni nel pannello dettaglio nodo della sidebar (già aperto al click sinistro), lasciando il menu contestuale come scorciatoia."
+    },
+    {
+     "categoria": "debito",
+     "claim": "La map-control-card dichiara flex-wrap ma anche min-w-max (min-width:max-content), che impedisce il wrap per costruzione: con 14 bottoni e 12 divisori la riga minima è ~900px e su finestre strette la card, centrata con translate(-50%), sborda tagliata da entrambi i lati.",
+     "evidenza": "public/index.html:1556 (classi «flex flex-wrap … min-w-max» sullo stesso elemento)",
+     "gravita": "bassa",
+     "proposta": "Rimuovere min-w-max (lasciando max-width:calc(100%-24px)) così il flex-wrap dichiarato può davvero mandare a capo i cluster."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "Bottoni nel markup di map-view (righe 1128-1710)",
+     "valore": "43",
+     "comando": "sed -n '1128,1710p' public/index.html | grep -c '<button'"
+    },
+    {
+     "nome": "Bottoni nella map-control-card",
+     "valore": "14",
+     "comando": "sed -n '1555,1703p' public/index.html | grep -c '<button'"
+    },
+    {
+     "nome": "Etichette a 9px (MAIUSCOLE) nella card",
+     "valore": "14",
+     "comando": "sed -n '1555,1703p' public/index.html | grep -c 'text-\\[9px\\]'"
+    },
+    {
+     "nome": "Divisori verticali nella card",
+     "valore": "12",
+     "comando": "sed -n '1555,1703p' public/index.html | grep -c 'w-px h-8'"
+    },
+    {
+     "nome": "Voci cliccabili nel menu contestuale del nodo (docente)",
+     "valore": "17",
+     "comando": "sed -n '62,107p' public/js/mappai-context-menu.js | grep -c 'ctx-item'"
+    },
+    {
+     "nome": "title hardcodati senza data-i18n-title in map-view",
+     "valore": "15",
+     "comando": "sed -n '1128,1710p' public/index.html | grep ' title=\"' | grep -vc 'data-i18n-title'"
+    },
+    {
+     "nome": "Contrasto icona ambra dei toggle su bianco",
+     "valore": "1,67:1",
+     "comando": "node -e \"function l(h){const c=h.match(/../g).map(x=>parseInt(x,16)/255).map(v=>v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2]}console.log(((l('ffffff')+.05)/(l('fbbf24')+.05)).toFixed(2))\""
+    },
+    {
+     "nome": "z-index massimo nel cromo (toggle a11y)",
+     "valore": "999999",
+     "comando": "grep -n 'z-index: 999999' public/css/style.css"
+    },
+    {
+     "nome": "!important nel solo blocco #floating-actions-menu",
+     "valore": "23",
+     "comando": "sed -n '412,438p' public/css/style.css | grep -c '!important'"
+    },
+    {
+     "nome": "Occorrenze data-tip (tooltip custom) in tutto index.html",
+     "valore": "9",
+     "comando": "grep -c 'data-tip=' public/index.html"
+    }
+   ]
+  },
+  {
+   "area": "Debito CSS misurato — public/css/style.css (2781 righe) + blocchi <style> di public/index.html (371 righe), confrontati con i token di public/css/mappai-modal-tokens.css",
+   "findings": [
+    {
+     "categoria": "debito",
+     "claim": "713 !important su ~1199 dichiarazioni in style.css (~59%): la guerra di specificità contro Tailwind CDN è il meccanismo dominante del foglio, non l'eccezione — il file dei token ne ha 1 solo.",
+     "evidenza": "grep -o '!important' public/css/style.css | wc -l → 713; grep -c ';' public/css/style.css → 1199; mappai-modal-tokens.css → 1",
+     "gravita": "alta",
+     "proposta": "Congelare il conteggio (nessun nuovo !important) e farlo scendere migrando le superfici alle classi .mm-* dei token, che vincono per ordine di caricamento e non per forza."
+    },
+    {
+     "categoria": "debito",
+     "claim": "~107 righe di CSS morto per #projects-bar: l'elemento è stato rimosso da index.html il 12/7 (feature 005, drawer sostituito dalla sezione collassabile) ma 18 selettori lo stilano ancora, con un blocco duplicato identico (span.text-[8px] definito due volte).",
+     "evidenza": "grep -c '#projects-bar' public/css/style.css → 18 (righe 525-737, 43, 87, 1829); duplicato a style.css:676 e style.css:693; in index.html #projects-bar esiste solo in un commento (riga 1046)",
+     "gravita": "alta",
+     "proposta": "Cancellare il blocco 525-737 e rimuovere #projects-bar dalla catena :not() di riga 43, dal lock font di riga 87 e da is-snapshotting (1829)."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Velo dei modali: la decisione 6 fissa un velo unico rgba(15,23,42,.45)+blur, ma i modali statici di index.html usano 6 veli diversi (bg-slate-900/80 ×15, /90 ×3, /60 ×3, bg-black/50 ×2, /50 ×1, bg-slate-900 pieno ×1).",
+     "evidenza": "grep -oE 'fixed inset-0[^\"]*' public/index.html | grep -oE 'bg-[a-z]+-?[0-9]*/?[0-9]*' | sort | uniq -c → 6 valori distinti; token in mappai-modal-tokens.css:42 (--mm-velo)",
+     "gravita": "alta",
+     "proposta": "Nel passo ③/④ del piano di migrazione sostituire le classi velo con l'overlay .mm-velo, un modale alla volta."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Colore d'azione doppio: la decisione 1 dice un solo colore d'azione (indigo #4f46e5), ma index.html conta ancora 17 bottoni bg-emerald-400/500 contro 23 indigo-600/500 — .btn_salva_action è tuttora emerald ed è il primario di 7+ modali.",
+     "evidenza": "grep -oE 'bg-emerald-(400|500)' public/index.html | wc -l → 17; grep -oE 'bg-indigo-(500|600)' public/index.html | wc -l → 23; definizione a index.html:165",
+     "gravita": "alta",
+     "proposta": "Pensionare .btn_salva_action in favore di .mm-btn primario indigo (passo ③ già previsto in §8 del campionario), lasciando l'emerald come colore di stato positivo."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Rosso non distruttivo: la decisione 2 riserva il rosso al distruttivo, ma .btn_annulla_action è bg-red-400 e viene usato per semplici 'Annulla' in 7 modali (prompt, link-family, study-config, edit-title...).",
+     "evidenza": "index.html:166 (definizione bg-red-400); grep -c 'btn_annulla_action' public/index.html → 8 (1 definizione + 7 usi, es. righe 1815, 1862, 1934, 2187)",
+     "gravita": "alta",
+     "proposta": "Riscrivere .btn_annulla_action come secondario bianco con bordo (.mm-btn--secondario) e introdurre una classe distinta solo per le azioni distruttive vere."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "MAIUSCOLO e spaziatura larga ovunque nonostante la decisione 3 (niente MAIUSCOLO + letter-spacing .2em, costo BES/DSA): 71 righe con 'uppercase', 35 tracking-widest e 18 tracking-[0.2em] — inclusi i due bottoni d'azione principali.",
+     "evidenza": "grep -c 'uppercase' public/index.html → 71; grep -o 'tracking-widest' public/index.html | wc -l → 35; grep -o 'tracking-\\[0.2em\\]' public/index.html | wc -l → 18 (btn_salva/annulla_action a index.html:165-166)",
+     "gravita": "media",
+     "proposta": "Togliere tracking e maiuscolo dai bottoni durante la migrazione ai .mm-btn; decidere esplicitamente se le micro-etichette di sezione (non-bottone) possono restare uppercase."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Nessuna scala tipografica: 40 font-size distinti tra i due file, di cui 33 sono calc(Npx * var(--landing-zoom)) con valori magici non ripetibili (8.6, 9.3, 11.3, 12.6, 14.6, 15.3px) — taglie ricavate a mano moltiplicando per lo zoom, impossibili da tenere coerenti.",
+     "evidenza": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -E 'font-size:' | grep -vE '/\\*|dei moduli|11px}' | grep -oE 'font-size: ?[^;!]+' | sort -u | wc -l → 40; grep -oE 'calc\\([0-9.]+px \\* var\\(--landing-zoom\\)\\)' public/css/style.css | sort -u | wc -l → 33",
+     "gravita": "media",
+     "proposta": "Definire una scala unica (es. 12/13/14/16/18px) come custom property e derivare le varianti zoom dalla scala, non da px ad hoc."
+    },
+    {
+     "categoria": "debito",
+     "claim": "z-index senza scala: 10 valori distinti in escalation fino a 999999999 !important (riga di lettura a11y) e 999999 (toggle a11y), segno che ogni layer nuovo ha vinto alzando l'asta invece di inserirsi in una gerarchia.",
+     "evidenza": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oE 'z-index:[^;!]*' | sort -u | wc -l → 10; massimo a style.css:1742 (999999999), poi style.css:349 (999999)",
+     "gravita": "media",
+     "proposta": "Dichiarare una scala documentata (es. base 10 / pannelli 100 / modali 1000 / toast 2000 / a11y 3000) come variabili e rimappare gli 11 punti di dichiarazione."
+    },
+    {
+     "categoria": "debito",
+     "claim": "21 border-radius e 27 box-shadow distinti contro i 4 raggi e le ombre unificate dei token: 4 raggi calc-zoom quasi uguali (11.3/12.6/14/14.6px) e 5 ombre indigo quasi identiche (0 4px 14/16/18/20/24px rgba(99,102,241,...)) convivono senza motivo percettivo.",
+     "evidenza": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oE 'border-radius:[^;!]*' | sort -u | wc -l → 21; idem con 'box-shadow:[^;!]*' → 27; token: --mm-r-box/campo/btn/pill (mappai-modal-tokens.css:47-50)",
+     "gravita": "media",
+     "proposta": "Mappare raggi e ombre sui --mm-r-* e su 2-3 ombre token; le varianti sotto 2px di differenza si fondono senza impatto visivo."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Utility Tailwind ridefinite con significato opposto: #landing-view .max-w-2xl/.max-w-3xl valgono max-width:1240px !important (in Tailwind 672/768px) e .grid-cols-2 riceve flex-direction/flex-wrap !important — chi legge l'HTML deduce un layout che non è quello reale, e la regola vive solo dentro @media (min-width:768px).",
+     "evidenza": "public/css/style.css:2156-2168 (max-w remap dentro media query) e style.css:2055-2059 (.grid-cols-2 flex overrides)",
+     "gravita": "media",
+     "proposta": "Sostituire il re-significato delle utility con una classe semantica (es. .landing-col, già di fatto .teach-section-card) e togliere le utility bugiarde dall'HTML."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Il 36% degli !important (256 su 713) vive nei blocchi scoped #landing-view: la landing è la zona più calda del conflitto Tailwind-vs-custom, con selettori chirurgici tipo button[onclick=\"window.startEmptyMap()\"] span.text-sm che si rompono al primo refactor dell'HTML.",
+     "evidenza": "awk '/#landing-view/,/^}/' public/css/style.css | grep -c '!important' → 256; selettori fragili a style.css:2196-2231; 96 usi di var(--landing-zoom)",
+     "gravita": "media",
+     "proposta": "Quando i token si estendono oltre i modali (ambito già dichiarato), partire dalla landing: classi proprie al posto dei selettori per-onclick e zoom derivato dalla scala."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Residui evidenti: selettore da 252 caratteri body.font-dyslexic *:not(...)×8 (che esclude anche il morto #projects-bar) e 5 regole vuote {} lasciate come segnaposto senza nota.",
+     "evidenza": "awk 'length: max 252 caratteri a style.css:43; grep -n '{}' public/css/style.css → righe 48, 747, 780, 2184, 2213",
+     "gravita": "bassa",
+     "proposta": "Sostituire la catena :not() con una custom property --font-corpo applicata dove serve; cancellare le regole vuote o annotarle con il motivo."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "!important in style.css",
+     "valore": "713",
+     "comando": "grep -o '!important' public/css/style.css | wc -l"
+    },
+    {
+     "nome": "!important nei <style> di index.html",
+     "valore": "10",
+     "comando": "awk '/<style/,/<\\/style>/' public/index.html | grep -o '!important' | wc -l"
+    },
+    {
+     "nome": "dichiarazioni totali style.css (stima da ;)",
+     "valore": "1199 (→ ~59% con !important)",
+     "comando": "grep -c ';' public/css/style.css"
+    },
+    {
+     "nome": "colori hex distinti (style.css + index styles)",
+     "valore": "54 (53 solo style.css)",
+     "comando": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oiE '#[0-9a-f]{3,8}\\b' | tr 'A-F' 'a-f' | sort -u | wc -l"
+    },
+    {
+     "nome": "border-radius distinti",
+     "valore": "21",
+     "comando": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oE 'border-radius:[^;!]*' | sed 's/ *$//' | sort -u | wc -l"
+    },
+    {
+     "nome": "font-size distinti (esclusi 2 artefatti nei commenti)",
+     "valore": "40",
+     "comando": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -E 'font-size:' | grep -vE '/\\*|dei moduli|11px}' | grep -oE 'font-size: ?[^;!]+' | sed 's/ *$//' | sort -u | wc -l"
+    },
+    {
+     "nome": "z-index distinti (max 999999999)",
+     "valore": "10",
+     "comando": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oE 'z-index:[^;!]*' | sed 's/ *$//' | sort -u | wc -l"
+    },
+    {
+     "nome": "box-shadow distinti",
+     "valore": "27",
+     "comando": "{ cat public/css/style.css; awk '/<style/,/<\\/style>/' public/index.html; } | grep -oE 'box-shadow:[^;!]*' | sed 's/ *$//' | sort -u | wc -l"
+    },
+    {
+     "nome": "selettori morti #projects-bar in style.css",
+     "valore": "18 (elemento assente da index.html)",
+     "comando": "grep -c '#projects-bar' public/css/style.css && grep -n 'id=\"projects-bar' public/index.html"
+    },
+    {
+     "nome": "veli distinti sui modali statici (fixed inset-0)",
+     "valore": "6",
+     "comando": "grep -oE 'fixed inset-0[^\"]*' public/index.html | grep -oE 'bg-[a-z]+-?[0-9]*/?[0-9]*' | sort -u | wc -l"
+    },
+    {
+     "nome": "valori magici calc(Npx * --landing-zoom) distinti",
+     "valore": "33 (96 usi totali)",
+     "comando": "grep -oE 'calc\\([0-9.]+px \\* var\\(--landing-zoom\\)\\)' public/css/style.css | sort -u | wc -l && grep -c 'var(--landing-zoom)' public/css/style.css"
+    },
+    {
+     "nome": "!important nei blocchi scoped #landing-view",
+     "valore": "256 (36% del totale)",
+     "comando": "awk '/#landing-view/,/^}/' public/css/style.css | grep -c '!important'"
+    },
+    {
+     "nome": "uppercase / tracking largo in index.html (vs decisione 3)",
+     "valore": "71 righe uppercase · 35 tracking-widest · 18 tracking-[0.2em]",
+     "comando": "grep -c 'uppercase' public/index.html; grep -o 'tracking-widest' public/index.html | wc -l; grep -o 'tracking-\\[0.2em\\]' public/index.html | wc -l"
+    },
+    {
+     "nome": "bottoni emerald vs indigo in index.html (vs decisione 1)",
+     "valore": "17 emerald-400/500 · 23 indigo-500/600",
+     "comando": "grep -oE 'bg-emerald-(400|500)' public/index.html | wc -l; grep -oE 'bg-indigo-(500|600)' public/index.html | wc -l"
+    },
+    {
+     "nome": "regole vuote {}",
+     "valore": "5",
+     "comando": "grep -n '{}' public/css/style.css"
+    }
+   ]
+  },
+  {
+   "area": "Sistema modali — token mm-*, motore, officina dei verdetti",
+   "findings": [
+    {
+     "claim": "Bug nel motore prima di qualunque migrazione: normalizzaCampo scarta la proprietà `gruppo` dei radio, quindi campoHtml (che legge c.gruppo) dà a TUTTI i radio del modale lo stesso name=\"mmg-g\" — due gruppi radio nello stesso schema (previsti dall'archetipo 5 «Opzioni» e dal cruscotto) si deselezionano a vicenda.",
+     "evidenza": "public/js/mappai-modal-core.js:82-97 (oggetto restituito senza `gruppo`, verificato in Node: undefined) vs public/js/mappai-modal.js:70; in più i radio sono emessi senza attributo value (modal.js:96-99), quindi raccogli() riporta \"on\" (modal.js:253)",
+     "gravita": "alta",
+     "proposta": "Preservare `gruppo` in normalizzaCampo, emettere value=id sui radio, aggiungere un test in tests/modal-core.test.js con due gruppi nello stesso schema — da chiudere prima di migrare il primo modale vero.",
+     "categoria": "coerenza"
+    },
+    {
+     "claim": "Adozione zero: il motore non è caricato in index.html (solo il CSS, riga 41), MappAIModal ha 0 chiamanti in produzione e nessun modale reale usa le classi mm-*; nel frattempo le famiglie da pensionare restano vive (45 occorrenze pm-btn-primary/cancel in 10 file, 17 btn_salva/annulla_action rosso+emerald+MAIUSCOLO in index.html, contro le decisioni 1-2-3).",
+     "evidenza": "grep 'mappai-modal.js' public/index.html = 0; unico hit mm-* in public/js è `mm-o` (public/js/mappai-games.js:3568, falso positivo); motore caricato solo in public/dev/console-mockup-*.html:7-8",
+     "gravita": "alta",
+     "proposta": "Caricare core+motore in index.html e migrare per prime conferme/avvisi/prompt: le scorciatoie conferma/avviso/chiedi (modal.js:352-384) coprono il 60% dei modali dichiarato dal motore stesso, con rischio minimo.",
+     "categoria": "debito"
+    },
+    {
+     "claim": "Decisione aperta «bordo campi»: --mm-bordo #e2e8f0 su bianco misura 1,23:1, sotto la soglia componente 3:1 che il core stesso codifica — il perimetro del campo non si percepisce, proprio sull'app dove il campo è lo strumento di lavoro BES/DSA.",
+     "evidenza": "public/css/mappai-modal-tokens.css:35 e :237; node: contrasto('#e2e8f0','#ffffff') = 1.23, esitoContrasto → 'insufficiente' (mappai-modal-core.js:271-287)",
+     "gravita": "alta",
+     "proposta": "Separare i ruoli: token nuovo --mm-bordo-campo a #64748b (4,76:1, già in palette come testo-3) o comunque ≥3:1 — attenzione che #94a3b8 NON basta (2,56 misurato); #e2e8f0 resti solo separatore decorativo di sezioni e tabelle.",
+     "categoria": "a11y"
+    },
+    {
+     "claim": "Decisione aperta «corpo bottoni 12px»: il bersaglio risultante è 34px, bocciato dalla regola dei 44px che il core stesso dichiara per un'app usata anche su iPad — e il bottone da 34px siede accanto a un campo da 42-44px, uno scarto che il commento nei token ammette come «il punto più discutibile».",
+     "evidenza": "public/css/mappai-modal-tokens.css:55-59 (--mm-btn-fs:12px) + node: altezzaBersaglio(9,12,0)=34, bersaglioOk(34)={ok:false,minimo:44} (mappai-modal-core.js:314-318)",
+     "gravita": "alta",
+     "proposta": "Chiudere a corpo 13px + padding verticale 13px → 44px calcolati (13×2+13×1,35≈44): pari altezza col campo, colpibile al tocco; il 12px sopravviva solo in .mm-scheda e nelle future barre strumenti --mm-bar-*.",
+     "categoria": "a11y"
+    },
+    {
+     "claim": "La prop-skin del campionario — la vetrina delle proposte — contraddice tre decisioni prese: bottoni MAIUSCOLI con letter-spacing .2em (contro la 3), --mm-testo-3:#94a3b8 che porta il segnaposto a 2,56:1 (contro la 4b, soglia 4,5) e etichetta sopra il campo via mm-label (contro la 4).",
+     "evidenza": "tools/campionario-modali/build.js:462-463 (.prop-skin: --mm-testo-3:#94a3b8; .mm-btn uppercase + letter-spacing:.2em) e tools/campionario-modali/proposte.js:30 (mm-label sopra); contrasto #94a3b8/#fff = 2,56 misurato col core",
+     "gravita": "media",
+     "proposta": "Riconciliare la prop-skin coi token prima di portare il cruscotto «Genera materiali» nel codice vero: chi valuta le proposte oggi vede uno standard che viola lo standard.",
+     "categoria": "coerenza"
+    },
+    {
+     "claim": "Decisione aperta «etichette dentro/sopra» (STILE.etichette='dentro'): il solo-segnaposto è il pattern più fragile per BES/DSA — l'etichetta sparisce mentre si scrive e a campo pieno; l'esistenza stessa di .mm-hint come «scappatoia prevista» è il sintomo. In più il motore emette .mm-label e .mm-nota che nei token NON esistono: scegliere 'sopra' oggi produrrebbe testo non stilizzato.",
+     "evidenza": "public/js/mappai-modal.js:27-30 e :101-105, :78; grep 'mm-label' e '.mm-nota' in mappai-modal-tokens.css = 0 occorrenze",
+     "gravita": "media",
+     "proposta": "Da designer: default 'sopra' per form/editor/cruscotto/console (carico di memoria minore, campi rileggibili a modale pieno), 'dentro' solo per l'archetipo «valore» monocampo; in ogni caso scrivere subito .mm-label e .mm-nota nei token.",
+     "categoria": "a11y"
+    },
+    {
+     "claim": "Decisione aperta «icone 20 vs 22»: nel codice attuale i pattern a 20px contano 102 usi contro 20 dei pattern a 22px — la base installata ha già votato; resta solo da ratificare quello che i token già scrivono (20 corpo, 22 testata).",
+     "evidenza": "grep -rho 'width:20px|w-5 h-5' public/js/*.js public/index.html | wc -l → 102; pattern 22px → 20; token in mappai-modal-tokens.css:61-64",
+     "gravita": "bassa",
+     "proposta": "Chiudere la divergenza a favore di 20px nel corpo e 22px in testata, e segnare l'archetipo relativo come deciso nell'officina: è la più economica delle tre aperte.",
+     "categoria": "coerenza"
+    },
+    {
+     "claim": "Decisione 6 «velo unico» mai applicata agli statici: index.html ha 8 valori di velo distinti su 26 overlay fixed inset-0, col dominante bg-slate-900/80 (15 occorrenze) quasi il doppio più scuro del deciso rgba(15,23,42,.45), che negli statici non compare mai.",
+     "evidenza": "grep -o 'bg-slate-900/N|bg-black/N|rgba(...)' public/index.html | sort -u | wc -l → 8; 'fixed inset-0' → 26; il valore .45 appare solo nei moduli nuovi (9 occorrenze in public/js)",
+     "gravita": "media",
+     "proposta": "Il velo è migrabile da solo: un passaggio mirato che porta i 26 overlay statici su .mm-overlay (o almeno sul valore .45 + blur) è a basso rischio, non tocca i contenuti e rende visibile il nuovo standard in tutta l'app in un colpo.",
+     "categoria": "coerenza"
+    },
+    {
+     "claim": "Processo fermo al verdetto: 0 archetipi «approvato» su 15 (8 bozza, 7 da-fare), i 22 verdetti di famiglie e finestre non dati — e intanto i moduli recenti continuano a nascere nello stile vecchio (mappai-material-pipeline.js da solo ha 10 occorrenze pm-btn).",
+     "evidenza": "grep -c \"stato: 'approvato',\" tools/officina/archetipi.js → 0; \"stato: 'bozza',\" → 8; \"stato: 'da-fare',\" → 7",
+     "gravita": "media",
+     "proposta": "Ratificare subito i 3 archetipi già in bozza e più frequenti (conferma, avviso, valore) e adottare la regola «ogni modale NUOVO nasce sul motore»: ferma l'emorragia senza aspettare la migrazione dei 69 esistenti.",
+     "categoria": "debito"
+    },
+    {
+     "claim": "Dei 5 modali orfani dichiarati, 3 hanno ormai casa negli archetipi (showLinkFamilyPrompt→valore, contextual-ai-extension→editor, gestore layout→elenco) ma study-config e config-ai restano assenti da archetipi.js: config-ai è solo proposto nella console «Cabina» E2, non registrato come istanza — la copertura non è verificabile dal file che dovrebbe misurarla.",
+     "evidenza": "grep 'study-config|config-ai' tools/officina/archetipi.js → 0 occorrenze; istanze coperte a tools/officina/archetipi.js:59, :262, :329",
+     "gravita": "bassa",
+     "proposta": "Registrare study-config sotto l'archetipo player o opzioni e config-ai sotto console E2 nelle rispettive `istanze`: il commento in testa al file dice che è così che si sa quando la migrazione è finita.",
+     "categoria": "debito"
+    },
+    {
+     "claim": "Finestre-documento censite ma senza seguito nei token: i tre gruppi proposti (--mm-doc-*, --mm-bar-*, --mm-player-*) hanno 0 occorrenze in mappai-modal-tokens.css; la topbar dei stampati usa ancora emoji 🖨/✕ contro la regola dell'11/7 «icone Lucide, mai emoji» ed è clonata in 3 file con accento diverso per documento; il player TTS è alto 40px, sotto i 44 del tocco.",
+     "evidenza": "grep 'mm-doc|mm-bar|mm-player' public/css/mappai-modal-tokens.css → 0; public/js/mappai-quiz-print.js:80 e :87 (🖨 / ✕); tools/officina/finestre.js:35 e :95",
+     "gravita": "media",
+     "proposta": "Partire da --mm-doc-* (topbar h, accento unico, icone Lucide): essendo la barra clonata in quiz-print, live-reports e tutor-reports, un solo token de-duplica tre file ed elimina le ultime emoji-bottone dell'app.",
+     "categoria": "coerenza"
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "Motore modali caricato in index.html",
+     "valore": "0 (solo il CSS dei token, riga 41)",
+     "comando": "grep -c 'mappai-modal\\.js\\|mappai-modal-core\\.js' \"/Users/giacomomeschini/Claude/MappAI re/public/index.html\""
+    },
+    {
+     "nome": "Modali di produzione su classi mm-*",
+     "valore": "0 (unico hit: falso positivo mm-o in games.js:3568)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rln 'mm-btn\\|mm-campo\\|mm-overlay\\|MappAIModal\\.' public/js public/index.html | grep -v mappai-modal"
+    },
+    {
+     "nome": "Occorrenze pm-btn-primary/cancel ancora vive",
+     "valore": "45 in index.html + 10 file js",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rho 'pm-btn-primary\\|pm-btn-cancel' public/index.html public/js/*.js | wc -l"
+    },
+    {
+     "nome": "btn_salva/annulla_action (rosso+emerald+MAIUSCOLO) in index.html",
+     "valore": "17",
+     "comando": "grep -c 'btn_salva_action\\|btn_annulla_action' \"/Users/giacomomeschini/Claude/MappAI re/public/index.html\""
+    },
+    {
+     "nome": "Contrasto bordo campi #e2e8f0 su bianco",
+     "valore": "1,23:1 (soglia componente 3:1 — insufficiente)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && node -e \"const C=require('./public/js/mappai-modal-core.js');console.log(C.contrasto('#e2e8f0','#ffffff'),C.esitoContrasto(1.23,'componente'))\""
+    },
+    {
+     "nome": "Altezza bersaglio del bottone mm-btn (corpo 12px)",
+     "valore": "34px — bocciato dal minimo 44 del core stesso",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && node -e \"const C=require('./public/js/mappai-modal-core.js');console.log(C.altezzaBersaglio(9,12,0),C.bersaglioOk(34))\""
+    },
+    {
+     "nome": "Radio: proprietà gruppo persa dalla normalizzazione",
+     "valore": "undefined dopo normalizzaCampo",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && node -e \"const C=require('./public/js/mappai-modal-core.js');console.log(C.normalizzaCampo({tipo:'radio',gruppo:'ambito',etichetta:'x'},0).gruppo)\""
+    },
+    {
+     "nome": "Icone 20px vs 22px nel codice",
+     "valore": "102 contro 20",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rho 'width:20px\\|w-5 h-5' public/js/*.js public/index.html | wc -l && grep -rho 'width:\\s*22px\\|w-\\[22px\\]' public/js/*.js public/index.html | wc -l"
+    },
+    {
+     "nome": "Archetipi per stato",
+     "valore": "0 approvato · 8 bozza · 7 da-fare (su 15)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && for s in approvato bozza da-fare; do printf '%s: ' $s; grep -c \"stato: '$s',\" tools/officina/archetipi.js; done"
+    },
+    {
+     "nome": "Veli distinti negli overlay statici (deciso: 1)",
+     "valore": "8 valori diversi su 26 overlay; il deciso rgba(15,23,42,.45) assente",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -o 'bg-black/[0-9]*\\|bg-slate-900/[0-9]*\\|rgba(15, *23, *42, *\\.[0-9]*)\\|rgba(0, *0, *0, *0\\.[0-9]*)' public/index.html | sort -u | wc -l && grep -c 'fixed inset-0' public/index.html"
+    },
+    {
+     "nome": "Token finestre-documento (--mm-doc/bar/player) nei token",
+     "valore": "0 occorrenze",
+     "comando": "grep -c 'mm-doc\\|mm-bar\\|mm-player' \"/Users/giacomomeschini/Claude/MappAI re/public/css/mappai-modal-tokens.css\""
+    },
+    {
+     "nome": "letter-spacing .2em / tracking-widest residui (decisione 3)",
+     "valore": "63 occorrenze (in gran parte landing, fuori perimetro §10.16)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rn 'letter-spacing:\\s*\\.2em\\|letter-spacing: 0\\.2em\\|tracking-\\[0\\.2em\\]\\|tracking-widest' public/index.html public/css/style.css public/js/*.js | wc -l"
+    }
+   ]
+  },
+  {
+   "area": "Finestre-documento (stampati via window.open, editor documenti ELABORA, player audio)",
+   "findings": [
+    {
+     "categoria": "debito",
+     "claim": "La topbar di stampa è clonata in 13 file, ognuno con la propria copia inline; QP_PRINT_BAR è già esportata come API condivisa (MappAIQuizPrint.printBar) ma nessun altro file la riusa.",
+     "evidenza": "public/js/mappai-quiz-print.js:64 e :590 (export); cloni indipendenti in mappai-branch-synthesis.js:662, mappai-live-reports.js:81, mappai-timeline.js:997, mappai-glossary.js:137, mappai-tutor-reports.js:45, mappai-usage-dashboard.js:231, più jigsaw/meta-analysis/study-doc/causal-chains/print-dossier/live-teacher — 13 file misurati",
+     "gravita": "alta",
+     "proposta": "Un solo builder condiviso della barra (estendere QP_PRINT_BAR con opzioni: label, accent, bottoni extra) importato da tutte le finestre-documento, così ogni divergenza futura si corregge in un punto."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il bottone primario 'Stampa' del foglio flashcard (e del glossario) è emerald #059669, in contrasto diretto con la decisione token n.1 'un solo colore d'azione indigo #4f46e5 — l'emerald torna stato positivo, non bottone'.",
+     "evidenza": "public/js/mappai-quiz-print.js:367 (accentColor='#059669') + :508 (QP_PRINT_BAR(accentColor)) + :76 (background:${accentColor} sul bottone); mappai-glossary.js:140 (background:#059669 su window.print)",
+     "gravita": "alta",
+     "proposta": "L'accento di documento può distinguere il tipo (badge, bordi), ma il bottone d'azione della barra deve essere sempre indigo #4f46e5: separare accentColor (identità) da actionColor (bottoni) in QP_PRINT_BAR."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Il player audio della pagina sintesi — la stessa condivisa agli studenti su telefono via QR — ha bersagli touch molto sotto i 44px: bottoni ±sec 20×20px, chip alta 34px, barra di scrub alta 7px, thumb 13px.",
+     "evidenza": "public/js/mappai-branch-synthesis.js:639 (.ap-chip height:34px), :648 (.ap-sec width:20px;height:20px), :644 (.ap-prog height:7px), :645-646 (.ap-thumb 13px); condivisione telefono confermata a :999 (shareDocQr). L'officina interna ha già fissato 44px come minimo touch",
+     "gravita": "alta",
+     "proposta": "Nella pagina condivisa portare i controlli ad almeno 44px di bersaglio (hit-area estesa con padding, scrub-bar ≥16px di zona cliccabile) mantenendo la resa visiva compatta."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "5 topbar fisse usano font-family:monospace di sistema mentre il corpo del documento è Space Mono — barra e documento in due font diversi; per la sintesi CLAUDE.md dichiara il fix del 13/7 ('cambiato in Space Mono') ma il codice attuale è regredito a monospace.",
+     "evidenza": "grep -rn 'font-family:monospace' public/js/*.js → mappai-quiz-print.js:70, mappai-branch-synthesis.js:662, mappai-live-reports.js:81, mappai-glossary.js:137, mappai-timeline.js:997 (5 barre); body Space Mono es. quiz-print.js:26",
+     "gravita": "media",
+     "proposta": "Sostituire con font-family:'Space Mono',monospace nelle 5 barre (o nel builder unico del finding 1) e verificare perché il fix dichiarato il 13/7 non è nel working tree."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "I bottoni delle barre usano emoji con 3 glifi stampante DIVERSI tra loro (U+1F5A8, U+1F5B6, U+1F5B8), contro la regola interna 'mai emoji nei titoli/bottoni, sempre lucide' (CLAUDE.md 11/7); in più quiz-print non carica Noto Color Emoji, quindi su macOS il glifo rende in stile Apple/monocromo contro il default globale Noto.",
+     "evidenza": "mappai-quiz-print.js:80 (🖨 U+1F5A8), mappai-branch-synthesis.js:667 (🖶 U+1F5B6), mappai-glossary.js:140 e mappai-timeline.js:1005 (🖸 = U+1F5B8); font link quiz-print.js:274 e :444 con solo Space+Mono, senza Noto+Color+Emoji (live-reports.js:93 invece lo carica)",
+     "gravita": "media",
+     "proposta": "Un solo glifo (o meglio icona Lucide inline SVG, come già fa mappai-doc-editor.js:1205) per il bottone Stampa in tutte le finestre; se restano emoji, caricare Noto Color Emoji in ogni pagina generata."
+    },
+    {
+     "categoria": "debito",
+     "claim": "Esistono due implementazioni parallele dello stesso player audio (chip play/±sec/velocità/scrub con karaoke): mappai-tts-reader.js in-app e lo script ap-* inline della pagina sintesi, con misure divergenti (chip 40 vs 34px, sec 22 vs 20px, progress 8 vs 7px, thumb 14 vs 13px, seg min-width 46 vs 40px) — stessa UI, doppia manutenzione.",
+     "evidenza": "public/js/mappai-tts-reader.js:515-527 (.mai-tts-chip 40px, .mai-tts-sec 22px, progress 8px, thumb 14px) vs mappai-branch-synthesis.js:639-648 (.ap-chip 34px, .ap-sec 20px, .ap-prog 7px, .ap-thumb 13px)",
+     "gravita": "media",
+     "proposta": "Estrarre il CSS+markup del chip in un template condiviso (o generare la pagina sintesi iniettando il CSS di mappai-tts-reader) così le misure — e i futuri fix touch — restano una cosa sola."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il report stampabile Consumi AI usa un secondo indigo #6366f1 (indigo-500) per topbar, bottone e titoli, e la palette ciambelle parte da #6366f1 — mentre il token d'azione deciso è #4f46e5: due indigo convivono tra documenti.",
+     "evidenza": "public/js/mappai-usage-dashboard.js:231-233 (border 2px #6366f1, button background #6366f1), :240 (h2 border #6366f1), :19 (PALETTE[0]='#6366f1'); token: public/css/mappai-modal-tokens.css (azione #4f46e5)",
+     "gravita": "media",
+     "proposta": "Allineare il report consumi a #4f46e5 per bottoni e accenti strutturali (la palette dati delle ciambelle può restare, ma non coincidere col colore d'azione)."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il velo dell'overlay Consumi AI è bg-slate-900/60 (opacità 60%), in contrasto con la decisione n.6 'velo unico rgba(15,23,42,.45)' dei token modali.",
+     "evidenza": "public/js/mappai-usage-dashboard.js:317 ('fixed inset-0 z-[1200] bg-slate-900/60 backdrop-blur-sm') vs public/css/mappai-modal-tokens.css:42 (--mm-velo: rgba(15,23,42,.45))",
+     "gravita": "bassa",
+     "proposta": "Usare la classe/variabile del velo unico (--mm-velo) anche per l'overlay del cruscotto consumi."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il report Tutor 'Chatta e Scrivi' dichiara Space Mono ma non carica il webfont (0 link a fonts.googleapis) → su macchine senza il font installato rende in ui-monospace; in più la sua barra è un pattern a sé (card sticky centrata con un solo bottone, senza titolo MappAI né Chiudi).",
+     "evidenza": "grep -c 'fonts.googleapis' public/js/mappai-tutor-reports.js → 0 (live-reports.js → 1); mappai-tutor-reports.js:23 (font-family:'Space Mono',ui-monospace), :45-46 (.tr-noprint sticky) e :86 (solo bottone Stampa)",
+     "gravita": "bassa",
+     "proposta": "Aggiungere il link Space Mono+Noto come in live-reports.js:93 e adottare la stessa printBar delle altre finestre (titolo · Stampa · Chiudi)."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Lo stesso bottone ha 4 etichette diverse tra le finestre-documento: 'Stampa / Esporta PDF' (2 file), 'Stampa / PDF' (6 occorrenze), 'Stampa / Salva PDF' (1), 'Stampa' (timeline, doc-editor) — 11 occorrenze misurate su 3 varianti lunghe.",
+     "evidenza": "grep -rno 'Stampa / Esporta PDF|Stampa / Salva PDF|Stampa / PDF' public/js/*.js → 9 righe su 8 file (quiz-print.js:80, branch-synthesis.js:667, tutor-reports.js:86, live-reports.js:84, jigsaw.js:618, meta-analysis.js:417/439, study-doc.js:139, glossary.js:140, flashcards-sr.js:132)",
+     "gravita": "bassa",
+     "proposta": "Unificare la micro-copy su un'unica forma (es. 'Stampa / PDF') dentro il builder condiviso della barra."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Nell'editor foglio nodi persiste il difetto già documentato e mai corretto: i titoli delle card vengono tagliati di ~3px dall'overflow:hidden su .de-ns-inner (7 card misurate a 900/1920/2560 in CLAUDE.md, sezione 28/7).",
+     "evidenza": "public/js/mappai-doc-editor.js:2203-2207 (.de-ns-body e .de-ns-inner entrambi overflow:hidden); difetto dichiarato 'PREESISTENTE, non ancora corretto' in CLAUDE.md §28/7",
+     "gravita": "bassa",
+     "proposta": "Dare respiro verticale al blocco interno (padding-block o overflow:clip con margine di sicurezza calcolato dalla geometria del core) e chiudere il difetto tracciato."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "L'editor documenti — l'unica finestra già allineata (lucide, indigo #4f46e5, Space Mono) — diverge dai token su due dettagli: bottoni barra a 11px contro il token --mm-btn-fs:12px, e il bottone indietro usa il glifo testuale '‹' invece dell'icona Lucide come tutti gli altri bottoni della stessa barra.",
+     "evidenza": "public/js/mappai-doc-editor.js:1902 (.de-btn font:700 11px) vs public/css/mappai-modal-tokens.css:59 (--mm-btn-fs: 12px); doc-editor.js:1192 ('‹ Documenti' senza data-lucide, mentre :1197-1206 usano <i data-lucide>)",
+     "gravita": "bassa",
+     "proposta": "Portare .de-btn a var(--mm-btn-fs) (12px) e sostituire '‹' con l'icona lucide chevron-left per uniformità interna alla barra."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "File con la propria barra/bottone Stampa (cloni della topbar)",
+     "valore": "13",
+     "comando": "grep -rln \"window.print()\" public/js/*.js | wc -l"
+    },
+    {
+     "nome": "Topbar fisse in font monospace di sistema (non Space Mono)",
+     "valore": "5",
+     "comando": "grep -rn 'z-index:100;\\s*font-family:monospace\\|z-index:100; font-family:monospace' public/js/*.js | wc -l"
+    },
+    {
+     "nome": "Riusi di QP_PRINT_BAR fuori da quiz-print (barra condivisa esportata ma orfana)",
+     "valore": "0",
+     "comando": "grep -rn 'MappAIQuizPrint.printBar\\|\\.printBar(' public/js/*.js | grep -v quiz-print | wc -l"
+    },
+    {
+     "nome": "Varianti dell'etichetta del bottone Stampa (occorrenze delle 3 forme lunghe)",
+     "valore": "9 occorrenze / 3 forme (+ 'Stampa' secco)",
+     "comando": "grep -rno 'Stampa / Esporta PDF\\|Stampa / Salva PDF\\|Stampa / PDF' public/js/*.js"
+    },
+    {
+     "nome": "Bersaglio touch bottoni ±sec del player sintesi condiviso via QR",
+     "valore": "20×20px (chip 34px, scrub 7px, thumb 13px)",
+     "comando": "grep -n 'ap-sec\\|ap-chip\\|ap-prog\\|ap-thumb' public/js/mappai-branch-synthesis.js"
+    },
+    {
+     "nome": "Glifi stampante diversi nei bottoni delle barre",
+     "valore": "3 (U+1F5A8, U+1F5B6, U+1F5B8)",
+     "comando": "grep -rn $'\\xf0\\x9f\\x96\\xa8\\|\\xf0\\x9f\\x96\\xb6' public/js/*.js; grep -rn 'uD83D\\\\\\\\uDDB8' public/js/*.js"
+    },
+    {
+     "nome": "Pagine-documento senza webfont Space Mono caricato",
+     "valore": "1 (tutor-reports: 0 link fonts.googleapis)",
+     "comando": "grep -c 'fonts.googleapis' public/js/mappai-tutor-reports.js public/js/mappai-live-reports.js public/js/mappai-quiz-print.js"
+    },
+    {
+     "nome": "Velo overlay Consumi AI vs token velo unico",
+     "valore": "60% vs 45%",
+     "comando": "grep -n 'bg-slate-900/60' public/js/mappai-usage-dashboard.js; grep -n -- '--mm-velo' public/css/mappai-modal-tokens.css"
+    }
+   ]
+  },
+  {
+   "area": "Icone, emoji e tipografia — public/index.html + public/js/*.js (esclusi vendor e .min), confrontati con le decisioni di public/css/mappai-modal-tokens.css",
+   "findings": [
+    {
+     "categoria": "coerenza",
+     "claim": "L'emerald è ancora un colore d'AZIONE: .btn_salva_action è un bottone pieno bg-emerald-400 e .btn_confirm_action/.btn_mode_selector virano a emerald in hover — contrasta la decisione 1 dei token (un solo colore d'azione indigo #4f46e5, emerald = stato positivo, non bottone).",
+     "evidenza": "public/index.html:165 (btn_salva_action bg-emerald-400), :162-163 (btn_confirm_action hover:bg-emerald-400), :152-153 (btn_mode_selector bg-emerald-400); 17 usi di btn_confirm/salva misurati",
+     "gravita": "alta",
+     "proposta": "Eseguire il passo ③ già pianificato in §8 del campionario: pensionare btn_salva_action/btn_confirm_action a favore di .mm-btn indigo, lasciando l'emerald ai soli stati positivi (badge, esiti)."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "«Annulla» è ancora rosso pieno: .btn_annulla_action è bg-red-400 su azioni non distruttive (es. chiusura del modale link-family) — contrasta la decisione 2 (rosso solo per il distruttivo, Annulla bianco con bordo).",
+     "evidenza": "public/index.html:166 (definizione bg-red-400 hover:bg-red-500); 8 usi totali, es. index.html:1815 (prompt-cancel) e :1862 (link-family-cancel)",
+     "gravita": "alta",
+     "proposta": "Sostituire gli 8 usi con la variante secondaria dei token (bianco + bordo, testo #334155) e riservare il rosso al solo .mm-btn distruttivo."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Il MAIUSCOLO con letter-spacing largo resta lo standard de facto dei modali statici: 71 occorrenze di `uppercase` e 63 di tracking largo in index.html, 9 classi .btn_* con tracking-[0.2em], e la gerarchia .pm-* raccomandata dalla regola 11 di CLAUDE.md nasce uppercase (.pm-section-title) — contrasta la decisione 3 (niente MAIUSCOLO+spaziatura: costo di lettura BES/DSA).",
+     "evidenza": "public/index.html:235 (.pm-section-title uppercase tracking-widest), :135 (.modal_field_title uppercase), :162-166 (bottoni modale uppercase/tracking); conteggi 71/63/9 riproducibili (vedi numeri)",
+     "gravita": "alta",
+     "proposta": "Riscrivere le classi .pm-* e .btn_* dei modali sui token .mm-* (tondo, spaziatura normale) prima che nuovi modali ereditino il pattern; aggiornare la regola 11 di CLAUDE.md che oggi prescrive la gerarchia uppercase."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Le icone Lucide usano 11 taglie diverse via classi (w-2.5 → w-16) e la taglia DOMINANTE è w-4 = 16px (116 usi), mentre i token fissano 20px corpo / 22px testata: la 'questione aperta 20 vs 22' ignora che il codice vero è a 16.",
+     "evidenza": "distribuzione misurata: w-4×116, w-5×63, w-3.5×50, w-3×44, w-6×34 (comando nei numeri); token in public/css/mappai-modal-tokens.css:63-64 (--mm-icona:20px, --mm-icona-head:22px)",
+     "gravita": "media",
+     "proposta": "Decidere la scala (es. 16 inline nel testo, 20 corpo, 22 testata) e mapparla su 3 classi/token sole; il dato 116×16px suggerisce di includere il 16 come taglia legittima invece di ignorarlo."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "49 icone sono a 10-12px (w-3 ×44, w-2.5 ×5): sotto qualunque soglia di leggibilità per il target ipovisione/DSA, e sotto la metà del minimo 20px dei token.",
+     "evidenza": "grep misurato: 44 `w-3` + 5 `w-2.5` su `<i data-lucide>` in index.html+js; comando nei numeri",
+     "gravita": "media",
+     "proposta": "Passare le icone-informazione a ≥16px; tenere sotto i 14px solo glifi puramente decorativi ridondanti col testo."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "48 righe di codice producono <button> con emoji hardcodate nel testo, contro la regola 'nei modali SEMPRE <i data-lucide>, MAI emoji nei titoli/bottoni' (CLAUDE.md 11/7/26): 44 nel Memory Dungeon (nascosto), ma 5 sono nel tab ELABORA vivo e 3 nel wizard Timeline docente.",
+     "evidenza": "public/js/mappai-elabora.js:250-252 ('❓ Domande scheda', '📄 Esporta evidenziata', '📑 Esporta per aree'), mappai-timeline-teacher.js:245 ('📽 Proietta sulla LIM'), mappai-timeline.js:234 ('💡 Indizio'); totale 48 righe misurate",
+     "gravita": "media",
+     "proposta": "Convertire prima i ~10 bottoni delle superfici vive (ELABORA, timeline, branch-synthesis, live-teacher) in <i data-lucide> + safeCreateIcons; il dungeon può seguire quando uscirà dal freezer."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Coesistono TRE regimi di icone: Lucide di default, toggle globale Lucide↔emoji (mappai-icon-style.js), ed emoji hardcodate che il toggle non governa — un utente che sceglie 'Lucide' vede comunque emoji in ELABORA/timeline/dungeon, e uno che sceglie 'emoji' ottiene taglie derivate dalle classi w-* frammentate del punto 4.",
+     "evidenza": "public/js/mappai-icon-style.js:1-40 (mappa ICON_EMOJI e sostituzione globale) vs le 48 righe di emoji hardcodate del finding precedente",
+     "gravita": "media",
+     "proposta": "Fare del toggle l'UNICO produttore di emoji: eliminate le hardcodate, la scelta utente diventa davvero binaria e coerente su tutta l'app."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "7 builder di documenti stampabili su 9 caricano il webfont Space Mono ma NON Noto Color Emoji, e quei documenti CONTENGONO emoji (✂️ istruzioni flashcard, 🖨 topbar, 💡 indizi timeline): su macOS/iPhone le emoji rendono in stile Apple, contro il default globale Android/Noto dichiarato nelle istruzioni utente — lo stesso bug già corretto una volta in-app e nelle pagine studente (a55c679).",
+     "evidenza": "solo mappai-usage-dashboard.js e mappai-live-reports.js contengono 'Noto+Color+Emoji'; emoji presenti nei doc: quiz-print.js:524 (✂️), timeline.js:234 (💡), branch-synthesis 6 righe, print-dossier 3 (comando nei numeri). Inoltre var(--emoji-font) del parent NON esiste nel :root dei documenti window.open",
+     "gravita": "alta",
+     "proposta": "Aggiungere ai 7 builder il link Noto Color Emoji e lo stack 'Space Mono','Noto Color Emoji',monospace (la var CSS del parent non si eredita in window.open) — stesso fix già applicato a usage-dashboard/live-reports."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "La topbar `no-print` di 5 documenti stampabili è in `font-family:monospace` di sistema mentre il corpo del documento è Space Mono: due famiglie diverse nello stesso foglio; il fix documentato il 13/7 sulla topbar di branch-synthesis non copre questa barra (o è regredito).",
+     "evidenza": "public/js/mappai-quiz-print.js:70, mappai-glossary.js:137, mappai-timeline.js:997, mappai-live-reports.js:81, mappai-branch-synthesis.js:662 — tutte `font-family:monospace` bare",
+     "gravita": "bassa",
+     "proposta": "Uniformare le 5 barre a 'Space Mono',monospace (una riga ciascuna), idealmente estraendo la topbar in un helper condiviso tipo QP_PRINT_BAR."
+    },
+    {
+     "categoria": "debito",
+     "claim": "14 stack `font-family:system-ui,sans-serif` sparsi in 12 moduli hanno doppia semantica: dentro l'app PERDONO contro il `* { 'Space Mono' !important }` di style.css:40 (codice morto che inganna chi legge), ma nei documenti window.open VINCONO e cambiano famiglia rispetto al resto dell'app.",
+     "evidenza": "style.css:40 (regola universale !important) vs 14 occorrenze misurate in app.js:2040, mappai-active-study.js:596/1537/1744, mappai-celeration.js:93, mappai-cloze.js:383, mappai-games.js:471, mappai-jigsaw.js:578, mappai-meta-analysis.js:403/444, ecc.",
+     "gravita": "bassa",
+     "proposta": "Rimuovere gli stack inerti in-app e dichiarare esplicitamente Space Mono (+ Noto) nei soli contesti window.open dove lo stack ha effetto."
+    },
+    {
+     "categoria": "debito",
+     "claim": "85 taglie di icona sono hardcodate inline in px (19× 16px, 18× 20px, 19× 22px, 16× 14px, 6× 18px, 5× 24px come width/height accoppiati): quando la questione aperta 20-vs-22 verrà decisa, questi 85 punti non seguiranno i token --mm-icona.",
+     "evidenza": "85 coppie width/height misurate in public/js/*.js + index.html (comando nei numeri); token esistenti in mappai-modal-tokens.css:63-64 non referenziati da quegli inline",
+     "gravita": "media",
+     "proposta": "Nei modali migrati sostituire gli inline con width/height:var(--mm-icona) (o classe .mm-ic); congelare la regola 'mai px inline sulle icone nuove' in CLAUDE.md §10."
+    },
+    {
+     "categoria": "gerarchia",
+     "claim": "I titoli di campo nei modali statici sono 16px uppercase grigio (.modal_field_title) — stessa taglia del corpo del campo variante C (16px): etichetta e contenuto hanno identico peso tipografico, e il pattern contrasta la decisione 4 (campi con solo segnaposto + aria-label) oltre che la 3 (uppercase).",
+     "evidenza": "public/index.html:135 (.modal_field_title { text-[16px] uppercase }) vs decisione campi variante C (campo 16px, mappai-modal-tokens.css / campionario §4.3)",
+     "gravita": "bassa",
+     "proposta": "Nei modali migrati eliminare le etichette-titolo a favore del solo segnaposto #64748b (decisione 4) o, dove l'opzione 'sopra' vince nell'Officina, portarle a una taglia minore del corpo e senza uppercase."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "Righe <button> con emoji nei moduli JS non-vendor",
+     "valore": "48 (di cui 44 in mappai-games.js, 5 vive in mappai-elabora.js)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -hP '<button[^\\n]*[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{27BF}]|[\\x{1F300}-\\x{1FAFF}][^\\n]*</button>' public/js/*.js | wc -l"
+    },
+    {
+     "nome": "Distribuzione taglie icone lucide via classi (index.html + js)",
+     "valore": "w-4:116 · w-5:63 · w-3.5:50 · w-3:44 · w-6:34 · outlier w-2.5/7/8/10/12/16:27 — 11 taglie distinte, dominante 16px",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -ohE '<i [^>]*data-lucide[^>]*>' public/index.html public/js/*.js | grep -oE 'w-[0-9.]+' | sort | uniq -c | sort -rn"
+    },
+    {
+     "nome": "Taglie icona hardcodate inline in px (width+height accoppiati)",
+     "valore": "85 coppie (16px×19, 20px×18, 22px×19, 14px×16, 18px×6, 24px×5)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rohE 'width:\\s?(14|16|18|20|22|24)px;\\s?height:\\s?(14|16|18|20|22|24)px' public/js/*.js public/index.html | sort | uniq -c | sort -rn"
+    },
+    {
+     "nome": "Occorrenze uppercase / tracking largo in index.html",
+     "valore": "71 uppercase · 63 letter-spacing .2em o tracking-widest · 9 classi .btn_* con tracking-[0.2em]",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -c uppercase public/index.html && grep -cE 'tracking-\\[0\\.2em\\]|tracking-widest|letter-spacing:\\s*\\.?0?\\.?2em' public/index.html && grep -cE '\\.btn[a-z_]*\\s*\\{[^}]*tracking-\\[0\\.2em\\]' public/index.html"
+    },
+    {
+     "nome": "Builder di documenti window.open con webfont Space Mono ma SENZA Noto Color Emoji",
+     "valore": "7 su 9 (mancano: quiz-print, print-dossier, timeline, branch-synthesis, glossary, study-doc, causal-chains; ok: usage-dashboard, live-reports)",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -l 'family=Space+Mono' public/js/*.js | while read f; do grep -L 'Noto+Color+Emoji' \"$f\"; done"
+    },
+    {
+     "nome": "Stack font-family divergenti nei JS (vs 'Space Mono' universale di style.css:40)",
+     "valore": "14× system-ui,sans-serif · 9× monospace bare (5 nelle topbar dei documenti stampabili) · var(--emoji-font) usata solo 7 volte in tutto",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -rohE \"font-family:[^;\\\"']*\" public/index.html public/js/*.js | sort | uniq -c | sort -rn | head -20"
+    },
+    {
+     "nome": "Regola Noto in-app (conforme)",
+     "valore": "--emoji-font dichiarata in index.html:15 e presente nello stack universale con !important (style.css:40) e in quello OpenDyslexic (style.css:44) — dentro l'app la regola Android/Noto regge; il buco è solo nei documenti window.open",
+     "comando": "cd \"/Users/giacomomeschini/Claude/MappAI re\" && grep -n 'emoji-font' public/index.html public/css/style.css"
+    }
+   ]
+  },
+  {
+   "area": "Accessibilità trasversale (BES/DSA) — public/index.html, public/css/style.css, moduli JS principali vs sistema token modali",
+   "findings": [
+    {
+     "categoria": "a11y",
+     "claim": "index.html contiene UN solo attributo ARIA su ~3.800 righe (aria-pressed a riga 903): 26 bottoni solo-icona su 203 non hanno né aria-label né title né data-tip — per uno screen reader sono 'pulsante' anonimi, e sono quasi tutte le X di chiusura dei modali (closeSourceModal, closeUserProfileModal, closeVaultManager, closeStudyPlayer, closeQuizModal...)",
+     "evidenza": "public/index.html:903 (unico aria-*); conteggio misurato: 26/203 bottoni solo-icona senza nome accessibile, 0 aria-label nel file",
+     "gravita": "alta",
+     "proposta": "aria-label i18n su tutte le X e i bottoni icona (il motore nuovo lo fa già: 5 aria-label in mappai-modal.js) — un pass unico da ~30 minuti chiude il grosso"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Il fuoco da tastiera è invisibile in quasi tutta l'app: gli unici 3 selettori :focus-visible di style.css servono a SOPPRIMERLO (outline:none !important su #a11y-panel-toggle, #floating-actions-toggle, #sidebar-toggle-btn — ironicamente proprio il bottone del pannello accessibilità), e l'anello di focus esiste solo per input/select di 4 modali in whitelist",
+     "evidenza": "public/css/style.css:369-376 (:focus-visible → outline:none !important) e style.css:1770-1783 (whitelist 4 modali); il token nuovo lo fa giusto in public/css/mappai-modal-tokens.css:472-476 ma nessun modale live usa .mm-btn",
+     "gravita": "alta",
+     "proposta": "regola globale :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px } (stesso valore dei token .mm-*) e rimozione della soppressione sui 3 toggle"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "ESC e focus trap: il motore nuovo ha il contratto completo (ESC, trap Tab, ritorno del fuoco, fuoco mai sul distruttivo) ma zero adozione; nei legacy ESC è gestito in ordine sparso in 16 file, mentre showPrompt/showConfirm custom (mappai-ui-modals.js) e il modale di edit nodo (mappai-edit-modal.js) hanno 0 gestioni di Escape; focus trap: zero su tutti i 69 modali censiti dal campionario",
+     "evidenza": "public/js/mappai-modal.js:308 (ESC), :317-318 (trap), :282 (ritorno fuoco); grep 'Escape' → mappai-ui-modals.js:0, mappai-edit-modal.js:0, 16 file con gestione propria",
+     "gravita": "alta",
+     "proposta": "priorità del passo ④ già pianificato (una sola openModal col contratto tastiera): migrare per primi i modali ad alta frequenza edit-node, prompt/confirm custom e study-config"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Il token ufficiale della landing (§10.16, 'bottoni grigio→emerald') mette il testo sotto soglia nei due stati: in hover bianco su emerald-400 = 1,92:1 (il testo sparisce proprio mentre stai per cliccare), e a riposo .btn_selezione_input è slate-400 su slate-100 = 2,34:1 — sono i bottoni principali di COSTRUISCI/INSEGNA",
+     "evidenza": "public/index.html:132 (.teach-qs-btn), :149 (.btn_header_setting), :150 (.btn_selezione_input), :158 (.btn_quick_action); 9 usi hover:bg-emerald-400 + hover:text-white; contrasti calcolati 1,92:1 e 2,34:1",
+     "gravita": "alta",
+     "proposta": "in hover usare emerald-600/700 (#047857 regge ~5:1 col bianco, stesso valore già fissato nella regola pagine-documento) e a riposo slate-500/600; aggiornare il token in §10.16, non le singole istanze"
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "btn_annulla_action contraddice due decisioni prese del sistema token in un colpo solo — è rosso su azione NON distruttiva (contro decisione 2: rosso solo distruttivo, Annulla bianco con bordo) e MAIUSCOLO con tracking-[0.2em] (contro decisione 3) — e per giunta bianco su red-400 = 2,77:1, sotto anche la soglia 3:1 large-text",
+     "evidenza": "public/index.html:166 (definizione: bg-red-400, tracking-[0.2em], !text-[18px]); 7 usi statici in index.html; contrasto calcolato 2,77:1",
+     "gravita": "alta",
+     "proposta": "pensionarlo subito mappandolo su .mm-btn--secondario (bianco, bordo, indigo focus) — è già il passo ③ del piano, ma questo è il singolo selettore col rapporto danno/sforzo migliore"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Il fix dei segnaposto (#64748b, decisione 4b) è scavalcato in 4 campi dalle utility Tailwind che vincono per specificità: placeholder:text-slate-300 = 1,48:1 (praticamente invisibile — uno è il campo di sblocco licenza) e placeholder:text-slate-400 = 2,56:1 (uno è il Super Finder)",
+     "evidenza": "public/css/style.css:105-108 (fix base) vs public/index.html:373 e 2576 (slate-300, 1,48:1), :1260 e :2743 (slate-400, 2,56:1)",
+     "gravita": "media",
+     "proposta": "rimuovere le 4 utility placeholder:* e lasciar vincere la regola base — un grep e 4 delete"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Nel control card di navigazione mappa (superficie primaria per lo studente) i 4 bottoni −/+ di distanza nodi e dimensione testo sono 28×28px (w-7 h-7), sotto i 44px raccomandati; e il caret della lente relazioni è un sotto-target ancora più piccolo DENTRO un altro bottone",
+     "evidenza": "public/index.html:1608, 1610, 1620, 1622 (w-7 h-7 = 28px); #lens-caret dentro #card-btn-labels (~:1645); i bottoni principali sono w-12 h-12 = 48px, corretti",
+     "gravita": "media",
+     "proposta": "portare i −/+ ad almeno 44px di hit-area (padding o pseudo-elemento, senza crescere visivamente) e rendere il caret un bottone fratello con propria area"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "I tooltip data-tip di MappAITips escono solo al mouseover (nessun focusin, nessun fallback touch): le card degli hub sono state ripulite di proposito spostando le spiegazioni nei tooltip, quindi per chi naviga da tastiera o da touch quell'informazione non esiste; stesso limite per i title nativi che sono l'unica etichetta di 20 bottoni icona",
+     "evidenza": "public/js/mappai-menu-hubs.js:61 (solo document.addEventListener('mouseover')); 20 bottoni solo-icona la cui unica etichetta è title=",
+     "gravita": "media",
+     "proposta": "aggiungere focusin/focusout alla stessa delega (4 righe) e aria-describedby generato quando il tip si apre"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "Le etichette funzionali del control card (CENTRA, RIORDINA, PIN, ATTR, TESTO, LINK) sono a 9px in maiuscolo — sotto ogni soglia di leggibilità per il pubblico BES/DSA dell'app; il pattern micro-testo è diffuso: 55 occorrenze di text-[9px]/text-[10px] nel solo index.html",
+     "evidenza": "public/index.html:1564, 1574, 1592, 1601 (text-[9px] nel control card); conteggio misurato 55 occorrenze",
+     "gravita": "media",
+     "proposta": "minimo 11-12px per le etichette del control card (lo spazio c'è: bottoni 48px) e censimento dei 55 usi nel passaggio ai token"
+    },
+    {
+     "categoria": "a11y",
+     "claim": "text-slate-400 (2,56:1 su bianco) è usato 106 volte in index.html non solo come decorazione ma come colore di testi informativi e di quasi tutte le X di chiusura — la stessa famiglia di grigi già bandita dai token (--mm-testo-3 = #64748b, 4,76:1) resta lo standard de facto fuori dai modali nuovi",
+     "evidenza": "conteggio misurato: 106 occorrenze text-slate-400 in public/index.html; contrasto calcolato 2,56:1 vs token mappai-modal-tokens.css:33 (#64748b)",
+     "gravita": "media",
+     "proposta": "regola redazionale: slate-400 solo per icone decorative accanto a testo; per testo informativo minimo slate-500 (#64748b) — allineato al token esistente"
+    },
+    {
+     "categoria": "debito",
+     "claim": "La decisione 3 (niente MAIUSCOLO + letter-spacing .2em: costo di lettura per BES/DSA) è presa ma il debito vivo è ampio: 71 'uppercase' e 18 'tracking-[0.2em]' in index.html, più .source_btn_text con tracking 0.25em — nessun bottone statico è ancora migrato",
+     "evidenza": "conteggi misurati su public/index.html: 71 uppercase, 18 tracking-[0.2em]; public/index.html:137 (.source_btn_text, tracking-[0.25em])",
+     "gravita": "media",
+     "proposta": "quantificato il perimetro, aggredirlo per famiglie di classi @layer (166, 149-158, 137) invece che per singola occorrenza: ~6 selettori coprono la maggioranza dei 71 usi"
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Contro la decisione 6 (velo unico rgba(15,23,42,.45)+blur) i modali statici usano ancora 6 veli diversi, con i più scuri (slate-900/90) che creano salti di luminanza bruschi tra un modale e l'altro",
+     "evidenza": "conteggio misurato in public/index.html: bg-slate-900/80 ×15, /90 ×3, /60 ×3, bg-black/50 ×2, bg-slate-900/50 ×1",
+     "gravita": "bassa",
+     "proposta": "classe .mm-velo unica dai token applicata in un pass di sostituzione sulle 24 occorrenze"
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "Attributi aria-* in index.html",
+     "valore": "1 (solo aria-pressed, riga 903); aria-label: 0",
+     "comando": "grep -c 'aria-' public/index.html && grep -n 'aria-' public/index.html"
+    },
+    {
+     "nome": "Bottoni solo-icona senza nome accessibile / totale bottoni",
+     "valore": "26 / 203",
+     "comando": "python3 -c \"import re; h=open('public/index.html').read(); b=re.findall(r'<button\\b[^>]*>.*?</button>',h,re.S); n=[x for x in b if re.sub(r'\\s+','',re.sub(r'<[^>]+>','',x[x.index('>')+1:-9]))=='' and ('data-lucide' in x or '<svg' in x) and not any(k in x[:x.index('>')] for k in ('aria-label','title=','data-i18n-title','data-tip'))]; print(len(b), len(n))\""
+    },
+    {
+     "nome": ":focus-visible in style.css (tutti soppressivi) vs token nuovi",
+     "valore": "3 selettori in style.css:369-376 con outline:none !important; 1 regola corretta in mappai-modal-tokens.css:472",
+     "comando": "grep -n 'focus-visible' public/css/style.css public/css/mappai-modal-tokens.css"
+    },
+    {
+     "nome": "File JS con gestione ESC propria (sparsa)",
+     "valore": "16; mappai-ui-modals.js e mappai-edit-modal.js: 0",
+     "comando": "grep -rln \"key === 'Escape'\\|key==='Escape'\\|keyCode === 27\" public/js/*.js | wc -l && grep -c Escape public/js/mappai-ui-modals.js public/js/mappai-edit-modal.js"
+    },
+    {
+     "nome": "Contrasti calcolati (WCAG, su bianco salvo indicato)",
+     "valore": "slate-300 1,48:1 · slate-400 2,56:1 · slate-400 su slate-100 2,34:1 · bianco su emerald-400 1,92:1 · bianco su red-400 2,77:1 · bordo #e2e8f0 1,23:1 · #64748b 4,76:1 (ok)",
+     "comando": "python3 -c \"l=lambda h:(lambda r,g,b:0.2126*r+0.7152*g+0.0722*b)(*[(c/255/12.92 if c/255<=0.03928 else ((c/255+0.055)/1.055)**2.4) for c in (int(h[1:3],16),int(h[3:5],16),int(h[5:7],16))]); cr=lambda a,b:round((max(l(a),l(b))+0.05)/(min(l(a),l(b))+0.05),2); print(cr('#cbd5e1','#ffffff'),cr('#94a3b8','#ffffff'),cr('#94a3b8','#f1f5f9'),cr('#ffffff','#34d399'),cr('#ffffff','#f87171'),cr('#e2e8f0','#ffffff'),cr('#64748b','#ffffff'))\""
+    },
+    {
+     "nome": "Campi con placeholder utility sotto soglia (scavalcano il fix di style.css:105)",
+     "valore": "4 (2 slate-300 + 2 slate-400)",
+     "comando": "grep -n 'placeholder:text-slate-300\\|placeholder:text-slate-400' public/index.html"
+    },
+    {
+     "nome": "Bersagli 28px nel control card mappa",
+     "valore": "4 bottoni w-7 h-7 (righe 1608, 1610, 1620, 1622)",
+     "comando": "grep -n 'w-7 h-7' public/index.html"
+    },
+    {
+     "nome": "Micro-testo text-[9px]/text-[10px] in index.html",
+     "valore": "55",
+     "comando": "grep -c 'text-\\[9px\\]\\|text-\\[10px\\]' public/index.html"
+    },
+    {
+     "nome": "Occorrenze text-slate-400 (2,56:1) in index.html",
+     "valore": "106",
+     "comando": "grep -c 'text-slate-400' public/index.html"
+    },
+    {
+     "nome": "Debito MAIUSCOLO/tracking contro decisione 3",
+     "valore": "uppercase: 71 · tracking-[0.2em]: 18 · hover:bg-emerald-400: 9",
+     "comando": "grep -c uppercase public/index.html && grep -c 'tracking-\\[0\\.2em\\]' public/index.html && grep -c 'hover:bg-emerald-400' public/index.html"
+    },
+    {
+     "nome": "Varianti di velo nei modali statici (vs velo unico deciso)",
+     "valore": "6 varianti su 24 occorrenze (slate-900/80 ×15, /90 ×3, /60 ×3, black/50 ×2, slate-900/50 ×1)",
+     "comando": "grep -o 'bg-black/[0-9]*\\|bg-slate-900/[0-9]*\\|bg-slate-800/[0-9]*' public/index.html | sort | uniq -c | sort -rn"
+    },
+    {
+     "nome": "Tooltip data-tip: eventi di attivazione",
+     "valore": "solo mouseover (nessun focusin/touch)",
+     "comando": "grep -n 'addEventListener' public/js/mappai-menu-hubs.js | grep -i 'mouse\\|focus\\|touch'"
+    }
+   ]
+  },
+  {
+   "area": "COPY e i18n — public/index.html, public/traduzioni/, moduli 2026 (landing-teach, doc-editor, material-pipeline, modal, live-classes)",
+   "findings": [
+    {
+     "categoria": "coerenza",
+     "claim": "11 bottoni principali della landing usano letter-spacing .2em (tracking-[0.2em]) via classi componenti, esattamente la spaziatura che la decisione 3 dei token ha bandito per costo BES/DSA.",
+     "evidenza": "public/index.html:150 (.btn_selezione_input, 5 usi), :152-153 (.btn_mode_selector, 3 usi), :158 (.btn_quick_action, 3 usi); 18 occorrenze totali di tracking-[0.2em] in index.html; decisione in mappai-modal-tokens.css §DECISIONE 3 (riga 265)",
+     "gravita": "alta",
+     "proposta": "Rimuovere tracking-[0.2em] dalle 4 classi @layer components di index.html (una modifica copre tutti gli 11 bottoni), allineandole a --mm-* che prescrive letter-spacing normale."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Il MAIUSCOLO è cablato DENTRO i valori i18n di 6 chiavi *_caps (CARICAMENTO..., CENTRA, TESTO, FISSA, COLLEGAMENTI, IMMAGINI): contrasta la decisione 3 e non è spegnibile da CSS, va riscritto il copy in entrambi i dizionari.",
+     "evidenza": "public/traduzioni/it_translations.js:372,394,396,397,421,423 (grep -n '_caps' public/traduzioni/it_translations.js)",
+     "gravita": "alta",
+     "proposta": "Valori in tondo ('Centra', 'Testo'...) e, se il look eyebrow serve, applicare text-transform via classe CSS revocabile, non nel copy."
+    },
+    {
+     "categoria": "a11y",
+     "claim": "PIN e ATTR nella barra di controllo mappa sono maiuscolo cablato SENZA data-i18n: intraducibili allo switch EN, e 'ATTR' è un'abbreviazione opaca per il pubblico BES/DSA dichiarato dell'app.",
+     "evidenza": "public/index.html:1590 (>PIN<) e :1599 (>ATTR<) — unici span della barra senza attributo data-i18n (confronta :1563 CENTRA che almeno ha la chiave)",
+     "gravita": "alta",
+     "proposta": "Aggiungere chiavi i18n in entrambi i dizionari e sostituire ATTR con una parola piena (es. 'Forze' / 'Magnete'), tondo + eventuale uppercase CSS."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "4 chiavi t() usate dai moduli recenti (29/7) mancano da en_translations.js: in inglese esce il fallback italiano, violando la regola 13 ('ogni chiave t() presente in en_translations').",
+     "evidenza": "ui_ok (public/js/mappai-material-pipeline.js:704), mp_cards_over (:212), lt_over_tip (public/js/mappai-landing-teach.js:1186), lt_over_badge (:1187) — nessuna delle 4 in public/traduzioni/en_translations.js",
+     "gravita": "alta",
+     "proposta": "Aggiungere le 4 chiavi a en_translations.js e rilanciare l'audit i18n della regola 13 sui moduli di luglio."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "Il nuovo motore modali (mappai-modal.js, 29/7) nasce non localizzabile: default 'Annulla'/'Conferma'/'Salva' e aria-label='Chiudi' hardcoded, zero chiamate a t() in tutto il file — e sarà lo standard di tutti i 69 modali censiti.",
+     "evidenza": "public/js/mappai-modal.js:209 (aria-label='Chiudi'), :360-361, :382; grep -c 'window.t(' public/js/mappai-modal.js → 0",
+     "gravita": "media",
+     "proposta": "Wrapper _t(k,f) locale (stesso pattern di mappai-material-pipeline.js:17) sui 4 default e sull'aria-label, prima che i modali migrino sul motore."
+    },
+    {
+     "categoria": "coerenza",
+     "claim": "In index.html ~68 tooltip title= restano a italiano fisso: 101 attributi title contro solo 33 data-i18n-title.",
+     "evidenza": "grep -oE 'title=\"[^\"]*\"' public/index.html | wc -l → 101; grep -c 'data-i18n-title' public/index.html → 33; campioni: :368 'Copia ID', :1134 'Trascina per ridimensionare', :1290 'Resetta Chat', :1503 'Cambia Layout (...)'",
+     "gravita": "media",
+     "proposta": "Passata unica: data-i18n-title sui ~68 title mancanti con chiavi in entrambi i dizionari (le statiche) o nel solo EN (le nuove, regola 13)."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Lo stesso artefatto ha 5 nomi rivolti all'utente: Progetto, Mappa, Vault, Grafo e 'Second Brain' — e la chiave btn_new_project mostra 'Nuovo Grafo' (la chiave dice progetto, l'etichetta dice grafo).",
+     "evidenza": "it_translations.js:7 recent_projects 'Progetti Recenti', :180 btn_open_vault 'Apri Vault', :181 sub_vault_manager 'Gestione Second Brain', :188 'Second Brain Knowledge Management'; index.html:1085 'Nuovo Grafo' vs :1089 'Apri Vault'; conteggio index.html: mappa 148+14, vault 22+14, progetto 4",
+     "gravita": "media",
+     "proposta": "Glossario UI a 2 termini (es. 'mappa' = il contenuto, 'progetto' = il salvataggio), 'vault' relegato a contesto tecnico Obsidian, 'Second Brain' eliminato dal copy."
+    },
+    {
+     "categoria": "copy",
+     "claim": "card vs carta/carte convivono nello stesso modulo per gli stessi rettangoli stampati: mappai-doc-editor.js dice 'card' e 'carte' a poche righe di distanza, e landing-teach chiama 'carte' quelle che doc-editor chiama 'card'.",
+     "evidenza": "public/js/mappai-doc-editor.js:237 '{a} card nuove', :407 'nella card entra solo il titolo' vs :911 '4 carte per foglio', :1374 'entra nella carta stampata'; public/js/mappai-landing-teach.js:1186 '{n} carte superano la soglia' (stesse card del foglio nodi)",
+     "gravita": "media",
+     "proposta": "Scegliere 'carta/carte' (italiano, coerente col contesto stampa) e uniformare i fallback dei due moduli e le chiavi EN corrispondenti."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Refuso visibile in un tooltip: 'Apri Vault Vault Markdown' con parola duplicata.",
+     "evidenza": "public/traduzioni/it_translations.js:266 tt_open_vault",
+     "gravita": "bassa",
+     "proposta": "Correggere in 'Apri Vault Markdown' (o 'Apri il vault della mappa')."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Tono misto nella stessa barra di 5 bottoni (map-control-card): CENTRA e Riordina (imperativi), Layout (sostantivo), PIN e ATTR (abbreviazioni), con tre meccanismi diversi di maiuscolo (cablato nel copy, classe uppercase, nessuno).",
+     "evidenza": "public/index.html:1563 (CENTRA nel valore i18n), :1577 (Riordina + classe uppercase), :1585 (Layout + classe uppercase), :1590/:1599 (PIN/ATTR cablati); stesso pattern nel menu azioni: sostantivi 'Materiali di studio'/'Graph manager' accanto a imperativi 'Sincronizza Vault'/'Torna alla Home' (index.html:1488-1543)",
+     "gravita": "media",
+     "proposta": "Una convenzione sola per barra: verbi imperativi in tondo sulla control card, sostantivi per gli hub del menu; un solo meccanismo di maiuscolo (CSS) se lo si tiene."
+    },
+    {
+     "categoria": "copy",
+     "claim": "Due verbi diversi per la stessa azione di azzeramento a 16 righe di distanza nello stesso pannello: 'Resetta' e 'Azzera' (più 'Resetta Chat' poco sopra).",
+     "evidenza": "public/index.html:1358 title='Resetta' vs :1374 title='Azzera'; :1290 title='Resetta Chat'",
+     "gravita": "bassa",
+     "proposta": "Un solo verbo (suggerito 'Azzera', italiano pieno) per tutti i reset dell'app."
+    },
+    {
+     "categoria": "copy",
+     "claim": "19 stringhe dei moduli citano il tab come 'ELABORA' maiuscolo mentre la UI lo mostra come 'Elabora': il riferimento incrociato non corrisponde a ciò che l'utente vede, e reintroduce maiuscolo nel copy contro la decisione 3.",
+     "evidenza": "grep -rn 'ELABORA →|in ELABORA' public/js/*.js | wc -l → 19; etichetta reale: public/index.html:667 'Elabora' (ui_landing_elabora, tondo)",
+     "gravita": "bassa",
+     "proposta": "Nei testi citare i nomi dei tab con la stessa grafia della UI, eventualmente tra caporali: «Elabora → Documenti»."
+    }
+   ],
+   "numeri": [
+    {
+     "nome": "classi Tailwind 'uppercase' in index.html",
+     "valore": "63",
+     "comando": "grep -oE 'class=\"[^\"]*\\buppercase\\b[^\"]*\"' public/index.html | wc -l"
+    },
+    {
+     "nome": "occorrenze tracking-[0.2em] (letter-spacing .2em) in index.html",
+     "valore": "18",
+     "comando": "grep -o 'tracking-\\[0.2em\\]' public/index.html | wc -l"
+    },
+    {
+     "nome": "occorrenze tracking-widest in index.html",
+     "valore": "35",
+     "comando": "grep -o 'tracking-widest' public/index.html | wc -l"
+    },
+    {
+     "nome": "chiavi i18n con MAIUSCOLO cablato nel valore (suffisso _caps)",
+     "valore": "6",
+     "comando": "grep -c '_caps' public/traduzioni/it_translations.js"
+    },
+    {
+     "nome": "chiavi data-i18n/-placeholder/-title in index.html",
+     "valore": "313",
+     "comando": "grep -oE 'data-i18n(-placeholder|-title)?=\"[^\"]+\"' public/index.html | sed -E 's/.*=\"//;s/\"//' | sort -u | wc -l"
+    },
+    {
+     "nome": "chiavi data-i18n mancanti in it_translations / en_translations (verifica positiva)",
+     "valore": "0 / 0",
+     "comando": "comm -23 <(grep -oE 'data-i18n(-placeholder|-title)?=\"[^\"]+\"' public/index.html | sed -E 's/.*=\"//;s/\"//' | sort -u) <(grep -oE '^\\s*\"?[A-Za-z0-9_]+\"?\\s*:' public/traduzioni/it_translations.js | sed -E 's/[\": ]//g' | sort -u) | wc -l"
+    },
+    {
+     "nome": "chiavi t() dei moduli recenti assenti da en_translations.js",
+     "valore": "4 (ui_ok, mp_cards_over, lt_over_tip, lt_over_badge)",
+     "comando": "for k in ui_ok mp_cards_over lt_over_tip lt_over_badge; do grep -q \"$k:\" public/traduzioni/en_translations.js || echo \"MANCA $k\"; done"
+    },
+    {
+     "nome": "title= totali vs data-i18n-title in index.html",
+     "valore": "101 vs 33 (≈68 tooltip non traducibili)",
+     "comando": "grep -oE 'title=\"[^\"]*\"' public/index.html | wc -l; grep -c 'data-i18n-title' public/index.html"
+    },
+    {
+     "nome": "chiamate t()/tSafe in mappai-modal.js (motore nuovo)",
+     "valore": "0",
+     "comando": "grep -c 'window\\.t(\\|_tSafe(' public/js/mappai-modal.js"
+    },
+    {
+     "nome": "dimensione dizionari (chiavi IT vs EN)",
+     "valore": "513 vs 2010 (asimmetria da regola 13, attesa)",
+     "comando": "grep -oE '^\\s*\"?[A-Za-z0-9_]+\"?\\s*:' public/traduzioni/it_translations.js | sort -u | wc -l; grep -oE '^\\s*\"?[A-Za-z0-9_]+\"?\\s*:' public/traduzioni/en_translations.js | sort -u | wc -l"
+    },
+    {
+     "nome": "stringhe moduli che citano 'ELABORA' maiuscolo",
+     "valore": "19",
+     "comando": "grep -rn 'ELABORA →\\|in ELABORA' public/js/*.js | wc -l"
+    },
+    {
+     "nome": "occorrenze mappa/vault/progetto in index.html (terminologia tripla)",
+     "valore": "mappa 148 + Mappa 14 · vault 22 + Vault 14 · progetto 1 + Progetto 3",
+     "comando": "for w in mappa Mappa vault Vault progetto Progetto; do echo \"$w: $(grep -o $w public/index.html | wc -l)\"; done"
+    }
+   ]
+  }
+ ],
+ "verifica": {
+  "esiti": [
+   {
+    "nome": "Bottoni <button> nella sezione landing (614-1113)",
+    "valoreDichiarato": "29",
+    "valoreVero": "29",
+    "ok": true
+   },
+   {
+    "nome": "Div cliccabili (btn_selezione_input + btn_mode_selector) stessa sezione",
+    "valoreDichiarato": "8",
+    "valoreVero": "8",
+    "ok": true
+   },
+   {
+    "nome": "Contrasto bianco su emerald-400 (CTA «Genera materiali»)",
+    "valoreDichiarato": "1,92:1",
+    "valoreVero": "1,92:1",
+    "ok": true
+   },
+   {
+    "nome": "Contrasto slate-400 su bianco (header/date tabelle)",
+    "valoreDichiarato": "2,56:1",
+    "valoreVero": "2,56:1",
+    "ok": true
+   },
+   {
+    "nome": "Usi di text-slate-400 in mappai-landing-teach.js",
+    "valoreDichiarato": "26",
+    "valoreVero": "26",
+    "ok": true
+   },
+   {
+    "nome": "tracking-[0.2em] in index.html",
+    "valoreDichiarato": "18",
+    "valoreVero": "18",
+    "ok": true
+   },
+   {
+    "nome": "Verde come colore azione in landing-teach.js",
+    "valoreDichiarato": "7",
+    "valoreVero": "7",
+    "ok": true
+   },
+   {
+    "nome": "Veli modali a /60 (fuori token) nel file",
+    "valoreDichiarato": "2",
+    "valoreVero": "2",
+    "ok": true
+   },
+   {
+    "nome": "aria-label/title sui 4 bottoni header utils",
+    "valoreDichiarato": "0",
+    "valoreVero": "0",
+    "ok": true
+   },
+   {
+    "nome": "Occorrenze di teach-sharedmat nel repo (solo il lettore: sezione orfana)",
+    "valoreDichiarato": "1",
+    "valoreVero": "1",
+    "ok": true
+   },
+   {
+    "nome": "max-w-[806px] hardcoded nelle barre di Insegna",
+    "valoreDichiarato": "2",
+    "valoreVero": "2",
+    "ok": true
+   },
+   {
+    "nome": "Bottoni nel markup di map-view (righe 1128-1710)",
+    "valoreDichiarato": "43",
+    "valoreVero": "43",
+    "ok": true
+   },
+   {
+    "nome": "Bottoni nella map-control-card",
+    "valoreDichiarato": "14",
+    "valoreVero": "14",
+    "ok": true
+   },
+   {
+    "nome": "Etichette a 9px (MAIUSCOLE) nella card",
+    "valoreDichiarato": "14",
+    "valoreVero": "14",
+    "ok": true
+   },
+   {
+    "nome": "Divisori verticali nella card",
+    "valoreDichiarato": "12",
+    "valoreVero": "12",
+    "ok": true
+   },
+   {
+    "nome": "Voci cliccabili nel menu contestuale del nodo (docente)",
+    "valoreDichiarato": "17",
+    "valoreVero": "17",
+    "ok": true
+   },
+   {
+    "nome": "title hardcodati senza data-i18n-title in map-view",
+    "valoreDichiarato": "15",
+    "valoreVero": "15",
+    "ok": true
+   },
+   {
+    "nome": "Contrasto icona ambra dei toggle su bianco",
+    "valoreDichiarato": "1,67:1",
+    "valoreVero": "1,67:1",
+    "ok": true
+   },
+   {
+    "nome": "z-index massimo nel cromo (toggle a11y)",
+    "valoreDichiarato": "999999",
+    "valoreVero": "Il toggle a11y ha davvero z-index 999999 (style.css:349), ma NON è il massimo: style.css:1742 (lente di ingrandimento a11y, cerchio 240px) ha z-index 999999999 !important — lo stesso grep del comando lo mostra. Come valore del toggle è esatto, come «massimo» è smentito di 1000×",
+    "ok": false
+   },
+   {
+    "nome": "!important nel solo blocco #floating-actions-menu",
+    "valoreDichiarato": "23",
+    "valoreVero": "23",
+    "ok": true
+   },
+   {
+    "nome": "Occorrenze data-tip (tooltip custom) in tutto index.html",
+    "valoreDichiarato": "9",
+    "valoreVero": "9",
+    "ok": true
+   },
+   {
+    "nome": "!important in style.css",
+    "valoreDichiarato": "713",
+    "valoreVero": "713",
+    "ok": true
+   },
+   {
+    "nome": "!important nei <style> di index.html",
+    "valoreDichiarato": "10",
+    "valoreVero": "10",
+    "ok": true
+   },
+   {
+    "nome": "dichiarazioni totali style.css (stima da ;)",
+    "valoreDichiarato": "1199 (→ ~59% con !important)",
+    "valoreVero": "1199; 713/1199 = 59,5% — torna",
+    "ok": true
+   },
+   {
+    "nome": "colori hex distinti (style.css + index styles)",
+    "valoreDichiarato": "54 (53 solo style.css)",
+    "valoreVero": "54 combinati; 53 nel solo style.css",
+    "ok": true
+   },
+   {
+    "nome": "border-radius distinti",
+    "valoreDichiarato": "21",
+    "valoreVero": "21",
+    "ok": true
+   },
+   {
+    "nome": "font-size distinti (esclusi 2 artefatti nei commenti)",
+    "valoreDichiarato": "40",
+    "valoreVero": "40",
+    "ok": true
+   },
+   {
+    "nome": "z-index distinti (max 999999999)",
+    "valoreDichiarato": "10",
+    "valoreVero": "10",
+    "ok": true
+   },
+   {
+    "nome": "box-shadow distinti",
+    "valoreDichiarato": "27",
+    "valoreVero": "27",
+    "ok": true
+   },
+   {
+    "nome": "selettori morti #projects-bar in style.css",
+    "valoreDichiarato": "18 (elemento assente da index.html)",
+    "valoreVero": "18; id=\"projects-bar\" assente da index.html (grep exit 1)",
+    "ok": true
+   },
+   {
+    "nome": "veli distinti sui modali statici (fixed inset-0)",
+    "valoreDichiarato": "6",
+    "valoreVero": "6",
+    "ok": true
+   },
+   {
+    "nome": "valori magici calc(Npx * --landing-zoom) distinti",
+    "valoreDichiarato": "33 (96 usi totali)",
+    "valoreVero": "33 distinti, 96 usi",
+    "ok": true
+   },
+   {
+    "nome": "!important nei blocchi scoped #landing-view",
+    "valoreDichiarato": "256 (36% del totale)",
+    "valoreVero": "256; 256/713 = 35,9%",
+    "ok": true
+   },
+   {
+    "nome": "uppercase / tracking largo in index.html (vs decisione 3)",
+    "valoreDichiarato": "71 righe uppercase · 35 tracking-widest · 18 tracking-[0.2em]",
+    "valoreVero": "71 · 35 · 18",
+    "ok": true
+   },
+   {
+    "nome": "bottoni emerald vs indigo in index.html (vs decisione 1)",
+    "valoreDichiarato": "17 emerald-400/500 · 23 indigo-500/600",
+    "valoreVero": "17 · 23",
+    "ok": true
+   },
+   {
+    "nome": "regole vuote {}",
+    "valoreDichiarato": "5",
+    "valoreVero": "5 (righe 48, 747, 780, 2184, 2213)",
+    "ok": true
+   },
+   {
+    "nome": "Motore modali caricato in index.html",
+    "valoreDichiarato": "0 (solo il CSS dei token, riga 41)",
+    "valoreVero": "0; l'unico riferimento è <link css/mappai-modal-tokens.css> a riga 41",
+    "ok": true
+   },
+   {
+    "nome": "Modali di produzione su classi mm-*",
+    "valoreDichiarato": "0 (unico hit: falso positivo mm-o in games.js:3568)",
+    "valoreVero": "0 file di produzione; games.js:3568 usa davvero class=\"mm-o\" (falso positivo confermato, non catturato dal pattern del comando)",
+    "ok": true
+   },
+   {
+    "nome": "Occorrenze pm-btn-primary/cancel ancora vive",
+    "valoreDichiarato": "45 in index.html + 10 file js",
+    "valoreVero": "45 occorrenze totali (6 in index.html + 39 nei JS), distribuite su 11 file js (11 vs 10 = +10%, al limite di tolleranza)",
+    "ok": true
+   },
+   {
+    "nome": "btn_salva/annulla_action (rosso+emerald+MAIUSCOLO) in index.html",
+    "valoreDichiarato": "17",
+    "valoreVero": "17",
+    "ok": true
+   },
+   {
+    "nome": "Contrasto bordo campi #e2e8f0 su bianco",
+    "valoreDichiarato": "1,23:1 (soglia componente 3:1 — insufficiente)",
+    "valoreVero": "1,23 — esitoContrasto: {ok:false, soglia:3, etichetta:'insufficiente'}",
+    "ok": true
+   },
+   {
+    "nome": "Altezza bersaglio del bottone mm-btn (corpo 12px)",
+    "valoreDichiarato": "34px — bocciato dal minimo 44 del core stesso",
+    "valoreVero": "34; bersaglioOk(34) → {ok:false, minimo:44}",
+    "ok": true
+   },
+   {
+    "nome": "Radio: proprietà gruppo persa dalla normalizzazione",
+    "valoreDichiarato": "undefined dopo normalizzaCampo",
+    "valoreVero": "undefined — confermato",
+    "ok": true
+   },
+   {
+    "nome": "Icone 20px vs 22px nel codice",
+    "valoreDichiarato": "102 contro 20",
+    "valoreVero": "102 contro 20",
+    "ok": true
+   },
+   {
+    "nome": "Archetipi per stato",
+    "valoreDichiarato": "0 approvato · 8 bozza · 7 da-fare (su 15)",
+    "valoreVero": "0 · 8 · 7 su 15 archetipi reali (il 16° match di 'stato:' è il commento a riga 9)",
+    "ok": true
+   },
+   {
+    "nome": "Veli distinti negli overlay statici (deciso: 1)",
+    "valoreDichiarato": "8 valori diversi su 26 overlay; il deciso rgba(15,23,42,.45) assente",
+    "valoreVero": "8 valori distinti, 26 'fixed inset-0', rgba(15,23,42,.45) = 0 occorrenze",
+    "ok": true
+   },
+   {
+    "nome": "Token finestre-documento (--mm-doc/bar/player) nei token",
+    "valoreDichiarato": "0 occorrenze",
+    "valoreVero": "0",
+    "ok": true
+   },
+   {
+    "nome": "letter-spacing .2em / tracking-widest residui (decisione 3)",
+    "valoreDichiarato": "63 occorrenze",
+    "valoreVero": "63",
+    "ok": true
+   },
+   {
+    "nome": "File con la propria barra/bottone Stampa (cloni della topbar)",
+    "valoreDichiarato": "13",
+    "valoreVero": "13",
+    "ok": true
+   },
+   {
+    "nome": "Topbar fisse in font monospace di sistema (non Space Mono)",
+    "valoreDichiarato": "5",
+    "valoreVero": "5",
+    "ok": true
+   },
+   {
+    "nome": "Riusi di QP_PRINT_BAR fuori da quiz-print (barra condivisa esportata ma orfana)",
+    "valoreDichiarato": "0",
+    "valoreVero": "0",
+    "ok": true
+   },
+   {
+    "nome": "Varianti dell'etichetta del bottone Stampa (occorrenze delle 3 forme lunghe)",
+    "valoreDichiarato": "9 occorrenze / 3 forme (+ 'Stampa' secco)",
+    "valoreVero": "10 occorrenze / 3 forme (Esporta PDF ×3, PDF ×6, Salva PDF ×1 — mappai-meta-analysis.js ne ha 2). Le 3 forme tornano; 10 vs 9 = +11%, appena fuori tolleranza",
+    "ok": false
+   },
+   {
+    "nome": "Bersaglio touch bottoni ±sec del player sintesi condiviso via QR",
+    "valoreDichiarato": "20×20px (chip 34px, scrub 7px, thumb 13px)",
+    "valoreVero": ".ap-sec 20×20px, .ap-chip height 34px, .ap-prog height 7px, .ap-thumb 13px — tutti confermati (branch-synthesis.js:639-648)",
+    "ok": true
+   },
+   {
+    "nome": "Glifi stampante diversi nei bottoni delle barre",
+    "valoreDichiarato": "3 (U+1F5A8, U+1F5B6, U+1F5B8)",
+    "valoreVero": "3 confermati con grep -P (comando originale a byte-escape fragile): 🖨 U+1F5A8 ×4, 🖶 U+1F5B6 ×1, più 🖸 (U+1F5B8) in glossary.js:140 e timeline.js:1005",
+    "ok": true
+   },
+   {
+    "nome": "Pagine-documento senza webfont Space Mono caricato",
+    "valoreDichiarato": "1 (tutor-reports: 0 link fonts.googleapis)",
+    "valoreVero": "tutor-reports 0, live-reports 1, quiz-print 2 — solo tutor-reports senza webfont",
+    "ok": true
+   },
+   {
+    "nome": "Velo overlay Consumi AI vs token velo unico",
+    "valoreDichiarato": "60% vs 45%",
+    "valoreVero": "bg-slate-900/60 in usage-dashboard.js:317; --mm-velo: rgba(15,23,42,.45) in mappai-modal-tokens.css:42",
+    "ok": true
+   },
+   {
+    "nome": "Righe <button> con emoji nei moduli JS non-vendor",
+    "valoreDichiarato": "48 (di cui 44 in mappai-games.js, 5 vive in mappai-elabora.js)",
+    "valoreVero": "48 totali confermati; ma la distribuzione dichiarata è imprecisa: games.js 34 (non 44), elabora.js 5, più 14 righe in altri 6 file (timeline-teacher 3, branch-synthesis 2, timeline 2, admin_prompts 1, live-teacher 1). Il valore principale torna",
+    "ok": true
+   },
+   {
+    "nome": "Distribuzione taglie icone lucide via classi (index.html + js)",
+    "valoreDichiarato": "w-4:116 · w-5:63 · w-3.5:50 · w-3:44 · w-6:34 · outlier:27 — 11 taglie distinte",
+    "valoreVero": "w-4:116 · w-5:63 · w-3.5:50 · w-3:44 · w-6:34 · outlier (w-10:7, w-8:6, w-2.5:5, w-16:4, w-12:3, w-7:2)=27 — 11 taglie distinte",
+    "ok": true
+   },
+   {
+    "nome": "Taglie icona hardcodate inline in px (width+height accoppiati)",
+    "valoreDichiarato": "85 coppie (16px×19, 20px×18, 22px×19, 14px×16, 18px×6, 24px×5)",
+    "valoreVero": "85 coppie totali confermate; breakdown per taglia leggermente diverso sommando le varianti di spaziatura (16px:21, 20px:19, 22px:19, 14px:16, 18px:6, 24px:4) — differenze entro il ±10%",
+    "ok": true
+   },
+   {
+    "nome": "Occorrenze uppercase / tracking largo in index.html",
+    "valoreDichiarato": "71 uppercase · 63 letter-spacing .2em o tracking-widest · 9 classi .btn_*",
+    "valoreVero": "71 ✓ e 9 ✓, ma il valore centrale è 53 in index.html (35 tracking-widest + 18 tracking-[0.2em]), sia a righe sia a occorrenze; 63 è il totale repo-wide (index.html + style.css + js) di un altro item dell'audit — scarto -16%, fuori tolleranza",
+    "ok": false
+   },
+   {
+    "nome": "Builder di documenti window.open con webfont Space Mono ma SENZA Noto Color Emoji",
+    "valoreDichiarato": "7 su 9 (mancano quiz-print, print-dossier, timeline, branch-synthesis, glossary, study-doc, causal-chains)",
+    "valoreVero": "7 su 9, esattamente i 7 file dichiarati; con Noto: usage-dashboard e live-reports",
+    "ok": true
+   },
+   {
+    "nome": "Stack font-family divergenti nei JS (vs 'Space Mono' universale di style.css:40)",
+    "valoreDichiarato": "14× system-ui,sans-serif · 9× monospace bare · var(--emoji-font) solo 7 volte",
+    "valoreVero": "14× system-ui,sans-serif; monospace bare 8+1=9; var(--emoji-font) 4+2+1=7",
+    "ok": true
+   },
+   {
+    "nome": "Regola Noto in-app (conforme)",
+    "valoreDichiarato": "--emoji-font in index.html:15, nello stack universale (style.css:40) e OpenDyslexic (style.css:44)",
+    "valoreVero": "Confermato riga per riga: index.html:15 dichiara la var; style.css:40 'Space Mono', var(--emoji-font), monospace !important; style.css:44 'OpenDyslexic', var(--emoji-font)",
+    "ok": true
+   },
+   {
+    "nome": "Attributi aria-* in index.html",
+    "valoreDichiarato": "1 (solo aria-pressed, riga 903); aria-label: 0",
+    "valoreVero": "1 — aria-pressed=\"false\" a riga 903; aria-label 0",
+    "ok": true
+   },
+   {
+    "nome": "Bottoni solo-icona senza nome accessibile / totale bottoni",
+    "valoreDichiarato": "26 / 203",
+    "valoreVero": "203 bottoni totali, 26 solo-icona senza nome accessibile",
+    "ok": true
+   },
+   {
+    "nome": ":focus-visible in style.css (tutti soppressivi) vs token nuovi",
+    "valoreDichiarato": "3 selettori in style.css:369-376 con outline:none !important; 1 regola corretta in mappai-modal-tokens.css:472",
+    "valoreVero": "3 selettori :focus-visible (righe 369/372/375) dentro un blocco con outline:none !important; tokens.css:472-475 ha outline 2px solid var(--mm-accent)",
+    "ok": true
+   },
+   {
+    "nome": "Contrasti calcolati (WCAG, su bianco salvo indicato)",
+    "valoreDichiarato": "1,48 · 2,56 · 2,34 · 1,92 · 2,77 · 1,23 · 4,76",
+    "valoreVero": "1,48 2,56 2,34 1,92 2,77 1,23 4,76 — tutti identici",
+    "ok": true
+   },
+   {
+    "nome": "Campi con placeholder utility sotto soglia (scavalcano il fix di style.css:105)",
+    "valoreDichiarato": "4 (2 slate-300 + 2 slate-400)",
+    "valoreVero": "4: slate-300 a righe 373 e 2576, slate-400 a righe 1260 e 2743",
+    "ok": true
+   },
+   {
+    "nome": "Bersagli 28px nel control card mappa",
+    "valoreDichiarato": "4 bottoni w-7 h-7 (righe 1608, 1610, 1620, 1622)",
+    "valoreVero": "4 alle stesse righe 1608/1610/1620/1622",
+    "ok": true
+   },
+   {
+    "nome": "Micro-testo text-[9px]/text-[10px] in index.html",
+    "valoreDichiarato": "55",
+    "valoreVero": "55",
+    "ok": true
+   },
+   {
+    "nome": "Occorrenze text-slate-400 (2,56:1) in index.html",
+    "valoreDichiarato": "106",
+    "valoreVero": "106",
+    "ok": true
+   },
+   {
+    "nome": "Debito MAIUSCOLO/tracking contro decisione 3",
+    "valoreDichiarato": "uppercase: 71 · tracking-[0.2em]: 18 · hover:bg-emerald-400: 9",
+    "valoreVero": "71 · 18 · 9",
+    "ok": true
+   },
+   {
+    "nome": "Varianti di velo nei modali statici (vs velo unico deciso)",
+    "valoreDichiarato": "6 varianti su 24 occorrenze (slate-900/80 ×15, /90 ×3, /60 ×3, black/50 ×2, slate-900/50 ×1)",
+    "valoreVero": "5 varianti su 24 occorrenze — il breakdown dichiarato è esatto ma elenca esso stesso solo 5 varianti (15+3+3+2+1=24); nessuna occorrenza di bg-slate-800/*. Il «6» non torna (-17%)",
+    "ok": false
+   },
+   {
+    "nome": "Tooltip data-tip: eventi di attivazione",
+    "valoreDichiarato": "solo mouseover (nessun focusin/touch)",
+    "valoreVero": "Confermato: mouseover (riga 61), mouseout (69), mousedown (75) in mappai-menu-hubs.js; nessun listener focus/touch",
+    "ok": true
+   },
+   {
+    "nome": "classi Tailwind 'uppercase' in index.html",
+    "valoreDichiarato": "63",
+    "valoreVero": "63",
+    "ok": true
+   },
+   {
+    "nome": "occorrenze tracking-[0.2em] (letter-spacing .2em) in index.html",
+    "valoreDichiarato": "18",
+    "valoreVero": "18",
+    "ok": true
+   },
+   {
+    "nome": "occorrenze tracking-widest in index.html",
+    "valoreDichiarato": "35",
+    "valoreVero": "35",
+    "ok": true
+   },
+   {
+    "nome": "chiavi i18n con MAIUSCOLO cablato nel valore (suffisso _caps)",
+    "valoreDichiarato": "6",
+    "valoreVero": "6",
+    "ok": true
+   },
+   {
+    "nome": "chiavi data-i18n/-placeholder/-title in index.html",
+    "valoreDichiarato": "313",
+    "valoreVero": "313",
+    "ok": true
+   },
+   {
+    "nome": "chiavi data-i18n mancanti in it_translations / en_translations (verifica positiva)",
+    "valoreDichiarato": "0 / 0",
+    "valoreVero": "0 mancanti in IT, 0 mancanti in EN",
+    "ok": true
+   },
+   {
+    "nome": "chiavi t() dei moduli recenti assenti da en_translations.js",
+    "valoreDichiarato": "4 (ui_ok, mp_cards_over, lt_over_tip, lt_over_badge)",
+    "valoreVero": "tutte e 4 mancanti, confermate una per una",
+    "ok": true
+   },
+   {
+    "nome": "title= totali vs data-i18n-title in index.html",
+    "valoreDichiarato": "101 vs 33 (≈68 tooltip non traducibili)",
+    "valoreVero": "101 vs 33",
+    "ok": true
+   },
+   {
+    "nome": "chiamate t()/tSafe in mappai-modal.js (motore nuovo)",
+    "valoreDichiarato": "0",
+    "valoreVero": "0",
+    "ok": true
+   },
+   {
+    "nome": "dimensione dizionari (chiavi IT vs EN)",
+    "valoreDichiarato": "513 vs 2010",
+    "valoreVero": "513 vs 2010",
+    "ok": true
+   },
+   {
+    "nome": "stringhe moduli che citano 'ELABORA' maiuscolo",
+    "valoreDichiarato": "19",
+    "valoreVero": "19",
+    "ok": true
+   },
+   {
+    "nome": "occorrenze mappa/vault/progetto in index.html (terminologia tripla)",
+    "valoreDichiarato": "mappa 148 + Mappa 14 · vault 22 + Vault 14 · progetto 1 + Progetto 3",
+    "valoreVero": "mappa 148, Mappa 14, vault 22, Vault 14, progetto 1, Progetto 3 (nota: 'mappa' minuscolo include i match dentro 'mappai', come nel comando originale)",
+    "ok": true
+   }
+  ]
+ },
+ "data": "2026-07-31"
+}

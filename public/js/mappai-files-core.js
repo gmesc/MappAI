@@ -26,7 +26,11 @@
     activity: 'Attività di studio', // sessioni live/tutor/lavagna + report
     shared: 'File condivisi',      // ex "MappAI - Materiali docente"
     classes: 'Classi',             // ex "MappAI - Classi"
-    gardens: 'Giardini'            // ex "MappAI - Knowledge Garden"
+    gardens: 'Giardini',           // ex "MappAI - Knowledge Garden"
+    /* Allievi (2/8): una cartella per allievo, dove finisce la sua tessera di
+       accesso. Non ha una cartella storica da cui migrare — nasce qui, e chi ha
+       già migrato non ce l'ha: si crea alla prima scrittura, non al setup. */
+    students: 'Allievi'
   };
 
   // Cartelle storiche in ~/Documents → destinazione nella nuova struttura.
@@ -88,6 +92,43 @@
     return safeName(rootLabel, 'Mappa');
   }
 
+  // Segmento DISCIPLINA dentro il contenitore di classe (29/7). '' = nessun
+  // livello disciplina → il vault resta figlio diretto della classe (comportamento
+  // storico, mai rotto per le classi senza discipline assegnate).
+  function disciplineFolder(discipline) {
+    return safeName(discipline, '');
+  }
+
+  // Segmenti RELATIVI a Mappe/ del vault di una mappa:
+  //   [] flat · [classe] · [classe, disciplina]
+  // Unica fonte del nesting: renderer (auto-vault, backfill, pipeline) e main.js
+  // costruiscono il path da qui, non concatenando a mano.
+  function mapVaultParents(classDir, discipline) {
+    var c = safeName(classDir, '');
+    if (!c) return [];
+    var d = disciplineFolder(discipline);
+    return d ? [c, d] : [c];
+  }
+
+  /* Radice del vault di una mappa (2/8). Con un profilo ALLIEVO attivo le mappe
+     non stanno in «Mappe» insieme a quelle di classe: vivono dentro la cartella
+     di quell'allievo, «Allievi/<nome>/Mappe». Il motivo è di sostanza, non di
+     ordine — una mappa fatta per un allievo con misure compensative è materiale
+     suo, e mescolarla a quelle della classe ne perde la destinazione.
+     Classe e allievo si escludono a vicenda (lo impone già il contesto attivo),
+     quindi con l'allievo non c'è nesting di classe/disciplina.
+     `basi` = { maps, students } da `files-root-get`. */
+  function mapVaultRoot(basi, allievo) {
+    var a = safeName(allievo, '');
+    if (!a || !basi || !basi.students) return (basi && basi.maps) || '';
+    return [basi.students, a, SUB.maps].join('/');
+  }
+  /* I segmenti di classe/disciplina valgono SOLO fuori dalla cartella di un
+     allievo: dentro, il percorso è già personale. */
+  function mapVaultParentsFor(allievo, classDir, discipline) {
+    return safeName(allievo, '') ? [] : mapVaultParents(classDir, discipline);
+  }
+
   // Sanitizzazione del percorso relativo scritto dentro un vault dalla pipeline
   // (constitution V). Ammessi SOLO: un file nel root del vault (es. pipeline.json),
   // un file dentro 'Materiale Studio/' oppure dentro 'Fonti/' (PDF originali
@@ -105,7 +146,11 @@
       if (safeName(segs[i], '') !== segs[i]) return null;              // illegali / trailing
     }
     if (segs.length === 1) return segs[0];                            // file nel root
-    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Fonti')) return segs.join('/');
+    /* 'Allegati' (2/8): il PDF ORIGINALE della fonte, quando la pipeline è
+       chiesta di conservarlo accanto ai materiali. È la cartella che il
+       contratto del vault già prevede per i media, e resta separata da 'Fonti',
+       dove ELABORA mette gli originali che gli servono per l'anteprima. */
+    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Fonti' || segs[0] === 'Allegati')) return segs.join('/');
     return null;
   }
 
@@ -263,6 +308,10 @@
     classFolder: classFolder,
     mapClassFolder: mapClassFolder,
     vaultFolderName: vaultFolderName,
+    disciplineFolder: disciplineFolder,
+    mapVaultParents: mapVaultParents,
+    mapVaultRoot: mapVaultRoot,
+    mapVaultParentsFor: mapVaultParentsFor,
     sanitizeVaultRelPath: sanitizeVaultRelPath,
     VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,
     activityLabel: activityLabel,

@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v=1785831100555-1785686777801-1785689580130">
+<script src="../js/lucide.min.js"></script>
+<script src="../js/mappai-modal-core.js?v=1785831100555-1785686777801-1785689580130"></script>
+<script src="../js/mappai-modal.js?v=1785831100555-1785686777801-1785689580130"></script>
+<style>
+  :root { --emoji-font:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { font-family:'Space Mono', var(--emoji-font), monospace; box-sizing:border-box; }
+  body { margin:0; padding:20px 24px; background:#fff; }
+  .st { display:flex; align-items:center; gap:16px; padding:11px 0; border-bottom:1px solid #f1f5f9; }
+  .st:last-child { border-bottom:0; }
+  .st .et { flex:0 0 300px; }
+  .st .et b { display:block; font-size:12px; }
+  .st .et span { font-size:10.5px; color:#94a3b8; line-height:1.5; display:block; margin-top:2px; }
+  .barra { background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px;
+           display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .barra .tit { font-size:13px; font-weight:700; }
+  .barra .seg { display:inline-flex; background:#f1f5f9; border-radius:999px; padding:3px; gap:2px; margin-left:auto; }
+  .barra .seg button { border:0; background:none; border-radius:999px; padding:6px 14px; font:700 12px inherit;
+                       color:#64748b; cursor:pointer; }
+  .barra .seg button.on { background:#fff; color:#4f46e5; box-shadow:0 1px 2px rgba(15,23,42,.08); }
+</style></head><body>
+<div class="barra">
+  <span class="tit">MappAI</span>
+  <div id="chip-vivo"></div>
+  <span class="seg"><button class="on">Costruisci</button><button>Elabora</button><button>Insegna</button></span>
+</div>
+<div id="stati"></div>
+<script>
+  var STATI = [{"nome":"Niente scelto","quando":"primo avvio, o «Generico»: l’app lavora senza taratura di classe","parti":[{"id":"c","etichetta":"Classe","icona":"graduation-cap","vuoto":true},{"id":"d","etichetta":"Materia","icona":"book-open","vuoto":true}]},{"nome":"Classe scelta, disciplina no","quando":"la classe ne ha più d’una e non hai ancora scelto","parti":[{"id":"c","etichetta":"1ªA","icona":"graduation-cap"},{"id":"d","etichetta":"Materia","icona":"book-open","vuoto":true}]},{"nome":"Classe e disciplina","quando":"lo stato normale del docente di materia","parti":[{"id":"c","etichetta":"1ªA","icona":"graduation-cap"},{"id":"d","etichetta":"Storia","icona":"book-open"}]},{"nome":"Allievo al posto della classe","quando":"SOLO col ruolo «Docente di sostegno / OPI» dichiarato nel profilo","parti":[{"id":"c","etichetta":"Aline Bernasconi","icona":"user-round"},{"id":"d","etichetta":"Storia","icona":"book-open"}]},{"nome":"Caso peggiore","quando":"nome lungo davvero: la metà si accorcia, non spinge fuori l’altra","parti":[{"id":"c","etichetta":"Gian-Luca Pellegrini-Rossi","icona":"user-round"},{"id":"d","etichetta":"Educazione all’immagine","icona":"book-open"}]}];
+  document.getElementById('chip-vivo').appendChild(MappAIModal.chipContesto(STATI[2].parti));
+  function riga(host, s) {
+    var r = document.createElement('div'); r.className = 'st';
+    var e = document.createElement('div'); e.className = 'et';
+    e.innerHTML = '<b>' + s.nome + '</b><span>' + s.quando + '</span>';
+    r.appendChild(e);
+    var c = MappAIModal.chipContesto(s.parti);
+    r.appendChild(c);
+    var m = document.createElement('span');
+    m.style.cssText = 'font-size:10.5px;color:#94a3b8;margin-left:12px';
+    r.appendChild(m);
+    host.appendChild(r);
+    requestAnimationFrame(function () {
+      m.textContent = Math.round(c.getBoundingClientRect().width) + '×' + Math.round(c.getBoundingClientRect().height) + 'px';
+    });
+  }
+  STATI.forEach(function (s) { riga(document.getElementById('stati'), s); });
+  if (window.lucide) try { lucide.createIcons(); } catch(e){}
+</script>
+</body></html>

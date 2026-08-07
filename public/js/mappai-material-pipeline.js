@@ -66,7 +66,10 @@
   }
 
   // ── IPC helpers ─────────────────────────────────────────────────────────
-  async function _mapsBase() { const info = await window.electronAPI.filesRootGet(); return info.mapsBaseDir; }
+  // le due basi (Mappe e Allievi) arrivano insieme: quale delle due si usa lo
+  // decide il contesto attivo, non il chiamante
+  let _basi = null;
+  async function _mapsBase() { _basi = await window.electronAPI.filesRootGet(); return _basi.mapsBaseDir; }
   async function _writeManifest(vaultPath, manifest) {
     return window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text: JSON.stringify(manifest, null, 2) });
   }
@@ -89,11 +92,24 @@
   async function _resolveFolderPath(cls) {
     const base = await _mapsBase();
     const classFolder = cls ? FC().mapClassFolder(cls.sede, cls.name) : FC().classFolder('');
+    // Livello disciplina (29/7): quella della generazione in corso se coerente con
+    // la classe scelta nel modale della pipeline, altrimenti l'unica della classe.
+    let discName = '';
+    try {
+      const CL = window.MappAIClasses;
+      if (cls && CL) {
+        const choices = CL.disciplineChoices ? CL.disciplineChoices(cls) : [];
+        const cur = _state().generationDiscipline || (CL.activeDiscipline ? CL.activeDiscipline() : '');
+        if (choices.length === 1) discName = choices[0];
+        else if (cur && choices.indexOf(cur) >= 0) discName = cur;
+      }
+    } catch (e) { discName = ''; }
+    const discFolder = FC().disciplineFolder(discName);
     const vaultName = FC().vaultFolderName(_state().rootNodeLabel);
     let siblings = [];
     try {
       const all = await window.electronAPI.getAllVaults();
-      siblings = (all || []).filter(v => v.classDir === classFolder).map(v => v.folderName);
+      siblings = (all || []).filter(v => v.classDir === classFolder && (v.discDir || '') === (discFolder || '')).map(v => v.folderName);
     } catch (e) { siblings = []; }
     let finalName = vaultName;
     if (siblings.indexOf(vaultName) >= 0) {
@@ -101,7 +117,17 @@
       const n = Math.max(2, (seq.maxSeq || 0) + 1);
       finalName = vaultName + ' · ' + String(n).padStart(2, '0');
     }
-    return base + '/' + classFolder + '/' + finalName;
+    /* Con un profilo ALLIEVO attivo la mappa (e i suoi materiali) vivono nella
+       sua cartella, non fra quelle di classe — stessa regola dell'auto-vault. */
+    let allievo = '';
+    try { const CL2 = window.MappAIClasses; allievo = (CL2 && CL2.activeStudentName) ? CL2.activeStudentName() : ''; } catch (e) { allievo = ''; }
+    const radice = FC().mapVaultRoot
+      ? FC().mapVaultRoot({ maps: base, students: _basi && _basi.studentsBaseDir }, allievo)
+      : base;
+    const parents = FC().mapVaultParentsFor
+      ? FC().mapVaultParentsFor(allievo, classFolder, discFolder)
+      : FC().mapVaultParents(classFolder, discFolder);
+    return [radice].concat(parents, [finalName]).join('/');
   }
 
   // ── Overlay progressivo ──────────────────────────────────────────────────
@@ -254,7 +280,12 @@
           layout,
           bg: 'none',
           tuned: !!config.tuned,
-          causal: !!ns.causal,
+          /* ⚠️ La catena NON entra più nel PDF dei fogli nodi: dal 5/8 è un
+             materiale suo (step E) con un file suo. Passarla anche qui la
+             stamperebbe due volte, in due posti diversi.
+             Il flusso MANUALE del foglio nodi conserva la sua opzione: è
+             `printAllNodeLabels` a non cambiare, è la pipeline che non la chiede. */
+          causal: false,
           toDisk: { vaultPath }
         });
         if (!res || !res.ok) throw new Error('Foglio nodi (' + layout + ') non generato');
@@ -319,9 +350,68 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // STEP E — «Catena dei perché»: materiale INDIPENDENTE, PDF suo
+  // ══════════════════════════════════════════════════════════════════════
+  /* Decisione di Giacomo (5/8). Prima era un'opzione dei fogli nodi e le sue
+     pagine finivano in coda a quel PDF: per avere la catena bisognava chiedere
+     anche i fogli, e chi apriva la cartella non trovava un file che si chiamasse
+     come la cosa che cercava.
+     Zero chiamate AI: i nessi si ricavano dai verbi dei link e dai connettivi
+     nelle descrizioni (`chainsForOutput`), e se il docente ha rivisto la catena
+     in ELABORA vale la SUA versione — la stessa funzione che usano il documento
+     a schermo e l'editor, così le tre rese non possono divergere. */
+  async function _stepE(vaultPath, manifest, config) {
+    const CC = window.MappAICausal;
+    if (!CC || !CC.chainsForOutput || !CC.buildDocHtml) {
+      manifest = PC().stepTransition(manifest, 'E', 'skipped', { now: _now() });
+      manifest.steps.E.note = 'modulo «Catena dei perché» non disponibile';
+      await _writeManifest(vaultPath, manifest);
+      return manifest;
+    }
+    /* Nessun nesso non è un ERRORE: è una mappa con verbi generici. Si dichiara
+       e si va avanti — pending→skipped è una transizione lecita, running→skipped
+       no, quindi il controllo va fatto PRIMA di mettere lo step in corso. */
+    let chains = null;
+    try { chains = CC.chainsForOutput(); } catch (e) { chains = null; }
+    if (!chains || !chains.total) {
+      manifest = PC().stepTransition(manifest, 'E', 'skipped', { now: _now() });
+      manifest.steps.E.note = _t('mp_causal_empty', 'nessun nesso causa-effetto nella mappa: catena non generata');
+      await _writeManifest(vaultPath, manifest);
+      _toast(_t('mp_causal_empty_toast', 'Catena dei perché non generata: la mappa non ha nessi causa-effetto riconoscibili'), 'warning');
+      return manifest;
+    }
+    manifest = PC().stepTransition(manifest, 'E', 'running', { now: _now() });
+    await _writeManifest(vaultPath, manifest);
+    try {
+      _overlay(_t('mp_step_e', 'Preparo la catena dei perché…'));
+      const html = CC.buildDocHtml(chains, CC.mapName ? CC.mapName() : '');
+      if (!html || html.length < 200) throw new Error('documento vuoto');
+      /* PDF dallo STESSO html del documento stampabile (via la finestra
+         offscreen di `html-to-pdf`), non da un jsPDF costruito a parte: una
+         resa sola per schermo, stampa e cartella. */
+      /* A4 verticale: il documento della catena è una colonna di righe
+         «causa → connettivo → effetto», non una tabella larga. */
+      const pdf = await window.electronAPI.htmlToPdf({ html, options: { pageSize: 'A4', landscape: false } });
+      if (!pdf || !pdf.ok || !pdf.base64) throw new Error((pdf && pdf.error) || 'PDF non prodotto');
+      const v = PC().validatePdfB64(pdf.base64);
+      if (!v.ok) throw new Error(v.error);
+      const rel = 'Materiale Studio/' + PC().buildFileName('causal', null, config.tuned);
+      const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+      if (!w || !w.ok) throw new Error('Scrittura catena fallita: ' + ((w && w.error) || '?'));
+      manifest = _recordFile(manifest, 'E', rel);
+      await _writeManifest(vaultPath, manifest);
+      manifest = PC().stepTransition(manifest, 'E', 'done', { now: _now() });
+    } catch (e) {
+      manifest = PC().stepTransition(manifest, 'E', 'failed', { now: _now(), error: e.message || String(e) });
+    }
+    await _writeManifest(vaultPath, manifest);
+    return manifest;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // Orchestratore
   // ══════════════════════════════════════════════════════════════════════
-  // opts: { only?: ['B','C','D'] per Riprova; vaultPath?, manifest? per ripresa }
+  // opts: { only?: ['B','C','D','E'] per Riprova; vaultPath?, manifest? per ripresa }
   Pipeline.run = async function (config, opts) {
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
     opts = opts || {};
@@ -342,9 +432,34 @@
       if (doA) {
         _overlay(_t('mp_step_a', 'Genero la mappa…'));
         _setContext('map');
+        /* ⚠️ Impostare `.checked` da JS NON scatena `onchange`: il toggle si
+           vedeva acceso ma `MappAITune.levelArmed` restava falso, quindi la
+           taratura non finiva nel prompt. Si arma il motore direttamente e la
+           spunta lo segue.
+           `armLevel(true)` = «semplifica comunque»: chi accende la taratura qui
+           chiede una mappa leggibile, quindi il registro SEMPLICE (BES/DSA)
+           vince sul preset del profilo, fosse anche «standard» o «ricco». */
         const lt = document.getElementById('level-tune-toggle');
+        const _ltPrima = lt ? lt.checked : false;
+        const _tunePrima = window.MappAITune
+            ? { armed: window.MappAITune.levelArmed, forza: window.MappAITune.levelForceSimple } : null;
         if (lt) lt.checked = !!config.levelTuned;
-        await window.startGeneration();
+        if (window.MappAITune) {
+            if (config.levelTuned) window.MappAITune.armLevel(true);
+            else window.MappAITune.disarmLevel();
+        }
+        try {
+            await window.startGeneration();
+        } finally {
+            /* La taratura vale per QUESTA mappa, non per il resto della sessione:
+               lasciarla armata farebbe uscire semplificata anche la prossima
+               generazione fatta a mano, senza che nessuno l'abbia chiesto. */
+            if (lt) lt.checked = _ltPrima;
+            if (window.MappAITune && _tunePrima) {
+                window.MappAITune.levelArmed = _tunePrima.armed;
+                window.MappAITune.levelForceSimple = _tunePrima.forza;
+            }
+        }
         const mv = PC().validateMapResult(_state().db);
         if (!mv.ok) throw new Error(_t('mp_map_fail', 'Mappa non valida: ') + mv.error);
         vaultPath = await _resolveFolderPath(cls);
@@ -354,6 +469,12 @@
         manifest = PC().createManifest(config, { now: _now(), vaultPath });
         manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
         await _writeManifest(vaultPath, manifest);
+        /* La fonte originale, se chiesta: subito dopo il vault, prima dei
+           materiali. Se fallisce non ferma la pipeline — è una copia di
+           cortesia, non un passo della generazione. */
+        if (config.sourcePdf && window.MappAIElabora && window.MappAIElabora.copySourcesTo) {
+          try { await window.MappAIElabora.copySourcesTo(vaultPath, 'Allegati'); } catch (e) { }
+        }
         manifest = PC().stepTransition(manifest, 'A', 'done', { now: _now() });
         await _writeManifest(vaultPath, manifest);
       }
@@ -364,6 +485,7 @@
       if (config.quiz && wants('B') && manifest.steps.B.status !== 'done') manifest = await _stepB(vaultPath, manifest, config, apiKey, counter);
       if (config.nodesheet && wants('C') && manifest.steps.C.status !== 'done') manifest = await _stepC(vaultPath, manifest, config);
       if (config.synthesis && wants('D') && manifest.steps.D.status !== 'done') manifest = await _stepD(vaultPath, manifest, config, apiKey);
+      if (config.causal && wants('E') && manifest.steps.E && manifest.steps.E.status !== 'done') manifest = await _stepE(vaultPath, manifest, config);
 
       // Rendi i set quiz/flashcard accessibili SUBITO dalla pagina Insegna
       // (indice mappai_studysets_index + progetto) senza attendere un autosave:
@@ -428,7 +550,10 @@
     set('mp-quiz-on', !!o.quiz);
     if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle); }
     set('mp-ns-on', !!o.nodesheet);
-    if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); set('mp-ns-causal', o.nodesheet.causal); }
+    if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); }
+    /* la catena è fuori da `nodesheet` dal 5/8; `presetNormalize` la legge anche
+       dai preset vecchi, qui basta il campo nuovo */
+    set('mp-ns-causal', !!o.causal);
     set('mp-syn-on', !!o.synthesis);
     if (o.synthesis) set('mp-syn-audio', o.synthesis.audio);
     // «Adatta alla classe»: master + ambito derivati da tuned/levelTuned del preset.
@@ -445,7 +570,7 @@
 
   Pipeline._savePreset = function () {
     const cfg = _readConfig(); if (!cfg) return;
-    if (!cfg.quiz && !cfg.nodesheet && !cfg.synthesis) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
+    if (!_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
     // window.prompt NON è supportato in Electron → prompt custom dell'app.
     const commit = function (name) {
       name = String(name == null ? '' : name).trim();
@@ -536,6 +661,16 @@
           // Sintesi
           '<div class="' + SECT + '">' + secHeader('mp-syn-on', _t('mp_synthesis', 'Sintesi della mappa')) +
             '<div id="mp-syn-body" class="mt-3">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
+          /* Fonte originale accanto ai materiali. Il default cambia col contesto:
+             per una CLASSE no — il PDF di partenza è già nelle mani del docente e
+             duplicarlo in ogni vault di classe riempie il disco; per un ALLIEVO
+             sì — la sua cartella deve bastare a sé stessa, perché è quello che
+             gli si consegna. */
+          '<div class="' + SECT + '">' +
+            chk('mp-src-pdf', _t('mp_src_pdf', 'Salva la fonte originale in «Allegati»'), _pdfDefault()) +
+            '<p class="text-[11px] text-slate-500 leading-relaxed mt-2 ml-[26px]">' +
+              _esc(_t('mp_src_pdf_help', 'Il PDF di partenza resta nel vault, accanto ai materiali generati.')) +
+            '</p></div>' +
           // Adatta alla classe (C): master + ambito. La classe attiva è già il contesto
           // base ovunque; qui scegli cosa affinare IN PIÙ (mappa e/o materiali).
           '<div class="' + SECT + '">' +
@@ -589,10 +724,13 @@
     }
   }
 
-  // Legge la config dal modale (null se il modale non è aperto).
+  /* Legge la config dai campi `mp-*`, ovunque siano montati: il MODALE storico
+     oppure il BENTO di COSTRUISCI in stile manifesto (#mn-bento), che porta gli
+     stessi id apposta. Una lettura sola per due superfici: una copia qui
+     divergerebbe al primo campo aggiunto. Null se non c'è nessuna delle due. */
   function _readConfig() {
     const g = (id) => document.getElementById(id);
-    if (!g('mp-modal')) return null;
+    if (!g('mp-modal') && !g('mn-bento')) return null;
     const on = (id) => g(id) && g(id).checked;
     // «Adatta alla classe»: master + ambito → levelTuned (mappa) e/o tuned (materiali VERDE).
     const adaptOn = !!on('mp-adapt-on');
@@ -617,16 +755,43 @@
       if (on('mp-ns-summary')) modes.push('summary');
       if (on('mp-ns-card')) modes.push('card');
       const lvRaw = g('mp-ns-level') && g('mp-ns-level').value;
-      cfg.nodesheet = { maxLevel: (lvRaw === 'all' || !lvRaw) ? 'all' : parseInt(lvRaw, 10), fmt: (g('mp-ns-fmt') && g('mp-ns-fmt').value) || '2x2', modes: modes.length ? modes : ['title'], causal: !!on('mp-ns-causal') };
+      /* `causal: false` fisso: dal 5/8 la catena è un materiale suo (step E) e
+         non una coda del PDF dei fogli. Il campo resta nella forma per non
+         cambiare la firma di `printAllNodeLabels`, che il flusso manuale usa. */
+      cfg.nodesheet = { maxLevel: (lvRaw === 'all' || !lvRaw) ? 'all' : parseInt(lvRaw, 10), fmt: (g('mp-ns-fmt') && g('mp-ns-fmt').value) || '2x2', modes: modes.length ? modes : ['title'], causal: false };
     }
     if (on('mp-syn-on')) cfg.synthesis = { audio: !!on('mp-syn-audio') };
+    /* materiale INDIPENDENTE: si spunta e si ottiene, senza chiedere i fogli nodi */
+    cfg.causal = !!on('mp-ns-causal');
+    cfg.sourcePdf = !!on('mp-src-pdf');
     return cfg;
+  }
+
+  /* «C'è almeno un materiale da produrre?» — la definizione vive in
+     `PipelineCore.hasOutput` (pura, testata): è la stessa domanda che decide
+     quali step nascono 'pending' nel manifest, e prima stava scritta a mano in
+     tre punti di questo file. `_hasOutputNow()` la applica a ciò che è a schermo,
+     ed è quello che il bento chiede per sapere se il suo bottone dice «Genera
+     materiali» o «Genera Mappa» — così il bento non deve sapere quali campi sono
+     materiali (alla prossima aggiunta le due liste divergerebbero). */
+  function _hasOutput(cfg) { return PC().hasOutput(cfg); }
+  Pipeline._hasOutputNow = function () { return _hasOutput(_readConfig()); };
+
+  /* Con un profilo ALLIEVO attivo la fonte si conserva di default: la sua
+     cartella è ciò che gli si consegna e deve bastare a sé stessa. Per una
+     classe no — il PDF di partenza il docente ce l'ha già, e copiarlo in ogni
+     vault riempie il disco senza dare niente in più. */
+  function _pdfDefault() {
+    try {
+      var CL = window.MappAIClasses;
+      return !!(CL && CL.activeStudentName && CL.activeStudentName());
+    } catch (e) { return false; }
   }
 
   Pipeline._reestimate = function () {
     const el = document.getElementById('mp-estimate'); if (!el) return;
     const cfg = _readConfig(); if (!cfg) return;
-    if (!cfg.quiz && !cfg.nodesheet && !cfg.synthesis) { el.innerHTML = _esc(_t('mp_pick_one', 'Attiva almeno una sezione di output.')); return; }
+    if (!_hasOutput(cfg)) { el.innerHTML = _esc(_t('mp_pick_one', 'Attiva almeno una sezione di output.')); return; }
     const est = PC().estimateCalls(cfg, _mapStats());
     el.innerHTML = _esc(_t('mp_estimate', 'Stima chiamate AI') + ': ~' + est.total) +
       ' <span style="opacity:.6">(A ' + est.perStep.A + ' · B ' + est.perStep.B + ' · C ' + est.perStep.C + ' · D ' + est.perStep.D + ')</span>';
@@ -636,7 +801,7 @@
   Pipeline._startFromModal = function () {
     const cfg = _readConfig();
     if (!cfg) return;
-    if (!cfg.quiz && !cfg.nodesheet && !cfg.synthesis) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
+    if (!_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
     const apiKey = window.getSystemKey ? window.getSystemKey() : '';
     if (!apiKey) { _toast(_t('tst_need_key', "Inserisci un'API Key per continuare"), 'error'); return; }
     // Voce: richiede la chiave Google diretta → altrimenti deseleziona con avviso (FR-006).
@@ -653,7 +818,8 @@
   // ══════════════════════════════════════════════════════════════════════
   Pipeline._lastRun = null;
   function _stepLabel(s) {
-    return { A: _t('mp_lbl_a', 'Mappa'), B: _t('mp_lbl_b', 'Quiz e flashcard'), C: _t('mp_lbl_c', 'Fogli nodi'), D: _t('mp_lbl_d', 'Sintesi') }[s] || s;
+    return { A: _t('mp_lbl_a', 'Mappa'), B: _t('mp_lbl_b', 'Quiz e flashcard'), C: _t('mp_lbl_c', 'Fogli nodi'),
+             D: _t('mp_lbl_d', 'Sintesi'), E: _t('mp_lbl_e', 'Catena dei perché') }[s] || s;
   }
   function _statusChip(st) {
     const m = { done: ['check', '#16a34a', _t('mp_done', 'fatto')], failed: ['alert-triangle', '#dc2626', _t('mp_failed', 'errore')], skipped: ['minus', '#94a3b8', _t('mp_skipped', 'saltato')], pending: ['clock', '#94a3b8', _t('mp_pending', 'in attesa')], running: ['loader', '#4f46e5', _t('mp_running', 'in corso')] };

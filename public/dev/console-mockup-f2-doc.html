@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v=1785831100555-1785686777801-1785689580130">
+<script src="../js/lucide.min.js"></script>
+<script src="../js/mappai-modal-core.js?v=1785831100555-1785686777801-1785689580130"></script>
+<script src="../js/mappai-modal.js?v=1785831100555-1785686777801-1785689580130"></script>
+<style>
+  /* le variabili di :root dell'app: senza --emoji-font la dichiarazione
+     font-family verrebbe SCARTATA e si misurerebbe un altro carattere */
+  :root { --emoji-font:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { font-family:'Space Mono', var(--emoji-font), monospace; box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:#eef1f6; display:flex; align-items:center; justify-content:center;
+         padding:0; }
+</style></head><body>
+<script>
+  var SCHEMA = {"titolo":"Documenti","sottotitolo":"ELABORA · Quiz cartaceo · Storia della Carta e delle sue tecniche di fabbricazione in Europa","icona":"folder-open","taglia":"xl","layout":"console","piena":true,"sporco":true,"invio":false,"veloChiude":false,"navChiudibile":true,"navChiusa":true,"contesto":[{"id":"classe","etichetta":"1ªA","icona":"graduation-cap"},{"id":"disciplina","etichetta":"Storia","icona":"book-open"}],"nav":[{"id":"fonte","etichetta":"Fonte","icona":"file-search","attiva":false},{"id":"tutti","etichetta":"Tutti","icona":"files","contatore":34,"attiva":false},{"id":"quiz","etichetta":"Quiz","icona":"help-circle","contatore":9,"attiva":true},{"id":"flash","etichetta":"Flashcard","icona":"copy","contatore":6,"attiva":false},{"id":"sintesi","etichetta":"Sintesi","icona":"file-text","contatore":7,"attiva":false},{"id":"fogli","etichetta":"Fogli dei nodi","icona":"layout-grid","contatore":12,"attiva":false},{"id":"condivisi","etichetta":"Condivisi (QR)","icona":"qr-code","contatore":3,"attiva":false}],"schede":[{"id":"contenuto","etichetta":"Contenuto","attiva":true},{"id":"aspetto","etichetta":"Aspetto"},{"id":"anteprima","etichetta":"Anteprima di stampa"}],"sezioni":[{"colonna":"barra","azioni":[{"id":"undo","etichetta":"Annulla","icona":"undo-2"},{"id":"html","etichetta":"HTML","icona":"code"},{"id":"vault","etichetta":"Nel vault","icona":"folder-down"},{"id":"stampa","etichetta":"Stampa","icona":"printer"},{"id":"salva","etichetta":"Salva","ruolo":"primario","icona":"save"}]}],"tela":{"id":"editor","segnaposto":"Qui dentro vive l’editor vero (mappai-doc-editor.js): il foglio con le domande, identico a come verrà stampato. Il motore dei modali non lo disegna — gli dà lo spazio e il contorno."},"azioniTestata":[{"id":"chiudi-doc","etichetta":"Chiudi","icona":"x"}]};
+  document.body.appendChild(MappAIModal.render(SCHEMA));
+  if (window.lucide) try { lucide.createIcons(); } catch(e){}
+</script>
+</body></html>

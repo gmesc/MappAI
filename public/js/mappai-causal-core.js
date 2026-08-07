@@ -392,6 +392,162 @@
         return { branches, cross: crossCapped, crossTruncated, rootItems: rootCapped, rootTruncated, total };
     }
 
+    /* ── DOCUMENTO EDITABILE ─────────────────────────────────────────────────
+     * L'estrazione è deterministica, quindi grezza: un nesso può avere i lati
+     * tagliati male o un connettivo che nel contesto non regge. Da qui il
+     * documento diventa un modello editabile, e il docente sistema quello che
+     * la macchina ha preso alla lettera.
+     *
+     * Una riga ha SEMPRE gli stessi tre campi — `left`, `conn`, `right` — anche
+     * quando la tripla di partenza è un contrasto (`a`/`b`) invece di una causa
+     * (`cause`/`effect`): l'editor mostra tre campi, non due modelli diversi.
+     * `tripleFromRow` rimette i nomi originali, così i builder di stampa, le
+     * pagine PDF e il blocco della sintesi continuano a leggere le triple che
+     * hanno sempre letto.
+     * Le etichette delle sezioni arrivano da FUORI (`labels`): il core resta
+     * senza lingua. */
+    const CHAIN_FAMILY_LIST = ['trasformazione', 'dipendenza', 'sequenza', 'opposizione'];
+    function _famOk(f) { return CHAIN_FAMILY_LIST.indexOf(f) >= 0 ? f : 'trasformazione'; }
+    function _s(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); }
+
+    function rowFromTriple(tr) {
+        if (!tr) return null;
+        const contrast = tr.type === 'contrast';
+        return {
+            type: contrast ? 'contrast' : 'cause',
+            left: _s(contrast ? tr.a : tr.cause),
+            right: _s(contrast ? tr.b : tr.effect),
+            conn: _s(contrast ? tr.conn : (tr.connShow || tr.conn)),
+            family: _famOk(tr.family),
+            // 'manual' = riga scritta dal docente: la stampa non le mette il badge
+            // «dalla mappa»/«dal testo», che sarebbe una provenienza falsa.
+            origin: (tr.origin === 'link' || tr.origin === 'desc') ? tr.origin : 'manual',
+            nodeLabel: _s(tr.nodeLabel)
+        };
+    }
+    function tripleFromRow(row) {
+        if (!row) return null;
+        const base = { conn: _s(row.conn), family: _famOk(row.family), origin: row.origin || 'manual' };
+        if (row.nodeLabel) base.nodeLabel = _s(row.nodeLabel);
+        if (row.type === 'contrast') return Object.assign(base, { type: 'contrast', a: _s(row.left), b: _s(row.right) });
+        return Object.assign(base, { cause: _s(row.left), effect: _s(row.right), connShow: _s(row.conn) });
+    }
+    function blankRow(family) {
+        return { type: 'cause', left: '', right: '', conn: '', family: _famOk(family), origin: 'manual', nodeLabel: '' };
+    }
+
+    /** chains (buildChains) → documento editabile a sezioni. */
+    function docFromChains(chains, labels) {
+        const L = labels || {};
+        const secs = [];
+        const c = chains || {};
+        if (c.rootItems && c.rootItems.length) {
+            secs.push({ id: 'root', kind: 'root', label: _s(L.root) || 'In generale', truncated: c.rootTruncated || 0, rows: c.rootItems.map(rowFromTriple) });
+        }
+        (c.branches || []).forEach(function (b) {
+            if (!b || !b.items || !b.items.length) return;
+            secs.push({ id: String(b.id), kind: 'branch', label: _s(b.label), group: b.group || 0, truncated: b.truncated || 0, rows: b.items.map(rowFromTriple) });
+        });
+        if (c.cross && c.cross.length) {
+            secs.push({ id: 'cross', kind: 'cross', label: _s(L.cross) || 'Ponti tra i rami', truncated: c.crossTruncated || 0, rows: c.cross.map(rowFromTriple) });
+        }
+        return { sections: secs, editedAt: null };
+    }
+
+    /** Documento editabile → chains, nella forma che i builder già conoscono. */
+    function chainsFromDoc(doc) {
+        const out = { branches: [], cross: [], crossTruncated: 0, rootItems: [], rootTruncated: 0, total: 0 };
+        ((doc && doc.sections) || []).forEach(function (s) {
+            const items = (s.rows || []).map(tripleFromRow).filter(function (t) {
+                return t && ((t.cause || t.a) && (t.effect || t.b));
+            });
+            if (!items.length) return;
+            if (s.kind === 'root') { out.rootItems = items; out.rootTruncated = s.truncated || 0; }
+            else if (s.kind === 'cross') { out.cross = items; out.crossTruncated = s.truncated || 0; }
+            else out.branches.push({ id: s.id, label: s.label, group: s.group || 0, items: items, truncated: s.truncated || 0 });
+        });
+        out.total = out.rootItems.length + out.cross.length +
+            out.branches.reduce(function (n, b) { return n + b.items.length; }, 0);
+        return out;
+    }
+
+    function countRows(doc) {
+        return ((doc && doc.sections) || []).reduce(function (n, s) { return n + ((s.rows || []).length); }, 0);
+    }
+
+    // Operazioni immutabili (stesso patto degli altri core: mai mutare in luogo,
+    // così l'annulla dell'editor tiene solo istantanee).
+    function _mapSection(doc, si, fn) {
+        const secs = ((doc && doc.sections) || []).map(function (s, i) {
+            if (i !== si) return s;
+            const copy = Object.assign({}, s);
+            copy.rows = fn((s.rows || []).slice());
+            return copy;
+        });
+        return Object.assign({}, doc, { sections: secs });
+    }
+    const ROW_FIELDS = { left: 1, right: 1, conn: 1, family: 1, type: 1 };
+    function setRowField(doc, si, ri, field, value) {
+        if (!ROW_FIELDS[field]) return doc;
+        return _mapSection(doc, si, function (rows) {
+            if (!rows[ri]) return rows;
+            const r = Object.assign({}, rows[ri]);
+            if (field === 'family') r.family = _famOk(value);
+            else if (field === 'type') r.type = (value === 'contrast') ? 'contrast' : 'cause';
+            else r[field] = _s(value);
+            rows[ri] = r;
+            return rows;
+        });
+    }
+    function removeRow(doc, si, ri) {
+        return _mapSection(doc, si, function (rows) { if (rows[ri]) rows.splice(ri, 1); return rows; });
+    }
+    function moveRow(doc, si, ri, dir) {
+        const to = ri + (dir < 0 ? -1 : 1);
+        return _mapSection(doc, si, function (rows) {
+            if (!rows[ri] || to < 0 || to >= rows.length) return rows;
+            const tmp = rows[to]; rows[to] = rows[ri]; rows[ri] = tmp;
+            return rows;
+        });
+    }
+    function insertRow(doc, si, ri) {
+        return _mapSection(doc, si, function (rows) {
+            const at = (typeof ri === 'number' && ri >= -1) ? ri + 1 : rows.length;
+            rows.splice(Math.min(at, rows.length), 0, blankRow(rows[ri] && rows[ri].family));
+            return rows;
+        });
+    }
+
+    /** Ripulisce: righe del tutto vuote fuori, sezioni rimaste vuote fuori. */
+    function normDoc(doc) {
+        const secs = ((doc && doc.sections) || []).map(function (s) {
+            const rows = (s.rows || []).map(function (r) {
+                return {
+                    type: r.type === 'contrast' ? 'contrast' : 'cause',
+                    left: _s(r.left), right: _s(r.right), conn: _s(r.conn),
+                    family: _famOk(r.family),
+                    origin: (r.origin === 'link' || r.origin === 'desc') ? r.origin : 'manual',
+                    nodeLabel: _s(r.nodeLabel)
+                };
+            }).filter(function (r) { return r.left || r.right || r.conn; });
+            return Object.assign({}, s, { rows: rows });
+        }).filter(function (s) { return s.rows.length; });
+        return { sections: secs, editedAt: Date.now() };
+    }
+
+    /** Problemi da mostrare prima di salvare (non bloccanti: li decide il docente). */
+    function validateDoc(doc) {
+        const out = [];
+        ((doc && doc.sections) || []).forEach(function (s, si) {
+            (s.rows || []).forEach(function (r, ri) {
+                const where = s.label + ' · ' + (ri + 1);
+                if (!_s(r.left) || !_s(r.right)) out.push({ si: si, ri: ri, msg: where + ': manca uno dei due lati del nesso' });
+                else if (!_s(r.conn)) out.push({ si: si, ri: ri, msg: where + ': manca il connettivo' });
+            });
+        });
+        return out;
+    }
+
     // ── Scaffold per il prompt della sintesi ────────────────────────────────
     // promptLines = UNICO formattatore riga (usato anche da mappai-causal-chains:
     // niente copie destinate a divergere). Header nella lingua delle mappe.
@@ -426,10 +582,15 @@
 
     return {
         CONNECTIVES, CHAIN_FAMILIES, FALLBACK_FAMILY_MAP,
-        MAX_PER_BRANCH,
+        MAX_PER_BRANCH, CHAIN_FAMILY_LIST,
         extractDescTriples, extractLinkTriples,
         buildParentMap, l1Of, dedupe, buildChains,
         promptLines, promptHeader, promptBlock,
-        connGroup, connEquivalents
+        connGroup, connEquivalents,
+        // documento editabile
+        rowFromTriple, tripleFromRow, blankRow,
+        docFromChains, chainsFromDoc, countRows,
+        setRowField, removeRow, moveRow, insertRow,
+        normDoc, validateDoc
     };
 }));

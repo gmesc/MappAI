@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     htmlToPdf: (data) => ipcRenderer.invoke('html-to-pdf', data),
     saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', data),
     readVaultFile: (data) => ipcRenderer.invoke('read-vault-file', data),
+    // sposta nel Cestino un file dentro un vault (materiali di INSEGNA)
+    deleteVaultFile: (data) => ipcRenderer.invoke('delete-vault-file', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
     pipelineOpenFolder: (data) => ipcRenderer.invoke('pipeline-open-folder', data),
     pipelineOpenFile: (data) => ipcRenderer.invoke('pipeline-open-file', data),
@@ -113,6 +115,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     studySessionOpenFolder: (data) => ipcRenderer.invoke('study-session-open-folder', data),
     liveClassesLoad: () => ipcRenderer.invoke('live-classes-load'),
     liveClassesSave: (data) => ipcRenderer.invoke('live-classes-save', data),
+    // documento nella cartella di una classe o di un allievo (foglio credenziali)
+    classDocSave: (data) => ipcRenderer.invoke('class-doc-save', data),
+    classDocOpen: (data) => ipcRenderer.invoke('class-doc-open', data),
+    studentFolderEnsure: (data) => ipcRenderer.invoke('student-folder-ensure', data),
     launcherChoice: (choice) => ipcRenderer.invoke('launcher-choice', choice),
     launcherReturn: () => ipcRenderer.invoke('launcher-return'),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
@@ -120,6 +126,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
     deleteVault: (data) => ipcRenderer.invoke('delete-vault', data),
+    vaultRelocate: (data) => ipcRenderer.invoke('vault-relocate', data),
     getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),

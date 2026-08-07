@@ -197,14 +197,48 @@
         return html;
     }
 
+    // ── Il contenuto, riusabile ──────────────────────────────────────────────
+    // La console «Cabina» mostra QUESTO nella sua area (2/8). Le due superfici
+    // devono dire la stessa cosa: se la Cabina si ridisegnasse le sue ciambelle,
+    // al primo ritocco i due cruscotti divergerebbero. Il drill-down è uno stato
+    // del chiamante (`st.drillCat`), non una variabile globale di questo file.
+    function contentHtml(records, st) {
+        const s = st || {};
+        const agg = Core().aggregate(records || [], { kbLookup: _kbLookup, usdChf: _rate() });
+        if (!(records || []).length) {
+            return `<div class="flex flex-col items-center justify-center text-center p-10">` +
+                `<i data-lucide="pie-chart" class="w-12 h-12 text-slate-300 mb-3"></i>` +
+                `<p class="text-sm font-bold text-slate-500">${t('ud_empty_title', 'Nessun consumo registrato')}</p>` +
+                `<p class="text-xs text-slate-400 mt-1 max-w-sm">${t('ud_empty_hint', 'Il registro parte da adesso: genera una mappa o un materiale di studio e qui compariranno token e costi di ogni operazione AI.')}</p></div>`;
+        }
+        // `_chartsHtml` legge S.drillCat: lo si presta per la durata del disegno,
+        // così un solo renderer serve la finestra storica e la console.
+        const prima = S.drillCat;
+        S.drillCat = s.drillCat || null;
+        const html = _statsHtml(agg) + _chartsHtml(agg) + _tableHtml(agg);
+        S.drillCat = prima;
+        return html;
+    }
+    // Aggancia il drill-down delle ciambelle dentro un contenitore qualunque.
+    // `onDrill(cat|null)` dice al chiamante di ridisegnare col nuovo stato.
+    function wireContent(host, onDrill) {
+        if (!host || typeof onDrill !== 'function') return;
+        host.querySelectorAll('[data-donut-slice]').forEach(el => {
+            el.addEventListener('click', () => onDrill(el.getAttribute('data-donut-slice')));
+        });
+        const back = host.querySelector('#ud-drill-back');
+        if (back) back.addEventListener('click', () => onDrill(null));
+    }
+
     // ── Report stampabile ────────────────────────────────────────────────────
-    function _printReport() {
+    function _printReport(recsIn, labelIn) {
         const C = Core();
-        const recs = _selRecords();
+        const recs = recsIn || _selRecords();
         const agg = _agg(recs);
         const catData = C.donutByCat(agg);
         const dc = _donutSvg(catData, { clickable: false, centerValue: C.fmtChf(agg.totals.total), centerTitle: 'totale' });
-        const docLabel = S.selKey ? (C.listProjects(recs)[0] || {}).label || '' : t('ud_all_maps', 'Tutte le mappe');
+        const docLabel = labelIn != null ? labelIn
+            : (S.selKey ? (C.listProjects(recs)[0] || {}).label || '' : t('ud_all_maps', 'Tutte le mappe'));
         const today = new Date().toLocaleDateString('it-CH');
         let subTables = '';
         Object.keys(agg.byCat).forEach(cat => {
@@ -336,7 +370,8 @@
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) _close(); });
         overlay.querySelector('#ud-close').addEventListener('click', _close);
-        overlay.querySelector('#ud-print').addEventListener('click', _printReport);
+        // niente riferimento diretto: l'oggetto evento finirebbe come elenco di record
+        overlay.querySelector('#ud-print').addEventListener('click', () => _printReport());
         const folderBtn = overlay.querySelector('#ud-folder');
         if (folderBtn) folderBtn.addEventListener('click', () => window.electronAPI.usageOpenFolder());
         overlay.querySelector('#ud-rate').addEventListener('change', (e) => {
@@ -349,5 +384,13 @@
         window.safeCreateIcons && window.safeCreateIcons();
     }
 
-    window.MappAIUsageDash = { open };
+    window.MappAIUsageDash = {
+        open,
+        /* usati dalla console «Cabina»: stesso cruscotto, altra cornice */
+        contentHtml, wireContent,
+        printReport: _printReport,
+        rate: _rate,
+        setRate: (v) => { const n = parseFloat(v); if (isFinite(n) && n > 0) localStorage.setItem(RATE_KEY, String(n)); },
+        readAll: () => (window.MappAIUsage ? window.MappAIUsage.readAll() : Promise.resolve([]))
+    };
 })();

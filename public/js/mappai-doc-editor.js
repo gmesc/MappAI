@@ -36,11 +36,12 @@
 
     // ── stato di modulo ─────────────────────────────────────────────────────
     let _view = 'list';        // 'list' | 'doc'
-    let _kind = null;          // 'quiz' | 'flashcards' | 'synthesis' | 'nodesheet'
+    let _kind = null;          // 'quiz' | 'flashcards' | 'synthesis' | 'nodesheet' | 'causal'
     let _doc = null;           // documento editabile corrente (quiz/flashcard)
     let _srcSet = null;        // set di studio di provenienza (per il round-trip)
     let _syn = null;           // { data, blocks:[{tag,html}], base:[…], archiveId }
     let _sheet = null;         // foglio nodi: { fmt, bg, depth, cards:[…], excluded:[…] }
+    let _cc = null;            // catena dei perché: { sections:[{kind,label,rows:[…]}] }
     let _nsMenu = -1;          // card con il menu «+ contenuto» aperto (-1 = nessuno)
     // Sintesi: quale menu dei tipi è aperto. i = «cambia il tipo del blocco i»;
     // -100 - i = «aggiungi un blocco sotto il blocco i». -1 = nessuno.
@@ -258,6 +259,122 @@
         _hist.push({ cards: _sheet.cards, fmt: _sheet.fmt, bg: _sheet.bg, depth: _sheet.depth, excluded: _sheet.excluded }, label);
     }
 
+    // ── CATENA DEI PERCHÉ ───────────────────────────────────────────────────
+    // I nessi si estraggono dalla mappa in modo deterministico, quindi grezzo:
+    // qui il docente li sistema. La revisione vive nel PROGETTO (come il foglio
+    // dei nodi), non nell'archivio: l'archivio tiene documenti già resi, e
+    // rileggere le righe da un HTML stampato sarebbe fragile.
+    function CC() { return window.MappAICausalCore; }
+    function CCU() { return window.MappAICausal; }
+
+    function openCausal() {
+        if (!CC() || !CCU()) { toast(t('de_cc_no_core', 'Modulo della catena dei perché non caricato.'), 'error'); return; }
+        const s = _appState();
+        const saved = (s && s.db && s.db.causalDoc) || null;
+        let doc = null;
+        if (saved && CC().countRows(saved)) {
+            doc = CC().normDoc(saved);
+        } else {
+            const chains = CCU().buildForCurrentMap();
+            if (!chains || !chains.total) {
+                toast(t('cc_empty', 'Nessun nesso causa-effetto trovato: servono verbi significativi sui link o connettivi (perché, quindi…) nelle descrizioni.'), 'warning');
+                return;
+            }
+            doc = CC().docFromChains(chains, {
+                root: t('cc_general', 'In generale'),
+                cross: t('cc_cross', 'Ponti tra i rami')
+            });
+        }
+        _cc = doc;
+        _kind = 'causal'; _doc = null; _syn = null; _sheet = null; _srcSet = null;
+        _hist = DE().createHistory(20);
+        _dirty = false;
+        _mapKey = _currentMapKey();
+        _view = 'doc';
+        render();
+    }
+
+    function _ccSnapshot(label) { if (_hist) _hist.push({ cc: _cc }, label); }
+    function _ccTouch() { _dirty = true; _paintDirty(); }
+
+    /** Riga → campo. Chiamata dall'input: nessun re-render, il cursore resta dov'è. */
+    function _commitCc(el) {
+        const si = parseInt(el.getAttribute('data-si'), 10);
+        const ri = parseInt(el.getAttribute('data-ri'), 10);
+        const f = el.getAttribute('data-cc');
+        if (isNaN(si) || isNaN(ri) || !f || !_cc) return;
+        _cc = CC().setRowField(_cc, si, ri, f, el.innerText.replace(/\n+/g, ' '));
+        _ccTouch();
+    }
+    function ccFamily(si, ri, fam) {
+        _ccSnapshot(t('de_cc_op_fam', 'famiglia del nesso'));
+        _cc = CC().setRowField(_cc, si, ri, 'family', fam);
+        _ccTouch(); render();
+    }
+    /** Causa ⇄ contrasto: cambia la freccia e il significato della riga. */
+    function ccType(si, ri) {
+        const cur = _cc.sections[si] && _cc.sections[si].rows[ri];
+        if (!cur) return;
+        _ccSnapshot(t('de_cc_op_type', 'tipo di nesso'));
+        _cc = CC().setRowField(_cc, si, ri, 'type', cur.type === 'contrast' ? 'cause' : 'contrast');
+        _ccTouch(); render();
+    }
+    function ccAdd(si, ri) {
+        _ccSnapshot(t('de_cc_op_add', 'aggiungi nesso'));
+        _cc = CC().insertRow(_cc, si, ri);
+        _ccTouch(); render();
+    }
+    function ccDel(si, ri) {
+        _ccSnapshot(t('de_cc_op_del', 'elimina nesso'));
+        _cc = CC().removeRow(_cc, si, ri);
+        _ccTouch(); render();
+    }
+    function ccMove(si, ri, dir) {
+        _ccSnapshot(t('de_cc_op_move', 'sposta nesso'));
+        _cc = CC().moveRow(_cc, si, ri, dir);
+        _ccTouch(); render();
+    }
+
+    function _ccChains() { return CC().chainsFromDoc(_cc); }
+    function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName()); }
+
+    function _saveCausal() {
+        const s = _appState();
+        if (!_sameMap()) {
+            toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
+            return;
+        }
+        const problems = CC().validateDoc(_cc);
+        if (problems.length && !confirm(
+            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
+            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
+            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
+        const out = CC().normDoc(_cc);
+        if (!CC().countRows(out)) {
+            // Documento svuotato: senza questa guardia il salvataggio lascerebbe
+            // `causalDoc` vuoto e stampa e PDF tornerebbero all'estrazione grezza
+            // senza dirlo (chainsForOutput ripiega sulla mappa).
+            toast(t('de_cc_empty_doc', 'La catena non ha più nessi: aggiungine almeno uno prima di salvare.'), 'warning');
+            return;
+        }
+        _cc = out;
+        s.db.causalDoc = out;
+        try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        // L'archivio tiene la versione RESA: INSEGNA e «Documenti salvati» la
+        // riaprono senza passare dall'editor.
+        try {
+            if (window.MappAIStudyDocs && window.MappAIStudyDocs.save) {
+                window.MappAIStudyDocs.save({
+                    kind: 'causal', title: t('cc_doc_title', 'Catena dei perché'),
+                    mapName: CCU().mapName(), html: _ccHtml()
+                });
+            }
+        } catch (e) { console.warn('[DocEditor] archivio catena:', e); }
+        _dirty = false; _paintDirty();
+        toast(t('de_cc_saved', '✓ Catena salvata — {n} nessi, validi per stampa, PDF e vault').replace('{n}', CC().countRows(out)), 'success');
+        render();
+    }
+
     function nsSetFmt(v) {
         _nsSnapshot(t('de_ns_op_fmt', 'formato foglio'));
         const before = _sheet.cards;
@@ -459,7 +576,7 @@
 
     function backToList() {
         if (_dirty && !confirm(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'))) return;
-        _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
+        _view = 'list'; _doc = null; _syn = null; _sheet = null; _cc = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
         render();
     }
 
@@ -467,6 +584,7 @@
     function _snapshot(label) {
         if (!_hist) return;
         if (_kind === 'nodesheet') return _nsSnapshot(label);
+        if (_kind === 'causal') return _ccSnapshot(label);
         _hist.push(_kind === 'synthesis' ? { blocks: _syn.blocks } : { items: _doc.items, title: _doc.title }, label);
     }
     function undo() {
@@ -480,6 +598,7 @@
             _sheet.depth = prev.state.depth; _sheet.excluded = prev.state.excluded || [];
             _nsMenu = -1;
         }
+        else if (_kind === 'causal') { _cc = prev.state.cc; }
         else { _doc.items = prev.state.items; _doc.title = prev.state.title; }
         _dirty = true;
         render();
@@ -629,6 +748,7 @@
     function save() {
         if (_kind === 'synthesis') return _saveSynthesis();
         if (_kind === 'nodesheet') return _saveNodeSheet();
+        if (_kind === 'causal') return _saveCausal();
         return _saveQuiz();
     }
 
@@ -749,6 +869,9 @@
 
     function print() {
         if (_kind === 'nodesheet') return _printNodeSheet();
+        // La catena ha una resa sola: il documento vero, con modalità esercizio
+        // e stampa dentro. Aprirlo archivia anche la versione mostrata.
+        if (_kind === 'causal') return CCU().openDoc(_ccChains());
         if (_kind === 'synthesis') {
             const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
             const html = window.MappAIBranchSynthesis.buildPrintHtml(data);
@@ -804,6 +927,16 @@
 
     // Sintesi: export .html (conserva il lettore TTS e la voce naturale).
     function exportHtml() {
+        if (_kind === 'causal') {
+            const name = 'Catena-dei-perche-' + String(CCU().mapName()).replace(/[\\/:*?"<>|]/g, '-') + '.html';
+            const blobCc = new Blob([_ccHtml()], { type: 'text/html;charset=utf-8' });
+            const aCc = document.createElement('a');
+            aCc.href = URL.createObjectURL(blobCc); aCc.download = name;
+            document.body.appendChild(aCc); aCc.click();
+            setTimeout(function () { URL.revokeObjectURL(aCc.href); aCc.remove(); }, 500);
+            toast(t('de_cc_html_done', '✓ HTML scaricato'), 'success');
+            return;
+        }
         const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
         const html = window.MappAIBranchSynthesis.buildPrintHtml(data);
         const name = 'Sintesi-' + String(data.branchLabel || 'mappa').replace(/[\\/:*?"<>|]/g, '-') + '.html';
@@ -846,7 +979,10 @@
                 else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out0 && out0.error ? ': ' + out0.error : ''), 'error');
                 return;
             }
-            if (_kind === 'synthesis') {
+            if (_kind === 'causal') {
+                relPath = 'Materiale Studio/Catena dei perche (rivista).html';
+                payload = { vaultPath: vaultPath, relPath: relPath, text: _ccHtml() };
+            } else if (_kind === 'synthesis') {
                 const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
                 // Nome per RAMO: «Sintesi.html» secco è il file della pipeline
                 // materiali (con l'MP3 della voce naturale accanto) — sovrascriverlo
@@ -983,11 +1119,11 @@
                 t('de_g_flash_e', 'Nessun set di flashcard.')) +
             group('scissors', t('de_g_ns', 'Foglio dei nodi'), _nsRow(row),
                 t('de_g_ns_e', 'Questa mappa non ha nodi da stampare.')) +
-            group('file-text', t('de_g_synth', 'Sintesi'),
+            group('file-text', t('de_g_synth', 'Sintesi e catene'),
                 syn.map(d => row('file-text', d.title,
                     d.live ? t('de_current', 'in memoria')
                         : (d.other ? d.mapName + ' · ' + _date(d.date) : _date(d.date)),
-                    'MappAIDocEditor.openSynthesis(\'' + _q(d.id) + '\')')).join(''),
+                    'MappAIDocEditor.openSynthesis(\'' + _q(d.id) + '\')')).join('') + _ccRow(row),
                 t('de_g_synth_e', 'Nessuna sintesi: generane una da «Materiali di studio → Sintesi».')) +
             '</div>';
     }
@@ -1007,6 +1143,28 @@
             saved ? t('de_ns_revised', 'rivisto') : '');
     }
 
+    /**
+     * Riga «Catena dei perché», nella stessa sezione delle sintesi: è l'altro
+     * documento di testo che si ricava dalla mappa. Come il foglio dei nodi c'è
+     * sempre — purché la mappa abbia dei nessi da mostrare — perché si costruisce
+     * al volo e non serve averlo generato prima.
+     */
+    function _ccRow(row) {
+        if (!CC() || !CCU()) return '';
+        const s = _appState();
+        const saved = (s && s.db && s.db.causalDoc) || null;
+        let n = saved ? CC().countRows(saved) : 0;
+        if (!n) {
+            // Estrazione deterministica: costa un conteggio, non una chiamata AI.
+            try { const ch = CCU().buildForCurrentMap(); n = (ch && ch.total) || 0; } catch (e) { n = 0; }
+        }
+        if (!n) return '';
+        return row('git-branch-plus', t('cc_doc_title', 'Catena dei perché') + ' — ' + ((s && s.rootNodeLabel) || ''),
+            n + ' ' + t(n === 1 ? 'de_cc_nexus' : 'de_cc_nexi', n === 1 ? 'nesso' : 'nessi'),
+            'MappAIDocEditor.openCausal()',
+            saved ? t('de_ns_revised', 'rivisto') : '');
+    }
+
     function _q(s) { return String(s).replace(/'/g, "\\'"); }
     function _date(ts) {
         if (!ts) return '';
@@ -1017,15 +1175,18 @@
     // ── foglio quiz/flashcard editabile ─────────────────────────────────────
     function _docHtml() {
         const sheet = (_kind === 'synthesis') ? _synthSheet()
-            : (_kind === 'nodesheet') ? _nodeSheet() : _quizSheet();
+            : (_kind === 'nodesheet') ? _nodeSheet()
+            : (_kind === 'causal') ? _causalSheet() : _quizSheet();
         return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' + sheet + '</div></div>';
     }
 
     function _docBar() {
         const isSyn = _kind === 'synthesis';
         const isNs = _kind === 'nodesheet';
+        const isCc = _kind === 'causal';
         const title = isSyn ? (_syn.data.branchLabel || t('de_synth', 'Sintesi'))
             : isNs ? t('de_ns', 'Foglio dei nodi')
+            : isCc ? t('cc_doc_title', 'Catena dei perché')
             : (_doc.title || t('de_quiz', 'Quiz'));
         return '<div class="de-bar">' +
             '<button type="button" class="de-btn de-ghost" onclick="MappAIDocEditor.backToList()">‹ ' + esc(t('de_back', 'Documenti')) + '</button>' +
@@ -1034,8 +1195,11 @@
             '<div class="de-spacer"></div>' +
             _zoomBar() +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
-            (isSyn
-                ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.exportHtml()" title="' + esc(t('de_html_tip', 'Scarica la pagina HTML: conserva il lettore audio')) + '"><i data-lucide="file-code-2" class="w-4 h-4"></i> HTML</button>'
+            ((isSyn || isCc)
+                ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.exportHtml()" title="' +
+                  esc(isCc ? t('de_cc_html_tip', 'Scarica la pagina HTML: dentro c\'è anche la modalità esercizio')
+                           : t('de_html_tip', 'Scarica la pagina HTML: conserva il lettore audio')) +
+                  '"><i data-lucide="file-code-2" class="w-4 h-4"></i> HTML</button>'
                 : '') +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.saveToVault()" title="' + esc(t('de_vault_tip', 'Scrive il foglio in Materiale Studio, dentro la cartella della mappa')) + '"><i data-lucide="folder-down" class="w-4 h-4"></i> ' + esc(t('de_vault', 'Nel vault')) + '</button>' +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
@@ -1445,6 +1609,86 @@
 
     // Foglio sintesi: stessi tag di blocco del documento stampato (h3/h4/p/li)
     // → il lettore audio continua a trovarli.
+    // ── FOGLIO: catena dei perché ───────────────────────────────────────────
+    // Stessa cornice degli altri editor (testata, riquadri, strumenti di riga) e
+    // stessa resa del documento stampato: un nesso è due lati e un connettivo,
+    // con il colore della famiglia sulla pastiglia centrale.
+    function _causalSheet() {
+        const FAMS = CC().CHAIN_FAMILY_LIST;
+        const famMeta = function (f) {
+            try { return CCU().famMeta(f); } catch (e) { return { color: '#475569', label: f }; }
+        };
+        const legend = FAMS.map(function (f) {
+            const fm = famMeta(f);
+            return '<span class="de-cc-leg"><i style="background:' + esc(fm.color) + '"></i>' + esc(fm.label) + '</span>';
+        }).join('');
+
+        const secs = _cc.sections.map(function (sec, si) {
+            const rows = sec.rows.map(function (r, ri) {
+                const fm = famMeta(r.family);
+                const arr = r.type === 'contrast' ? '↔' : '→';
+                const origin = r.origin === 'link' ? t('cc_from_map', 'dalla mappa')
+                    : r.origin === 'desc' ? (t('cc_from_text', 'dal testo') + (r.nodeLabel ? ' · ' + r.nodeLabel : ''))
+                    : t('de_cc_manual', 'scritto da te');
+                const field = function (f, ph, cls) {
+                    return '<span class="' + cls + '" contenteditable="true" role="textbox"' +
+                        ' aria-label="' + esc(ph + ' — ' + sec.label + ' ' + (ri + 1)) + '"' +
+                        ' data-cc="' + f + '" data-si="' + si + '" data-ri="' + ri + '"' +
+                        ' data-ph="' + esc(ph) + '">' + esc(r[f]) + '</span>';
+                };
+                return '<div class="de-cc-row">' +
+                    '<div class="de-cc-line">' +
+                    field('left', t('de_cc_ph_left', 'causa…'), 'de-cc-side') +
+                    '<span class="de-cc-conn" style="border-color:' + esc(fm.color) + ';color:' + esc(fm.color) + '">' +
+                    '<b class="de-cc-arr">' + arr + '</b>' +
+                    field('conn', t('de_cc_ph_conn', 'connettivo…'), 'de-cc-conn-txt') +
+                    '<b class="de-cc-arr">' + arr + '</b></span>' +
+                    field('right', t('de_cc_ph_right', 'effetto…'), 'de-cc-side') +
+                    '</div>' +
+                    '<div class="de-cc-meta">' +
+                    '<span class="de-cc-badge' + (r.origin === 'manual' ? ' de-cc-badge-man' : '') + '">' + esc(origin) + '</span>' +
+                    // Famiglia = colore del nesso: quattro pallini, quello attivo cerchiato.
+                    '<span class="de-cc-fams" role="group" aria-label="' + esc(t('de_cc_fam', 'Famiglia del nesso')) + '">' +
+                    FAMS.map(function (f) {
+                        const m = famMeta(f);
+                        return '<button type="button" class="de-cc-fam' + (r.family === f ? ' on' : '') + '"' +
+                            ' style="background:' + esc(m.color) + '" title="' + esc(m.label) + '"' +
+                            ' aria-pressed="' + (r.family === f ? 'true' : 'false') + '"' +
+                            ' onclick="MappAIDocEditor.ccFamily(' + si + ',' + ri + ',\'' + f + '\')"></button>';
+                    }).join('') + '</span>' +
+                    '<span class="de-cc-tools">' +
+                    '<button type="button" class="de-t de-cc-type" onclick="MappAIDocEditor.ccType(' + si + ',' + ri + ')" title="' +
+                    esc(r.type === 'contrast' ? t('de_cc_to_cause', 'Trasformalo in causa → effetto') : t('de_cc_to_contrast', 'Trasformalo in contrasto ↔')) + '">' + arr + '</button>' +
+                    '<button type="button" class="de-t" onclick="MappAIDocEditor.ccMove(' + si + ',' + ri + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
+                    '<button type="button" class="de-t" onclick="MappAIDocEditor.ccMove(' + si + ',' + ri + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
+                    '<button type="button" class="de-t" onclick="MappAIDocEditor.ccAdd(' + si + ',' + ri + ')" title="' + esc(t('de_cc_add_here', 'Aggiungi un nesso qui sotto')) + '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
+                    '<button type="button" class="de-t de-del" onclick="MappAIDocEditor.ccDel(' + si + ',' + ri + ')" title="' + esc(t('de_del', 'Elimina')) + '"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+                    '</span></div></div>';
+            }).join('');
+            return '<div class="de-cc-sec' + (sec.kind === 'cross' ? ' de-cc-sec-cross' : '') + '">' +
+                '<div class="de-cc-sec-title">' + esc(sec.label) +
+                (sec.kind === 'cross' ? ' <span class="de-cc-sec-tag">' + esc(t('de_cc_bridges', 'fra rami diversi')) + '</span>' : '') +
+                '</div>' + rows +
+                (sec.truncated ? '<div class="de-cc-trunc">+' + sec.truncated + ' ' + esc(t('cc_truncated', 'altri nessi non mostrati')) + '</div>' : '') +
+                '<button type="button" class="de-cc-addrow" onclick="MappAIDocEditor.ccAdd(' + si + ',' + (sec.rows.length - 1) + ')">+ ' + esc(t('de_cc_add', 'nesso')) + '</button>' +
+                '</div>';
+        }).join('');
+
+        const n = CC().countRows(_cc);
+        return '<div class="de-sheet causal">' +
+            '<div class="de-sheet-head">' +
+            '<div class="de-sheet-title">' + esc(t('cc_doc_title', 'Catena dei perché')) + '</div>' +
+            '<div class="de-sheet-sub">' + esc(CCU().mapName()) + ' · ' +
+            esc(t('cc_footer', 'nessi estratti dalla mappa e dalle descrizioni — nessuna AI')) + '</div>' +
+            '<div class="de-badge">' + n + ' ' + esc(n === 1 ? t('de_cc_nexus', 'nesso') : t('de_cc_nexi', 'nessi')) + '</div>' +
+            '<div class="de-cc-legend">' + legend + '</div>' +
+            '</div>' +
+            '<div class="de-limit">' + esc(t('de_cc_note', 'I nessi sono estratti alla lettera da link e descrizioni: qualcuno regge, qualcuno no. Sistema i due lati, cambia il connettivo, togli quelli che non tengono e aggiungi i tuoi. Il colore dice di che famiglia è il nesso.')) + '</div>' +
+            secs +
+            '<div class="de-note">' + esc(t('de_cc_foot', 'La versione rivista vale per il documento stampabile, per le pagine in coda al foglio dei nodi e per il vault. La mappa non viene toccata.')) + '</div>' +
+            '</div>';
+    }
+
     function _synthSheet() {
         const TAGS = { h3: t('de_tag_h3', 'Titolo'), h4: t('de_tag_h4', 'Sottotitolo'), p: t('de_tag_p', 'Testo'), li: t('de_tag_li', 'Elenco'), blockquote: t('de_tag_q', 'Nota') };
         // Il menu dei tipi: sottotitolo esplicativo, così «Nota» non resta un
@@ -1562,6 +1806,7 @@
                 return;
             }
             if (el.hasAttribute('data-ns')) { _commitNs(el); return; }
+            if (el.hasAttribute('data-cc')) { _commitCc(el); return; }
             const f = el.getAttribute('data-f');
             if (!f) return;
             if (f === 'title') { _doc.title = el.innerText.replace(/\s+/g, ' ').trim(); _dirty = true; _paintDirty(); return; }
@@ -1575,7 +1820,7 @@
         // primo tasto su un campo = punto di ripristino per l'annulla
         host.addEventListener('focusin', function (e) {
             const el = e.target;
-            if (el && el.hasAttribute && (el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns'))) {
+            if (el && el.hasAttribute && (el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns') || el.hasAttribute('data-cc'))) {
                 _snapshot(t('de_op_text', 'modifica testo'));
             }
         });
@@ -1584,7 +1829,7 @@
         // foglio non sa rendere (e che il sanitizer butterebbe comunque).
         host.addEventListener('paste', function (e) {
             const el = e.target;
-            if (!el || !el.hasAttribute || !(el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns'))) return;
+            if (!el || !el.hasAttribute || !(el.hasAttribute('data-f') || el.hasAttribute('data-b') || el.hasAttribute('data-ns') || el.hasAttribute('data-cc'))) return;
             e.preventDefault();
             const txt = (e.clipboardData || window.clipboardData).getData('text/plain');
             document.execCommand('insertText', false, txt);
@@ -1618,7 +1863,7 @@
             }
             // Foglio nodi: nessun campo è multiriga (titolo, parola chiave e
             // descrizione vengono impaginati dal motore di stampa).
-            if (el.hasAttribute('data-ns')) { e.preventDefault(); el.blur(); return; }
+            if (el.hasAttribute('data-ns') || el.hasAttribute('data-cc')) { e.preventDefault(); el.blur(); return; }
             const f = el.getAttribute('data-f');
             if (f && f !== 'explanation') { e.preventDefault(); el.blur(); }
         });
@@ -1814,11 +2059,45 @@
    caratteri per riga, testo più grande. La larghezza di impaginazione resta
    800; il numero che cambia è lo zoom, e 800 × zoom sta sempre sotto la
    larghezza del pannello. */
-@container (min-width:1120px) { .de-sheet.synth { --de-zoom:1.3; } }   /* → 1040 */
-@container (min-width:1360px) { .de-sheet.synth { --de-zoom:1.6; } }   /* → 1280 */
-@container (min-width:1700px) { .de-sheet.synth { --de-zoom:1.85; } }  /* → 1480 */
-@container (min-width:1900px) { .de-sheet.synth { --de-zoom:2; } }     /* → 1600 */
-@container (min-width:2300px) { .de-sheet.synth { --de-zoom:2.4; } }   /* → 1920 */
+@container (min-width:1120px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.3; } }   /* → 1040 */
+@container (min-width:1360px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.6; } }   /* → 1280 */
+@container (min-width:1700px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.85; } }  /* → 1480 */
+@container (min-width:1900px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:2; } }     /* → 1600 */
+@container (min-width:2300px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:2.4; } }   /* → 1920 */
+
+/* ── Catena dei perché: stessa resa del documento stampato ───────────────── */
+.de-sheet.causal .de-sheet-head { border-bottom-color:#4f46e5; }
+.de-cc-legend { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:12px; font-size:10px; color:#475569; }
+.de-cc-leg i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+.de-cc-sec { background:#fff; border-radius:14px; padding:14px 18px; margin-bottom:14px; }
+.de-cc-sec-cross { border:2px dashed #a5b4fc; }
+.de-cc-sec-title { font-size:14px; font-weight:900; color:#4f46e5; margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid #eef2ff; }
+.de-cc-sec-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+.de-cc-row { padding:7px 0; border-bottom:1px dashed #e2e8f0; }
+.de-cc-row:last-of-type { border-bottom:0; }
+.de-cc-line { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.7; font-size:11px; }
+.de-cc-side { flex:1 1 34%; min-width:120px; color:#334155; outline:none; padding:2px 5px; border-radius:6px; }
+.de-cc-conn { display:inline-flex; align-items:baseline; gap:5px; border:1.5px solid; border-radius:9999px;
+              padding:1px 9px; font-size:11px; font-weight:700; white-space:nowrap; flex:0 0 auto; }
+.de-cc-conn-txt { outline:none; min-width:52px; display:inline-block; }
+.de-cc-arr { font-weight:700; }
+.de-cc-meta { display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap; }
+.de-cc-badge { font-size:8.5px; color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; }
+.de-cc-badge-man { color:#4f46e5; }
+.de-cc-fams { display:inline-flex; gap:3px; }
+/* Pallini della famiglia: 14px di colore, ma il bersaglio del clic è 22px
+   (i pallini stanno in fila e a 14 si sbaglia mira). */
+.de-cc-fam { width:22px; height:22px; padding:0; border:0; border-radius:50%; cursor:pointer;
+             background-clip:content-box !important; border:4px solid transparent; }
+.de-cc-fam.on { outline:2px solid #0f172a; outline-offset:-1px; }
+.de-cc-fam:focus-visible { outline:2px solid #4f46e5; outline-offset:1px; }
+.de-cc-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
+.de-cc-row:hover .de-cc-tools, .de-cc-row:focus-within .de-cc-tools { opacity:1; }
+.de-cc-type { font:700 12px 'Space Mono',monospace; }
+.de-cc-trunc { margin-top:6px; font-size:10px; color:#94a3b8; font-style:italic; }
+.de-cc-addrow { margin-top:8px; border:1px dashed #cbd5e1; background:#fff; color:#64748b;
+                border-radius:8px; padding:4px 12px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
+.de-cc-addrow:hover { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
 
 /* Sintesi: le dimensioni del testo dipendono dal tipo di blocco, non dall'utente. */
 .de-sheet.synth .de-blocks { background:#fff; border-radius:16px; padding:20px 24px; }
@@ -1987,6 +2266,9 @@
         nsMenu: nsMenu, nsSetLayout: nsSetLayout, nsSetAll: nsSetAll, nsAddKeyword: nsAddKeyword,
         nsDelKeyword: nsDelKeyword, nsMove: nsMove, nsDelCard: nsDelCard, nsRestoreAll: nsRestoreAll,
         nsKeywordsAI: nsKeywordsAI,
+        // catena dei perché
+        openCausal: openCausal, ccFamily: ccFamily, ccType: ccType,
+        ccAdd: ccAdd, ccDel: ccDel, ccMove: ccMove,
         addQuestion: addQuestion, delQuestion: delQuestion, moveQ: moveQ,
         addOption: addOption, delOption: delOption, setCorrect: setCorrect,
         addBlock: addBlock, delBlock: delBlock, moveBlock: moveBlock,

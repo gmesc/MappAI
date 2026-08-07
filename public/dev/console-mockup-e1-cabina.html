@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v=1785831100555-1785686777801-1785689580130">
+<script src="../js/lucide.min.js"></script>
+<script src="../js/mappai-modal-core.js?v=1785831100555-1785686777801-1785689580130"></script>
+<script src="../js/mappai-modal.js?v=1785831100555-1785686777801-1785689580130"></script>
+<style>
+  /* le variabili di :root dell'app: senza --emoji-font la dichiarazione
+     font-family verrebbe SCARTATA e si misurerebbe un altro carattere */
+  :root { --emoji-font:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { font-family:'Space Mono', var(--emoji-font), monospace; box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:#eef1f6; display:flex; align-items:center; justify-content:center;
+         background-image:radial-gradient(#dbe1ea 1px, transparent 1px);
+         background-size:16px 16px; padding:18px; }
+</style></head><body>
+<script>
+  var SCHEMA = {"titolo":"Cabina","sottotitolo":"Profilo, classe attiva e AI — i quattro bottoni dell’header in un posto solo","icona":"id-card","taglia":"xl","layout":"console","area":"due","sporco":true,"veloChiude":false,"nav":[{"id":"profilo","etichetta":"Profilo insegnante","icona":"id-card","attiva":true},{"id":"classe","etichetta":"Classe attiva","icona":"graduation-cap","contatore":4,"attiva":false},{"id":"ai","etichetta":"Impostazioni AI","icona":"bot","attiva":false},{"id":"mappe","etichetta":"Lingua e mappe","icona":"languages","attiva":false},{"id":"consumi","etichetta":"Consumi","icona":"coins","contatore":82,"attiva":false},{"id":"guida","etichetta":"Guida e tutorial","icona":"help-circle","attiva":false}],"contesto":[{"id":"classe","etichetta":"1ªA","icona":"graduation-cap"},{"id":"disciplina","etichetta":"Storia","icona":"book-open"}],"sezioni":[{"titolo":"Chi sei","campi":[{"id":"nome","etichetta":"Nome e cognome","valore":"Giacomo Meschini"},{"id":"anno","tipo":"scelta","etichetta":"Anno scolastico","opzioni":["2026/2027","2027/2028"]}]},{"titolo":"Sedi","campi":[{"id":"sedi","tipo":"elenco","etichetta":"Sedi in cui insegni","valori":["SM Bellinzona 2","SM Giubiasco"],"aggiungi":"Aggiungi sede","aiuto":"Ogni classe dichiara la sua: qui stanno tutte quelle fra cui scegliere."}]},{"titolo":"Materie","campi":[{"id":"materie","tipo":"elenco","etichetta":"Materie che insegni","valori":["Storia","Educazione all’immagine","Geografia","Scienze naturali","Italiano"],"aggiungi":"Aggiungi materia","aiuto":"Da qui vengono i nomi che compaiono in tutta l’app: nelle classi, nel chip di contesto e nelle cartelle su disco."}]},{"titolo":"Ora di classe","campi":[{"id":"ora-classe","tipo":"spunta","etichetta":"Sono docente di classe","valore":true,"aiuto":"Aggiunge «Ora di classe» fra le materie selezionabili, con materiali non disciplinari."},{"id":"classe-di-cui","tipo":"scelta","etichetta":"Classe di cui sei docente","opzioni":["1ª A","1B","2A","4R"]}]},{"titolo":"Ruolo professionale","largo":true,"campi":[{"id":"ruolo-materia","tipo":"radio","gruppo":"ruolo","etichetta":"Docente di materia","valore":true,"aiuto":"Si lavora per classe: mappe, materiali e attività sono della classe."},{"id":"ruolo-sostegno","tipo":"radio","gruppo":"ruolo","etichetta":"Docente di sostegno / OPI","aiuto":"Sblocca i profili dei singoli allievi: taratura, misure compensative e materiali individuali."},{"id":"sostegno-ente","etichetta":"Servizio o istituto di riferimento","aiuto":"Compare nell’intestazione dei materiali individuali."}]},{"titolo":"Profili individuali degli allievi","accento":true,"largo":true,"testo":"Attivi perché il ruolo dichiarato è «Docente di sostegno / OPI». Da qui in poi la prima metà del chip può contenere un ALLIEVO al posto della classe, in tutti e tre i tab.","dati":[{"etichetta":"Profili aperti","valore":"4 allievi su 64"},{"etichetta":"Dove vivono","valore":"sul tuo computer, mai nelle chiamate all’AI"},{"etichetta":"Cosa tarano","valore":"lingua, densità, misure compensative"}],"azioni":[{"id":"apri-prof","etichetta":"Gestisci profili","icona":"user-round"}]}],"azioni":[{"id":"no","etichetta":"Annulla"},{"id":"salva","etichetta":"Salva","ruolo":"primario","icona":"save"}]};
+  document.body.appendChild(MappAIModal.render(SCHEMA));
+  if (window.lucide) try { lucide.createIcons(); } catch(e){}
+</script>
+</body></html>

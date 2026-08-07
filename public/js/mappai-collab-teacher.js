@@ -352,6 +352,38 @@
     }
     CT.renderCollabPanel = renderCollabPanel;
 
+    /* Avvio SENZA il wizard (2/8): la console «Materiali → Lavagna» chiede le
+       stesse due cose (accesso allievi, sessione da riprendere) con i suoi
+       campi, e poi avvia. `doStart` è privata e resta tale — qui passa solo ciò
+       che il chiamante può davvero decidere, il resto (nome della mappa, roster
+       della classe attiva, modo di rete) lo ricava il modulo, che è il solo a
+       sapere dove sta. Ritorna la Promise di doStart, o null se il login
+       individuale è stato chiesto senza una classe col roster. */
+    CT.avvia = function (opts) {
+        opts = opts || {};
+        const loginMode = opts.loginMode === 'individual' ? 'individual' : 'group';
+        let roster = [];
+        if (loginMode === 'individual') {
+            roster = rosterFromClass();
+            if (!roster) return Promise.resolve(null);
+        }
+        const st = S();
+        const name = (st && st.rootNodeLabel) || rootLabel();
+        const netMode = opts.netMode || (window.MappAINetMode ? window.MappAINetMode.get() : 'lan');
+        return doStart({
+            name: name, rootLabel: rootLabel(), loginMode: loginMode, roster: roster,
+            netMode: netMode, resumeDir: opts.resumeDir || '', className: activeClassName()
+        });
+    };
+    /* le sessioni Lavagna già su disco, senza filtri: la console le mostra tutte
+       (il wizard le filtra alla mappa aperta, che qui non c'è) */
+    CT.sessioni = function () {
+        if (!window.electronAPI || !window.electronAPI.collabSessionsList) return Promise.resolve([]);
+        return window.electronAPI.collabSessionsList()
+            .then(r => (r && r.success && r.sessions) ? r.sessions : [])
+            .catch(() => []);
+    };
+
     // ── Host: sidebar (default) ──────────────────────────────────────────────
     function mountSidebarPanel() {
         const panel = document.getElementById('collab-sidebar-panel');

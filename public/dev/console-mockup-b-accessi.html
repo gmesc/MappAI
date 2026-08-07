@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v=1785831100555-1785686777801-1785689580130">
+<script src="../js/lucide.min.js"></script>
+<script src="../js/mappai-modal-core.js?v=1785831100555-1785686777801-1785689580130"></script>
+<script src="../js/mappai-modal.js?v=1785831100555-1785686777801-1785689580130"></script>
+<style>
+  /* le variabili di :root dell'app: senza --emoji-font la dichiarazione
+     font-family verrebbe SCARTATA e si misurerebbe un altro carattere */
+  :root { --emoji-font:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { font-family:'Space Mono', var(--emoji-font), monospace; box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:#eef1f6; display:flex; align-items:center; justify-content:center;
+         padding:0; }
+</style></head><body>
+<script>
+  var SCHEMA = {"titolo":"Registro","sottotitolo":"Accessi allievi — come entrano nelle attività via QR","icona":"graduation-cap","taglia":"xl","layout":"console","area":"due","piena":true,"invio":false,"contesto":[{"id":"classe","etichetta":"1ªA","icona":"graduation-cap"},{"id":"disciplina","etichetta":"Storia","icona":"book-open"}],"nav":[{"id":"classi","etichetta":"Classi","icona":"users","contatore":4,"attiva":false},{"id":"allievi","etichetta":"Allievi","icona":"user-round","contatore":64,"attiva":false},{"id":"discipline","etichetta":"Discipline","icona":"book-open","contatore":6,"attiva":false},{"id":"attivita","etichetta":"Attività di studio","icona":"radio","contatore":11,"attiva":false},{"id":"accessi","etichetta":"Accessi allievi","icona":"key-round","attiva":true},{"id":"documenti","etichetta":"Documenti","icona":"folder-open","contatore":34,"attiva":false}],"sezioni":[{"titolo":"Il foglio da distribuire","testo":"Una tessera per allievo, da ritagliare. Gli allievi la usano per entrare senza installare nulla.","azioni":[{"id":"stampa","etichetta":"Stampa tessere","ruolo":"primario","icona":"printer"},{"id":"pdf","etichetta":"Salva PDF","icona":"file-down"}]},{"titolo":"Nuovo allievo","testo":"Arriva un allievo a classe già avviata: riceve la sua identità e la sua tessera, le altre restano valide.","azioni":[{"id":"aggiungi","etichetta":"Aggiungi allievo","ruolo":"primario","icona":"user-plus"}]}],"tabella":{"colonne":[{"etichetta":"Identità","larghezza":"170px"},{"etichetta":"Nome (facoltativo)"},{"etichetta":"Ultima attività","larghezza":"190px"},{"etichetta":"Consegne","larghezza":"110px"}],"righe":[["🦊 volpe-03","Aline Bernasconi","Quiz · 24/07/2026","7"],["🐢 tartaruga-00","—","Tutor · 21/07/2026","3"],["🦉 gufo-07","Gian-Luca Pellegrini-Rossi","Lavagna · 18/07/2026","5"],["🐝 ape-01","—","— mai entrato —","0"]]},"azioni":[{"id":"chiudi","etichetta":"Chiudi"}]};
+  document.body.appendChild(MappAIModal.render(SCHEMA));
+  if (window.lucide) try { lucide.createIcons(); } catch(e){}
+</script>
+</body></html>

@@ -122,12 +122,22 @@ document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey) {
         const key = e.key.toLowerCase();
 
-        // Student Mode Handler
+        /* L,K,J,H → VISTA RIDOTTA di COSTRUISCI (3/8/26).
+           ⚠️ Fino a ieri questa combo accendeva la «modalità studente», che
+           nascondeva il generatore INTERO (`#setup-form`) e sostituiva due
+           prompt con le versioni semplificate. Le due cose non potevano
+           convivere — si contendono lo stesso elemento, una lo nasconde e
+           l'altra lo mostra ridotto. Decisione di Giacomo: la vista ridotta
+           prende la combo, la modalità studente va in pensione.
+           `window.toggleStudentMode` resta esposta (console); i rami
+           `appState.studentMode` sparsi nei moduli restano innocui perché il
+           flag non si accende più da nessuna parte. */
         if (studentModeSecret.includes(key)) {
             studentModeKeys.push(key);
             if (studentModeKeys.length > 4) studentModeKeys.shift();
             if (studentModeKeys.join('') === 'lkjh') {
-                window.toggleStudentMode();
+                if (window.MappAIRidotta) window.MappAIRidotta.inverti();
+                else window.toggleStudentMode();          // ripiego se il modulo manca
                 studentModeKeys = [];
             }
         } else {
@@ -1156,6 +1166,18 @@ window.handleFileUpload = async function (input, type) {
 }
 
 window.startGeneration = async function () {
+    // Contesto di generazione (29/7): classe + disciplina. Con una classe attiva
+    // che insegna 2+ discipline il docente sceglie PRIMA di spendere token; con
+    // una sola (o nessuna) la funzione risolve da sé e non mostra nulla.
+    // La disciplina governa la cartella del vault (Mappe/<classe>/<disciplina>/).
+    appState.generationDiscipline = '';
+    try {
+        if (window.MappAIClasses && window.MappAIClasses.ensureGenerationContext) {
+            const genCtx = await window.MappAIClasses.ensureGenerationContext();
+            if (!genCtx) return;                       // annullato dal docente
+            appState.generationDiscipline = genCtx.discipline || '';
+        }
+    } catch (e) { console.warn('[Generation] contesto classe/disciplina non risolto:', e && e.message); }
     // Toggle «Adatta al livello» (Costruisci): arma la riga livello per questa
     // generazione (e per i successivi Espandi/sotto-concetti della sessione).
     if (window.MappAITune) {
@@ -1504,10 +1526,22 @@ window.MappAITune = {
     // generazione del grafo. Per fonti ESTERNE (articoli, video) non già tarate
     // dal docente. Opt-in via toggle in Costruisci, default OFF.
     levelArmed: false,
+    /* «Semplifica comunque»: chi accende la taratura nel modale della PIPELINE
+       chiede una mappa leggibile, non una mappa al livello del preset — e un
+       preset «standard» o «ricco» andrebbe nella direzione opposta. Quando
+       questo flag è acceso il registro SEMPLICE (BES/DSA) vince sul preset del
+       profilo, che resta com'è per tutto il resto dell'app.
+       Lo accende solo `armLevel(true)`; il toggle della landing chiama
+       `armLevel()` senza argomenti e non cambia niente. */
+    levelForceSimple: false,
     arm: function () { this.armed = true; return this; },
     disarm: function () { this.armed = false; return this; },
-    armLevel: function () { this.levelArmed = true; return this; },
-    disarmLevel: function () { this.levelArmed = false; return this; },
+    armLevel: function (forzaSemplice) {
+        this.levelArmed = true;
+        this.levelForceSimple = !!forzaSemplice;
+        return this;
+    },
+    disarmLevel: function () { this.levelArmed = false; this.levelForceSimple = false; return this; },
     // Nome del contesto attivo ('' se generico) — per la UI del toggle
     activeContextName: function () {
         try {
@@ -1528,9 +1562,30 @@ window.MappAITune = {
                 var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
                 if (c) { grade = c.grade || c.name || ''; system = c.system || ''; }
             }
-            if (!grade && !system) return '';
+            /* Col «semplifica comunque» il registro SEMPLICE entra anche senza
+               un grado: la richiesta è «scrivi in modo accessibile», e vale pure
+               su un contesto generico. Senza questo, la riga sotto uscirebbe
+               vuota e la spunta non avrebbe alcun effetto. */
+            var semplice = '';
+            if (this.levelForceSimple) {
+                try {
+                    semplice = (window.MappAIClasses && window.MappAIClasses.registerPrompt)
+                        ? window.MappAIClasses.registerPrompt('semplice') : '';
+                } catch (e) { semplice = ''; }
+            }
+            if (!grade && !system) {
+                return semplice ? '\n\n--- LIVELLO DI LETTURA ---\n' + semplice : '';
+            }
             var dest = [grade, system].filter(Boolean).join(' · ');
-            return '\n\n--- LIVELLO DI LETTURA ---\nDestinatari: studenti di ' + dest + '. Le descrizioni devono essere comprensibili a questo livello: frasi chiare, lessico adeguato all\'età. Resta fedele ai fatti della fonte; adatta solo il linguaggio.';
+            var righe = 'Destinatari: studenti di ' + dest + '.';
+            /* Col preset semplice comanda lui: la riga generica «lessico adeguato
+               all'età» direbbe una cosa più debole, e su un preset «ricco» del
+               profilo direbbe l'opposto. */
+            righe += semplice
+                ? ' ' + semplice
+                : ' Le descrizioni devono essere comprensibili a questo livello: frasi chiare, lessico adeguato all\'età.';
+            return '\n\n--- LIVELLO DI LETTURA ---\n' + righe +
+                ' Resta fedele ai fatti della fonte; adatta solo il linguaggio.';
         } catch (e) { return ''; }
     },
     // Esegue fn con la taratura armata, ripristinando lo stato precedente.
@@ -1540,7 +1595,9 @@ window.MappAITune = {
         try {
             var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
             var up = a && a.userProfile;
-            if (up && up.nickname) return !!(up.notes && String(up.notes).trim());
+            /* «speciale» = si scosta dallo standard: il registro medio È lo
+               standard, come già per le classi qui sotto. */
+            if (up && up.nickname) return !!((up.notes && String(up.notes).trim()) || up.register === 'semplice' || up.register === 'ricco');
             var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
             return !!(c && ((c.notes && String(c.notes).trim()) || c.register === 'semplice' || c.register === 'ricco'));
         } catch (e) { return false; }
@@ -1557,8 +1614,22 @@ window.MappAITune = {
                 if (up.grade) head += ', classe ' + up.grade;
                 if (up.system) head += ' (' + up.system + ')';
                 bits.push(head + '.');
+                /* Preset di registro della scheda allievo: stessi tre testi
+                   delle classi, chiesti al loro modulo — non una seconda copia. */
+                var reg = '';
+                try {
+                    reg = (window.MappAIClasses && window.MappAIClasses.registerPrompt)
+                        ? window.MappAIClasses.registerPrompt(up.register) : '';
+                } catch (e) { /* modulo classi assente */ }
+                if (reg) bits.push(reg);
                 if (up.notes && String(up.notes).trim()) bits.push('Note sull\'allievo: ' + String(up.notes).trim() + '.');
-                bits.push('Usa frasi brevi, lessico concreto ed esempi adatti; resta fedele ai fatti, adatta solo COME li esprimi.');
+                /* ⚠️ «Usa frasi brevi, lessico concreto» era incondizionato: col
+                   preset «Ricco» (periodi complessi, terminologia disciplinare)
+                   il prompt avrebbe chiesto due cose opposte nella stessa riga.
+                   Quando un preset c'è, comanda lui; senza, resta il default
+                   prudente di prima. La riga di fedeltà vale sempre. */
+                if (!reg) bits.push('Usa frasi brevi, lessico concreto ed esempi adatti.');
+                bits.push('Resta fedele ai fatti, adatta solo COME li esprimi.');
                 return '\n\n--- TARATURA STUDENTE (adatta linguaggio ed esempi a questo allievo) ---\n' + bits.join(' ');
             }
             return (window.MappAIClasses && window.MappAIClasses.tuningForPrompt) ? (window.MappAIClasses.tuningForPrompt() || '') : '';

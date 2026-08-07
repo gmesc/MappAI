@@ -122,7 +122,15 @@
         } catch (e) { return null; }
     }
 
-    // save({kind,title,mapName,cls?,html?,pdf?}) → id. Dedup per (kind|title|mapName):
+    // Disciplina attiva coerente con la classe attiva ('' se ambigua o assente).
+    function _activeDiscipline() {
+        try {
+            const CL = window.MappAIClasses;
+            return (CL && CL.effectiveDiscipline) ? (CL.effectiveDiscipline() || '') : '';
+        } catch (e) { return ''; }
+    }
+
+    // save({kind,title,mapName,cls?,disc?,html?,pdf?}) → id. Dedup per (kind|title|mapName):
     // rigenerare lo stesso ramo AGGIORNA la voce invece di duplicare.
     // pdf = data-URI (Foglio nodi = jsPDF, non HTML): riaperto con window.open.
     // Id univoco. `Date.now()` da solo NON basta: la pipeline «Genera materiali»
@@ -144,6 +152,9 @@
             title: rec.title || 'Documento',
             mapName: rec.mapName || '',
             cls: rec.cls !== undefined ? rec.cls : _activeClassName(),
+            // Disciplina della mappa che ha generato il documento (29/7) → colonna
+            // DISCIPLINA in ELABORA/INSEGNA senza risalire al progetto a ogni render.
+            disc: rec.disc !== undefined ? rec.disc : _activeDiscipline(),
             date: Date.now(),
             html: rec.html || '',
             // n. di carte oltre la soglia di caratteri: INSEGNA ci mette il badge
@@ -165,7 +176,7 @@
     // `d.html`, che qui non c'è mai, svuotava silenziosamente gli elenchi.)
     function listDocs() {
         return _docsRead().map(d => ({
-            id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls,
+            id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, cls: d.cls, disc: d.disc || '',
             date: d.date, overLimit: d.overLimit || 0,
             hasHtml: !!d.html, hasPdf: !!d.pdf
         }));

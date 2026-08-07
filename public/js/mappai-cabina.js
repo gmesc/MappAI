@@ -1,0 +1,836 @@
+/*
+ * mappai-cabina.js — CONSOLE «CABINA» (2/8/26)
+ * ---------------------------------------------------------------------------
+ * La console dell'entità «io e l'app». Raccoglie i quattro bottoni solo-icona
+ * dell'header (Config AI · Guida · Tutorial · Profilo) — che l'audit del 31/7
+ * aveva contato fra i 26 comandi senza nome accessibile — più i profili di
+ * classi e allievi, i consumi e le note d'uso.
+ *
+ * Che cosa è MIGRATO davvero e che cosa è ancora un rimando (dirlo è metà del
+ * lavoro: una console che finge di aver assorbito tutto nasconde il debito):
+ *   - «Profilo insegnante» → schema VERO, le sezioni sono le stesse che apre
+ *     `showTeacherProfileModal` (`MappAITeacherProfile.sezioni`): una fonte sola.
+ *   - «Allievi & Classi» → due elenchi veri: un clic sulla riga attiva quel
+ *     contesto, il comando in coda apre la scheda per modificarla.
+ *   - «Consumi AI» → il cruscotto vero (`MappAIUsageDash.contentHtml`), con
+ *     l'elenco delle mappe in testa e due tendine: classe/allievo e materia.
+ *   - «Consigli di studio» e «Tutorial» → testo, scritto qui.
+ *   - «Termini & Condizioni» e «Privacy» → testo, scritto qui.
+ *   - «Impostazioni AI» → per ora APRE la finestra che esiste già.
+ *
+ * Namespace: window.MappAICabina. Caricare DOPO mappai-teacher-profile.js.
+ */
+(function () {
+    'use strict';
+    var t = function (k, f) { return window.t ? window.t(k, f) : f; };
+    function MM() { return window.MappAIModal; }
+    function toast(m, k) { if (window.showToast) window.showToast(m, k || 'info'); }
+
+    /* Undici voci in colonna diventano un muro: i gruppi dicono di che cosa
+       parla ciascuna (di me · dell'app · dello studio · delle regole). */
+    /* ⚠️ Il primo gruppo NON ha intestazione (scelta di Giacomo, 4/8, dal
+       disegno): le tre voci in cima parlano di chi sei e di chi hai, e in cima
+       a una colonna vuota un'etichetta «Io» dice meno di quanto costa — le
+       intestazioni servono a spezzare il muro più in basso, dove il muro c'è. */
+    var VOCI = [
+        { id: 'profilo', chiave: 'cb_v_profilo', testo: 'Profilo insegnante', icona: 'id-card' },
+        /* Due voci, non una: sono due elenchi con colonne diverse e due gesti
+           diversi («crea una classe» ≠ «crea una scheda»). Insieme obbligavano
+           a scorrere una tabella per arrivare all'altra. */
+        { id: 'allievi', chiave: 'cb_v_allievi', testo: 'Allievi', icona: 'user-round' },
+        { id: 'classi', chiave: 'cb_v_classi_solo', testo: 'Classi', icona: 'graduation-cap' },
+        { gruppo: 'cb_g_app', gruppoTesto: 'L’app' },
+        { id: 'ai', chiave: 'cb_v_ai', testo: 'Impostazioni AI', icona: 'bot' },
+        { id: 'consumi', chiave: 'cb_v_consumi', testo: 'Consumi AI', icona: 'coins' },
+        { gruppo: 'cb_g_studio', gruppoTesto: 'Imparare' },
+        { id: 'consigli', chiave: 'cb_v_consigli', testo: 'Consigli di studio', icona: 'lightbulb' },
+        { id: 'tutorial', chiave: 'cb_v_tutorial', testo: 'Tutorial', icona: 'book-open' },
+        { gruppo: 'cb_g_note', gruppoTesto: 'Note d’uso' },
+        { id: 'termini', chiave: 'cb_v_termini', testo: 'Termini & Condizioni', icona: 'scroll-text' },
+        { id: 'privacy', chiave: 'cb_v_privacy', testo: 'Privacy', icona: 'shield-check' }
+    ];
+    var IDS = VOCI.filter(function (v) { return v.id; }).map(function (v) { return v.id; });
+    /* «classe» era il nome della vista prima che diventasse l'elenco dei due
+       generi di profilo: chi la chiama così (link vecchi, header non aggiornato)
+       non deve trovarsi altrove. */
+    var ALIAS = { classe: 'classi', guida: 'tutorial' };
+    /* Le due viste dei profili si aggiornano quando i dati cambiano ALTROVE:
+       la scheda si modifica e si elimina dalla finestra di gestione, che di
+       questa console non sa niente. Senza, la riga eliminata restava a schermo
+       fino a un cmd+R (segnalato da Giacomo). */
+    var VISTE_PROFILI = ['classi', 'allievi'];
+
+    var _st = null;
+    function _vuoto() {
+        return {
+            voce: 'profilo', profilo: null, rid: null,
+            ud: { stato: 'vuoto', records: [], ctx: null, sel: '', fCtx: '', fMat: '', drill: null }
+        };
+    }
+
+    function _classi() {
+        try { return (window.MappAIClasses && window.MappAIClasses.list()) || []; } catch (e) { return []; }
+    }
+    function _allievi() {
+        try { return (window.MappAIClasses && window.MappAIClasses.students) ? window.MappAIClasses.students() : []; }
+        catch (e) { return []; }
+    }
+    function _attiva() {
+        try { return (window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive()) || null; }
+        catch (e) { return null; }
+    }
+    function _allievo() {
+        try {
+            var CL = window.MappAIClasses;
+            return (CL && CL.activeStudentName) ? CL.activeStudentName() : '';
+        } catch (e) { return ''; }
+    }
+    function _speciale(kind, o) {
+        try {
+            var CL = window.MappAIClasses;
+            if (kind === 'cls' && CL && CL.classSpecial) return !!CL.classSpecial(o);
+            if (kind === 'stu' && CL && CL.studentSpecial) return !!CL.studentSpecial(o);
+        } catch (e) { }
+        return false;
+    }
+
+    /* I modali NON ancora migrati stanno sotto il motore (config AI a 9999, il
+       cruscotto dei consumi a 1200, gli account classi a 9992) mentre la console
+       parte da 12000: aperti DA QUI finirebbero dietro alla finestra che li ha
+       chiamati — cioè invisibili. Finché non sono migrati si alzano sopra la
+       pila. Ritenta per un attimo perché qualcuno di loro si costruisce dopo
+       una lettura da disco. */
+    function _alza(sel) {
+        var n = 0;
+        var passo = function () {
+            var el = document.querySelector(sel);
+            if (el) {
+                var MM2 = window.MappAIModal;
+                /* ⚠️ Il piano si CHIEDE, non si calcola. Con una formula
+                   (`12000 + aperti*100 + 20`) questo numero poteva risultare più
+                   basso di quello che la console aveva già preso, e la finestra
+                   appena aperta finiva sotto quella che l'aveva chiamata — è
+                   quello che succedeva alla scheda di creazione. */
+                if (MM2 && MM2.prossimoZ) el.style.zIndex = String(MM2.prossimoZ());
+                return;
+            }
+            if (++n < 12) setTimeout(passo, 80);
+        };
+        passo();
+    }
+
+    /* Quale finestra storica è aperta SOPRA la console, e come si chiude. Il
+       motore tiene la sua pila e non sa niente di queste: senza questo elenco,
+       ESC scavalcherebbe quella in cima. */
+    function _legacySopra() {
+        var m = document.getElementById('class-accounts-modal');
+        if (m) {
+            return function () {
+                if (window.MappAIClasses && window.MappAIClasses.closeModal) window.MappAIClasses.closeModal();
+                else m.remove();
+            };
+        }
+        var statici = [
+            ['app-guide-modal', 'closeAppGuide'],
+            ['app-tutorial-modal', 'closeAppTutorial'],
+            ['config-ai-modal', null]
+        ];
+        for (var i = 0; i < statici.length; i++) {
+            var el = document.getElementById(statici[i][0]);
+            /* questi vivono nel markup e si nascondono con una classe: la
+               presenza nel DOM non basta a dire che sono a schermo */
+            if (!el || el.classList.contains('hidden')) continue;
+            var fn = statici[i][1];
+            return (function (nodo, nome) {
+                return function () {
+                    if (nome && typeof window[nome] === 'function') window[nome]();
+                    else { nodo.classList.add('hidden'); nodo.classList.remove('flex'); }
+                };
+            })(el, fn);
+        }
+        return null;
+    }
+
+    /* ⚠️ Niente chip in testata alla Cabina (2/8). Il contesto attivo sta nel
+       chip dell'header della landing, che è anche il posto da cui si cambia;
+       qui era un doppione in sola lettura — e per giunta accanto alle viste
+       «Allievi» e «Classi», che il contesto lo mostrano riga per riga col
+       bollino e lo cambiano con un clic. */
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       CONSUMI — i dati e i filtri
+       Il registro NON sa di classi, allievi e materie: sa solo da quale mappa
+       viene ogni chiamata. Le tre coordinate arrivano dal contesto delle mappe
+       (`MappAITeach.contestoDelleMappe`), che le legge dal disco.
+       ═══════════════════════════════════════════════════════════════════════ */
+    function _UC() { return window.MappAIUsageCore; }
+
+    /* ⚠️ Una riga di tabella CONCLUDE per default, come una voce di elenco:
+       giusto in un picker, sbagliato in una console — sceglierla chiuderebbe la
+       finestra in cui si sta lavorando. Qui una riga è sempre una SELEZIONE,
+       quindi il default si rovescia una volta sola, in un posto solo. */
+    function _riga(id, celle) {
+        celle.id = id;
+        celle.chiude = false;
+        return celle;
+    }
+
+    function _caricaConsumi() {
+        var U = _st.ud;
+        if (U.stato !== 'vuoto') return;
+        U.stato = 'carico';
+        var UD = window.MappAIUsageDash;
+        var pRec = (UD && UD.readAll) ? UD.readAll() : Promise.resolve([]);
+        var api = window.electronAPI;
+        var pVault = (api && api.getAllVaults)
+            ? api.getAllVaults().catch(function () { return []; })
+            : Promise.resolve([]);
+        Promise.all([pRec, pVault]).then(function (r) {
+            U.records = r[0] || [];
+            U.ctx = (window.MappAITeach && window.MappAITeach.contestoDelleMappe)
+                ? window.MappAITeach.contestoDelleMappe(r[1] || [])
+                : { byKey: {}, classi: [], materie: [], allievi: [] };
+        }).catch(function () {
+            U.ctx = { byKey: {}, classi: [], materie: [], allievi: [] };
+        }).then(function () {
+            U.stato = 'pronto';
+            _ridisegna();
+        });
+    }
+
+    function _ctxDi(chiave) {
+        var idx = (_st.ud.ctx && _st.ud.ctx.byKey) || {};
+        return idx[chiave] || { classe: '', materia: '', allievo: '' };
+    }
+    /* `conSel` false = i record che alimentano l'ELENCO delle mappe: le due
+       tendine restringono l'elenco, la riga scelta restringe il cruscotto. */
+    function _recordFiltrati(conSel) {
+        var U = _st.ud, C = _UC();
+        if (!C) return [];
+        return (U.records || []).filter(function (r) {
+            var k = C.projectKey(r);
+            if (conSel && U.sel && k !== U.sel) return false;
+            var c = _ctxDi(k);
+            if (U.fCtx) {
+                if (U.fCtx.indexOf('cls:') === 0 && c.classe !== U.fCtx.slice(4)) return false;
+                if (U.fCtx.indexOf('all:') === 0 && c.allievo !== U.fCtx.slice(4)) return false;
+            }
+            if (U.fMat && c.materia !== U.fMat) return false;
+            return true;
+        });
+    }
+
+    /* Le tendine elencano i PROFILI (è la domanda del docente: «quanto ho speso
+       per la 2A?»), più i nomi che il disco conosce ma il profilo no — senza,
+       una mappa in una cartella di classe cancellata non sarebbe raggiungibile. */
+    function _opzioniContesto() {
+        var ctx = _st.ud.ctx || { classi: [], allievi: [] };
+        var out = [{ valore: '', etichetta: t('cb_ud_tutti', '— tutte le classi e gli allievi —') }];
+        var visti = {};
+        _classi().forEach(function (c) { if (c.name && !visti['c' + c.name]) { visti['c' + c.name] = 1; out.push({ valore: 'cls:' + c.name, etichetta: c.name }); } });
+        (ctx.classi || []).forEach(function (n) { if (!visti['c' + n]) { visti['c' + n] = 1; out.push({ valore: 'cls:' + n, etichetta: n }); } });
+        _allievi().forEach(function (p) {
+            var n = p && p.nickname;
+            if (n && !visti['a' + n]) { visti['a' + n] = 1; out.push({ valore: 'all:' + n, etichetta: n }); }
+        });
+        (ctx.allievi || []).forEach(function (n) { if (!visti['a' + n]) { visti['a' + n] = 1; out.push({ valore: 'all:' + n, etichetta: n }); } });
+        return out;
+    }
+    function _opzioniMateria() {
+        var ctx = _st.ud.ctx || { materie: [] };
+        var out = [{ valore: '', etichetta: t('cb_ud_mat_tutte', '— tutte le materie —') }];
+        var visti = {};
+        var prof = [];
+        try { prof = (window.MappAITeacherProfile && window.MappAITeacherProfile.disciplineList()) || []; } catch (e) { }
+        prof.concat(ctx.materie || []).forEach(function (n) {
+            if (n && !visti[n]) { visti[n] = 1; out.push({ valore: n, etichetta: n }); }
+        });
+        return out;
+    }
+
+    function _tabellaMappe() {
+        var C = _UC();
+        var recs = _recordFiltrati(false);
+        var progetti = C ? C.listProjects(recs) : [];
+        var tasso = (window.MappAIUsageDash && window.MappAIUsageDash.rate) ? window.MappAIUsageDash.rate() : 1;
+        var kb = function (m) { try { return (typeof matchModelKB === 'function') ? matchModelKB(m) : null; } catch (e) { return null; } };
+        var costo = function (lista) {
+            var a = C.aggregate(lista, { kbLookup: kb, usdChf: tasso });
+            return { chf: C.fmtChf(a.totals.total), chiamate: C.fmtTok(a.totals.calls) };
+        };
+        var tot = costo(recs);
+        var righe = [_riga('udp:', [
+            { testo: t('cb_ud_tutte_mappe', 'Tutte le mappe'), bollino: _st.ud.sel ? '' : 'attivo', titolo: t('cb_ud_sel', 'Selezione corrente') },
+            '', '', tot.chiamate, tot.chf
+        ])];
+        progetti.forEach(function (p) {
+            var c = _ctxDi(p.key);
+            var q = costo(C.filterByProject(recs, p.key));
+            righe.push(_riga('udp:' + p.key, [
+                { testo: p.label, bollino: _st.ud.sel === p.key ? 'attivo' : '', titolo: t('cb_ud_sel', 'Selezione corrente') },
+                c.allievo || c.classe || '—', c.materia || '—', q.chiamate, q.chf
+            ]));
+        });
+        return {
+            id: 'ud-mappe', titolo: t('cb_ud_mappe', 'Mappe'), collassabile: true,
+            colonne: [
+                { etichetta: t('cb_ud_c_mappa', 'Mappa'), larghezza: '300px' },
+                { etichetta: t('cb_ud_c_ctx', 'Classe o allievo'), larghezza: '160px' },
+                { etichetta: t('cb_ud_c_mat', 'Materia'), larghezza: '150px' },
+                { etichetta: t('ud_calls', 'Chiamate AI'), larghezza: '110px' },
+                { etichetta: t('ud_cost_total', 'Totale') }
+            ],
+            vuota: t('cb_ud_nessuna', 'Nessuna mappa con questi filtri.'),
+            righe: righe
+        };
+    }
+
+    /* Il cruscotto lo disegna la dashboard: è lo stesso che apre il bottone
+       della landing. Due copie diverse degli stessi numeri divergono al primo
+       ritocco, quindi qui si riempie soltanto la tela. */
+    function _riempiTela(box) {
+        if (!box || _st.voce !== 'consumi') return;
+        var host = box.querySelector('[data-tela="ud"]');
+        if (!host) return;
+        var UD = window.MappAIUsageDash;
+        if (!UD || !UD.contentHtml) {
+            host.textContent = t('cb_ud_no_dash', 'Il cruscotto dei consumi non è caricato.');
+            return;
+        }
+        host.innerHTML = UD.contentHtml(_recordFiltrati(true), { drillCat: _st.ud.drill });
+        UD.wireContent(host, function (cat) { _st.ud.drill = cat; _ridisegna(); });
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LE VISTE
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* Le voci arrivano dal dizionario dei metodi di studio: sono le stesse che
+       il modale storico mostra, lette dalle stesse chiavi — la fonte è una.
+       L'emoji in testa al titolo sparisce: nella console il titolo di sezione
+       è testo, e le icone in MappAI le disegna Lucide. */
+    var CONSIGLI = ['sr', 'ar', 'feynman', 'interleaving', 'elaboration', 'local_files'];
+    function _senzaEmoji(s) {
+        return String(s || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+    }
+    function _vistaConsigli(s) {
+        s.area = 'due';
+        s.sezioni.push({
+            id: 'cs-intro', nuda: true, largo: true,
+            testo: t('study_intro', 'MappAI non è solo un generatore di schemi: è un ambiente di apprendimento attivo. La mappa generata dall’AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi.')
+        });
+        CONSIGLI.forEach(function (k) {
+            var tit = t('study_' + k + '_title', '');
+            var des = t('study_' + k + '_desc', '');
+            if (!tit && !des) return;
+            s.sezioni.push({ id: 'cs-' + k, titolo: _senzaEmoji(tit), testo: des });
+        });
+        s.sezioni.push({
+            id: 'cs-fine', nuda: true, largo: true,
+            testo: t('study_footer', ''),
+            azioni: [{ id: 'apri-consigli', etichetta: t('cb_cs_ascolta', 'Apri con la lettura ad alta voce'), icona: 'volume-2', chiude: false }]
+        });
+        s.nota = t('cb_cs_nota', 'Sono i metodi che le funzioni di studio dell’app mettono in pratica: flashcard a intervalli, richiamo attivo, quiz, cloze.');
+        return s;
+    }
+
+    /* Il tutorial non racconta i bottoni: racconta una PROGRESSIONE. La mappa
+       che l'AI genera non è il materiale da studiare — è il modello con cui
+       l'allievo confronta la propria. Quindi si comincia con schede corte e
+       mappe piccole, e si sale solo quando costruire è diventato facile. */
+    var PASSI = [
+        {
+            id: 'p1', chiave: 'cb_tu_p1',
+            titolo: 'Passo 1 — una scheda corta, una mappa piccola',
+            testo: 'Parti da 200-400 parole su un solo tema e imposta «Genera fino a» su L2: escono 8-12 nodi. È il formato in cui l’allievo riesce a tenere tutta la mappa in testa, e in cui un errore si vede. Una scheda lunga alla prima prova produce una mappa che nessuno finisce di leggere.'
+        },
+        {
+            id: 'p2', chiave: 'cb_tu_p2',
+            titolo: 'Passo 2 — la mappa la costruisce l’allievo',
+            testo: 'Con la stessa scheda, stampa il Foglio dei nodi con i soli titoli, oppure apri la Lavagna: gli allievi costruiscono, e la mappa dell’AI si mostra alla fine come confronto. È qui che si impara: costruire vale più che studiare una mappa già fatta.'
+        },
+        {
+            id: 'p3', chiave: 'cb_tu_p3',
+            titolo: 'Passo 3 — due schede sullo stesso tema',
+            testo: 'Aggiungi una seconda fonte e sali a L3. Compaiono i primi legami trasversali, e con essi la domanda che conta: che cosa dice una fonte che l’altra non dice? Le parole-legame sugli archi diventano materia di discussione.'
+        },
+        {
+            id: 'p4', chiave: 'cb_tu_p4',
+            titolo: 'Passo 4 — il capitolo intero',
+            testo: 'Testo denso, L3-L4, e «Genera materiali» che produce in un colpo quiz, flashcard, foglio dei nodi e sintesi nella cartella della classe. A questo punto la classe sa già costruire: il materiale serve ad allenare, non a spiegare.'
+        }
+    ];
+    function _vistaTutorial(s) {
+        s.area = 'due';
+        s.sezioni.push({
+            id: 'tu-intro', nuda: true, largo: true,
+            testo: t('cb_tu_intro', 'Una progressione in quattro passi per allenare la costruzione di mappe. Si comincia da schede corte e mappe con pochi nodi e si sale verso contenuti più densi: la difficoltà cresce quando costruire è diventato facile, non prima.')
+        });
+        PASSI.forEach(function (p) {
+            s.sezioni.push({ id: 'tu-' + p.id, titolo: t(p.chiave + '_t', p.titolo), testo: t(p.chiave + '_d', p.testo) });
+        });
+        s.sezioni.push({
+            id: 'tu-tara', titolo: t('cb_tu_tara_t', 'Le due leve che cambiano tutto'), largo: true,
+            testo: t('cb_tu_tara_d', 'La prima è il contesto attivo: con una classe o un allievo selezionato l’AI adatta registro, lunghezza delle frasi ed esempi, senza toccare i fatti. La seconda è «Genera fino a», che decide quanti livelli finiscono nei DATI — diverso da «Mostra fino a», che nasconde e basta: una mappa generata a L5 resta a L5 dentro quiz e materiali anche se sul canvas ne vedi tre.'),
+            azioni: [
+                { id: 'apri-guida', etichetta: t('cb_tu_guida', 'Come usare MappAI'), icona: 'help-circle', chiude: false },
+                { id: 'vai-consumi', etichetta: t('cb_tu_costi', 'Quanto costa'), icona: 'coins', chiude: false }
+            ]
+        });
+        s.nota = t('cb_tu_nota', 'Ogni passo si prova con la stessa fonte: cambiano la profondità e chi disegna la mappa, non l’argomento.');
+        return s;
+    }
+
+    /* Note d'uso. Il testo dice quello che il codice fa davvero — che cosa esce
+       dal computer e che cosa no — perché è l'unica versione che si può
+       verificare. Non sostituisce il testo legale pubblicato dall'autore. */
+    function _vistaTermini(s) {
+        s.area = 'due';
+        s.sezioni.push({
+            id: 'tc-cosa', titolo: t('cb_tc_cosa_t', 'Che cos’è MappAI'), largo: true,
+            testo: t('cb_tc_cosa_d', 'Uno strumento di lavoro per chi insegna: genera mappe e materiali a partire da fonti che scegli tu, e li scrive sul tuo computer. Non è un registro, non è una piattaforma didattica e non ospita nulla in rete per conto tuo.')
+        });
+        s.sezioni.push({
+            id: 'tc-ai', titolo: t('cb_tc_ai_t', 'I contenuti li scrive un modello'),
+            testo: t('cb_tc_ai_d', 'Mappe, quiz, sintesi e risposte del tutor arrivano da un modello linguistico: possono contenere errori, omissioni e semplificazioni sbagliate anche quando la fonte è corretta. Ogni materiale va riletto prima di darlo alla classe. La responsabilità di quello che consegni resta di chi insegna.')
+        });
+        s.sezioni.push({
+            id: 'tc-chiavi', titolo: t('cb_tc_chiavi_t', 'Chiave AI e costi'),
+            testo: t('cb_tc_chiavi_d', 'La chiave API è tua e resta sul tuo computer: le chiamate le paghi al provider che hai scelto, secondo le sue tariffe. MappAI misura token e costo stimato in «Consumi AI», ma non fattura, non rivende e non fa da intermediario.')
+        });
+        s.sezioni.push({
+            id: 'tc-classe', titolo: t('cb_tc_classe_t', 'Uso con gli allievi'),
+            testo: t('cb_tc_classe_d', 'Lavagna, attività LIVE e Tutor QR aprono un server sul tuo computer a cui i dispositivi si collegano via Wi-Fi. Chi somministra l’attività risponde dei dati che raccoglie e delle regole del proprio istituto: prima di usarle con minori, verifica cosa prevede la tua scuola.')
+        });
+        s.sezioni.push({
+            id: 'tc-fonti', titolo: t('cb_tc_fonti_t', 'Le fonti che carichi'),
+            testo: t('cb_tc_fonti_d', 'Carichi tu i PDF, i link e i testi: assicurati di averne il diritto. I materiali generati ne sono una rielaborazione e ne seguono i vincoli — un capitolo sotto copyright non diventa libero perché ci hai fatto una mappa.')
+        });
+        s.nota = t('cb_note_nota', 'Sintesi informativa, non un contratto. Per le condizioni complete: insegnai.ch — giacomo@insegnai.ch');
+        return s;
+    }
+
+    function _vistaPrivacy(s) {
+        s.area = 'due';
+        s.sezioni.push({
+            id: 'pv-dove', titolo: t('cb_pv_dove_t', 'Dove vivono i dati'), largo: true,
+            testo: t('cb_pv_dove_d', 'Sul tuo computer, in cartelle che puoi aprire dal Finder: mappe e vault, materiali, sessioni delle attività, profili di classi e allievi, registro dei consumi. Non c’è un account MappAI, non c’è un server di MappAI, non c’è sincronizzazione.')
+        });
+        s.sezioni.push({
+            id: 'pv-esce', titolo: t('cb_pv_esce_t', 'Che cosa esce dal computer'),
+            testo: t('cb_pv_esce_d', 'Solo quello che mandi a generare: il testo delle fonti che hai caricato e le istruzioni del prompt, verso il provider AI attivo (Google Gemini, oppure Infomaniak che tiene i dati in Svizzera). Nient’altro parte da solo.')
+        });
+        s.sezioni.push({
+            id: 'pv-allievi', titolo: t('cb_pv_allievi_t', 'I profili degli allievi'),
+            testo: t('cb_pv_allievi_d', 'Quando la taratura è attiva, nel prompt entrano età, grado, sistema scolastico e le note che hai scritto nella scheda (per una classe: grado, registro e note). Il NOME dell’allievo non entra mai. Le note servono a cambiare come l’AI scrive: scrivici i bisogni linguistici, non le diagnosi.')
+        });
+        s.sezioni.push({
+            id: 'pv-lan', titolo: t('cb_pv_lan_t', 'Le attività in classe'),
+            testo: t('cb_pv_lan_d', 'Lavagna, quiz LIVE e Tutor restano sulla rete locale: i telefoni parlano col tuo computer, non con Internet, e le risposte finiscono in una cartella tua. L’eccezione è il Tutor QR, dove i messaggi che gli allievi scrivono vengono inoltrati all’AI per ottenere la risposta.')
+        });
+        s.sezioni.push({
+            id: 'pv-cancella', titolo: t('cb_pv_cancella_t', 'Cancellare'),
+            testo: t('cb_pv_cancella_d', 'Le cartelle sono file normali: si eliminano dal Finder e spariscono davvero. Le identità degli allievi (emoji + numero) esistono solo dentro la classe, sul tuo disco, e si rigenerano quando vuoi.'),
+            azioni: [{ id: 'apri-cartella-consumi', etichetta: t('cb_pv_apri', 'Apri la cartella dei consumi'), icona: 'folder-open', chiude: false }]
+        });
+        s.nota = t('cb_note_nota', 'Sintesi informativa, non un contratto. Per le condizioni complete: insegnai.ch — giacomo@insegnai.ch');
+        return s;
+    }
+
+    /* ── Allievi · Classi ────────────────────────────────────────────────────
+       Due viste gemelle: la TABELLA in alto (è quello che si viene a vedere) e
+       sotto i due comandi — «Crea profilo» e «Generico». Una regola sola in
+       comune: il clic sulla riga ATTIVA quel contesto, il comando in coda apre
+       la scheda per modificarla. */
+    function _righeContesto() {
+        var att = _attiva(), all = _allievo();
+        var gest = function (id) {
+            return {
+                /* NON `quieto`: quel ruolo, in una cella di comandi, diventa
+                   rosso al passaggio — è la veste del cestino di riga. Su
+                   «Gestisci» prometterebbe una perdita che non c'è. */
+                azioni: [{
+                    id: id, etichetta: t('cls_manage', 'Gestisci'), icona: 'settings-2',
+                    soloIcona: true
+                }]
+            };
+        };
+        var pallino = function (attivo, speciale, nome) {
+            return {
+                testo: nome,
+                bollino: attivo ? 'attivo' : (speciale ? 'ok' : 'spento'),
+                titolo: attivo ? t('cb_b_attivo', 'Contesto attivo')
+                    : (speciale ? t('tune_special', 'Profilo con taratura speciale') : t('tune_standard', 'Profilo standard'))
+            };
+        };
+
+        return {
+            classi: _classi().map(function (c) {
+                return _riga('cls:' + c.id, [
+                    pallino(!!(att && att.id === c.id), _speciale('cls', c), c.name),
+                    c.grade || '—',
+                    (c.register && t('cb_reg_' + c.register, c.register)) || '—',
+                    (window.MappAIClasses.disciplinesOf(c) || []).join(' · ') || '—',
+                    String((c.students || []).length),
+                    gest('cls-edit:' + c.id)
+                ]);
+            }),
+            allievi: _allievi().map(function (p, i) {
+                var cls = p.classId ? window.MappAIClasses.get(p.classId) : null;
+                var attivo = !!(all && p.nickname && p.nickname.toLowerCase() === all.toLowerCase());
+                return _riga('stu:' + i, [
+                    pallino(attivo, _speciale('stu', p), p.nickname || '—'),
+                    cls ? cls.name : '—',
+                    p.grade || '—',
+                    p.age ? String(p.age) : '—',
+                    (p.register && t('cb_reg_' + p.register, p.register)) || '—',
+                    (p.notes && String(p.notes).trim()) || '—',
+                    gest('stu-edit:' + i)
+                ]);
+            })
+        };
+    }
+
+    /* Il contesto attivo, detto a parole: sta nella NOTA, cioè sotto la tabella
+       e sopra i comandi — dove si guarda prima di premerli. */
+    function _notaContesto() {
+        var att = _attiva(), all = _allievo();
+        return all
+            ? t('cb_ctx_allievo', 'Contesto attivo: allievo ') + all
+            : (att ? t('cb_ctx_classe', 'Contesto attivo: classe ') + att.name
+                : t('cb_ctx_generico', 'Contesto attivo: generico — nessuna taratura.'));
+    }
+
+    function _vistaClassi(s) {
+        s.tabelle = [{
+            id: 'tb-classi', titolo: t('cb_tb_classi', 'Profili classe'),
+            vuota: t('cb_classe_nessuna', 'Nessuna classe. Creane una per tarare i contenuti sul livello dei tuoi allievi.'),
+            colonne: [
+                { etichetta: t('cb_c_classe', 'Classe'), larghezza: '200px' },
+                { etichetta: t('cb_c_grado', 'Grado'), larghezza: '120px' },
+                { etichetta: t('cb_c_registro', 'Registro'), larghezza: '150px' },
+                { etichetta: t('cb_c_materie', 'Materie') },
+                { etichetta: t('cb_c_allievi', 'Allievi'), larghezza: '90px' },
+                { etichetta: t('cb_c_azioni', 'Azioni'), larghezza: '76px', ordinabile: false }
+            ],
+            righe: _righeContesto().classi
+        }];
+        /* I comandi vivono nel piè, che dentro la console sta DENTRO l'area:
+           così stanno sotto la tabella, che è quello che si viene a vedere. */
+        s.azioni = [
+            { id: 'ctx-generico', etichetta: t('cls_generic', 'Generico'), icona: 'circle-dashed', chiude: false },
+            { id: 'nuova-classe', etichetta: t('cb_crea_profilo', 'Crea profilo'), icona: 'plus', ruolo: 'primario', chiude: false }
+        ];
+        s.nota = _notaContesto();
+        return s;
+    }
+
+    function _vistaAllievi(s) {
+        s.tabelle = [{
+            id: 'tb-allievi', titolo: t('cb_tb_allievi', 'Profili allievo'),
+            vuota: t('stu_empty', 'Nessuna scheda studente. Creane una per un allievo che segui (es. sostegno).'),
+            colonne: [
+                { etichetta: t('cb_c_allievo', 'Allievo'), larghezza: '190px' },
+                { etichetta: t('cb_c_classe', 'Classe'), larghezza: '130px' },
+                { etichetta: t('cb_c_grado', 'Grado'), larghezza: '100px' },
+                { etichetta: t('cb_c_eta', 'Età'), larghezza: '80px' },
+                { etichetta: t('cb_c_preset', 'Preset'), larghezza: '150px' },
+                { etichetta: t('cb_c_note', 'Note per la taratura') },
+                { etichetta: t('cb_c_azioni', 'Azioni'), larghezza: '76px', ordinabile: false }
+            ],
+            righe: _righeContesto().allievi
+        }];
+        s.azioni = [
+            { id: 'ctx-generico', etichetta: t('cls_generic', 'Generico'), icona: 'circle-dashed', chiude: false },
+            { id: 'nuovo-allievo', etichetta: t('cb_crea_profilo', 'Crea profilo'), icona: 'user-plus', ruolo: 'primario', chiude: false }
+        ];
+        s.nota = t('cb_allievi_nota', 'Le schede allievo sono la taratura individuale: si aprono dichiarando il ruolo «Docente di sostegno / OPI» nel profilo.') +
+            ' · ' + _notaContesto();
+        return s;
+    }
+
+    function _vistaConsumi(s) {
+        if (_st.ud.stato !== 'pronto') {
+            s.sezioni.push({
+                id: 'ud-carico', nuda: true,
+                testo: t('cb_ud_carico', 'Leggo il registro delle chiamate AI…')
+            });
+            return s;
+        }
+        s.sezioni.push({
+            id: 'ud-filtri', colonna: 'filtri',
+            campi: [
+                {
+                    id: 'ud-ctx', tipo: 'scelta', valore: _st.ud.fCtx,
+                    etichetta: t('cb_ud_f_ctx', 'Classe o allievo'), opzioni: _opzioniContesto()
+                },
+                {
+                    id: 'ud-mat', tipo: 'scelta', valore: _st.ud.fMat,
+                    etichetta: t('cb_ud_f_mat', 'Materia'), opzioni: _opzioniMateria()
+                },
+                {
+                    id: 'ud-tasso', tipo: 'numero', larghezza: 'breve',
+                    valore: (window.MappAIUsageDash && window.MappAIUsageDash.rate) ? window.MappAIUsageDash.rate() : 0.9,
+                    etichetta: t('ud_rate', 'Tasso USD→CHF'), min: 0.1, max: 3,
+                    /* Coi campi a solo segnaposto un numero già scritto resta un
+                       numero NUDO: «0.9» accanto a due tendine non dice niente a
+                       chi guarda. Qui l'indicazione deve restare visibile. */
+                    aiuto: t('ud_rate', 'Tasso USD→CHF')
+                }
+            ],
+            azioni: [
+                { id: 'ud-stampa', etichetta: t('ud_print', 'Stampa'), icona: 'printer', chiude: false },
+                { id: 'ud-cartella', etichetta: t('ud_tip_folder', 'Apri la cartella del registro su disco'), icona: 'folder-open', soloIcona: true, chiude: false }
+            ]
+        });
+        s.tabelle = [_tabellaMappe()];
+        s.tela = { id: 'ud', segnaposto: '' };
+        s.nota = t('cb_ud_nota', 'I costi si calcolano qui dalle tariffe dei modelli: il registro salva solo i token, quindi correggere il tasso o un prezzo aggiorna anche lo storico.');
+        return s;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       LO SCHEMA
+       ═══════════════════════════════════════════════════════════════════════ */
+    function schema() {
+        var s = {
+            titolo: t('cb_titolo', 'Cabina'),
+            sottotitolo: t('cb_sub', 'Il tuo profilo, il contesto di lavoro e l’AI'),
+            icona: 'sliders-horizontal', taglia: 'xl', layout: 'console', piena: true,
+            invio: false, veloChiude: false, sporco: _st.voce === 'profilo',
+            nav: VOCI.map(function (v) {
+                if (v.gruppo) return { gruppo: t(v.gruppo, v.gruppoTesto) };
+                return { id: v.id, etichetta: t(v.chiave, v.testo), icona: v.icona, attiva: _st.voce === v.id };
+            }),
+            sezioni: [],
+            azioni: []
+        };
+
+        if (_st.voce === 'profilo') {
+            var TP = window.MappAITeacherProfile;
+            if (!TP) {
+                s.sezioni.push({ id: 'no-tp', nuda: true, testo: t('cb_no_profilo', 'Il modulo del profilo insegnante non è caricato.') });
+                return s;
+            }
+            if (!_st.profilo) _st.profilo = JSON.parse(JSON.stringify(TP.get()));
+            s.area = 'due';
+            s.sezioni = TP.sezioni(_st.profilo);
+            /* `chiude:false`: salvare NON è uscire. La Cabina è la casa del
+               profilo — si salva e si continua, magari passando alla classe
+               attiva. Col default un'azione di piè conclude, e per giunta non
+               sarebbe mai arrivata al gestore che scrive. */
+            s.azioni = [{ id: 'salva-prof', etichetta: t('tp_save', 'Salva profilo'), ruolo: 'primario', icona: 'save', chiude: false }];
+            return s;
+        }
+        if (_st.voce === 'classi') return _vistaClassi(s);
+        if (_st.voce === 'allievi') return _vistaAllievi(s);
+        if (_st.voce === 'consumi') return _vistaConsumi(s);
+        if (_st.voce === 'consigli') return _vistaConsigli(s);
+        if (_st.voce === 'tutorial') return _vistaTutorial(s);
+        if (_st.voce === 'termini') return _vistaTermini(s);
+        if (_st.voce === 'privacy') return _vistaPrivacy(s);
+
+        /* L'unica vista non ancora migrata: la console la dichiara per quello
+           che è — un ponte verso la finestra che esiste — invece di far finta
+           di averla assorbita. */
+        s.sezioni.push({
+            id: 'ponte', nuda: true,
+            testo: t('cb_ai_intro', 'Provider, chiave e modello: la finestra di oggi resta quella dell’app. Da qui si apre nel posto giusto.'),
+            azioni: [{ id: 'apri-ai', etichetta: t('cb_apri_ai', 'Apri le impostazioni AI'), icona: 'bot', ruolo: 'primario', chiude: false }]
+        });
+        return s;
+    }
+
+    /* Ridisegnare la console è sempre due cose: rimontare lo schema e
+       ripopolare la tela — che il motore non sa disegnare e quindi non
+       ridisegna da sé. Passare da una parte sola lascia il cruscotto vuoto. */
+    function _ridisegna() {
+        if (!_st || !_st.rid) return null;
+        var box = _st.rid(schema());
+        _riempiTela(box);
+        return box;
+    }
+
+    function apri(voce) {
+        if (!MM()) { if (window.showTeacherProfileModal) window.showTeacherProfileModal(); return; }
+        _st = _vuoto();
+        var v = ALIAS[voce] || voce;
+        _st.voce = IDS.indexOf(v) >= 0 ? v : 'profilo';
+        var s = schema();
+
+        /* Dice alla veste «manifesto» che console è questa: qui il pallino in
+           testata è ACCESO e chiude, mentre in ogni altra console è il bottone
+           che porta QUI. Nessuna forma del rail si accende: la Cabina non è una
+           delle tre modalità di lavoro, è il pallino. */
+        try { document.documentElement.dataset.manSezionePendente = 'cabina'; } catch (e) { }
+
+        /* La lettura del registro parte da QUI, non prima di `open()`: se
+           finisse mentre la finestra non è ancora montata, `_ridisegna` non
+           avrebbe la funzione con cui rimontarla e la vista resterebbe per
+           sempre su «Leggo il registro…». */
+        s.suApertura = function (box, ridisegna) {
+            _st.rid = ridisegna;
+            _riempiTela(box);
+            if (_st.voce === 'consumi') _caricaConsumi();
+        };
+
+        s.suAzione = function (ev, box, ridisegna) {
+            var id = ev.azione;
+            _st.rid = ridisegna;
+
+            /* Il profilo si porta dietro quello che è stato scritto: cambiando
+               vista non si perde, e tornando indietro è ancora lì. */
+            if (_st.voce === 'profilo' && _st.profilo && window.MappAITeacherProfile) {
+                window.MappAITeacherProfile.assorbi(_st.profilo, ev.valori);
+            }
+
+            if (id === '__nav') {
+                _st.voce = ev.voce;
+                if (_st.voce === 'consumi') _caricaConsumi();
+                _ridisegna();
+                return;
+            }
+            /* ESC A STRATI: se da qui è stata aperta una finestra non ancora
+               migrata (che il motore non conosce e non ha nella sua pila), il
+               primo ESC chiude quella. Senza, chiuderebbe la console SOTTO e
+               lascerebbe l'altra sospesa per aria. */
+            if (id === '__esc') {
+                var chiudi = _legacySopra();
+                if (chiudi) { chiudi(); return false; }
+                return;                                   // ESC chiude la console
+            }
+
+            if (id === '__campo') {
+                if (_st.voce === 'profilo' &&
+                    ['ruolo-materia', 'ruolo-sostegno', 'ora-classe'].indexOf(ev.campo) >= 0) _ridisegna();
+                if (_st.voce === 'consumi') {
+                    var v2 = ev.valori || {};
+                    if (ev.campo === 'ud-ctx') { _st.ud.fCtx = v2['ud-ctx'] || ''; _st.ud.sel = ''; _st.ud.drill = null; }
+                    if (ev.campo === 'ud-mat') { _st.ud.fMat = v2['ud-mat'] || ''; _st.ud.sel = ''; _st.ud.drill = null; }
+                    if (ev.campo === 'ud-tasso' && window.MappAIUsageDash) window.MappAIUsageDash.setRate(v2['ud-tasso']);
+                    _ridisegna();
+                }
+                return;
+            }
+            if (_st.voce === 'profilo' && window.MappAITeacherProfile &&
+                (id.indexOf('__piu-') === 0 || id.indexOf('__via-') === 0)) {
+                return window.MappAITeacherProfile.comandoElenco(_st.profilo, id, function () { _ridisegna(); });
+            }
+            if (id === 'salva-prof') {
+                window.MappAITeacherProfile.salva(_st.profilo);
+                /* riletto dallo store: quello che resta a schermo è quello che
+                   è finito su disco, non quello che si era digitato */
+                _st.profilo = JSON.parse(JSON.stringify(window.MappAITeacherProfile.get()));
+                toast(t('tp_saved', 'Profilo insegnante salvato.'), 'success');
+                _ridisegna();
+                return;
+            }
+
+            // ── Allievi & Classi ───────────────────────────────────────────
+            if (id.indexOf('cls-edit:') === 0) {
+                if (window.MappAIClasses && window.MappAIClasses.openClassEdit) {
+                    window.MappAIClasses.openClassEdit(id.slice(9));
+                    _alza('#class-accounts-modal');
+                }
+                return;
+            }
+            if (id.indexOf('stu-edit:') === 0) {
+                if (window.MappAIClasses && window.MappAIClasses.openStudentEdit) {
+                    window.MappAIClasses.openStudentEdit(parseInt(id.slice(9), 10));
+                    _alza('#class-accounts-modal');
+                }
+                return;
+            }
+            if (id.indexOf('cls:') === 0) {
+                try { window.MappAIClasses.setActive(id.slice(4)); } catch (e) { }
+                _ridisegna();
+                return;
+            }
+            if (id.indexOf('stu:') === 0) {
+                var p = _allievi()[parseInt(id.slice(4), 10)];
+                if (p && window.MappAIClasses && window.MappAIClasses.setActiveStudent) {
+                    window.MappAIClasses.setActiveStudent(p);
+                    toast(t('stu_activated', 'Scheda attiva per la taratura.'), 'success');
+                }
+                _ridisegna();
+                return;
+            }
+            if (id === 'ctx-generico') {
+                try {
+                    if (window.MappAIClasses.setActiveStudent) window.MappAIClasses.setActiveStudent(null);
+                    window.MappAIClasses.setActive('');
+                } catch (e) { }
+                _ridisegna();
+                return;
+            }
+            if (id === 'nuova-classe') {
+                if (window.MappAIClasses && window.MappAIClasses.openClassCreate) {
+                    window.MappAIClasses.openClassCreate(); _alza('#class-accounts-modal');
+                }
+                return;
+            }
+            if (id === 'nuovo-allievo') {
+                if (window.MappAIClasses && window.MappAIClasses.openStudentCreate) {
+                    window.MappAIClasses.openStudentCreate(); _alza('#class-accounts-modal');
+                }
+                return;
+            }
+
+            // ── Consumi ────────────────────────────────────────────────────
+            if (id.indexOf('udp:') === 0) {
+                var k = id.slice(4);
+                _st.ud.sel = (_st.ud.sel === k) ? '' : k;   // secondo clic = torna a tutte
+                _st.ud.drill = null;
+                _ridisegna();
+                return;
+            }
+            if (id === 'ud-stampa') {
+                if (window.MappAIUsageDash && window.MappAIUsageDash.printReport) {
+                    window.MappAIUsageDash.printReport(_recordFiltrati(true), _etichettaSelezione());
+                }
+                return;
+            }
+            if (id === 'ud-cartella' || id === 'apri-cartella-consumi') {
+                if (window.electronAPI && window.electronAPI.usageOpenFolder) window.electronAPI.usageOpenFolder();
+                else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+            if (id === 'vai-consumi') { _st.voce = 'consumi'; _caricaConsumi(); _ridisegna(); return; }
+
+            // ── Ponti verso le finestre non ancora migrate ──────────────────
+            if (id === 'apri-ai') {
+                if (window.showConfigAIModal) { window.showConfigAIModal(); _alza('#config-ai-modal'); }
+                return;
+            }
+            if (id === 'apri-guida') {
+                if (window.showAppGuide) { window.showAppGuide(); _alza('#app-guide-modal'); }
+                return;
+            }
+            if (id === 'apri-consigli') {
+                if (window.showAppTutorial) { window.showAppTutorial(); _alza('#app-tutorial-modal'); }
+                return;
+            }
+        };
+        MM().open(s);
+    }
+
+    function _etichettaSelezione() {
+        var U = _st.ud, C = _UC();
+        if (!U.sel || !C) return t('ud_all_maps', 'Tutte le mappe');
+        var p = C.listProjects(U.records).filter(function (x) { return x.key === U.sel; })[0];
+        return (p && p.label) || t('ud_all_maps', 'Tutte le mappe');
+    }
+
+    /* `_ridisegna` non fa niente a console chiusa (il `ridisegna` del motore si
+       tira indietro da sé), quindi l'ascolto può restare acceso una volta sola. */
+    if (typeof document !== 'undefined') {
+        document.addEventListener('mappai-profili-cambiati', function () {
+            if (_st && VISTE_PROFILI.indexOf(_st.voce) >= 0) _ridisegna();
+        });
+    }
+
+    window.MappAICabina = { apri: apri, VOCI: VOCI, _schema: function () { if (!_st) _st = _vuoto(); return schema(); } };
+    window.openCabina = apri;
+    console.log('[MappAICabina] console «Cabina» caricata');
+})();

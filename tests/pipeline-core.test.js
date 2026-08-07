@@ -257,3 +257,75 @@ test('buildFileName: nomi canonici + marcatore VERDE', () => {
   // segmenti con caratteri illegali sanitizzati
   assert.strictEqual(PC.buildFileName('quiz_mc', 'A/B:C', false), 'Quiz-MC-A B C.pdf');
 });
+
+/* ═══ STEP E — «Catena dei perché» come materiale INDIPENDENTE (5/8) ══════════
+   Prima era `nodesheet.causal` e le sue pagine finivano in coda al PDF dei fogli
+   nodi: per avere la catena bisognava chiedere anche i fogli. Ora è un passo suo
+   con un file suo. Lo schema resta @1, quindi la retro-compatibilità dei manifest
+   già scritti è parte del contratto — non un dettaglio. */
+test('E nasce pending se la catena è richiesta, skipped altrimenti', () => {
+    const conCatena = PC.createManifest({ causal: true }, { now: 'T' });
+    assert.strictEqual(conCatena.steps.E.status, 'pending');
+    const senza = PC.createManifest({ quiz: { types: ['mc'] } }, { now: 'T' });
+    assert.strictEqual(senza.steps.E.status, 'skipped');
+});
+
+test('la catena NON accende i fogli nodi: sono due materiali distinti', () => {
+    const m = PC.createManifest({ causal: true }, { now: 'T' });
+    assert.strictEqual(m.steps.C.status, 'skipped', 'nessun foglio nodi richiesto');
+    assert.strictEqual(m.steps.E.status, 'pending');
+});
+
+test('un manifest scritto PRIMA dello step E resta completo (non si riapre)', () => {
+    /* il caso vero: un vault già lavorato. Senza il fallback, isComplete
+       leggerebbe `undefined` su E e la ripresa riproporrebbe una pipeline finita */
+    const vecchio = {
+        schema: PC.SCHEMA, createdAt: 'T', updatedAt: 'T', config: {}, vaultPath: '/v',
+        steps: {
+            A: { status: 'done', files: [] }, B: { status: 'done', files: [] },
+            C: { status: 'skipped', files: [] }, D: { status: 'done', files: [] }
+        }
+    };
+    const n = PC.normalizeOnLoad(vecchio);
+    assert.strictEqual(n.steps.E.status, 'skipped', 'E riempita come saltata');
+    assert.strictEqual(PC.isComplete(n), true, 'la pipeline resta conclusa');
+});
+
+test('la catena non costa chiamate AI: E vale 0 e non gonfia il totale', () => {
+    const stats = { branches: 4, nodes: 40, willGenerateMap: false };
+    const senza = PC.estimateCalls({ quiz: { types: ['mc'] } }, stats);
+    const con = PC.estimateCalls({ quiz: { types: ['mc'] }, causal: true }, stats);
+    assert.strictEqual(con.perStep.E, 0);
+    assert.strictEqual(con.total, senza.total, 'i nessi si ricavano dal grafo, non dall\'AI');
+});
+
+test('il file della catena ha un nome senza accenti, col marcatore VERDE', () => {
+    assert.strictEqual(PC.buildFileName('causal', null, false), 'Catena-dei-perche.pdf');
+    assert.strictEqual(PC.buildFileName('causal', null, true), 'Catena-dei-perche -VERDE.pdf');
+});
+
+test('un preset porta la catena, e la legge anche dai preset vecchi', () => {
+    const o = PC.presetFromConfig({ causal: true });
+    assert.strictEqual(o.causal, true);
+    /* preset salvati prima del 5/8: la catena stava sotto nodesheet */
+    const migrato = PC.presetNormalize({ name: 'vecchio', options: { nodesheet: { modes: ['card'], causal: true } } });
+    assert.strictEqual(migrato.options.causal, true, 'la catena non si perde silenziosamente');
+    const pulito = PC.presetNormalize({ name: 'senza', options: { quiz: { types: ['mc'] } } });
+    assert.strictEqual(pulito.options.causal, false);
+});
+
+/* ═══ «C'è almeno un materiale?» ══════════════════════════════════════════════
+   Una definizione sola: la stessa che decide gli step del manifest e la faccia
+   del bottone del bento (verde «Genera materiali» / blu «Genera Mappa»). */
+test('hasOutput riconosce ogni materiale, catena compresa', () => {
+    assert.strictEqual(PC.hasOutput({ quiz: { types: ['mc'] } }), true);
+    assert.strictEqual(PC.hasOutput({ nodesheet: { modes: ['card'] } }), true);
+    assert.strictEqual(PC.hasOutput({ synthesis: { audio: false } }), true);
+    assert.strictEqual(PC.hasOutput({ causal: true }), true, 'la catena è un materiale');
+});
+
+test('senza materiali hasOutput è falso: è lo stato «solo la mappa»', () => {
+    assert.strictEqual(PC.hasOutput({}), false);
+    assert.strictEqual(PC.hasOutput({ classId: 'c1', tuned: true, sourcePdf: true }), false);
+    assert.strictEqual(PC.hasOutput(null), false);
+});

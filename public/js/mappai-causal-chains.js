@@ -176,15 +176,36 @@
             '</body></html>';
     }
 
-    function openDoc() {
-        const chains = buildForCurrentMap();
+    /**
+     * I nessi da mandare in uscita (documento, PDF, editor): se il docente ha
+     * rivisto la catena in ELABORA vale la SUA versione, altrimenti si estrae
+     * dalla mappa. Senza questo, la revisione si vedrebbe solo nell'editor e
+     * stampa e PDF continuerebbero a mostrare l'estrazione grezza.
+     */
+    function chainsForOutput() {
+        const a = _getAppState();
+        const saved = a && a.db && a.db.causalDoc;
+        const C = window.MappAICausalCore;
+        if (saved && C && C.chainsFromDoc) {
+            const revised = C.chainsFromDoc(saved);
+            if (revised && revised.total) return revised;
+        }
+        return buildForCurrentMap();
+    }
+
+    function mapName() {
+        const a = _getAppState();
+        return (a && (a.rootNodeLabel || (a.db && a.db.rootNodeLabel))) || 'MappAI';
+    }
+
+    function openDoc(chainsOverride) {
+        const chains = chainsOverride || chainsForOutput();
         if (!chains || !chains.total) {
             if (window.showToast) window.showToast(t('cc_empty', 'Nessun nesso causa-effetto trovato: servono verbi significativi sui link o connettivi (perché, quindi…) nelle descrizioni.'), 'warning');
             return;
         }
-        const a = _getAppState();
-        const mapName = (a && (a.rootNodeLabel || (a.db && a.db.rootNodeLabel))) || 'MappAI';
-        const html = _docHtml(chains, mapName);
+        const mName = mapName();
+        const html = _docHtml(chains, mName);
         const w = window.open('', '_blank');
         if (!w) { if (window.showToast) window.showToast(t('cc_popup', 'Sblocca i popup per aprire il documento'), 'error'); return; }
         w.document.write(html);
@@ -192,7 +213,7 @@
         // Archivio documenti (005): riapribile da «Documenti salvati» senza rigenerare.
         try {
             if (window.MappAIStudyDocs && window.MappAIStudyDocs.save) {
-                window.MappAIStudyDocs.save({ kind: 'causal', title: t('cc_doc_title', 'Catena dei perché'), mapName, html });
+                window.MappAIStudyDocs.save({ kind: 'causal', title: t('cc_doc_title', 'Catena dei perché'), mapName: mName, html: html });
             }
         } catch (e) { console.warn('[Causal] archivio non disponibile:', e); }
     }
@@ -200,7 +221,7 @@
     // ── Pagine PDF per il Foglio nodi (jsPDF landscape A4: 297×210 mm) ──────
     // Ritorna true se ha aggiunto almeno una pagina.
     function appendPdfPages(doc, fontName) {
-        const chains = buildForCurrentMap();
+        const chains = chainsForOutput();   // la revisione del docente, se c'è
         if (!chains || !chains.total) return false;
         const M = 14, W = 297 - M * 2, BOTTOM = 196;
         const font = fontName || 'courier';
@@ -241,5 +262,10 @@
         return true;
     }
 
-    window.MappAICausal = { openDoc, buildForCurrentMap, triplesFor, promptBlockFromTriples, htmlBlock, appendPdfPages };
+    window.MappAICausal = {
+        openDoc, buildForCurrentMap, triplesFor, promptBlockFromTriples, htmlBlock, appendPdfPages,
+        // usate dall'editor documenti di ELABORA: la resa è UNA (questo builder),
+        // così quel che si rivede a schermo è quel che va in stampa e nel vault.
+        chainsForOutput, buildDocHtml: _docHtml, mapName, famMeta: _famMeta
+    };
 })();

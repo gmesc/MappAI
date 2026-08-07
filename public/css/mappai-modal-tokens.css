@@ -1,0 +1,1925 @@
+/* ============================================================================
+   MappAI — TOKEN DEI MODALI
+   Decisioni prese con Giacomo il 29 luglio 2026, a partire dal campionario
+   `public/dev/campionario-modali.html` (rigenerabile con
+   `node tools/campionario-modali/build.js`).
+
+   Caricato in index.html (dopo style.css) il 29/7: definisce variabili e classi
+   `mm-*` che nessun modale usa ancora → di per sé non cambia nulla a schermo.
+   I modali vanno portati qui dentro uno alla volta, non tutti insieme:
+   piano di migrazione in §8 del campionario.
+
+   I valori non sono inventati: sono quelli che il codice usa già di più
+   (frequenze contate su index.html + public/js + style.css, §5-bis).
+   ========================================================================== */
+
+:root {
+    /* ── Colore ──────────────────────────────────────────────────────────
+       DECISIONE 1 — un solo colore d'azione: l'indigo. L'emerald torna a
+       significare «stato positivo» (badge, conferma avvenuta), mai un bottone.
+       #6366f1 sopravvive solo come stato hover. */
+    --mm-accent: #4f46e5;
+    --mm-accent-hover: #4338ca;
+    --mm-accent-soft: #eef2ff;
+
+    /* DECISIONE 2 — il rosso è la promessa di una perdita: solo distruttivo. */
+    --mm-danger: #dc2626;
+    --mm-danger-soft: #fee2e2;
+    --mm-ok: #059669;
+    /* stato positivo, non bottoni */
+
+    --mm-testo: #0f172a;
+    --mm-testo-2: #475569;
+    --mm-testo-3: #64748b;
+    /* minimo leggibile su bianco: 4.76:1 */
+    --mm-bordo: #e2e8f0;
+    --mm-fondo: #ffffff;
+    --mm-fondo-sez: #f8fafc;
+
+    /* ── Superficie ──────────────────────────────────────────────────────
+       DECISIONE 6 — velo unico, chiaro abbastanza da non spegnere il contesto
+       quando un modale ne apre un altro (config → tutorial). */
+    --mm-velo: rgba(15, 23, 42, .45);
+    --mm-ombra: 0 25px 60px -12px rgba(0, 0, 0, .35);
+
+    /* Raggi: 10px per ciò che si tocca, 16px per il contenitore.
+       Sono i due valori più frequenti nel codice (131 e 28 occorrenze). */
+    --mm-r-box: 16px;
+    --mm-r-campo: 10px;
+    --mm-r-btn: 10px;
+    --mm-r-pill: 999px;
+
+    /* Altezza del chip del contesto. Nell'header della landing il chip detta la
+       riga: il bottone della Cabina gli sta accanto ed è un CERCHIO dello stesso
+       diametro. Una leva sola per entrambi — con due numeri scritti a mano, il
+       primo ritocco al chip lascerebbe indietro il cerchio. */
+    --mm-ctx-h: 43px;
+
+    --mm-pad: 22px;
+    --mm-gap: 12px;
+    --mm-btn-gap: 8px;
+    /* RIVISTA (2/8, da Giacomo): i bottoni del motore prendono la geometria dei
+       bottoni SENZA CLASSI di «Account classi e studenti» — quelli che l'app usa
+       davvero da sempre (mappai-live-classes.js, helper `btn()`): raggio 10,
+       padding 9×14, corpo 12px, peso 700. È il metro contro cui le altre
+       famiglie erano state giudicate nell'officina, ed è quello che si vede
+       nell'app di oggi.
+       ⚠️ Ribalta la decisione del 31/7 (14px + padding 13 = bersaglio ~47px):
+       così il bersaglio scende a ~34px, sopra i 24 di WCAG 2.2 ma sotto i 44
+       consigliati per il tocco su iPad. La leva per tornare indietro è UNA:
+       questi due valori. */
+    --mm-btn-fs: 12px;
+    --mm-btn-pad-y: 9px;
+
+    /* DECISA (31/7, verdetti): 20 nei bottoni e nel corpo, 24 in testata.
+       Chiude la divergenza 20-vs-22 che il codice si portava dietro. */
+    --mm-icona: 20px;
+    --mm-icona-head: 24px;
+
+    /* Taglie: quattro, non ventinove. */
+    --mm-s: 440px;
+    --mm-m: 600px;
+    --mm-l: 820px;
+    --mm-xl: 1160px;
+
+    /* ── Console (30/7) ──────────────────────────────────────────────────
+       Il layout che RACCOGLIE: navigazione di dominio a sinistra, schede +
+       filtri + tabella a destra.
+       272 e non 240 come il cruscotto. Il numero è misurato, non scelto: le
+       due etichette più lunghe che esistono davvero — «Attività di studio» e
+       «Materiali di studio», entrambe con contatore — chiedevano 9px in più
+       di quanti ne restassero a 260. Una voce di NAVIGAZIONE tagliata a metà
+       è il posto peggiore dove risparmiare 20px.
+       ⚠️ Via `scrollbar-gutter: stable` (2/8): riservava 15px SOLO a destra e
+       il riquadro di contesto risultava scentrato — margine sinistro 12,
+       destro 27. La colonna scende a 272 e i margini tornano pari.
+       Il cruscotto ospita riquadri, non etichette: stessa posizione,
+       contenuto diverso, misura diversa. */
+    --mm-console-side: 272px;
+    --mm-console-h: 88vh;
+    /* alta abbastanza da mostrare ~12 righe */
+}
+
+/* ── Involucro ───────────────────────────────────────────────────────── */
+/* z 12000: sopra i modali ancora scritti a mano (account classi e profilo
+   insegnante stanno a 9992, altri a 10005) e ben sotto i fumetti, che devono
+   stare sopra tutto. Il motore riscrive comunque lo z-index inline a ogni
+   apertura (Z_BASE + posizione nella pila): questo è il valore di partenza per
+   chi usa `render()` senza `open()` — i mockup e l'Officina. */
+.mm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: var(--mm-velo);
+    backdrop-filter: blur(3px);
+}
+
+/* modale sopra modale */
+.mm-overlay--sopra {
+    z-index: 12100;
+}
+
+.mm-box {
+    background: var(--mm-fondo);
+    border-radius: var(--mm-r-box);
+    box-shadow: var(--mm-ombra);
+    width: min(var(--mm-m), 94vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: var(--mm-pad);
+}
+
+.mm-box--s {
+    width: min(var(--mm-s), 94vw);
+}
+
+.mm-box--l {
+    width: min(var(--mm-l), 94vw);
+}
+
+.mm-box--xl {
+    width: min(var(--mm-xl), 94vw);
+}
+
+/* ── Testata ─────────────────────────────────────────────────────────── */
+.mm-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.mm-head__ico {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    background: var(--mm-accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.mm-head__ico svg {
+    width: var(--mm-icona-head);
+    height: var(--mm-icona-head);
+    color: var(--mm-accent);
+}
+
+.mm-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--mm-testo);
+    line-height: 1.35;
+}
+
+.mm-subtitle {
+    font-size: 11.5px;
+    color: var(--mm-testo-3);
+}
+
+/* La × è l'uscita: se c'è un bersaglio che non si deve sbagliare è questo.
+   Misurata il 2/8 a 21×26 — sotto i 24 di WCAG 2.2, figurarsi i 44 del tocco. */
+.mm-close {
+    background: none;
+    border: 0;
+    color: var(--mm-testo-3);
+    font-size: 22px;
+    line-height: 1;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    padding: 0;
+    margin: -6px -8px -6px 0;
+    cursor: pointer;
+}
+
+.mm-close:hover {
+    background: var(--mm-fondo-sez);
+    color: var(--mm-testo);
+}
+
+/* ── Corpo ───────────────────────────────────────────────────────────── */
+.mm-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--mm-gap);
+}
+
+.mm-body--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.mm-body--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* cruscotto: barra laterale + area */
+.mm-body--dash {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+}
+
+.mm-body__side {
+    flex: 0 0 240px;
+}
+
+.mm-body__main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    align-content: start;
+}
+
+.mm-sez {
+    background: var(--mm-fondo-sez);
+    border: 1px solid var(--mm-bordo);
+    border-radius: calc(var(--mm-r-box) - 4px);
+    padding: 13px 15px;
+    /* Una colonna di griglia vale `minmax(auto, 1fr)`: senza questo, un testo
+       che non va a capo (il nome lungo di una mappa) allarga il riquadro oltre
+       il modale, che comincia a scorrere in orizzontale. Misurato il 2/8 sul
+       picker delle mappe: riquadro 653px dentro un modale da 600. */
+    min-width: 0;
+}
+
+.mm-body>*,
+.mm-body__main>*,
+.mm-console__sez>* {
+    min-width: 0;
+}
+
+.mm-sez__t {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--mm-testo-3);
+    margin-bottom: 9px;
+}
+
+/* ── Campi ───────────────────────────────────────────────────────────────
+   DECISIONE 4 — solo segnaposto, niente etichetta sopra il campo.
+   CONFERMATA il 31/7 con una regola di accompagnamento: dove serve, il
+   TITOLO DI SEZIONE (mm-sez__t) fa da indicazione stabile del gruppo di
+   campi — resta leggibile anche dopo che i campi sono compilati. Il core
+   emette un avviso se una sezione con più campi ne è priva.
+   Due paletti non negoziabili, altrimenti la scelta costa accessibilità:
+     a) ogni campo porta `aria-label` (o `title`): senza, per un lettore di
+        schermo il campo è muto, perché il segnaposto sparisce appena si scrive;
+     b) il segnaposto usa --mm-testo-3 (#64748b = 4.76:1 su bianco). Il grigio
+        chiaro che si usa di solito (#94a3b8) sta a 2.8:1 → sotto soglia. */
+/* VARIANTE C (scelta il 29/7): il campo dei moduli — `FLD` di
+   mappai-live-classes.js, mappai-tutor-teacher.js, mappai-teacher-profile.js.
+   Vince perché è già la famiglia più numerosa (raggio 10px: 131 occorrenze) e
+   perché `font: inherit` lascia il testo a 16px: il campo più leggibile dei tre
+   (A stava a 12px, B a 14px). Altezza risultante: 44px. */
+/* DECISA (31/7): BORDO INVISIBILE per scelta. Il vecchio #e2e8f0 stava a
+   1,23:1 — un bordo che non si percepisce è rumore, non un'affordance.
+   Il campo si riconosce dal RIEMPIMENTO (grigio su fondo bianco, bianco
+   dentro i riquadri grigi), dal raggio e dall'anello di fuoco. Il bordo
+   resta come 1px trasparente per non far ballare il layout negli stati:
+   l'ERRORE lo colora di rosso e deve restare visibilissimo. */
+.mm-campo {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: var(--mm-r-campo);
+    padding: 9px 11px;
+    font: inherit;
+    color: var(--mm-testo);
+    background: #f1f5f9;
+}
+
+/* dentro un riquadro grigio il riempimento si inverte: campo bianco */
+.mm-sez .mm-campo {
+    background: var(--mm-fondo);
+}
+
+.mm-campo::placeholder {
+    color: var(--mm-testo-3);
+    opacity: 1;
+}
+
+.mm-campo:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #a5b4fc;
+}
+
+/* Quando il campo è pieno il segnaposto non c'è più: se il contesto non basta
+   a capire cosa contiene, questa riga sopra il campo è la scappatoia prevista. */
+.mm-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--mm-testo-3);
+    margin-bottom: 4px;
+}
+
+/* ── Bottoni ─────────────────────────────────────────────────────────────
+   DECISIONE 3 — testo normale, niente MAIUSCOLO né spaziatura allargata:
+   il maiuscolo toglie il profilo della parola e la spaziatura spezza la
+   lettura (utenti BES/DSA). */
+/* VARIANTE C (scelta il 29/7): il bottone dei moduli — quello di
+   mappai-menu-hubs.js, mappai-live-classes.js, mappai-doc-editor.js.
+   Geometria: raggio 10, padding 9px 14px (16 sul primario), corpo 12px, 700.
+   ⚠️ Fino al 29/7 questo 12px non si vedeva: `button { font-size:16px !important }`
+   lo scartava. Ora è reale — è la prima volta che questi bottoni si vedono come
+   sono stati scritti. Se a schermo risultano piccoli, la leva è --mm-btn-fs. */
+.mm-btn {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mm-btn-gap);
+    border-radius: var(--mm-r-btn);
+    padding: var(--mm-btn-pad-y) 14px;
+    font-size: var(--mm-btn-fs);
+    /* niente line-height dichiarato: il bottone di riferimento non ce l'ha, e
+       imporne uno faceva misurare 34px dove lui ne fa 38 */
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: normal;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s;
+}
+
+/* DECISA (31/7): «icone 20 su bottoni» — piene, non ridotte all'80% */
+.mm-btn svg,
+.mm-btn .lucide-emoji {
+    width: var(--mm-icona);
+    height: var(--mm-icona);
+    font-size: var(--mm-icona);
+    flex: 0 0 auto;
+}
+
+.mm-btn--primario {
+    background: var(--mm-accent);
+    color: #fff;
+    border: 0;
+    /* stesso padding degli altri: il bottone di riferimento non fa eccezione
+       per il primario, lo distingue il colore */
+    padding: var(--mm-btn-pad-y) 14px;
+}
+
+.mm-btn--primario:hover {
+    background: var(--mm-accent-hover);
+}
+
+.mm-btn--secondario {
+    background: #fff;
+    color: #334155;
+    border: 1px solid var(--mm-bordo);
+}
+
+.mm-btn--secondario:hover {
+    background: var(--mm-fondo-sez);
+}
+
+.mm-btn--distruttivo {
+    background: #fff;
+    color: var(--mm-danger);
+    border: 1px solid var(--mm-danger-soft);
+}
+
+.mm-btn--distruttivo:hover {
+    background: var(--mm-danger-soft);
+}
+
+/* DECISIONE 5 — il primario sta a destra, a larghezza naturale. Su un modale
+   da 1160px un bottone a flex:2 diventa largo mezzo schermo. */
+.mm-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* Il piè RESTA in fondo quando il modale scorre: un form più alto della
+   finestra (misurato il 2/8 sul profilo insegnante, 792px al tetto di 88vh)
+   nascondeva «Salva» sotto il bordo — si compila senza vedere come si conclude.
+   Fuori dalla console, che ha già la sua area con lo scorrimento suo. */
+.mm-box:not(.mm-box--console)>.mm-foot {
+    position: sticky;
+    bottom: calc(var(--mm-pad) * -1);
+    margin: 16px calc(var(--mm-pad) * -1) calc(var(--mm-pad) * -1);
+    padding: 12px var(--mm-pad) var(--mm-pad);
+    background: var(--mm-fondo);
+}
+
+/* la sfumatura dice che sotto il piè continua: senza, il testo che ci passa
+   dietro sembra tagliato invece che coperto */
+.mm-box:not(.mm-box--console)>.mm-foot::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -18px;
+    height: 18px;
+    background: linear-gradient(to top, var(--mm-fondo), transparent);
+    pointer-events: none;
+}
+
+/* distruttivo isolato a sinistra, mai accanto al primario */
+.mm-foot--split {
+    justify-content: space-between;
+}
+
+/* solo sullo schermo stretto i due bottoni prendono tutta la riga */
+@media (max-width: 480px) {
+    .mm-foot {
+        flex-direction: column-reverse;
+    }
+
+    .mm-foot .mm-btn {
+        width: 100%;
+    }
+}
+
+/* ── Contratto tastiera ──────────────────────────────────────────────────
+   Non è CSS: va nel JS che apre il modale.
+     ESC   → chiude (se ci sono modifiche non salvate, chiede conferma)
+     Invio → azione primaria, tranne quando il fuoco è in una <textarea>
+     Tab   → resta dentro il modale (focus trap)
+     apertura → fuoco al primo campo, o al primario se non ci sono campi
+     chiusura → fuoco all'elemento che ha aperto il modale
+     clic sul velo → chiude solo i modali senza dati in scrittura
+   Una sola funzione `openModal()` invece dei 34 handler sparsi di oggi. */
+
+/* ── Pezzi che il motore disegna (mappai-modal.js) ───────────────────────
+   Da qui in avanti nessun modale scrive HTML proprio: queste classi sono il
+   vocabolario completo. Se serve un pezzo nuovo, si aggiunge QUI e lo hanno
+   tutti — è il punto della faccenda. */
+
+.mm-head__testi {
+    flex: 1;
+    min-width: 0;
+}
+
+.mm-testo {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--mm-testo-2);
+    line-height: 1.65;
+}
+
+.mm-piede-nota {
+    margin: 14px 0 0;
+    font-size: 11.5px;
+    color: var(--mm-testo-3);
+    line-height: 1.6;
+}
+
+/* riga di un campo: la spaziatura sta qui, non nei singoli campi */
+.mm-campo-riga {
+    margin-bottom: 10px;
+}
+
+.mm-campo-riga:last-child {
+    margin-bottom: 0;
+}
+
+.mm-campo-riga--meta {
+    display: inline-block;
+    width: calc(50% - 5px);
+    vertical-align: top;
+}
+
+.mm-campo-riga--meta+.mm-campo-riga--meta {
+    margin-left: 10px;
+}
+
+.mm-campo--colore {
+    padding: 4px;
+    height: 40px;
+    cursor: pointer;
+}
+
+/* ── Elenco: più valori dello stesso genere ──────────────────────────────
+   Le sedi di chi insegna in due istituti, le materie di chi ne insegna tre.
+   Si vedono tutti insieme e si tolgono uno per uno: un campo di testo con le
+   virgole sembrerebbe più semplice, ma poi non si saprebbe dove finisce un
+   nome e comincia l'altro — e sono nomi che il resto dell'app confronta. */
+.mm-elenco {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Le voci e il «+» sono BERSAGLI: si toccano su iPad come si cliccano col
+   mouse, quindi valgono i 44px di `bersaglioOk` nel core — misurati il 2/8 sul
+   profilo insegnante, la prima superficie migrata (erano 35 e 21×19). */
+.mm-elenco__v {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--mm-accent-soft);
+    color: var(--mm-accent);
+    border: 1px solid #c7d2fe;
+    border-radius: var(--mm-r-pill);
+    padding: 0 5px 0 13px;
+    min-height: 44px;
+    font-size: 12.5px;
+    font-weight: 700;
+    max-width: 100%;
+}
+
+.mm-elenco__x {
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 15px;
+    line-height: 1;
+    /* la × sta DENTRO la voce: 32 è il più grande che ci entri lasciando
+       respiro al nome, ed è sopra i 24 minimi di WCAG 2.2 */
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    padding: 0;
+    cursor: pointer;
+    opacity: .6;
+}
+
+.mm-elenco__x:hover {
+    opacity: 1;
+    background: #fff;
+}
+
+.mm-elenco__piu {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px dashed var(--mm-testo-3);
+    border-radius: var(--mm-r-pill);
+    color: var(--mm-testo-2);
+    padding: 0 15px;
+    min-height: 44px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mm-elenco__piu:hover {
+    border-style: solid;
+    border-color: var(--mm-accent);
+    color: var(--mm-accent);
+    background: var(--mm-accent-soft);
+}
+
+.mm-elenco__piu svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ── Elenco di righe che si scelgono (archetipo «Elenco», 2/8) ───────────
+   «Scegli la classe», «scegli la mappa», «scegli il materiale»: righe piene,
+   non chip. Ognuna è un bersaglio da 52px — sopra i 44 del tocco, perché qui
+   si sceglie in fretta scorrendo un elenco. */
+.mm-voci {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mm-voci__g {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--mm-testo-3);
+    margin: 8px 0 1px;
+}
+
+.mm-voci__g:first-child {
+    margin-top: 0;
+}
+
+.mm-voce {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    text-align: left;
+    padding: 8px 13px;
+    border: 1px solid var(--mm-bordo);
+    border-radius: var(--mm-r-campo);
+    background: var(--mm-fondo);
+    font: inherit;
+    color: var(--mm-testo);
+    cursor: pointer;
+}
+
+.mm-voce:hover {
+    border-color: var(--mm-accent);
+    background: var(--mm-accent-soft);
+}
+
+.mm-voce.is-attiva {
+    border-color: var(--mm-accent);
+    background: var(--mm-accent-soft);
+}
+
+.mm-voce__i {
+    flex: 0 0 auto;
+    display: flex;
+    color: var(--mm-accent);
+}
+
+.mm-voce__i svg {
+    width: var(--mm-icona);
+    height: var(--mm-icona);
+}
+
+/* il testo è l'unica parte elastica: è lui che deve troncare, non l'icona
+   né il badge (che sono larghi quanto il loro contenuto e basta) */
+.mm-voce__t {
+    flex: 1;
+    min-width: 0;
+}
+
+.mm-voce__n {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-voce__s {
+    display: block;
+    font-size: 11px;
+    color: var(--mm-testo-3);
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-voce__b {
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--mm-testo-3);
+}
+
+/* riga con comandi propri: la voce resta il bersaglio grande, i comandi
+   stanno in coda e non concludono (si elimina e l'elenco resta aperto) */
+.mm-voce-riga {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.mm-voce-riga>.mm-voce {
+    flex: 1;
+    min-width: 0;
+}
+
+.mm-voce__az {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.mm-voce__az .mm-btn {
+    padding: 0 12px;
+}
+
+/* Bottone di sola icona: quadrato di 44, il bersaglio resta pieno mentre
+   l'ingombro visivo si riduce. Serve dove il comando accompagna una riga e
+   non deve competere col contenuto — tre «Elimina» rossi in fila dominano un
+   elenco in cui l'azione vera è aprire. */
+.mm-btn--icona {
+    width: 44px;
+    min-width: 44px;
+    /* `padding:0` toglie il ritmo verticale del bottone e l'altezza resterebbe
+       quella della sola icona (misurato 22px): accanto a un bottone con
+       etichetta, alto 40, si legge come un bottone rotto. L'altezza minima lo
+       riallinea alla sua fila. */
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+}
+
+/* il distruttivo di riga si annuncia solo quando lo si tocca: prima è grigio */
+.mm-btn--icona.mm-btn--quieto {
+    color: var(--mm-testo-3);
+    background: transparent;
+    border-color: transparent;
+}
+
+.mm-btn--icona.mm-btn--quieto:hover {
+    color: var(--mm-danger);
+    background: var(--mm-danger-soft);
+    border-color: transparent;
+}
+
+/* spunte e radio: bersaglio comodo, testo allineato alla prima riga */
+.mm-opz {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 5px 0;
+    cursor: pointer;
+}
+
+.mm-opz input {
+    accent-color: var(--mm-accent);
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    flex: 0 0 auto;
+}
+
+.mm-opz__t {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--mm-testo-2);
+}
+
+.mm-opz__d {
+    display: block;
+    font-size: 11px;
+    color: var(--mm-testo-3);
+    line-height: 1.5;
+}
+
+/* riga di sola lettura dentro una sezione (campo `nota`): il motore la
+   emetteva già ma non aveva stile — restava testo nudo (trovato il 31/7) */
+.mm-nota {
+    margin: 0 0 6px;
+    font-size: 12.5px;
+    color: var(--mm-testo-2);
+    line-height: 1.55;
+}
+
+.mm-nota:last-child {
+    margin-bottom: 0;
+}
+
+/* ── Dati di contesto: una riga per fatto ────────────────────────────────
+   Etichetta a sinistra, valore a destra. Cinque numeri dentro un paragrafo
+   si leggono come prosa e ci si perdono; incolonnati si scorrono. */
+.mm-dati {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.mm-dati dt {
+    color: var(--mm-testo-3);
+    white-space: nowrap;
+}
+
+.mm-dati dd {
+    margin: 0;
+    color: var(--mm-testo);
+    font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* senza etichetta la riga è un fatto solo: il valore prende tutta la riga */
+.mm-dati dt:empty {
+    display: none;
+}
+
+.mm-dati dt:empty+dd {
+    grid-column: 1 / -1;
+    font-weight: 400;
+    color: var(--mm-testo-2);
+}
+
+/* ── Chip di contesto ────────────────────────────────────────────────────
+   UN chip diviso in parti, ognuna cliccabile: «classe/allievo · disciplina».
+   Stessa forma in due posti — la barra della landing (Costruisci · Elabora ·
+   Insegna) e la testata delle console — perché è la stessa informazione:
+   su CHI e su COSA sto lavorando. Due vesti diverse per lo stesso fatto sono
+   esattamente l'incoerenza che stiamo togliendo.
+   Fuori dai modali si costruisce con MappAIModal.chipContesto([...]). */
+.mm-ctx {
+    display: inline-flex;
+    align-items: stretch;
+    background: var(--mm-accent-soft);
+    border: 1px solid #c7d2fe;
+    border-radius: var(--mm-r-pill);
+    overflow: hidden;
+    max-width: 100%;
+    /* l'altezza la dichiara il token: è la stessa misura che il bottone della
+       Cabina usa come diametro */
+    min-height: var(--mm-ctx-h);
+}
+
+/* ── Bottone della CABINA, nell'header della landing ──────────────────────
+   Cerchio del diametro del chip che gli sta accanto. La regola vive QUI e non
+   nel `@layer components` di index.html per un motivo preciso: `.btn_header_setting`
+   è dichiarata in quel layer, e le regole in layer perdono contro quelle fuori —
+   scrivendola lì accanto vincerebbe comunque `h-20` sull'altezza. */
+#btn-cabina {
+    width: var(--mm-ctx-h);
+    height: var(--mm-ctx-h);
+    min-width: var(--mm-ctx-h);
+    padding: 0;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    /* teal-400 → teal-600 al passaggio, icona BIANCA (scelta di Giacomo, 2/8).
+       ⚠️ Misurato: bianco su teal-400 fa 1,86:1 — sotto i 3:1 che WCAG chiede a
+       un'icona che porta informazione. Sull'hover risale a 3,74:1. Il glifo
+       resta riconoscibile per forma e il bersaglio è grande, ma se un giorno si
+       volesse rientrare nella soglia la leva è questa riga: `color: #0f172a`
+       porta il riposo a 9,59:1. */
+    background: #2dd4bf;
+    color: #ffffff;
+    box-shadow: none;
+}
+
+#btn-cabina:hover {
+    background: #0d9488;
+    color: #ffffff;
+}
+
+/* dentro la testata di un modale si stacca dal titolo */
+.mm-head .mm-ctx {
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.mm-ctx__p {
+    display: inline-flex;
+    align-items: center;
+    /* forma compatta ADOTTATA il 2/8: via le freccette (la metà si capisce
+       cliccabile dal fondo che cambia al passaggio), padding stretto, icone
+       15px. −19% di larghezza a parità di contenuto; l'altezza resta 43px —
+       si stringe la larghezza, non il bersaglio. */
+    gap: 6px;
+    background: none;
+    border: 0;
+    border-left: 1px solid #c7d2fe;
+    color: var(--mm-accent);
+    /* Il chip NON segue più il token dei bottoni (2/8): quando i bottoni sono
+       passati alla geometria compatta, seguirlo avrebbe fatto scendere il chip
+       da 43 a ~35px. È un comando primario, presente su ogni tab e da colpire
+       col dito su iPad: la sua altezza è una scelta sua. */
+    padding: 13px 11px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    min-width: 0;
+    /* 300 e non 260: misurato sul nome più lungo che può capitare davvero
+       («Gian-Luca Pellegrini-Rossi» chiedeva 8px in più) e sulla disciplina
+       più lunga del piano di studio. Il nome di una persona è il dato che
+       dice CHI hai selezionato: tagliarlo a metà è peggio che allargare il
+       chip di 40px. Oltre, l'ellissi resta come ultima difesa — e il testo
+       intero è nel `title`. */
+    max-width: 300px;
+}
+
+.mm-ctx__p:first-child {
+    border-left: 0;
+}
+
+button.mm-ctx__p:hover {
+    background: #e0e7ff;
+}
+
+button.mm-ctx__p:focus-visible {
+    outline: 2px solid var(--mm-accent);
+    outline-offset: -2px;
+}
+
+.mm-ctx__p>span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-ctx__p svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+/* niente scelta fatta: invito, non dato — resta cliccabile ma non si legge
+   come un valore. Il grigio è --mm-testo-3 (4,76:1), non un grigio chiaro. */
+.mm-ctx__p.is-vuoto {
+    color: var(--mm-testo-3);
+    font-weight: 400;
+}
+
+.mm-ctx__x {
+    border: 0;
+    background: none;
+    color: var(--mm-accent);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 9px 0 0;
+    cursor: pointer;
+    opacity: .6;
+}
+
+.mm-ctx__x:hover {
+    opacity: 1;
+}
+
+/* ── Tela: lo spazio libero dell'area ────────────────────────────────────
+   Ciò che il motore non sa disegnare — un editor, un grafico, una mappa —
+   vive qui dentro: il chiamante riempie [data-tela]. Senza questo slot una
+   console potrebbe ospitare soltanto tabelle. */
+.mm-tela {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--mm-bordo);
+    border-radius: calc(var(--mm-r-box) - 4px);
+    background: var(--mm-fondo-sez);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mm-tela__vuota {
+    font-size: 12px;
+    color: var(--mm-testo-3);
+    text-align: center;
+    padding: 24px;
+    max-width: 46ch;
+    line-height: 1.6;
+}
+
+/* azioni dentro un riquadro: non sono azioni finali, non vanno nel piè */
+.mm-sez__azioni {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* esito di un'azione: sta SOTTO i bottoni perché è la loro conseguenza —
+   il file scelto, l'ultimo salvataggio, quanti elementi sono stati presi */
+.mm-sez__esito {
+    margin: 9px 0 0;
+    font-size: 11.5px;
+    color: var(--mm-testo-2);
+    line-height: 1.5;
+    padding: 7px 10px;
+    background: var(--mm-fondo);
+    border-radius: var(--mm-r-campo);
+}
+
+.mm-sez--accento .mm-sez__esito {
+    background: rgba(255, 255, 255, .7);
+}
+
+.mm-sez--accento {
+    background: var(--mm-accent-soft);
+    border-color: #c7d2fe;
+}
+
+.mm-sez--accento .mm-sez__t {
+    color: var(--mm-accent);
+}
+
+.mm-sez--largo {
+    grid-column: 1 / -1;
+}
+
+/* ── Sezione NUDA, sezioni e elenchi richiudibili (2/8) ──────────────────
+   In una console a tutto schermo una fila di comandi chiusa in un rettangolo
+   grigio si legge come un ritaglio della pagina invece che come la pagina: il
+   contenuto deve occupare la superficie che ha. */
+.mm-sez--nuda {
+    background: none;
+    border: 0;
+    padding: 0;
+}
+
+/* il TITOLO è il comando: un secondo bottone accanto sarebbe un comando in più
+   per la stessa cosa */
+.mm-sez__t--tog {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--mm-testo-3);
+    text-align: left;
+}
+
+.mm-sez__t--tog:hover {
+    color: var(--mm-accent);
+}
+
+.mm-sez__t--tog svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    transition: transform .15s;
+}
+
+.is-chiusa>.mm-sez__t--tog svg {
+    transform: rotate(-90deg);
+}
+
+.is-chiusa>.mm-sez__c {
+    display: none;
+}
+
+/* ── Elenchi titolati: più tabelle nella stessa vista ─────────────────────
+   I materiali di una mappa sono elenchi DIVERSI (sintesi · fogli · quiz):
+   impilarli in una tabella sola con una colonna «tipo» costringe a leggere per
+   trovare, invece che a guardare. */
+.mm-tabg {
+    margin-bottom: 6px;
+}
+
+.mm-tabg__t {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--mm-testo-2);
+    text-align: left;
+}
+
+.mm-tabg__t:hover {
+    color: var(--mm-accent);
+}
+
+.mm-tabg__t svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    transition: transform .15s;
+}
+
+.mm-tabg.is-chiusa>.mm-tabg__t svg {
+    transform: rotate(-90deg);
+}
+
+.mm-tabg.is-chiusa>.mm-sez__c {
+    display: none;
+}
+
+/* riga che si apre: si sceglie quello che si legge */
+.mm-tab__riga {
+    cursor: pointer;
+}
+
+.mm-tab__riga:hover>td {
+    background: var(--mm-accent-soft);
+}
+
+.mm-tab__riga:focus-visible {
+    outline: 2px solid var(--mm-accent);
+    outline-offset: -2px;
+}
+
+/* comandi dentro una cella: stanno a destra della loro colonna e non allargano
+   la riga (la colonna è dichiarata a larghezza fissa da chi scrive la tabella) */
+.mm-cella-az {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.mm-cella-az .mm-btn--icona {
+    width: 34px;
+    min-width: 34px;
+    min-height: 34px;
+}
+
+/* il contatore dice quanto c'è dentro anche a elenco chiuso */
+.mm-tabg__n {
+    margin-left: auto;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--mm-testo-3);
+    background: var(--mm-fondo-sez);
+    border-radius: var(--mm-r-pill);
+    padding: 2px 9px;
+    letter-spacing: 0;
+}
+
+.mm-foot__sx,
+.mm-foot__dx {
+    display: flex;
+    gap: 8px;
+}
+
+/* stati: oggi non esistono quasi mai, ed è metà del disordine */
+.mm-btn:focus-visible,
+.mm-campo:focus-visible {
+    outline: 2px solid var(--mm-accent);
+    outline-offset: 2px;
+}
+
+.mm-btn[disabled],
+.mm-btn.is-disabilitato {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+/* col campo senza bordo, il disabilitato si distingue dal riempimento più
+   piatto e dal testo attenuato — in entrambi i contesti (fondo e riquadro) */
+.mm-campo[disabled],
+.mm-sez .mm-campo[disabled] {
+    background: #e2e8f0;
+    color: var(--mm-testo-3);
+    cursor: not-allowed;
+}
+
+.mm-campo.is-errore {
+    border-color: var(--mm-danger);
+    box-shadow: 0 0 0 2px var(--mm-danger-soft);
+}
+
+.mm-errore {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--mm-danger);
+    margin-top: 4px;
+}
+
+.mm-btn--quieto {
+    background: none;
+    border: 0;
+    color: var(--mm-testo-2);
+    padding: 9px 10px;
+}
+
+.mm-btn--quieto:hover {
+    background: var(--mm-fondo-sez);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   CONSOLE — l'archetipo che raccoglie (30/7)
+   Una finestra sola al posto di N modali della stessa famiglia: classi e
+   allievi, documenti, AI e consumi. La colonna di sinistra è il dominio, il
+   resto è la vista sul dominio scelto.
+   ═════════════════════════════════════════════════════════════════════════ */
+.mm-box--console {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    /* lo scorrimento è della TABELLA, non del riquadro: le intestazioni e la
+       navigazione devono restare ferme mentre si scorre l'elenco */
+}
+
+.mm-box--console>.mm-head {
+    padding: var(--mm-pad) var(--mm-pad) 0;
+    margin-bottom: 14px;
+}
+
+.mm-box--console>.mm-foot {
+    padding: 0 var(--mm-pad) var(--mm-pad);
+    margin-top: 12px;
+}
+
+.mm-box--console>.mm-piede-nota {
+    padding: 0 var(--mm-pad);
+}
+
+/* vista piena: la console prende la finestra. Non è una taglia in più — è la
+   stessa console senza il riquadro sospeso, per quando dentro ci si LAVORA.
+   Da bordo a bordo (31/7): con un editor dentro, i margini del riquadro
+   sospeso sono spazio tolto a chi scrive, e il velo attorno non serve —
+   non stai guardando una finestra sopra qualcosa, sei DENTRO la vista. */
+.mm-box--piena {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* l'involucro non deve stringerla: senza questo il padding del velo
+   lascerebbe una cornice attorno alla vista piena */
+.mm-overlay:has(> .mm-box--piena) {
+    padding: 0;
+}
+
+.mm-body--console {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    border-top: 1px solid var(--mm-bordo);
+    position: relative;
+    /* riferimento per la maniglia in posizione assoluta */
+}
+
+.mm-console__side {
+    flex: 0 0 var(--mm-console-side);
+    background: var(--mm-fondo-sez);
+    border-right: 1px solid var(--mm-bordo);
+    padding: 12px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.mm-console__area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 12px var(--mm-pad);
+    gap: 12px;
+    overflow: hidden;
+}
+
+/* ── Area che scorre: PIÙ elenchi impilati (2/8) ─────────────────────────
+   L'area sta a `overflow:hidden` perché con UNA tabella lo scorrimento vive
+   dentro `.mm-tab-wrap`. Con più elenchi quel disegno non regge: nessuno dei
+   riquadri è più «la» tabella, e il contenuto oltre l'altezza spariva senza
+   modo di raggiungerlo (visto da Giacomo su «Stampabili», 16 sintesi).
+   Qui lo scorrimento sale di un piano: scorre l'area, e i singoli elenchi
+   crescono quanto il loro contenuto — così non ci sono due barre annidate. */
+.mm-console__area--scorre {
+    overflow-y: auto;
+}
+
+.mm-console__area--scorre>.mm-console__sez {
+    flex: 0 0 auto;
+    overflow-y: visible;
+}
+
+.mm-console__area--scorre .mm-tabg {
+    flex: 0 0 auto;
+}
+
+.mm-console__area--scorre .mm-tab-wrap {
+    flex: 0 0 auto;
+    /* resta `auto` per lo scorrimento ORIZZONTALE: una tabella con molte
+       colonne deve poter scorrere di lato anche dentro un'area che scorre */
+    max-height: none;
+}
+
+/* Tela DENTRO un'area che scorre (elenco richiudibile in testa + contenuto
+   libero sotto, la forma dei Consumi): qui la tela non è più il riquadro che
+   riempie l'area, è un blocco nel flusso. Senza questo, `flex:1` +
+   `align-items:center` la lascerebbe alta quanto lo spazio avanzato col
+   contenuto centrato in mezzo, invece che allineato in alto e lungo quanto è. */
+.mm-console__area--scorre .mm-tela {
+    flex: 0 0 auto;
+    display: block;
+    overflow: visible;
+    min-height: 0;
+}
+
+/* le intestazioni degli elenchi restano visibili mentre si scorre: con sei
+   generi impilati, senza questo non si sa più in quale si sta guardando */
+.mm-console__area--scorre .mm-tabg__t {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--mm-fondo);
+}
+
+/* nota e piè vivono dentro l'area: fuori, lascerebbero sotto la colonna una
+   fascia bianca a tutta larghezza e la navigazione non arriverebbe in fondo */
+.mm-console__area>.mm-piede-nota,
+.mm-console__area>.mm-foot {
+    flex: 0 0 auto;
+    padding: 0;
+    margin: 0;
+}
+
+.mm-console__area>.mm-foot {
+    padding-top: 2px;
+}
+
+/* ── Vista piena con una TELA: il foglio arriva ai bordi ─────────────────
+   Con un editor dentro, ogni margine attorno è spazio tolto a chi scrive. */
+.mm-box--piena:has(.mm-tela) .mm-console__area {
+    padding: 12px 0 0;
+}
+
+.mm-box--piena:has(.mm-tela) .mm-console__area>.mm-schede-riga {
+    padding: 0 var(--mm-pad);
+}
+
+.mm-box--piena .mm-tela {
+    border-radius: 0;
+    border-width: 1px 0 0 0;
+}
+
+/* L'altezza va data al RIQUADRO, non al corpo: `.mm-body--console` ha
+   `flex:1` (= flex-basis 0), che in una colonna flex vince su `height` —
+   il corpo collassava sul contenuto e si vedevano 4 righe invece di 15. */
+.mm-box--console:not(.mm-box--piena) {
+    height: var(--mm-console-h);
+}
+
+/* ── navigazione di dominio ─────────────────────────────────────────────── */
+.mm-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mm-nav__v {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 11px;
+    border: 0;
+    border-radius: var(--mm-r-btn);
+    background: none;
+    color: var(--mm-testo-2);
+    font-size: 12.5px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    /* 40px di altezza: la voce di un elenco non è un bersaglio isolato — la
+       colonna intera è colpibile, e le voci sono contigue */
+}
+
+.mm-nav__v:hover {
+    background: #fff;
+    color: var(--mm-testo);
+}
+
+.mm-nav__v.is-attiva {
+    background: #fff;
+    color: var(--mm-accent);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .07);
+}
+
+.mm-nav__v svg {
+    width: var(--mm-icona);
+    height: var(--mm-icona);
+    flex: 0 0 auto;
+}
+
+.mm-nav__t {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mm-nav__n {
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--mm-testo-3);
+    background: #fff;
+    border: 1px solid var(--mm-bordo);
+    border-radius: var(--mm-r-pill);
+    padding: 1px 7px;
+}
+
+.mm-nav__v.is-attiva .mm-nav__n {
+    color: var(--mm-accent);
+    border-color: #c7d2fe;
+    background: var(--mm-accent-soft);
+}
+
+/* intestazione di gruppo: oltre una decina di voci l'elenco piatto smette di
+   essere navigazione e diventa un muro. Non è cliccabile: è un'etichetta. */
+.mm-nav__g {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--mm-testo-3);
+    padding: 14px 11px 5px;
+}
+
+.mm-nav__g:first-child {
+    padding-top: 4px;
+}
+
+.mm-console__side-sez {
+    margin-top: 12px;
+}
+
+/* comandi sulla stessa riga delle schede, spinti a destra */
+.mm-barra {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+/* ── Maniglia della navigazione ──────────────────────────────────────────
+   Vive sul CONFINE fra colonna e area, e si sposta con lui: aperta sta sul
+   bordo della colonna, chiusa sul bordo sinistro della finestra. Così il
+   comando è sempre dove l'occhio cerca il pannello — e resta raggiungibile
+   anche quando il pannello non c'è. */
+/* Discreta (2/8, sul disegno di Giacomo): un quadratino appoggiato al filo
+   che separa colonna e area, senza ombra e senza peso. Non deve competere
+   con le voci di navigazione — è un comando che si usa una volta. */
+.mm-console__man {
+    position: absolute;
+    left: var(--mm-console-side);
+    top: 14px;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: 22px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--mm-bordo);
+    border-radius: 6px;
+    background: var(--mm-fondo);
+    color: var(--mm-testo-3);
+    opacity: .75;
+    cursor: pointer;
+    transition: opacity .15s, color .15s, border-color .15s;
+}
+
+.mm-console__man:hover {
+    opacity: 1;
+    color: var(--mm-accent);
+    border-color: #c7d2fe;
+}
+
+.mm-console__man svg {
+    width: 13px;
+    height: 13px;
+}
+
+.mm-box--console.is-nav-chiusa .mm-console__side {
+    display: none;
+}
+
+/* chiusa: la maniglia si appoggia al bordo sinistro e la freccia si gira */
+.mm-box--console.is-nav-chiusa .mm-console__man {
+    left: 0;
+    transform: none;
+    border-radius: 0 8px 8px 0;
+    border-left: 0;
+}
+
+.mm-box--console.is-nav-chiusa .mm-console__man svg {
+    transform: scaleX(-1);
+}
+
+.mm-schede-riga {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+/* ── schede interne ─────────────────────────────────────────────────────── */
+.mm-schede {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    background: var(--mm-fondo-sez);
+    border-radius: var(--mm-r-btn);
+    padding: 4px;
+    flex: 0 0 auto;
+}
+
+.mm-scheda {
+    border: 0;
+    border-radius: calc(var(--mm-r-btn) - 3px);
+    background: none;
+    color: var(--mm-testo-2);
+    font-size: var(--mm-btn-fs);
+    font-weight: 700;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.mm-scheda:hover {
+    background: #fff;
+}
+
+.mm-scheda.is-attiva {
+    background: var(--mm-accent);
+    color: #fff;
+}
+
+/* ── barra dei filtri ───────────────────────────────────────────────────── */
+.mm-filtri {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+}
+
+.mm-filtri .mm-campo-riga {
+    margin-bottom: 0;
+    flex: 0 0 auto;
+}
+
+.mm-filtri .mm-campo-riga:first-child {
+    flex: 1 1 220px;
+}
+
+/* ── sezioni dell'area ──────────────────────────────────────────────────
+   Senza tabella sotto, le sezioni sono il contenuto: se superano l'altezza
+   scorrono LORO, non il riquadro (testata e navigazione restano ferme). */
+.mm-console__sez {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* area a colonne: le sezioni si affiancano; `mm-sez--largo` (grid-column
+   1/-1, già definita sopra) prende tutta la riga anche qui */
+.mm-console__sez--2,
+.mm-console__sez--3 {
+    display: grid;
+    gap: var(--mm-gap);
+    align-content: start;
+}
+
+.mm-console__sez--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.mm-console__sez--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.mm-tab-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--mm-bordo);
+    border-radius: calc(var(--mm-r-box) - 4px);
+}
+
+.mm-tab {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+}
+
+.mm-tab th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--mm-fondo-sez);
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--mm-testo-3);
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--mm-bordo);
+    white-space: nowrap;
+    /* `sticky` fa già da riferimento per la maniglia in posizione assoluta */
+}
+
+/* ── Intestazione che ordina ─────────────────────────────────────────────
+   Il bottone eredita tutto dall'intestazione: deve LEGGERSI come
+   un'intestazione, non come un bottone piantato dentro la tabella. */
+.mm-tab__ord {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    max-width: 100%;
+}
+
+.mm-tab__ord:hover {
+    color: var(--mm-accent);
+}
+
+.mm-tab__ord:focus-visible {
+    outline: 2px solid var(--mm-accent);
+    outline-offset: 2px;
+}
+
+/* la freccia occupa il suo posto anche da spenta: senza, l'intestazione
+   ballerebbe di qualche pixel al primo clic */
+.mm-tab__frec {
+    width: 9px;
+    flex: 0 0 auto;
+    opacity: 0;
+}
+
+.mm-tab__frec::before {
+    content: '▲';
+    font-size: 7px;
+}
+
+th[aria-sort="ascending"] .mm-tab__frec,
+th[aria-sort="descending"] .mm-tab__frec {
+    opacity: 1;
+    color: var(--mm-accent);
+}
+
+th[aria-sort="descending"] .mm-tab__frec::before {
+    content: '▼';
+}
+
+th[aria-sort="ascending"],
+th[aria-sort="descending"] {
+    color: var(--mm-accent);
+}
+
+/* ── Bordo trascinabile fra due colonne ─────────────────────────────────── */
+.mm-tab__grip {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 7px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 2;
+}
+
+.mm-tab__grip::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 3px;
+    width: 1px;
+    background: var(--mm-bordo);
+}
+
+.mm-tab__grip:hover::after {
+    background: var(--mm-accent);
+    top: 0;
+    bottom: 0;
+    width: 2px;
+}
+
+.mm-tab td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--mm-testo-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* La prima colonna è l'IDENTITÀ della riga: si distingue per peso e colore.
+   DECISO il 31/7 (round 5): tronca con l'ellissi invece di andare a capo —
+   righe di altezza uguale si scorrono meglio — e il nome intero si legge nel
+   suggerimento al passaggio, che compare dopo 900ms (.mm-tip). Senza quel
+   fumetto la troncatura sarebbe una perdita; con, è solo un ripiegamento. */
+.mm-tab td:first-child {
+    color: var(--mm-testo);
+    font-weight: 700;
+}
+
+/* celle di scelte: ogni voce è una scorciatoia (le discipline di una classe
+   attivano quella coppia classe+disciplina) */
+.mm-cella-scelte {
+    display: inline-flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* -20% di ingombro rispetto alla prima misura (2/8): in una riga di tabella
+   sono etichette, non bottoni da colpire — il bersaglio comodo è la RIGA. */
+.mm-scelta {
+    border: 1px solid #c7d2fe;
+    background: var(--mm-accent-soft);
+    color: var(--mm-accent);
+    border-radius: var(--mm-r-pill);
+    padding: 2px 8px;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.mm-scelta:hover {
+    background: #e0e7ff;
+}
+
+.mm-scelta:focus-visible {
+    outline: 2px solid var(--mm-accent);
+    outline-offset: 1px;
+}
+
+/* Bollino di stato in una cella: piccolo, ma mai da solo — il colore è un
+   canale che non tutti leggono, quindi porta sempre il suo titolo (il motore
+   scrive title + aria-label). */
+.mm-bollino {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: 1px;
+    flex: 0 0 auto;
+}
+
+.mm-bollino--ok {
+    background: var(--mm-ok);
+}
+
+.mm-bollino--attesa {
+    background: #d97706;
+}
+
+.mm-bollino--spento {
+    background: var(--mm-bordo);
+}
+
+/* Contesto ATTIVO: prende il colore d'azione, non quello di stato — non dice
+   com'è fatto il dato, dice che in questo momento si sta lavorando lì. */
+.mm-bollino--attivo {
+    background: var(--mm-accent);
+}
+
+/* azioni in testata: per le console a tutto schermo, dove il piè di pagina
+   sarebbe una riga sprecata in fondo */
+.mm-head__az {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+/* col chip di contesto presente, è il chip a prendersi il margine automatico */
+.mm-head .mm-ctx+.mm-head__az {
+    margin-left: 0;
+}
+
+/* ── Suggerimento al passaggio ───────────────────────────────────────────
+   Compare solo su testo davvero troncato, e solo dopo 900ms. */
+.mm-tip {
+    position: fixed;
+    z-index: 4000;
+    max-width: 46ch;
+    background: var(--mm-testo);
+    color: #fff;
+    font-size: 11.5px;
+    line-height: 1.5;
+    border-radius: 8px;
+    padding: 7px 10px;
+    box-shadow: 0 8px 24px -8px rgba(15, 23, 42, .5);
+    pointer-events: none;
+}
+
+.mm-tab tbody tr:hover td {
+    background: var(--mm-accent-soft);
+}
+
+.mm-tab tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.mm-tab__vuota {
+    text-align: center;
+    color: var(--mm-testo-3);
+    padding: 26px 12px;
+    white-space: normal;
+}
+
+/* ============================================================================
+   VISTA RIDOTTA di COSTRUISCI (3/8/26) — classe `mappai-ridotta` su <html>,
+   accesa da SHIFT+CTRL+L,K,J,H (mappai-vista-ridotta.js).
+   Resta a schermo solo la strada breve: carica il PDF, scegli il genere di
+   mappa, dai il tema (o il numero di nodi), genera. Tutto il resto è nascosto,
+   non rimosso: si riaccende con la stessa combo.
+   Le regole stanno QUI e non nel `@layer components` di index.html perché le
+   regole in layer perdono contro quelle fuori, e queste devono vincere sulle
+   classi Tailwind degli elementi che spengono.
+   ========================================================================== */
+
+/* — via i titoli e i numeratori degli step: l'ordine lo dice l'opacità, non un
+     numero in un cerchio colorato (3/8) — */
+.mappai-ridotta #setup-form .step_container {
+    display: none !important;
+}
+
+/* — quello che non si può ancora fare sta al 15% e non risponde al tocco: si
+     vede che esiste, si vede che non è il momento. La classe la mette
+     `aggiornaSblocchi()`, che ricalcola il passo dai dati — */
+.mappai-ridotta .vr-bloccato {
+    opacity: .15 !important;
+    pointer-events: none !important;
+    transition: opacity .25s ease;
+}
+
+.mappai-ridotta #btn-src-doc,
+.mappai-ridotta #mode-mindmap,
+.mappai-ridotta #mode-kg,
+.mappai-ridotta #step-root-container,
+.mappai-ridotta #step-kg-density-container,
+.mappai-ridotta #generate-materials-btn,
+.mappai-ridotta #generate-btn {
+    transition: opacity .25s ease;
+}
+
+/* — fonti: resta il solo «Documenti», largo quanto la colonna — */
+.mappai-ridotta #btn-src-url,
+.mappai-ridotta #btn-src-youtube,
+.mappai-ridotta #btn-src-audio,
+.mappai-ridotta #btn-src-text {
+    display: none !important;
+}
+
+.mappai-ridotta #btn-src-doc {
+    flex: 1 1 100% !important;
+    max-width: none !important;
+}
+
+/* — step 3: resta il TEMA CENTRALE, spariscono le macro-aree a mano, il focus,
+     le lenti, il picker disciplina e «adatta al livello» (che la vista accende
+     da sé quando il preset è SEMPLICE) — */
+.mappai-ridotta #step-3-head,
+.mappai-ridotta #step-l1-wrap,
+.mappai-ridotta #step-focus-container,
+/* — step 4: le impostazioni di generazione le mette la vista (multipass ON,
+     adattiva ON): resta fuori solo lo slider dei nodi, che è una scelta di
+     contenuto, non un'impostazione — */
+.mappai-ridotta #step-4-head,
+.mappai-ridotta #gen-settings-box>*:not(#step-kg-density-container),
+/* — la stima dei costi vive nella Cabina — */
+.mappai-ridotta #token-cost-estimator-card,
+/* — degli avvii rapidi resta la sola «Mappa manuale» — */
+.mappai-ridotta #qa-apri-vault,
+.mappai-ridotta #qa-apri-json,
+/* — «Analisi (docente)»: nascosta qui, intatta nella vista completa — */
+.mappai-ridotta #meta-analisi-docente,
+/* — il pallino del Dev self-test: è uno strumento di chi sviluppa, e la vista
+     compatta è la schermata che si mette davanti a chi deve solo fare una
+     mappa. Sta fuori dalla veste (regola su `.mappai-ridotta` e non su
+     `html.manifesto`) perché la vista compatta esiste anche col manifesto
+     spento. Il bottone lo crea `mappai-dev-selftest.js` con lo stile inline,
+     ma senza `display`: qui `!important` basta e avanza. — */
+.mappai-ridotta #dst-btn {
+    display: none !important;
+}
+
+/* il riquadro grigio delle impostazioni non deve restare come cornice vuota
+   attorno al solo slider dei nodi */
+.mappai-ridotta #gen-settings-box {
+    background: none !important;
+    padding: 0 !important;
+}
+
+/* Il riquadro vuoto dello step 4 (MindMap) NON si spegne da qui: né `:has()` né
+   una classe dedicata vincevano su quel `display:flex` — in un foglio con 700+
+   `!important` la cascata non è prevedibile a tavolino. Lo fa
+   `sincronizzaGenere()` con uno stile inline `!important`, misurato. */

@@ -19,8 +19,12 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 html.manifesto {
-    /* Quanto spazio lasciare a sinistra perché il rail si veda: il rail sta a
-       `left:18px` ed è largo 46 → 64 di ingombro, 82 col respiro. */
+    /* Spazio a sinistra per il rail fisso del manifesto che galleggia sopra la
+       console (left:18, largo 46 → 82 col respiro). ⚠️ NELL'APP serve ANCORA: i
+       suoi consoli (INSEGNA/Cabina/ELABORA) hanno il rail finché non si fa il
+       cablaggio. Nel BANCO il rail è già tolto → override a 0 più sotto
+       (`#oc-anteprima`), così l'app resta com'è e il banco mostra il futuro.
+       6/8: NON mettere 0 qui — è un token CONDIVISO e sposterebbe i consoli veri. */
     --mnc-rail: 82px;
     /* Il tetto di larghezza del contenuto. È lo STESSO numero della landing
        (§10.16): una superficie dell'app si legge sempre sulla stessa colonna,
@@ -28,6 +32,96 @@ html.manifesto {
        4/8: meglio una colonna riconoscibile che una riga lunga il monitor. */
     --mnc-max: 1240px;
     --mnc-testata: 78px;
+}
+
+/* BANCO (officina-console): qui il rail è già stato tolto, quindi niente spazio
+   da riservare a sinistra. Scoped a `#oc-anteprima` (esiste solo nel banco) →
+   l'app, che non ha quell'id, tiene i suoi 82px finché non si fa il cablaggio. */
+html.manifesto #oc-anteprima .mm-box--console { --mnc-rail: 0px; }
+
+/* CABLAGGIO nell'app (flag `mappai_console_bento_app` → classe `mn-bento-app` su
+   <html>): via il rail e il suo spazio, via il chip e il nome-sezione della
+   landing; il percorso «Cosa · A chi? · Materia» prende il loro posto sull'header
+   (montaCascataLanding in mappai-stile-manifesto.js). Opt-in: senza la classe,
+   niente di tutto questo. */
+html.mn-bento-app { --mnc-rail: 0px; }
+html.mn-bento-app #manifesto-rail,
+html.mn-bento-app #manifesto-home,
+html.mn-bento-app #mn-sezione,
+html.mn-bento-app #active-class-chip,
+html.mn-bento-app #header-utils .mm-ctx { display: none !important; }
+/* l'header ospita la tendina del percorso: dev'essere il riferimento della sua
+   posizione assoluta, e non ritagliarla. E va a BANDIERA SINISTRA come la console
+   — la landing di default allinea a destra (`justify-content:flex-end`): pallino a
+   sinistra, poi «Cosa › A chi? › Materia». */
+/* la landing è una FLEX ROW centrata e l'header è il suo ultimo figlio (a destra):
+   per portarlo in alto a SINISTRA come la console lo si stacca dal flusso.
+   ⚠️ `fixed`, NON `absolute`: la landing (`#landing-view`, min-h-screen) sta nel
+   flusso del documento e la PAGINA scorre sulla window → un figlio `absolute`
+   scorreva con essa (la topbar «saliva» col contenuto su CREA/ELABORA). `fixed`
+   lo àncora al viewport → resta fermo come la testata della console INSEGNA (che
+   sta fuori dall'area con lo scroll). `#landing-view` parte a (0,0) e non ha
+   transform → top/left restano gli stessi a schermo. Sopra il contenuto (z-index). */
+html.mn-bento-app #header-utils {
+    position: fixed;
+    top: 22px;
+    left: 28px;
+    z-index: 60;
+    margin: 0;
+    overflow: visible;
+    justify-content: flex-start;
+}
+/* pallino PRIMA del percorso: la landing gli dà `order:1` (era a destra del chip),
+   il percorso è `order:0` → senza questo il pallino finiva a destra della cascata */
+html.mn-bento-app #header-utils #btn-cabina { order: 0; }
+html.mn-bento-app #header-utils .mn-briciole { order: 1; }
+
+/* La testata della CONSOLE (INSEGNA a schermo pieno) porta lo stesso percorso
+   della landing, e deve stare nello STESSO punto di CREA/ELABORA: passando da
+   una sezione all'altra il pallino e le briciole non devono "saltare".
+   Misurato senza questo: pallino console (20,17) vs landing (28,22) → 8px a
+   sinistra e 5px in alto. Il gruppo pallino+briciole è centrato nella testata
+   (`align-items:center`, testata 78px): padding-left:28 = stesso left del pallino
+   della landing; padding-top:9 alza il centro del gruppo a y 43,5 → pallino a 22
+   e briciole a 28,5, identici alla landing. `!important` sul left perché
+   `mappai-stile-manifesto.css` lo impone a 20 (era il pallino della landing in
+   modalità chip, PRIMA che il flag lo portasse a 28). */
+html.manifesto.mn-bento-app .mm-box--piena.mm-box--console > .mm-head {
+    padding-left: 28px !important;
+    /* stessa ALTEZZA e stesso FILETTO della barra di CREA/ELABORA (la banda
+       `#landing-view::before`, 76px · 1px #ebebeb): la testata a 78px col bordo
+       #e2e8f0 sembrava più alta e con un filetto più marcato (Giacomo).
+       padding-top 11 (non 9) tiene il pallino a y=22 con la testata a 76. */
+    padding-top: 11px;
+    height: 76px;
+    border-bottom-color: var(--mnc-hairline, #ebebeb);
+}
+/* UNA SOLA toolbar (bug 3): `#header-utils` — la stessa barra di CREA/ELABORA —
+   viene portata dentro la testata della console. Torna statica (la piazza il flex
+   della testata, il cui padding 28/9 la mette a 28,22 come sulla landing) e la
+   testata nasconde la SUA copia (pallino Cabina + briciole). La × resta (nascosta)
+   per l'uscita programmatica di `__chiudi`. */
+html.mn-bento-app #header-utils.hu-in-console {
+    position: static !important;
+    top: auto; left: auto; z-index: auto;
+}
+html.mn-bento-app .mm-box--console .mm-head.mn-head-hu > .mm-head__ico,
+html.mn-bento-app .mm-box--console .mm-head.mn-head-hu > .mm-head__testi { display: none !important; }
+/* la barra unica dentro la testata rende IDENTICA a CREA/ELABORA: si spengono
+   gli stili PROPRI della console sulle briciole (opacità piena = testo nero,
+   layout inline-flex con gap diverso) → governano le regole della landing
+   (livelli al 55%, hover a 1, caret senza gap). */
+html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu {
+    opacity: var(--mnc-bric-op, .55);
+    display: inline-block;
+    gap: 0;
+}
+/* «Cosa» (la prima briciola) sempre piena, anche embeddata (Giacomo) */
+html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:first-child { opacity: 1; }
+html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:hover,
+html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:focus-visible {
+    opacity: 1;
+    color: var(--mn-tit-col);
 }
 
 /* ── la testata: marchio a sinistra, nome della console in grande ────────── */
@@ -156,8 +250,12 @@ html.manifesto .mm-box--console .mm-console__man {
        I fallback tengono l'aspetto di oggi se nessuno le scrive. */
     width: var(--mnc-man-size, 34px);
     height: var(--mnc-man-size, 34px);
-    border-radius: var(--mnc-man-radii, var(--mnc-man-r, 9px));
-    background: var(--mnc-man-bg, var(--mm-accent-soft));
+    /* forma dal file di Giacomo (Inkscape/maniglia.svg): quadrato con il SOLO
+       angolo in basso a destra arrotondato (raggio 22,6% ≈ 8px su 34), icona
+       panel-right-close viola. Il box di sfondo è BIANCO (Giacomo): niente più
+       il grigio #f1f4f8 — sul bianco della colonna resta solo l'icona. */
+    border-radius: var(--mnc-man-radii, 0 0 8px 0);
+    background: var(--mnc-man-bg, #fff);
     border: 0;
     box-shadow: none;
     opacity: 1;
@@ -174,16 +272,18 @@ html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man {
        chiusa torna al bordo sinistro, non al bordo del rail; e prende i colori del
        suo stato «nascondi» (che l'officina può dare diversi da «mostra»). */
     left: var(--mnc-man-x, 0px);
-    border-radius: var(--mnc-man-radii, var(--mnc-man-r, 9px));
+    border-radius: var(--mnc-man-radii, 0 0 8px 0);
     transform: translateX(-50%);
-    background: var(--mnc-man-bg-chiusa, var(--mm-accent-soft));
+    background: var(--mnc-man-bg-chiusa, #fff);
     color: var(--mnc-man-fg-chiusa, var(--man-viola));
 }
 html.manifesto .mm-box--console .mm-console__man:hover { background: #ddd6fe; }
-/* il glifo (panel-right-close) ruota per stato: mostra · nascondi. Il default
-   0°/180° riproduce le due pagine del disegno di Giacomo. */
-html.manifesto .mm-box--console .mm-console__man svg { width: 18px; height: 18px; transform: rotate(var(--mnc-man-rot, 0deg)); }
-html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man svg { transform: rotate(var(--mnc-man-rot-chiusa, 180deg)); }
+/* Il glifo dell'app è `panel-left-close` (divisorio a SINISTRA, freccia «‹»); il
+   disegno di Giacomo (Inkscape/maniglia.svg, pagina 1) è `panel-right-close`
+   (divisorio a DESTRA, freccia «›»). Ruotando 180° si ottiene esattamente la
+   pagina 1 → è lo stato APERTO (il default, quello che si vede). Chiuso = pagina 2. */
+html.manifesto .mm-box--console .mm-console__man svg { width: 18px; height: 18px; transform: rotate(var(--mnc-man-rot, 180deg)); }
+html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man svg { transform: rotate(var(--mnc-man-rot-chiusa, 0deg)); }
 
 /* La navigazione parte sotto la maniglia: il comando ha la sua riga, e la
    prima voce non gli finisce sotto. */
@@ -361,6 +461,90 @@ html.manifesto .mn-bento-area[data-allinea="centro"] { margin-inline: auto; }
 /* ── il percorso nella barra: i livelli precedenti si regolano da qui ────── */
 html.manifesto .mm-box--console .mn-briciole button.mn-briciole__l { opacity: var(--mnc-bric-op); }
 html.manifesto .mm-box--console .mn-briciole__sep { opacity: var(--mnc-sep-op); }
+
+/* ── il menu «Cosa» del percorso: sceglie CREA/ELABORA/INSEGNA (6/8) ──────────
+   Il primo livello del percorso non è più un'etichetta ma un menu (assorbe il
+   vecchio rail). La tendina è RETTANGOLARE a fondo BIANCO (≠ chip, che è a
+   pillola), e i suoi item sono resi alla dimensione del livello di briciola a cui
+   appartengono (scritta inline dal JS: 1° livello = --mn-tit-fs). Il trigger resta
+   pienamente leggibile — non sbiadito come i livelli già percorsi. */
+/* la tendina «Cosa» è appesa al BOX (non alla testata) e ci galleggia sopra il
+   corpo — la logica sta in _toggleCosa (la testata ritaglierebbe un menu che le
+   vive dentro, e il corpo, che è position:relative, lo coprirebbe). Qui la veste. */
+html.manifesto .mm-box--console .mn-briciole button.mn-briciole__l--menu {
+    opacity: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: .18em;
+    cursor: pointer;
+}
+html.manifesto .mn-briciole__car { font-size: .5em; opacity: .6; }
+html.manifesto .mm-box--console .mn-briciole button.mn-briciole__l--menu:hover { color: var(--man-viola); }
+
+html.manifesto .mn-bric-menu {
+    position: absolute;
+    z-index: 20;
+    background: #fff;
+    border: 1px solid var(--mm-bordo);
+    border-radius: 4px;                 /* rettangolare, appena smussato */
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: max-content;
+}
+html.manifesto .mn-bric-menu__it {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 4px;
+    padding: 4px 14px;
+    cursor: pointer;
+    color: #404040;
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+html.manifesto .mn-bric-menu__it:hover,
+html.manifesto .mn-bric-menu__it:focus-visible { background: #f1f4f8; }
+html.manifesto .mn-bric-menu__it.is-on { color: var(--man-viola); }
+
+/* «A chi?»: tre colonne affiancate (Generico · Classi · Allievi) */
+html.manifesto .mn-bric-menu--cols {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 14px;
+}
+html.manifesto .mn-bric-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: max-content;
+}
+/* niente riga verticale né intestazioni fra le sezioni del menu «A chi?»
+   (Giacomo): le colonne restano separate dal solo `gap` del contenitore. */
+/* l'intestazione di colonna: piccola, NON è un item (gli item sono al font del
+   livello di briciola); dice solo che cosa raccoglie la colonna */
+html.manifesto .mn-bric-col__h {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--mm-testo-3);
+    padding: 2px 14px 4px;
+}
+/* «+ Nuova materia»: si distingue dalle materie già pronte — è un'azione (crea il
+   label al volo), non una scelta esistente */
+html.manifesto .mn-bric-menu__nuovo {
+    color: var(--man-viola);
+    border-top: 1px dashed var(--mm-bordo);
+    margin-top: 4px;
+    padding-top: 8px;
+}
 
 /* ── i pezzi che il bento di una console disegna (e CREA non ha) ─────────── */
 html.manifesto .mn-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }

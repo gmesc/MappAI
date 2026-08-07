@@ -1,0 +1,47 @@
+{
+  "_nota": "Verdetti dati da Giacomo nell'officina (§0 + §4) il 31/7/2026, letti dal localStorage del suo browser e salvati qui perché sopravvivano al browser. COMPLETI: 22 su 22. Le decisioni fondamentali chiuse a voce lo stesso giorno sono in decisioniFondamentali.",
+  "data": "2026-07-31",
+  "decisioniFondamentali": {
+    "icone": "20px nei bottoni/corpo · 24px in testata (chiude la divergenza 20-vs-22; supera la nota provvisoria 'sempre 22')",
+    "bordoCampi": "INVISIBILE per scelta: il campo si riconosce dal riempimento, dal raggio e dal fuoco — non dal bordo. Il bordo rosso dello stato errore resta visibile.",
+    "etichette": "solo segnaposto CONFERMATA (decisione 4). Regola di accompagnamento: dove serve, un TITOLO al raggruppamento di campi (mm-sez__t) mantiene l'indicazione anche dopo la compilazione — il core emette un avviso se una sezione con più campi ne è priva.",
+    "sTaglie": "le 4 taglie restano; il sistema include la console come quinta forma. La console va ancora finita di definire e ottimizzare (Fase 2).",
+    "wFuori": "invalidato = l'esclusione di pagine studente LAN e strumenti voxel NON è per sempre: rientreranno nello standard in una fase futura."
+  },
+  "verdetti": {
+    "b-mm": { "esito": "validato" },
+    "b-pm": { "esito": "invalidato", "dest": "mm-btn (ogni bottone al ruolo suo: primario/secondario/…)" },
+    "b-salva": { "esito": "invalidato", "dest": "mm-btn (ogni bottone al ruolo suo: primario/secondario/…)" },
+    "b-moduli": { "esito": "invalidato", "dest": "mm-btn (ogni bottone al ruolo suo: primario/secondario/…)" },
+    "b-de": { "esito": "validato", "dest": "token nuovo: barra strumenti (--mm-bar-*)" },
+    "b-topbar": { "esito": "invalidato", "dest": "token nuovo: topbar documento (--mm-doc-*)" },
+    "b-landing": { "esito": "validato" },
+    "c-mm": { "esito": "validato" },
+    "c-fld": { "esito": "invalidato", "dest": "mm-campo" },
+    "c-landing": { "esito": "invalidato", "dest": "mm-campo" },
+    "c-de": { "esito": "invalidato", "dest": "token nuovo: barra strumenti (--mm-bar-*)" },
+    "s-taglie": { "esito": "invalidato", "nota": "aggiungeremo forse anche dei modali a console" },
+    "s-velo": { "esito": "validato" },
+    "ico-taglia": { "esito": "invalidato", "nota": "icone sempre 22" },
+    "ico-emoji": { "esito": "validato" },
+    "ico-pos": { "esito": "validato" },
+    "w-stampato": { "esito": "invalidato", "dest": "token nuovo: topbar documento (--mm-doc-*)" },
+    "w-editor": { "esito": "validato", "dest": "token nuovo: barra strumenti (--mm-bar-*)" },
+    "w-player": { "esito": "validato", "dest": "token nuovo: player (--mm-player-*)" },
+    "w-qr": { "esito": "validato", "dest": "fuori perimetro (altri token)", "nota": "cosa vuol dire \"breakpoint mobile da fissare\"?" },
+    "w-pdf": { "esito": "validato" },
+    "w-fuori": { "esito": "invalidato" }
+  },
+  "tokenState": {
+    "accento": "#4f46e5",
+    "bordo": "#e2e8f0",
+    "btnFs": 14,
+    "rBtn": 10,
+    "pad": 27,
+    "ico": 24,
+    "icoScelta": "uguale",
+    "label": "dentro",
+    "btncase": "none",
+    "testo3": "#64748b"
+  }
+}

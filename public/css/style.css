@@ -32,6 +32,13 @@
            ========================================== */
 html {
     font-size: calc(100% * var(--app-zoom, 1));
+    /* Lo spazio della barra di scorrimento è SEMPRE riservato. Senza, la barra
+       compare solo quando il contenuto supera la pagina e si porta via 6px di
+       larghezza: tutto ciò che è centrato — il selettore Costruisci/Elabora/
+       Insegna, il marchio — scivola di 3px verso sinistra. È il salto che si
+       vede passando dalla landing vuota a un tab (misurato: clientWidth
+       1440 → 1434, selettore da 100 a 97). */
+    scrollbar-gutter: stable;
 }
 
 * {
@@ -89,7 +96,6 @@ body {
 #sidebar-header,
 #modal-a11y-toolbar,
 .a11y-panel,
-button,
 .tts-button,
 .a11y-btn,
 .generate-btn,
@@ -97,6 +103,28 @@ button,
 .source-type-btn {
     font-size: 16px !important;
     /* Forza dimensione fissa */
+}
+
+/* Segnaposto leggibile — DECISIONE 4 del 29/7/2026: i campi dei modali vivono
+   di solo segnaposto, quindi la sua leggibilità non è un dettaglio.
+   Il grigio di default di Tailwind (#9ca3af) sta a 2,9:1 su bianco: sotto la
+   soglia 4,5:1. #64748b sta a 4,76:1. */
+input::placeholder,
+textarea::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+
+/* I bottoni generici restano a 16px come DEFAULT (un px assoluto è già immune
+   allo zoom testo, che agisce sul font-size di <html>), ma SENZA !important:
+   una taglia dichiarata sul singolo bottone — classe Tailwind, .pm-btn-*,
+   stile inline — ora vince.
+   Prima questa riga stava nel blocco qui sopra: ogni corpo dichiarato sotto i
+   16px veniva scartato in silenzio (i text-[12px] di pm-btn-primary/cancel e i
+   font-size:12px inline dei moduli rendevano tutti 16px). Misurato nel
+   campionario dei modali, §4.4 → public/dev/campionario-modali.html */
+button {
+    font-size: 16px;
 }
 
 :root {
@@ -1060,7 +1088,8 @@ body:not(.font-dyslexic) #ai-modal-body {
 }
 
 .landing-input::placeholder {
-    color: #94a3b8;
+    /* era #94a3b8 = 2,8:1 su bianco, sotto la soglia 4,5:1 */
+    color: #64748b;
 }
 
 .landing-input:focus {
@@ -2133,12 +2162,15 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     #landing-view #setup-form,
     #landing-view .max-w-2xl,
     #landing-view .max-w-3xl,
-    /* INSEGNA/ELABORA: stessa larghezza di COSTRUISCI (1100px). Le sezioni e le
-       barre di questi tab usavano max-w-[806px]/820px → apparivano più strette. */
+    /* INSEGNA/ELABORA: stessa larghezza di COSTRUISCI. Le sezioni e le barre di
+       questi tab usavano max-w-[806px]/820px → apparivano più strette.
+       29/7: token portato da 1100 a 1240px per far posto alla colonna DISCIPLINA
+       nelle tabelle. Si alza QUI, su tutti e tre i tab insieme (§10.16): una
+       larghezza diversa per tab romperebbe la coerenza della landing. */
     #landing-view .teach-section-card,
     #landing-view #teach-content>div,
     #landing-view #elabora-content>div {
-        max-width: 1100px !important;
+        max-width: 1240px !important;
         width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;

@@ -45,26 +45,38 @@
         const el = ensureTip();
         el.textContent = txt;
         el.style.opacity = '0';
-        requestAnimationFrame(() => {
-            const r = target.getBoundingClientRect();
-            const w = el.offsetWidth, h = el.offsetHeight;
-            let x = r.left + r.width / 2 - w / 2;
-            x = Math.max(8, Math.min(window.innerWidth - w - 8, x));
-            let y = r.top - h - 8;
-            if (y < 8) y = r.bottom + 8;
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-            el.style.opacity = '1';
-        });
+        /* ⚠️ Posizionamento SINCRONO, non dentro `requestAnimationFrame`: rAF non
+           scatta quando la finestra non è in primo piano (è la stessa trappola
+           corretta in `mappai-a11y.js`), e lì il fumetto restava creato, col testo
+           giusto, ma invisibile per sempre. Il testo è già nel DOM, quindi
+           `offsetWidth` è misurabile subito: l'attesa non serviva a niente. */
+        const r = target.getBoundingClientRect();
+        const w = el.offsetWidth, h = el.offsetHeight;
+        let x = r.left + r.width / 2 - w / 2;
+        x = Math.max(8, Math.min(window.innerWidth - w - 8, x));
+        let y = r.top - h - 8;
+        if (y < 8) y = r.bottom + 8;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.opacity = '1';
     }
-    function hideTip() { tipTarget = null; if (tipEl) tipEl.style.opacity = '0'; }
+    function hideTip() { tipTarget = null; clearTimeout(attesa); if (tipEl) tipEl.style.opacity = '0'; }
+    /* ⚠️ Il fumetto compare dopo un'ATTESA, non subito (950ms, scelta di Giacomo —
+       5/8). Senza, passando il mouse sulla pagina per arrivare altrove si accendeva
+       una spiegazione dopo l'altra: chi sa già dove sta andando non deve leggere
+       niente. È la stessa soglia dei suggerimenti delle console (`.mm-tip`, 900ms):
+       abbastanza da distinguere «sto guardando questo» da «sto passando di qui». */
+    const ATTESA = 950;
+    let attesa = null;
     document.addEventListener('mouseover', (e) => {
         // guardia: se il target hoverato è stato rimosso dal DOM (cambio step del
         // modale) mouseout non scatta → tooltip orfano. Chiudilo appena il mouse
         // si muove su altro contenuto.
         if (tipTarget && !tipTarget.isConnected) hideTip();
         const t = e.target.closest && e.target.closest('[data-tip]');
-        if (t) showTip(t);
+        if (!t) return;
+        clearTimeout(attesa);
+        attesa = setTimeout(() => showTip(t), ATTESA);
     });
     document.addEventListener('mouseout', (e) => {
         const t = e.target.closest && e.target.closest('[data-tip]');

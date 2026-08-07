@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v=1785831100555-1785686777801-1785689580130">
+<script src="../js/lucide.min.js"></script>
+<script src="../js/mappai-modal-core.js?v=1785831100555-1785686777801-1785689580130"></script>
+<script src="../js/mappai-modal.js?v=1785831100555-1785686777801-1785689580130"></script>
+<style>
+  /* le variabili di :root dell'app: senza --emoji-font la dichiarazione
+     font-family verrebbe SCARTATA e si misurerebbe un altro carattere */
+  :root { --emoji-font:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  * { font-family:'Space Mono', var(--emoji-font), monospace; box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:#eef1f6; display:flex; align-items:center; justify-content:center;
+         background-image:radial-gradient(#dbe1ea 1px, transparent 1px);
+         background-size:16px 16px; padding:18px; }
+</style></head><body>
+<script>
+  var SCHEMA = {"titolo":"La Fotosintesi","sottotitolo":"77 nodi · 6 rami · classe 2A — tutte le azioni sulla mappa aperta","icona":"map","taglia":"xl","layout":"console","area":"tre","invio":false,"nav":[{"id":"materiali","etichetta":"Materiali di studio","icona":"printer","contatore":6},{"id":"live","etichetta":"Live","icona":"radio","contatore":4},{"id":"grafo","etichetta":"Grafo e vault","icona":"folder-cog","contatore":4},{"id":"jigsaw","etichetta":"Jigsaw","icona":"puzzle","contatore":4},{"id":"genera","etichetta":"Genera materiali","icona":"package"},{"id":"elabora","etichetta":"Elabora","icona":"sparkles"},{"id":"studio","etichetta":"Studio attivo","icona":"target","contatore":7}],"sezioni":[{"titolo":"Materiali stampati","azioni":[{"id":"m1","etichetta":"Foglio nodi","icona":"layout-grid"},{"id":"m2","etichetta":"Sintesi","icona":"file-text"},{"id":"m3","etichetta":"Dossier","icona":"book-open"},{"id":"m4","etichetta":"Timeline","icona":"calendar-clock"}]},{"titolo":"Live","azioni":[{"id":"l1","etichetta":"Quiz live (QR)","icona":"radio"},{"id":"l2","etichetta":"Lavagna","icona":"presentation"},{"id":"l3","etichetta":"Rispondi e Domanda","icona":"message-circle"},{"id":"l4","etichetta":"Materiali via QR","icona":"qr-code"}]},{"titolo":"Grafo e vault","azioni":[{"id":"g1","etichetta":"Sincronizza vault","icona":"refresh-cw"},{"id":"g2","etichetta":"Esporta / importa","icona":"folder-cog"},{"id":"g3","etichetta":"Unisci mappe","icona":"git-merge"},{"id":"g4","etichetta":"Appunti in Markdown","icona":"file-down"}]},{"titolo":"Jigsaw","azioni":[{"id":"j1","etichetta":"Genera vault","icona":"users"},{"id":"j2","etichetta":"Ricomponi vault","icona":"combine"},{"id":"j3","etichetta":"Lacune","icona":"search-x"},{"id":"j4","etichetta":"Revisione","icona":"clipboard-pen"}]},{"titolo":"Knowledge Garden","azioni":[{"id":"k1","etichetta":"Apri Studio","icona":"sprout"},{"id":"k2","etichetta":"Importa piano","icona":"file-up"}]}],"nota":"«Studio attivo» non compare qui: si accende solo col profilo di un allievo attivo, e resta una voce di navigazione. «Elabora» e «Genera materiali» sono viste, non azioni: la prima porta fuori (ELABORA a tutto schermo), la seconda apre le sue opzioni.","azioni":[{"id":"undo","etichetta":"Annulla","icona":"rotate-ccw"},{"id":"home","etichetta":"Torna alla Home","icona":"arrow-left"},{"id":"chiudi","etichetta":"Chiudi","ruolo":"quieto"}]};
+  document.body.appendChild(MappAIModal.render(SCHEMA));
+  if (window.lucide) try { lucide.createIcons(); } catch(e){}
+</script>
+</body></html>

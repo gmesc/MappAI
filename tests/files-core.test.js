@@ -56,6 +56,23 @@ test('mapClassFolder: con sede → "sede-classe", senza sede → classe', () => 
   assert.strictEqual(FC.mapClassFolder('Se/de', '2:A'), 'Se de-2 A');
 });
 
+// ── disciplineFolder / mapVaultParents (29/7) ───────────────────────────
+test('disciplineFolder: nome FS-safe, vuoto = nessun livello', () => {
+  assert.strictEqual(FC.disciplineFolder('Storia'), 'Storia');
+  assert.strictEqual(FC.disciplineFolder('Ed. fisica'), 'Ed. fisica');
+  assert.strictEqual(FC.disciplineFolder('Storia/Geo'), 'Storia Geo');
+  assert.strictEqual(FC.disciplineFolder(''), '');
+  assert.strictEqual(FC.disciplineFolder(null), '');
+});
+
+test('mapVaultParents: flat / classe / classe+disciplina', () => {
+  assert.deepStrictEqual(FC.mapVaultParents(null, 'Storia'), []);      // senza classe niente disciplina
+  assert.deepStrictEqual(FC.mapVaultParents('', 'Storia'), []);
+  assert.deepStrictEqual(FC.mapVaultParents('Bellinzona-2A', ''), ['Bellinzona-2A']);
+  assert.deepStrictEqual(FC.mapVaultParents('2A', 'Storia'), ['2A', 'Storia']);
+  assert.deepStrictEqual(FC.mapVaultParents('2A', 'Sto/ria'), ['2A', 'Sto ria']);
+});
+
 test('vaultFolderName: titolo mappa FS-safe, fallback "Mappa"', () => {
   assert.strictEqual(FC.vaultFolderName('La Fotosintesi'), 'La Fotosintesi');
   assert.strictEqual(FC.vaultFolderName(''), 'Mappa');
@@ -201,4 +218,32 @@ test('sessionRecordFrom: forma TUTOR (students vs roster) + scope', () => {
   assert.strictEqual(rec.closed, false);             // niente closedAt
   assert.strictEqual(rec.date, 5000);                // startedAt
   assert.deepStrictEqual(rec.reports.map(r => r.file), ['report-tutor.html']);
+});
+
+// ── Mappe di un profilo ALLIEVO (2/8) ──────────────────────────────────────
+test('le mappe di un allievo vivono nella sua cartella, non fra quelle di classe', () => {
+    const basi = { maps: '/F/Mappe', students: '/F/Allievi' };
+    assert.strictEqual(FC.mapVaultRoot(basi, 'Anna Rossi'), '/F/Allievi/Anna Rossi/Mappe');
+    assert.strictEqual(FC.mapVaultRoot(basi, ''), '/F/Mappe', 'senza allievo si resta in Mappe');
+    // dentro la cartella di un allievo il percorso è già personale: niente
+    // livello classe/disciplina (i due contesti si escludono a vicenda)
+    assert.deepStrictEqual(FC.mapVaultParentsFor('Anna Rossi', '2A', 'Storia'), []);
+    assert.deepStrictEqual(FC.mapVaultParentsFor('', '2A', 'Storia'), ['2A', 'Storia']);
+    // un nome che tenterebbe di risalire resta UN segmento: safeName toglie i
+    // separatori, quindi il percorso non può uscire da «Allievi»
+    const furbo = FC.mapVaultRoot(basi, '../fuori');
+    assert.ok(furbo.startsWith('/F/Allievi/'), furbo);
+    assert.strictEqual(furbo.split('/').length, '/F/Allievi/x/Mappe'.split('/').length, 'nessun livello in più');
+});
+
+test('«Allegati» è scrivibile dalla pipeline, la risalita no', () => {
+    assert.strictEqual(FC.sanitizeVaultRelPath('Allegati/fonte.pdf'), 'Allegati/fonte.pdf');
+    assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/fonte.pdf'), 'Fonti/fonte.pdf');
+    assert.strictEqual(FC.sanitizeVaultRelPath('Allegati/../../fuori.pdf'), null);
+    assert.strictEqual(FC.sanitizeVaultRelPath('Altro/fonte.pdf'), null);
+});
+
+test('«Allievi» è una sottocartella di MappAI - file, ma non una da migrare', () => {
+    assert.strictEqual(FC.SUB.students, 'Allievi');
+    assert.ok(!FC.LEGACY.some(l => l.sub === 'students'), 'nasce ora: non c’è nulla da spostarci dentro');
 });

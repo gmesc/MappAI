@@ -1,0 +1,2858 @@
+[
+ {
+  "id": "app-insegna",
+  "nome": "INSEGNA — elenco delle mappe",
+  "gruppo": "App (vere)",
+  "nota": "La console vera di INSEGNA con la colonna piena: le mappe vengono dal disco, filtrate dal chip.",
+  "src": "public/js/mappai-landing-teach.js:2003 (_consSchema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Insegna",
+   "icona": "presentation",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "contesto": [
+    {
+     "id": "classe",
+     "icona": "graduation-cap",
+     "vuoto": false,
+     "etichetta": "2A"
+    },
+    {
+     "id": "materia",
+     "icona": "book-open",
+     "vuoto": false,
+     "etichetta": "Storia"
+    }
+   ],
+   "nav": [
+    {
+     "gruppo": "Mappe"
+    },
+    {
+     "id": "v:/Mappe/2A/Storia/La Carta",
+     "etichetta": "La Carta",
+     "attiva": false,
+     "icona": "git-merge"
+    },
+    {
+     "gruppo": "Materiali"
+    },
+    {
+     "id": "lavagna",
+     "etichetta": "Lavagna",
+     "icona": "presentation",
+     "attiva": false
+    },
+    {
+     "id": "live",
+     "etichetta": "Attività LIVE",
+     "icona": "radio",
+     "attiva": false
+    },
+    {
+     "id": "stampabili",
+     "etichetta": "Stampabili",
+     "icona": "printer",
+     "attiva": false
+    }
+   ],
+   "navChiusa": false,
+   "sezioni": [
+    {
+     "id": "intro",
+     "titolo": "Da dove si comincia",
+     "testo": "Scegli una mappa nella colonna: sotto compaiono i materiali del suo vault — sintesi, quiz, fogli, fonte originale — e ognuno si apre qui dentro, pronto da stampare o da condividere via QR."
+    }
+   ],
+   "sottotitolo": "2A · Storia · 1 mappe"
+  }
+ },
+ {
+  "id": "app-insegna-mappa",
+  "nome": "INSEGNA — mappa scelta (materiali)",
+  "gruppo": "App (vere)",
+  "nota": "La schermata di riferimento: gli avvii con la classe + i materiali del vault raggruppati per genere.",
+  "src": "public/js/mappai-landing-teach.js:2003",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Insegna",
+   "icona": "presentation",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "contesto": [
+    {
+     "id": "classe",
+     "icona": "graduation-cap",
+     "vuoto": false,
+     "etichetta": "2A"
+    },
+    {
+     "id": "materia",
+     "icona": "book-open",
+     "vuoto": false,
+     "etichetta": "Storia"
+    }
+   ],
+   "nav": [
+    {
+     "gruppo": "Mappe"
+    },
+    {
+     "id": "v:/Mappe/2A/Storia/La Carta",
+     "etichetta": "La Carta",
+     "attiva": true,
+     "icona": "git-merge"
+    },
+    {
+     "gruppo": "Materiali"
+    },
+    {
+     "id": "lavagna",
+     "etichetta": "Lavagna",
+     "icona": "presentation",
+     "attiva": false
+    },
+    {
+     "id": "live",
+     "etichetta": "Attività LIVE",
+     "icona": "radio",
+     "attiva": false
+    },
+    {
+     "id": "stampabili",
+     "etichetta": "Stampabili",
+     "icona": "printer",
+     "attiva": false
+    }
+   ],
+   "navChiusa": false,
+   "sezioni": [
+    {
+     "id": "comandi",
+     "nuda": true,
+     "azioni": [
+      {
+       "id": "apri",
+       "etichetta": "Mappa",
+       "icona": "map",
+       "ruolo": "primario"
+      },
+      {
+       "id": "cartella",
+       "etichetta": "Finder",
+       "icona": "folder",
+       "chiude": false
+      },
+      {
+       "id": "elabora",
+       "etichetta": "Elabora",
+       "icona": "wand-2"
+      },
+      {
+       "id": "live",
+       "etichetta": "Studio attivo",
+       "icona": "radio"
+      },
+      {
+       "id": "collab",
+       "etichetta": "Lavagna",
+       "icona": "presentation"
+      }
+     ],
+     "sotto": ""
+    }
+   ],
+   "sottotitolo": "La Carta · 2A",
+   "tabelle": [
+    {
+     "id": "g:sintesi",
+     "titolo": "Sintesi",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:arc:d1",
+       "chiude": false,
+       "celle": [
+        "Sintesi — La fabbricazione",
+        "2A",
+        "Storia",
+        "29/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:arc:d1",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Sintesi -VERDE.html",
+       "chiude": false,
+       "celle": [
+        "Sintesi -VERDE.html",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Sintesi -VERDE.html",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:fogli",
+     "titolo": "Fogli dei nodi",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-card -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-card -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-card -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-keywords -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-keywords -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-keywords -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-title -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-title -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-title -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz_mc",
+     "titolo": "Quiz a scelta multipla",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Quiz-MC-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Quiz-MC-La Carta -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Quiz-MC-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz_vf",
+     "titolo": "Quiz vero / falso",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Quiz-VF-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Quiz-VF-La Carta -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Quiz-VF-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz",
+     "titolo": "Altri quiz",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:arc:d2",
+       "chiude": false,
+       "celle": [
+        "Quiz MC — La Carta",
+        "2A",
+        "Storia",
+        "29/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:arc:d2",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:flash",
+     "titolo": "Flashcard",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Flashcard-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Flashcard-La Carta -VERDE.pdf",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Flashcard-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:dati",
+     "titolo": "File di lavoro",
+     "chiusa": true,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:la_carta___flashcard_set_1785398120353_c2z91.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___flashcard_set_1785398120353_c2z91.json",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___flashcard_set_1785398120353_c2z91.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:la_carta___scelta_multipla_set_1785398045707_zt953.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___scelta_multipla_set_1785398045707_zt953.json",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___scelta_multipla_set_1785398045707_zt953.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "id": "app-insegna-live",
+  "nome": "INSEGNA — attività LIVE",
+  "gruppo": "App (vere)",
+  "nota": "Avvio di quiz e tutor + i report già prodotti, con classe e materia.",
+  "src": "public/js/mappai-landing-teach.js:2003",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Insegna",
+   "icona": "presentation",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "contesto": [
+    {
+     "id": "classe",
+     "icona": "graduation-cap",
+     "vuoto": false,
+     "etichetta": "2A"
+    },
+    {
+     "id": "materia",
+     "icona": "book-open",
+     "vuoto": false,
+     "etichetta": "Storia"
+    }
+   ],
+   "nav": [
+    {
+     "gruppo": "Mappe"
+    },
+    {
+     "id": "v:/Mappe/2A/Storia/La Carta",
+     "etichetta": "La Carta",
+     "attiva": false,
+     "icona": "git-merge"
+    },
+    {
+     "gruppo": "Materiali"
+    },
+    {
+     "id": "lavagna",
+     "etichetta": "Lavagna",
+     "icona": "presentation",
+     "attiva": false
+    },
+    {
+     "id": "live",
+     "etichetta": "Attività LIVE",
+     "icona": "radio",
+     "attiva": true
+    },
+    {
+     "id": "stampabili",
+     "etichetta": "Stampabili",
+     "icona": "printer",
+     "attiva": false
+    }
+   ],
+   "navChiusa": false,
+   "sezioni": [
+    {
+     "id": "live-avvii",
+     "nuda": true,
+     "titolo": "Nuova attività",
+     "azioni": [
+      {
+       "id": "live-quiz",
+       "etichetta": "Quiz a distanza",
+       "icona": "list-checks",
+       "ruolo": "primario",
+       "chiude": false
+      },
+      {
+       "id": "live-tutor",
+       "etichetta": "Rispondi e Domanda",
+       "icona": "message-square",
+       "chiude": false
+      }
+     ],
+     "testo": "Gli allievi entrano dal telefono con le loro credenziali: il quiz si corregge da sé, la scrittura col tutor consegna testo e trascrizione."
+    }
+   ],
+   "sottotitolo": "Attività LIVE · 2A",
+   "tabelle": [
+    {
+     "id": "live-rep",
+     "titolo": "Attività già svolte",
+     "colonne": [
+      {
+       "etichetta": "Attività",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Partecipanti",
+       "larghezza": "115px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "rep:0",
+       "chiude": false,
+       "celle": [
+        "Quiz a distanza",
+        "La Carta",
+        "—",
+        "Storia",
+        "24/07/2026",
+        "12/12",
+        {
+         "azioni": [
+          {
+           "id": "repdir:0",
+           "icona": "folder",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Apri nel Finder"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "rep:1",
+       "chiude": false,
+       "celle": [
+        "Tutor",
+        "La Carta",
+        "—",
+        "Storia",
+        "18/07/2026",
+        "2/20",
+        {
+         "azioni": [
+          {
+           "id": "repdir:1",
+           "icona": "folder",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Apri nel Finder"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "id": "app-insegna-stampabili",
+  "nome": "INSEGNA — stampabili",
+  "gruppo": "App (vere)",
+  "nota": "Gli stessi generi, ma sull'unione delle mappe del contesto: in più la colonna Mappa.",
+  "src": "public/js/mappai-landing-teach.js:2003",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Insegna",
+   "icona": "presentation",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "contesto": [
+    {
+     "id": "classe",
+     "icona": "graduation-cap",
+     "vuoto": false,
+     "etichetta": "2A"
+    },
+    {
+     "id": "materia",
+     "icona": "book-open",
+     "vuoto": false,
+     "etichetta": "Storia"
+    }
+   ],
+   "nav": [
+    {
+     "gruppo": "Mappe"
+    },
+    {
+     "id": "v:/Mappe/2A/Storia/La Carta",
+     "etichetta": "La Carta",
+     "attiva": false,
+     "icona": "git-merge"
+    },
+    {
+     "gruppo": "Materiali"
+    },
+    {
+     "id": "lavagna",
+     "etichetta": "Lavagna",
+     "icona": "presentation",
+     "attiva": false
+    },
+    {
+     "id": "live",
+     "etichetta": "Attività LIVE",
+     "icona": "radio",
+     "attiva": false
+    },
+    {
+     "id": "stampabili",
+     "etichetta": "Stampabili",
+     "icona": "printer",
+     "attiva": true
+    }
+   ],
+   "navChiusa": false,
+   "sezioni": [],
+   "sottotitolo": "Stampabili · 2A",
+   "tabelle": [
+    {
+     "id": "g:sintesi",
+     "titolo": "Sintesi",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:arc:d1",
+       "chiude": false,
+       "celle": [
+        "Sintesi — La fabbricazione",
+        "La Carta",
+        "2A",
+        "Storia",
+        "29/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:arc:d1",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Sintesi -VERDE.html",
+       "chiude": false,
+       "celle": [
+        "Sintesi -VERDE.html",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Sintesi -VERDE.html",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:fogli",
+     "titolo": "Fogli dei nodi",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-card -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-card -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-card -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-keywords -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-keywords -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-keywords -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:Materiale Studio/Foglio-nodi-title -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Foglio-nodi-title -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Foglio-nodi-title -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz_mc",
+     "titolo": "Quiz a scelta multipla",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Quiz-MC-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Quiz-MC-La Carta -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Quiz-MC-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz_vf",
+     "titolo": "Quiz vero / falso",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Quiz-VF-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Quiz-VF-La Carta -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Quiz-VF-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:quiz",
+     "titolo": "Altri quiz",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:arc:d2",
+       "chiude": false,
+       "celle": [
+        "Quiz MC — La Carta",
+        "La Carta",
+        "2A",
+        "Storia",
+        "29/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:arc:d2",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:flash",
+     "titolo": "Flashcard",
+     "chiusa": false,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:Materiale Studio/Flashcard-La Carta -VERDE.pdf",
+       "chiude": false,
+       "celle": [
+        "Flashcard-La Carta -VERDE.pdf",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:Materiale Studio/Flashcard-La Carta -VERDE.pdf",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "g:dati",
+     "titolo": "File di lavoro",
+     "chiusa": true,
+     "colonne": [
+      {
+       "etichetta": "Nome",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Mappa",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "",
+       "larghezza": "58px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      {
+       "id": "m:disk:la_carta___flashcard_set_1785398120353_c2z91.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___flashcard_set_1785398120353_c2z91.json",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___flashcard_set_1785398120353_c2z91.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:la_carta___scelta_multipla_set_1785398045707_zt953.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___scelta_multipla_set_1785398045707_zt953.json",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___scelta_multipla_set_1785398045707_zt953.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": "m:disk:la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+       "chiude": false,
+       "celle": [
+        "la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+        "La Carta",
+        "2A",
+        "Storia",
+        "30/07/2026",
+        {
+         "azioni": [
+          {
+           "id": "del:disk:la_carta___vero_o_falso_set_1785398087787_9ni6m.json",
+           "icona": "trash-2",
+           "ruolo": "quieto",
+           "soloIcona": true,
+           "etichetta": "Elimina"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "id": "app-insegna-lavagna",
+  "nome": "INSEGNA — lavagna",
+  "gruppo": "App (vere)",
+  "nota": "Le due scelte di avvio, il foglio credenziali e le sessioni da riprendere.",
+  "src": "public/js/mappai-landing-teach.js:2003",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Insegna",
+   "icona": "presentation",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "contesto": [
+    {
+     "id": "classe",
+     "icona": "graduation-cap",
+     "vuoto": false,
+     "etichetta": "2A"
+    },
+    {
+     "id": "materia",
+     "icona": "book-open",
+     "vuoto": false,
+     "etichetta": "Storia"
+    }
+   ],
+   "nav": [
+    {
+     "gruppo": "Mappe"
+    },
+    {
+     "id": "v:/Mappe/2A/Storia/La Carta",
+     "etichetta": "La Carta",
+     "attiva": false,
+     "icona": "git-merge"
+    },
+    {
+     "gruppo": "Materiali"
+    },
+    {
+     "id": "lavagna",
+     "etichetta": "Lavagna",
+     "icona": "presentation",
+     "attiva": true
+    },
+    {
+     "id": "live",
+     "etichetta": "Attività LIVE",
+     "icona": "radio",
+     "attiva": false
+    },
+    {
+     "id": "stampabili",
+     "etichetta": "Stampabili",
+     "icona": "printer",
+     "attiva": false
+    }
+   ],
+   "navChiusa": false,
+   "sezioni": [
+    {
+     "id": "lav-opz",
+     "nuda": true,
+     "titolo": "Nuova sessione",
+     "campi": [
+      {
+       "id": "login",
+       "tipo": "scelta",
+       "etichetta": "Accesso allievi",
+       "valore": "group",
+       "opzioni": [
+        {
+         "valore": "group",
+         "etichetta": "A gruppi (3 emoji)"
+        },
+        {
+         "valore": "individual",
+         "etichetta": "Individuale (roster della classe attiva)"
+        }
+       ]
+      },
+      {
+       "id": "rete",
+       "tipo": "scelta",
+       "etichetta": "Rete degli allievi",
+       "valore": "lan",
+       "opzioni": [
+        {
+         "valore": "lan",
+         "etichetta": "Wi-Fi dell’aula"
+        },
+        {
+         "valore": "web",
+         "etichetta": "Internet condiviso"
+        }
+       ],
+       "aiuto": "Rete: usa l’hotspot del PC o un router d’aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi."
+      }
+     ],
+     "azioni": [
+      {
+       "id": "lav-start",
+       "etichetta": "Avvia la Lavagna",
+       "icona": "play",
+       "ruolo": "primario",
+       "chiude": false
+      },
+      {
+       "id": "lav-cred",
+       "etichetta": "Foglio credenziali",
+       "icona": "id-card",
+       "chiude": false
+      }
+     ],
+     "sotto": ""
+    }
+   ],
+   "sottotitolo": "Lavagna · 2A",
+   "tabelle": [
+    {
+     "id": "lav-sess",
+     "titolo": "Sessioni da riprendere",
+     "colonne": [
+      {
+       "etichetta": "Mappa",
+       "larghezza": ""
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Data",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Gruppi",
+       "larghezza": "90px"
+      },
+      {
+       "etichetta": "Accesso",
+       "larghezza": "125px"
+      }
+     ],
+     "righe": [
+      {
+       "id": "res:/Lavagna/2A-2026-07-22",
+       "chiude": false,
+       "celle": [
+        "2A · La Carta",
+        "—",
+        "—",
+        "—",
+        "0",
+        "gruppi"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "id": "app-cabina-profilo",
+  "nome": "CABINA — Profilo insegnante",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": true,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": true
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "tp",
+     "titolo": "Chi sei",
+     "campi": [
+      {
+       "id": "nome",
+       "etichetta": "Nome e cognome",
+       "valore": "Giacomo Meschini"
+      }
+     ]
+    }
+   ],
+   "azioni": [
+    {
+     "id": "salva-prof",
+     "etichetta": "Salva profilo",
+     "ruolo": "primario",
+     "icona": "save",
+     "chiude": false
+    }
+   ],
+   "area": "due"
+  }
+ },
+ {
+  "id": "app-cabina-allievi",
+  "nome": "CABINA — Allievi",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": true
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [],
+   "azioni": [
+    {
+     "id": "ctx-generico",
+     "etichetta": "Generico",
+     "icona": "circle-dashed",
+     "chiude": false
+    },
+    {
+     "id": "nuovo-allievo",
+     "etichetta": "Crea profilo",
+     "icona": "user-plus",
+     "ruolo": "primario",
+     "chiude": false
+    }
+   ],
+   "tabelle": [
+    {
+     "id": "tb-allievi",
+     "titolo": "Profili allievo",
+     "vuota": "Nessuna scheda studente. Creane una per un allievo che segui (es. sostegno).",
+     "colonne": [
+      {
+       "etichetta": "Allievo",
+       "larghezza": "190px"
+      },
+      {
+       "etichetta": "Classe",
+       "larghezza": "130px"
+      },
+      {
+       "etichetta": "Grado",
+       "larghezza": "100px"
+      },
+      {
+       "etichetta": "Età",
+       "larghezza": "80px"
+      },
+      {
+       "etichetta": "Preset",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Note per la taratura"
+      },
+      {
+       "etichetta": "Azioni",
+       "larghezza": "76px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      [
+       {
+        "testo": "—",
+        "bollino": "spento",
+        "titolo": "Profilo standard"
+       },
+       "2A",
+       "2ª",
+       "13",
+       "semplice",
+       "Frasi brevi.",
+       {
+        "azioni": [
+         {
+          "id": "stu-edit:0",
+          "etichetta": "Gestisci",
+          "icona": "settings-2",
+          "soloIcona": true
+         }
+        ]
+       }
+      ]
+     ]
+    }
+   ],
+   "nota": "Le schede allievo sono la taratura individuale: si aprono dichiarando il ruolo «Docente di sostegno / OPI» nel profilo. · Contesto attivo: classe 2A"
+  }
+ },
+ {
+  "id": "app-cabina-classi",
+  "nome": "CABINA — Classi",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": true
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [],
+   "azioni": [
+    {
+     "id": "ctx-generico",
+     "etichetta": "Generico",
+     "icona": "circle-dashed",
+     "chiude": false
+    },
+    {
+     "id": "nuova-classe",
+     "etichetta": "Crea profilo",
+     "icona": "plus",
+     "ruolo": "primario",
+     "chiude": false
+    }
+   ],
+   "tabelle": [
+    {
+     "id": "tb-classi",
+     "titolo": "Profili classe",
+     "vuota": "Nessuna classe. Creane una per tarare i contenuti sul livello dei tuoi allievi.",
+     "colonne": [
+      {
+       "etichetta": "Classe",
+       "larghezza": "200px"
+      },
+      {
+       "etichetta": "Grado",
+       "larghezza": "120px"
+      },
+      {
+       "etichetta": "Registro",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Materie"
+      },
+      {
+       "etichetta": "Allievi",
+       "larghezza": "90px"
+      },
+      {
+       "etichetta": "Azioni",
+       "larghezza": "76px",
+       "ordinabile": false
+      }
+     ],
+     "righe": [
+      [
+       {
+        "testo": "2A",
+        "bollino": "attivo",
+        "titolo": "Contesto attivo"
+       },
+       "2ª",
+       "medio",
+       "Storia · Italiano",
+       "0",
+       {
+        "azioni": [
+         {
+          "id": "cls-edit:c1",
+          "etichetta": "Gestisci",
+          "icona": "settings-2",
+          "soloIcona": true
+         }
+        ]
+       }
+      ],
+      [
+       {
+        "testo": "1ªA",
+        "bollino": "spento",
+        "titolo": "Profilo standard"
+       },
+       "1ª",
+       "semplice",
+       "Scienze naturali",
+       "0",
+       {
+        "azioni": [
+         {
+          "id": "cls-edit:c2",
+          "etichetta": "Gestisci",
+          "icona": "settings-2",
+          "soloIcona": true
+         }
+        ]
+       }
+      ]
+     ]
+    }
+   ],
+   "nota": "Contesto attivo: classe 2A"
+  }
+ },
+ {
+  "id": "app-cabina-ai",
+  "nome": "CABINA — Impostazioni AI",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": true
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "ponte",
+     "nuda": true,
+     "testo": "Provider, chiave e modello: la finestra di oggi resta quella dell’app. Da qui si apre nel posto giusto.",
+     "azioni": [
+      {
+       "id": "apri-ai",
+       "etichetta": "Apri le impostazioni AI",
+       "icona": "bot",
+       "ruolo": "primario",
+       "chiude": false
+      }
+     ]
+    }
+   ],
+   "azioni": []
+  }
+ },
+ {
+  "id": "app-cabina-consumi",
+  "nome": "CABINA — Consumi AI",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": true
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "ud-filtri",
+     "colonna": "filtri",
+     "campi": [
+      {
+       "id": "ud-ctx",
+       "tipo": "scelta",
+       "valore": "",
+       "etichetta": "Classe o allievo",
+       "opzioni": [
+        {
+         "valore": "",
+         "etichetta": "— tutte le classi e gli allievi —"
+        },
+        {
+         "valore": "cls:2A",
+         "etichetta": "2A"
+        },
+        {
+         "valore": "cls:1ªA",
+         "etichetta": "1ªA"
+        }
+       ]
+      },
+      {
+       "id": "ud-mat",
+       "tipo": "scelta",
+       "valore": "",
+       "etichetta": "Materia",
+       "opzioni": [
+        {
+         "valore": "",
+         "etichetta": "— tutte le materie —"
+        },
+        {
+         "valore": "Storia",
+         "etichetta": "Storia"
+        },
+        {
+         "valore": "Italiano",
+         "etichetta": "Italiano"
+        },
+        {
+         "valore": "Scienze naturali",
+         "etichetta": "Scienze naturali"
+        }
+       ]
+      },
+      {
+       "id": "ud-tasso",
+       "tipo": "numero",
+       "larghezza": "breve",
+       "valore": 0.9,
+       "etichetta": "Tasso USD→CHF",
+       "min": 0.1,
+       "max": 3,
+       "aiuto": "Tasso USD→CHF"
+      }
+     ],
+     "azioni": [
+      {
+       "id": "ud-stampa",
+       "etichetta": "Stampa",
+       "icona": "printer",
+       "chiude": false
+      },
+      {
+       "id": "ud-cartella",
+       "etichetta": "Apri la cartella del registro su disco",
+       "icona": "folder-open",
+       "soloIcona": true,
+       "chiude": false
+      }
+     ]
+    }
+   ],
+   "azioni": [],
+   "tabelle": [
+    {
+     "id": "ud-mappe",
+     "titolo": "Mappe",
+     "collassabile": true,
+     "colonne": [
+      {
+       "etichetta": "Mappa",
+       "larghezza": "300px"
+      },
+      {
+       "etichetta": "Classe o allievo",
+       "larghezza": "160px"
+      },
+      {
+       "etichetta": "Materia",
+       "larghezza": "150px"
+      },
+      {
+       "etichetta": "Chiamate AI",
+       "larghezza": "110px"
+      },
+      {
+       "etichetta": "Totale"
+      }
+     ],
+     "vuota": "Nessuna mappa con questi filtri.",
+     "righe": [
+      [
+       {
+        "testo": "Tutte le mappe",
+        "bollino": "attivo",
+        "titolo": "Selezione corrente"
+       },
+       "",
+       "",
+       "12",
+       "CHF 0,00"
+      ],
+      [
+       {
+        "testo": "La Carta",
+        "bollino": "",
+        "titolo": "Selezione corrente"
+       },
+       "2A",
+       "Storia",
+       "12",
+       "CHF 0,00"
+      ]
+     ]
+    }
+   ],
+   "tela": {
+    "id": "ud",
+    "segnaposto": ""
+   },
+   "nota": "I costi si calcolano qui dalle tariffe dei modelli: il registro salva solo i token, quindi correggere il tasso o un prezzo aggiorna anche lo storico."
+  }
+ },
+ {
+  "id": "app-cabina-consigli",
+  "nome": "CABINA — Consigli di studio",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": true
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "cs-intro",
+     "nuda": true,
+     "largo": true,
+     "testo": "MappAI non è solo un generatore di schemi: è un ambiente di apprendimento attivo. La mappa generata dall’AI è il tuo punto di partenza — il vero studio inizia quando la personalizzi."
+    },
+    {
+     "id": "cs-sr",
+     "titolo": "study_sr_title",
+     "testo": "study_sr_desc"
+    },
+    {
+     "id": "cs-ar",
+     "titolo": "study_ar_title",
+     "testo": "study_ar_desc"
+    },
+    {
+     "id": "cs-feynman",
+     "titolo": "study_feynman_title",
+     "testo": "study_feynman_desc"
+    },
+    {
+     "id": "cs-interleaving",
+     "titolo": "study_interleaving_title",
+     "testo": "study_interleaving_desc"
+    },
+    {
+     "id": "cs-elaboration",
+     "titolo": "study_elaboration_title",
+     "testo": "study_elaboration_desc"
+    },
+    {
+     "id": "cs-local_files",
+     "titolo": "study_local_files_title",
+     "testo": "study_local_files_desc"
+    },
+    {
+     "id": "cs-fine",
+     "nuda": true,
+     "largo": true,
+     "testo": "study_footer",
+     "azioni": [
+      {
+       "id": "apri-consigli",
+       "etichetta": "Apri con la lettura ad alta voce",
+       "icona": "volume-2",
+       "chiude": false
+      }
+     ]
+    }
+   ],
+   "azioni": [],
+   "area": "due",
+   "nota": "Sono i metodi che le funzioni di studio dell’app mettono in pratica: flashcard a intervalli, richiamo attivo, quiz, cloze."
+  }
+ },
+ {
+  "id": "app-cabina-tutorial",
+  "nome": "CABINA — Tutorial",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": true
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "tu-intro",
+     "nuda": true,
+     "largo": true,
+     "testo": "Una progressione in quattro passi per allenare la costruzione di mappe. Si comincia da schede corte e mappe con pochi nodi e si sale verso contenuti più densi: la difficoltà cresce quando costruire è diventato facile, non prima."
+    },
+    {
+     "id": "tu-p1",
+     "titolo": "Passo 1 — una scheda corta, una mappa piccola",
+     "testo": "Parti da 200-400 parole su un solo tema e imposta «Genera fino a» su L2: escono 8-12 nodi. È il formato in cui l’allievo riesce a tenere tutta la mappa in testa, e in cui un errore si vede. Una scheda lunga alla prima prova produce una mappa che nessuno finisce di leggere."
+    },
+    {
+     "id": "tu-p2",
+     "titolo": "Passo 2 — la mappa la costruisce l’allievo",
+     "testo": "Con la stessa scheda, stampa il Foglio dei nodi con i soli titoli, oppure apri la Lavagna: gli allievi costruiscono, e la mappa dell’AI si mostra alla fine come confronto. È qui che si impara: costruire vale più che studiare una mappa già fatta."
+    },
+    {
+     "id": "tu-p3",
+     "titolo": "Passo 3 — due schede sullo stesso tema",
+     "testo": "Aggiungi una seconda fonte e sali a L3. Compaiono i primi legami trasversali, e con essi la domanda che conta: che cosa dice una fonte che l’altra non dice? Le parole-legame sugli archi diventano materia di discussione."
+    },
+    {
+     "id": "tu-p4",
+     "titolo": "Passo 4 — il capitolo intero",
+     "testo": "Testo denso, L3-L4, e «Genera materiali» che produce in un colpo quiz, flashcard, foglio dei nodi e sintesi nella cartella della classe. A questo punto la classe sa già costruire: il materiale serve ad allenare, non a spiegare."
+    },
+    {
+     "id": "tu-tara",
+     "titolo": "Le due leve che cambiano tutto",
+     "largo": true,
+     "testo": "La prima è il contesto attivo: con una classe o un allievo selezionato l’AI adatta registro, lunghezza delle frasi ed esempi, senza toccare i fatti. La seconda è «Genera fino a», che decide quanti livelli finiscono nei DATI — diverso da «Mostra fino a», che nasconde e basta: una mappa generata a L5 resta a L5 dentro quiz e materiali anche se sul canvas ne vedi tre.",
+     "azioni": [
+      {
+       "id": "apri-guida",
+       "etichetta": "Come usare MappAI",
+       "icona": "help-circle",
+       "chiude": false
+      },
+      {
+       "id": "vai-consumi",
+       "etichetta": "Quanto costa",
+       "icona": "coins",
+       "chiude": false
+      }
+     ]
+    }
+   ],
+   "azioni": [],
+   "area": "due",
+   "nota": "Ogni passo si prova con la stessa fonte: cambiano la profondità e chi disegna la mappa, non l’argomento."
+  }
+ },
+ {
+  "id": "app-cabina-termini",
+  "nome": "CABINA — Termini & Condizioni",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": true
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": false
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "tc-cosa",
+     "titolo": "Che cos’è MappAI",
+     "largo": true,
+     "testo": "Uno strumento di lavoro per chi insegna: genera mappe e materiali a partire da fonti che scegli tu, e li scrive sul tuo computer. Non è un registro, non è una piattaforma didattica e non ospita nulla in rete per conto tuo."
+    },
+    {
+     "id": "tc-ai",
+     "titolo": "I contenuti li scrive un modello",
+     "testo": "Mappe, quiz, sintesi e risposte del tutor arrivano da un modello linguistico: possono contenere errori, omissioni e semplificazioni sbagliate anche quando la fonte è corretta. Ogni materiale va riletto prima di darlo alla classe. La responsabilità di quello che consegni resta di chi insegna."
+    },
+    {
+     "id": "tc-chiavi",
+     "titolo": "Chiave AI e costi",
+     "testo": "La chiave API è tua e resta sul tuo computer: le chiamate le paghi al provider che hai scelto, secondo le sue tariffe. MappAI misura token e costo stimato in «Consumi AI», ma non fattura, non rivende e non fa da intermediario."
+    },
+    {
+     "id": "tc-classe",
+     "titolo": "Uso con gli allievi",
+     "testo": "Lavagna, attività LIVE e Tutor QR aprono un server sul tuo computer a cui i dispositivi si collegano via Wi-Fi. Chi somministra l’attività risponde dei dati che raccoglie e delle regole del proprio istituto: prima di usarle con minori, verifica cosa prevede la tua scuola."
+    },
+    {
+     "id": "tc-fonti",
+     "titolo": "Le fonti che carichi",
+     "testo": "Carichi tu i PDF, i link e i testi: assicurati di averne il diritto. I materiali generati ne sono una rielaborazione e ne seguono i vincoli — un capitolo sotto copyright non diventa libero perché ci hai fatto una mappa."
+    }
+   ],
+   "azioni": [],
+   "area": "due",
+   "nota": "Sintesi informativa, non un contratto. Per le condizioni complete: insegnai.ch — giacomo@insegnai.ch"
+  }
+ },
+ {
+  "id": "app-cabina-privacy",
+  "nome": "CABINA — Privacy",
+  "gruppo": "App (vere)",
+  "nota": "Vista della Cabina (io e l'app), montata dal modulo vero.",
+  "src": "public/js/mappai-cabina.js:833 (_schema)",
+  "tipo": "schema",
+  "schema": {
+   "titolo": "Cabina",
+   "sottotitolo": "Il tuo profilo, il contesto di lavoro e l’AI",
+   "icona": "sliders-horizontal",
+   "taglia": "xl",
+   "layout": "console",
+   "piena": true,
+   "invio": false,
+   "veloChiude": false,
+   "sporco": false,
+   "nav": [
+    {
+     "gruppo": "Io"
+    },
+    {
+     "id": "profilo",
+     "etichetta": "Profilo insegnante",
+     "icona": "id-card",
+     "attiva": false
+    },
+    {
+     "id": "allievi",
+     "etichetta": "Allievi",
+     "icona": "user-round",
+     "attiva": false
+    },
+    {
+     "id": "classi",
+     "etichetta": "Classi",
+     "icona": "graduation-cap",
+     "attiva": false
+    },
+    {
+     "gruppo": "L’app"
+    },
+    {
+     "id": "ai",
+     "etichetta": "Impostazioni AI",
+     "icona": "bot",
+     "attiva": false
+    },
+    {
+     "id": "consumi",
+     "etichetta": "Consumi AI",
+     "icona": "coins",
+     "attiva": false
+    },
+    {
+     "gruppo": "Imparare"
+    },
+    {
+     "id": "consigli",
+     "etichetta": "Consigli di studio",
+     "icona": "lightbulb",
+     "attiva": false
+    },
+    {
+     "id": "tutorial",
+     "etichetta": "Tutorial",
+     "icona": "book-open",
+     "attiva": false
+    },
+    {
+     "gruppo": "Note d’uso"
+    },
+    {
+     "id": "termini",
+     "etichetta": "Termini & Condizioni",
+     "icona": "scroll-text",
+     "attiva": false
+    },
+    {
+     "id": "privacy",
+     "etichetta": "Privacy",
+     "icona": "shield-check",
+     "attiva": true
+    }
+   ],
+   "sezioni": [
+    {
+     "id": "pv-dove",
+     "titolo": "Dove vivono i dati",
+     "largo": true,
+     "testo": "Sul tuo computer, in cartelle che puoi aprire dal Finder: mappe e vault, materiali, sessioni delle attività, profili di classi e allievi, registro dei consumi. Non c’è un account MappAI, non c’è un server di MappAI, non c’è sincronizzazione."
+    },
+    {
+     "id": "pv-esce",
+     "titolo": "Che cosa esce dal computer",
+     "testo": "Solo quello che mandi a generare: il testo delle fonti che hai caricato e le istruzioni del prompt, verso il provider AI attivo (Google Gemini, oppure Infomaniak che tiene i dati in Svizzera). Nient’altro parte da solo."
+    },
+    {
+     "id": "pv-allievi",
+     "titolo": "I profili degli allievi",
+     "testo": "Quando la taratura è attiva, nel prompt entrano età, grado, sistema scolastico e le note che hai scritto nella scheda (per una classe: grado, registro e note). Il NOME dell’allievo non entra mai. Le note servono a cambiare come l’AI scrive: scrivici i bisogni linguistici, non le diagnosi."
+    },
+    {
+     "id": "pv-lan",
+     "titolo": "Le attività in classe",
+     "testo": "Lavagna, quiz LIVE e Tutor restano sulla rete locale: i telefoni parlano col tuo computer, non con Internet, e le risposte finiscono in una cartella tua. L’eccezione è il Tutor QR, dove i messaggi che gli allievi scrivono vengono inoltrati all’AI per ottenere la risposta."
+    },
+    {
+     "id": "pv-cancella",
+     "titolo": "Cancellare",
+     "testo": "Le cartelle sono file normali: si eliminano dal Finder e spariscono davvero. Le identità degli allievi (emoji + numero) esistono solo dentro la classe, sul tuo disco, e si rigenerano quando vuoi.",
+     "azioni": [
+      {
+       "id": "apri-cartella-consumi",
+       "etichetta": "Apri la cartella dei consumi",
+       "icona": "folder-open",
+       "chiude": false
+      }
+     ]
+    }
+   ],
+   "azioni": [],
+   "area": "due",
+   "nota": "Sintesi informativa, non un contratto. Per le condizioni complete: insegnai.ch — giacomo@insegnai.ch"
+  }
+ }
+]

@@ -236,6 +236,10 @@ function sharedBaseDir()   { return filesOrganized() ? subDir('shared')   : path
 function classesBaseDir()  { return filesOrganized() ? subDir('classes')  : path.join(documentsDir(), 'MappAI - Classi'); }
 function gardensBaseDir()  { return filesOrganized() ? subDir('gardens')  : path.join(documentsDir(), 'MappAI - Knowledge Garden'); }
 function activityBaseDir() { return subDir('activity'); } // usata solo in modalità organizzata
+// Allievi (2/8): la tessera di accesso di ogni allievo. Nessuna cartella
+// storica da migrare — chi ha già organizzato i file non ce l'ha, quindi si
+// crea alla prima scrittura (class-doc-save), non al setup.
+function studentsBaseDir() { return filesOrganized() ? subDir('students') : path.join(documentsDir(), 'MappAI - Allievi'); }
 
 // Cartella di UNA sessione di studio (live/tutor/lavagna).
 //   organizzata → Attività di studio/<Classe>/<AAAA-MM-GG · Attività · Mappa (— ramo)>
@@ -811,7 +815,18 @@ ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
             webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false }
         });
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        await new Promise(r => setTimeout(r, 150));   // settle del layout (font/immagini inline)
+        /* Si aspetta che i FONT siano davvero pronti, non un tempo a caso: i
+           150ms fissi bastavano al layout inline ma non a scaricare un webfont,
+           e le emoji delle tessere uscivano in stile di sistema invece che
+           Noto/Android (2/8). Tetto a 4s: se la rete non c'è si stampa comunque
+           col ripiego, invece di restare appesi. */
+        await win.webContents.executeJavaScript(
+            'Promise.race([' +
+            '  document.fonts ? document.fonts.ready : Promise.resolve(),' +
+            '  new Promise(function(r){ setTimeout(r, 4000); })' +
+            ']).then(function(){ return true; })'
+        ).catch(() => { });
+        await new Promise(r => setTimeout(r, 150));   // settle del layout (immagini inline)
         const pdf = await win.webContents.printToPDF({
             pageSize: opts.pageSize || 'A4',
             printBackground: true,
@@ -883,6 +898,30 @@ ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
     } catch (err) { return { ok: false, error: err.message }; }
 });
 
+// delete-vault-file: sposta nel Cestino UN FILE dentro un vault (2/8/26).
+// Mancava: «Elimina» sui materiali toglieva la voce dall'archivio in localStorage
+// e lasciava il file nella cartella, e i materiali letti DAL DISCO non avevano
+// affatto un comando per toglierli. Stesse guardie di save/read-vault-file
+// (FilesCore.sanitizeVaultRelPath) più il vincolo che il vault stia sotto Mappe,
+// e shell.trashItem come `delete-vault`: recuperabile, mai cancellazione dura.
+ipcMain.handle('delete-vault-file', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const base = path.resolve(mapsBaseDir());
+        const vault = path.resolve(vaultPath);
+        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        const target = path.join(vault, safe);
+        if (!fs.existsSync(target)) return { ok: false, error: 'file-non-trovato', missing: true };
+        if (fs.statSync(target).isDirectory()) return { ok: false, error: 'è una cartella, non un file' };
+        await shell.trashItem(target);
+        return { ok: true, path: target };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
 // delete-vault: sposta nel Cestino una cartella vault DENTRO mapsBaseDir (Elimina
 // dalla sezione Insegna). shell.trashItem = recuperabile (mai cancellazione dura);
 // validazione sotto Mappe + rifiuto della radice stessa.
@@ -898,6 +937,61 @@ ipcMain.handle('delete-vault', async (event, { folderPath } = {}) => {
         await shell.trashItem(resolved);
         return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
+});
+
+// vault-relocate (29/7): sposta una cartella vault sotto un'altra coppia
+// (classe, disciplina) dentro Mappe — è così che l'assegnazione a posteriori da
+// ELABORA diventa vera: la CARTELLA resta la fonte di verità, non un campo in
+// localStorage che le contraddice. Il nesting lo decide FilesCore.mapVaultParents;
+// qui solo I/O. Collisione di nome → suffisso « · 0N » (stessa regola dell'auto-vault).
+// Le cartelle-genitore rimaste vuote vengono rimosse: nessun contenitore fantasma.
+ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir } = {}) => {
+    try {
+        if (!folderPath) return { success: false, error: 'percorso mancante' };
+        const base = path.resolve(mapsBaseDir());
+        const from = path.resolve(folderPath);
+        if (from === base || !from.startsWith(base + path.sep)) return { success: false, error: 'fuori da Mappe' };
+        if (!fs.existsSync(from)) return { success: false, error: 'cartella-non-trovata' };
+
+        const parents = FilesCore.mapVaultParents(classDir || '', discDir || '');
+        const destDir = path.join(base, ...parents);
+        const folderName = path.basename(from);
+
+        // Già al posto giusto → non toccare nulla (idempotente).
+        if (path.resolve(path.join(destDir, folderName)) === from) {
+            return { success: true, fullPath: from, folderName: folderName, classDir: classDir || null, discDir: discDir || null, moved: false };
+        }
+
+        fs.mkdirSync(destDir, { recursive: true });
+        let finalName = folderName;
+        if (fs.existsSync(path.join(destDir, finalName))) {
+            const siblings = fs.readdirSync(destDir);
+            const seq = FilesCore.sessionSeq(siblings, folderName, ' · ');
+            finalName = folderName + ' · ' + String(Math.max(2, (seq.maxSeq || 0) + 1)).padStart(2, '0');
+        }
+        const to = path.join(destDir, finalName);
+        try {
+            fs.renameSync(from, to);
+        } catch (e) {
+            // EXDEV (volumi diversi) → copia + rimozione, come nella migrazione 010.
+            if (e.code !== 'EXDEV') throw e;
+            fs.cpSync(from, to, { recursive: true });
+            fs.rmSync(from, { recursive: true, force: true });
+        }
+
+        // Ripulisci i contenitori rimasti vuoti risalendo fino a Mappe (mai la radice).
+        let up = path.dirname(from);
+        while (up !== base && up.startsWith(base + path.sep)) {
+            let left; try { left = fs.readdirSync(up); } catch (e2) { break; }
+            if (left.filter(n => n !== '.DS_Store').length) break;
+            try { fs.rmSync(up, { recursive: true, force: true }); } catch (e2) { break; }
+            up = path.dirname(up);
+        }
+        return { success: true, fullPath: to, folderName: finalName, classDir: classDir || null, discDir: discDir || null, moved: true };
+    } catch (err) {
+        console.error('vault-relocate:', err);
+        return { success: false, error: err.message };
+    }
 });
 
 // pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe
@@ -2236,6 +2330,66 @@ ipcMain.handle('live-classes-save', async (event, data) => {
     } catch (err) { return { success: false, error: err.message }; }
 });
 
+// class-doc-save (2/8): scrive un documento nella cartella di UNA classe o di
+// UN allievo — oggi il foglio delle credenziali, generato da solo quando la
+// classe si salva. Non riusa `save-pdf-to-vault`: quello, senza vaultPath,
+// scrive dentro Mappe e NON sanitizza il nome del file.
+ipcMain.handle('class-doc-save', async (event, { scope, name, fileName, base64 } = {}) => {
+    try {
+        if (!name || !fileName || !base64) return { success: false, error: 'dati mancanti' };
+        const base = scope === 'student' ? studentsBaseDir() : classesBaseDir();
+        const cartella = FilesCore.safeName(String(name));
+        let file = FilesCore.safeName(String(fileName));
+        if (!/\.pdf$/i.test(file)) file += '.pdf';
+        if (!cartella || !file) return { success: false, error: 'nome non valido' };
+        const dir = path.join(base, cartella);
+        const dest = path.join(dir, file);
+        // la guardia sta sul percorso RISOLTO: safeName toglie i separatori, ma
+        // il controllo finale è quello che conta
+        if (!path.resolve(dest).startsWith(path.resolve(base) + path.sep)) {
+            return { success: false, error: 'fuori dalla cartella' };
+        }
+        fs.mkdirSync(dir, { recursive: true });
+        const b = (/^data:/i.test(base64) && base64.indexOf(',') >= 0) ? base64.slice(base64.indexOf(',') + 1) : base64;
+        fs.writeFileSync(dest, Buffer.from(b, 'base64'));
+        return { success: true, path: dest, dir: dir };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// student-folder-ensure: crea la cartella di un allievo (e «Allievi» con lei).
+// Nasce col PROFILO, non con il primo file scritto: chi la apre dopo una
+// generazione deve trovarla, non scoprire che esiste solo se ci si è scritto.
+ipcMain.handle('student-folder-ensure', async (event, { name } = {}) => {
+    try {
+        const n = FilesCore.safeName(String(name || ''));
+        if (!n) return { success: false, error: 'nome non valido' };
+        const base = studentsBaseDir();
+        const dir = path.join(base, n);
+        if (!path.resolve(dir).startsWith(path.resolve(base) + path.sep)) {
+            return { success: false, error: 'fuori da Allievi' };
+        }
+        fs.mkdirSync(path.join(dir, FilesCore.SUB.maps), { recursive: true });
+        return { success: true, dir: dir };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
+// class-doc-open: apre nel Finder la cartella di una classe o di un allievo.
+// `pipeline-open-folder` non va bene: valida sotto Mappe, e queste stanno altrove.
+ipcMain.handle('class-doc-open', async (event, { dir } = {}) => {
+    try {
+        if (!dir) return { success: false, error: 'percorso mancante' };
+        const risolto = path.resolve(dir);
+        const ok = [classesBaseDir(), studentsBaseDir()].some(b => {
+            const rb = path.resolve(b);
+            return risolto === rb || risolto.startsWith(rb + path.sep);
+        });
+        if (!ok) return { success: false, error: 'fuori da Classi/Allievi' };
+        if (!fs.existsSync(risolto)) return { success: false, error: 'cartella-non-trovata' };
+        await shell.openPath(risolto);
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+
 // ══════════════════════════════════════════════════════════════════════════
 // REGISTRO CONSUMI AI — JSONL append-only su disco (una riga per chiamata AI).
 // I record contengono SOLO token/modello/provider/contesto: i costi si
@@ -2395,11 +2549,12 @@ ipcMain.handle('get-all-vaults', async () => {
 
         // Legge un vault (cartella con index.yaml). classDir = basename del contenitore
         // di classe se annidato (011), assente per i vault flat. Shape INVARIATA.
-        function readVaultInfo(vaultPath, folderName, classDir) {
+        function readVaultInfo(vaultPath, folderName, classDir, discDir) {
             const indexPath = path.join(vaultPath, 'index.yaml');
             if (!fs.existsSync(indexPath)) return null;
             const vaultInfo = { folderName: folderName, fullPath: vaultPath };
             if (classDir) vaultInfo.classDir = classDir;
+            if (discDir) vaultInfo.discDir = discDir;   // 29/7: livello disciplina dentro la classe
             try {
                 const parsed = yaml.load(fs.readFileSync(indexPath, 'utf-8')) || {};
                 vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
@@ -2442,10 +2597,46 @@ ipcMain.handle('get-all-vaults', async () => {
                 const cp = path.join(p, c);
                 let cst; try { cst = fs.statSync(cp); } catch (e) { return; }
                 if (!cst.isDirectory()) return;
-                const vi = readVaultInfo(cp, c, f);   // folderName = basename del vault; classDir = contenitore
-                if (vi) vaults.push(vi);
+                if (fs.existsSync(path.join(cp, 'index.yaml'))) {
+                    const vi = readVaultInfo(cp, c, f, null);   // folderName = basename del vault; classDir = contenitore
+                    if (vi) vaults.push(vi);
+                    return;
+                }
+                // Livello 3 (29/7): cartella DISCIPLINA dentro la classe. Solo qui —
+                // oltre non si scende, così una cartella spuria non fa esplodere la
+                // scansione. Classi senza discipline restano a 2 livelli.
+                let gchildren; try { gchildren = fs.readdirSync(cp); } catch (e) { return; }
+                gchildren.forEach(g => {
+                    const gp = path.join(cp, g);
+                    let gst; try { gst = fs.statSync(gp); } catch (e) { return; }
+                    if (!gst.isDirectory()) return;
+                    const vi = readVaultInfo(gp, g, f, c);   // classDir = classe · discDir = disciplina
+                    if (vi) vaults.push(vi);
+                });
             });
         });
+
+        /* Le mappe fatte per un ALLIEVO (2/8) stanno in «Allievi/<nome>/Mappe»,
+           fuori da Mappe: se non le si scandisce qui, esistono su disco ma per
+           l'app non esistono — non comparirebbero né nella console né in
+           INSEGNA. Portano `studentDir`, che è il loro contenitore: chi legge
+           distingue così una mappa di classe da una personale. */
+        const stuBase = studentsBaseDir();
+        if (fs.existsSync(stuBase)) {
+            fs.readdirSync(stuBase).forEach(nome => {
+                const mappeDir = path.join(stuBase, nome, FilesCore.SUB.maps);
+                let st; try { st = fs.statSync(mappeDir); } catch (e) { return; }
+                if (!st.isDirectory()) return;
+                let figli; try { figli = fs.readdirSync(mappeDir); } catch (e) { return; }
+                figli.forEach(v => {
+                    const vp = path.join(mappeDir, v);
+                    let vst; try { vst = fs.statSync(vp); } catch (e) { return; }
+                    if (!vst.isDirectory()) return;
+                    const vi = readVaultInfo(vp, v, null, null);
+                    if (vi) { vi.studentDir = nome; vaults.push(vi); }
+                });
+            });
+        }
 
         // Sort by lastUpdated desc
         return vaults.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
@@ -2571,7 +2762,8 @@ ipcMain.handle('files-root-get', async () => {
         filesRoot: s.filesRoot || null,
         rootDir: filesOrganized() ? mappaiRootDir() : null,
         documentsDir: documentsDir(),
-        mapsBaseDir: mapsBaseDir()   // 011: base per la pipeline (costruzione folderPath)
+        mapsBaseDir: mapsBaseDir(),  // 011: base per la pipeline (costruzione folderPath)
+        studentsBaseDir: studentsBaseDir()   // 2/8: le mappe di un profilo allievo stanno qui
     };
 });
 

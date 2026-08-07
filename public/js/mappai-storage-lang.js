@@ -75,6 +75,13 @@ const StorageManager = {
             // classDir). null = vault flat in Mappe (progetto senza classe).
             classDir: appState.activeVaultClassDir
                 || (existing ? existing.classDir : null)
+                || null,
+            // Disciplina della generazione (29/7): nome leggibile per le tabelle
+            // (colonna DISCIPLINA) + cartella che annida il vault dentro la classe.
+            // Congelata come cls/clsId: una mappa non cambia disciplina da sola.
+            disc: existing ? (existing.disc || appState.generationDiscipline || null) : (appState.generationDiscipline || null),
+            discDir: appState.activeVaultDiscDir
+                || (existing ? existing.discDir : null)
                 || null
         };
 
@@ -449,8 +456,9 @@ window.changeLanguage = function (lang, silent) {
     const els = {
         'landing-subtitle': t.landing_subtitle,
         'btn-setup-label': t.btn_setup,
-        'btn-app-guide-label': t.btn_app_guide,
-        'btn-app-tutorial-label': t.btn_active_study,
+        /* `btn-app-guide-label` / `btn-app-tutorial-label`: gli elementi non
+           esistono nel markup (erano bottoni di sola icona) — righe morte,
+           tolte con i bottoni. */
         'label-step1': t.step1,
         'label-step2': t.step2,
         'label-mode-mindmap': t.step2_mindmap,
@@ -649,14 +657,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (e) { /* localStorage non disponibile */ }
 
-    // Header Buttons
-    const btnConfig = document.getElementById('btn-config-ai');
-    const btnGuide = document.getElementById('btn-app-guide');
-    const btnStudy = document.getElementById('btn-app-tutorial');
-
-    if (btnConfig) btnConfig.addEventListener('click', () => { console.log("Open Config"); window.showConfigAIModal(); });
-    if (btnGuide) btnGuide.addEventListener('click', () => { console.log("Open Guide"); window.showAppGuide(); });
-    if (btnStudy) btnStudy.addEventListener('click', () => { console.log("Open Study"); window.showAppTutorial(); });
+    /* I tre bottoni solo-icona dell'header non esistono più: l'header ha il chip
+       del contesto e la Cabina (2/8). Questi listener stavano IN PIÙ rispetto
+       all'`onclick` inline: finché i bottoni c'erano, un clic apriva due cose —
+       la Cabina e la finestra storica sotto. Tolti con i bottoni. */
 
     const autoGenToggle = document.getElementById('l1-auto-generate-toggle');
     if (autoGenToggle) {

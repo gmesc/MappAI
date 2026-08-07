@@ -1460,6 +1460,42 @@
     // Flush per Costruisci: alla CREAZIONE del vault (saveMapVault success) salva
     // in Fonti/ gli originali PDF ancora vivi in memoria e senza vaultRel.
     // Chiamata da vault-io.js con soft-guard.
+    /* Copia i PDF originali delle fonti in una cartella del vault (2/8).
+       Diversa da `flushSourcesToVault`: quella scrive in «Fonti/» e annota
+       `src.vaultRel` perché ELABORA ci torna sopra per l'anteprima. Questa
+       consegna una COPIA (la pipeline la mette in «Allegati/») e non tocca
+       `vaultRel`: se lo facesse, l'anteprima seguirebbe la copia e ci
+       ritroveremmo due originali che si contendono lo stesso ruolo. */
+    async function copySourcesTo(vaultPath, cartella) {
+        const s = _appState();
+        const api = window.electronAPI;
+        if (!s || !vaultPath || !api || !api.saveVaultFile || !s.sources) return 0;
+        const FC = window.MappAIFilesCore;
+        let n = 0;
+        for (const src of s.sources) {
+            const f = _pdfFiles.get(src.id) || src.file;
+            if (!f || typeof f.arrayBuffer !== 'function') continue;
+            const nm = (src.name || f.name || '').toLowerCase();
+            const isPdf = (f.type === 'application/pdf') || nm.endsWith('.pdf') || src.type === 'pdf';
+            if (!isPdf) continue;
+            try {
+                const base = (FC && FC.safeName) ? FC.safeName(String(src.name || f.name || 'fonte').replace(/\.pdf$/i, ''), 'fonte') : 'fonte';
+                const buf = await f.arrayBuffer();
+                let bin = ''; const bytes = new Uint8Array(buf);
+                const CHUNK = 0x8000;
+                for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+                const b64 = btoa(bin);
+                for (let k = 0; k < 10; k++) {
+                    const rel = cartella + '/' + base + (k ? ' · 0' + (k + 1) : '') + '.pdf';
+                    const res = await api.saveVaultFile({ vaultPath, relPath: rel, base64: b64, ifAbsent: true });
+                    if (res && res.ok) { n++; break; }
+                    if (!res || !res.exists) break;      // errore vero → si passa oltre
+                }
+            } catch (e) { /* una fonte che non si copia non ferma le altre */ }
+        }
+        return n;
+    }
+
     async function flushSourcesToVault() {
         const s = _appState();
         if (!s || !s.activeVaultPath || !s.sources) return;
@@ -1634,7 +1670,7 @@
         teardown, revealCard, revealInSource,
         setRightView, setMode, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
+        flushSourcesToVault, copySourcesTo, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
         openQuestions
     };
 })();

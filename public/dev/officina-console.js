@@ -28,7 +28,7 @@
     var LS = 'mappai_console_bento';
     var LS_TOKEN = 'mappai_console_token';      /* i token GLOBALI: valgono per tutte le console */
     var LS_VER = 'mappai_console_bento_ver';    /* bump quando il FILE cambia le composizioni di default */
-    var VER = '5';                              /* 5 = i 4 bottoni della mappa a 145px con icona↔testo al passaggio (icone git-merge/hexagon/qr-code/folder) (6/8) */
+    var VER = '6';                              /* 6 = spec topbar completata (barra: scalaAltri 60% + hairline #ebebeb, altezza 76) + maniglia sincronizzata all'app (bianca, raggio 8, glifo panel-right ruotato) (7/8) */
     var stato = null, areaId = null, token = null;
     /* ⚠️ La finestra dell'anteprima ha DUE misure, non una. Con l'altezza fissa a
        720px (e il banco che ne mostrava anche meno) l'area restava una striscia:
@@ -50,6 +50,7 @@
     function salvate() { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } }
     function carica(id) {
         areaId = id;
+        _selAChi = null;   /* la scelta demo di «A chi» non passa da una console all'altra */
         var mie = salvate()[id], base = CB.area(id);
         /* ⚠️ Composizione salvata + firma diversa = il codice è cambiato sotto:
            si riparte dal file e lo si dice. Un banco che mostra una struttura che
@@ -217,6 +218,126 @@
             (a.moduli || []).map(moduloHtml).join('') + '</div>';
     }
 
+    /* ── i menu del PERCORSO: ogni livello (tranne l'ultimo) è una tendina ─────
+       Il percorso non è più un'etichetta ma una cascata di scelte:
+         Cosa (CREA/ELABORA/INSEGNA) › A chi? (Generico · classi · allievi) ›
+         Materia (materie della classe/allievo, o del profilo + «Nuova materia» se
+         Generico) › [nome mappa].
+       Tendina RETTANGOLARE a fondo bianco; gli item resi alla dimensione del
+       livello di briciola a cui appartengono. Nel banco i dati sono MOCK e la
+       cascata è un demo (`_selAChi` governa le materie); al cablaggio si riusa la
+       logica del chip (MappAIClasses, allProfiles, contestoDelleMappe). */
+    var _MOCK = {
+        classi: ['1ªA', '2ªB', '3ªC'],
+        allievi: ['Anna Rossi — 1ªA', 'Luca Bianchi — 2ªB', 'Sara Neri — 1ªA', 'Marco Verdi — 3ªC'],
+        materieClasse: { '1ªA': ['Scienze', 'Storia', 'Matematica'], '2ªB': ['Italiano', 'Geografia'], '3ªC': ['Fisica', 'Chimica', 'Biologia'] },
+        materieProfilo: ['Scienze', 'Storia', 'Matematica', 'Italiano', 'Geografia', 'Fisica']
+    };
+    var _selAChi = null;   /* scelta corrente in «A chi» (demo): governa le materie */
+
+    function _ruoloDi(id) {
+        return ({ sezione: { et: 'Cosa', role: 'cosa' }, contesto: { et: 'A chi?', role: 'achi' }, materia: { et: 'Materia', role: 'materia' } })[id] || null;
+    }
+    function _sezAttiva() { return String(((stato.briciole || [])[0] || {}).et || '').toLowerCase(); }
+    /* la scelta «A chi» attiva: quella fatta nel banco, o quella della briciola */
+    function _contestoAttivo() {
+        if (_selAChi != null) return _selAChi;
+        var b = (stato.briciole || []).filter(function (x) { return x.id === 'contesto'; })[0];
+        return b ? b.et : '';
+    }
+    function _voceMenu(testo, on, fs, extraCls, onClick) {
+        var it = document.createElement('button');
+        it.type = 'button';
+        it.setAttribute('role', 'menuitemradio');
+        it.setAttribute('aria-checked', on ? 'true' : 'false');
+        it.className = 'mn-bric-menu__it' + (on ? ' is-on' : '') + (extraCls ? ' ' + extraCls : '');
+        it.textContent = testo;
+        it.style.fontSize = fs;
+        it.addEventListener('click', function (ev) { ev.stopPropagation(); onClick && onClick(); });
+        return it;
+    }
+    function _colonna(titolo) {
+        var c = document.createElement('div'); c.className = 'mn-bric-col';
+        if (titolo) { var h = document.createElement('div'); h.className = 'mn-bric-col__h'; h.textContent = titolo; c.appendChild(h); }
+        return c;
+    }
+    function _costruisciMenu(trigger) {
+        var role = trigger.dataset.role;
+        var fs = trigger.style.fontSize || 'var(--mn-tit-fs, 30px)';
+        var chiudi = function () { menu.remove(); trigger.setAttribute('aria-expanded', 'false'); };
+        var menu = document.createElement('div');
+        menu.className = 'mn-bric-menu';
+        menu.setAttribute('role', 'menu');
+
+        if (role === 'cosa') {
+            var att = _sezAttiva();
+            [['CREA', ['crea', 'costruisci', 'build']], ['ELABORA', ['elabora']], ['INSEGNA', ['insegna', 'teach']]].forEach(function (v) {
+                menu.appendChild(_voceMenu(v[0], v[1].indexOf(att) >= 0, fs, '', chiudi));
+            });
+            return menu;
+        }
+        if (role === 'achi') {
+            menu.classList.add('mn-bric-menu--cols');
+            var ctx = _contestoAttivo();
+            var c1 = _colonna('');
+            c1.appendChild(_voceMenu('Generico', ctx === 'Generico', fs, '', function () { _selAChi = 'Generico'; chiudi(); }));
+            menu.appendChild(c1);
+            var c2 = _colonna('Classi');
+            _MOCK.classi.forEach(function (cl) { c2.appendChild(_voceMenu(cl, ctx === cl, fs, '', function () { _selAChi = cl; chiudi(); })); });
+            menu.appendChild(c2);
+            var c3 = _colonna('Allievi');
+            _MOCK.allievi.forEach(function (al) { c3.appendChild(_voceMenu(al, ctx === al, fs, '', function () { _selAChi = al; chiudi(); })); });
+            menu.appendChild(c3);
+            return menu;
+        }
+        if (role === 'materia') {
+            var ctx2 = _contestoAttivo();
+            var generico = (ctx2 === 'Generico' || !ctx2);
+            var lista = generico ? _MOCK.materieProfilo.slice()
+                : (_MOCK.materieClasse[String(ctx2).replace(/^.*—\s*/, '')] || _MOCK.materieProfilo.slice());
+            lista.forEach(function (mat) { menu.appendChild(_voceMenu(mat, false, fs, '', chiudi)); });
+            /* «Nuova materia» solo su Generico: crea al volo il label e procede */
+            if (generico) menu.appendChild(_voceMenu('+ Nuova materia', false, fs, 'mn-bric-menu__nuovo', chiudi));
+            return menu;
+        }
+        return menu;
+    }
+    function _apriMenu(trigger) {
+        var aperto = document.querySelector('.mn-bric-menu');
+        if (aperto) {
+            var era = aperto._perTrigger;
+            aperto.remove();
+            if (era) era.setAttribute('aria-expanded', 'false');
+            if (era === trigger) return;   /* clic sullo stesso trigger = chiudi */
+        }
+        var menu = _costruisciMenu(trigger);
+        menu._perTrigger = trigger;
+        /* ⚠️ Appeso al BOX, non a `.mn-briciole`: la testata non riesce a tenere la
+           tendina SOPRA il corpo (`.mm-body--console` è position:relative → copre
+           un menu che vive nella testata, e la testata la ritaglia). Nel box —
+           position:relative e senza clip verso il basso — il menu galleggia sopra
+           l'area. Posizione = somma degli offset lungo la catena fino al box (px
+           non scalati: menu e trigger vivono nella stessa cornice trasformata). */
+        var box = trigger.closest('.mm-box--console');
+        box.appendChild(menu);
+        var top = 0, left = 0, el = trigger;
+        while (el && el !== box) { top += el.offsetTop; left += el.offsetLeft; el = el.offsetParent; }
+        menu.style.top = (top + trigger.offsetHeight + 6) + 'px';
+        /* non sfora a destra: se il menu (le colonne di «A chi» sono larghe) supera
+           il bordo del box, lo si tira a sinistra */
+        var maxLeft = box.offsetWidth - menu.offsetWidth - 8;
+        menu.style.left = Math.max(8, Math.min(left, maxLeft)) + 'px';
+        trigger.setAttribute('aria-expanded', 'true');
+        setTimeout(function () {
+            document.addEventListener('mousedown', function chiudi(e) {
+                if (!menu.contains(e.target) && e.target !== trigger) {
+                    menu.remove(); trigger.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('mousedown', chiudi);
+                }
+            });
+        }, 0);
+    }
+
     /* ── ANTEPRIMA: la cornice vera, con le variabili della griglia sopra ─── */
     function anteprima() {
         var host = $('#oc-anteprima');
@@ -285,19 +406,15 @@
         }
         if (vista.navChiusa) nodo.classList.add('is-nav-chiusa');
 
-        /* la testata come nell'app: pallino · chip · percorso */
+        /* la testata: pallino (→ Cabina) · percorso. Il CHIP è stato TOLTO (6/8,
+           Giacomo): il contesto classe·materia vive ora nel percorso — livelli
+           «A chi?» e «Materia». Resta solo il pallino per la Cabina. */
         var ico = nodo.querySelector('.mm-head__ico');
         if (ico) {
             var pal = document.createElement('button');
             pal.type = 'button';
             pal.className = ico.className + ' mm-head__ico--cabina';
             ico.parentNode.replaceChild(pal, ico);
-            var chip = window.MappAIModal.chipContesto([
-                { id: 'chi', icona: 'graduation-cap', etichetta: '1ªA' },
-                { id: 'mat', icona: 'book-open', etichetta: 'Storia' }
-            ]);
-            chip.classList.add('mn-chip-console');
-            pal.parentNode.insertBefore(chip, pal.nextSibling);
         }
         var testi = nodo.querySelector('.mm-head__testi');
         if (testi) {
@@ -309,50 +426,40 @@
                     s.className = 'mn-briciole__sep'; s.textContent = '›';
                     br.appendChild(s);
                 }
-                var el = document.createElement(i === arr.length - 1 ? 'span' : 'button');
-                el.className = 'mn-briciole__l' + (i === arr.length - 1 ? ' is-qui' : '');
-                if (el.tagName === 'BUTTON') el.type = 'button';
-                el.textContent = b.et;
-                /* il titolo della sezione (primo step) resta alla dimensione del
-                   titolo manifesto (--mn-tit-fs = 30px); ogni step successivo 10%
-                   più piccolo del precedente (0.9^i). L'ultimo — il nome del
-                   documento — in tondo CORSIVO, non in neretto. */
-                el.style.fontSize = 'calc(var(--mn-tit-fs, 30px) * ' + Math.pow(0.9, i).toFixed(3) + ')';
-                if (i === arr.length - 1) { el.style.fontStyle = 'italic'; el.style.fontWeight = '400'; }
+                var ultima = (i === arr.length - 1);
+                var el;
+                var ruolo = !ultima ? _ruoloDi(b.id) : null;
+                if (ruolo) {
+                    /* un livello con un ruolo (Cosa · A chi? · Materia) è una TENDINA:
+                       il label è il prompt, il menu porta le scelte marcando l'attiva.
+                       Resta alla dimensione del suo livello (10% in meno per passo). */
+                    el = document.createElement('button');
+                    el.type = 'button';
+                    el.className = 'mn-briciole__l mn-briciole__l--menu';
+                    el.dataset.role = ruolo.role;
+                    el.setAttribute('aria-haspopup', 'true');
+                    el.setAttribute('aria-expanded', 'false');
+                    el.innerHTML = '<span>' + esc(ruolo.et) + '</span><span class="mn-briciole__car" aria-hidden="true">▾</span>';
+                    el.style.fontSize = 'calc(var(--mn-tit-fs, 30px) * ' + Math.pow(0.9, i).toFixed(3) + ')';
+                    (function (t) { t.addEventListener('click', function (ev) { ev.stopPropagation(); _apriMenu(t); }); })(el);
+                } else {
+                    /* livello senza ruolo (l'ultimo = nome della mappa, o le briciole
+                       delle altre console): etichetta statica; l'ultima in corsivo. */
+                    el = document.createElement(ultima ? 'span' : 'button');
+                    el.className = 'mn-briciole__l' + (ultima ? ' is-qui' : '');
+                    if (el.tagName === 'BUTTON') el.type = 'button';
+                    el.textContent = b.et;
+                    el.style.fontSize = 'calc(var(--mn-tit-fs, 30px) * ' + Math.pow(0.9, i).toFixed(3) + ')';
+                    if (ultima) { el.style.fontStyle = 'italic'; el.style.fontWeight = '400'; }
+                }
                 br.appendChild(el);
             });
             testi.appendChild(br);
             testi.classList.add('ha-briciole');
         }
-        /* ── il RAIL delle tre forme come PRIMA COLONNA della sidebar (regola di
-           Giacomo): sempre presente, e si nasconde INSIEME alla colonna. Nel banco
-           lo montiamo qui (il rail globale del manifesto, position:fixed, non è in
-           questa pagina); nell'app la console lo eredita. La forma attiva la dice
-           la prima briciola: Crea/Elabora/Insegna. */
-        var body = nodo.querySelector('.mm-body--console');
-        if (body && !nodo.querySelector('.mm-console__rail')) {
-            var modoAttivo = ({ 'Crea': 'build', 'Elabora': 'elabora', 'Insegna': 'teach' })[
-                (stato.briciole && stato.briciole[0] && stato.briciole[0].et) || ''] || '';
-            var rail = document.createElement('div');
-            rail.className = 'mm-console__rail';
-            rail.setAttribute('role', 'group');
-            rail.setAttribute('aria-label', 'Modalità di lavoro');
-            [{ m: 'build', ic: 'triangle', t: 'Crea' },
-            { m: 'elabora', ic: 'hexagon', t: 'Elabora' },
-            { m: 'teach', ic: 'box', t: 'Insegna' }].forEach(function (f) {
-                var b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'mm-crail__f' + (f.m === modoAttivo ? ' is-on' : '');
-                b.title = f.t; b.setAttribute('aria-label', f.t);
-                b.innerHTML = '<i data-lucide="' + f.ic + '"></i>';
-                rail.appendChild(b);
-            });
-            /* assoluto NEL RIQUADRO (top:96 · left:18 · gap:12, come il rail
-               globale del manifesto): la posizione è «bloccata», non dipende dal
-               contenuto della colonna. Lo spazio a sinistra glielo riserva
-               `--mnc-rail` sul body. */
-            nodo.appendChild(rail);
-        }
+        /* Il rail delle tre forme è stato TOLTO (6/8, Giacomo): la scelta
+           CREA/ELABORA/INSEGNA vive ora nel menu «Cosa» del primo livello del
+           percorso. Resta solo il pallino della testata (accesso alla Cabina). */
 
         /* Il bento entra DIRETTAMENTE nell'area (niente tela grigia attorno). Ma
            una console-EDITOR (solo `tela`, come F2) NON ha bento: la sua area È il
@@ -482,12 +589,14 @@
 
     var GRIGLIA = [
         {
-            g: 'barra', titolo: 'Barra in alto', campi: [
-                { k: 'corpo', et: 'corpo del percorso', tipo: 'number', min: 12, max: 48 },
-                { k: 'colore', et: 'colore', tipo: 'color' },
-                { k: 'opacitaPrec', et: 'livelli precedenti %', tipo: 'number', min: 20, max: 100 },
-                { k: 'opacitaSep', et: 'separatori %', tipo: 'number', min: 10, max: 100 },
-                { k: 'altezza', et: 'altezza barra', tipo: 'number', min: 56, max: 120 }
+            g: 'barra', titolo: 'Barra in alto (topbar / percorso)', campi: [
+                { k: 'corpo', et: 'corpo di «Cosa» (px)', tipo: 'number', min: 12, max: 48 },
+                { k: 'scalaAltri', et: 'livelli dopo «Cosa» (% del corpo)', tipo: 'number', min: 30, max: 100 },
+                { k: 'colore', et: 'colore di «Cosa»', tipo: 'color' },
+                { k: 'opacitaPrec', et: 'opacità livelli dopo «Cosa» %', tipo: 'number', min: 20, max: 100 },
+                { k: 'opacitaSep', et: 'opacità separatori › %', tipo: 'number', min: 10, max: 100 },
+                { k: 'altezza', et: 'altezza barra (px)', tipo: 'number', min: 56, max: 120 },
+                { k: 'hairline', et: 'colore del filetto', tipo: 'color' }
             ]
         },
         {

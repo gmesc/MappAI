@@ -13,9 +13,12 @@ const D = require('../public/js/mappai-docedit-core.js');
 // Le misure del foglio vivono nel modulo di layout: senza, il builder non sa
 // quanto è grande una carta (nell'app lo carica index.html prima di questo file).
 const PL = require('../public/js/mappai-print-layout.js');
+// La topbar del foglio è UNA per tutti i documenti stampabili (2/8): senza il
+// modulo il builder emette il foglio senza barra, che è ciò che serve al PDF.
+const DB = require('../public/js/mappai-doc-bar.js');
 
 function loadQuizPrint() {
-    const win = { MappAIDocEdit: D, MappAIPrintLayout: PL };
+    const win = { MappAIDocEdit: D, MappAIPrintLayout: PL, MappAIDocBar: DB };
     const sandbox = {
         window: win, appState: { db: { studySets: [] }, nodes: [] },
         showToast: () => { }, cleanLabel: s => s, console,

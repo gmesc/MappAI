@@ -1,0 +1,2279 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   STILE «MANIFESTO» — la landing e COSTRUISCI sul progetto Inkscape di Giacomo
+   (Inkscape/landing MappAI.pdf, 3/8/26). Palette CAMPIONATA dal PDF, non a occhio.
+
+   Come si accende: mappai-stile-manifesto.js mette la classe `manifesto` su
+   <html> (kill-switch localStorage mappai_stile_manifesto='0' → questo foglio
+   resta INERTE: ogni regola è scoped sotto html.manifesto).
+   `manifesto-vuota` = nessuna modalità scelta (la prima pagina a ogni avvio).
+
+   Ruoli colore decisi da Giacomo (3/8): VERDE #2fdc3c = azione/disponibile ·
+   VIOLA #ac72fe = attivo/contesto pieno · #8100f4 = cassetto insegnai ·
+   GRIGIO #989898 = spento/vuoto · NERO = card dei moduli (bento).
+   ⚠️ Contrasti misurati: sul verde il testo va NERO (11,42:1; bianco = 1,84:1).
+   Bianco su viola #ac72fe = 3,19:1 — ok per icone/grafica (soglia 3:1), sotto
+   soglia per testo: scelta di Giacomo sul chip, documentata qui.
+
+   Questo foglio è caricato DOPO style.css e i token, fuori dai @layer → vince
+   sulle classi del layer components senza !important. Gli !important che vedi
+   sotto battono SOLO i punti in cui style.css usa a sua volta !important
+   (#insegnai-drawer, .glass-card) — ognuno è commentato.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️ I token stanno su ENTRAMBI: `html.manifesto` è l'app, `.manifesto` è un
+   contenitore qualsiasi — l'anteprima dell'Officina §7. Senza il secondo, dentro
+   quel contenitore `var(--man-nero)` non risolve, la dichiarazione è invalida e
+   la card esce TRASPARENTE: il banco misurava i corpi del browser invece dei
+   nostri, cioè mentiva proprio su ciò che deve controllare. */
+html.manifesto, .manifesto {
+    /* ⚠️ Il verde NON è quello campionato dal PDF (#2fdc3c): è l'EMERALD che
+       l'app usa già ovunque (style.css:505, e l'hover di ogni bottone-card
+       della landing) — decisione di Giacomo, 3/8. Un secondo verde a due passi
+       dal primo si legge come un errore di stampa, non come un accento.
+       Nero su emerald = 10,92:1 ✓ · bianco su emerald = 1,92:1 ✗ → il testo
+       sul verde resta SCURO. */
+    /* Il verde di TUTTO ciò che è attivo o si accende al passaggio (4/8):
+       modalità attiva, hover dei bottoni-card, «Genera materiali». Un valore
+       solo — due verdi a due passi si leggono come un errore di stampa. */
+    --man-verde: #41e6aa;
+    --man-verde-scuro: #26c78c;
+    --man-viola: #ac72fe;
+    --man-viola-cassetto: #8100f4;
+    /* Era il grigio del rail e del pallino Cabina, come codice di STATO. Non lo
+       usa più nessuno: dal 4/8 anche la Cabina prende `--man-card` come ogni
+       altro bottone a riposo (decisione di Giacomo), e il cerchio non sparisce
+       perché il segno si INVERTE — chiaro sotto, scuro sopra. Il token resta
+       dichiarato: serve se si vuole tornare a distinguere «spento» da «a
+       riposo». */
+    --man-grigio: #989898;
+    /* Lo stato NEUTRO di ogni bottone grigio: bottoni-fonte, MM/KG non attivo,
+       chip vuoto, i tre avvii. Un token solo — così «tutti i bottoni non attivi
+       allo stesso grigio» resta vero anche al prossimo pezzo che si aggiunge,
+       invece di essere una coincidenza da rifare a mano ogni volta. */
+    --man-card: #f1f4f8;
+    /* ⚠️ Il «nero» di COSTRUISCI è #404040, non #0b0b0b (5/8, scelta di Giacomo):
+       un unico grigio scuro per i bottoni e per ogni testo scuro della pagina.
+       Contrasti misurati: su verde #41e6aa 6,48:1 · sulle card #f1f4f8 9,4:1 ·
+       sul giallo #fff700 9,16:1 — tutti sopra 4,5. Come FONDO (moduli senza uno
+       stile proprio) tiene il bianco sopra a 10,37:1.
+       Dove NON si applica: sul blu farebbe 2,27:1, quindi là il segno resta
+       bianco (4,57:1) — non era nero comunque. */
+    --man-nero: #404040;
+    /* il testo sul verde e sulle card chiare: il grigio scuro del progetto */
+    --man-su-verde: #404040;
+
+    /* ── la scala del bento: TRE corpi, non quattro e mezzo ──────────────
+       Ci convivevano 12 · 12,5 · 14 · 17px con pesi 600 e 700 mescolati: 12
+       contro 12,5 è una differenza che nessuno ha deciso e si legge come
+       sciatteria. Dichiarati anche in mappai-bento-composizione.js (SCALA), che
+       è ciò che l'Officina §7 confronta con quello che il browser applica DAVVERO. */
+    --bn-fs-titolo: 14px;   --bn-fw-titolo: 700;   /* titolo del modulo */
+    --bn-fs-voce: 12px;     --bn-fw-voce: 600;     /* opzioni, campi, esito */
+    --bn-fs-azione: 15px;   --bn-fw-azione: 700;   /* le due card che concludono */
+
+    /* ── L'ALTEZZA MODULARE delle righe di COSTRUISCI (5/8) ──────────────
+       Il bottone di caricamento e l'elenco dei file devono essere alti come un
+       modulo del bento, altrimenti la colonna è modulare in larghezza e
+       casuale in altezza. 145px è l'altezza REALE a cui viene un modulo che
+       dichiara `altezza: 130` in `MappAIBento.MODULI` — i 130 sono il suo
+       `min-height`, il resto è il padding del riquadro.
+       ⚠️ Due numeri legati da una misura, non da un calcolo: se si cambia
+       `altezza` nella composizione, questo va rimisurato (il box giallo è il
+       riferimento). Meglio un token con scritto perché, che tre altezze
+       scritte a mano in tre punti. */
+    --mn-h-modulo: 145px;
+    /* L'altezza di una SCELTA: le due del genere di mappa (MindMap · Knowledge
+       Graph) e i tre avvii in fondo alla pagina. Un token solo perché sono la
+       stessa cosa — un comando breve, non un riquadro di opzioni. */
+    --mn-h-scelta: 66px;
+    /* Il nome della sezione nella barra: un corpo e un colore soli, per la landing
+       e per la testata delle console (che sta in un altro foglio — vedi il
+       commento là: con due numeri, quello caricato dopo vinceva in silenzio). */
+    --mn-tit-fs: 30px;
+    --mn-tit-col: #404040;
+    /* Il PASSO del mega-bento: lo stesso numero fra le colonne di una riga e fra
+       una riga e l'altra. Prima le sezioni del form erano a 40px e le colonne a
+       14: due ritmi diversi nella stessa schermata, che è ciò che faceva leggere
+       COSTRUISCI come quattro blocchi accostati invece di una griglia sola. */
+    --mn-gap: 14px;
+}
+
+/* ── la barra alta: bianca, fissa, col bordo sottile (nella prima pagina il
+      bordo non c'è: la landing vuota è un manifesto, non una schermata) ───── */
+html.manifesto #landing-view::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 76px;
+    background: #fff;
+    border-bottom: 1px solid #ebebeb;
+    z-index: 55;
+}
+/* il filetto c'è anche sulla prima pagina vuota (Giacomo): stessa banda 76px · 1px #ebebeb */
+
+/* pallino + chip in alto a SINISTRA, fissi. row-reverse perché renderChip
+   monta il chip come primo figlio: nel disegno il pallino sta prima. */
+html.manifesto #header-utils {
+    position: fixed;
+    top: 16px; left: 20px;
+    z-index: 60;
+    width: auto;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ── il pallino della Cabina: cerchio NEUTRO col puntino ─────────────────── */
+/* Prende `--man-card` come ogni altro bottone a riposo (decisione di Giacomo,
+   4/8): il grigio `#989898` restava l'unico pezzo fuori dal token unico.
+   ⚠️ Si INVERTE come il rail: su fondo chiaro un puntino bianco sparirebbe —
+   scuro fa 9,4:1, e torna bianco quando il fondo diventa viola. */
+html.manifesto #btn-cabina { background: var(--man-card); position: relative; }
+html.manifesto #btn-cabina:hover,
+html.manifesto #btn-cabina:focus-visible { background: var(--man-viola); }
+html.manifesto #btn-cabina .nav_util_icon,
+html.manifesto #btn-cabina svg { display: none; }
+html.manifesto #btn-cabina::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 9px; height: 9px;
+    margin: -4.5px 0 0 -4.5px;
+    border-radius: 50%;
+    background: #404040;
+    transition: background .12s;
+}
+html.manifesto #btn-cabina:hover::after,
+html.manifesto #btn-cabina:focus-visible::after { background: #fff; }
+
+/* ── il chip: grigio quando vuoto, viola quando pieno ────────────────────── */
+html.manifesto #active-class-chip .mm-ctx__p {
+    background: var(--man-viola);
+    color: #fff;                    /* 3,19:1 — decisione di Giacomo (vedi testata) */
+    border-color: transparent;
+}
+html.manifesto #active-class-chip .mm-ctx__p svg { color: #fff; stroke: #fff; }
+html.manifesto #active-class-chip .mm-ctx__p.is-vuoto {
+    background: var(--man-card);
+    color: #5c5c5c;
+}
+html.manifesto #active-class-chip .mm-ctx__p.is-vuoto svg { color: #5c5c5c; stroke: #5c5c5c; }
+
+/* ── il rail delle tre forme (montato dal JS): triangolo=Costruisci ·
+      esagono=Elabora · cubo=Insegna. Verde=invito (landing vuota) ·
+      viola=attivo · grigio=sei altrove. ─────────────────────────────────── */
+html.manifesto #manifesto-rail {
+    position: fixed;
+    left: 18px; top: 96px;
+    z-index: 56;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+/* ⚠️ Il rail a riposo prende il grigio neutro di ogni altro bottone
+   (#f1f4f8, 4/8). Il cerchio chiaro su fondo bianco si vedrebbe appena, e
+   un'icona bianca dentro sparirebbe del tutto: quindi si INVERTE — fondo chiaro,
+   segno scuro. Il codice resta a due canali (forma + colore), non solo colore. */
+html.manifesto #manifesto-rail .man-forma {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    background: var(--man-card);
+    color: #404040;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+}
+html.manifesto #manifesto-rail .man-forma:hover { transform: scale(1.07); }
+html.manifesto #manifesto-rail .man-forma svg { width: 24px; height: 24px; }
+html.manifesto.manifesto-vuota #manifesto-rail .man-forma { background: var(--man-verde); color: var(--man-su-verde); }
+html.manifesto #manifesto-rail .man-forma.attivo { background: var(--man-viola); color: #fff; }
+
+/* ── con una CONSOLE aperta il rail resta visibile, e si spegne ──────────── */
+/* La console non è una finestra sopra l'app: è la schermata. Il rail è la
+   costante della finestra, quindi si alza SOPRA di lei invece di sparirci
+   sotto (la console parte da z 12000; il piano successivo che il motore
+   assegna a una finestra aperta DA QUI è 12100, e resta sopra il rail — una
+   conferma non deve avere il rail davanti). Lo spazio glielo lascia
+   `--mnc-rail` in mappai-console-manifesto.css. */
+html.manifesto.man-console #manifesto-rail { z-index: 12050; }
+/* Il verde del rail è un INVITO a scegliere una modalità: con una console
+   aperta non si sta scegliendo, e le forme tornano neutre (disegno di Giacomo). */
+html.manifesto.man-console.manifesto-vuota #manifesto-rail .man-forma {
+    background: var(--man-card);
+    color: #404040;
+}
+
+/* ── landing vuota: solo il marchio, centrato — la prima pagina è una
+      domanda, non la ripresa di ieri ──────────────────────────────────────── */
+html.manifesto.manifesto-vuota .glass-card { margin-top: 22vh; }
+html.manifesto.manifesto-vuota #landing-mode-bar { display: none; }  /* la barra: il rail la sostituisce */
+html.manifesto #landing-hero-row { justify-content: center; }
+/* il marchio SEMPRE al 60% dell'altezza partendo dal fondo (= centro a 40% dall'alto),
+   qualunque sia la finestra (Giacomo). 99px = distanza attuale del centro del logo
+   dal top della riga con margin 0; il termine 40vh tiene il centro al 40% al variare
+   dell'altezza. Solo sulla prima pagina vuota (nelle modalità il logo sparisce). */
+html.manifesto.manifesto-vuota #landing-hero-row { margin-top: calc(40vh - 99px) !important; }
+html.manifesto #landing-brand img { width: 150px; height: 150px; padding-top: 0; }
+html.manifesto:not(.manifesto-vuota) #landing-brand { display: none; }
+html.manifesto:not(.manifesto-vuota) .glass-card { margin-top: 60px; }
+
+/* nelle modalità il selettore centrale sparisce comunque: c'è il rail.
+   #teach-class-filter resta governato dal suo JS (serve col kill-switch
+   della console INSEGNA spento). */
+html.manifesto #landing-mode-bar > div:has(> #landing-mode-build) { display: none; }
+
+/* ── il mini-logo in basso a sinistra = torna alla prima pagina ──────────── */
+html.manifesto #manifesto-home {
+    position: fixed;
+    left: 20px; bottom: 18px;
+    z-index: 56;
+    background: none; border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: none;
+}
+html.manifesto:not(.manifesto-vuota) #manifesto-home { display: block; }
+html.manifesto #manifesto-home img { width: 46px; height: 46px; display: block; }
+html.manifesto #manifesto-home:hover { transform: scale(1.07); }
+
+/* ── il cassetto di insegnai: viola, in basso, solo sulla prima pagina
+      (nelle modalità quel posto è del mini-logo, come nel disegno).
+      Gli !important battono il blocco #insegnai-drawer di style.css:145-330,
+      che è tutto !important. ───────────────────────────────────────────── */
+html.manifesto #insegnai-drawer { top: auto !important; bottom: 56px !important; }
+html.manifesto #insegnai-drawer.-translate-x-\[320px\] { transform: translateX(-320px) !important; }
+html.manifesto #insegnai-drawer:not(.-translate-x-\[320px\]) { transform: translateX(0) !important; }
+html.manifesto #insegnai-drawer-tab {
+    background-color: var(--man-viola-cassetto) !important;   /* bianco sopra: 6,48:1 ✓ */
+    border-color: var(--man-viola-cassetto) !important;
+}
+html.manifesto:not(.manifesto-vuota) #insegnai-drawer { display: none !important; }
+/* la linguetta viola (insegnai.ch) fissata a 40px dalla BASE del cassetto
+   (Giacomo): non più centrata verticalmente nel cassetto. `align-items:flex-end`
+   allinea i figli in basso; il pannello riempie l'altezza (nessun effetto), la
+   linguetta scende e resta a 40px dal fondo. */
+html.manifesto #insegnai-drawer { align-items: flex-end !important; }
+/* ⚠️ la linguetta porta `align-self:center` (Tailwind), che batte l'align-items
+   del cassetto → va forzato flex-end sulla linguetta stessa. */
+html.manifesto #insegnai-drawer-tab { align-self: flex-end !important; margin-bottom: 40px !important; }
+
+/* ── la lastra si dissolve: pagina piatta bianca, niente cornice
+      (!important contro .glass-card di style.css:1058-1061) ──────────────── */
+html.manifesto .glass-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: none;
+}
+/* ⚠️ Il selettore porta #landing-view per FORZA, non per abitudine: style.css
+   (dentro @media min-width:768px) dichiara «#landing-view .glass-card {
+   padding: 29px !important }». Con due !important vince la specificità, e un
+   id batte due classi — misurato: senza l'id qui, il padding restava 29px e il
+   rail finiva addosso al contenuto. */
+html.manifesto #landing-view .glass-card {
+    padding-left: 110px !important;   /* aria per il rail */
+    padding-right: 40px !important;
+}
+html.manifesto.manifesto-vuota #landing-view .glass-card {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+}
+
+/* ═══ COSTRUISCI ══════════════════════════════════════════════════════════
+   Il layout della pagina 2 del progetto: a sinistra una colonna stretta con i
+   comandi (fonte, genere della mappa), a destra ciò che quei comandi producono
+   (i file caricati, il titolo). Sotto, il BENTO delle opzioni di generazione.
+   I corpi del testo e i raggi vengono dai token --mm-*, non da numeri nuovi.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── le due righe a colonne: comandi stretti a sinistra, ciò che producono a
+      destra. Il contenitore `.mn-riga` lo costruisce il JS — un `float` qui non
+      servirebbe a niente: lo step è flex, e dentro un flex il float è ignorato
+      (misurato: la tabella finiva SOTTO i bottoni). ───────────────────────── */
+/* ⚠️ La griglia è la STESSA del bento — `repeat(4, 1fr)`, gap 14 — e non più
+   `340px | 1fr` (5/8). Motivo: le colonne di queste due righe si allineano ai
+   riquadri del bento sotto, invece di essere una misura vicina e diversa; e
+   «larghezza due colonne» diventa una cosa che si può dire e verificare.
+   Gli span li portano gli elementi (`grid-column: span N`), scritti dal JS
+   leggendo `MappAIBento.RIGHE`: la proporzione è un DATO, si ritocca in officina.
+   `align-items: stretch` è ciò che rende il box dei file **alto come il bottone**
+   accanto senza dichiarare un'altezza da tenere allineata a mano. */
+html.manifesto .mn-riga {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--mn-gap);
+    align-items: stretch;
+}
+/* Finché non c'è un file la colonna di destra non ha niente da dire: la riga
+   torna a UNA colonna e i cinque bottoni-fonte si distendono su tutta la
+   larghezza. Misurato in Electron: a due colonne restavano 868×426 di bianco
+   e i bottoni si accalcavano due per riga nei 340px di sinistra.
+   La classe la mette `segnalaColonna()` in mappai-costruisci-manifesto.js. */
+/* Le colonne restano quattro anche senza file: è lo SPAN dei bottoni a salire a
+   quattro (lo scrive `segnalaColonna`), così la griglia non cambia forma sotto le
+   dita e il gap resta lo stesso. */
+html.manifesto .mn-riga.mn-riga--sola { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* `auto-fit` e non `auto-fill`: a colonna unica le tracce avanzate si chiudono
+   e i cinque bottoni si allargano fino al bordo, come i tre avvii in fondo alla
+   pagina. Con `auto-fill` restano larghi 167px e mezza riga resta vuota.
+   ⚠️ Il selettore porta `#setup-form` per FORZA, non per abitudine: la regola
+   qui sopra ce l'ha, e un id batte tre classi (misurato: senza, vinceva
+   `auto-fill` e i bottoni restavano a 167px). */
+html.manifesto #setup-form .mn-riga--sola .source-buttons-container {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+html.manifesto #setup-form .source-buttons-container {
+    display: grid !important;                 /* style.css impone flex row !important */
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    width: 100%;
+    /* ⚠️ Senza questo il contenitore misura 157px contro i 145 del bottone che
+       contiene (padding 4px sopra e 8px sotto, ereditato): il bottone partirebbe
+       4px più in basso dell'elenco dei file accanto, e la riga non sarebbe più un
+       modulo. L'altezza la deve dare il bottone, non l'imballaggio. */
+    padding: 0 !important;
+}
+/* Con la vista ridotta resta il solo «Documenti»: prende tutta la colonna,
+   non tutta la pagina — accanto ci va la tabella dei file. */
+html.mappai-ridotta.manifesto #setup-form .source-buttons-container {
+    grid-template-columns: 1fr;
+}
+html.mappai-ridotta.manifesto #btn-src-doc { flex: 0 0 auto !important; max-width: none !important; }
+
+/* ⚠️ Con la veste accesa il campo del tema esce da `#step-3-container` (lo
+   sposta `impagina` nella riga MM/KG | ROOT), e in vista ridotta lì dentro non
+   resta nulla di visibile: il contenitore si misura alto 0 ma consuma comunque
+   il `gap` del form — 48px di aria fra il tema e il bento, misurati in Electron.
+   Un item alto 0 conta come item: va tolto dal flusso, non rimpicciolito.
+   La regola è scoped alla veste PERCHÉ senza `impagina` il campo del tema
+   sarebbe ancora là dentro, e spegnerlo lo farebbe sparire.
+   ⚠️ Il selettore porta `#landing-view` e `#setup-form` per FORZA: style.css
+   dichiara `#landing-view .glass-card #setup-form > div:not(:last-child)
+   { display: flex !important }` — due id, e con un id solo questa regola
+   perdeva pur essendo `!important` (trovato con CSS.getMatchedStylesForNode,
+   non a occhio). */
+html.mappai-ridotta.manifesto #landing-view #setup-form > #step-3-container {
+    display: none !important;
+}
+
+html.manifesto #mn-files.ha-file { padding-bottom: 8px; }
+html.manifesto #sources-container { padding-top: 12px; }
+/* ── Il vecchio riquadro della fonte SPARISCE, per i tipi che aprono un file ──
+      Cliccando «Documenti» si apriva il Finder (giusto) e insieme compariva un
+      riquadro con dentro «Scegli file» e il nome del documento: la stessa cosa
+      detta due volte, e la seconda in una veste che non è più questa.
+      ⚠️ Nascosto, NON rimosso: l'`<input type=file>` vive lì dentro ed è quello
+      che il Finder riempie — `handleFileUpload` legge da lui. Un input
+      `display:none` riceve `.click()` e apre il selettore senza problemi
+      (verificato), ma se lo si togliesse dal DOM non ci sarebbe più niente da
+      cliccare né da leggere.
+      Restano VISIBILI le fonti che un campo lo richiedono davvero: URL, YouTube
+      e testo libero, dove c'è qualcosa da incollare. La classe la mette il
+      wrapper di `addSource` in mappai-costruisci-manifesto.js. */
+html.manifesto #sources-container .source-entry.mn-src-file { display: none !important; }
+/* le altre righe (URL, YouTube, testo) restano, un filo più compatte */
+html.manifesto #sources-container .source-entry { font-size: 12px; }
+/* col solo `mn-src-file` dentro, il contenitore non deve lasciare aria */
+html.manifesto #sources-container:not(:has(.source-entry:not(.mn-src-file))) { padding-top: 0; }
+
+/* la tabella riusa il contenitore del motore: stessa veste degli elenchi
+   delle console — bordo, raggio, intestazione sticky */
+/* ── L'ELENCO DEI FILE: due colonne, alto come il bottone, e scorre ──────────
+      Era una `<table>` col contenitore del motore. Ora è un elenco di righe
+      compatte senza intestazione (5/8): il box è alto quanto il bottone accanto,
+      e una fila «NOME FILE · DIMENSIONE» costerebbe un quinto di quello spazio
+      per dire ciò che un nome e un «33,1 MB» dicono da soli — e scorrendo
+      sparirebbe comunque.
+      L'altezza NON è dichiarata: `align-items: stretch` sulla riga la prende dal
+      bottone-fonte, così non c'è un numero da tenere allineato a mano. */
+/* ⚠️ L'elenco è POSIZIONATO (assoluto dentro un `#mn-files` relativo), e questo è
+   il pezzo che fa funzionare «alto come il bottone»: un contenitore con
+   `overflow:auto` ha comunque l'altezza intrinseca del suo contenuto, quindi
+   contribuisce a dimensionare la riga della griglia. Misurato: con otto file il
+   box cresceva a 230px e si TRASCINAVA DIETRO il bottone accanto (stretch), invece
+   di scorrere. Fuori dal flusso non pesa più: l'altezza della riga la detta il
+   bottone-fonte, e i file scorrono dentro quello spazio. */
+/* stessa altezza modulare del bottone accanto: così la riga è un modulo, non
+   due pezzi che si inseguono. Senza file il box non c'è (il JS lascia vuoto
+   `#mn-files` e la colonna dei bottoni prende tutte e quattro le colonne). */
+html.manifesto #mn-files { position: relative; }
+html.manifesto #mn-files.ha-file { height: var(--mn-h-modulo); }
+html.manifesto #mn-files .mn-files__box {
+    position: absolute;
+    inset: 0;
+    min-width: 0;
+    background: var(--man-card);
+    border-radius: var(--mm-r-box);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    /* più file → scorre qui dentro, e il box non cresce oltre il bottone */
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+html.manifesto #mn-files .mn-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--man-su-verde);
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    flex: 0 0 auto;
+}
+/* il nome cede: è l'unica parte di lunghezza imprevedibile, e l'ellissi qui vale
+   più di un peso mandato a capo (il titolo intero resta nel `title`) */
+html.manifesto #mn-files .mn-file__n {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* 600 e non 700: la scala del bento ha tre corpi, e questo era il quarto —
+       12/700 accanto ai 12/600 di tutto il resto (misurato) */
+    font-weight: var(--bn-fw-voce);
+}
+html.manifesto #mn-files .mn-file__p { flex: 0 0 auto; opacity: .72; font-variant-numeric: tabular-nums; }
+
+/* Il pallino: disco `#404040` con la × BUCATA (il foro lascia vedere il fondo) e
+   una lumeggiatura in alto a sinistra. «Piccolo spazio dopo la dimensione» = il
+   margine qui sotto, non un gap della riga: gli altri due elementi restano
+   attaccati fra loro. */
+html.manifesto #mn-files .mn-togli {
+    flex: 0 0 auto;
+    width: 20px; height: 20px;
+    margin-left: 4px;
+    padding: 0; border: none; background: none;
+    color: var(--man-nero);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    opacity: .85;
+    transition: opacity .12s, color .12s, transform .12s;
+}
+html.manifesto #mn-files .mn-togli:hover,
+html.manifesto #mn-files .mn-togli:focus-visible {
+    opacity: 1;
+    color: var(--mm-danger);
+    transform: scale(1.08);
+}
+html.manifesto #mn-files .mn-togli svg { width: 20px; height: 20px; display: block; }
+
+/* ── La riga del genere: MM/KG a una colonna, il resto a tre ────────────────
+      I due bottoni sono sempre visibili e impilati; accanto, nello stesso posto,
+      il TEMA CENTRALE (MindMap) oppure lo SLIDER dei nodi (Knowledge Graph) —
+      due facce della stessa domanda, quindi lo stesso spazio: passando da MM a
+      KG la pagina non salta. */
+/* ⚠️ ECCEZIONE dichiarata (5/8): qui l'altezza modulare non è del singolo
+   bottone ma del GRUPPO — i due bottoni più lo spazio in mezzo stanno in 145px,
+   così la colonna pesa come il modulo giallo accanto. I bottoni si dividono
+   quello che resta (`flex: 1` su un contenitore alto quanto il modulo, meno il
+   gap), invece di avere un'altezza scritta a mano che andrebbe ricalcolata a ogni
+   ritocco del token. */
+html.manifesto #setup-form .mode-buttons-container {
+    display: flex !important;                 /* style.css impone flex-wrap row */
+    flex-direction: column !important;
+    gap: var(--mn-gap);
+    height: var(--mn-h-modulo);
+    padding: 0 !important;
+}
+html.manifesto #setup-form .mode-buttons-container > .btn_mode_selector {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    basis: auto;
+    margin: 0 !important;
+}
+/* ── Il box del genere È un riquadro del bento ───────────────────────────────
+      Fondo e bordo `#f1f4f8`, raggio e padding dei moduli, altezza modulare,
+      testi `#404040` e i token tipografici del bento (5/8). Prima era un
+      contenitore trasparente: dentro una griglia di riquadri, l'unico pezzo senza
+      riquadro si legge come una dimenticanza. */
+html.manifesto #mn-genere-dx {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    height: var(--mn-h-modulo);
+    background: var(--man-card);
+    border: 1px solid var(--man-card);
+    border-radius: 22px;             /* come .mn-card */
+    padding: 14px 18px;
+    color: var(--man-su-verde);
+}
+html.manifesto #mn-genere-dx > * { margin: 0 !important; width: 100%; }
+/* l'etichetta prende il corpo del TITOLO di modulo, il campo quello delle voci:
+   gli stessi due token che governano ogni riquadro del bento */
+html.manifesto #mn-genere-dx .landing_label_primary,
+html.manifesto #mn-genere-dx .landing_label_secondary,
+html.manifesto #mn-genere-dx span {
+    font-size: var(--bn-fs-titolo) !important;
+    font-weight: var(--bn-fw-titolo) !important;
+    color: var(--man-su-verde) !important;
+    letter-spacing: normal !important;
+}
+/* il campo del tema: bordo trasparente + riempimento, come ogni campo del bento
+   (decisione del 31/7 — a distinguerlo è il riempimento, non una riga che su
+   fondo chiaro fa 1,23:1) */
+html.manifesto #mn-genere-dx input[type="text"] {
+    background: rgba(64, 64, 64, .07) !important;
+    border: 1px solid transparent !important;
+    border-radius: 12px !important;
+    padding: 10px 14px !important;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    color: var(--man-su-verde) !important;
+    box-shadow: none !important;
+}
+html.manifesto #mn-genere-dx input[type="text"]:focus-visible {
+    outline: 2px solid var(--man-verde);
+    outline-offset: 1px;
+}
+/* lo slider dei nodi: dentro il riquadro non serve una seconda cornice */
+html.manifesto #mn-genere-dx #step-kg-density-container {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+html.manifesto #mn-genere-dx #step-kg-density-container p,
+html.manifesto #mn-genere-dx #step-kg-density-container .landing_label_secondary {
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    opacity: .78;
+}
+
+/* ── bottoni-fonte: card chiare, testo scuro, hover EMERALD ─────────────── */
+/* ── i bottoni-fonte SONO i bottoni-comando: stessa taglia, stesso raggio,
+      stessa icona, stesso trucco dell'etichetta che si rivela al passaggio.
+      Erano più piccoli e col testo sempre a vista: due famiglie per lo stesso
+      gesto («scegli da dove parte la mappa» / «apri qualcosa»). ──────────── */
+html.manifesto .btn_selezione_input {
+    background: var(--man-card);
+    color: var(--man-card);          /* l'etichetta sparisce nel fondo */
+    border-radius: var(--mm-r-box);
+    letter-spacing: normal;
+    font-size: var(--bn-fs-azione);
+    font-weight: var(--bn-fw-azione);
+    /* alto come un modulo del bento: la colonna è modulare in larghezza, e deve
+       esserlo anche in altezza (5/8). ⚠️ `h-48` di index.html vale 192px e sta in
+       `@layer components` — perde contro questo foglio, che è fuori dai layer —
+       ma `!important` serve comunque: il bottone è figlio di una griglia
+       `stretch`, e senza si allunga fino all'altezza della riga. */
+    height: var(--mn-h-modulo) !important;
+    gap: 14px;
+}
+/* icona +45% (5/8, richiesta di Giacomo): 44 → 64. È il glifo che porta tutta
+   l'informazione finché non ci passi sopra, quindi vale la pena che si veda. */
+html.manifesto .btn_selezione_input svg { width: 64px; height: 64px; display: block; color: #404040; }
+html.manifesto .btn_selezione_input:hover,
+html.manifesto .btn_selezione_input:focus-visible {
+    background: var(--man-verde);
+    color: var(--man-su-verde);
+}
+html.manifesto .btn_selezione_input:hover svg,
+html.manifesto .btn_selezione_input:focus-visible svg { color: var(--man-su-verde); }
+/* ⚠️ L'etichetta ha un colore SUO (`.source_btn_text` → slate-400) e non eredita
+   quello del bottone: va colorata lei, non il contenitore — con id + !important,
+   perché ha pure un corpo suo come lo <span> degli avvii. */
+html.manifesto .btn_selezione_input .source_btn_text,
+html.manifesto #landing-view .btn_selezione_input .source_btn_text {
+    color: inherit;
+    font-size: var(--bn-fs-azione) !important;
+    font-weight: var(--bn-fw-azione) !important;
+    letter-spacing: normal !important;
+    margin-top: 4px;
+    transition: color .12s;
+}
+
+/* ── riga 2: MM/KG impilati a sinistra · ROOT a destra ──────────────────── */
+html.manifesto #setup-form .mode-buttons-container {
+    flex-direction: column !important;   /* style.css: row !important */
+    width: 100%;
+    gap: 10px !important;
+}
+/* impilati, `basis-[160px]` di Tailwind diventa ALTEZZA: senza questo ogni
+   scelta viene alta 160px (misurato) e le due riempiono mezzo schermo. */
+html.manifesto #setup-form .mode-buttons-container .btn_mode_selector {
+    flex: 0 0 auto;
+    height: var(--mn-h-scelta);
+}
+html.manifesto .btn_mode_selector {
+    background: var(--man-card);
+    color: var(--mm-testo-2);
+    letter-spacing: normal;
+    border-radius: var(--mm-r-box);
+    font-size: 15px;
+    justify-content: flex-start;
+    padding-left: 20px;
+}
+html.manifesto .mode-buttons-container .btn_mode_selector:not(.active) {
+    background: var(--man-card);
+    color: var(--mm-testo-2);
+}
+html.manifesto .btn_mode_selector.active,
+html.manifesto .mode-buttons-container .btn_mode_selector.active:hover {
+    background: var(--man-verde);            /* emerald, come il resto dell'app */
+    color: var(--man-su-verde);              /* 10,92:1 — sul verde il testo è scuro */
+}
+
+html.manifesto #step-root-container { margin-top: 0; }
+html.manifesto #step-root-container .landing_label_primary {
+    font-size: 12px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--mm-testo);
+}
+html.manifesto #root-node-name {
+    border: 1.5px solid var(--mm-bordo);
+    border-radius: var(--mm-r-campo);
+    background: #fff;
+    padding: 12px 14px;
+    max-width: 460px;
+    font-size: 15px;
+}
+
+/* ── il BENTO: le opzioni di «Genera materiali», che erano in un modale ────
+   ⚠️ Qui il selettore è `.manifesto`, non `html.manifesto`: l'anteprima
+   dell'Officina §7 mette la classe su un CONTENITORE, non su <html>. Con
+   `html.manifesto` le regole non la toccavano e il banco misurava i corpi del
+   browser invece dei nostri — cioè mentiva proprio su ciò che deve controllare. */
+html.manifesto #generation-details-card {
+    background: none !important;
+    padding: 0 !important;
+    margin-top: 28px;
+}
+/* il vecchio ingresso al modale sparisce: le stesse opzioni sono qui sotto, e
+   due superfici con gli stessi id aperte insieme sarebbero un guaio vero */
+html.manifesto #generate-materials-btn,
+html.manifesto #generate-btn { display: none !important; }
+
+.manifesto #mn-bento {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--mn-gap);
+}
+.manifesto .mn-card {
+    background: var(--man-nero);
+    color: #fff;   /* default; lo stile inline del modulo lo sostituisce */
+    border-radius: 22px;
+    padding: 18px 20px;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: none;
+    text-align: left;
+    font-family: inherit;
+}
+/* un'azione messa DENTRO un modulo (non da sola): resta un bottone, con la
+   veste del contenitore — eredita colore e si stacca dal fondo quel tanto che
+   basta a leggersi come cliccabile */
+.manifesto .mn-azione-int {
+    font-family: inherit;
+    font-size: var(--bn-fs-azione); font-weight: var(--bn-fw-azione);
+    color: inherit;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: var(--mm-r-btn);
+    padding: 10px 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.manifesto .mn-azione-int:hover { background: color-mix(in srgb, currentColor 26%, transparent); }
+.manifesto .mn-azione-int svg { width: 20px; height: 20px; }
+
+/* le due azioni chiudono la griglia, affiancate: sono la conclusione della
+   pagina, non l'ennesima opzione. Senza, «Genera materiali» restava da sola su
+   una terza riga, stretta un quarto (misurato). Lo span glielo dà il modulo
+   `azioni` della composizione — qui resta solo la larghezza di ciascuna. */
+.manifesto #mn-solo-mappa, .manifesto #mn-genera { grid-column: span 2; }
+.manifesto .mn-card__t {
+    display: flex; align-items: center; gap: 9px;
+    font-size: var(--bn-fs-titolo); font-weight: var(--bn-fw-titolo);
+    color: inherit;                     /* ⚠️ vedi nota sui colori, qui sotto */
+}
+.manifesto .mn-card__t svg { width: var(--mm-icona); height: var(--mm-icona); opacity: .85; }
+.manifesto .mn-card__t--on { cursor: pointer; user-select: none; }
+.manifesto .mn-card__t input[type=checkbox] {
+    width: 17px; height: 17px; accent-color: var(--man-verde); flex: 0 0 auto; margin: 0;
+}
+.manifesto .mn-card__b { display: flex; flex-direction: column; gap: 7px; }
+
+/* ⚠️ Il corpo dei testi del bento va IMPOSTO, non ereditato. style.css dichiara
+   «#landing-view .glass-card … span { font-size: calc(16px * var(--landing-zoom))
+   !important }» — con lo zoom a 1.2 fa 19,2px. Il primo tentativo (`inherit
+   !important`) ha peggiorato le cose: eredita dal padre, e il padre è colpito
+   dalla stessa regola, quindi il difetto si propagava invece di fermarsi.
+   Serve il VALORE, e serve batterla in specificità: id + !important.
+   Trovato dal banco harness, che carica style.css (l'officina no: due banchi
+   perché vedono cose diverse). */
+.manifesto .mn-card__t, .manifesto .mn-card__t span,
+html.manifesto #landing-view .mn-card__t, html.manifesto #landing-view .mn-card__t span {
+    font-size: var(--bn-fs-titolo) !important;
+    font-weight: var(--bn-fw-titolo) !important;
+}
+.manifesto .mn-op, .manifesto .mn-op span, .manifesto .mn-campo, .manifesto .mn-campo span,
+.manifesto .mn-radio label, .manifesto .mn-radio span, .manifesto .mn-est, .manifesto .mn-btn,
+.manifesto .mn-sel, .manifesto .mn-num,
+html.manifesto #landing-view .mn-op, html.manifesto #landing-view .mn-op span,
+html.manifesto #landing-view .mn-campo, html.manifesto #landing-view .mn-campo span,
+html.manifesto #landing-view .mn-radio label, html.manifesto #landing-view .mn-radio span,
+html.manifesto #landing-view .mn-est, html.manifesto #landing-view .mn-btn,
+html.manifesto #landing-view .mn-sel, html.manifesto #landing-view .mn-num {
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+}
+.manifesto .mn-card--azione, .manifesto .mn-card--azione span,
+.manifesto .mn-card--genera, .manifesto .mn-card--genera span,
+html.manifesto #landing-view .mn-card--azione, html.manifesto #landing-view .mn-card--azione span,
+html.manifesto #landing-view .mn-card--genera, html.manifesto #landing-view .mn-card--genera span {
+    font-size: var(--bn-fs-azione) !important;
+    font-weight: var(--bn-fw-azione) !important;
+}
+
+/* ⚠️ I figli EREDITANO il colore della card (`color: inherit`), non ne hanno uno
+   proprio. Prima ogni pezzo dichiarava il suo (#e6e6e6, #b9b9b9, #cfcfcf…),
+   quindi scegliere il «colore del testo» di un modulo nell'Officina §7 non
+   cambiava NIENTE: il contenitore obbediva e i figli no. Le gerarchie di lettura
+   restano, ma come opacità sul colore scelto — così seguono qualunque colore.
+   Campi e bottoni interni idem: fondo e bordo si ricavano dal colore corrente
+   (color-mix), non da un grigio fisso che su un fondo chiaro sparirebbe. */
+/* i comandi dentro una card: il testo eredita, i campi si adattano al fondo */
+.manifesto .mn-op { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.manifesto .mn-op input { width: 15px; height: 15px; accent-color: var(--man-verde); flex: 0 0 auto; margin: 0; }
+.manifesto .mn-op span { font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce); color: inherit; opacity: .92; }
+.manifesto .mn-op--sotto { margin-top: 4px; }
+.manifesto .mn-campo { display: flex; align-items: center; gap: 8px; font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce); color: inherit; opacity: .78; }
+.manifesto .mn-sel, .manifesto .mn-num {
+    /* ⚠️ Bordo TRASPARENTE, non grigio: è la decisione del 31/7 sui campi del
+       motore (.mm-campo) — a distinguere il campo è il riempimento, non una
+       riga che su un fondo chiaro fa 1,23:1 e non si percepisce comunque.
+       Il posto resta occupato (border trasparente): senza, il campo salterebbe
+       di 2px quando prende il fuoco. */
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    color: inherit;
+    border: 1px solid transparent;
+    border-radius: var(--mm-r-campo);
+    padding: 7px 10px; font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
+    font-family: inherit;
+}
+.manifesto .mn-num { width: 62px; }
+.manifesto .mn-sel { max-width: 100%; }
+.manifesto .mn-radio { display: flex; flex-direction: column; gap: 5px; padding-left: 23px; }
+.manifesto .mn-radio label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.manifesto .mn-radio input { accent-color: var(--man-verde); margin: 0; }
+.manifesto .mn-radio span { font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce); color: inherit; opacity: .85; }
+/* i tre comandi dei preset: piccoli, in fila, sotto la tendina — sono comandi
+   di servizio, non l'azione della pagina */
+.manifesto .mn-preset-az { display: flex; gap: 6px; flex-wrap: wrap; }
+.manifesto .mn-btn {
+    font-family: inherit;
+    font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
+    color: inherit;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border: 1px solid transparent;
+    border-radius: var(--mm-r-btn); padding: 6px 11px; cursor: pointer;
+}
+.manifesto .mn-btn:hover { background: var(--man-verde); color: var(--man-su-verde); border-color: var(--man-verde); }
+.manifesto .mn-est { font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce); color: var(--man-verde); line-height: 1.6; }
+
+/* le due azioni: «solo la mappa» resta scura, «genera materiali» è l'azione
+   che conclude → è la sola card verde della griglia */
+.manifesto .mn-card--azione, .manifesto .mn-card--genera {
+    color: var(--mn-fondo, currentColor);   /* a riposo il testo sparisce nel fondo */
+    align-items: center; justify-content: center;
+    gap: 14px; cursor: pointer; min-height: 132px;
+    font-size: var(--bn-fs-azione); font-weight: var(--bn-fw-azione);
+    transition: color .12s;
+}
+/* icona più grande e centrata nello spazio; l'etichetta scende di un filo, così
+   il blocco icona+testo resta centrato ma il testo non tocca il glifo */
+.manifesto .mn-card--azione svg, .manifesto .mn-card--genera svg {
+    width: 64px; height: 64px;      /* +45% (5/8): come i bottoni-fonte */
+    display: block;              /* niente spazio da riga di testo attorno al glifo */
+    color: var(--mn-seg, currentColor);
+}
+.manifesto .mn-card--azione span, .manifesto .mn-card--genera span { margin-top: 4px; }
+
+/* ⚠️ Su questi due il passaggio NON cambia il fondo (è già colorato): compare
+   solo l'etichetta, col colore del segno. A riposo il testo ha il colore del
+   fondo — c'è, si legge da tastiera e dagli assistivi, ma non si vede.
+   `:focus-visible` fa lo stesso: chi naviga da tastiera non ha un hover. */
+.manifesto .mn-card--azione:hover, .manifesto .mn-card--genera:hover,
+.manifesto .mn-card--azione:focus-visible, .manifesto .mn-card--genera:focus-visible {
+    color: var(--mn-seg, currentColor);
+}
+.manifesto .mn-card--genera { background: var(--man-verde); }
+
+/* ── La SECONDA faccia dello stesso bottone: nessun materiale = «Genera Mappa» ──
+      Il modulo blu affiancato non esiste più (5/8): è questo bottone che cambia
+      colore, glifo ed etichetta secondo quello che è stato chiesto, così quel che
+      si legge e quel che succede premendolo sono la stessa cosa.
+      ⚠️ Blu #3f6bf2 e segno BIANCO: #404040 sul blu farebbe 2,27:1 — è l'unico
+      posto di COSTRUISCI dove il grigio scuro del progetto non si può usare.
+      Bianco: 4,57:1. Le due tinte passano dalle variabili (non da `color`
+      inline), altrimenti l'hover del foglio non potrebbe vincerle.
+      ⚠️ `!important` è NECESSARIO, non pigrizia: fondo e tinte del modulo
+      arrivano dallo stile INLINE scritto da `stileAttr()` (sono scelte
+      per-modulo dell'Officina), e lo stile inline batte qualunque regola non
+      important — senza, il verde resterebbe e il bottone «Genera Mappa» sarebbe
+      verde con l'etichetta invisibile. Vale anche per le due variabili. */
+.manifesto .mn-card--genera.mn-card--mappa {
+    background: #3f6bf2 !important;
+    --mn-seg: #ffffff !important;
+    --mn-fondo: #3f6bf2 !important;
+}
+
+/* ── GATE: «Genera materiali» spento finché il destinatario non è completo ──
+      Serve (classe + materia) oppure (allievo). Non è un vezzo grafico: la
+      generazione partiva su un contesto incompleto e si fermava a metà senza
+      dire dove — meglio non farla partire, e dire nel bottone perché.
+      `pointer-events:none` sul bottone spento, così il clic non finisce nemmeno
+      sul contenitore; il motivo vive in `title` + `aria-label` (scritti dal JS),
+      perché su questa card l'etichetta si rivela solo al passaggio e chi naviga
+      da tastiera non avrebbe modo di saperlo. */
+.manifesto .mn-card--spento {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+/* Il box giallo è dove si ripara: mentre il gate è chiuso pulsa piano una volta
+   sola all'apertura e resta col bordo marcato — senza, «il bottone è spento» non
+   dice DOVE guardare (è esattamente il buio in cui si è consumata l'ora persa). */
+.manifesto .mn-manca-ctx #mp-chi,
+.manifesto .mn-manca-ctx #mp-disc:not([disabled]) {
+    box-shadow: 0 0 0 2px #b45309;
+}
+
+/* ── Il CHIP si vede SEMPRE, anche in COSTRUISCI (5/8, richiesta di Giacomo) ──
+      Fino a ieri qui spariva: il contesto in COSTRUISCI lo dichiara il box giallo
+      del bento, e la stessa informazione in due posti diverge appena uno dei due
+      non viene aggiornato. Il timore non si applica: il box giallo NON tiene uno
+      stato suo — chiama `MappAIClasses.setActive`/`setActiveStudent`/
+      `setActiveDiscipline`, cioè scrive nello stesso store che il chip legge.
+      Sono due VISTE dello stesso dato, non due copie.
+      Quello che resta vero è che il chip deve stare sempre nello stesso posto:
+      per questo c'è anche nella testata delle console (`montaChip`). */
+
+/* ── righe delle fonti: il titolo era text-white (residuo del tema scuro →
+      invisibile su bianco). Verde LEGGIBILE #047857 (5,48:1): l'emerald pieno
+      su bianco fa 1,92. ─────────────────────────────────────────────────── */
+html.manifesto .source-entry .text-white { color: #047857; }
+html.manifesto .source-entry > button { color: var(--mm-danger); }
+
+/* ── «Nuovo progetto» e gli altri avvii: GRIGI con hover emerald, come ogni
+      bottone-card della landing (§10.16) — non sono l'azione di questa
+      pagina, sono alternative. ─────────────────────────────────────────── */
+html.manifesto #landing-quick-actions > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+/* ⚠️ Nella vista ridotta i due «Apri…» erano nascosti (tokens.css, blocco
+   .mappai-ridotta). Con lo stile manifesto restano: sono le tre alternative a
+   generare, e nasconderne due lasciava «Nuovo Progetto» solo in mezzo alla riga.
+   Serve `!important` perché quel blocco dichiara display:none con priorità. */
+html.mappai-ridotta.manifesto #qa-apri-vault,
+html.mappai-ridotta.manifesto #qa-apri-json { display: flex !important; }
+
+/* stessa taglia di «Genera materiali» e «Genera Mappa»: sono comandi dello
+   stesso rango, e tre corpi diversi in fondo alla stessa pagina si leggono
+   come tre importanze diverse che nessuno ha deciso */
+html.manifesto .btn_quick_action {
+    background: var(--man-card);
+    color: var(--mm-testo-2);
+    border-radius: var(--mm-r-box);
+    letter-spacing: normal;
+    font-size: var(--bn-fs-azione);
+    font-weight: var(--bn-fw-azione);
+    height: 130px;
+    gap: 14px;
+}
+html.manifesto .btn_quick_action span { margin-top: 4px; }
+html.manifesto .btn_quick_action svg { width: 44px; height: 44px; display: block; }
+/* ⚠️ Il testo sta in uno <span> che ha un corpo SUO (20px, spaziatura 5px):
+   il contenitore obbediva e lui no — stessa trappola di `.source_btn_text`.
+   Va imposto sull'etichetta, con id + !important per battere style.css. */
+html.manifesto .btn_quick_action span,
+html.manifesto #landing-view .btn_quick_action span {
+    font-size: var(--bn-fs-azione) !important;
+    font-weight: var(--bn-fw-azione) !important;
+    letter-spacing: normal !important;
+    color: inherit;
+    transition: color .12s;
+}
+/* A riposo si vede SOLO L'ICONA: l'etichetta prende il colore del fondo e
+   scompare; al passaggio (e col fuoco da tastiera) torna leggibile sul verde.
+   ⚠️ Il testo resta nel DOM — chi usa uno screen reader lo legge comunque — ma
+   per chi vede l'informazione starebbe tutta nell'icona: per questo il bottone
+   porta anche `title`, che lo dice senza bisogno del passaggio. */
+html.manifesto .btn_quick_action { color: var(--man-card); }
+html.manifesto .btn_quick_action svg { color: #404040; }
+html.manifesto .btn_quick_action:hover,
+html.manifesto .btn_quick_action:focus-visible {
+    background: var(--man-verde);
+    color: var(--man-su-verde);
+}
+html.manifesto .btn_quick_action:hover svg,
+html.manifesto .btn_quick_action:focus-visible svg { color: var(--man-su-verde); }
+
+/* ── con una mappa aperta (landing nascosta) rail e mini-logo spariscono:
+      sono comandi della landing, non dell'app ──────────────────────────── */
+html.manifesto:has(#landing-view.hidden) #manifesto-rail,
+html.manifesto:has(#landing-view.hidden) #manifesto-home,
+html.manifesto:has(#landing-view[style*="display: none"]) #manifesto-rail,
+html.manifesto:has(#landing-view[style*="display: none"]) #manifesto-home { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IL MEGA-BENTO: un solo passo verticale (5/8)
+   Le sezioni di COSTRUISCI erano distanti 40px e le colonne dentro una riga 14:
+   due ritmi nella stessa schermata, e si leggeva come quattro blocchi accostati
+   invece di una griglia sola. Ora fra una riga e l'altra c'è lo STESSO passo che
+   c'è fra le colonne — `--mn-gap`.
+   ⚠️ Due id nel selettore per FORZA: style.css dichiara
+   `#landing-view .glass-card #setup-form { gap: calc(40px * var(--landing-zoom))
+   !important }`, e con un id solo questa regola perderebbe pur essendo important.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto #landing-view .glass-card #setup-form {
+    gap: var(--mn-gap) !important;
+}
+
+/* Il contenitore del bento non è un riquadro: È la griglia. Aveva fondo
+   `bg-slate-100`, 20px di padding e 40px di margine — e il suo bordo superiore è
+   la «sottile linea orizzontale» che si vedeva sotto MM/KG (un rettangolo grigio
+   quasi dello stesso colore dei moduli, di cui si intravedeva solo il limite).
+   Togliendo fondo e imballaggio la linea sparisce e i moduli si allineano ai
+   riquadri delle righe sopra, che è il punto del mega-bento. */
+html.manifesto #generation-details-card {
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    gap: var(--mn-gap) !important;
+}
+
+/* I tre avvii finali stanno FUORI dal form: il passo lo devono avere comunque,
+   altrimenti l'ultima riga del mega-bento galleggia a 48px dal resto. */
+html.manifesto #landing-quick-actions {
+    margin-top: var(--mn-gap) !important;
+    margin-bottom: 0 !important;
+}
+html.manifesto #landing-quick-actions > div { gap: var(--mn-gap) !important; }
+
+/* Il titolo di passo («Carica le tue Fonti», «Cosa desideri generare?») e le
+   intestazioni numerate non esistono in questa veste: la griglia si spiega da sé,
+   e in vista ridotta erano già nascoste. Qui si spengono in entrambe le viste, o
+   fra le righe del mega-bento resterebbero due righe di testo a rompere il passo. */
+html.manifesto #setup-form .step_container { display: none !important; }
+
+/* ── I TRE RESIDUI del passo unico, trovati misurando ────────────────────────
+   Tutti e tre di specificità o di «elemento alto 0 che consuma il gap»: le due
+   trappole già in §6. Qui i selettori portano DUE id per forza, non per abitudine.
+
+   1. I wrapper delle sezioni del form hanno un loro gap interno
+      (`calc(16px * zoom)` = 19,2px): la riga delle fonti ne pagava uno in più
+      verso `#sources-container`, e il passo apparente diventava 33 invece di 14.
+   2. `#sources-container` senza righe visibili è alto ~0 ma CONSUMA comunque il
+      gap del suo wrapper: un item alto zero conta come item (stessa cosa vista il
+      4/8 col campo del tema). Va tolto dal flusso, non rimpicciolito.
+   3. `#generation-details-card` conservava `padding-top: 28,8px` — il mio
+      `padding: 0 !important` con un solo id perdeva. Con quel padding il bento
+      cominciava 29px sotto il suo contenitore, cioè il passo vero fra MM/KG e le
+      opzioni era 43, non 14.                                                   */
+html.manifesto #landing-view .glass-card #setup-form > div {
+    gap: var(--mn-gap) !important;
+}
+html.manifesto #landing-view #setup-form #sources-container:not(:has(.source-entry:not(.mn-src-file))) {
+    display: none !important;
+}
+html.manifesto #landing-view .glass-card #generation-details-card {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: none !important;
+    /* ⚠️ ED È QUI LA LINEA: `border-top: 1px rgba(199,210,254,.4)`. La dichiarazione
+       `border: none` stava nella regola con UN id, che perde; questa, con due id,
+       non la portava. Due regole per lo stesso elemento e la proprietà giusta nella
+       metà sbagliata — il difetto sopravvive a un `!important` scritto altrove. */
+    border: none !important;
+}
+/* il gap fra i due bottoni del genere: `--mn-gap` come tutto il resto — perdeva
+   contro `#setup-form .mode-buttons-container` di style.css (due id) */
+html.manifesto #landing-view #setup-form .mode-buttons-container {
+    gap: var(--mn-gap) !important;
+}
+
+/* ── I due pezzi del box del genere che restavano fuori dai token ────────────
+   Trovati misurando i corpi dentro il riquadro:
+   · `#kg-nodes-val` (il numero dei nodi) stava a **21,6px** — un quarto corpo che
+     nessuno ha deciso. Prende il token dell'AZIONE (15/700): è un valore che si
+     legge a distanza, e la scala del bento ne ha già uno per quello.
+   · `#label-step4-kg-desc` era `#94a3b8`, che su `#f1f4f8` fa **2,5:1**: non si
+     legge. Passa al grigio scuro del progetto con l'opacità delle voci
+     secondarie (9,4:1 prima dell'opacità). */
+html.manifesto #landing-view #mn-genere-dx #kg-nodes-val {
+    font-size: var(--bn-fs-azione) !important;
+    font-weight: var(--bn-fw-azione) !important;
+    color: var(--man-su-verde) !important;
+}
+html.manifesto #landing-view #mn-genere-dx #label-step4-kg-desc,
+html.manifesto #landing-view #mn-genere-dx .text-slate-400 {
+    color: var(--man-su-verde) !important;
+    opacity: .72;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    margin: 0 !important;
+}
+
+/* I tre avvii chiudono il mega-bento: alti come le due scelte del genere di mappa
+   (5/8, richiesta di Giacomo). Erano alti come un modulo intero (145) — tre fasce
+   in fondo alla pagina che pesavano quanto un riquadro di opzioni, per tre comandi
+   che si usano una volta sola. `--mn-h-scelta` è lo stesso token di MM/KG: chi lo
+   cambia li muove insieme, invece di scoprire dopo che sono divergenti. */
+html.manifesto #landing-quick-actions .btn_quick_action {
+    height: var(--mn-h-scelta) !important;
+    min-height: var(--mn-h-scelta) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLI STRUMENTI dentro il bento (5/8)
+   Le funzioni che la vista compatta nasconde possono essere montate in un modulo
+   dall'Officina §7. Il modulo accoglie l'ELEMENTO VERO (spostato, non clonato),
+   quindi qui non si ridisegna niente: si dà solo la veste del bento a quello che
+   arriva, e si annulla il nascondimento della vista compatta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto .mn-str {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+/* l'etichetta della voce si vede SOLO finché il posto è vuoto: quando l'elemento
+   vero è dentro, il suo testo è già lì e ripeterlo sarebbe la stessa cosa due volte */
+html.manifesto .mn-str__att {
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    color: inherit;          /* segue il modulo: chiaro sui box neri, scuro sui chiari */
+    opacity: .55;
+}
+html.manifesto .mn-str--pieno > .mn-str__att { display: none; }
+
+/* ⚠️ Il pezzo che fa funzionare tutto: dentro il bento il nascondimento della
+   vista compatta NON si applica. Le regole di `mappai-modal-tokens.css` spengono
+   quegli id con `display: none !important`, e un elemento spostato se le porta
+   dietro — resterebbe montato e invisibile, che è il peggio dei due mondi.
+   `revert-layer` non basterebbe (quelle regole non sono in un layer): serve
+   dichiarare un display, e `flex` è quello che tutti questi contenitori usano
+   già nel loro posto originale. Verificato elemento per elemento. */
+html.mappai-ridotta #mn-bento .mn-spostato,
+html.mappai-ridotta #mn-bento .mn-str > * {
+    display: flex !important;
+}
+/* le tendine e i campi restano quello che sono */
+html.mappai-ridotta #mn-bento select.mn-spostato,
+html.mappai-ridotta #mn-bento input.mn-spostato { display: block !important; }
+/* ⚠️ …ma NON l'etichetta del posto: quella regola accende ogni figlio del posto,
+   compresa l'etichetta che `.mn-str--pieno` aveva spento — e che perde in
+   specificità. Effetto misurato: in vista compatta ogni modulo-strumento cresceva
+   di 24px (18 di etichetta + 6 di spazio) e la griglia smetteva di essere
+   modulare. Quando il posto è pieno il testo della voce c'è già: ripeterlo è la
+   stessa cosa scritta due volte. */
+html.mappai-ridotta #mn-bento .mn-str--pieno > .mn-str__att { display: none !important; }
+
+/* gli elementi spostati prendono la tipografia e il colore del bento: arrivano da
+   una parte della pagina con altre regole, e in un riquadro chiaro un testo
+   pensato per fondo bianco può risultare illeggibile */
+/* ⚠️ `color: inherit`, NON il token scuro. Con `var(--man-su-verde)` (#404040)
+   imposto, dentro un box NERO (#404040) il testo aveva il colore del fondo:
+   contrasto **1:1**, e i bottoni si vedevano solo al passaggio del mouse — il
+   difetto che Giacomo ha segnalato. Ereditando, il colore lo decide il MODULO:
+   bianco sui box neri (10,37:1), scuro su quelli chiari (9,4:1). È la stessa
+   lezione del round 5: i figli ereditano, le gerarchie si fanno con l'opacità. */
+/* ⚠️ `.mn-card:not(.mn-card--nuda)` su TUTTE le regole che vestono un elemento
+   spostato: dentro un modulo NUDO il pezzo tiene la propria veste, perché il
+   modulo è lui. Senza questa qualifica, il bottone che carica i documenti
+   perderebbe fondo, imballaggio e icona da 44px — cioè diventerebbe una riga
+   compatta come una voce qualunque, che è il contrario di quello che è. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato * {
+    color: inherit !important;
+    letter-spacing: normal !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato {
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    width: 100%;
+    max-width: 100%;
+}
+/* un corpo solo per i testi che arrivano da fuori: la scala del bento ha tre
+   valori e questi non ne portano un quarto */
+/* ⚠️ `button` nell'elenco, non solo span/p/label: le due facce di uno switch
+   montato («OFF/ON», «MappAI/Adattiva», «A/B») sono BUTTON, e restavano coi loro
+   corpi — per giunta ingranditi dallo zoom della landing. Misurati tre corpi in
+   più fuori dalla scala (12/700 · 13,2/700 · 14,4/700) su sei bottoni. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato span,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato p,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato label,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato button {
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+}
+/* il riempimento si ricava dal COLORE DEL TESTO: su un box nero un grigio scuro
+   fisso sarebbe invisibile (è quello che succedeva) */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato select,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato input[type="text"],
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato input[type="number"] {
+    background: color-mix(in srgb, currentColor 14%, transparent) !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    color: var(--man-su-verde) !important;
+    box-shadow: none !important;
+}
+/* i bottoni che arrivano da fuori (Apri Vault, Analisi…) diventano bottoni del
+   bento: fondo neutro, hover verde, corpo dell'azione */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato.btn_quick_action,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) button.mn-spostato {
+    background: color-mix(in srgb, currentColor 14%, transparent) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato.btn_quick_action:hover,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) button.mn-spostato:hover {
+    background: var(--man-verde) !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-spostato svg { width: 18px !important; height: 18px !important; }
+
+/* ── Dentro un modulo-strumento gli elementi si COMPATTANO ───────────────────
+   Misurato: quattro bottoni-fonte spostati in un modulo lo portavano a 426px —
+   arrivano con la taglia del bottone-comando (130px di card con icona 44), che è
+   giusta quando SONO il gesto principale e sbagliata qui. In un modulo del bento
+   sono voci come le altre: riga singola, icona piccola, etichetta sempre a vista
+   (nascondere il testo aveva senso su una card grande, non su una riga).
+   Con righe da ~32px, quattro voci stanno in un modulo da 145 — la modularità del
+   bento resta vera invece di essere un'intenzione. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    min-height: 30px !important;
+    height: auto !important;
+    padding: 4px 8px !important;
+    border-radius: 9px !important;
+    background: color-mix(in srgb, currentColor 14%, transparent) !important;
+    text-align: left !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato:hover { background: var(--man-verde) !important; }
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato svg,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato i {
+    width: 16px !important; height: 16px !important;
+    margin: 0 !important; flex: 0 0 auto;
+}
+/* l'etichetta torna VISIBILE: sui bottoni-fonte a riposo prende il colore del
+   fondo per sparire (decisione del 4/8 sulle card grandi), ma qui la card non c'è
+   e resterebbe una riga muta */
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato span,
+html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato .source_btn_text {
+    color: inherit !important;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    margin: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* un modulo-strumento che riceve più voci di quante ne stiano SCORRE, invece di
+   sfondare l'altezza modulare: così la griglia non si deforma, e chi compone vede
+   subito che quel riquadro è pieno */
+html.manifesto #mn-bento .mn-card__b:has(> .mn-str) {
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   I BOX NASCONDIBILI: la vista estesa si apre SOTTO il mega-bento (5/8)
+   Il mega-bento — le due prime righe — resta **esattamente** com'è in entrambe le
+   viste: è la condizione perché la combo SHIFT+CTRL+L,K,J,H non spacchi il layout.
+   Quello che la combo fa è rivelare i riquadri col fondo scuro, che stanno in fondo
+   e non spostano niente di quanto sta sopra.
+   Il marcatore è il FONDO (`MappAIBento.nascondibile`): un riquadro scuro fra
+   quelli chiari è già la sua etichetta, anche mentre si compone in officina.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.mappai-ridotta #mn-bento .mn-card--extra { display: none !important; }
+
+/* ── Il box delle FONTI CARICATE: cresce fino a 30 righe, poi scorre ──────────
+   È l'unico riquadro che può crescere, e per questo la sua riga è l'ULTIMA: un
+   testo incollato lo fa salire senza spostare niente di ciò che sta sopra.
+   Il tetto è dichiarato in righe, non in pixel: 30 righe del corpo delle voci con
+   l'interlinea 1,5 — così resta 30 righe anche se un domani si cambia il corpo. */
+html.manifesto #mn-bento .mn-card--cresce {
+    max-height: none;
+    height: auto;
+}
+html.manifesto #mn-bento .mn-card--cresce .mn-card__b {
+    max-height: calc(30 * 1.5 * var(--bn-fs-voce));
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+/* ⚠️ Se il box RACCOGLIE (è quello del testo libero) il tetto ce l'ha la textarea,
+   che si limita da sé alle trenta righe: lasciarlo anche al corpo produrrebbe due
+   barre di scorrimento annidate per lo stesso contenuto. */
+html.manifesto #mn-bento .mn-card--cresce .mn-card__b:has(.mn-str[data-raccoglie]) {
+    max-height: none;
+    overflow: visible;
+}
+/* dentro questo box le righe delle fonti sono CAMPI da compilare, non voci
+   compatte come negli altri moduli-strumento: l'URL si legge intero e il testo
+   incollato ha bisogno di spazio. La compattazione a riga singola qui non vale. */
+/* ⚠️ `:not(.mn-card--nuda)` serve a PAREGGIARE le classi della regola generale che
+   dà ai pezzi spostati un fondo al 14%: quattro classi contro tre, e vinceva lei —
+   misurato, la riga del testo si portava dietro un riquadro grigio attorno alla
+   textarea bianca (il difetto che Giacomo ha visto). Qui il fondo non serve: la
+   textarea è già bianca e si stacca da sé. */
+html.manifesto #mn-bento .mn-card--cresce:not(.mn-card--nuda) .mn-str > .mn-spostato {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border-radius: 0 !important;
+    gap: 8px !important;
+}
+/* ── Il box del TESTO: solo aree bianche e il loro cestino (5/8) ──────────────
+   Niente titolo di riga, niente segnaposto (quello lo toglie il JS), niente
+   riquadro: una casella bianca per ogni clic su «Testo», e un cestino piccolo per
+   buttarne via una. Tre cose a schermo invece di sei, e nessuna ripete le altre. */
+html.manifesto #mn-bento .mn-card--cresce .mn-str[data-raccoglie] .source-entry > div > div:first-child {
+    display: none !important;
+}
+/* le aree si impilano con un passo regolare: sono blocchi pari, non una lista
+   con una gerarchia */
+html.manifesto #mn-bento .mn-str[data-raccoglie] {
+    gap: 10px;
+}
+html.manifesto #mn-bento .mn-str[data-raccoglie] .source-entry {
+    align-items: flex-start !important;
+    gap: 8px !important;
+}
+/* il cestino del blocco: piccolo e in alto a destra, accanto all'angolo della
+   casella — è il gesto raro, non deve competere con il campo dove si scrive */
+html.manifesto #mn-bento .mn-str[data-raccoglie] .source-entry > button {
+    flex: 0 0 auto;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 2px 0 0 !important;
+    padding: 0 !important;
+    border-radius: 6px;
+    color: inherit !important;
+    opacity: .5;
+}
+html.manifesto #mn-bento .mn-str[data-raccoglie] .source-entry > button:hover,
+html.manifesto #mn-bento .mn-str[data-raccoglie] .source-entry > button:focus-visible {
+    opacity: 1;
+    color: #ef4444 !important;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+}
+html.manifesto #mn-bento .mn-str[data-raccoglie] .source-entry > button svg {
+    width: 15px !important; height: 15px !important;
+}
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA RIGA «ETICHETTA · COMANDO» (5/8, richiesta di Giacomo)
+   Nell'officina un modulo di strumenti si legge così: una voce per riga, il nome
+   a sinistra e il comando a destra. In app arrivavano gli elementi VERI con la
+   loro taglia, affiancati — e il riquadro finiva con due barre di scorrimento.
+   Qui si dà loro la forma che hanno nel banco. Il banco resta il disegno; questo
+   è il pezzo che fa combaciare il prodotto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* l'etichetta del posto resta anche a pezzo montato, quando la voce lo chiede */
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > .mn-str__att,
+html.mappai-ridotta #mn-bento .mn-str--et.mn-str--pieno > .mn-str__att {
+    display: block !important;
+    opacity: .8;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+/* con l'etichetta a vista la voce è una RIGA: nome a sinistra, comando a destra */
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno {
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 30px;
+}
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > .mn-spostato {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    justify-content: flex-end !important;
+}
+/* ⚠️ L'elemento montato porta la SUA etichetta («MindMap», «Generazione
+   Multi-Pass»): con quella del posto a vista sarebbero due nomi per la stessa
+   cosa, e il nome scelto in officina («MappAI · Adattiva») è quello che dice di
+   più. Si spegne il primo figlio testuale, non tutto il contenuto. */
+/* ⚠️ `> label` senza `:first-child`: in `#level-tune-row` il primo figlio è la
+   casella e il nome sta nella LABEL che viene dopo — con la sola regola sul primo
+   figlio, «Adatta» compariva due volte (misurato: quella del posto schiacciata a
+   33px accanto a una label da 213). */
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > .mn-spostato > span:first-child,
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > .mn-spostato > label {
+    display: none !important;
+}
+/* i campi e i pannelli (FOCUS) prendono il posto che resta, a destra */
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > textarea.mn-spostato,
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > input.mn-spostato,
+html.manifesto #mn-bento .mn-str--et.mn-str--pieno > select.mn-spostato {
+    flex: 1 1 auto !important;
+    max-width: 60% !important;
+    min-height: 30px;
+    height: 32px !important;      /* una riga: qui si scrive una frase, non un testo */
+    resize: none !important;
+}
+/* ⚠️ Le righe NON si allungano con lo spazio che avanza. Senza, alzare l'altezza
+   del riquadro alzava anche il contenuto — il box scorreva comunque e inseguire
+   il numero non finiva mai (misurato: contenuto 172 → 179 → 190 mentre alzavo).
+   Un riquadro alto quanto serve è una misura; un riquadro che cresce insieme al
+   suo contenuto non lo è. */
+html.manifesto #mn-bento .mn-card--str .mn-card__b > .mn-str {
+    flex: 0 0 auto;
+}
+/* ⚠️ Una riga non supera i 140px: alcune voci portano un PANNELLO intero (le
+   macro-aree a mano ne misurano 294 da sole) e una riga di un elenco alta come
+   metà schermo non è più una riga — il riquadro passava da 261 a 525px. Il
+   pannello resta usabile: scorre dentro la sua riga. */
+/* ⚠️ `:not(.mn-card--nuda)`: nei moduli nudi il pezzo È il modulo (il bottone che
+   carica i documenti, l'elenco), e un tetto a 140 li schiacciava — misurati 140
+   dove tutta la griglia sta a 145. */
+html.manifesto #mn-bento .mn-card--str:not(.mn-card--nuda) .mn-card__b > .mn-str > .mn-spostato {
+    max-height: 140px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+/* ⚠️ …ma se il posto è l'UNICO del riquadro, il riquadro è suo: il tetto serve a
+   non far sfondare una riga fra tante, non a tagliare un pannello che ha un box
+   tutto per sé (le macro-aree col loro toggle).
+   E il riquadro prende l'altezza del CONTENUTO, come i box in colonna: con un tetto
+   il toggle «Genera Macro-Aree in automatico» finiva 18px sotto la piega — cioè la
+   decisione da cui dipende tutto il resto del box si raggiungeva scorrendo.
+   `altezza` resta il minimo, per non farlo collassare quando l'elenco è vuoto. */
+html.manifesto #mn-bento .mn-card--str .mn-card__b > .mn-str:only-child > .mn-spostato {
+    max-height: none;
+    overflow: visible;
+}
+html.manifesto #mn-bento .mn-card--str:has(> .mn-card__b > .mn-str:only-child) {
+    max-height: none !important;
+    height: auto !important;
+}
+html.manifesto #mn-bento .mn-card--str:has(> .mn-card__b > .mn-str:only-child) > .mn-card__b {
+    max-height: none;
+    overflow: visible;
+}
+
+/* ── Le LENTI si vedono, dentro il bento (5/8) ────────────────────────────────
+   Il pannello `#lenses-panel` era già montato e già pieno (le tredici lenti in tre
+   gruppi): restava invisibile per la classe `hidden` che il markup gli dà, cioè lo
+   stato «collassato» — e il bottone che lo apriva («▸ Personalizza extraction
+   lenses») sta in un contenitore dichiarato NASCOSTO, che è rimasto fuori.
+   Dentro il bento non c'è niente da collassare: il pannello È il pezzo di quel
+   posto, e un posto vuoto non serve a nessuno. Fuori dal bento la decisione
+   storica non cambia: questa regola vale solo qui. */
+html.manifesto #mn-bento #lenses-panel {
+    display: block !important;
+    margin: 0 !important;
+    width: 100%;
+}
+
+/* ── L'INTERRUTTORE: chip + pallino (5/8, disegno di Giacomo) ─────────────────
+   «Adatta» è l'unico comando a UN solo stato (acceso/spento) — gli altri sono
+   scelte fra due cose diverse, e per quelle il segmento con le due facce dice di
+   più. Qui il chip con il pallino: **rosso da spento, emerald da acceso**, che è
+   l'unica informazione che serve.
+   ⚠️ Il colore sta sul PALLINO e non sul chip: il chip è il binario, il pallino
+   è lo stato — e su un fondo scuro un binario colorato peserebbe più della cosa
+   che governa.
+   ⚠️ `#auto-depth-toggle` NON è più qui (5/8, richiesta di Giacomo): «Profondità»
+   ha ora due facce, auto | manuale, e segue la veste degli altri tre switch. Un
+   pallino accanto a una pillola «manuale» erano due grammatiche per un comando
+   solo — e non si capiva quale delle due si stesse guardando. */
+html.manifesto #mn-bento #level-tune-toggle {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    position: relative;
+    flex: 0 0 auto;
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 13px !important;
+    /* ⚠️ Binario CHIARO come ogni chip (5/8): al 18% del colore del testo, su un box
+       nero e per giunta disabilitato (opacità .45), del binario non restava niente —
+       misurato invisibile a schermo. Il fondo chiaro è la regola dei comandi. */
+    background: var(--man-card) !important;
+    cursor: pointer;
+    overflow: hidden;
+    font-size: 0 !important;          /* il testo del bottone non serve: parla il pallino */
+    box-shadow: none !important;
+}
+html.manifesto #mn-bento #level-tune-toggle::after {
+    content: '';
+    position: absolute;
+    top: 4px; left: 4px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #ef4444;              /* spento */
+    transition: left .14s, background .14s;
+}
+html.manifesto #mn-bento #level-tune-toggle:checked::after {
+    left: 24px;
+    background: var(--man-verde);     /* acceso */
+}
+/* ⚠️ «Adatta» è disabilitata finché non si sceglie un destinatario: il chip lo
+   deve DIRE, o si legge come «spento per scelta mia». Pallino grigio e non rosso —
+   il rosso qui vuol dire «spento», non «non disponibile». */
+html.manifesto #mn-bento #level-tune-toggle:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+html.manifesto #mn-bento #level-tune-toggle:disabled::after {
+    background: #94a3b8;              /* grigio pieno: «non disponibile», non «spento» */
+}
+
+/* ── I controlli veri perdono le loro tinte dentro il bento ───────────────────
+   Le pillole arrivano coi colori di Tailwind (arancio, emerald, indigo) scelti
+   per un fondo bianco: su un riquadro scuro sono tre accenti che non c'entrano
+   con la palette e si contendono l'attenzione con l'azione della pagina. Dentro
+   il bento prendono il fondo dei bottoni del modulo; a dire quale faccia è
+   attiva resta il contrasto fra le due, che è come funzionava già. */
+html.manifesto #mn-bento .mn-spostato [class*="bg-orange-"],
+html.manifesto #mn-bento .mn-spostato [class*="bg-emerald-"],
+html.manifesto #mn-bento .mn-spostato [class*="bg-indigo-"],
+html.manifesto #mn-bento .mn-spostato [class*="bg-amber-"] {
+    background: color-mix(in srgb, currentColor 16%, transparent) !important;
+}
+html.manifesto #mn-bento .mn-spostato button.bg-white {
+    background: var(--mn-btn-bg, #f1f4f8) !important;
+    color: var(--mn-btn-txt, var(--man-su-verde)) !important;
+    box-shadow: none !important;
+}
+html.manifesto #mn-bento .mn-card--cresce .mn-str > .mn-spostato:hover { background: none !important; }
+/* le righe-fonte dentro il box: ognuna un riquadrino con il suo campo */
+html.manifesto #mn-bento .mn-card--cresce .source-entry {
+    background: rgba(64, 64, 64, .07);
+    border-radius: 10px;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    align-items: flex-start !important;
+}
+html.manifesto #mn-bento .mn-card--cresce .source-entry input[type="url"],
+html.manifesto #mn-bento .mn-card--cresce .source-entry input[type="text"],
+html.manifesto #mn-bento .mn-card--cresce .source-entry textarea {
+    background: #fff !important;
+    border: 1px solid transparent !important;
+    border-radius: 8px !important;
+    padding: 7px 10px !important;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    color: var(--man-su-verde) !important;
+    width: 100% !important;
+    box-shadow: none !important;
+}
+/* la textarea del testo incollato: parte bassa e cresce con il contenuto fino al
+   tetto del box, che è dove si attiva lo scorrimento */
+html.manifesto #mn-bento .mn-card--cresce .source-entry textarea {
+    min-height: 64px !important;
+    resize: vertical !important;
+}
+/* lo stato vuoto: senza fonti il riquadro dice a che serve, invece di essere un
+   rettangolo scuro che non si capisce */
+html.manifesto #mn-bento .mn-card__b[data-vuoto]:not(:has(.source-entry:not(.mn-src-file)))::after {
+    content: attr(data-vuoto);
+    display: block;
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    opacity: .55;
+    padding: 6px 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LE RIGHE-FONTE COME RIGHE DI ELENCO (5/8, richiesta di Giacomo)
+   «Il box delle fonti caricate deve presentare la lista come quello dei PDF».
+   Erano schede: titolo grande in grassetto, campo, riga di spiegazione sotto —
+   tre righe a fonte, in un riquadro alto quanto una card. Ora sono righe come
+   quelle dell'inventario: il campo occupa la riga, il genere sta in coda, la
+   spiegazione sparisce (il segnaposto del campo dice già la stessa cosa).
+   ⚠️ NON vale per il box del testo libero (`--cresce`): là si scrive, e una riga
+   da 32px non è un posto dove scrivere.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* ⚠️ Niente fondo, niente raggio, niente imballaggio: è la veste ESATTA della riga
+   dell'inventario (`.mn-file`), che è quello che è stato chiesto — «la stessa
+   modalità di presentazione». Una cornice per riga farebbe due elenchi che si
+   somigliano invece di due elenchi uguali. L'unica differenza che resta è
+   l'altezza: qui dentro c'è un campo da compilare, e sotto i 26px non si tocca. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;                      /* lo stesso della riga dell'inventario */
+    min-height: 0;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    margin: 0 !important;
+}
+/* ⚠️ Il titolo della riga («Link Web», «Video YouTube») SPARISCE (5/8, richiesta
+   di Giacomo: «eliminare tutti i titoli»). Non è una perdita: il segnaposto del
+   campo dice già di che fonte si tratta — «https://…» contro
+   «https://youtube.com/watch?v=…» — e il genere tornerebbe comunque nell'elenco
+   dei documenti qui accanto, che lo scrive in coda a ogni riga. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry > div > div {
+    display: none !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry svg {
+    width: 14px !important; height: 14px !important;
+}
+/* ── Il wrap che SCORRE (5/8) ────────────────────────────────────────────────
+   Con molte fonti l'elenco non deve far crescere il riquadro: la griglia resta
+   modulare e sono le righe a scorrere, come in una tabella delle console. Il
+   contenitore è il corpo del modulo, che ha già l'altezza del box. */
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) .mn-str[data-sposta="#sources-container"] {
+    overflow: hidden;
+    min-height: 0;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container {
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    gap: 6px !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry input {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0 !important;
+    background: #fff !important;
+    border: 1px solid transparent !important;
+    border-radius: 7px !important;
+    padding: 3px 8px !important;
+    min-height: 26px;
+    font-size: var(--bn-fs-voce) !important;
+    font-weight: var(--bn-fw-voce) !important;
+    color: var(--man-su-verde) !important;
+    box-shadow: none !important;
+}
+/* la riga di spiegazione sotto il campo: in un elenco è rumore, e il segnaposto
+   del campo dice già dove si va a parare */
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry p { display: none !important; }
+/* il comando che toglie la fonte: stessa taglia del pallino dell'inventario (20px)
+   e stesso colore — è lo stesso gesto, e due vesti direbbero che sono due cose */
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry > button {
+    flex: 0 0 auto;
+    width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: inherit !important;
+    opacity: .75;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry > button svg {
+    width: 15px !important; height: 15px !important;
+}
+html.manifesto #mn-bento .mn-card:not(.mn-card--cresce) #sources-container .source-entry > button:hover { opacity: 1; }
+
+/* ── L'area di scrittura del TESTO LIBERO ────────────────────────────────────
+   Fondo bianco, testo `#404040`, e un tetto dichiarato in RIGHE: si allarga con
+   quello che si incolla fino a trenta righe, poi scorre. In righe e non in pixel
+   perché resti trenta righe anche se un domani cambia il corpo del testo. */
+/* ⚠️ `.mn-spostato.source-entry` e non solo `.source-entry`: la riga è un elemento
+   spostato, e la regola che fa ereditare il colore ai suoi figli
+   (`.mn-spostato *`, quattro classi) batteva questa (tre) — misurato: testo
+   BIANCO su fondo bianco, cioè invisibile mentre lo si scrive. Serve pareggiare
+   il conto delle classi, non aggiungere un `!important` che c'era già. */
+html.manifesto #mn-bento .mn-card--cresce .mn-spostato.source-entry textarea {
+    background: #fff !important;
+    color: var(--man-su-verde) !important;
+    /* ⚠️ `field-sizing: content` è ciò che fa CRESCERE il campo con quello che si
+       incolla: una textarea, da sola, resta dell'altezza dichiarata e basta —
+       «si estende fino a 30 righe» richiederebbe altrimenti del JS che ricalcola
+       `scrollHeight` a ogni tasto. Fra `min-height` e `max-height` il campo si
+       ferma a trenta righe e poi scorre. Verificato supportato (Chromium 148). */
+    field-sizing: content;
+    min-height: calc(5 * 1.5 * var(--bn-fs-voce)) !important;
+    max-height: calc(30 * 1.5 * var(--bn-fs-voce)) !important;
+    overflow-y: auto !important;
+    line-height: 1.5 !important;
+    resize: vertical !important;
+}
+
+/* ⚠️ La regola che nasconde `#sources-container` quando non ha righe visibili
+   (serve a non fargli consumare il gap del form) NON deve valere quando il
+   contenitore è stato spostato DENTRO il bento: là è il box delle fonti caricate,
+   e nasconderlo lo renderebbe un riquadro vuoto per sempre. Due id, e viene dopo. */
+html.manifesto #mn-bento #sources-container {
+    display: flex !important;
+    /* ⚠️ `!important` necessario: la regola che COMPATTA i pezzi spostati impone
+       `flex-direction: row !important` a ogni figlio diretto del posto, e un
+       `!important` batte qualunque regola che non ce l'ha, anche con due id contro
+       uno. Misurato: le quattro fonti stavano AFFIANCATE su una riga alta 43px,
+       e il box «non scorreva» perché non c'era niente da scorrere.
+       La compattazione a riga è giusta per un bottone; questo è un contenitore di
+       righe, ed è l'eccezione. */
+    flex-direction: column !important;
+    gap: 8px;
+    padding: 0 !important;
+    width: 100%;
+}
+
+/* ⚠️ Nel guscio del bento non ci sta NIENTE oltre al bento. `#generation-details-card`
+   è il contenitore storico delle «impostazioni di generazione» e nel markup ospita
+   anche la stima dei costi: in vista compatta è nascosta, ma **uscendo** dalla vista
+   compatta ricompariva SOPRA la griglia e spingeva giù il mega-bento di 161px
+   (misurato) — cioè la combo spaccava il layout, che è esattamente quello che non
+   deve fare.
+   La regola è generale di proposito: qualunque cosa il markup metta lì dentro in
+   futuro resta fuori dai piedi. Se una di quelle cose serve, si monta nel bento
+   dall'Officina — e allora non è più figlia diretta di questo contenitore, quindi si
+   vede. Il posto di un pezzo lo decide la composizione, non l'ordine del markup. */
+html.manifesto #landing-view #generation-details-card > *:not(#mn-bento) {
+    display: none !important;
+}
+
+/* ── Dentro un box largo, le voci si AFFIANCANO ───────────────────────────────
+   Misurato: «Modalità» è larga 4 colonne (1236px) e le sue quattro voci stavano
+   incolonnate, quindi il corpo scorreva pur avendo 1100px di spazio orizzontale
+   vuoto accanto. In un riquadro largo le voci vanno in griglia: quattro o cinque
+   per riga, e il box da 145 basta senza scorrere.
+   `auto-fill` con un minimo di 220px: chi compone cambia lo span e la disposizione
+   si adatta da sé, invece di dover ritoccare un numero di colonne a mano. */
+html.manifesto #mn-bento .mn-card--str .mn-card__b {
+    display: grid;
+    /* il 220 è il default dichiarato in `LAYOUT_BASE.colMin`: chi compone lo
+       cambia dall'Officina §7 e la variabile arriva dallo stile inline del
+       modulo. Senza scelta, la variabile non c'è e vale il fallback → la resa
+       resta quella di prima. */
+    grid-template-columns: repeat(auto-fill, minmax(var(--mn-col-min, 220px), 1fr));
+    gap: 8px;
+    align-content: start;
+}
+/* un box a UNA colonna resta in colonna: 220px non ci stanno affiancati e la
+   griglia ricadrebbe comunque su una colonna sola — dichiararlo evita il dubbio */
+html.manifesto #mn-bento .mn-card--str[style*="span 1"] .mn-card__b {
+    grid-template-columns: 1fr;
+}
+
+/* La voce che CRESCE prende tutta la riga della griglia: è il box delle fonti
+   caricate, e un campo dove si incolla un testo largo un terzo del riquadro non
+   serve a niente (misurato: 1 colonna su 3 in un box da 924px). */
+html.manifesto #mn-bento .mn-card--str .mn-card__b > .mn-str:only-child,
+html.manifesto #mn-bento .mn-card--cresce .mn-card__b > .mn-str {
+    grid-column: 1 / -1;
+}
+
+
+/* Al passaggio il fondo diventa verde: là il testo torna SCURO — è la regola del
+   3/8 (bianco su #41e6aa fa 1,6:1). Senza questa riga, ereditando il bianco del box
+   nero, l'etichetta sul verde sarebbe illeggibile: si sposterebbe il difetto invece
+   di risolverlo. */
+html.manifesto #mn-bento .mn-str > .mn-spostato:hover,
+html.manifesto #mn-bento .mn-str > .mn-spostato:hover *,
+html.manifesto #mn-bento button.mn-spostato:hover,
+html.manifesto #mn-bento button.mn-spostato:hover * {
+    color: var(--man-su-verde) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IL MODULO NUDO: il riquadro È il pezzo (5/8)
+   I quattro pezzi della prima sezione — il bottone che carica i documenti,
+   l'elenco delle fonti, la scelta del genere e le sue opzioni — entrano nella
+   composizione come moduli, ma senza riquadro: fondo, raggio e altezza modulare
+   ce li hanno già. Un secondo contorno attorno a un box che è già un box
+   costerebbe due bordi, un imballaggio e 36px di altezza in più.
+   Del modulo resta la sola cosa che è davvero sua: quante colonne occupa.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto #mn-bento .mn-card--nuda {
+    background: none !important;
+    border: none !important;
+    border-radius: 0;
+    padding: 0;
+    gap: 0;
+    min-height: 0;
+}
+/* la testata di un modulo nudo non c'è: il titolo lo porta il pezzo, se ce l'ha */
+html.manifesto #mn-bento .mn-card--nuda > .mn-card__t { display: none; }
+html.manifesto #mn-bento .mn-card--nuda > .mn-card__b {
+    display: block;
+    height: 100%;
+    min-width: 0;
+}
+html.manifesto #mn-bento .mn-card--nuda .mn-str { height: 100%; }
+/* il posto vuoto resta visibile finché l'elemento vero non è arrivato: senza, un
+   modulo nudo non ancora riempito sarebbe un buco nella griglia e chi compone non
+   saprebbe se ha sbagliato il selettore o se il pezzo non c'è */
+html.manifesto #mn-bento .mn-card--nuda .mn-str:not(.mn-str--pieno) {
+    border: 1px dashed color-mix(in srgb, var(--man-nero) 30%, transparent);
+    border-radius: 18px;
+    min-height: var(--mn-h-modulo);
+    align-items: center;
+    justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   I CONTROLLI GRANULARI DEL MODULO (5/8)
+   Quattro leve che prima erano numeri scritti qui dentro e quindi non
+   discutibili: i colori dei bottoni interni, dove sta l'etichetta rispetto al
+   campo, quanto è larga la colonna delle etichette, come si dispongono le voci.
+   Ora vivono in `mappai-bento-composizione.js` (`layout` e `bottoni` del modulo),
+   si compongono nell'Officina §7 e arrivano qui come variabili + attributi
+   scritti da `presentazione()`.
+
+   ⚠️ Regola che tiene insieme il tutto: si emette SOLO ciò che è stato scelto.
+   Le regole qui sotto sono agganciate a un ATTRIBUTO (`data-btn`, `data-et`,
+   `data-voci-n`), quindi un modulo che non ha scelto niente non le incontra
+   nemmeno — la resa di chi non tocca la leva è identica a prima, per costruzione
+   e non per attenzione.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. I bottoni DENTRO un modulo ────────────────────────────────────────────
+   È la leva nata dal difetto: su un box scuro i bottoni prendevano il colore del
+   fondo (1:1) e si vedevano solo al passaggio. Il caso è chiuso (`color: inherit`),
+   ma la scelta non c'era. `!important` è necessario, non pigrizia: le regole che
+   vestono gli elementi spostati sono già `!important`, e queste devono vincerle. */
+html.manifesto #mn-bento .mn-card[data-btn] .mn-btn,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-azione-int,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato {
+    background: var(--mn-btn-bg, color-mix(in srgb, currentColor 14%, transparent)) !important;
+    color: var(--mn-btn-txt, currentColor) !important;
+}
+/* i figli hanno un colore loro (è la trappola ricorrente §6.4): senza questa
+   riga il fondo cambierebbe e l'etichetta resterebbe del colore di prima */
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato *,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato *,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-azione-int * {
+    color: var(--mn-btn-txt, currentColor) !important;
+}
+/* `:focus-visible` insieme a `:hover`: chi naviga da tastiera non ha un hover, e
+   con l'etichetta che si rivela al passaggio resterebbe senza niente da leggere */
+html.manifesto #mn-bento .mn-card[data-btn] .mn-btn:hover,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-btn:focus-visible,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-azione-int:hover,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-azione-int:focus-visible,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato:hover,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato:focus-visible,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato:hover,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato:focus-visible {
+    background: var(--mn-btn-hover, var(--man-verde)) !important;
+    color: var(--mn-btn-hover-txt, var(--man-su-verde)) !important;
+}
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato:hover *,
+html.manifesto #mn-bento .mn-card[data-btn] .mn-str > .mn-spostato:focus-visible *,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato:hover *,
+html.manifesto #mn-bento .mn-card[data-btn] button.mn-spostato:focus-visible * {
+    color: var(--mn-btn-hover-txt, var(--man-su-verde)) !important;
+}
+
+/* ── 2. Dove sta l'etichetta, e la colonna che allinea i campi ────────────────
+   Con le etichette a sinistra ogni riga partiva dove finiva la SUA etichetta:
+   «Chi:» e «Cosa:» si allineano solo perché sono lunghe uguali. Una colonna fissa
+   dà a tutti i campi lo stesso bordo di partenza — che è ciò che si vede quando
+   un riquadro «è in ordine». */
+html.manifesto #mn-bento .mn-card[data-et="sopra"] .mn-campo {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+}
+/* ⚠️ `:not([data-et="sopra"])` non è pignoleria: in colonna il `flex-basis`
+   diventa un'ALTEZZA, e l'etichetta sarebbe alta 90px (misurato). Il validatore
+   dice già che la leva non ha effetto lì — ma «non ha effetto» deve voler dire
+   niente, non una resa rotta. */
+html.manifesto #mn-bento .mn-card[data-et-w]:not([data-et="sopra"]) .mn-campo > span {
+    flex: 0 0 var(--mn-et-w);
+    min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* il campo si prende quello che resta — a meno che la voce non dichiari una sua
+   larghezza, che essendo inline vince (ed è giusto: è una scelta più specifica) */
+html.manifesto #mn-bento .mn-card[data-et-w] .mn-campo > .mn-sel,
+html.manifesto #mn-bento .mn-card[data-et-w] .mn-campo > .mn-num {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* ── 3-4. Quante colonne di voci, e larghe quanto ─────────────────────────────
+   ⚠️ Queste due regole devono stare DOPO `.mn-card--str[style*="span 1"]`, che ha
+   la stessa specificità: a parità vince l'ultima scritta. Una scelta esplicita
+   deve poter vincere sulla regola generale del box a una colonna. */
+html.manifesto #mn-bento .mn-card[data-voci-n] .mn-card__b {
+    display: grid;
+    grid-template-columns: repeat(var(--mn-col-n), minmax(0, 1fr));
+    gap: 8px;
+    align-content: start;
+}
+html.manifesto #mn-bento .mn-card[data-voci="colonna"] .mn-card__b {
+    display: flex;
+    flex-direction: column;
+    /* ⚠️ In colonna il riquadro prende l'altezza del CONTENUTO: il tetto dei
+       moduli-strumento (pensato per non sfondare la griglia quando le voci si
+       affiancano) qui produceva mezza riga tagliata, e alzare il numero non
+       bastava mai — le righe crescevano insieme al box (misurato: contenuto
+       172 → 179 → 190 mentre alzavo). Un'altezza che si insegue non è una misura.
+       Chi mette le voci in colonna sa che quel riquadro è alto quanto serve;
+       `altezza` resta il MINIMO. */
+    max-height: none;
+    overflow: visible;
+}
+html.manifesto #mn-bento .mn-card--str[data-voci="colonna"] {
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   I BOX SCURI: il fondo nero arriva fino al bordo, i CHIP restano chiari (5/8)
+   Le righe degli strumenti avevano un riquadro chiaro attorno: dentro un box nero
+   diventava una fascia bianca che spezzava il fondo, e i pannelli che arrivano da
+   fuori (le Lenti, l'area disciplinare, le macro-aree) portavano il LORO fondo
+   chiaro — cioè un riquadro dentro il riquadro. Giacomo: «sfondo nero esteso,
+   titoli inline in bianco, il fondo chiaro solo sui chip».
+   La regola, in una riga: **il fondo chiaro sta sui COMANDI, mai sui contenitori.**
+   Un `div` che raccoglie non si preme, quindi non si dipinge; un `button`, un
+   `select`, un campo sì — e la faccia ATTIVA di uno switch è verde, perché due
+   facce con lo stesso fondo chiaro non si distinguono (era il difetto: «Normale» e
+   «Adattiva» misurate identiche, entrambe #f1f4f8).
+
+   ⚠️ SPECIFICITÀ, ed è il motivo per cui la prima stesura non si vedeva. Il fondo
+   della riga arriva da `.mn-card[data-btn] .mn-str > .mn-spostato` (1 id, 5 classi),
+   scritta per i moduli che dichiarano i colori dei bottoni in officina. Una regola
+   con `.mn-card--extra` sola fa 1 id e 4 classi: perdeva, in silenzio, e il
+   riquadro chiaro restava. Qui si usano DUE classi del riquadro
+   (`.mn-card--extra.mn-card--str`) per pareggiare, e il blocco sta in fondo al
+   foglio perché a parità vince l'ultima scritta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* 1. i CONTENITORI non hanno fondo: né la riga, né i pannelli che porta dentro.
+   ⚠️ `:not(.peer + div)`: il BINARIO di un interruttore è un `div` (il pattern
+   `input.peer.sr-only` + `div` con il pallino in `::after`), ma non è un
+   contenitore — è il comando. Senza l'eccezione restava a schermo il solo pallino
+   bianco che galleggia sul nero: misurato sul toggle «Genera Macro-Aree in
+   automatico», dove del binario non si vedeva più niente. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str > .mn-spostato,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato :is(div, p, ul, ol, li, section, fieldset, form):not(.peer + div) {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+/* il binario di un interruttore segue la grammatica dell'altro switch a uno stato
+   («Adatta»): binario chiaro, pallino ROSSO da spento e VERDE da acceso. Erano due
+   vesti per lo stesso gesto — un binario grigio-verde con pallino bianco qui, un
+   chip col pallino colorato due righe sopra. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato input.peer + div {
+    background: var(--man-card) !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato input.peer + div::after {
+    background: #ef4444 !important;
+    border-color: transparent !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato input.peer:checked + div::after {
+    background: var(--man-verde) !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str > .mn-spostato {
+    padding: 2px 0 !important;
+    gap: 10px !important;
+}
+/* nemmeno al passaggio: una RIGA non è un bersaglio — lo sono i suoi comandi */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str > .mn-spostato:hover {
+    background: none !important;
+}
+/* 2. i TITOLI inline: bianchi e in grassetto, su una riga sola.
+   ⚠️ 12/700 è un quarto corpo dichiarato (`SCALA.rigaTitolo`): sono titoli, ma
+   stanno DENTRO una riga alta 30px e non possono prendere i 14px del titolo del
+   riquadro. Meglio un corpo dichiarato che un grassetto non scritto da nessuna
+   parte.
+   ⚠️ `white-space: nowrap`: «Livello massimo» andava a capo e la riga diventava
+   alta 36px in mezzo a righe da 30 — un elenco con una riga più alta si legge come
+   un errore di impaginazione. Chi non ci sta tronca, e il testo intero resta nel
+   fumetto della riga. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str > .mn-spostato > :is(span, label):first-child,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str--et.mn-str--pieno > .mn-str__att,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato :is(.lenses-group-label, #step-l1-desc, .landing_label_secondary) {
+    color: #fff !important;
+    opacity: 1 !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 3. i CHIP: quello che si preme tiene il fondo chiaro.
+   ⚠️ Il colore del testo va imposto INSIEME al fondo: il pulsante «Nuova
+   macro-area» prendeva il fondo chiaro da una parte e il bianco del modulo
+   dall'altra — bianco su #f1f4f8 fa 1,1:1, cioè un bottone che non si legge.
+   ⚠️ `#level-tune-toggle` resta fuori: è l'interruttore chip+pallino, ha le sue
+   misure e un fondo chiaro lo farebbe sembrare un bottone. */
+/* ⚠️ DUE forme dello stesso selettore: `.mn-spostato COMANDO` (il comando dentro
+   una riga montata) e `COMANDO.mn-spostato` (il comando che È il pezzo montato —
+   il menu del livello, il campo del focus). Un discendente non comprende
+   l'elemento stesso: senza la seconda forma il menu «Livello» restava trasparente
+   sul nero, cioè invisibile. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato :is(button, select, textarea, input[type="text"], input[type="url"], input[type="number"]),
+html.manifesto #mn-bento .mn-card--extra.mn-card--str :is(button, select, textarea, input[type="text"], input[type="url"], input[type="number"]).mn-spostato {
+    background: var(--man-card) !important;
+    color: var(--man-su-verde) !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px 10px !important;
+    min-height: 26px;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str button.mn-spostato {
+    border-radius: 999px !important;   /* i comandi brevi sono pillole */
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato :is(select, textarea, input),
+html.manifesto #mn-bento .mn-card--extra.mn-card--str :is(select, textarea, input).mn-spostato {
+    border-radius: 10px !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button:hover,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button:focus-visible,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str button.mn-spostato:hover,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str button.mn-spostato:focus-visible {
+    background: var(--man-verde) !important;
+    color: var(--man-su-verde) !important;
+}
+/* 4. la faccia ATTIVA di uno switch — e la scelta attiva di un elenco di pillole
+   (lenti, presi, area disciplinare) — si distingue in VERDE, che è «attivo» in
+   tutta la veste. Il marcatore cambia da comando a comando perché il markup è
+   storico: `bg-white` sulle facce degli switch, `aria-pressed`, `.active` sulle
+   lenti, un fondo pieno con testo bianco sulle discipline. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button:is(.bg-white, .active, .bg-emerald-400, [aria-pressed="true"], [class*="text-white"]) {
+    background: var(--man-verde) !important;
+    color: var(--man-su-verde) !important;
+}
+/* 5. il contenitore delle due facce non è più una pillola dentro una pillola:
+   sparisce e restano i due chip affiancati.
+   ⚠️ Larghezza AUTO: le pillole del form portano una misura fissa (132/128/124px)
+   tarata su una riga larga tutto il form; nel box a una colonna (259px utili) quel
+   numero mangiava metà riga e il titolo si troncava a «Generazione M…». */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato div:has(> button + button) {
+    display: flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    gap: 4px !important;
+    flex: 0 0 auto !important;
+}
+/* 5-bis. i PANNELLI conservano la loro impaginazione.
+   ⚠️ La regola storica compatta OGNI pezzo montato in una riga
+   (`flex-direction: row`): giusta per un bottone-fonte, sbagliata per un pannello
+   che porta dentro un testo, un bottone e un elenco — nelle macro-aree metteva
+   spiegazione, «Nuova macro-area» e la riga del campo TUTTE SULLA STESSA RIGA,
+   centrate, e il campo finiva largo 176px con la × sopra il testo. Un `div`
+   montato che non sia una riga di comandi (`#row-…`) o un elenco con le sue
+   regole torna a impaginarsi da sé. */
+/* ⚠️ `:not([onclick])`: i bottoni-fonte (URL, YouTube, Audio, Testo) sono `div`
+   con un `onclick`, non `<button>` — markup storico. Trattati da pannelli
+   perdevano fondo e forma e restavano un'icona con una parola sul nero. Un pezzo
+   che si preme è un comando, qualunque tag porti. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str > div.mn-spostato:not([id^="row-"]):not(#level-tune-row):not(#sources-container):not([onclick]):not([role="button"]) {
+    display: block !important;
+    text-align: left !important;
+}
+/* …e per la stessa ragione un `div` cliccabile è un CHIP come un bottone */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str div.mn-spostato[onclick],
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato div[onclick] {
+    background: var(--man-card) !important;
+    color: var(--man-su-verde) !important;
+    border-radius: 999px !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str div.mn-spostato[onclick]:hover,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato div[onclick]:hover {
+    background: var(--man-verde) !important;
+}
+/* dentro un pannello, un bottone è un COMANDO: si prende la larghezza che gli
+   serve, non tutta la riga (misurato: «Nuova macro-area» largo 1196px, cioè una
+   fascia chiara che pesava più del riquadro che la contiene) */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button:not([class*="flex-1"]) {
+    width: auto !important;
+}
+/* la × che toglie una riga non è un chip: è un gesto di servizio — nessun fondo,
+   rosso al passaggio, come i cestini degli elenchi */
+/* ⚠️ Rosso CHIARO, non quello del markup: `#f87171` su `#404040` fa **3,75:1** —
+   sopra il 3:1 che WCAG chiede a un elemento grafico, ma è l'unico segno di
+   un comando che cancella. `#fca5a5` porta a 5,4:1, e al passaggio si schiarisce
+   ancora: su fondo scuro «più marcato» vuol dire più chiaro, non più saturo. */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button[class*="absolute"] {
+    background: none !important;
+    color: #fca5a5 !important;
+    padding: 0 !important;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button[class*="absolute"]:hover,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button[class*="absolute"]:focus-visible {
+    background: none !important;
+    color: #fee2e2 !important;
+}
+/* 6. il menu del livello: riga sua, e SPENTO finché la profondità è automatica —
+   lo disabilita `syncAutoDepthUI`, qui si vede che è spento (e con lui il suo
+   titolo: un'etichetta a piena forza sopra un comando spento dice il contrario) */
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato select:disabled,
+html.manifesto #mn-bento .mn-card--extra.mn-card--str select.mn-spostato:disabled {
+    opacity: .45 !important;
+    cursor: not-allowed;
+}
+html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-str--et:has(select:disabled) > .mn-str__att {
+    opacity: .45 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA BARRA IN ALTO: pallino · chip · nome della sezione (5/8)
+   Una barra sola, sempre nello stesso posto — sulla landing e dentro una console.
+   Porta tre cose e nient'altro: il pallino della Cabina, il chip del contesto e
+   il nome di dove sei (Crea · Elabora · Insegna · Cabina).
+   ⚠️ L'ordine si dichiara con `order` e non con la posizione nel DOM: `renderChip`
+   ricostruisce il chip e lo infila come primo figlio, quindi qualunque ordine
+   basato sull'albero si romperebbe al primo ridisegno del contesto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto #header-utils {
+    flex-direction: row;
+    align-items: center;
+}
+html.manifesto #header-utils #btn-cabina { order: 1; }
+html.manifesto #header-utils #active-class-chip { order: 2; }
+html.manifesto #header-utils #mn-sezione { order: 3; }
+html.manifesto #mn-sezione {
+    font-size: var(--mn-tit-fs);     /* +50% (5/8, Giacomo): 20 → 30 */
+    font-weight: 700;
+    color: var(--mn-tit-col);
+    letter-spacing: normal;
+    line-height: 1;
+    white-space: nowrap;
+}
+/* la barra vuota non scrive niente: la prima pagina è un manifesto */
+html.manifesto.manifesto-vuota #mn-sezione { display: none; }
+
+/* ── la testata di una CONSOLE porta le stesse tre cose, in fila ──────────────
+   ⚠️ Il chip della landing è coperto: una console a schermo pieno sta a z 12100
+   e la barra a 60. Quindi il chip si rimonta qui (`montaChip`), con lo stesso
+   costruttore — e il pallino resta dov'è (misurato: 22,17 contro 20,16 della
+   landing, cioè lo stesso posto).
+   ⚠️ Il SOTTOTITOLO sparisce: diceva «4A · Geografia · 1 mappe», cioè il chip più
+   un conteggio. Due volte la stessa cosa sulla stessa riga. */
+html.manifesto .mm-box--console .mm-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+/* ⚠️ La classe è `mm-subtitle`, non `mm-sub`: con il selettore sbagliato la riga
+   restava, e per giunta PRIMA del titolo (misurato: sottotitolo a x=273, titolo a
+   597 — cioè il nome della console finiva in mezzo alla barra). */
+html.manifesto .mm-box--console .mm-head .mm-subtitle,
+html.manifesto .mm-box--console .mm-head .mm-sub { display: none !important; }
+html.manifesto .mm-box--console .mm-head .mm-title {
+    font-size: var(--mn-tit-fs);     /* lo stesso della barra: è la stessa riga */
+    font-weight: 700;
+    color: var(--mn-tit-col);
+    line-height: 1;
+    margin: 0;
+    flex: 0 1 auto;
+}
+html.manifesto .mm-box--console .mm-head .mm-head__ico { order: 1; }
+/* ⚠️ `margin-left: auto` è del chip «normale» del motore, che nelle testate dei
+   modali sta a DESTRA: qui misurava 712px di margine e spediva chip e titolo in
+   fondo alla riga. Nella barra il chip sta subito dopo il pallino. */
+html.manifesto .mm-box--console .mm-head .mn-chip-console {
+    order: 2;
+    flex: 0 0 auto;
+    margin: 0 !important;
+}
+/* il contenitore del testo, se il motore lo mette, non deve mangiarsi la riga.
+   ⚠️ `justify-content: flex-start`: il contenitore è una colonna centrata (serviva
+   a titolo + sottotitolo), e col sottotitolo via il titolo restava piantato in
+   mezzo — misurato a x=598 con la riga che comincia a 274. */
+html.manifesto .mm-box--console .mm-head > div:has(> .mm-title) {
+    order: 3;
+    flex: 0 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+}
+/* il pallino della console sta dove sta quello della landing: stessa taglia e
+   stesso margine, così il chip che segue cade nello stesso punto (misurato:
+   22+44 contro 20+43 mandava il chip 3px più in là) */
+html.manifesto .mm-box--console .mm-head { padding-left: 20px !important; }
+html.manifesto .mm-box--console .mm-head .mm-head__ico {
+    width: 43px; height: 43px; min-width: 43px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ICONA A RIPOSO ↔ TESTO AL PASSAGGIO (5/8, richiesta di Giacomo)
+   Prima l'etichetta stava sotto il glifo e spariva prendendo il colore del fondo:
+   il bottone restava alto quanto icona + testo anche quando il testo non si
+   vedeva. Ora l'icona sta al CENTRO e l'etichetta le si sostituisce, al centro
+   dello stesso spazio.
+   ⚠️ L'etichetta è ASSOLUTA: se restasse nel flusso, il testo comparendo
+   sposterebbe il glifo mentre sfuma — due movimenti per una cosa sola.
+   ⚠️ Lo scambio ha un ritardo (.09s) e una dissolvenza (.18s): passando il mouse
+   per arrivare altrove non si accende niente, e chi si ferma vede una cosa
+   cambiare, non lampeggiare. Stessa idea dell'attesa dei fumetti.
+   ⚠️ `:focus-visible` accanto a `:hover` sempre: da tastiera un hover non esiste,
+   e senza, l'etichetta non comparirebbe mai.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.manifesto .btn_selezione_input,
+html.manifesto .btn_quick_action,
+.manifesto .mn-card--azione,
+.manifesto .mn-card--genera {
+    position: relative;
+    overflow: hidden;
+}
+html.manifesto .btn_selezione_input > svg,
+html.manifesto .btn_quick_action > svg,
+.manifesto .mn-card--azione > svg,
+.manifesto .mn-card--genera > svg {
+    transition: opacity .18s ease .09s;
+}
+html.manifesto .btn_selezione_input:hover > svg,
+html.manifesto .btn_selezione_input:focus-visible > svg,
+html.manifesto .btn_quick_action:hover > svg,
+html.manifesto .btn_quick_action:focus-visible > svg,
+.manifesto .mn-card--azione:hover > svg,
+.manifesto .mn-card--azione:focus-visible > svg,
+.manifesto .mn-card--genera:hover > svg,
+.manifesto .mn-card--genera:focus-visible > svg {
+    opacity: 0;
+}
+/* ⚠️ La variante con `#landing-view` c'è per forza: le etichette hanno già una
+   regola id-qualificata (`html.manifesto #landing-view .btn_selezione_input
+   .source_btn_text`, che dà loro corpo e transizione del colore) e senza l'id
+   questa perdeva — misurato: `transition: color .12s`, cioè la dissolvenza non
+   esisteva e il testo appariva di scatto. */
+html.manifesto .btn_selezione_input > .source_btn_text,
+html.manifesto #landing-view .btn_selezione_input > .source_btn_text,
+html.manifesto .btn_quick_action > span,
+html.manifesto #landing-view .btn_quick_action > span,
+.manifesto .mn-card--azione > span,
+.manifesto .mn-card--genera > span {
+    position: absolute;
+    left: 8px; right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0 !important;
+    text-align: center;
+    opacity: 0;
+    transition: opacity .18s ease .09s;
+}
+html.manifesto .btn_selezione_input:hover > .source_btn_text,
+html.manifesto .btn_selezione_input:focus-visible > .source_btn_text,
+html.manifesto #landing-view .btn_selezione_input:hover > .source_btn_text,
+html.manifesto #landing-view .btn_selezione_input:focus-visible > .source_btn_text,
+html.manifesto .btn_quick_action:hover > span,
+html.manifesto .btn_quick_action:focus-visible > span,
+html.manifesto #landing-view .btn_quick_action:hover > span,
+html.manifesto #landing-view .btn_quick_action:focus-visible > span,
+.manifesto .mn-card--azione:hover > span,
+.manifesto .mn-card--azione:focus-visible > span,
+.manifesto .mn-card--genera:hover > span,
+.manifesto .mn-card--genera:focus-visible > span {
+    opacity: 1;
+}
+/* chi ha chiesto meno animazioni vede lo scambio, non la dissolvenza */
+@media (prefers-reduced-motion: reduce) {
+    html.manifesto .btn_selezione_input > svg,
+    html.manifesto .btn_quick_action > svg,
+    .manifesto .mn-card--azione > svg,
+    .manifesto .mn-card--genera > svg,
+    html.manifesto .btn_selezione_input > .source_btn_text,
+    html.manifesto .btn_quick_action > span,
+    .manifesto .mn-card--azione > span,
+    .manifesto .mn-card--genera > span {
+        transition: none !important;
+    }
+}
+
+/* ── il mega-bento sale di 60px verso il bordo dello schermo (5/8) ────────────
+   La lastra aveva 19px di margine e 38 di imballaggio in cima: 57px di bianco fra
+   la barra e la prima riga, in una schermata che comincia solo più sotto. */
+html.manifesto #landing-view .glass-card {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* ── Il VELO DI BOOT: la landing si vede quando è pronta (5/8) ────────────────
+   La classe la mette lo script inline in <head> (vedi il commento là) e la toglie
+   `window.__mnBootFine`, chiamato da chi monta il mega-bento — più due reti
+   (`load` e un tetto di 1,5s) perché un errore non possa lasciare la pagina
+   bianca.
+   ⚠️ `visibility`, non `display`: lo spazio resta occupato, quindi comparendo la
+   landing non sposta niente. Con `display:none` si eviterebbe un lampeggio per
+   averne un altro. */
+html.mn-boot #landing-view { visibility: hidden; }
+
+/* ── LE BRICIOLE nella barra (5/8, regola di Giacomo) ─────────────────────────
+   «Elabora › Documenti › Quiz › nome del file». Il livello corrente ha il corpo
+   del titolo (è il titolo); quelli prima sono più leggeri e si premono — sono la
+   via d'uscita, al posto della × e dei «Chiudi» sparsi.
+   ⚠️ I livelli precedenti stanno al 55% e NON più chiari di così: sono comandi,
+   non decorazione, e sotto quella soglia il contrasto non regge. */
+html.manifesto .mn-briciole {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+html.manifesto .mn-briciole__l {
+    font-size: var(--mn-tit-fs);
+    font-weight: 700;
+    color: var(--mn-tit-col);
+    letter-spacing: -.01em;
+    line-height: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+html.manifesto .mn-briciole button.mn-briciole__l {
+    opacity: .55;
+    cursor: pointer;
+    transition: opacity .12s, color .12s;
+}
+html.manifesto .mn-briciole button.mn-briciole__l:hover,
+html.manifesto .mn-briciole button.mn-briciole__l:focus-visible { opacity: 1; }
+/* la briciola del livello «Cosa» (la prima) è SEMPRE piena #404040 (Giacomo):
+   non sbiadita al 55% come i livelli successivi. */
+html.manifesto .mn-briciole button.mn-briciole__l:first-child { opacity: 1; }
+/* ⚠️ A stringersi è SOLO l'ultimo livello — il nome del file, l'unico che può
+   essere lungo. Con l'ellissi su tutti, in un'area stretta il percorso diventava
+   «Elab… › Docume… › Qu… › Storia della …»: quattro parole tagliate al posto di
+   un percorso (misurato nell'officina delle console). I livelli prima sono corti
+   e sono comandi: si leggono per intero. */
+html.manifesto .mn-briciole__l { flex: 0 0 auto; overflow: visible; }
+html.manifesto .mn-briciole__l.is-qui { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+html.manifesto .mn-briciole__sep {
+    font-size: var(--mn-tit-fs);
+    font-weight: 400;
+    color: var(--mn-tit-col);
+    opacity: .35;
+    line-height: 1;
+}
+/* col percorso a vista il titolo del motore sparisce: sarebbe lo stesso nome,
+   scritto due volte sulla stessa riga */
+html.manifesto .mm-head__testi.ha-briciole .mm-title { display: none !important; }

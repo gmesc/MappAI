@@ -35,6 +35,55 @@
     <!-- App Styles -->
     <link rel="stylesheet" href="css/style.css">
 
+    <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
+         Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
+         modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css">
+
+    <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
+         Ogni regola è scoped sotto html.manifesto: senza quella classe questo
+         foglio non cambia NULLA. La mette mappai-stile-manifesto.js, che si
+         spegne con localStorage mappai_stile_manifesto='0'.
+         Va DOPO i token e fuori dai @layer: le regole in layer perdono. -->
+    <link rel="stylesheet" href="css/mappai-stile-manifesto.css">
+    <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
+         resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
+    <link rel="stylesheet" href="css/mappai-console-manifesto.css">
+
+    <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
+         Le classi `manifesto` e `mappai-ridotta` le mettevano i due moduli a
+         DOMContentLoaded, cioè dopo il primo disegno: per meno di un secondo si
+         vedeva la landing storica — hero grande, tre card con l'etichetta, il
+         chip a destra — e poi tutto saltava al suo posto. Non è un difetto della
+         veste: è l'ordine in cui il browser fa le cose.
+         Questo script è INLINE e in <head>: gira prima che il body esista,
+         quindi il primo disegno è già quello giusto. Legge solo localStorage —
+         niente DOM, niente dipendenze.
+         `mn-boot` tiene la landing INVISIBILE (non `display:none`: lo spazio
+         resta, così non c'è un secondo salto) finché il mega-bento non è
+         montato, perché quello lo costruisce il JS e prima di allora la pagina
+         mostrerebbe comunque il form storico.
+         ⚠️ Tre reti perché una pagina non possa MAI restare bianca: `load`, un
+         tetto di 1,5s e la chiamata esplicita di chi monta il bento. Chi arriva
+         per primo vince, le altre non fanno niente. -->
+    <script>
+        (function () {
+            var h = document.documentElement, veste = true, ridotta = false;
+            try { veste = localStorage.getItem('mappai_stile_manifesto') !== '0'; } catch (e) { }
+            try { ridotta = localStorage.getItem('mappai_vista_ridotta') === '1'; } catch (e) { }
+            if (!veste) return;                     /* kill-switch: nessuna classe, nessun velo */
+            h.classList.add('manifesto', 'mn-boot');
+            if (ridotta) h.classList.add('mappai-ridotta');
+            var fatto = false;
+            window.__mnBootFine = function () {
+                if (fatto) return; fatto = true;
+                h.classList.remove('mn-boot');
+            };
+            setTimeout(window.__mnBootFine, 1500);
+            window.addEventListener('load', function () { setTimeout(window.__mnBootFine, 60); });
+        }());
+    </script>
+
     <!-- D3.js v7 (Local) -->
     <script src="js/d3.v7.min.js"></script>
 
@@ -608,7 +657,10 @@
 
         <div class="glass-card w-full max-w-3xl p-8 relative z-10 animate-fade-in mt-8">
             <!-- Header Landing Page -->
-            <div class="border-b border-indigo-200/60 pb-6 mb-8">
+            <!-- niente riga sotto l'hero (2/8): il marchio si stacca già dal
+                 selettore per lo spazio, e una linea a tutta larghezza su una
+                 schermata quasi vuota è l'elemento più marcato che ci sia -->
+            <div class="pb-6 mb-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-6">
                     <!-- Brand -->
                     <div class="flex flex-row items-center gap-5">
@@ -619,29 +671,19 @@
                         </div>
                     </div>
 
-                    <!-- Utils (Griglia 2x2) -->
-                    <div id="header-utils" class="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
-                        <button type="button" onclick="window.showConfigAIModal()" id="btn-config-ai"
-                            class="btn_header_setting">
-                            <i data-lucide="bot" class="nav_util_icon"></i>
-                            <!--<span data-i18n="btn_setup">AI</span>-->
-                        </button>
-                        <button type="button" onclick="window.showAppGuide()" id="btn-app-guide"
-                            class="btn_header_setting">
-                            <i data-lucide="help-circle" class="nav_util_icon"></i>
-                            <!--<span
-                                data-i18n="btn_app_guide">Guida</span>-->
-                        </button>
-                        <button type="button" onclick="window.showAppTutorial()" id="btn-app-tutorial"
-                            class="btn_header_setting">
-                            <i data-lucide="book-open" class="nav_util_icon"></i> <!--<span
-                                data-i18n="btn_active_study">Studio</span>-->
-                        </button>
-                        <button type="button" onclick="window.showTeacherProfileModal()" id="btn-user-profile"
-                            class="btn_header_setting">
-                            <i data-lucide="id-card" class="nav_util_icon"></i> <!--<span
-                                data-i18n="btn_who_are_you">Chi
-                                sei</span>-->
+                    <!-- Header della landing (2/8): DUE comandi, non cinque.
+                         · il CHIP classe · materia (montato da mappai-live-classes.js
+                           in #active-class-chip) — la stessa forma che le console
+                           usano in testata: è la stessa informazione, e prima qui
+                           era un bottone rettangolare che diceva una cosa sola;
+                         · la CABINA, che è la casa di profilo, AI, consumi, guida e
+                           note d'uso. I quattro bottoni solo-icona di prima erano
+                           quattro porte per quattro viste della stessa finestra. -->
+                    <div id="header-utils" class="flex flex-row items-center gap-2 w-full md:w-auto">
+                        <button type="button" id="btn-cabina" class="btn_header_setting"
+                            aria-label="Cabina" title="Cabina — profilo, AI, consumi, guida"
+                            onclick="window.openCabina ? window.openCabina('profilo') : window.showTeacherProfileModal()">
+                            <i data-lucide="sliders-horizontal" class="nav_util_icon"></i>
                         </button>
                     </div>
                 </div>
@@ -654,7 +696,7 @@
                     <button type="button" id="landing-mode-build" onclick="window.MappAITeach && window.MappAITeach.setMode('build')"
                         class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
                         <i data-lucide="wrench" class="w-4 h-4"></i>
-                        <span data-i18n="ui_landing_build">Costruisci</span>
+                        <span data-i18n="ui_landing_build">Crea</span>
                     </button>
                     <button type="button" id="landing-mode-elabora" onclick="window.MappAITeach && window.MappAITeach.setMode('elabora')"
                         class="landing-mode-seg px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2">
@@ -795,7 +837,7 @@
 
                 <!-- STEP 3: Rami Principali / Super-Hubs -->
                 <div id="step-3-container" class="mt-15">
-                    <label class="step_container">
+                    <label class="step_container" id="step-3-head">
                         <span class="step_badge step_badge_orange">3</span>
                         <span id="step-l1-title" class="step_title" data-i18n="ui_central_theme_areas">Tema Centrale e Macro-Aree</span>
                     </label>
@@ -808,7 +850,7 @@
                             placeholder="Es. Rivoluzione Francese, Fotosintesi...">
                     </div>
 
-                    <div class="pt-2">
+                    <div class="pt-2" id="step-l1-wrap">
                         <div id="input-l1-container" class="space-y-2 bg-slate-100 p-4 rounded-xl">
                             <p class="landing_label_secondary" id="step-l1-desc" data-i18n="ui_define_areas">Definisci le macro-aree per organizzare
                                 lo studio:</p>
@@ -843,7 +885,7 @@
                             </label>
                         </div>
 
-                        <div>
+                        <div id="step-focus-container">
                             <p class="pt-4 landing_label_primary" data-i18n="ui_specific_focus">Focus specifico (Opzionale):</p>
                             <textarea id="focus-input"
                                 class="w-full bg-white border border-indigo-200 rounded-xl px-10 py-3 text-sm transition mt-1 focus_ring_standard"
@@ -859,7 +901,7 @@
                                         onchange="window.MappAITune && (this.checked ? window.MappAITune.armLevel() : window.MappAITune.disarmLevel())"
                                         class="w-4 h-4 accent-indigo-600">
                                     <label for="level-tune-toggle" class="text-xs font-semibold text-slate-600 cursor-pointer">
-                                        <span data-i18n="ui_level_tune">Adatta al livello di:</span>
+                                        <span data-i18n="ui_level_tune">Adatta</span>
                                         <span id="level-tune-ctx" class="text-indigo-600 font-bold"></span>
                                     </label>
                                 </div>
@@ -882,25 +924,44 @@
                      multi-pass, confondibile con la profondità). I 4 setting migrati qui dal
                      box stima costi. Descrizioni lunghe → tooltip (data-i18n-title). -->
                 <div id="step-gen-settings-container" class="mt-15 transition-all duration-300">
-                    <label class="step_container">
+                    <label class="step_container" id="step-4-head">
                         <span class="step_badge step_badge_yellow">4</span>
                         <span class="step_title" data-i18n="ui_gen_settings">Impostazioni generazione</span>
                     </label>
-                    <div class="bg-slate-100 p-3.5 rounded-xl flex flex-col gap-2.5">
+                    <div id="gen-settings-box" class="bg-slate-100 p-3.5 rounded-xl flex flex-col gap-2.5">
 
                         <!-- Profondità (tetto dati) + toggle Automatica -->
-                        <div class="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                        <!-- ⚠️ L'id sta sulla RIGA, non sul bottone: è la riga intera a essere il
+                             controllo (etichetta + le due facce dello switch + il suo data-tip), ed è
+                             quella che il bento monta. Puntando al singolo bottone arrivava mezzo
+                             switch, senza nome e senza spiegazione — «ON», «MappAI», «A». -->
+                        <div id="row-gen-depth" class="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
                             data-i18n-tip="tip_gen_depth" data-tip="Fino a che livello di dettaglio MappAI genera i rami; il dettaglio più fine confluisce nelle descrizioni. «Automatica»: MappAI sceglie il livello dal tipo di scheda. Diverso da «Mostra fino a», che è solo un filtro di vista.">
-                            <span class="text-[13px] font-bold text-slate-700 shrink-0" data-i18n="ui_gen_depth_title">Profondità di generazione</span>
+                            <span class="text-[13px] font-bold text-slate-700 shrink-0" data-i18n="ui_gen_depth_title">Profondità</span>
                             <div class="flex items-center gap-2 shrink-0">
-                                <button type="button" id="auto-depth-toggle"
-                                    onclick="window.setAutoDepth && window.setAutoDepth(!window.getAutoDepth())"
-                                    aria-pressed="false" data-i18n-tip="tip_auto_depth"
-                                    data-tip="Attiva o disattiva la scelta automatica della profondità. Se attiva, MappAI analizza la scheda e decide il livello giusto, e il menu a fianco si disattiva."
-                                    class="flex items-center gap-1.5 text-[12px] font-bold rounded-lg px-2.5 py-1.5 border border-slate-200 bg-white text-slate-500 hover:text-emerald-500 transition-all">
-                                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                                    <span data-i18n="ui_auto_depth">Automatica</span>
-                                </button>
+                                <!-- ⚠️ DUE facce nella STESSA pillola degli altri switch (Single/Multi,
+                                     Normale/Adattiva, KG A/KG B): un bottone solo diceva «Automatica»
+                                     e non lasciava capire quale fosse l'altra scelta — si leggeva come
+                                     un'etichetta, non come un interruttore. Due facce sciolte, ognuna
+                                     col suo bordo, erano la stessa cosa con un secondo difetto: non si
+                                     capiva che appartenevano a un comando solo.
+                                     `#auto-depth-toggle` resta l'id storico (lo cerca `syncAutoDepthUI`,
+                                     che ora governa ENTRAMBE le facce con `aria-pressed`). -->
+                                <div class="flex bg-slate-200 p-0.5 rounded-full w-[136px] h-8 shrink-0">
+                                    <button type="button" id="auto-depth-toggle"
+                                        onclick="window.setAutoDepth && window.setAutoDepth(true)"
+                                        aria-pressed="false" data-i18n-tip="tip_auto_depth"
+                                        data-tip="Attiva o disattiva la scelta automatica della profondità. Se attiva, MappAI analizza la scheda e decide il livello giusto, e il menu sotto si disattiva."
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700"><span
+                                            data-i18n="ui_auto_depth">auto</span></button>
+                                    <button type="button" id="manual-depth-toggle"
+                                        onclick="window.setAutoDepth && window.setAutoDepth(false)"
+                                        aria-pressed="true"
+                                        data-i18n-tip="tip_manual_depth"
+                                        data-tip="Scegli tu il livello massimo dei rami, col menu qui sotto."
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700"><span
+                                            data-i18n="ui_manual_depth">manuale</span></button>
+                                </div>
                                 <select id="gen-depth-select"
                                     onchange="window.setGenDepth && window.setGenDepth(this.value)"
                                     data-i18n-tip="tip_gen_depth_select" data-tip="Livello massimo dei rami quando la profondità automatica è spenta: L2 essenziale, L3 consigliato, fino a L5 massimo."
@@ -920,34 +981,34 @@
                         <!-- 3 toggle binari compatti: Multi-Pass · Logica MM · Logica KG.
                              Default: Multi-Pass ON, MindMap Adattiva (attivi = bg-white shadow-sm). -->
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                            <div id="row-multipass" class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
                                 data-i18n-tip="tip_multipass" data-tip="OFF: genera tutta la mappa in una volta (più veloce, adatto a schede brevi). ON (consigliato): genera a fasi sequenziali per mappe grandi senza saturare la memoria.">
                                 <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_multipass">Multi-Pass</span>
-                                <div class="flex bg-orange-200 p-0.5 rounded-full w-[72px] h-8 shrink-0">
+                                <div class="flex bg-orange-200 p-0.5 rounded-full w-[132px] h-8 shrink-0">
                                     <button type="button" id="multipass-off" onclick="window.setMultiPassMode(false)"
-                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">OFF</button>
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">Single</button>
                                     <button type="button" id="multipass-on" onclick="window.setMultiPassMode(true)"
-                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">ON</button>
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">Multi</button>
                                 </div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
-                                data-i18n-tip="tip_mm_logic" data-tip="MappAI: costruzione classica della mappa. Adattiva (consigliata): analizza il tipo di scheda e adatta la profondità — meno rami inventati su schede povere di contenuto.">
+                            <div id="row-mm-logic" class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                                data-i18n-tip="tip_mm_logic" data-tip="Normale: costruzione classica della mappa. Adattiva (consigliata): analizza il tipo di scheda e adatta la profondità — meno rami inventati su schede povere di contenuto.">
                                 <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_mm_logic_short">MindMap</span>
                                 <div class="flex bg-emerald-200 p-0.5 rounded-full w-[128px] h-8 shrink-0">
                                     <button type="button" id="mmlogic-mappai-btn" onclick="window.setMMLogic('mappai')"
-                                        class="flex-1 text-[11px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">MappAI</button>
+                                        class="flex-1 text-[11px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">Normale</button>
                                     <button type="button" id="mmlogic-bert-btn" onclick="window.setMMLogic('triage')"
                                         class="flex-1 text-[11px] font-bold rounded-full transition-all bg-white shadow-sm text-indigo-600" data-i18n="ui_mm_logic_adaptive">Adattiva</button>
                                 </div>
                             </div>
-                            <div class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
+                            <div id="row-kg-logic" class="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5"
                                 data-i18n-tip="tip_kg_logic" data-tip="Solo per Knowledge Graph. A: BERT Community (hub + comunità GraphRAG, relazioni più ricche). B: MappAI classico (single/multi-pass).">
                                 <span class="text-[13px] font-bold text-slate-700" data-i18n="ui_kg_logic_short">KG (A/B)</span>
-                                <div class="flex bg-indigo-200 p-0.5 rounded-full w-[72px] h-8 shrink-0">
+                                <div class="flex bg-indigo-200 p-0.5 rounded-full w-[124px] h-8 shrink-0">
                                     <button type="button" id="pipeline-a-btn" onclick="window.setPipeline('A')"
-                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">A</button>
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">KG A</button>
                                     <button type="button" id="pipeline-b-btn" onclick="window.setPipeline('B')"
-                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">B</button>
+                                        class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">KG B</button>
                                 </div>
                             </div>
                         </div>
@@ -1038,31 +1099,10 @@
                 </div><!-- /generation-details-card: chiusura esplicita (era auto-corretta dal browser) -->
             </form>
 
-            <!-- Sezione Progetti collassabile (sostituisce il vecchio drawer #projects-bar).
-                 Chiusa di default. Stesso layout tabellare del drawer. -->
-            <div id="build-projects-section" class="max-w-2xl mx-auto mt-10">
-                <button type="button" id="build-projects-toggle"
-                    onclick="window.MappAITeach && window.MappAITeach.toggleBuildProjects()"
-                    class="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-2xl transition-colors">
-                    <span class="flex items-center gap-2 text-sm font-bold text-slate-600">
-                        <i data-lucide="folder-open" class="w-4 h-4 text-indigo-400"></i>
-                        <span data-i18n="ui_build_projects">Progetti salvati</span>
-                    </span>
-                    <i id="build-projects-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform"></i>
-                </button>
-                <div id="build-projects-body" class="hidden mt-3 border border-slate-100 rounded-2xl overflow-hidden">
-                    <!-- Filtro classe (22/7/26): CLASSE/TUTTI, condiviso con Insegna/Elabora -->
-                    <div class="flex justify-end px-3 pt-2 pb-1">
-                        <div class="inline-flex rounded-full bg-slate-100 p-1 shadow-inner">
-                            <button type="button" id="build-filter-all" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('all')"
-                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_all">Tutti</span></button>
-                            <button type="button" id="build-filter-class" onclick="window.MappAITeach && window.MappAITeach.setClassFilter('active')"
-                                class="teach-filter-seg px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"><span data-i18n="ui_teach_filter_class">Classe</span></button>
-                        </div>
-                    </div>
-                    <div id="recent-projects-container" class="flex flex-col pb-1"></div>
-                </div>
-            </div>
+            <!-- «Progetti salvati» ELIMINATA (3/8): le mappe già fatte si aprono da
+                 ELABORA («Progetti esistenti») e da INSEGNA, che le leggono dal DISCO —
+                 la fonte di verità. Questa lista veniva invece da localStorage e mostrava
+                 un elenco parallelo dentro la schermata in cui si CREA una mappa nuova. -->
 
             </div>
             <!-- ===== FINE MODALITÀ COSTRUISCI ===== -->
@@ -1075,15 +1115,15 @@
         <!-- QUICK ACTIONS SOTA (nascosta in modalità ELABORA) -->
         <div id="landing-quick-actions" class="max-w-2xl mx-auto mt-12 mb-12">
             <div class="flex flex-col sm:flex-row gap-4">
-                <button onclick="window.startEmptyMap()" class="btn_quick_action">
+                <button id="qa-mappa-manuale" onclick="window.startEmptyMap()" class="btn_quick_action">
                     <i data-lucide="plus-circle" class="w-[61px] h-[61px] shrink-0"></i>
                     <span class="source_btn_text" data-i18n="btn_new_project">Nuovo Grafo</span>
                 </button>
-                <button onclick="window.loadMapVault()" class="btn_quick_action">
+                <button id="qa-apri-vault" onclick="window.loadMapVault()" class="btn_quick_action">
                     <i data-lucide="folder-open" class="w-[61px] h-[61px] shrink-0"></i>
                     <span class="source_btn_text" data-i18n="btn_open_vault">Apri Vault</span>
                 </button>
-                <button onclick="window.openJSONUploader()" class="btn_quick_action">
+                <button id="qa-apri-json" onclick="window.openJSONUploader()" class="btn_quick_action">
                     <i data-lucide="file-text" class="w-[61px] h-[61px] shrink-0"></i>
                     <span class="source_btn_text" data-i18n="btn_open_json">Apri JSON</span>
                 </button>
@@ -1093,16 +1133,14 @@
 
         <!-- Meta-analisi docente + Consumi AI (discreti, in fondo; nascosti in ELABORA) -->
         <div id="landing-meta-links" class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
-            <button onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
+            <button id="meta-analisi-docente" onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
                 title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
                 <i data-lucide="line-chart" class="w-4 h-4"></i> <span data-i18n="ui_teacher_analysis">Analisi (docente)</span>
             </button>
-            <button type="button" onclick="window.MappAIUsageDash && window.MappAIUsageDash.open()"
-                class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
-                title="Dashboard dei consumi AI — token e costi per documento e categoria" data-i18n-title="tt_usage_dash">
-                <i data-lucide="coins" class="w-4 h-4"></i> <span data-i18n="ui_usage_dash">Consumi AI</span>
-            </button>
+            <!-- «Consumi AI» tolto dalla landing (3/8): il cruscotto vive nella
+                 Cabina, che è la casa di tutto ciò che riguarda l'app e l'AI.
+                 Qui era un secondo ingresso alla stessa finestra. -->
         </div>
 
         </div><!-- /glass-card: ora racchiude anche quick-actions e meta (come in origine) -->
@@ -1113,8 +1151,9 @@
     </div>
     </div>
 
-    <!-- (Drawer "Progetti recenti" rimosso in 005-landing-insegna: la lista vive
-         ora nella sezione collassabile #build-projects-section e nella modalità Insegna.) -->
+    <!-- (Drawer "Progetti recenti" rimosso in 005-landing-insegna; la sezione
+         collassabile che l'aveva sostituito è stata eliminata il 3/8: le mappe già
+         fatte si aprono da ELABORA e da INSEGNA, che le leggono dal disco.) -->
 
 
     <!-- ==========================================
@@ -3567,6 +3606,16 @@
     <script src="js/mappai-relations.js"></script>
 
     <script src="js/app.js"></script>
+    <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
+         dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
+         bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
+    <script src="js/mappai-modal-core.js"></script>
+    <script src="js/mappai-modal.js"></script>
+    <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
+         come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
+         è solo la fonte di verità del design: nessuna console è ancora cablata in
+         app — definisce window.MappAIConsoleBento, senza effetti collaterali. -->
+    <script src="js/mappai-console-bento.js"></script>
     <script src="js/mappai-icon-style.js"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js"></script>
@@ -3586,6 +3635,10 @@
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
          (mappai-quiz-print.js) sia i fogli PDF (mappai-print-dossier.js). -->
     <script src="js/mappai-print-layout.js"></script>
+    <!-- La barra dei documenti stampabili: UNA sola, coi token --mm-doc-* (2/8).
+         Era copiata in sei file con tre glifi stampante diversi e le emoji nei
+         bottoni. La usano i fogli in finestra e la console dei materiali. -->
+    <script src="js/mappai-doc-bar.js"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js"></script>
@@ -3636,6 +3689,9 @@
     <script src="js/mappai-live-core.js"></script>
     <script src="js/mappai-live-reports.js"></script>
     <script src="js/mappai-live-classes.js"></script>
+    <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
+         da cui legge il preset di taratura del contesto attivo. -->
+    <script src="js/mappai-vista-ridotta.js"></script>
     <script src="js/mappai-live-teacher.js"></script>
     <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
     <script src="js/mappai-timeline-teacher.js"></script>
@@ -3651,10 +3707,22 @@
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
     <script src="js/mappai-pipeline-core.js"></script>
     <script src="js/mappai-landing-teach.js"></script>
+    <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
+         landing-teach: avvolge la sua applyMode, che deve già esistere. -->
+    <script src="js/mappai-stile-manifesto.js"></script>
+    <!-- Il poco comportamento che la veste chiede alle console: il pallino che
+         chiude, il rail che resta sopra, l'icona della maniglia. -->
+    <script src="js/mappai-console-manifesto.js"></script>
+    <!-- COSTRUISCI in stile manifesto: tabella dei file + bento delle opzioni
+         (usa gli stessi id `mp-*` del modale della pipeline, che con la veste
+         accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
     <script src="js/mappai-elabora.js"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
     <script src="js/mappai-doc-editor.js"></script>
     <script src="js/mappai-material-pipeline.js"></script>
+    <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
+    <script src="js/mappai-bento-composizione.js"></script>
+    <script src="js/mappai-costruisci-manifesto.js"></script>
     <script src="js/mappai-usage-core.js"></script>
     <script src="js/mappai-usage-tracker.js"></script>
     <script src="js/mappai-usage-dashboard.js"></script>
@@ -3674,6 +3742,9 @@
     <script src="js/mappai-pomodoro.js"></script>
     <script src="js/mappai-user-profile.js"></script>
     <script src="js/mappai-teacher-profile.js"></script>
+    <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
+         solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
+    <script src="js/mappai-cabina.js"></script>
     <script src="js/mappai-search-finder.js"></script>
     <script src="js/mappai-vault-manager.js"></script>
     <script src="js/mappai-contextual-ai.js"></script>
@@ -3962,6 +4033,14 @@
             var clicks = [];
             document.addEventListener('click', function (e) {
                 if (e.clientX > 56 || e.clientY > 56) return;
+                /* ⚠️ Solo sullo SFONDO. Quando questa uscita è nata l'angolo era
+                   vuoto; con la veste «manifesto» ci vive il pallino della
+                   testata delle console (22,17 → 66,61: ci cade dentro), e
+                   cinque clic su un comando vero — anche solo nervosi — ti
+                   rispedivano al launcher senza che avessi chiesto niente.
+                   Un gesto segreto si fa dove non c'è nient'altro da fare. */
+                if (e.target && e.target.closest &&
+                    e.target.closest('button, a, input, select, textarea, label, [role="button"]')) return;
                 var now = Date.now();
                 clicks = clicks.filter(function (t) { return now - t < 3000; });
                 clicks.push(now);

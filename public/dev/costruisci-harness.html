@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Harness — COSTRUISCI stile manifesto</title>
+<!--
+  Banco di prova del SOLO mappai-costruisci-manifesto.js: il markup minimo che
+  il modulo si aspetta (i pezzi veri di index.html, ridotti all'osso) + stub di
+  MappAIPipeline. Serve a misurare la tabella dei file e il bento senza caricare
+  l'app intera — e a isolare i blocchi: se si blocca QUI, è il modulo.
+
+  Aprire in un server statico:  /dev/costruisci-harness.html
+-->
+<!-- ⚠️ I fogli si caricano con un marcatore che cambia a ogni apertura: un banco
+     che serve il CSS dalla cache misura il codice di ieri e lo dà per vero
+     (successo, e ha fatto perdere un giro). -->
+<script>
+  ['style.css', 'mappai-modal-tokens.css', 'mappai-stile-manifesto.css'].forEach(function (f) {
+    document.write('<link rel="stylesheet" href="../css/' + f + '?v=' + Date.now() + '">');
+  });
+</script>
+<script src="../js/lucide.min.js"></script>
+<style>body{padding:24px;background:#fff}#esito{font:12px/1.6 monospace;white-space:pre-wrap;background:#0f172a;color:#7dd3fc;padding:12px;border-radius:8px;margin-bottom:16px}</style>
+</head>
+<body>
+<div id="esito">in corso…</div>
+
+<div id="landing-view">
+  <div class="glass-card">
+    <form id="setup-form">
+      <div>
+        <div class="flex source-buttons-container">
+          <div class="btn_selezione_input" id="btn-src-doc" onclick="window.addSource('doc')">
+            <i data-lucide="file-spreadsheet"></i><span class="source_btn_text">Documenti</span>
+          </div>
+        </div>
+        <div id="sources-container"></div>
+      </div>
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-wrap gap-4 mode-buttons-container">
+          <div class="btn_mode_selector active" id="mode-mindmap"><span>Mappa Mentale</span></div>
+          <div class="btn_mode_selector" id="mode-kg"><span>Knowledge Graph</span></div>
+        </div>
+      </div>
+      <div id="step-root-container">
+        <p class="landing_label_primary">Tema Centrale:</p>
+        <input type="text" id="root-node-name" placeholder="Es. Rivoluzione Francese...">
+      </div>
+      <div id="generation-details-card">
+        <button type="button" id="generate-materials-btn">Genera materiali</button>
+        <button type="submit" id="generate-btn">Genera Mappa</button>
+      </div>
+    </form>
+    <div id="landing-quick-actions"><div class="flex">
+      <button class="btn_quick_action"><span>Nuovo Grafo</span></button>
+      <button class="btn_quick_action"><span>Apri Vault</span></button>
+      <button class="btn_quick_action"><span>Apri JSON</span></button>
+    </div></div>
+  </div>
+</div>
+
+<script>
+/* ── stub: solo ciò che il modulo tocca ──────────────────────────────────── */
+document.documentElement.classList.add('manifesto');
+window.t = (k, f) => f || k;
+window.safeCreateIcons = () => { try { lucide.createIcons(); } catch (e) {} };
+window.MappAIClasses = { list: () => [{ id: 'c1', name: '2A' }], activeId: () => 'c1' };
+window.MappAIPipeline = {
+  _reestimate: function () {
+    const el = document.getElementById('mp-estimate'); if (!el) return;
+    const on = id => { const e = document.getElementById(id); return e && e.checked; };
+    let n = 3;
+    if (on('mp-quiz-on')) n += 4;
+    if (on('mp-ns-on')) n += 1;
+    if (on('mp-syn-on')) n += 2;
+    el.textContent = 'Stima chiamate AI: ~' + n;
+  },
+  _startFromModal: function () { window.__avviata = true; }
+};
+window.buildQuizAngleOptions = () => '<option value="auto">auto</option>';
+
+let n = 0;
+window.addSource = function () {
+  const id = 'source_' + (++n);
+  document.getElementById('sources-container').insertAdjacentHTML('beforeend',
+    '<div id="' + id + '" class="source-entry flex items-start gap-3">' +
+    '<div class="flex-grow"><div class="text-white">Documenti</div>' +
+    '<input type="file" multiple class="landing-input" data-source-id="' + id + '"></div>' +
+    '<button type="button" onclick="window.removeSource(\'' + id + '\')"><i data-lucide="trash-2"></i></button></div>');
+  window.safeCreateIcons();
+};
+window.removeSource = function (id) { const e = document.getElementById(id); if (e) e.remove(); };
+window.startGeneration = function () { window.__mappa = true; };
+</script>
+
+<script src="../js/mappai-bento-composizione.js"></script>
+<script src="../js/mappai-costruisci-manifesto.js"></script>
+
+<script>
+/* ── prova ───────────────────────────────────────────────────────────────── */
+const log = [];
+const R = s => { const e = document.querySelector(s); if (!e) return 'assente';
+  const b = e.getBoundingClientRect(); return Math.round(b.width) + 'x' + Math.round(b.height) + ' @' + Math.round(b.x) + ',' + Math.round(b.y); };
+const C = (s, p) => { const e = document.querySelector(s); return e ? getComputedStyle(e)[p] : 'assente'; };
+
+/* ⚠️ Gli script inline in fondo al body girano PRIMA di DOMContentLoaded: il
+   modulo lì non ha ancora montato niente. La prova aspetta quel momento e
+   chiama comunque avvio() (idempotente), così misura una pagina completa. */
+window.addEventListener('DOMContentLoaded', function () { prova(); });
+
+function prova() {
+try {
+  window.MappAICostruisci.avvio();
+  document.getElementById('btn-src-doc').click();
+  const dt = new DataTransfer();
+  dt.items.add(new File([new Uint8Array(262144)], 'Storia_della_carta_capitolo_primo.pdf', { type: 'application/pdf' }));
+  dt.items.add(new File([new Uint8Array(1887437)], 'Fabbricazione_moderna.pdf', { type: 'application/pdf' }));
+  const inp = document.querySelector('#sources-container input[type=file]');
+  inp.files = dt.files;
+  window.MappAICostruisci.disegnaTabella();
+
+  const t = document.querySelector('#mn-files .mm-tab');
+  log.push('TABELLA presente: ' + !!t + ' · wrap del motore: ' + !!document.querySelector('#mn-files .mm-tab-wrap'));
+  log.push('  cestino = SVG in linea (niente createIcons): ' + !!document.querySelector('#mn-files .mn-togli svg'));
+  if (t) {
+    log.push('  intestazioni: ' + [...t.querySelectorAll('th')].map(x => x.textContent.trim()).join(' | '));
+    [...t.querySelectorAll('tbody tr')].forEach(tr =>
+      log.push('  riga: ' + [...tr.children].map(td => td.textContent.trim()).slice(0, 3).join(' | ')));
+    log.push('  cestini: ' + t.querySelectorAll('.mn-togli').length);
+  }
+  log.push('BENTO: ' + R('#mn-bento') + ' · colonne ' + C('#mn-bento', 'gridTemplateColumns'));
+  log.push('  card: ' + [...document.querySelectorAll('.mn-card')].map(c => (c.id || c.className.replace('mn-card ', '')) +
+    ' ' + Math.round(c.getBoundingClientRect().width) + 'x' + Math.round(c.getBoundingClientRect().height)).join(' · '));
+  log.push('COLORI: mm ' + C('#mode-mindmap', 'backgroundColor') + '/' + C('#mode-mindmap', 'color') +
+    ' · genera ' + C('#mn-genera', 'backgroundColor') + '/' + C('#mn-genera', 'color') +
+    ' · nuovo progetto ' + C('.btn_quick_action', 'backgroundColor'));
+  log.push('vecchio bottone materiali: display ' + C('#generate-materials-btn', 'display'));
+  log.push('LAYOUT: riga fonti ' + R('#mn-riga-fonti') + ' · fonti ' + R('.source-buttons-container') + ' · files ' + R('#mn-files'));
+  log.push('        riga genere ' + R('#mn-riga-genere') + ' · mm ' + R('#mode-mindmap') + ' · root ' + R('#step-root-container'));
+
+  log.push('PRESET montati: ' + !!document.getElementById('mp-preset') + ' · comandi ' +
+    document.querySelectorAll('#mn-bento [data-preset]').length);
+  var corpi = {};
+  document.querySelectorAll('#mn-bento *').forEach(function (el) {
+    if (el.children.length || !el.textContent.trim()) return;
+    if (el.tagName === 'OPTION') return;            // le voci di una tendina non sono in pagina
+    var cs = getComputedStyle(el); corpi[cs.fontSize + '/' + cs.fontWeight] = (corpi[cs.fontSize + '/' + cs.fontWeight] || 0) + 1;
+  });
+  log.push('CORPI nel bento: ' + Object.keys(corpi).map(function (k) { return k + ' ×' + corpi[k]; }).join(' · '));
+  log.push('STIMA iniziale: ' + document.getElementById('mp-estimate').textContent);
+  document.getElementById('mp-quiz-on').click();
+  log.push('  quiz spento → corpo display:' + C('#mp-quiz-body', 'display') + ' · ' + document.getElementById('mp-estimate').textContent);
+  document.getElementById('mp-quiz-on').click();
+
+  const prima = document.querySelectorAll('#sources-container .source-entry').length;
+  document.querySelector('#mn-files .mn-togli').click();
+  setTimeout(() => {
+    log.push('CESTINO: fonti ' + prima + ' → ' + document.querySelectorAll('#sources-container .source-entry').length +
+      ' · righe tabella ' + document.querySelectorAll('#mn-files tbody tr').length);
+    document.getElementById('mn-genera').click();
+    document.getElementById('mn-solo-mappa').click();
+    log.push('AZIONI: pipeline avviata ' + !!window.__avviata + ' · solo mappa ' + !!window.__mappa);
+    log.push('sbordo orizzontale: ' + (document.documentElement.scrollWidth > document.documentElement.clientWidth));
+    document.getElementById('esito').textContent = log.join('\n');
+    window.__ESITO = log.join('\n');
+  }, 300);
+} catch (e) {
+  document.getElementById('esito').textContent = log.join('\n') + '\n\nERRORE: ' + e.message + '\n' + e.stack;
+  window.__ESITO = 'ERRORE: ' + e.message;
+}
+}
+</script>
+</body>
+</html>

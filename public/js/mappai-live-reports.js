@@ -69,7 +69,12 @@
     ".lr-footer{text-align:center;margin-top:28px;font-size:9px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px}",
     ".cred-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}",
     ".cred{border:2px dashed #c7d2fe;border-radius:14px;padding:14px;text-align:center;page-break-inside:avoid}",
-    ".cred-emoji{font-size:40px;line-height:1}",
+    /* L'emoji È l'identità dell'allievo: deve essere la STESSA figura che vede
+       sul telefono (Android/Noto), non quella di sistema. Il font emoji va nello
+       stack EFFETTIVO dell'elemento — dichiararlo in una variabile non basta:
+       il glifo lo prende il primo font dello stack che ce l'ha, e su macOS
+       sarebbe Apple Color Emoji (regola globale del progetto). */
+    ".cred-emoji{font-size:40px;line-height:1;font-family:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif}",
     ".cred-num{font-size:24px;font-weight:900;color:#4f46e5;margin-top:2px}",
     ".cred-class{font-size:11px;color:#64748b;margin-top:6px}",
     ".cred-name{font-size:10px;color:#94a3b8;margin-top:8px;border-top:1px solid #e2e8f0;padding-top:6px;min-height:16px}",
@@ -86,13 +91,21 @@
       '</div></div><div style="height:52px" class="no-print"></div>';
   }
 
-  function docShell(title, label, bodyHtml) {
+  /* opts.perPdf: il foglio nasce già come PDF (stampa headless), quindi niente
+     barra dei comandi — in un PDF non si clicca.
+     ⚠️ I FONT restano anche nel PDF: le emoji delle tessere sono l'identità con
+     cui l'allievo entra, e devono essere le stesse che vede sul telefono
+     (Noto/Android). Senza il webfont il PDF le stamperebbe in stile Apple.
+     `html-to-pdf` attende `document.fonts.ready` prima di stampare — senza
+     quell'attesa i 150ms fissi non bastavano a scaricarli. */
+  function docShell(title, label, bodyHtml, opts) {
+    var perPdf = !!(opts && opts.perPdf);
     return '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<title>' + esc(title) + '</title>' +
       '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">' +
       '<style>' + BASE_STYLES + '</style></head><body>' +
-      printBar(label) + bodyHtml +
+      (perPdf ? '' : printBar(label)) + bodyHtml +
       '<div class="lr-footer">MappAI Live · generato il ' + esc(nowStr()) + '</div>' +
       '</body></html>';
   }
@@ -216,7 +229,7 @@
 
   // ── Foglio credenziali stampabile ───────────────────────────────────────
   // klass = { name, year, students:[{emoji, emojiKey, num, name}] }
-  function buildCredentialCardsHtml(klass) {
+  function buildCredentialCardsHtml(klass, opts) {
     var k = klass || {};
     var meta = { mapTitle: 'Credenziali classe', className: k.name, dateStr: k.year };
     var body = headerBlock(meta, 'Ogni allievo entra con: nome classe + emoji + numero');
@@ -228,7 +241,7 @@
         '<div class="cred-name">' + (s.name ? esc(s.name) : 'Nome: ____________') + '</div></div>';
     });
     body += '</div>';
-    return docShell('Credenziali — ' + (k.name || 'classe'), 'Credenziali', body);
+    return docShell('Credenziali — ' + (k.name || 'classe'), 'Credenziali', body, opts);
   }
 
   // ── Timeline Costruisci (008): report proposte + timeline finale di classe ──

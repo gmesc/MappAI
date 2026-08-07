@@ -103,25 +103,33 @@ window.ensureProjectVault = async function (opts) {
         if (appState.activeVaultPath) {
             var upd = await window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() });
             if (upd && upd.success && window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
-            return { created: false, folderPath: appState.activeVaultPath, classDir: appState.activeVaultClassDir || null };
+            return { created: false, folderPath: appState.activeVaultPath, classDir: appState.activeVaultClassDir || null, discDir: appState.activeVaultDiscDir || null };
         }
 
-        // (2) Classe attiva → nesting; altrimenti flat in Mappe.
-        var cls = null;
+        // (2) Contesto attivo → dove va la cartella. Allievo e classe si escludono
+        //     a vicenda: con un allievo la mappa è sua, con una classe si annida
+        //     per classe/disciplina, senza nessuno dei due resta flat in Mappe.
+        var cls = null, allievo = '';
         try { cls = (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { cls = null; }
+        try { allievo = (window.MappAIClasses && window.MappAIClasses.activeStudentName) ? window.MappAIClasses.activeStudentName() : ''; } catch (e) { allievo = ''; }
         var info = await window.electronAPI.filesRootGet();
         var base = info && info.mapsBaseDir;
         if (!base) return null;
 
         var vaultName = FC.vaultFolderName(appState.rootNodeLabel || 'Mappa');
         var classDir = (cls && cls.name) ? FC.mapClassFolder(cls.sede, cls.name) : null;
+        // Disciplina scelta all'avvio della generazione (29/7) → livello di cartella
+        // dentro la classe. Senza classe non c'è disciplina: la mappa resta flat.
+        var discDir = classDir ? FC.disciplineFolder(appState.generationDiscipline || '') : '';
 
-        // (3) Collisione → suffisso « · 0N ».
+        // (3) Collisione → suffisso « · 0N ». I fratelli sono quelli della STESSA
+        // coppia (classe, disciplina): due mappe omonime in discipline diverse non
+        // si contendono il nome.
         var siblings = [];
         try {
             var all = await window.electronAPI.getAllVaults();
             siblings = (all || []).filter(function (v) {
-                return classDir ? (v.classDir === classDir) : (!v.classDir);
+                return (v.classDir || null) === (classDir || null) && (v.discDir || '') === (discDir || '');
             }).map(function (v) { return v.folderName; });
         } catch (e) { siblings = []; }
         var finalName = vaultName;
@@ -131,12 +139,21 @@ window.ensureProjectVault = async function (opts) {
             finalName = vaultName + ' · ' + String(n).padStart(2, '0');
         }
 
-        var folderPath = classDir ? (base + '/' + classDir + '/' + finalName) : (base + '/' + finalName);
+        /* Con un profilo ALLIEVO attivo la mappa è materiale suo: vive in
+           «Allievi/<nome>/Mappe», non fra quelle della classe (2/8). */
+        var radice = FC.mapVaultRoot
+          ? FC.mapVaultRoot({ maps: base, students: info && info.studentsBaseDir }, allievo)
+          : base;
+        var parents = FC.mapVaultParentsFor
+          ? FC.mapVaultParentsFor(allievo, classDir, discDir)
+          : FC.mapVaultParents(classDir, discDir);
+        var folderPath = [radice].concat(parents, [finalName]).join('/');
         var saveRes = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: window.buildVaultMapData() });
         if (!saveRes || !saveRes.success) return null;
 
         appState.activeVaultPath = folderPath;
         appState.activeVaultClassDir = classDir;
+        appState.activeVaultDiscDir = discDir || null;
 
         // Fonti/: travasa gli originali PDF ancora in memoria (come saveMapVault).
         if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
@@ -153,7 +170,7 @@ window.ensureProjectVault = async function (opts) {
         if (syncBtn) { syncBtn.classList.remove('hidden'); syncBtn.classList.add('flex'); }
 
         if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
-        return { created: true, folderPath: folderPath, classDir: classDir };
+        return { created: true, folderPath: folderPath, classDir: classDir, discDir: discDir || null };
     } catch (e) {
         console.warn('[autovault] ensureProjectVault fallito:', e && e.message);
         return null;

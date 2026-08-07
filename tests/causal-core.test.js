@@ -343,3 +343,86 @@ test('connEquivalents: include forme articolate + answerOnly + bilingue', () => 
     assert.ok(prov.includes('causa') && prov.includes('genera'));  // answerOnly (sinonimi presente)
     assert.strictEqual(C.connEquivalents('Perché scoppiò la guerra').length, 0); // non-connettivo → []
 });
+
+// ── DOCUMENTO EDITABILE (editor «Catena dei perché» di ELABORA) ──────────────
+const CHAINS_FIXTURE = () => C.buildChains({
+    nodes: [
+        { id: 'r', label: 'Radice', level: 0 },
+        { id: 'a', label: 'Industria', level: 1, group: 1 },
+        { id: 'b', label: 'Città', level: 2, group: 1, desc: 'La città cresce perché l\'industria crea lavoro.' },
+        { id: 'c', label: 'Agricoltura', level: 1, group: 2 }
+    ],
+    links: [
+        { source: 'r', target: 'a', rel: 'fa parte di' }, { source: 'r', target: 'c', rel: 'fa parte di' },
+        { source: 'a', target: 'b', rel: 'causa' }, { source: 'a', target: 'c', rel: 'si oppone a' }
+    ]
+});
+
+test('docFromChains: una sezione per ramo + ponti, righe a tre campi fissi', () => {
+    const doc = C.docFromChains(CHAINS_FIXTURE(), { root: 'In generale', cross: 'Ponti tra i rami' });
+    const kinds = doc.sections.map(s => s.kind);
+    assert.ok(kinds.includes('branch') && kinds.includes('cross'));
+    assert.strictEqual(doc.sections[doc.sections.length - 1].label, 'Ponti tra i rami');
+    const r = doc.sections[0].rows[0];
+    assert.deepStrictEqual(Object.keys(r).sort(), ['conn', 'family', 'left', 'nodeLabel', 'origin', 'right', 'type']);
+    assert.ok(r.left && r.right && r.conn, 'la riga arriva già compilata dall\'estrazione');
+});
+
+test('rowFromTriple/tripleFromRow: il contrasto conserva a/b, la causa cause/effect', () => {
+    const contrasto = C.rowFromTriple({ type: 'contrast', a: 'Pace', b: 'Guerra', conn: 'invece di', family: 'opposizione', origin: 'link' });
+    assert.strictEqual(contrasto.type, 'contrast');
+    assert.strictEqual(contrasto.left, 'Pace');
+    const t = C.tripleFromRow(contrasto);
+    assert.strictEqual(t.a, 'Pace'); assert.strictEqual(t.b, 'Guerra');
+    assert.ok(!('cause' in t), 'un contrasto non diventa una causa');
+    const causa = C.tripleFromRow(C.rowFromTriple({ cause: 'Pioggia', effect: 'Piena', conn: 'provoca', family: 'trasformazione', origin: 'desc' }));
+    assert.strictEqual(causa.cause, 'Pioggia');
+    assert.strictEqual(causa.connShow, 'provoca');
+});
+
+test('rowFromTriple: famiglia sconosciuta → trasformazione, provenienza inventata → manual', () => {
+    const r = C.rowFromTriple({ cause: 'a', effect: 'b', conn: 'x', family: 'colore-strano', origin: 'chissà' });
+    assert.strictEqual(r.family, 'trasformazione');
+    assert.strictEqual(r.origin, 'manual');
+});
+
+test('chainsFromDoc: round-trip dal documento ai builder, righe incomplete scartate', () => {
+    const doc = C.docFromChains(CHAINS_FIXTURE(), {});
+    const back = C.chainsFromDoc(doc);
+    assert.strictEqual(back.total, C.countRows(doc));
+    // una riga senza il lato destro non è un nesso: non arriva alla stampa
+    const rotto = C.setRowField(doc, 0, 0, 'right', '');
+    assert.strictEqual(C.chainsFromDoc(rotto).total, back.total - 1);
+});
+
+test('operazioni sulle righe: immutabili, e non escono dalla sezione', () => {
+    const doc = C.docFromChains(CHAINS_FIXTURE(), {});
+    const dopo = C.setRowField(doc, 0, 0, 'conn', 'quindi');
+    assert.strictEqual(doc.sections[0].rows[0].conn, 'causa', 'l\'originale non viene toccato');
+    assert.strictEqual(dopo.sections[0].rows[0].conn, 'quindi');
+    // famiglia e tipo passano dalla whitelist
+    assert.strictEqual(C.setRowField(doc, 0, 0, 'family', 'inventata').sections[0].rows[0].family, 'trasformazione');
+    assert.strictEqual(C.setRowField(doc, 0, 0, 'type', 'contrast').sections[0].rows[0].type, 'contrast');
+    // campo non previsto: nessun effetto
+    assert.strictEqual(C.setRowField(doc, 0, 0, 'origin', 'link').sections[0].rows[0].origin, doc.sections[0].rows[0].origin);
+    // su/giù ai bordi non perde righe
+    const n = doc.sections[0].rows.length;
+    assert.strictEqual(C.moveRow(doc, 0, 0, -1).sections[0].rows.length, n);
+    assert.strictEqual(C.moveRow(doc, 0, n - 1, 1).sections[0].rows.length, n);
+    assert.strictEqual(C.removeRow(doc, 0, 0).sections[0].rows.length, n - 1);
+    assert.strictEqual(C.insertRow(doc, 0, 0).sections[0].rows.length, n + 1);
+    assert.strictEqual(C.insertRow(doc, 0, 0).sections[0].rows[1].origin, 'manual', 'la riga nuova è del docente');
+});
+
+test('normDoc/validateDoc: le righe vuote spariscono, quelle a metà vengono segnalate', () => {
+    const doc = C.docFromChains(CHAINS_FIXTURE(), {});
+    const conVuota = C.insertRow(doc, 0, 0);
+    assert.strictEqual(C.validateDoc(conVuota).length, 1, 'la riga vuota è un problema da mostrare');
+    assert.strictEqual(C.countRows(C.normDoc(conVuota)), C.countRows(doc), 'ma al salvataggio esce da sola');
+    const mezza = C.setRowField(doc, 0, 0, 'conn', '');
+    assert.ok(/connettivo/.test(C.validateDoc(mezza)[0].msg));
+    // una sezione svuotata del tutto non resta come titolo orfano
+    let vuoto = doc;
+    doc.sections[0].rows.forEach(() => { vuoto = C.removeRow(vuoto, 0, 0); });
+    assert.ok(C.normDoc(vuoto).sections.every(s => s.rows.length));
+});

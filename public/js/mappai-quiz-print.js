@@ -61,34 +61,18 @@ body {
 }
 `;
 
-const QP_PRINT_BAR = (accentColor, label) => `
-<div class="no-print" style="
-    position:fixed; top:0; left:0; right:0;
-    background:white; border-bottom:1px solid #e2e8f0;
-    padding:10px 24px; display:flex;
-    align-items:center; justify-content:space-between;
-    z-index:100; font-family:monospace; font-size:12px;">
-    <span style="font-weight:bold;color:${accentColor};">
-        MappAI · ${label}
-    </span>
-    <div style="display:flex;gap:8px;">
-        <button onclick="window.print()"
-                style="background:${accentColor};color:white;
-                       border:none;border-radius:8px;
-                       padding:6px 16px;cursor:pointer;
-                       font-size:11px;font-weight:bold;">
-            🖨 Stampa / Esporta PDF
-        </button>
-        <button onclick="window.close()"
-                style="background:#f1f5f9;color:#475569;
-                       border:none;border-radius:8px;
-                       padding:6px 12px;cursor:pointer;
-                       font-size:11px;">
-            ✕ Chiudi
-        </button>
-    </div>
-</div>
-<div style="height:52px;" class="no-print"></div>`;
+/* La barra è UNA SOLA per tutti i documenti stampabili: `mappai-doc-bar.js`
+   (token `--mm-doc-*`, icone SVG, niente emoji). Qui resta solo l'accento, che
+   cambia col tipo di foglio. Il ripiego serve ai consumatori che caricano questo
+   file senza la barra (nessuno oggi in index.html, ma i builder sono usati anche
+   dalla pipeline in contesti headless, dove una barra non serve affatto). */
+const QP_PRINT_BAR = (accentColor, label) => {
+    const DB = (typeof window !== 'undefined' && window.MappAIDocBar) ||
+        (typeof MappAIDocBar !== 'undefined' ? MappAIDocBar : null);
+    if (!DB) return '';
+    return DB.stile().replace('--mm-doc-accento:#4f46e5', '--mm-doc-accento:' + accentColor) +
+        DB.html({ titolo: label, azioni: ['stampa', 'chiudi'] });
+};
 
 // ── STAMPA QUIZ ──────────────────────────────────────────
 

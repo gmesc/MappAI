@@ -2013,18 +2013,25 @@ window.setAutoDepth = function (on) {
 window.syncAutoDepthUI = function () {
     const on = window.getAutoDepth();
     const btn = document.getElementById('auto-depth-toggle');
+    const man = document.getElementById('manual-depth-toggle');
     const sel = document.getElementById('gen-depth-select');
     const hint = document.getElementById('auto-depth-hint');
-    if (btn) {
-        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        btn.classList.toggle('bg-emerald-400', on);
-        btn.classList.toggle('text-white', on);
-        btn.classList.toggle('border-emerald-400', on);
-        btn.classList.toggle('bg-white', !on);
-        btn.classList.toggle('text-slate-500', !on);
-        btn.classList.toggle('border-slate-200', !on);
-        btn.classList.toggle('hover:text-emerald-500', !on);
-    }
+    // ⚠️ Le due facce si governano INSIEME (5/8): «Profondità» è uno switch come
+    // Single/Multi, non un bottone che si accende. La faccia attiva si marca come
+    // le altre — `bg-white shadow-sm` + `aria-pressed` — così una sola regola CSS
+    // (dentro il bento: fondo verde) vale per tutti e quattro gli switch invece di
+    // avere una veste per questo comando e una per gli altri.
+    const faccia = function (el, attiva) {
+        if (!el) return;
+        el.setAttribute('aria-pressed', attiva ? 'true' : 'false');
+        el.classList.toggle('bg-white', attiva);
+        el.classList.toggle('shadow-sm', attiva);
+        el.classList.toggle('text-slate-700', attiva);
+        el.classList.toggle('text-slate-500', !attiva);
+        el.classList.toggle('hover:text-slate-700', !attiva);
+    };
+    faccia(btn, on);
+    faccia(man, !on);
     if (sel) {
         sel.disabled = on;
         sel.classList.toggle('opacity-40', on);

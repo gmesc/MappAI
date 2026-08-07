@@ -28,7 +28,17 @@
   var CORE = function () { return window.MappAITeachCore; };
 
   // ── localStorage I/O ───────────────────────────────────────────────────────
-  function readMode() { try { var m = localStorage.getItem(LS_MODE); return (m === 'teach' || m === 'elabora') ? m : 'build'; } catch (e) { return 'build'; } }
+  /* '' = landing VUOTA: nessun tab scelto. È lo stato di partenza (2/8) — a
+     schermo restano il marchio, il chip del contesto, la Cabina e il selettore,
+     e nient'altro finché non si dice che cosa si viene a fare. Prima qualunque
+     valore non riconosciuto ripiegava su 'build', quindi lo stato vuoto non
+     poteva esistere. */
+  function readMode() {
+    try {
+      var m = localStorage.getItem(LS_MODE);
+      return (m === 'teach' || m === 'elabora' || m === 'build') ? m : '';
+    } catch (e) { return ''; }
+  }
   function readFilter() { try { return localStorage.getItem(LS_FILTER) === 'active' ? 'active' : 'all'; } catch (e) { return 'all'; } }
   function regRead() { try { return JSON.parse(localStorage.getItem(LS_REGISTRY) || '[]'); } catch (e) { return []; } }
   function regWrite(arr) { try { localStorage.setItem(LS_REGISTRY, JSON.stringify(arr)); } catch (e) { /* quota */ } }
@@ -93,13 +103,17 @@
     if (segT) segT.classList.toggle('active', mode === 'teach');
     if (segE) segE.classList.toggle('active', mode === 'elabora');
     if (clsFilter) clsFilter.classList.toggle('hidden', mode !== 'teach');
-    if (quickActions) quickActions.classList.toggle('hidden', mode === 'elabora');
-    if (metaLinks) metaLinks.classList.toggle('hidden', mode === 'elabora');
+    /* Landing vuota: spariscono anche gli avvii rapidi e i link in fondo —
+       appartengono a COSTRUISCI, non alla schermata d'ingresso. */
+    var vuota = !mode;
+    if (quickActions) quickActions.classList.toggle('hidden', mode === 'elabora' || vuota);
+    if (metaLinks) metaLinks.classList.toggle('hidden', mode === 'elabora' || vuota);
     applyFilterSeg();
     // Lasciando ELABORA: smonta l'overlay fullscreen (portal a livello di body).
     if (mode !== 'elabora' && window.MappAIElabora && window.MappAIElabora.teardown) window.MappAIElabora.teardown();
-    if (mode === 'build') renderBuildProjects();
-    else if (mode === 'teach') { refresh(); _ensureFreshAndRerender(); }
+    /* COSTRUISCI non ha più niente da rendere: è il modulo di generazione, e
+       basta (la lista dei progetti è stata eliminata il 3/8). */
+    if (mode === 'teach') { refresh(); _ensureFreshAndRerender(); }
     else if (mode === 'elabora' && window.MappAIElabora) { window.MappAIElabora.open(); _ensureFreshAndRerender(); }
   }
 
@@ -133,10 +147,35 @@
     });
   }
 
-  function setMode(m) {
+  /* `voce` = la mappa su cui riaprire la console, quando si torna alla landing
+     dopo esserne usciti (segnalibro, vedi `_consBack`). */
+  function setMode(m, voce) {
     // ELABORA (co-docente): senza mappa caricata mostra il selettore progetti
     // (empty-state con lista) → scegli una mappa da elaborare. Nessun blocco.
-    var mm = (m === 'teach' || m === 'elabora') ? m : 'build';
+    /* INSEGNA non è più un tab della landing (2/8): apre la CONSOLE a tutto
+       schermo. Kill-switch `mappai_teach_console='0'` → le tre sezioni di prima. */
+    if (m === 'teach' && consoleAttiva() && window.MappAIModal) {
+      /* La landing SOTTO va su COSTRUISCI. Prima `setMode` usciva senza
+         scrivere la modalità, quindi «sotto resta com'era»: chi entrava in
+         INSEGNA da ELABORA, chiudendo la console si ritrovava in ELABORA — ed è
+         quello che Giacomo vedeva tornando dalla mappa con HOME. La console è a
+         tutto schermo: quello che sta sotto non è una scelta dell'utente, è
+         solo dove si atterra quando la si chiude. */
+      try { localStorage.setItem(LS_MODE, 'build'); } catch (e) { }
+      applyMode();
+      refresh();                 // le viste della classe si montano da qui
+      _ensureFreshAndRerender();
+      /* Il rail deve marcare INSEGNA, non il «build» qui sopra — che è dove si
+         atterra CHIUDENDO la console, non dove si è. Lo legge la veste dal
+         riquadro appena aperto (mappai-console-manifesto.js). */
+      try { document.documentElement.dataset.manSezionePendente = 'teach'; } catch (e) { }
+      openConsoleInsegna(voce);
+      return;
+    }
+    /* '' = torna alla landing vuota. Prima qualunque valore diverso da
+       teach/elabora finiva su 'build', quindi `setMode('')` accendeva
+       COSTRUISCI: la funzione non sapeva dire lo stato in cui l'app si apre. */
+    var mm = (m === 'teach' || m === 'elabora' || m === 'build') ? m : '';
     try { localStorage.setItem(LS_MODE, mm); } catch (e) { }
     applyMode();
   }
@@ -145,30 +184,19 @@
     try { localStorage.setItem(LS_FILTER, f === 'active' ? 'active' : 'all'); } catch (e) { }
     applyFilterSeg();
     var mode = readMode();
-    if (mode === 'build') renderBuildProjects();
-    else if (mode === 'elabora' && window.MappAIElabora) window.MappAIElabora.render();
+    /* in COSTRUISCI non c'è più un elenco da filtrare: uscire qui, altrimenti
+       si finirebbe a ridisegnare INSEGNA stando in un'altra modalità */
+    if (mode === 'build' || !mode) return;
+    if (mode === 'elabora' && window.MappAIElabora) window.MappAIElabora.render();
     else refresh();
   }
 
-  function toggleBuildProjects() {
-    var body = document.getElementById('build-projects-body');
-    var chev = document.getElementById('build-projects-chevron');
-    if (!body) return;
-    var open = body.classList.toggle('hidden') === false;
-    if (chev) chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
-    if (open) renderBuildProjects();
-  }
-
-  // ── Modalità Costruisci: sezione progetti (con menu grade) ──────────────────
-  function renderBuildProjects() {
-    // StorageManager è const lessicale (NON su window) → guardia con typeof, non window.
-    if (typeof StorageManager !== 'undefined' && StorageManager.renderRecentProjects) {
-      // Picker: filtro-classe che non trova mappe → mostra tutte (mai lista vuota).
-      var ids = allowedProjectIds();
-      if (Array.isArray(ids) && ids.length === 0) ids = null;
-      StorageManager.renderRecentProjects('recent-projects-container', { gradeMenu: true, onlyIds: ids });
-    }
-  }
+  /* «Progetti salvati» di COSTRUISCI non esiste più (3/8): le mappe già fatte si
+     aprono da ELABORA e da INSEGNA, che le leggono dal DISCO. Le due funzioni
+     restano come no-op perché sono esposte su `MappAITeach` e qualcuno potrebbe
+     ancora chiamarle (l'`onclick` del markup è sparito con la sezione). */
+  function toggleBuildProjects() { /* sezione eliminata */ }
+  function renderBuildProjects() { /* sezione eliminata */ }
 
   // ── Progetti in ELABORA: stesso layout tabella di Insegna (Tipo/Titolo/Classe/
   //    Data), MA senza «Riprendi» né QR; click riga → carica + elabora (openProject).
@@ -202,10 +230,12 @@
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (tuned ? 'bg-emerald-500' : 'bg-slate-300') + '"></span>';
       var block = actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.elabFinder(" + i + ")", null, false) +
         actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.elabDelete(" + i + ")", 'text-slate-300 hover:text-red-500', false);
+      var assign = "window.MappAITeach.assignElab(" + i + ")";
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
         title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
-        cls: classCell(chips), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
+        cls: classCell(chips, assign), disc: vaultDisc(rec), assign: assign,
+        date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
         block: block,
         onClick: "window.MappAITeach.elabOpen(" + i + ")",
         selected: false
@@ -244,6 +274,154 @@
       } else { purgeLocal(); renderElaboraProjects(_elabContainer); }
     });
   }
+  // ── Assegnazione a posteriori di classe e disciplina (29/7, solo ELABORA) ──
+  // Una mappa generata senza contesto (o generata prima di questa funzione) resta
+  // senza materia: i badge «GENERICO»/«MATERIA?» la segnalano e aprono questo
+  // modale. Assegnare SPOSTA la cartella su disco — la cartella è la fonte di
+  // verità del resto della UI, un campo che la contraddicesse tornerebbe a
+  // mostrare il badge al render successivo.
+  function _classesForAssign() {
+    try { return (window.MappAIClasses && window.MappAIClasses.list()) || []; } catch (e) { return []; }
+  }
+  function _discChoices(cls) {
+    try {
+      var CL = window.MappAIClasses;
+      return (CL && CL.disciplineChoices) ? CL.disciplineChoices(cls) : [];
+    } catch (e) { return []; }
+  }
+  function assignElab(i) {
+    var rec = _elabRec(i);
+    if (!rec) return;
+    _openAssignModal(rec, function () { renderElaboraProjects(_elabContainer); });
+  }
+  // Variante localStorage-only (browser senza Electron): stesso modale, ma senza
+  // spostamento su disco — c'è solo il progetto.
+  function assignElabLocal(id) {
+    var p = projectsRead().find(function (x) { return x.id === id; });
+    if (!p) return;
+    _openAssignModal({ v: null, p: p }, function () { renderElaboraProjects(_elabContainer); });
+  }
+
+  function _openAssignModal(rec, onDone) {
+    var p = rec.p, v = rec.v;
+    var title = (v && (v.rootNodeLabel || v.folderName)) || (p && p.name) || _t('lt_this_map', 'questa mappa');
+    var classes = _classesForAssign();
+    var curClsId = (p && p.clsId) || '';
+    // Se il progetto non porta l'id ma il nome, recupera l'id dalla lista.
+    if (!curClsId && p && p.cls) {
+      var byName = classes.find(function (c) { return c.name === p.cls; });
+      if (byName) curClsId = byName.id;
+    }
+    var curDisc = (p && p.disc) || (v && v.discDir ? prettyClass(v.discDir) : '');
+    if (!MM()) return;
+
+    function scelteDisc(clsId) {
+      var cls = clsId ? (window.MappAIClasses && window.MappAIClasses.get(clsId)) : null;
+      var choices = cls ? _discChoices(cls) : [];
+      // Disciplina già assegnata ma non più in elenco: resta selezionabile, così
+      // aprire il modale «per sbaglio» non la cancella.
+      if (curDisc && choices.indexOf(curDisc) < 0) choices = choices.concat([curDisc]);
+      return choices;
+    }
+    function schema(clsId, disc) {
+      var choices = scelteDisc(clsId);
+      return {
+        titolo: _t('lt_assign_title', 'Assegna classe e disciplina'),
+        sottotitolo: title, icona: 'book-open', taglia: 'm',
+        sezioni: [{
+          titolo: _t('lt_assign_sez', 'Destinazione'),
+          campi: [
+            {
+              id: 'classe', tipo: 'scelta', etichetta: _t('rp_class', 'Classe'), valore: clsId,
+              opzioni: [{ valore: '', etichetta: _t('lt_assign_noclass', '— nessuna classe (generico) —') }]
+                .concat(classes.map(function (c) { return { valore: c.id, etichetta: c.name }; }))
+            },
+            {
+              id: 'disc', tipo: 'scelta', etichetta: _t('rp_disc', 'Disciplina'), valore: disc,
+              /* senza classe non esiste una cartella-disciplina: invece di un
+                 campo grigio, l'unica voce dice che cosa manca */
+              opzioni: [{
+                valore: '', etichetta: clsId
+                  ? _t('lt_assign_nodisc', '— nessuna disciplina —')
+                  : _t('lt_assign_needclass', '— scegli prima la classe —')
+              }].concat(clsId ? choices : [])
+            }
+          ]
+        }],
+        nota: _t('lt_assign_hint', 'La cartella della mappa viene spostata in Mappe/<classe>/<disciplina>. I materiali già dentro il vault la seguono.'),
+        azioni: [
+          { id: 'no', etichetta: _t('lt_cancel', 'Annulla') },
+          { id: 'ok', etichetta: _t('lt_assign_go', 'Assegna'), ruolo: 'primario' }
+        ]
+      };
+    }
+    var s = schema(curClsId, curDisc);
+    s.suAzione = function (ev, box, ridisegna) {
+      if (ev.azione !== '__campo' || ev.campo !== 'classe') return;
+      var clsId = ev.valori.classe;
+      // la disciplina scelta resta solo se la nuova classe la insegna
+      var disc = scelteDisc(clsId).indexOf(ev.valori.disc) >= 0 ? ev.valori.disc : '';
+      ridisegna(schema(clsId, disc));
+    };
+    MM().open(s).then(function (r) {
+      if (!r || r.azione !== 'ok') return;
+      var clsId = r.valori.classe || '';
+      _applyAssignment(rec, clsId, clsId ? (r.valori.disc || '') : '').then(function (ok) {
+        if (ok) toast(_t('lt_assign_done', 'Mappa riassegnata.'), 'success');
+        if (onDone) onDone();
+      });
+    });
+  }
+
+  // Sposta la cartella (se c'è) e riallinea i metadati del progetto.
+  function _applyAssignment(rec, clsId, disc) {
+    var fc = FCore();
+    var cls = clsId && window.MappAIClasses && window.MappAIClasses.get ? window.MappAIClasses.get(clsId) : null;
+    var classDir = (cls && cls.name && fc) ? fc.mapClassFolder(cls.sede, cls.name) : '';
+    var discDir = (classDir && fc) ? fc.disciplineFolder(disc) : '';
+    var p = rec.p, v = rec.v;
+
+    var writeMeta = function (folderName, fullPath) {
+      if (!p) return;
+      try {
+        var arr = projectsRead();
+        var t = arr.find(function (x) { return x.id === p.id; });
+        if (t) {
+          t.cls = cls ? cls.name : null;
+          t.clsId = cls ? cls.id : null;
+          t.classDir = classDir || null;
+          t.disc = disc || null;
+          t.discDir = discDir || null;
+          if (folderName) t.vault = folderName;
+          localStorage.setItem('tutor_ai_projects', JSON.stringify(arr));
+        }
+      } catch (e) { /* best-effort */ }
+      // Mappa aperta in questo momento → allinea lo stato, altrimenti il prossimo
+      // autosave riscriverebbe il vecchio percorso.
+      try {
+        if (fullPath && typeof StorageManager !== 'undefined' && StorageManager.currentProjectId === p.id) {
+          var st = window.appState || null;
+          if (st) { st.activeVaultPath = fullPath; st.activeVaultClassDir = classDir || null; st.activeVaultDiscDir = discDir || null; }
+        }
+      } catch (e) { /* appState lessicale: best-effort */ }
+    };
+
+    if (!v || !v.fullPath || !window.electronAPI || !window.electronAPI.vaultRelocate) {
+      writeMeta(null, null);   // browser / progetto senza cartella: solo metadati
+      return Promise.resolve(true);
+    }
+    return window.electronAPI.vaultRelocate({ folderPath: v.fullPath, classDir: classDir, discDir: discDir })
+      .then(function (res) {
+        if (!res || !res.success) {
+          toast((res && res.error) || _t('lt_assign_fail', 'Impossibile spostare la cartella della mappa.'), 'error');
+          return false;
+        }
+        writeMeta(res.folderName, res.fullPath);
+        return true;
+      })
+      .catch(function () { toast(_t('lt_assign_fail', 'Impossibile spostare la cartella della mappa.'), 'error'); return false; });
+  }
+
   // Fallback senza Electron: elenco dal solo localStorage.
   function renderElaboraProjectsLocal(body) {
     var projects = projectsRead();
@@ -265,10 +443,12 @@
       var dot = '<span class="inline-block w-2 h-2 rounded-full shrink-0 ' + (p.tuned ? 'bg-emerald-500' : 'bg-slate-300') + '"></span>';
       var block = actIcon('folder', p.vault ? _t('lt_open_finder', 'Apri nel Finder') : _t('lt_no_vault', 'Nessuna cartella vault su disco'), "window.MappAITeach.openProjectFolder('" + p.id + "')", null, !p.vault) +
         actIcon('trash-2', _t('rp_delete', 'Elimina'), "window.MappAITeach.deleteProject('" + p.id + "')", 'text-slate-300 hover:text-red-500', false);
+      var assign = "window.MappAITeach.assignElabLocal('" + p.id + "')";
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
         title: p.name, titleTip: p.name, dot: dot,
-        cls: classCell(chips), date: dateCell(p.date),
+        cls: classCell(chips, assign), disc: p.disc || prettyClass(p.discDir || ''), assign: assign,
+        date: dateCell(p.date),
         block: block,
         onClick: "window.MappAIElabora && window.MappAIElabora.openProject('" + p.id + "')",
         selected: false
@@ -317,10 +497,20 @@
   function _diskKind(name) {
     var n = String(name || '');
     if (/\.mp3$|\.m4a$|\.wav$/i.test(n)) return { icon: 'volume-2', label: 'Audio' };
+    /* MC e V/F PRIMA del ramo generico: sono due fogli diversi, si stampano in
+       momenti diversi, e il nome li distingue già (buildFileName) */
+    if (/^Quiz-MC-/i.test(n)) return { icon: 'list-checks', label: 'Quiz MC' };
+    if (/^Quiz-VF-/i.test(n)) return { icon: 'check-check', label: 'Quiz V/F' };
     if (/^Quiz-/i.test(n)) return { icon: 'list-checks', label: 'Quiz' };
     if (/^Flashcard-/i.test(n)) return { icon: 'copy', label: 'Flashcard' };
-    if (/^Foglio-nodi-/i.test(n)) return { icon: 'scissors', label: 'Foglio nodi' };
+    /* «Foglio-nodi-card», «Foglio nodi (rivisto)»: il separatore cambia col
+       tipo di foglio, quindi non si può pretendere il trattino */
+    if (/^Foglio.?nodi/i.test(n)) return { icon: 'scissors', label: 'Foglio nodi' };
     if (/^Sintesi/i.test(n)) return { icon: 'sparkles', label: 'Sintesi' };
+    /* i .json sono i SET salvati (quiz, flashcard): materiale di lavoro
+       dell'app, non un documento da portare in classe — si dicono per quello
+       che sono e la console li mette in fondo */
+    if (/\.json$/i.test(n)) return { icon: 'braces', label: 'Dati', dati: true };
     return { icon: 'file', label: 'File' };
   }
   function _diskMaterialsFor(p) {
@@ -333,7 +523,7 @@
         return (res.files || []).map(function (f) {
           var id = 'disk:' + f.relPath;
           _diskCache[id] = { vaultPath: v.fullPath, relPath: f.relPath };
-          return { id: id, _disk: true, title: f.name, mapName: p.name, cls: p.cls, date: f.mtime };
+          return { id: id, _disk: true, title: f.name, mapName: p.name, cls: p.cls, disc: p.disc || prettyClass(p.discDir || ''), projectId: p.id, date: f.mtime };
         });
       });
     }).catch(function () { return []; });
@@ -343,6 +533,29 @@
     if (!d) return;
     if (window.electronAPI && window.electronAPI.pipelineOpenFile) window.electronAPI.pipelineOpenFile({ vaultPath: d.vaultPath, relPath: d.relPath });
     else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+  }
+  /* Elimina un materiale che sta SUL DISCO (2/8). Prima non c'era: il cestino
+     esisteva solo sulle righe d'archivio e toglieva la voce da localStorage,
+     lasciando il file nella cartella — «elimino e resta lì». Il file va nel
+     Cestino di sistema, non cancellato: un materiale di classe si recupera. */
+  function deleteDiskFile(id) {
+    var d = _diskCache[id];
+    if (!d) return;
+    var api = window.electronAPI;
+    if (!api || !api.deleteVaultFile) { toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
+    var nome = d.relPath.split('/').pop();
+    confirmDeleteText(nome, function () {
+      api.deleteVaultFile({ vaultPath: d.vaultPath, relPath: d.relPath }).then(function (res) {
+        if (res && res.ok) {
+          delete _diskCache[id];
+          toast(_t('lt_file_trashed', 'Spostato nel Cestino.'), 'success');
+          refresh();
+        } else {
+          toast(_t('lt_file_del_ko', 'Non è stato possibile eliminare il file') +
+            (res && res.error ? ': ' + res.error : ''), 'error');
+        }
+      });
+    });
   }
 
   // ── Layout condiviso: ogni sezione è una <table table-fixed> con <colgroup>
@@ -367,14 +580,59 @@
       '<i data-lucide="' + icon + '" class="w-3.5 h-3.5 shrink-0"></i>' +
       '<span class="text-[9px] font-bold uppercase tracking-tight truncate">' + esc(label) + '</span></span>';
   }
+  // Badge di assegnazione mancante (29/7, solo ELABORA): cliccabile, apre il
+  // modale «Assegna classe e disciplina». `assign` = codice JS del click; senza,
+  // la cella resta il trattino inerte di prima (INSEGNA invariata).
+  function missingBadge(label, tone, assign, tip) {
+    var c = tone === 'red'
+      ? 'text-red-700 bg-red-50 ring-1 ring-inset ring-red-200 hover:bg-red-100'
+      : 'text-slate-500 bg-slate-100 ring-1 ring-inset ring-slate-200 hover:bg-slate-200';
+    return '<button type="button" onclick="event.stopPropagation();' + assign + '" title="' + esc(tip) + '"' +
+      ' class="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide rounded-full px-1.5 py-0.5 transition ' + c + '">' +
+      '<i data-lucide="' + (tone === 'red' ? 'alert-circle' : 'circle-dashed') + '" class="w-2.5 h-2.5 shrink-0"></i>' + esc(label) + '</button>';
+  }
   // Contenuto cella CLASSE: chip singolo/lista o trattino.
-  function classCell(names) {
+  function classCell(names, assign) {
     var arr = (names == null) ? [] : (Array.isArray(names) ? names : [names]);
     arr = arr.filter(function (x) { return x != null && x !== ''; });
-    if (!arr.length) return '<span class="text-slate-300">—</span>';
+    if (!arr.length) {
+      return assign
+        ? missingBadge(_t('lt_badge_generic', 'Generico'), 'grey', assign, _t('lt_badge_generic_tip', 'Nessuna classe assegnata. Clicca per assegnarla.'))
+        : '<span class="text-slate-300">—</span>';
+    }
     return '<span class="flex flex-wrap gap-1 min-w-0">' + arr.slice(0, 2).map(function (c) {
       return '<span class="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-600 bg-indigo-50 rounded-full px-1.5 py-0.5 max-w-full"><i data-lucide="graduation-cap" class="w-2.5 h-2.5 shrink-0"></i><span class="truncate">' + esc(c) + '</span></span>';
     }).join('') + (arr.length > 2 ? '<span class="text-[9px] text-slate-400">+' + (arr.length - 2) + '</span>' : '') + '</span>';
+  }
+  // Contenuto cella DISCIPLINA (29/7): chip ambra, gemello di quello della classe
+  // ma con colore proprio — a colpo d'occhio si distingue "1A" da "Storia".
+  function discCell(name, assign) {
+    var n = (name == null) ? '' : String(name).trim();
+    if (!n) {
+      return assign
+        ? missingBadge(_t('lt_badge_nodisc', 'Materia?'), 'red', assign, _t('lt_badge_nodisc_tip', 'Nessuna disciplina assegnata. Clicca per assegnarla.'))
+        : '<span class="text-slate-300">—</span>';
+    }
+    return '<span class="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 bg-amber-50 rounded-full px-1.5 py-0.5 max-w-full" title="' + esc(n) + '">' +
+      '<i data-lucide="book-open" class="w-2.5 h-2.5 shrink-0"></i><span class="truncate">' + esc(n) + '</span></span>';
+  }
+  // Disciplina di una mappa: dal progetto localStorage (id, poi nome). '' se ignota.
+  // Usata dalle righe che non portano la disciplina con sé (materiali d'archivio,
+  // file condivisi, sessioni) ma sanno da quale mappa vengono.
+  function discOfMap(mapName, projectId) {
+    try {
+      var arr = projectsRead();
+      var p = projectId ? arr.find(function (x) { return x.id === projectId; }) : null;
+      if (!p && mapName) p = arr.find(function (x) { return x.name === mapName; });
+      if (!p) return '';
+      return p.disc || prettyClass(p.discDir || '') || '';
+    } catch (e) { return ''; }
+  }
+  // Disciplina di una riga-vault su disco: la CARTELLA è la fonte di verità
+  // (come per la classe), col nome del progetto come ripiego.
+  function vaultDisc(rec) {
+    if (rec.v && rec.v.discDir) return prettyClass(rec.v.discDir);
+    return (rec.p && rec.p.disc) || '';
   }
   // Contenuto cella DATA.
   function dateCell(ts) { return '<span class="text-[10px] text-slate-400 tabular-nums whitespace-nowrap">' + esc(fmtDate(ts)) + '</span>'; }
@@ -397,10 +655,14 @@
       (o.sub ? '<div class="text-[10px] text-slate-400 truncate">' + o.sub + '</div>' : '') + '</div></div>');
   }
   // ── Tabella sezioni "file" (Progetti · Materiali · File condivisi) ──────────
-  var FILE_COLS = '<colgroup><col style="width:88px"><col><col style="width:118px"><col style="width:100px"><col style="width:150px"></colgroup>';
+  // 29/7: colonna DISCIPLINA dopo CLASSE. Il numero di <col> DEVE restare uguale
+  // al numero di <th> e di <td> per riga (regola §10.15) — se ne aggiungi una,
+  // toccale tutte e tre.
+  var FILE_COLS = '<colgroup><col style="width:88px"><col><col style="width:118px"><col style="width:118px"><col style="width:100px"><col style="width:150px"></colgroup>';
   function fileHead() {
     return '<thead class="sticky top-0 bg-white z-10"><tr class="border-b border-slate-200">' +
       th(_t('rp_type', 'Tipo')) + th(_t('rp_title', 'Titolo')) + th(_t('rp_class', 'Classe')) +
+      th(_t('rp_disc', 'Disciplina')) +
       th(_t('lt_col_date', 'Data')) + '<th class="' + TH + '"></th></tr></thead>';
   }
   function fileRow(o) {
@@ -408,25 +670,34 @@
     var cur = o.onClick ? ' cursor-pointer' : '';
     var sel = o.selected ? ' bg-indigo-100 ring-1 ring-inset ring-indigo-300' : '';
     return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition' + cur + sel + '"' + click + '>' +
-      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(o.date) +
+      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(discCell(o.disc, o.assign)) + td(o.date) +
       td('<div class="flex justify-end items-center gap-0.5">' + (o.block || '') + '</div>', 'text-right') + '</tr>';
   }
   function fileTable(rowsHtml, scroll) {
     var t = '<table class="w-full table-fixed border-collapse">' + FILE_COLS + fileHead() + '<tbody>' + rowsHtml + '</tbody></table>';
-    return scroll ? '<div class="overflow-y-auto max-h-[340px]" style="scrollbar-gutter:stable">' + t + '</div>' : t;
+    /* `.mm-tab-wrap` è il contenitore-tabella del motore — bordo, raggio e
+       scorrimento sono gli stessi degli elenchi delle console. Prima questa
+       tabella si disegnava il suo contenitore, quindi la stessa cosa aveva due
+       vesti a seconda di dove la si guardava.
+       Il tetto di altezza resta dichiarato qui: nel motore lo dà il layout della
+       console, che sulla landing non c'è. */
+    return scroll
+      ? '<div class="mm-tab-wrap" style="max-height:340px;scrollbar-gutter:stable">' + t + '</div>'
+      : t;
   }
   // ── Tabella "Attività di studio e report": Tipo · Titolo · Classe ·
   // Partecipanti · Data · Report(bottoni) · Finder ──────────────────────────
-  var ACT_COLS = '<colgroup><col style="width:88px"><col><col style="width:80px"><col style="width:104px"><col style="width:64px"><col style="width:196px"><col style="width:44px"></colgroup>';
+  var ACT_COLS = '<colgroup><col style="width:88px"><col><col style="width:80px"><col style="width:112px"><col style="width:104px"><col style="width:64px"><col style="width:196px"><col style="width:44px"></colgroup>';
   function actHead() {
     return '<thead class="sticky top-0 bg-white z-10"><tr class="border-b border-slate-200">' +
       th(_t('rp_type', 'Tipo')) + th(_t('rp_title', 'Titolo')) + th(_t('rp_class', 'Classe')) +
+      th(_t('rp_disc', 'Disciplina')) +
       th(_t('lt_col_date', 'Data')) + th(_t('lt_col_part_short', 'Part.')) + th(_t('lt_col_report', 'Report')) +
       '<th class="' + TH + '"></th></tr></thead>';
   }
   function actTableRow(o) {
     return '<tr class="border-b border-slate-100 hover:bg-indigo-50 transition">' +
-      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(o.date) + td(o.partic) +
+      td(o.tipo, 'overflow-hidden') + titleTd(o) + td(o.cls) + td(discCell(o.disc)) + td(o.date) + td(o.partic) +
       td('<div class="flex flex-wrap items-center gap-1">' + (o.reports || '') + '</div>') +
       td(o.folder, 'text-right') + '</tr>';
   }
@@ -437,10 +708,29 @@
   function confirmDeleteText(name, onOk) {
     var title = _t('lt_del_type_title', 'Conferma eliminazione');
     var desc = _t('lt_del_type_desc', 'Per eliminare scrivi qui sotto il nome esatto:') + ' “' + name + '”';
+    var giusto = function (val) {
+      return !!val && String(val).trim().toLowerCase() === String(name).trim().toLowerCase();
+    };
+    var sbagliato = function () {
+      toast(_t('lt_del_type_mismatch', 'Il testo non corrisponde: eliminazione annullata.'), 'warning');
+    };
+    if (window.MappAIModal) {
+      window.MappAIModal.open({
+        titolo: title, icona: 'trash-2', taglia: 's',
+        sezioni: [{ testo: desc, campi: [{ id: 'nome', etichetta: name }] }],
+        azioni: [
+          { id: 'no', etichetta: _t('lt_cancel', 'Annulla') },
+          { id: 'si', etichetta: _t('lt_sm_delete', 'Elimina'), ruolo: 'distruttivo', icona: 'trash-2' }
+        ]
+      }).then(function (r) {
+        if (!r || r.azione !== 'si') return;
+        if (giusto(r.valori.nome)) onOk(); else sbagliato();
+      });
+      return;
+    }
     if (window.showPrompt) {
       window.showPrompt(title, '', function (val) {
-        if (val && String(val).trim().toLowerCase() === String(name).trim().toLowerCase()) onOk();
-        else toast(_t('lt_del_type_mismatch', 'Il testo non corrisponde: eliminazione annullata.'), 'warning');
+        if (giusto(val)) onOk(); else sbagliato();
       }, desc);
     } else if (confirm(desc)) { onOk(); }
   }
@@ -528,8 +818,15 @@
   // Match progetto localStorage ↔ vault su disco per folderName + classDir.
   // Legacy (progetto senza classDir) → match sul solo folderName.
   function matchProjectToVault(projects, v) {
+    // Match stretto: stessa cartella, stessa classe, stessa disciplina (29/7) —
+    // due mappe omonime in discipline diverse della stessa classe sono distinte.
+    var byAll = projects.find(function (p) {
+      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null) && (p.discDir || null) === (v.discDir || null);
+    });
+    if (byAll) return byAll;
+    // Progetti scritti prima del livello disciplina: hanno classDir ma non discDir.
     var byBoth = projects.find(function (p) {
-      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null);
+      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null) && !p.discDir;
     });
     if (byBoth) return byBoth;
     if (v.classDir) return null;
@@ -621,7 +918,7 @@
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
         title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
-        cls: classCell(chips), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
+        cls: classCell(chips), disc: vaultDisc(rec), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
         block: projBlockDisk(i),
         onClick: onClick,
         selected: selected
@@ -712,21 +1009,32 @@
         if (!snap || !snap.db || !snap.db.nodes || !snap.db.nodes.length) continue;
         var cls = (p.clsId && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(p.clsId) : null;
         var classDir = (cls && cls.name) ? fc.mapClassFolder(cls.sede, cls.name) : null;
+        // Disciplina congelata sul progetto (29/7); se manca, e la classe ne insegna
+        // una sola, quella. Con 2+ discipline e nessuna registrata NON si indovina:
+        // il vault resta figlio diretto della classe.
+        var discName = p.disc || '';
+        if (!discName && cls && window.MappAIClasses && window.MappAIClasses.disciplinesOf) {
+          var dl = window.MappAIClasses.disciplinesOf(cls);
+          if (dl.length === 1) discName = dl[0];
+        }
+        var discDir = classDir ? fc.disciplineFolder(discName) : '';
         var vaultName = fc.vaultFolderName(snap.rootNodeLabel || p.name || 'Mappa');
-        var siblings = all.filter(function (v) { return classDir ? (v.classDir === classDir) : (!v.classDir); }).map(function (v) { return v.folderName; });
+        var siblings = all.filter(function (v) {
+          return (v.classDir || null) === (classDir || null) && (v.discDir || '') === (discDir || '');
+        }).map(function (v) { return v.folderName; });
         var finalName = vaultName;
         if (siblings.indexOf(vaultName) >= 0 && fc.sessionSeq) {
           var seq = fc.sessionSeq(siblings, vaultName, ' · ');
           var n = Math.max(2, (seq.maxSeq || 0) + 1);
           finalName = vaultName + ' · ' + String(n).padStart(2, '0');
         }
-        var folderPath = classDir ? (base + '/' + classDir + '/' + finalName) : (base + '/' + finalName);
+        var folderPath = [base].concat(fc.mapVaultParents(classDir, discDir), [finalName]).join('/');
         var res = null;
         try { res = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: _mapDataFromSnapshot(snap) }); } catch (e) { res = null; }
         if (res && res.success) {
           var proj = projects.find(function (x) { return x.id === p.id; });
-          if (proj) { proj.vault = finalName; proj.classDir = classDir; }
-          all.push({ folderName: finalName, classDir: classDir });
+          if (proj) { proj.vault = finalName; proj.classDir = classDir; proj.discDir = discDir || null; if (discName) proj.disc = discName; }
+          all.push({ folderName: finalName, classDir: classDir, discDir: discDir || null });
           created++;
         }
       }
@@ -763,7 +1071,7 @@
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
         title: p.name, titleTip: p.name, dot: dot,
-        cls: classCell(chips), date: dateCell(p.date),
+        cls: classCell(chips), disc: p.disc || prettyClass(p.discDir || ''), date: dateCell(p.date),
         block: projBlock(p),
         onClick: onClick,
         selected: !!(_selectedProject && _selectedProject.id === p.id)
@@ -850,7 +1158,7 @@
           tipo: tipoCell(smIcon(it.ext), extLbl, it.ext || ''),
           title: it.name, titleTip: it.name,
           sub: esc(smHuman(it.size) + (it.mapName ? ' · ' + it.mapName : '')),
-          cls: classCell(it.sharedClasses || []), date: dateCell(it.addedAt),
+          cls: classCell(it.sharedClasses || []), disc: discOfMap(it.mapName, null), date: dateCell(it.addedAt),
           block: block
         });
       }).join(''), true);
@@ -946,9 +1254,10 @@
       return fileRow({
         tipo: tipoCell(dk.icon, dk.label, dk.label),
         title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
-        cls: classCell(d.cls), date: dateCell(d.date),
+        cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date),
         block: actIcon('printer', _t('lt_qp_open_file', 'Apri il file (stampa dal visualizzatore)'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false),
+          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false) +
+          actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false),
         onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
       });
     }
@@ -967,7 +1276,7 @@
     return fileRow({
       tipo: tipoCell(meta.icon, typeLbl, typeLbl),
       title: d.title, titleHtmlExtra: badge, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
-      cls: classCell(d.cls), date: dateCell(d.date),
+      cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date),
       block:
         actIcon('printer', _t('lt_qp_print', 'Stampa (con o senza soluzioni)'), "window.MappAITeach.printQuizPaper('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
         actIcon('qr-code', isPdf ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareQuizPaper('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isPdf) +
@@ -1075,11 +1384,12 @@
       var dk = _diskKind(d.title);
       var block =
         actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-        actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false);
+        actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false) +
+        actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
       return fileRow({
         tipo: tipoCell(dk.icon, dk.label, dk.label),
         title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
-        cls: classCell(d.cls), date: dateCell(d.date), block: block,
+        cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date), block: block,
         onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
       });
     }
@@ -1094,7 +1404,7 @@
     return fileRow({
       tipo: tipoCell(meta.icon, typeLbl, typeLbl),
       title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
-      cls: classCell(d.cls), date: dateCell(d.date), block: block2,
+      cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date), block: block2,
       onClick: "window.MappAITeach.openDoc('" + esc(d.id) + "')"
     });
   }
@@ -1120,7 +1430,11 @@
     });
   }
 
-  // Elimina un materiale archiviato (con conferma).
+  // Elimina un materiale ARCHIVIATO (con conferma).
+  // ⚠️ L'archivio vive in localStorage e non sa quali file siano stati scritti
+  // nel vault: qui si toglie la voce, non il file. Quello si toglie dalla sua
+  // riga «da disco», col cestino (deleteDiskFile) — e il messaggio lo dice,
+  // perché «elimina» che lascia il file nella cartella è una bugia.
   function deleteDoc(id) {
     var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
     var name = (doc && doc.title) || _t('lt_this_material', 'questo materiale');
@@ -1214,7 +1528,7 @@
       tipo: tipoCell(icon, typeLbl, typeLbl),
       title: r.map || r.activity || '', titleTip: r.activity + (r.map ? ' · ' + r.map : ''),
       sub: '<i data-lucide="target" class="w-2.5 h-2.5 inline align-middle"></i> ' + scope,
-      cls: classCell(r.className), partic: partic, date: dateCell(r.date),
+      cls: classCell(r.className), disc: discOfMap(r.map, null), partic: partic, date: dateCell(r.date),
       reports: reports, folder: folderBtn
     });
   }
@@ -1272,55 +1586,41 @@
   // ── Avvio rapido QR ────────────────────────────────────────────────────────
   function toast(msg, level) { if (window.showToast) window.showToast(msg, level || 'info'); }
 
-  // Overlay generico (pattern .pm-* compatibile con il resto dell'app).
-  function makeOverlay(titleIcon, title, innerHtml, maxW) {
-    var ov = document.createElement('div');
-    ov.className = 'mappai-teach-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9992;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:18px';
-    ov.innerHTML = '<div role="dialog" aria-modal="true" style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxW || '560px') + ',94vw);max-height:88vh;overflow-y:auto;padding:20px 22px">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-      '<div style="display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px;color:#0f172a"><i data-lucide="' + titleIcon + '" style="width:20px;height:20px;color:#4f46e5"></i>' + esc(title) + '</div>' +
-      '<button type="button" class="teach-close" aria-label="Chiudi" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:4px">×</button></div>' +
-      innerHtml + '</div>';
-    ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
-    ov.querySelector('.teach-close').onclick = function () { ov.remove(); };
-    var escH = function (e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', escH); } };
-    document.addEventListener('keydown', escH);
-    document.body.appendChild(ov);
-    if (window.safeCreateIcons) window.safeCreateIcons();
-    return ov;
-  }
+  /* Le finestre di questa landing passano tutte dal MOTORE (2/8): taglia,
+     ESC, focus trap, ritorno del fuoco e ruoli dei bottoni arrivano da lì una
+     volta sola. Prima erano `makeOverlay`, che non aveva né trap né ritorno
+     del fuoco — un modale da cui si usciva col Tab e non si tornava indietro. */
+  function MM() { return window.MappAIModal; }
 
   // Step 1: scelta classe. cb(cls|null) — null = "senza classe".
   function pickClass(cb) {
+    if (!MM()) return;
     var classes = classList();
-    var rows;
-    if (!classes.length) {
-      rows = '<p style="font-size:13px;color:#64748b;line-height:1.6;margin-bottom:12px">' +
-        esc(_t('lt_no_classes', 'Non hai ancora creato classi. Creane una per tarare le attività, oppure continua senza classe.')) + '</p>' +
-        '<button type="button" class="lt-newclass" style="width:100%;padding:11px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px">' +
-        esc(_t('lt_create_class', 'Crea una classe')) + '</button>';
-    } else {
-      rows = classes.map(function (c) {
-        var sub = [c.grade, c.system].filter(Boolean).join(' · ');
-        return '<button type="button" class="lt-cls" data-id="' + esc(c.id) + '" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;margin-bottom:7px">' +
-          '<i data-lucide="graduation-cap" style="width:18px;height:18px;color:#4f46e5;flex:0 0 auto"></i>' +
-          '<span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:13.5px;color:#0f172a">' + esc(c.name) + '</span>' +
-          (sub ? '<span style="display:block;font-size:11px;color:#94a3b8">' + esc(sub) + '</span>' : '') + '</span></button>';
-      }).join('');
-    }
-    var footer = '<button type="button" class="lt-noclass" style="width:100%;padding:10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:600;cursor:pointer;margin-top:4px">' +
-      esc(_t('lt_without_class', 'Continua senza classe')) + '</button>';
-    var ov = makeOverlay('users', _t('lt_pick_class', 'Scegli la classe'), rows + footer, '460px');
-    ov.querySelectorAll('.lt-cls').forEach(function (b) {
-      b.onclick = function () {
-        var c = window.MappAIClasses.get(b.dataset.id);
-        try { window.MappAIClasses.setActive(b.dataset.id); } catch (e) { }
-        ov.remove(); cb(c || null);
-      };
+    var sezioni = classes.length
+      ? [{
+        voci: classes.map(function (c) {
+          return {
+            id: 'cls-' + c.id, etichetta: c.name, icona: 'graduation-cap',
+            sotto: [c.grade, c.system].filter(Boolean).join(' · ')
+          };
+        })
+      }]
+      : [{
+        testo: _t('lt_no_classes', 'Non hai ancora creato classi. Creane una per tarare le attività, oppure continua senza classe.'),
+        azioni: [{ id: 'nuova', etichetta: _t('lt_create_class', 'Crea una classe'), ruolo: 'primario', icona: 'plus' }]
+      }];
+    MM().open({
+      titolo: _t('lt_pick_class', 'Scegli la classe'), icona: 'users', taglia: 's',
+      invio: false, sezioni: sezioni,
+      azioni: [{ id: 'senza', etichetta: _t('lt_without_class', 'Continua senza classe') }]
+    }).then(function (r) {
+      if (!r) return;                                   // ESC o velo: non si prosegue
+      if (r.azione === 'senza') return cb(null);
+      if (r.azione === 'nuova') { if (window.openClassAccountsModal) window.openClassAccountsModal(); return; }
+      var id = r.azione.slice(4);
+      try { window.MappAIClasses.setActive(id); } catch (e) { }
+      cb(window.MappAIClasses.get(id) || null);
     });
-    var nc = ov.querySelector('.lt-noclass'); if (nc) nc.onclick = function () { ov.remove(); cb(null); };
-    var newc = ov.querySelector('.lt-newclass'); if (newc) newc.onclick = function () { ov.remove(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
   }
 
   // Step 2: scelta mappa a 3 fasce. cb(project).
@@ -1328,49 +1628,52 @@
     var core = CORE();
     var projects = projectsRead();
     if (!projects.length) { toast(_t('lt_no_maps', 'Nessuna mappa salvata. Creane una in modalità Costruisci.'), 'warning'); return; }
+    if (!MM()) return;
     var ranked = core ? core.rankMapsForClass(projects, regRead(), cls || {}) : { started: [], sameGrade: [], others: projects };
-    var band = function (titleKey, titleFallback, arr) {
-      if (!arr.length) return '';
-      return '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:12px 0 6px">' + esc(_t(titleKey, titleFallback)) + '</div>' +
-        arr.map(function (p) {
-          var isKg = p.type === 'kg';
-          return '<button type="button" class="lt-map" data-id="' + esc(p.id) + '" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;margin-bottom:6px">' +
-            '<i data-lucide="' + (isKg ? 'network' : 'git-merge') + '" style="width:16px;height:16px;color:#4f46e5;flex:0 0 auto"></i>' +
-            '<span style="flex:1;min-width:0;font-weight:700;font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.name) + '</span>' +
-            (p.grade ? '<span style="font-size:10px;color:#94a3b8">' + esc(p.grade) + '</span>' : '') + '</button>';
-        }).join('');
-    };
     var otherGrade = (ranked.otherGrade || []);
-    var inner = band('lt_band_started', 'Già usate con la classe', ranked.started) +
-      band('lt_band_grade', 'Stesso grado', ranked.sameGrade) +
-      band('lt_band_others', 'Mappe generiche', ranked.others);
     // Mappe assegnate ad ALTRE classi: nascoste di default (il docente non è
-    // bloccato → toggle per mostrarle). Se non c'è nessun'altra mappa da mostrare
-    // sopra, le espande subito così il picker non resta vuoto.
-    var hasVisible = ranked.started.length || ranked.sameGrade.length || ranked.others.length;
-    if (otherGrade.length) {
-      var toggleLabel = _t('lt_band_other_grade', 'Mappe di altre classi') + ' (' + otherGrade.length + ')';
-      inner += '<button type="button" class="lt-other-toggle" style="width:100%;text-align:left;margin-top:12px;padding:8px 10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px">' +
-        '<i data-lucide="chevron-right" class="lt-other-chev" style="width:14px;height:14px"></i>' + esc(toggleLabel) + '</button>' +
-        '<div class="lt-other-wrap" style="display:' + (hasVisible ? 'none' : 'block') + '">' +
-        band('lt_band_other_grade_h', 'Assegnate ad altre classi', otherGrade) + '</div>';
-    }
-    var ov = makeOverlay('git-merge', _t('lt_pick_map', 'Scegli la mappa'), inner, '520px');
-    var tgl = ov.querySelector('.lt-other-toggle');
-    if (tgl) tgl.onclick = function () {
-      var wrap = ov.querySelector('.lt-other-wrap');
-      var chev = ov.querySelector('.lt-other-chev');
-      if (!wrap) return;
-      var open = wrap.style.display !== 'none';
-      wrap.style.display = open ? 'none' : 'block';
-      if (chev) chev.setAttribute('data-lucide', open ? 'chevron-right' : 'chevron-down');
-      if (window.safeCreateIcons) window.safeCreateIcons();
-    };
-    ov.querySelectorAll('.lt-map').forEach(function (b) {
-      b.onclick = function () {
-        var p = projects.find(function (x) { return x.id === b.dataset.id; });
-        ov.remove(); cb(p);
+    // bloccato → un comando per mostrarle). Se non c'è nessun'altra mappa da
+    // mostrare sopra, si aprono subito così il picker non resta vuoto.
+    var mostraAltre = !(ranked.started.length || ranked.sameGrade.length || ranked.others.length);
+
+    function voce(p) {
+      return {
+        id: 'map-' + p.id, etichetta: p.name, badge: p.grade || '',
+        icona: p.type === 'kg' ? 'network' : 'git-merge'
       };
+    }
+    function fascia(chiave, ripiego, arr) {
+      return arr.length ? [{ gruppo: _t(chiave, ripiego) }].concat(arr.map(voce)) : [];
+    }
+    function schema() {
+      var voci = fascia('lt_band_started', 'Già usate con la classe', ranked.started)
+        .concat(fascia('lt_band_grade', 'Stesso grado', ranked.sameGrade))
+        .concat(fascia('lt_band_others', 'Mappe generiche', ranked.others));
+      if (otherGrade.length && mostraAltre) {
+        voci = voci.concat(fascia('lt_band_other_grade_h', 'Assegnate ad altre classi', otherGrade));
+      }
+      var sezioni = [{ voci: voci }];
+      if (otherGrade.length && !mostraAltre) {
+        sezioni.push({
+          azioni: [{
+            id: 'altre', chiude: false, icona: 'chevron-right',
+            etichetta: _t('lt_band_other_grade', 'Mappe di altre classi') + ' (' + otherGrade.length + ')'
+          }]
+        });
+      }
+      return {
+        titolo: _t('lt_pick_map', 'Scegli la mappa'), icona: 'git-merge',
+        taglia: 'm', invio: false, sezioni: sezioni
+      };
+    }
+    var s = schema();
+    s.suAzione = function (ev, box, ridisegna) {
+      if (ev.azione === 'altre') { mostraAltre = true; ridisegna(schema()); }
+    };
+    MM().open(s).then(function (r) {
+      if (!r || r.azione.indexOf('map-') !== 0) return;
+      var id = r.azione.slice(4);
+      cb(projects.find(function (x) { return x.id === id; }));
     });
   }
 
@@ -1383,37 +1686,47 @@
       .filter(function (d) { return d.kind !== 'nodesheet'; });
     var list = filterItemsForClass(docs, cls);
     if (!list.length) { toast(_t('lt_no_docs', 'Nessun materiale condivisibile. Genera una Sintesi, un Dossier o una Timeline.'), 'warning'); return; }
-    var inner = list.map(function (d) {
-      var meta = KIND_META[d.kind] || KIND_META.dossier;
-      return '<div class="lt-doc-row" data-id="' + esc(d.id) + '" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
-        '<button type="button" class="lt-doc" data-id="' + esc(d.id) + '" title="' + esc(_t('lt_sm_share', 'Condividi via QR')) + '" style="flex:1;min-width:0;text-align:left;display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer">' +
-        '<i data-lucide="' + meta.icon + '" style="width:16px;height:16px;color:#4f46e5;flex:0 0 auto"></i>' +
-        '<span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(d.title) + '</span>' +
-        (d.mapName ? '<span style="display:block;font-size:10px;color:#94a3b8">' + esc(d.mapName) + '</span>' : '') + '</span>' +
-        '<i data-lucide="qr-code" style="width:15px;height:15px;color:#16a34a;flex:0 0 auto"></i></button>' +
-        '<button type="button" class="lt-doc-del" data-id="' + esc(d.id) + '" title="' + esc(_t('lt_sm_delete', 'Elimina')) + '" style="border:1px solid #fecaca;background:#fff;border-radius:10px;padding:9px 10px;cursor:pointer;color:#ef4444;flex:0 0 auto"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>' +
-        '</div>';
-    }).join('');
-    var ov = makeOverlay('folder-down', _t('lt_pick_doc', 'Scegli il materiale'), inner, '520px');
-    ov.querySelectorAll('.lt-doc').forEach(function (b) {
-      b.onclick = function () {
-        var d = window.MappAIStudyDocs.get(b.dataset.id);
-        ov.remove(); cb(d);
+    if (!MM()) return;
+
+    function schema() {
+      return {
+        titolo: _t('lt_pick_doc', 'Scegli il materiale'), icona: 'folder-down',
+        taglia: 'm', invio: false,
+        sezioni: [list.length
+          ? {
+            voci: list.map(function (d) {
+              var meta = KIND_META[d.kind] || KIND_META.dossier;
+              return {
+                id: 'doc-' + d.id, etichetta: d.title, sotto: d.mapName || '', icona: meta.icon,
+                azioni: [{
+                  id: 'del-' + d.id, etichetta: _t('lt_sm_delete', 'Elimina'),
+                  icona: 'trash-2', ruolo: 'distruttivo'
+                }]
+              };
+            })
+          }
+          : { testo: _t('lt_docs_empty', 'Nessun materiale rimasto.') }]
       };
-    });
-    ov.querySelectorAll('.lt-doc-del').forEach(function (b) {
-      b.onclick = function () {
-        var id = b.dataset.id;
-        var go = function () {
-          if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
-          var row = ov.querySelector('.lt-doc-row[data-id="' + id + '"]'); if (row) row.remove();
-          if (!ov.querySelector('.lt-doc-row')) { ov.remove(); toast(_t('lt_docs_empty', 'Nessun materiale rimasto.'), 'info'); }
-          if (window.MappAITeach && window.MappAITeach.refresh) window.MappAITeach.refresh();
-        };
-        var msg = _t('lt_doc_del_confirm', 'Eliminare questo materiale dall\'archivio? (l\'operazione non si può annullare)');
-        if (window.showConfirm) window.showConfirm(msg, go);
-        else if (confirm(msg)) go();
-      };
+    }
+    var s = schema();
+    s.suAzione = function (ev, box, ridisegna) {
+      if (ev.azione.indexOf('del-') !== 0) return;
+      var id = ev.azione.slice(4);
+      MM().conferma({
+        titolo: _t('lt_doc_del_title', 'Eliminare questo materiale?'),
+        testo: _t('lt_doc_del_confirm', 'Eliminare questo materiale dall\'archivio? (l\'operazione non si può annullare)'),
+        conferma: _t('lt_sm_delete', 'Elimina'), distruttivo: true
+      }).then(function (si) {
+        if (!si) return;
+        if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(id);
+        list = list.filter(function (d) { return d.id !== id; });
+        if (window.MappAITeach && window.MappAITeach.refresh) window.MappAITeach.refresh();
+        ridisegna(schema());
+      });
+    };
+    MM().open(s).then(function (r) {
+      if (!r || r.azione.indexOf('doc-') !== 0) return;
+      cb(window.MappAIStudyDocs.get(r.azione.slice(4)));
     });
   }
 
@@ -1486,35 +1799,1079 @@
       var k = core ? core.normGrade(c.grade) : c.grade;
       if (seen[k]) return; seen[k] = true; grades.push(c.grade);
     });
-    var opts = grades.map(function (g) {
-      return '<button type="button" class="lt-grade" data-g="' + esc(g) + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid ' + (core && core.normGrade(g) === core.normGrade(p.grade || '') ? '#4f46e5' : '#e2e8f0') + ';border-radius:10px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;color:#0f172a">' + esc(g) + '</button>';
-    }).join('');
-    var inner = (grades.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">' + opts + '</div>' : '') +
-      '<label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:6px">' + esc(_t('lt_grade_custom', 'Grado personalizzato')) + '</label>' +
-      '<div style="display:flex;gap:8px"><input type="text" class="lt-grade-input" maxlength="40" value="' + esc(p.grade || '') + '" placeholder="' + esc(_t('lt_grade_ph', 'Es. 1ª media')) + '" style="flex:1;border:1px solid #c7d2fe;border-radius:10px;padding:9px 11px;font:inherit;background:#fff">' +
-      '<button type="button" class="lt-grade-save" style="border:none;border-radius:10px;padding:9px 16px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer">' + esc(_t('lt_grade_save', 'Salva')) + '</button></div>' +
-      (p.grade ? '<button type="button" class="lt-grade-clear" style="margin-top:10px;border:none;background:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">' + esc(_t('lt_grade_remove', 'Rimuovi grado')) + '</button>' : '');
-    var ov = makeOverlay('graduation-cap', _t('lt_grade_title', 'Grado di ') + (p.name || ''), inner, '440px');
+    if (!MM()) return;
+    var attuale = function (g) { return core ? core.normGrade(g) === core.normGrade(p.grade || '') : g === p.grade; };
+    var sezioni = [];
+    // I gradi delle classi sono scorciatoie, non un elenco da scorrere: stanno
+    // in fila come bottoni brevi, e quello in uso porta la spunta.
+    if (grades.length) {
+      sezioni.push({
+        titolo: _t('lt_grade_from_classes', 'Dalle tue classi'),
+        azioni: grades.map(function (g) {
+          return { id: 'g-' + g, etichetta: g, icona: attuale(g) ? 'check' : '' };
+        })
+      });
+    }
+    sezioni.push({
+      titolo: _t('lt_grade_custom', 'Grado personalizzato'),
+      campi: [{ id: 'grado', etichetta: _t('lt_grade_ph', 'Es. 1ª media'), valore: p.grade || '' }]
+    });
+    var azioni = [];
+    if (p.grade) azioni.push({ id: 'via', etichetta: _t('lt_grade_remove', 'Rimuovi grado'), ruolo: 'distruttivo' });
+    azioni.push({ id: 'salva', etichetta: _t('lt_grade_save', 'Salva'), ruolo: 'primario' });
+
     var save = function (val) {
       p.grade = (val || '').trim().slice(0, 40) || null;
       try { localStorage.setItem('tutor_ai_projects', JSON.stringify(projects)); } catch (e) { }
-      ov.remove(); renderBuildProjects();
+      renderBuildProjects();
     };
-    ov.querySelectorAll('.lt-grade').forEach(function (b) { b.onclick = function () { save(b.dataset.g); }; });
-    var inp = ov.querySelector('.lt-grade-input');
-    var sv = ov.querySelector('.lt-grade-save'); if (sv) sv.onclick = function () { save(inp ? inp.value : ''); };
-    var cl = ov.querySelector('.lt-grade-clear'); if (cl) cl.onclick = function () { save(''); };
-    if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(inp.value); });
+    MM().open({
+      titolo: _t('lt_grade_title', 'Grado di ') + (p.name || ''),
+      icona: 'graduation-cap', taglia: 's', sezioni: sezioni, azioni: azioni
+    }).then(function (r) {
+      if (!r) return;
+      if (r.azione === 'via') return save('');
+      if (r.azione === 'salva') return save(r.valori.grado);
+      if (r.azione.indexOf('g-') === 0) return save(r.azione.slice(2));
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CONSOLE «INSEGNA» (2/8/26)
+     Sostituisce le tre sezioni della landing. Il difetto che risolve, notato da
+     Giacomo: scegliere una classe NON restringeva i materiali — restavano
+     visibili quelli di tutte le mappe. Qui il percorso è quello vero del
+     lavoro: chip classe·materia → la MAPPA nella colonna → i materiali del suo
+     vault → il materiale scelto nella tela, con la sua barra.
+     Kill-switch `mappai_teach_console='0'` → landing storica a tre sezioni.
+     ═══════════════════════════════════════════════════════════════════════════ */
+  var _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
+  /* Le viste della classe che la console ospita nella tela: id della voce →
+     contenitore che la landing riempie già. Una sola fonte, così la console non
+     può puntare a una sezione che non esiste. */
+  var VISTE_CLASSE = [
+    { id: 'lavagna', icona: 'presentation', chiave: 'lt_v_lavagna', testo: 'Lavagna' },
+    { id: 'live', icona: 'radio', chiave: 'lt_v_live', testo: 'Attività LIVE' },
+    { id: 'stampabili', icona: 'printer', chiave: 'lt_v_stampabili', testo: 'Stampabili' }
+  ];
+  function _vistaClasse(id) { return VISTE_CLASSE.find(function (v) { return v.id === id; }) || null; }
+
+  function consoleAttiva() {
+    try { return localStorage.getItem('mappai_teach_console') !== '0'; } catch (e) { return true; }
+  }
+  function _consClasse() { var c = activeClass(); return c && c.name ? c : null; }
+  function _consMateria() {
+    try { return (window.MappAIClasses && window.MappAIClasses.activeDiscipline) ? window.MappAIClasses.activeDiscipline() : ''; }
+    catch (e) { return ''; }
+  }
+
+  /* ── CABLAGGIO console-bento (6/8) — dietro flag, OPT-IN, default OFF ────────
+     `mappai_console_bento_app='1'` accende la veste nuova (cascata «Cosa/A chi/
+     Materia» al posto del chip; poi area a bento, poi via il rail). Spenta =
+     console INSEGNA identica a oggi. Va accesa e provata in Electron. */
+  function _bentoApp() { try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; } }
+  /* gli allievi per la colonna «A chi?»: i profili studente (taratura), nome +
+     grado. Picking → `setActiveStudent` (esclude la classe attiva). */
+  function _allieviProfili() {
+    try {
+      var a = (typeof appState !== 'undefined') ? appState : window.appState;
+      var arr = (a && Array.isArray(a.allProfiles)) ? a.allProfiles : [];
+      return arr.filter(function (p) { return p && p.nickname; }).map(function (p) {
+        return { nick: p.nickname, label: p.nickname + (p.grade ? ' — ' + p.grade : ''), p: p };
+      });
+    } catch (e) { return []; }
+  }
+  /* «+ Nuova materia»: chiede il label e procede. Usa il prompt dell'app se c'è. */
+  function _promptNuovaMateria(cb) {
+    var q = _t('lt_cons_nuova_materia_q', 'Nome della nuova materia');
+    if (window.showPrompt) { try { return window.showPrompt(q, '', function (v) { if (v && String(v).trim()) cb(String(v).trim()); }); } catch (e) { } }
+    var v = null; try { v = window.prompt(q); } catch (e) { }
+    if (v && String(v).trim()) cb(String(v).trim());
+  }
+  /* Le mappe della console vengono dal DISCO, non da localStorage.
+     ⚠️ Era il difetto della prima versione, visto da Giacomo in Electron: i
+     materiali comparivano per una classe sola. Motivo: partivo dai progetti in
+     localStorage e cercavo il vault per `p.vault`, che le mappe più vecchie non
+     hanno — mentre INSEGNA legge il disco, che è la fonte di verità (§ auto-vault).
+     Qui si fa lo stesso: si elencano i vault e si aggancia il progetto se c'è. */
+  function _consMappe() {
+    return _cons.mappe || [];
+  }
+  function _consCaricaMappe() {
+    var api = window.electronAPI;
+    var projects = projectsRead();
+    if (!api || !api.getAllVaults) {
+      // browser statico: restano i soli progetti salvati
+      return Promise.resolve(projects.map(function (p) {
+        return { id: 'p:' + p.id, nome: p.name, type: p.type, p: p, v: null, cls: p.cls || '', disc: p.disc || '' };
+      }));
+    }
+    return api.getAllVaults().then(function (all) {
+      return (all || []).map(function (v) {
+        var p = matchProjectToVault(projects, v);
+        return {
+          id: p ? 'p:' + p.id : 'v:' + v.fullPath,
+          nome: (p && p.name) || v.rootNodeLabel || v.folderName,
+          type: (p && p.type) || 'mindmap',
+          p: p, v: v,
+          cls: (p && p.cls) || prettyClass(v.classDir || ''),
+          disc: (p && p.disc) || prettyClass(v.discDir || '')
+        };
+      });
+    }).catch(function () { return []; });
+  }
+  /* Il chip NON è un filtro cosmetico: è il contesto della console, e la colonna
+     mostra solo ciò che gli appartiene. */
+  function _consFiltrate() {
+    var cls = _consClasse(), mat = _consMateria();
+    return _consMappe().filter(function (m) {
+      if (cls && normName(m.cls) !== normName(cls.name)) return false;
+      if (mat && normName(m.disc) !== normName(mat)) return false;
+      return true;
+    });
+  }
+  function _consMappaScelta() {
+    if (!_cons.voce) return null;
+    return _consMappe().find(function (m) { return m.id === _cons.voce; }) || null;
+  }
+
+  /* I materiali di UNA mappa: quelli archiviati (localStorage) e quelli che
+     stanno nella cartella. Due mondi che non si parlano — qui si vedono
+     insieme, che è il punto della console. */
+  function _consCaricaMateriali(m) {
+    var core = CORE();
+    var p = m.p || { id: '', name: m.nome };
+    var arch = ((window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || []).filter(function (d) {
+      return core && core.matchesSelectedProject && p.id
+        ? core.matchesSelectedProject(d, { id: p.id, name: p.name })
+        : normName(d.mapName || '') === normName(m.nome);
+    }).map(function (d) {
+      var meta = KIND_META[d.kind] || KIND_META.dossier;
+      return {
+        id: 'arc:' + d.id, archivio: true, docId: d.id, kind: d.kind,
+        titolo: d.title, icona: meta.icon, data: d.date,
+        tipo: _t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label),
+        /* classe e materia: quelle registrate col documento, e se mancano
+           quelle della mappa da cui viene — è la stessa coppia, letta da due
+           posti diversi a seconda di chi l'ha scritta */
+        cls: d.cls || m.cls || '', disc: d.disc || m.disc || '',
+        qr: d.kind !== 'nodesheet' && d.hasHtml
+      };
+    });
+    /* i file del vault si leggono dal percorso VERO del vault (che il disco ci
+       ha già dato), non ricercandolo per nome: è il passaggio che perdeva le
+       mappe senza `p.vault` registrato */
+    var api = window.electronAPI;
+    var suDisco = (m.v && api && api.vaultMaterialsList)
+      ? api.vaultMaterialsList({ vaultPath: m.v.fullPath }).then(function (res) {
+        if (!res || !res.ok) return [];
+        return (res.files || []).map(function (f) {
+          var id = 'disk:' + f.relPath;
+          _diskCache[id] = { vaultPath: m.v.fullPath, relPath: f.relPath };
+          return { id: id, name: f.name, date: f.mtime };
+        });
+      }).catch(function () { return []; })
+      : Promise.resolve([]);
+    return suDisco.then(function (disk) {
+      var tutti = arch.concat(disk.map(function (f) {
+        var dk = _diskKind(f.name);
+        return {
+          id: f.id, archivio: false, titolo: f.name, icona: dk.icon,
+          data: f.date, tipo: dk.label, dati: !!dk.dati, qr: /\.html?$/i.test(f.name),
+          // un file sul disco eredita classe e materia dalla mappa che lo contiene
+          cls: m.cls || '', disc: m.disc || ''
+        };
+      }));
+      /* i file di lavoro (i set .json) scendono in fondo: chi apre questa vista
+         cerca un documento da usare in classe, non lo stato interno dell'app */
+      return tutti.filter(function (x) { return !x.dati; })
+        .concat(tutti.filter(function (x) { return x.dati; }));
+    });
+  }
+
+  /* I materiali si guardano per GENERE, non tutti impilati: chi cerca la
+     sintesi di un ramo non vuole scorrere venti quiz. Un elenco per tipo, con le
+     colonne che si ordinano e si allargano come nel resto della console, e i
+     file di lavoro (.json) chiusi in fondo. */
+  var GRUPPI_MAT = [
+    { id: 'sintesi', chiave: 'lt_g_sintesi', testo: 'Sintesi', tipi: ['Sintesi'] },
+    { id: 'fogli', chiave: 'lt_g_fogli', testo: 'Fogli dei nodi', tipi: ['Foglio nodi'] },
+    { id: 'quiz_mc', chiave: 'lt_g_quiz_mc', testo: 'Quiz a scelta multipla', tipi: ['Quiz MC'] },
+    { id: 'quiz_vf', chiave: 'lt_g_quiz_vf', testo: 'Quiz vero / falso', tipi: ['Quiz V/F'] },
+    { id: 'quiz', chiave: 'lt_g_quiz', testo: 'Altri quiz', tipi: ['Quiz'] },
+    { id: 'flash', chiave: 'lt_g_flash', testo: 'Flashcard', tipi: ['Flashcard'] },
+    { id: 'altro', chiave: 'lt_g_altro', testo: 'Altri materiali', tipi: null },
+    { id: 'dati', chiave: 'lt_g_dati', testo: 'File di lavoro', tipi: ['Dati'], chiusa: true }
+  ];
+  function _consTabelleMateriali(lista, conMappa) {
+    lista = lista || _cons.materiali || [];
+    var noti = {};
+    GRUPPI_MAT.forEach(function (g) { (g.tipi || []).forEach(function (t) { noti[t] = 1; }); });
+    return GRUPPI_MAT.map(function (g) {
+      var righe = lista.filter(function (m) {
+        return g.tipi ? g.tipi.indexOf(m.tipo) >= 0 : !noti[m.tipo];
+      });
+      if (!righe.length) return null;
+      /* La colonna «Tipo» compare solo dove distingue davvero: dentro un elenco
+         intitolato SINTESI, una colonna che ripete «Sintesi» a ogni riga è
+         spazio tolto al nome del file. */
+      var misto = righe.some(function (m) { return m.tipo !== righe[0].tipo; });
+      var colonne = [{ etichetta: _t('lt_col_nome', 'Nome'), larghezza: '' }];
+      if (misto) colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '150px' });
+      /* nella vista di classe la mappa di provenienza è l'informazione che
+         manca di più: senza, due «Sintesi -VERDE.html» sono indistinguibili */
+      if (conMappa) colonne.push({ etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '190px' });
+      /* Classe e materia stanno in OGNI tabella (richiesta di Giacomo, 2/8):
+         sono le due coordinate con cui il docente ritrova le cose, e un elenco
+         che non le porta costringe a ricordare da dove si era arrivati. */
+      colonne.push({ etichetta: _t('rp_class', 'Classe'), larghezza: '120px' });
+      colonne.push({ etichetta: _t('rp_disc', 'Materia'), larghezza: '150px' });
+      colonne.push({ etichetta: _t('lt_col_data', 'Data'), larghezza: '120px' });
+      colonne.push({ etichetta: '', larghezza: '58px', ordinabile: false });
+      return {
+        id: 'g:' + g.id, titolo: _t(g.chiave, g.testo), chiusa: !!g.chiusa,
+        colonne: colonne,
+        righe: righe.map(function (m) {
+          var celle = [m.titolo];
+          if (misto) celle.push(m.tipo);
+          if (conMappa) celle.push(m.mappa || '—');
+          celle.push(m.cls || '—');
+          celle.push(m.disc || '—');
+          celle.push(m.data ? fmtDate(m.data) : '—');
+          celle.push({
+            azioni: [{
+              id: 'del:' + m.id, icona: 'trash-2', ruolo: 'quieto', soloIcona: true,
+              etichetta: _t('lt_sm_delete', 'Elimina')
+            }]
+          });
+          return { id: 'm:' + m.id, chiude: false, celle: celle };
+        })
+      };
+    }).filter(Boolean);
+  }
+
+  function _consSchema() {
+    var cls = _consClasse(), mat = _consMateria();
+    var progetti = _consFiltrate();
+    var p = _consMappaScelta();
+
+    var nav = [{ gruppo: _t('lt_cons_mappe', 'Mappe') }];
+    if (_cons.mappe === null) {
+      nav.push({ id: 'vuoto', etichetta: _t('lt_cons_cerco', 'Cerco le mappe…'), icona: 'loader' });
+    } else if (!progetti.length) {
+      nav.push({ id: 'vuoto', etichetta: _t('lt_cons_nessuna', 'Nessuna mappa'), icona: 'circle-dashed' });
+    } else {
+      progetti.forEach(function (x) {
+        nav.push({
+          id: x.id, etichetta: x.nome, attiva: _cons.voce === x.id,
+          icona: x.type === 'kg' ? 'network' : 'git-merge'
+        });
+      });
+    }
+    /* Le viste della classe sono quelle che la landing sa già disegnare — e
+       SOLO quelle: «File condivisi» resta fuori perché il suo contenitore non
+       esiste (renderSharedMat senza `teach-shared-body`, orfano segnalato
+       dall'audit del 31/7). Una voce che porta a una vista vuota è peggio di
+       una voce che non c'è. */
+    nav.push({ gruppo: _t('lt_cons_materiali_gr', 'Materiali') });
+    VISTE_CLASSE.forEach(function (v) {
+      nav.push({ id: v.id, etichetta: _t(v.chiave, v.testo), icona: v.icona, attiva: _cons.voce === v.id });
+    });
+
+    var s = {
+      titolo: _t('ui_landing_teach', 'Insegna'),
+      icona: 'presentation', taglia: 'xl', layout: 'console', piena: true,
+      invio: false, veloChiude: false,
+      /* col cablaggio bento il chip sparisce: il contesto classe·materia vive nel
+         percorso (Cosa · A chi? · Materia), montato dopo il render da `montaCascata` */
+      contesto: _bentoApp() ? [] : [
+        { id: 'classe', icona: 'graduation-cap', vuoto: !cls, etichetta: cls ? cls.name : _t('lt_cons_classe_vuota', 'Classe') },
+        { id: 'materia', icona: 'book-open', vuoto: !mat, etichetta: mat || _t('lt_cons_materia_vuota', 'Materia') }
+      ],
+      nav: nav,
+      /* Con un documento aperto la colonna si ritira: lo schermo è tutto per il
+         foglio che si sta guardando. Chiudendo l'anteprima torna (richiesta di
+         Giacomo, 2/8) — la maniglia resta lì per riaprirla comunque. */
+      navChiusa: !!_cons.mat,
+      /* niente «Chiudi» in testata: la × c'è già, e due uscite a due centimetri
+         l'una dall'altra sono due modi di sbagliare (decisione del 2/8 su F2) */
+      sezioni: []
+    };
+
+    /* ① un materiale aperto: la tela lo mostra e la barra prende il posto dei
+       filtri — Salva · Stampa · QR · Chiudi, gli stessi comandi della finestra
+       staccata (token --mm-doc-*), qui come azioni del motore. */
+    if (_cons.mat) {
+      s.sottotitolo = (p ? p.nome + ' · ' : '') + _cons.mat.titolo;
+      s.sezioni.push({
+        id: 'barra', colonna: 'barra',
+        azioni: [
+          { id: 'ind', etichetta: _t('lt_cons_indietro', 'Indietro'), icona: 'arrow-left', chiude: false },
+          { id: 'stampa', etichetta: _t('lt_cons_stampa', 'Stampa'), icona: 'printer', ruolo: 'primario', chiude: false },
+          { id: 'qr', etichetta: _t('lt_cons_qr', 'Condividi (QR)'), icona: 'qr-code', chiude: false },
+          { id: 'finder', etichetta: _t('lt_open_finder', 'Apri nel Finder'), icona: 'folder', chiude: false }
+        ]
+      });
+      s.tela = { id: 'doc', segnaposto: _t('lt_cons_carico', 'Apro il materiale…') };
+      return s;
+    }
+
+    /* ② una mappa scelta: i suoi materiali, e gli avvii rapidi che prima
+       stavano in fondo alla landing senza sapere di quale mappa parlassero. */
+    if (p) {
+      s.sottotitolo = p.nome + (cls ? ' · ' + cls.name : '');
+      /* UNA riga di comandi, senza riquadro: aprire la mappa, la sua cartella,
+         elaborarla e lanciarci sopra un'attività sono la stessa famiglia di
+         gesti (spezzarli in due riquadri grigi li faceva sembrare due decisioni
+         diverse). «Studio attivo» e «Lavagna» qui avviano un'attività NUOVA. */
+      /* ELABORA lavora solo sulle MindMap (`MappAIElabora.hasMap`): su un
+         Knowledge Graph il suo empty-state finisce dentro la landing, che in
+         quel momento è nascosta dietro la mappa — il bottone sembrava aprire la
+         mappa e basta. Meglio non offrirlo, e dire perché. */
+      var azioni = [
+        { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: 'map', ruolo: 'primario' },
+        { id: 'cartella', etichetta: _t('lt_cons_finder', 'Finder'), icona: 'folder', chiude: false }
+      ];
+      var soloKg = p.type === 'kg';
+      if (!soloKg) azioni.push({ id: 'elabora', etichetta: _t('lt_cons_elabora', 'Elabora'), icona: 'wand-2' });
+      azioni.push({ id: 'live', etichetta: _t('ui_qs_live', 'Studio attivo'), icona: 'radio' });
+      azioni.push({ id: 'collab', etichetta: _t('ui_qs_collab', 'Lavagna'), icona: 'presentation' });
+      s.sezioni.push({
+        id: 'comandi', nuda: true, azioni: azioni,
+        sotto: soloKg ? _t('lt_cons_no_elab', 'ELABORA lavora sulle MindMap: questa è un Knowledge Graph.') : ''
+      });
+      if (_cons.materiali === null) {
+        s.sezioni.push({ id: 'attesa', nuda: true, testo: _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…') });
+      } else if (!_cons.materiali.length) {
+        s.sezioni.push({
+          id: 'vuoti', nuda: true,
+          testo: _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.')
+        });
+      } else {
+        s.tabelle = _consTabelleMateriali();
+      }
+      return s;
+    }
+
+    /* ③ le viste della classe: qui il motore non sa disegnare (sono le tabelle
+       che la landing già produce), quindi la tela le ospita così come sono. */
+    var vista = _vistaClasse(_cons.voce);
+    if (vista) {
+      s.sottotitolo = _t(vista.chiave, vista.testo) + ' · ' + (cls ? cls.name : _t('lt_cons_tutte', 'Tutte le classi'));
+      if (vista.id === 'lavagna') _vistaLavagna(s, cls);
+      else if (vista.id === 'live') _vistaLive(s);
+      else _vistaStampabili(s);
+      return s;
+    }
+
+    /* ④ nessuna voce scelta: si dice che cosa fare. */
+    s.sottotitolo = cls
+      ? cls.name + (mat ? ' · ' + mat : '') + ' · ' + progetti.length + ' ' + _t('lt_cons_mappe_min', 'mappe')
+      : _t('lt_cons_scegli_classe', 'Scegli una classe per restringere le mappe');
+    s.sezioni.push({
+      id: 'intro', titolo: _t('lt_cons_dainiziare', 'Da dove si comincia'),
+      testo: _t('lt_cons_intro', 'Scegli una mappa nella colonna: sotto compaiono i materiali del suo vault — sintesi, quiz, fogli, fonte originale — e ognuno si apre qui dentro, pronto da stampare o da condividere via QR.')
+    });
+    return s;
+  }
+
+  /* ── Le tre viste della colonna «Materiali» ──────────────────────────────
+     Prima clonavano l'innerHTML delle sezioni della landing dentro la tela:
+     funzionava, ma erano tabelle di un'altra pagina prestate a questa — senza
+     ordinamento, senza colonne regolabili, e legate a contenitori che potevano
+     non esistere. Ora sono schemi veri del motore. */
+
+  // ① LAVAGNA: le due scelte del vecchio wizard, le sessioni da riprendere e le
+  //    tessere della classe. Avviare da qui è avviare davvero: `CT.avvia`.
+  function _vistaLavagna(s, cls) {
+    var sess = _cons.sessioni;
+    s.sezioni.push({
+      id: 'lav-opz', nuda: true, titolo: _t('lt_lav_nuova', 'Nuova sessione'),
+      campi: [
+        {
+          id: 'login', tipo: 'scelta', etichetta: _t('cl_login', 'Accesso allievi'),
+          valore: _cons.lavLogin || 'group',
+          opzioni: [
+            { valore: 'group', etichetta: _t('cl_login_grp', 'A gruppi (3 emoji)') },
+            { valore: 'individual', etichetta: _t('cl_login_ind', 'Individuale (roster della classe attiva)') }
+          ]
+        },
+        {
+          id: 'rete', tipo: 'scelta', etichetta: _t('lt_lav_rete', 'Rete degli allievi'),
+          valore: _cons.lavRete || (window.MappAINetMode ? window.MappAINetMode.get() : 'lan'),
+          opzioni: [
+            { valore: 'lan', etichetta: _t('lt_lav_lan', 'Wi-Fi dell’aula') },
+            { valore: 'web', etichetta: _t('lt_lav_web', 'Internet condiviso') }
+          ],
+          aiuto: _t('cl_net_note', 'Rete: usa l’hotspot del PC o un router d’aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.')
+        }
+      ],
+      azioni: [
+        { id: 'lav-start', etichetta: _t('lt_lav_avvia', 'Avvia la Lavagna'), icona: 'play', ruolo: 'primario', chiude: false },
+        { id: 'lav-cred', etichetta: _t('lt_lav_cred', 'Foglio credenziali'), icona: 'id-card', chiude: false }
+      ],
+      sotto: cls ? '' : _t('lt_lav_senza_classe', 'Senza una classe attiva è disponibile solo l’accesso a gruppi.')
+    });
+    if (sess === null) {
+      s.sezioni.push({ id: 'lav-attesa', nuda: true, testo: _t('lt_lav_cerco', 'Cerco le sessioni salvate…') });
+      return;
+    }
+    if (!sess.length) return;
+    s.tabelle = [{
+      id: 'lav-sess', titolo: _t('lt_lav_riprendi', 'Sessioni da riprendere'),
+      colonne: [
+        { etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '' },
+        { etichetta: _t('rp_class', 'Classe'), larghezza: '120px' },
+        { etichetta: _t('rp_disc', 'Materia'), larghezza: '150px' },
+        { etichetta: _t('lt_col_data', 'Data'), larghezza: '120px' },
+        { etichetta: _t('lt_col_gruppi', 'Gruppi'), larghezza: '90px' },
+        { etichetta: _t('lt_col_accesso', 'Accesso'), larghezza: '125px' }
+      ],
+      /* del session.json si mostra SOLO ciò che serve a riconoscerla: dentro ci
+         sono anche i token della sessione, che non hanno niente da fare in una
+         tabella */
+      righe: sess.map(function (x) {
+        return {
+          id: 'res:' + x.dir, chiude: false,
+          celle: [
+            x.name || 'Lavagna', x.className || '—',
+            /* la materia non sta nella sessione: si ricava dalla mappa, che è
+               l'unico posto dove quella coppia è registrata */
+            discOfMap(x.name, null) || '—',
+            x.startedAt ? fmtDate(x.startedAt) : '—',
+            String(x.groupCount || 0),
+            x.loginMode === 'individual' ? _t('cl_login_ind_s', 'individuale') : _t('cl_login_grp_s', 'gruppi')
+          ]
+        };
+      })
+    }];
+  }
+
+  // ② ATTIVITÀ LIVE: da dove si lancia, e che cosa è già stato fatto.
+  function _vistaLive(s) {
+    s.sezioni.push({
+      id: 'live-avvii', nuda: true, titolo: _t('lt_live_nuova', 'Nuova attività'),
+      azioni: [
+        { id: 'live-quiz', etichetta: _t('lt_live_quiz', 'Quiz a distanza'), icona: 'list-checks', ruolo: 'primario', chiude: false },
+        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Rispondi e Domanda'), icona: 'message-square', chiude: false }
+      ],
+      testo: _t('lt_live_intro', 'Gli allievi entrano dal telefono con le loro credenziali: il quiz si corregge da sé, la scrittura col tutor consegna testo e trascrizione.')
+    });
+    var reg = _cons.report;
+    if (reg === null) { s.sezioni.push({ id: 'live-attesa', nuda: true, testo: _t('lt_live_cerco', 'Cerco i report…') }); return; }
+    if (!reg.length) { s.sezioni.push({ id: 'live-vuoto', nuda: true, testo: _t('lt_live_nessuno', 'Nessuna attività svolta finora.') }); return; }
+    s.tabelle = [{
+      id: 'live-rep', titolo: _t('lt_live_report', 'Attività già svolte'),
+      colonne: [
+        { etichetta: _t('lt_col_attivita', 'Attività'), larghezza: '150px' },
+        { etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '' },
+        { etichetta: _t('rp_class', 'Classe'), larghezza: '120px' },
+        { etichetta: _t('rp_disc', 'Materia'), larghezza: '150px' },
+        { etichetta: _t('lt_col_data', 'Data'), larghezza: '120px' },
+        { etichetta: _t('lt_col_part', 'Partecipanti'), larghezza: '115px' },
+        { etichetta: '', larghezza: '58px', ordinabile: false }
+      ],
+      righe: reg.map(function (r, i) {
+        return {
+          id: 'rep:' + i, chiude: false,
+          celle: [
+            r.activity || '—', r.map || '—', r.cls || '—',
+            r.disc || discOfMap(r.map, null) || '—',
+            r.date ? fmtDate(r.date) : '—',
+            (r.joined != null ? r.joined : '—') + (r.total ? '/' + r.total : ''),
+            {
+              azioni: [{
+                id: 'repdir:' + i, icona: 'folder', ruolo: 'quieto', soloIcona: true,
+                etichetta: _t('lt_open_finder', 'Apri nel Finder')
+              }]
+            }
+          ]
+        };
+      })
+    }];
+  }
+
+  // ③ STAMPABILI: tutto ciò che è già stato prodotto per le mappe del contesto,
+  //    per genere. Copre la CLASSE, non la singola mappa: è il posto dove si va
+  //    quando si prepara la lezione e non si sa ancora da quale mappa pescare.
+  function _vistaStampabili(s) {
+    var tutti = _cons.stampabili;
+    if (tutti === null) { s.sezioni.push({ id: 'st-attesa', nuda: true, testo: _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…') }); return; }
+    if (!tutti.length) { s.sezioni.push({ id: 'st-vuoto', nuda: true, testo: _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.') }); return; }
+    s.tabelle = _consTabelleMateriali(tutti, true);
+  }
+
+  function _consTela() {
+    var box = document.querySelector('.mm-box');
+    return box ? box.querySelector('[data-tela]') : null;
+  }
+  /* Il documento entra in un iframe: è l'unico modo di mostrare un foglio di
+     stampa (col SUO CSS) senza che le sue regole colino nella console. */
+  function _consMostra(html, src) {
+    var tela = _consTela(); if (!tela) return;
+    tela.innerHTML = '';
+    var f = document.createElement('iframe');
+    f.style.cssText = 'width:100%;height:100%;border:0;background:#fff';
+    if (src) f.src = src; else f.srcdoc = html || '';
+    tela.appendChild(f);
+  }
+  function _consApriMateriale() {
+    var m = _cons.mat; if (!m) return;
+    if (m.archivio) {
+      var d = window.MappAIStudyDocs && window.MappAIStudyDocs.get(m.docId);
+      if (d && d.html) return _consMostra(d.html);
+      if (d && d.pdf) return _consMostra(null, d.pdf);
+      return _consMostra('<p style="font-family:monospace;padding:24px">' +
+        esc(_t('lt_doc_missing', 'Documento non disponibile.')) + '</p>');
+    }
+    var loc = _diskCache[m.id];
+    var api = window.electronAPI;
+    if (!loc || !api || !api.readVaultFile) {
+      return _consMostra('<p style="font-family:monospace;padding:24px">' +
+        esc(_t('fx_desktop', 'Disponibile solo nell\'app desktop.')) + '</p>');
+    }
+    api.readVaultFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }).then(function (res) {
+      if (!res || !res.ok) {
+        return _consMostra('<p style="font-family:monospace;padding:24px">' +
+          esc(_t('lt_cons_ko', 'Non riesco ad aprire questo file') + (res && res.error ? ': ' + res.error : '')) + '</p>');
+      }
+      var mime = /\.pdf$/i.test(loc.relPath) ? 'application/pdf'
+        : /\.html?$/i.test(loc.relPath) ? 'text/html'
+          : /\.mp3$/i.test(loc.relPath) ? 'audio/mpeg' : 'application/octet-stream';
+      _consMostra(null, 'data:' + mime + ';base64,' + res.base64);
+    });
+  }
+  /* La tela serve solo all'ANTEPRIMA di un documento: le tre viste della classe
+     sono schemi del motore, non più HTML preso in prestito dalla landing. */
+  function _consDipingiTela() {
+    if (_cons.mat) _consApriMateriale();
+  }
+
+  /* `voceIniziale` = la mappa da riaprire (segnalibro). Si applica DOPO la
+     scansione del disco: prima che le mappe siano arrivate quell'id non esiste
+     ancora, e sceglierlo non avrebbe effetto. */
+  function openConsoleInsegna(voceIniziale) {
+    if (!MM()) { setMode('teach'); return; }
+    _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
+    var ridisegnaCons = null;
+
+    function rifai() { if (ridisegnaCons) { var box = ridisegnaCons(_consSchema()); _consDipingiTela(); montaCascata(box); } }
+    /* La cascata del percorso al posto del chip (Cosa · A chi? · Materia · mappa),
+       dietro il flag `mappai_console_bento_app`. Si rimonta a ogni rifai (le tendine
+       si ricostruiscono con lo stato aggiornato). Riusa la logica del chip: classe,
+       materia e allievo attivi filtrano le mappe come `__ctx-classe`. */
+    /* ── UNA SOLA toolbar per tutte le sezioni (Giacomo, bug 3) ─────────────
+       CREA/ELABORA usano già `#header-utils` (una barra sola, riusata). INSEGNA
+       è una console a schermo pieno che copre quella barra, quindi finora ne
+       disegnava una SUA nella testata — due implementazioni, la causa della
+       deriva di posizione (bug 1). Ora si porta LO STESSO `#header-utils` dentro
+       la testata della console: una barra sola, un solo stile, nessuna deriva.
+       La testata nasconde la sua copia (pallino + briciole); la barra torna
+       statica e la posiziona il flex della testata (padding 28/9 = stesso 28,22
+       della landing). Alla chiusura si rimette dov'era e la landing la ricostruisce.
+       ⚠️ Alla chiusura il motore rimuove il velo (e con esso la barra spostata),
+       quindi `_huNode` tiene un riferimento DIRETTO: dopo `velo.remove()` la barra
+       è staccata dal documento e `getElementById` non la troverebbe più. */
+    var _huHome = null, _huNode = null;
+    function _huEmbed(box) {
+      var hu = document.getElementById('header-utils') || _huNode;
+      var head = box && box.querySelector('.mm-head');
+      if (!hu || !head) return null;
+      /* ⚠️ La casa CORRETTA della barra in modalità manifesto è DENTRO
+         `#landing-view` (ce la mette `sganciaHeader` in stile-manifesto: solo lì
+         il suo `position:absolute; top:22; left:28` cade rispetto alla finestra).
+         Se la console si RIAPRE dal segnalibro (uscita da una mappa → reload) la
+         barra è ancora nel suo posto di markup — dentro la `.glass-card`
+         (`position:relative`) — quando `_huEmbed` gira, e `_huHome` finirebbe lì:
+         al ripristino l'absolute cadrebbe rispetto alla glass-card e la barra
+         atterrerebbe a (52,46) invece che (28,22). Ancoriamo a `#landing-view`
+         PRIMA di ricordare la casa (idempotente: se già lì, non fa niente). */
+      var _lv = document.getElementById('landing-view');
+      if (_lv && hu.parentNode !== _lv && hu.parentNode !== head) _lv.appendChild(hu);
+      if (!_huHome) _huHome = { parent: hu.parentNode, next: hu.nextSibling };
+      _huNode = hu;
+      head.classList.add('mn-head-hu');            // CSS: nasconde pallino+briciole propri
+      hu.classList.add('hu-in-console');           // CSS: position:static → la piazza il flex
+      if (hu.parentNode !== head) head.insertBefore(hu, head.firstChild);
+      return hu;
+    }
+    function _huRestore() {
+      var hu = _huNode || document.getElementById('header-utils');
+      if (hu) {
+        hu.classList.remove('hu-in-console');
+        if (_huHome && _huHome.parent) {
+          if (_huHome.next && _huHome.next.parentNode === _huHome.parent) _huHome.parent.insertBefore(hu, _huHome.next);
+          else _huHome.parent.appendChild(hu);
+        }
+      }
+      _huHome = null; _huNode = null;
+      /* la landing riprende la barra: l'evento forza `montaCascataLanding`
+         (stile-manifesto) a ricostruirla con le SUE callback azzerando la firma */
+      try { document.dispatchEvent(new CustomEvent('mappai-active-class-changed')); } catch (e) { }
+    }
+    function montaCascata(node) {
+      if (!_bentoApp()) return;
+      var CB = window.MappAIConsoleBento;
+      /* il box è quello passato dal render (motore.ridisegna restituisce il NUOVO
+         box a ogni giro): querySelector prenderebbe il primo, sbagliato se più
+         console sono impilate */
+      if (!node || !CB || !CB.montaPercorso || !CB.specContesto) return;
+      var CL = window.MappAIClasses; if (!CL) return;
+      var hu = _huEmbed(node);                      // la barra unica entra nella testata
+      var p = _consMappaScelta();
+      function reset(fn) { try { fn(); } catch (e) { } _cons.voce = ''; _cons.mat = null; _cons.materiali = null; rifai(); }
+      /* la rivelazione progressiva e le etichette-valore le calcola specContesto
+         dallo stato (uguale a landing e console). Cambiare il destinatario azzera
+         la materia (Giacomo): torna il prompt «Materia». */
+      var livelli = CB.specContesto({
+        onCosa: function (m) {
+          try {
+            if (m === 'teach') return;                 // già in INSEGNA
+            setMode(m);                                // porta la landing sotto su Crea/Elabora
+            /* la console INSEGNA è un overlay a schermo pieno: cambiare la
+               sezione sotto NON basta, va CHIUSA o si resta "bloccati" in
+               INSEGNA (Giacomo, bug 2). Si esce per la sua stessa via
+               (`.mm-close` = `__chiudi` → `chiudi(null)`): il `.then` di open()
+               atterra sulla landing già portata su Crea/Elabora, senza
+               segnalibro (quello serve solo all'uscita verso una mappa). */
+            var x = node && node.querySelector && node.querySelector('[data-azione="__chiudi"]');
+            if (x) x.click();
+          } catch (e) { }
+        },
+        onGenerico: function () { reset(function () { CL.setActive(''); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
+        onClasse: function (c) { reset(function () { CL.setActive(c.id); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
+        onAllievo: function (pp) { reset(function () { if (CL.setActiveStudent) CL.setActiveStudent(pp); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
+        onMateria: function (m) { reset(function () { CL.setActiveDiscipline(m); }); },
+        onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
+      });
+      if (p) livelli.push({ statico: p.nome });
+      /* ⚠️ `node` = il BOX (non hu): montaPercorso marca il box `mn-percorso` (la
+         veste allora NON gli rimette il chip) e ne toglie l'eventuale chip; le
+         briciole vanno su `hu` (la barra unica embeddata) via testiEl. */
+      CB.montaPercorso(node, { livelli: livelli }, hu || null);
+    }
+    function scegliMappa(id) {
+      _cons.voce = id; _cons.mat = null; _cons.materiali = null;
+      rifai();
+      var m = _consMappaScelta();
+      if (!m) return;
+      _consCaricaMateriali(m).then(function (list) {
+        if (_cons.voce !== id) return;          // nel frattempo ha cambiato mappa
+        _cons.materiali = list; rifai();
+      });
+    }
+    /* Ogni vista della classe si carica i suoi dati quando la si apre, non
+       all'apertura della console: leggere il disco tre volte per una vista che
+       forse nessuno guarderà è tempo tolto all'attesa che conta. */
+    function scegliVista(v) {
+      if (v === 'lavagna' && _cons.sessioni === null) {
+        var CT = window.MappAICollabTeacher;
+        (CT && CT.sessioni ? CT.sessioni() : Promise.resolve([])).then(function (list) {
+          _cons.sessioni = list || [];
+          if (_cons.voce === 'lavagna') rifai();
+        });
+      }
+      if (v === 'live' && _cons.report === null) {
+        var api = window.electronAPI;
+        (api && api.studySessionsList ? api.studySessionsList() : Promise.resolve({ success: false }))
+          .then(function (r) {
+            var l = (r && (r.sessions || r.records)) || [];
+            /* la Lavagna ha la sua vista: qui restano quiz e tutor */
+            _cons.report = l.filter(function (x) { return !/lavagna/i.test(String(x.activity || '')); });
+            if (_cons.voce === 'live') rifai();
+          }).catch(function () { _cons.report = []; if (_cons.voce === 'live') rifai(); });
+      }
+      if (v === 'stampabili' && _cons.stampabili === null) {
+        var mappe = _consFiltrate();
+        if (!mappe.length) { _cons.stampabili = []; rifai(); return; }
+        Promise.all(mappe.map(function (m) {
+          return _consCaricaMateriali(m).then(function (list) {
+            return list.map(function (x) { x.mappa = m.nome; return x; });
+          }).catch(function () { return []; });
+        })).then(function (gruppi) {
+          _cons.stampabili = gruppi.reduce(function (a, b) { return a.concat(b); }, []);
+          if (_cons.voce === 'stampabili') rifai();
+        });
+      }
+    }
+    var s = _consSchema();
+    /* Le mappe arrivano dal disco: la console si apre subito e la colonna si
+       riempie quando la scansione risponde — senza che l'utente tocchi niente. */
+    s.suApertura = function (box, ridisegna) {
+      ridisegnaCons = ridisegna;
+      montaCascata(box);              // il percorso c'è già all'apertura, prima che arrivino le mappe
+      _consCaricaMappe().then(function (list) {
+        _cons.mappe = list;
+        /* la mappa del segnalibro può non esserci più (cartella spostata o
+           eliminata mentre si era altrove): allora si apre la console e basta */
+        if (voceIniziale && list.some(function (m) { return m.id === voceIniziale; })) scegliMappa(voceIniziale);
+        else rifai();
+      });
+    };
+    s.suAzione = function (ev, box, ridisegna) {
+      ridisegnaCons = ridisegna;
+      var id = ev.azione;
+
+      /* ESC a strati: prima si chiude il documento, poi la console. Chiudere
+         tutto al primo ESC farebbe perdere il posto in cui si stava lavorando. */
+      if (id === '__esc') { if (_cons.mat) { _cons.mat = null; rifai(); return false; } return; }
+
+      if (id === '__nav') {
+        var v = ev.voce;
+        if (v === 'vuoto') return;
+        if (v.indexOf('p:') === 0 || v.indexOf('v:') === 0) return scegliMappa(v);
+        _cons.voce = v; _cons.mat = null; rifai();
+        scegliVista(v);
+        return;
+      }
+
+      // ── Lavagna ───────────────────────────────────────────────────────────
+      if (id === 'lav-start' || id.indexOf('res:') === 0) {
+        _cons.lavLogin = ev.valori.login || 'group';
+        _cons.lavRete = ev.valori.rete || 'lan';
+        try { if (window.MappAINetMode) window.MappAINetMode.set(_cons.lavRete); } catch (e) { }
+        var CT = window.MappAICollabTeacher;
+        if (!CT || !CT.avvia) { toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning'); return; }
+        return CT.avvia({
+          loginMode: _cons.lavLogin, netMode: _cons.lavRete,
+          resumeDir: id.indexOf('res:') === 0 ? id.slice(4) : ''
+        });
+      }
+      if (id === 'lav-cred') {
+        var CL = window.MappAIClasses;
+        var attiva = CL && CL.getActive && CL.getActive();
+        if (!attiva) { toast(_t('lt_lav_no_classe', 'Scegli prima una classe nel chip in alto.'), 'warning'); return; }
+        if (!CL.saveCredentialsPdf) { toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning'); return; }
+        return CL.saveCredentialsPdf(attiva, { avvisa: true }).then(function (out) {
+          /* la cartella delle classi sta fuori da Mappe: ha il suo comando, non
+             quello dei vault */
+          if (out && out.success && window.electronAPI && window.electronAPI.classDocOpen) {
+            window.electronAPI.classDocOpen({ dir: out.dir });
+          }
+        });
+      }
+
+      // ── Attività LIVE ─────────────────────────────────────────────────────
+      if (id === 'live-quiz') {
+        if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup();
+        else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+        return;
+      }
+      if (id === 'live-tutor') {
+        if (window.MappAITutor && window.MappAITutor.openSetup) window.MappAITutor.openSetup();
+        else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+        return;
+      }
+      if (id.indexOf('rep:') === 0 || id.indexOf('repdir:') === 0) {
+        var idx = Number(id.slice(id.indexOf(':') + 1));
+        var rec = (_cons.report || [])[idx];
+        if (!rec) return;
+        if (id.indexOf('repdir:') === 0) {
+          if (window.electronAPI && window.electronAPI.studySessionOpenFolder) {
+            window.electronAPI.studySessionOpenFolder({ dir: rec.dir });
+          }
+          return;
+        }
+        /* un clic sulla riga apre il PRIMO report: sono più d'uno per sessione
+           (domande, studenti, tutor) e sceglierli tutti da una riga sola
+           vorrebbe dire un menu — si aprono dalla cartella */
+        var primo = (rec.reports || [])[0];
+        if (primo && window.electronAPI && window.electronAPI.studyReportOpen) {
+          window.electronAPI.studyReportOpen({ file: primo.file });
+        } else {
+          toast(_t('lt_live_no_report', 'Questa sessione non ha report da aprire.'), 'warning');
+        }
+        return;
+      }
+      /* il chip è il contesto: cambiarlo ricostruisce la colonna, non la vista */
+      if (id === '__ctx-classe') {
+        return pickClass(function (c) {
+          try { window.MappAIClasses.setActive(c ? c.id : ''); } catch (e) { }
+          /* La materia resta solo se la NUOVA classe la insegna: tenerla
+             comunque svuoterebbe la colonna senza dire perché, azzerarla sempre
+             farebbe ricominciare anche a chi insegna la stessa materia in due
+             classi (stessa regola di «Assegna classe e disciplina»). */
+          try {
+            var mat = _consMateria();
+            if (mat) {
+              var CL = window.MappAIClasses;
+              var ok = c && CL.disciplineChoices && CL.disciplineChoices(c).indexOf(mat) >= 0;
+              if (!ok) CL.setActiveDiscipline('');
+            }
+          } catch (e) { }
+          _cons.voce = ''; _cons.mat = null; _cons.materiali = null; rifai();
+        });
+      }
+      if (id === '__ctx-materia') return _consPickMateria(rifai);
+
+      if (id === 'ind') { _cons.mat = null; rifai(); return; }
+      if (id === 'stampa') return _consStampa();
+      if (id === 'qr') return _consQr();
+      if (id === 'finder') {
+        if (_cons.mat && !_cons.mat.archivio) openDiskFile(_cons.mat.id);
+        else openMapsFolder();
+        return;
+      }
+      /* ⚠️ «Mappa», «Elabora», «Studio attivo» e «Lavagna» NON passano di qui:
+         sono azioni CONCLUSIVE (portano fuori dalla console) e il motore, per
+         quelle, chiude e restituisce l'esito al chiamante senza chiamare il
+         gestore. Stavano qui, quindi nessuna delle quattro faceva niente: si
+         chiudeva la console e sotto riappariva la landing com'era — che se si
+         veniva da ELABORA sembrava «si apre ELABORA» (Giacomo, 2/8).
+         Ora vivono nel `.then()` di `open()`, che è dove il motore le consegna. */
+      if (id === 'cartella') {
+        var mm2 = _consMappaScelta();
+        if (mm2 && mm2.v && window.electronAPI && window.electronAPI.pipelineOpenFolder) {
+          window.electronAPI.pipelineOpenFolder({ folderPath: mm2.v.fullPath });
+        } else openMapsFolder();
+        return;
+      }
+
+      if (id.indexOf('m:') === 0) {
+        var mid = id.slice(2);
+        _cons.mat = (_cons.materiali || []).find(function (x) { return x.id === mid; }) || null;
+        rifai();
+        return;
+      }
+      if (id.indexOf('del:') === 0) {
+        var did = id.slice(4);
+        var m = (_cons.materiali || []).find(function (x) { return x.id === did; });
+        if (!m) return;
+        return confirmDeleteText(m.titolo, function () {
+          var poi = function () {
+            _cons.materiali = (_cons.materiali || []).filter(function (x) { return x.id !== did; });
+            rifai();
+          };
+          if (m.archivio) {
+            if (window.MappAIStudyDocs && window.MappAIStudyDocs.remove) window.MappAIStudyDocs.remove(m.docId);
+            poi();
+          } else {
+            var loc = _diskCache[m.id], api = window.electronAPI;
+            if (!loc || !api || !api.deleteVaultFile) { toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
+            api.deleteVaultFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }).then(function (res) {
+              if (res && res.ok) { delete _diskCache[m.id]; toast(_t('lt_file_trashed', 'Spostato nel Cestino.'), 'success'); poi(); }
+              else toast(_t('lt_file_del_ko', 'Non è stato possibile eliminare il file') + (res && res.error ? ': ' + res.error : ''), 'error');
+            });
+          }
+        });
+      }
+    };
+    MM().open(s).then(function (r) {
+      /* la barra unica torna alla landing (era dentro la testata della console):
+         va rimessa PRIMA di leggere lo stato, e comunque prima di ogni ramo —
+         la console si sta chiudendo in tutti i casi */
+      _huRestore();
+      /* la mappa scelta si legge PRIMA di azzerare lo stato: dopo il reset
+         `_consMappaScelta()` non saprebbe più di quale mappa si parlava */
+      var scelta = _consMappaScelta();
+      _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
+      if (!r) return;                                   // × , ESC o velo
+      if (r.azione === 'apri') {
+        if (!_consCarica(scelta)) { toast(_t('lt_cons_apri_ko', 'Non riesco ad aprire questa mappa.'), 'warning'); return; }
+        /* si esce verso la mappa: chi torna con HOME deve ritrovare la console
+           dov'era, non la landing */
+        _consSegna(scelta ? scelta.id : '');
+        return;
+      }
+      if (r.azione === 'live' || r.azione === 'collab') {
+        _consSegna(scelta ? scelta.id : '');
+        _consAvvia(scelta, r.azione);
+        return;
+      }
+      /* «Elabora» NON lascia il segnalibro: porta a un'altra superficie della
+         landing, e tornarci è esattamente quello che si è chiesto. */
+      if (r.azione === 'elabora') _consAvvia(scelta, r.azione);
+    });
+    _consDipingiTela();
+  }
+
+  // Selettore della materia: le materie della classe attiva, o quelle del profilo.
+  function _consPickMateria(poi) {
+    var cls = _consClasse();
+    var scelte = [];
+    try {
+      var CL = window.MappAIClasses;
+      scelte = (CL && CL.disciplineChoices) ? CL.disciplineChoices(cls || {}) : [];
+    } catch (e) { scelte = []; }
+    MM().open({
+      titolo: _t('lt_cons_pick_materia', 'Scegli la materia'), icona: 'book-open', taglia: 's', invio: false,
+      sezioni: [scelte.length
+        ? { voci: scelte.map(function (d) { return { id: 'd:' + d, etichetta: d, icona: 'book-open' }; }) }
+        : { testo: _t('lt_cons_no_materie', 'Questa classe non dichiara materie: le aggiungi nel profilo insegnante.') }],
+      azioni: [{ id: 'tutte', etichetta: _t('lt_cons_tutte_materie', 'Tutte le materie') }]
+    }).then(function (r) {
+      if (!r) return;
+      var val = r.azione === 'tutte' ? '' : (r.azione.indexOf('d:') === 0 ? r.azione.slice(2) : null);
+      if (val === null) return;
+      try { window.MappAIClasses.setActiveDiscipline(val); } catch (e) { }
+      if (poi) poi();
+    });
+  }
+
+  function _consStampa() {
+    var tela = _consTela(); var f = tela && tela.querySelector('iframe');
+    if (!f) return;
+    try { f.contentWindow.focus(); f.contentWindow.print(); }
+    catch (e) { toast(_t('lt_cons_stampa_ko', 'La stampa non è disponibile per questo materiale.'), 'warning'); }
+  }
+  function _consQr() {
+    var m = _cons.mat; if (!m) return;
+    if (m.archivio) return shareDoc(m.docId);
+    var loc = _diskCache[m.id];
+    if (!loc || !window.MappAILive || !window.MappAILive.publishHtml || !window.electronAPI || !window.electronAPI.readVaultFile) {
+      toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning'); return;
+    }
+    if (!/\.html?$/i.test(loc.relPath)) { toast(_t('lt_cons_qr_ko', 'Solo i materiali in HTML si condividono via QR.'), 'warning'); return; }
+    window.electronAPI.readVaultFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }).then(function (res) {
+      if (!res || !res.ok) return;
+      var html = decodeURIComponent(escape(atob(res.base64)));
+      var nome = m.titolo.replace(/[^\w\-.]+/g, '_');
+      Promise.resolve(window.MappAILive.publishHtml(nome, html)).then(function () {
+        if (window.MappAILive.openMaterials) window.MappAILive.openMaterials();
+      });
+    });
+  }
+  /* Aprire la mappa segue la stessa strada delle righe di INSEGNA: il progetto
+     salvato se c'è, altrimenti il vault dal disco (le mappe senza progetto in
+     localStorage esistono, ed erano proprio quelle che la console non vedeva). */
+  function _consCarica(m) {
+    if (!m) return false;
+    if (m.p && window.loadSavedProject) { window.loadSavedProject(m.p.id); return true; }
+    if (m.p && window.StorageManager && StorageManager.loadProject) { StorageManager.loadProject(m.p.id); return true; }
+    if (m.v && window.directLoadVault) { window.directLoadVault(m.v.fullPath); return true; }
+    return false;
+  }
+  /* Riceve la mappa invece di ricavarsela: quando arriva qui la console è già
+     chiusa e lo stato azzerato. */
+  /* `appState` è una `let` di app.js, non sta su window (regola nota). */
+  function _appState() {
+    try { return (typeof appState !== 'undefined') ? appState : window.appState; }
+    catch (e) { return window.appState; }
+  }
+  /* La mappa CHIESTA è davvero quella caricata? Il confronto non è sul numero
+     di nodi (una mappa precedente ne ha anche lei) ma sull'identità: l'id del
+     progetto o il percorso del vault. */
+  function _consEccoLa(m) {
+    var s = _appState();
+    if (m.p && window.StorageManager && StorageManager.currentProjectId === m.p.id) return true;
+    if (m.v && s && s.activeVaultPath && String(s.activeVaultPath) === String(m.v.fullPath)) return true;
+    return false;
+  }
+  /* ⚠️ `_consCarica` NON è sempre sincrono: `loadSavedProject` lo è, ma
+     `directLoadVault` legge dal disco via IPC — ed è la strada delle mappe che
+     un progetto in localStorage non ce l'hanno, cioè la maggioranza in Electron.
+     Agire subito (o dopo 120ms a caso) significava decidere guardando la mappa
+     PRECEDENTE: con una mappa già aperta ELABORA si apriva su quella, poi il
+     caricamento finiva e riportava al canvas — «il bottone porta alla mappa».
+     Qui si aspetta l'identità giusta, con un tetto oltre il quale si rinuncia. */
+  function _consQuandoPronta(m, poi) {
+    var giri = 0;
+    var passo = function () {
+      if (_consEccoLa(m)) return poi();
+      if (++giri > 60) { toast(_t('lt_cons_apri_ko', 'Non riesco ad aprire questa mappa.'), 'warning'); return; }
+      setTimeout(passo, 80);                        // ~5s al massimo
+    };
+    passo();
+  }
+
+  function _consAvvia(m, kind) {
+    if (!m) return;
+    _consCarica(m);
+    _consQuandoPronta(m, function () {
+      if (kind === 'elabora') {
+        /* la condizione la dichiara ELABORA stessa (`hasMap` è esportata), non
+           una sua copia qui: su un KG il suo empty-state finirebbe dentro la
+           landing, nascosta dietro la mappa, e il bottone sembrerebbe morto */
+        var EL = window.MappAIElabora;
+        if (EL && EL.hasMap && !EL.hasMap()) {
+          toast(_t('lt_cons_no_elab', 'ELABORA lavora sulle MindMap: questa è un Knowledge Graph.'), 'warning');
+          return;
+        }
+        return setMode('elabora');
+      }
+      if (kind === 'collab' && window.openCollabHub) return window.openCollabHub();
+      if (kind === 'live' && window.MappAILive && window.MappAILive.openSetup) return window.MappAILive.openSetup();
+      toast(_t('lt_hub_missing', 'Funzione non disponibile.'), 'warning');
+    });
+  }
+
+  // ── Contesto delle mappe: classe · materia · allievo ───────────────────────
+  // Serve ai Consumi della Cabina (2/8), che devono poter filtrare le chiamate
+  // AI per classe, per allievo e per materia — dati che il registro NON porta
+  // (un record ha solo il progetto). Vive qui perché qui vivono già le due cose
+  // che servono: il match progetto↔vault e la regola che la CARTELLA su disco è
+  // la fonte di verità (il campo del progetto è solo il ripiego di chi non ha
+  // Electron). Chiave = la stessa di MappAIUsageCore.projectKey.
+  //   contestoDelleMappe(vaults) → { byKey, classi, materie, allievi }
+  function contestoDelleMappe(vaults) {
+    var projects = projectsRead();
+    var byKey = {}, classi = {}, materie = {}, allievi = {};
+    function segna(p, classe, materia, allievo) {
+      var rec = { classe: classe || '', materia: materia || '', allievo: allievo || '' };
+      if (p && p.id != null) byKey[String(p.id)] = rec;
+      if (p && p.name) byKey['label:' + p.name] = rec;   // record senza projectId
+      if (rec.classe) classi[rec.classe] = 1;
+      if (rec.materia) materie[rec.materia] = 1;
+      if (rec.allievo) allievi[rec.allievo] = 1;
+    }
+    // 1) dal disco: la cartella dice dove la mappa vive davvero
+    (vaults || []).forEach(function (v) {
+      var p = matchProjectToVault(projects, v);
+      if (!p) return;
+      segna(p, prettyClass(v.classDir || '') || p.cls || '',
+        prettyClass(v.discDir || '') || p.disc || '', v.studentDir || '');
+    });
+    // 2) i progetti che il disco non ha (browser, vault cancellato) tengono
+    //    quello che si sono congelati alla creazione
+    projects.forEach(function (p) {
+      if (p.id != null && byKey[String(p.id)]) return;
+      segna(p, p.cls || prettyClass(p.classDir || ''), p.disc || prettyClass(p.discDir || ''), '');
+    });
+    var ord = function (o) { return Object.keys(o).sort(function (a, b) { return a.localeCompare(b, 'it'); }); };
+    return { byKey: byKey, classi: ord(classi), materie: ord(materie), allievi: ord(allievi) };
+  }
+
+  /* ── Segnalibro della console ─────────────────────────────────────────────
+     Uscire dalla console per aprire una mappa e poi tornare indietro con HOME
+     passa da un `location.reload()` (backToLanding): niente sopravvive tranne
+     lo storage. Qui si annota da DOVE si era usciti, così al ritorno si riapre
+     la console sulla stessa mappa invece di atterrare sulla landing.
+     `sessionStorage`: vale per questa finestra e non si trascina al riavvio. */
+  var SS_BACK = 'mappai_teach_console_back';
+  function _consSegna(voce) {
+    try { sessionStorage.setItem(SS_BACK, voce || ''); } catch (e) { }
+  }
+  function _consBack() {
+    try {
+      var v = sessionStorage.getItem(SS_BACK);
+      sessionStorage.removeItem(SS_BACK);   // si consuma una volta sola
+      return v || '';
+    } catch (e) { return ''; }
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
   function init() {
+    var back = _consBack();
+    if (back !== '' && consoleAttiva() && window.MappAIModal) { setMode('teach', back); return; }
+    /* Si riparte SEMPRE dalla landing vuota, non dall'ultimo tab aperto: la
+       schermata d'ingresso è una domanda («che cosa vieni a fare?»), non la
+       ripresa di ieri. Il contesto di lavoro, quello sì, si ricorda — vive nel
+       chip. Unica eccezione: il segnalibro qui sopra, che riporta alla console
+       da cui si era usciti per aprire una mappa. */
+    try { localStorage.setItem(LS_MODE, ''); } catch (e) { }
     applyMode();
   }
 
   window.MappAITeach = {
     init: init,
+    contestoDelleMappe: contestoDelleMappe,
     setMode: setMode,
+    /* readMode e applyMode sono esposte perché la VESTE della landing (il rail
+       delle tre forme, mappai-stile-manifesto.js) deve sapere in che modalità
+       siamo e ridipingersi dopo ogni cambio. applyMode è l'unico rendez-vous
+       che ogni cambio attraversa: chi la avvolge non deve indovinare un tick. */
+    readMode: readMode,
+    applyMode: applyMode,
     setClassFilter: setClassFilter,
     allowedProjectIds: allowedProjectIds,
     renderElaboraProjects: renderElaboraProjects,
@@ -1546,9 +2903,14 @@
     elabOpen: elabOpen,
     elabFinder: elabFinder,
     elabDelete: elabDelete,
+    assignElab: assignElab,
+    assignElabLocal: assignElabLocal,
     backfillVaults: backfillVaults,
     selectProject: selectProject,
     openDiskFile: openDiskFile,
+    deleteDiskFile: deleteDiskFile,
+    openConsole: openConsoleInsegna,
+    _consSchema: _consSchema,   // hook: si valida lo schema senza aprire la console
     _selectedProject: null,
     openMapsFolder: openMapsFolder,
     openActivityFolder: openActivityFolder,
