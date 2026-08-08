@@ -160,6 +160,9 @@
             var el = document.getElementById(v[0]);
             if (el) el.classList.toggle('vr-bloccato', p < v[1]);
         });
+        /* in ridotta l'altezza cambia con le fonti caricate: il riferimento va
+           rimisurato, o il margine resta quello di una schermata più corta */
+        margineCrea();
     }
 
     /* Gli agganci: le fonti si aggiungono costruendo HTML (nessuna funzione di
@@ -199,7 +202,198 @@
                 if (el) el.classList.remove('vr-bloccato');
             });
         }
+        margineCrea();
         if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+
+    /* ── CREA: il bordo superiore lo detta la vista RIDOTTA (Giacomo, 8/8) ────
+       Il blocco si centra sulla vista RIDOTTA; la vista ESTESA parte dallo
+       STESSO bordo e cresce verso il basso (scorre). Così espandendo, il blocco
+       non «salta» su.
+       ⚠️ Si tiene in cache l'ALTEZZA della ridotta, NON il margine: il margine
+       dipende dalla finestra, quindi conservarlo (primo tentativo) dava un
+       valore sbagliato appena la finestra cambiava — ed era la ragione per cui
+       il blocco finiva spinto in basso. Dall'altezza il margine si ricalcola
+       sulla finestra corrente, anche stando in estesa.
+       ⚠️ La misura si prende SOLO in vista ridotta e SOLO da
+       `getBoundingClientRect`, che forza il ricalcolo del layout: così non si
+       legge un'altezza «a metà transizione», l'altro difetto del primo giro. */
+    /* L'altezza della TOPBAR non è un numero scritto qui: si legge dal token
+       `--mn-topbar-h` (mappai-stile-manifesto.css), che governa anche la banda
+       della landing e la testata delle console. Accorciando la barra, la zona
+       utile e quindi la centratura del blocco si adeguano da sole — senza questo
+       resterebbe un 76 fisso e il blocco sarebbe centrato su una barra che non
+       esiste più. */
+    function _testata() {
+        try {
+            var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mn-topbar-h'));
+            if (v > 0) return Math.round(v);
+        } catch (e) { }
+        return 76;
+    }
+    var FONDO = 24;
+    /* ⚠️ NESSUNA CACHE dell'altezza di riferimento, e non è una semplificazione
+       gratuita: tenerla in una variabile la riempiva SOLO passando dalla vista
+       ridotta — che è spenta di default, e «Home» ricarica la pagina azzerando
+       tutto. Nelle sessioni in cui non ci si passava, il blocco si ricentrava su
+       SÉ STESSO a ogni ricalcolo e il bordo si spostava mentre si lavorava
+       (fonte caricata, MM↔KG): esattamente il salto che questa funzione deve
+       togliere. In più la cache si invalidava sulla sola altezza della finestra,
+       mai sulla larghezza, da cui l'altezza del bento dipende. */
+    try { localStorage.removeItem('mappai_crea_h_ridotta'); } catch (e) { }   /* residuo di una versione che la conservava */
+
+    function _modoBuild() {
+        var b = document.getElementById('build-content');
+        return b && !b.classList.contains('hidden');
+    }
+    /* ⚠️ SI CENTRA IL BENTO, NON LA LASTRA. `.glass-card` non è «il blocco»: in
+       cima porta ~120px di spazio morto (il contenitore dell'header, che il JS
+       svuota spostando `#header-utils` fuori dalla lastra, la barra delle
+       modalità col figlio nascosto, e il suo padding), e in fondo porta
+       `#landing-quick-actions` e `#landing-meta-links` — contenuto vero che col
+       bento non c'entra. Centrando la lastra si centra la somma di quelle masse,
+       e il bento finisce fuori centro. */
+    function _bento() {
+        return document.getElementById('mn-bento')
+            || document.getElementById('generation-details-card')
+            || document.getElementById('build-content');
+    }
+    /* ⚠️ L'ULTIMO pezzo del blocco NON è il bento: sotto di lui restano i tre
+       avvii (`#landing-quick-actions`, +80px: 14 di passo e 66 di bottone) e il
+       contenitore dei link. Sono visibili in ENTRAMBE le viste, e l'occhio li
+       legge come parte dello stesso blocco — centrando il solo bento, il gruppo
+       che si vede finiva più in basso del centro. Si prende il primo che c'è
+       davvero, con ripiego sul bento. */
+    function _ultimo() {
+        var ids = ['landing-meta-links', 'landing-quick-actions'];
+        for (var i = 0; i < ids.length; i++) {
+            var el = document.getElementById(ids[i]);
+            if (!el) continue;
+            try { if (getComputedStyle(el).display === 'none') continue; } catch (e) { }
+            return el;
+        }
+        return _bento();
+    }
+    /* la landing può essere NASCOSTA pur restando `#build-content` senza
+       `hidden`: aprendo una mappa si spegne `#landing-view` (display:none) senza
+       toccare la modalità. Lì ogni misura vale 0 e produrrebbe un margine
+       enorme, che poi sopravvive al rientro (che non sempre ricarica la pagina). */
+    function _landingViva() {
+        var lv = document.getElementById('landing-view');
+        if (!lv) return null;
+        try { if (getComputedStyle(lv).display === 'none') return null; } catch (e) { }
+        return lv;
+    }
+    /* L'altezza del GRUPPO VISIBILE nello stato corrente: dal bordo alto del
+       bento al bordo basso dell'ultimo pezzo. Con i `getBoundingClientRect` i
+       margini fuori dal gruppo restano esclusi per costruzione — niente margini
+       da sommare a mano. */
+    function _hGruppo() {
+        var b = document.getElementById('mn-bento');
+        if (!b) return 0;
+        var u = _ultimo() || b;
+        return Math.round(u.getBoundingClientRect().bottom - b.getBoundingClientRect().top);
+    }
+    /* L'altezza che il gruppo avrebbe IN VISTA RIDOTTA, misurata adesso.
+       ⚠️ Se la vista attiva è l'estesa, la ridotta si misura applicando la sua
+       classe e leggendo NELLO STESSO GIRO: la lettura forza il ricalcolo del
+       layout, ma il ridisegno avviene solo a fine giro — quando la classe è già
+       stata tolta. Quindi non si vede nessun lampeggio, e il riferimento è
+       sempre quello VERO di questa finestra, non uno scatto vecchio. */
+    function _hRiferimento() {
+        var html = document.documentElement;
+        if (html.classList.contains(CLASSE)) return _hGruppo();
+        html.classList.add(CLASSE);
+        var h;
+        try { h = _hGruppo(); } finally { html.classList.remove(CLASSE); }
+        return h;
+    }
+    function margineCrea() {
+        var html = document.documentElement;
+        if (!html.classList.contains('manifesto') || !_modoBuild()) return;
+        var lv = _landingViva(); if (!lv) return;
+        /* Finché il bento VERO non c'è non si scrive niente: al boot
+           `#build-content` non ha ancora `hidden` (glielo mette l'init della
+           landing) e misurare un contenitore sostitutivo — molto più alto —
+           darebbe un margine sbagliato che poi lampeggia quando il bento compare.
+           Meglio lasciare il valore di ripiego del CSS. */
+        var b = document.getElementById('mn-bento'); if (!b) return;
+        var rb = b.getBoundingClientRect();
+        if (rb.height <= 0) return;              /* non renderizzato: misura senza senso */
+        var rif = _hRiferimento();
+        if (rif <= 0) return;
+        /* `--crea-top` governa il padding del CONTENITORE, ma a dover finire nel
+           punto giusto è l'inizio del GRUPPO (il bento): si sottrae lo spazio
+           morto che li separa — misurato, non stimato, perché cambia con la
+           veste e con la vista. */
+        var testata = _testata();
+        var padOra = parseFloat(getComputedStyle(lv).paddingTop) || 0;
+        var morto = Math.round(rb.top - lv.getBoundingClientRect().top - padOra);
+        var zona = window.innerHeight - testata - FONDO;
+        var topBento = testata + Math.max(0, Math.round((zona - rif) / 2));
+        html.style.setProperty('--crea-top', Math.max(0, topBento - morto) + 'px');
+    }
+    /* ⚠️ IL PUNTO DELICATO: QUANDO si misura.
+       `avvio()` gira a DOMContentLoaded, ma il BENTO si monta dopo (i
+       `setTimeout` di costruisci-manifesto). Misurando lì si prende l'altezza di
+       una schermata ancora senza bento — molto più corta del vero — e da quella
+       esce un margine superiore troppo grande. Era il difetto: nessuno
+       rimisurava dopo che il bento compariva, e il valore restava per tutta la
+       sessione (peggio: finiva anche in localStorage e sopravviveva al riavvio).
+       L'osservatore risolve senza indovinare tempi: appena la lastra cambia
+       altezza — bento montato, fonte caricata, MM↔KG — il riferimento si
+       aggiorna e il margine si ricalcola.
+       Nessun rientro: `margineCrea` scrive una variabile su <html> che governa
+       il `padding-top` del CONTENITORE, non l'altezza della lastra osservata; e
+       comunque si agisce solo quando l'altezza è davvero cambiata. */
+    var _hVista = -1;
+    function osservaLastra() {
+        if (typeof ResizeObserver === 'undefined') return;
+        var card = document.querySelector('#landing-view .glass-card');
+        if (!card || card._vrRO) return;
+        card._vrRO = new ResizeObserver(function () {
+            var h = Math.round(card.getBoundingClientRect().height);
+            if (h === _hVista) return;
+            _hVista = h;
+            margineCrea();
+        });
+        card._vrRO.observe(card);
+    }
+    /* ⚠️ IL DIFETTO PRINCIPALE ERA QUI: si entra in COSTRUISCI e nessuno
+       ricalcola. `agganciaSetMode()` avvolge `window.setMode`, che è il
+       selettore MindMap/KG (mappai-ui-canvas.js) — NON `MappAITeach.setMode`,
+       che è quella che toglie `hidden` a `#build-content`. Quindi al momento
+       vero dell'ingresso restava il valore misurato al boot (senza bento), e le
+       reti a tempo erano già scadute da un pezzo.
+       Guardare l'ATTRIBUTO invece della funzione copre ogni strada: rail,
+       briciola «Cosa», segnalibro, ritorno da una mappa. */
+    function osservaModo() {
+        if (typeof MutationObserver === 'undefined') return;
+        var b = document.getElementById('build-content');
+        if (!b || b._vrModo) return;
+        b._vrModo = true;
+        new MutationObserver(function () {
+            margineCrea();
+            /* entrando in COSTRUISCI il bento può montarsi subito dopo: una
+               seconda misura poco più tardi coglie l'altezza definitiva */
+            setTimeout(margineCrea, 350);
+        }).observe(b, { attributes: true, attributeFilter: ['class'] });
+    }
+    /* la finestra cambia → il margine si ricalcola dalla stessa altezza di
+       riferimento (per questo si conserva l'altezza e non il margine) */
+    window.addEventListener('resize', margineCrea);
+    /* ⚠️ RETI, perché l'osservatore da solo non basta: le notifiche del
+       ResizeObserver NON arrivano a finestra non in primo piano (stessa trappola
+       del rAF, già vista in questo progetto) — quindi in quello stato il margine
+       resterebbe quello misurato al boot, che è il difetto da cui siamo partiti.
+       Questi ricalcoli non «indovinano» il momento giusto: ognuno rimisura
+       l'altezza CORRENTE, quindi basta che uno cada dopo il montaggio del bento.
+       `fonts.ready` c'è perché il carattere che arriva cambia l'altezza del testo
+       e quindi della lastra. */
+    function reti() {
+        [300, 800, 1500, 2500].forEach(function (ms) { setTimeout(margineCrea, ms); });
+        window.addEventListener('load', margineCrea);
+        try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(margineCrea); } catch (e) { }
     }
 
     function accendi(on, silenzioso) {
@@ -224,6 +418,7 @@
             var r = _setMode.apply(this, arguments);
             sincronizzaGenere();
             aggiornaSblocchi();
+            margineCrea();
             return r;
         };
     }
@@ -234,6 +429,9 @@
     function avvio() {
         agganciaSetMode();
         applica(attiva());
+        osservaLastra();
+        osservaModo();
+        reti();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', avvio);
     else avvio();

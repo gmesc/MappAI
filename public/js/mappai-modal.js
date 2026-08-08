@@ -465,6 +465,60 @@
         return '<div class="mm-tab-wrap"><table class="mm-tab">' + cols + thead + tbody + '</table></div>';
     }
 
+    /* ── Area a BENTO (cablaggio console INSEGNA, flag mappai_console_bento_app) ──
+       Il D1 dell'officina portato in produzione: la vista «mappa scelta» diventa
+       un bento — una riga di comandi (voci `azione`) e il box dei materiali (voce
+       `materiali`, le stesse `tabelle` del motore, a due colonne). Il guscio del
+       modulo rispecchia `moduloHtml` del banco (public/dev/officina-console.js); la
+       VESTE è nelle classi condivise (`.mn-bento-area`, `.mn-card`, `.mn-materiali`
+       in mappai-console-manifesto.css), così banco e app non divergono. Colori e
+       disposizione dei riquadri arrivano da MappAIBento (la stessa del bento di
+       CREA); se il modulo non è caricato, il riquadro resta nudo. */
+    function bentoPresenta(m) {
+        var B = (typeof window !== 'undefined') ? window.MappAIBento : null, vars = '', attr = '';
+        if (B && B.presentazione) { try { var p = B.presentazione(m); vars += p.vars || ''; attr += p.attr || ''; } catch (e) { } }
+        if (B && B.stileDi) {
+            try {
+                var st = B.stileDi(m);
+                vars += 'background:' + st.bg + ';color:' + st.testo + ';';
+                vars += st.bordoPx ? 'border:' + st.bordoPx + 'px solid ' + st.bordoCol + ';' : 'border:none;';
+                /* le due variabili che i bottoni interni usano per ricavare il
+                   loro fondo dal colore corrente (regola del 4/8 sui colori composti) */
+                vars += '--mn-fondo:' + st.bg + ';--mn-seg:' + st.testo + ';';
+            } catch (e) { }
+        }
+        return { vars: vars, attr: attr };
+    }
+    function bentoVoceHtml(v, tabelle) {
+        if (v.forma === 'materiali') {
+            var cont = tabelle && tabelle.length ? tabelleHtml(tabelle)
+                : '<div class="mn-materiali-vuoto">' + esc(v.vuoto || '') + '</div>';
+            return '<div class="mn-materiali">' + cont + '</div>';
+        }
+        if (v.forma === 'azione') {
+            /* comando stile CREA: l'icona a riposo, l'etichetta al passaggio →
+               title+aria-label perché l'etichetta si rivela solo col mouse.
+               `data-azione` lo raccoglie il dispatch come una qualunque azione. */
+            var tip = v.aiuto ? ' data-tip="' + esc(v.aiuto) + '"' : '';
+            return '<button type="button" class="mn-btn mn-cmd" data-azione="' + esc(v.id) + '"' +
+                ' title="' + esc(v.et) + '" aria-label="' + esc(v.et) + '"' + tip + '>' +
+                icona(v.icona) + '<span>' + esc(v.et) + '</span></button>';
+        }
+        return '';
+    }
+    function bentoAreaHtml(moduli, tabelle) {
+        var CB = (typeof window !== 'undefined') ? window.MappAIConsoleBento : null;
+        return '<div class="mn-bento-area">' + moduli.map(function (m) {
+            var span = (CB && CB.spanDi) ? CB.spanDi(m) : (m.span || 4);
+            var p = bentoPresenta(m);
+            var st = 'grid-column: span ' + span + ';' + (m.altezza ? 'min-height:' + m.altezza + 'px;' : '') + (p.vars || '');
+            return '<div class="mn-card' + (m.nuda ? ' mn-card--nuda' : '') + '" style="' + st + '" ' +
+                (p.attr || '') + ' data-mod="' + esc(m.id) + '"><div class="mn-card__b">' +
+                (m.voci || []).map(function (v) { return bentoVoceHtml(v, tabelle); }).join('') +
+                '</div></div>';
+        }).join('') + '</div>';
+    }
+
     function consoleHtml(s, coda) {
         var filtri = s.sezioni.filter(function (x) { return x.colonna === 'filtri'; });
         /* `colonna:'barra'` = i comandi stanno sulla STESSA riga delle schede,
@@ -492,8 +546,9 @@
             '</aside>' + maniglia +
             /* Con PIÙ elenchi a scorrere è l'AREA: una tabella sola si porta il
                suo scorrimento dentro `.mm-tab-wrap`, ma tre elenchi impilati con
-               l'area a `overflow:hidden` venivano semplicemente tagliati. */
-            '<main class="mm-console__area' + (s.tabelle.length ? ' mm-console__area--scorre' : '') + '">' +
+               l'area a `overflow:hidden` venivano semplicemente tagliati. (Col
+               bento lo scorrimento lo dà `.mm-console__area:has(.mn-materiali)`.) */
+            '<main class="mm-console__area' + (s.tabelle.length && !(s.bento && s.bento.length) ? ' mm-console__area--scorre' : '') + '">' +
             (s.schede.length || barra.length
                 ? '<div class="mm-schede-riga">' +
                 (s.schede.length ? schedeHtml(s.schede) : '') +
@@ -504,13 +559,17 @@
             (filtri.length ? '<div class="mm-filtri">' + filtri.map(function (f) {
                 return f.campi.map(campoHtml).join('') + f.azioni.map(bottoneHtml).join('');
             }).join('') + '</div>' : '') +
-            (main.length ? '<div class="mm-console__sez' + areaMod + '">' + main.map(sezioneHtml).join('') + '</div>' : '') +
-            tabellaHtml(s.tabella) +
-            tabelleHtml(s.tabelle) +
-            (s.tela ? '<div class="mm-tela" data-tela="' + esc(s.tela.id) + '"' +
-                (s.tela.altezza ? ' style="flex:0 0 ' + esc(s.tela.altezza) + '"' : '') + '>' +
-                (s.tela.segnaposto ? '<span class="mm-tela__vuota">' + esc(s.tela.segnaposto) + '</span>' : '') +
-                '</div>' : '') +
+            /* Col bento l'area È i moduli (comandi + materiali): il box `materiali`
+               consuma le `tabelle`, quindi non si rendono anche impilate qui. */
+            (s.bento && s.bento.length
+                ? bentoAreaHtml(s.bento, s.tabelle)
+                : (main.length ? '<div class="mm-console__sez' + areaMod + '">' + main.map(sezioneHtml).join('') + '</div>' : '') +
+                tabellaHtml(s.tabella) +
+                tabelleHtml(s.tabelle) +
+                (s.tela ? '<div class="mm-tela" data-tela="' + esc(s.tela.id) + '"' +
+                    (s.tela.altezza ? ' style="flex:0 0 ' + esc(s.tela.altezza) + '"' : '') + '>' +
+                    (s.tela.segnaposto ? '<span class="mm-tela__vuota">' + esc(s.tela.segnaposto) + '</span>' : '') +
+                    '</div>' : '')) +
             /* nota e piè stanno DENTRO l'area: se restassero sotto il corpo,
                la colonna di navigazione si fermerebbe prima del fondo della
                console e sotto resterebbe una fascia bianca a tutta larghezza */
@@ -776,6 +835,13 @@
                             r.forEach(function (cel) {
                                 if (cel && cel.azioni) tutte = tutte.concat(cel.azioni);
                             });
+                        });
+                    });
+                    /* le voci `azione` del bento sono azioni come le altre: conclusive
+                       per default (come le azioni di sezione), a meno di chiude:false */
+                    (s.bento || []).forEach(function (m) {
+                        (m.voci || []).forEach(function (v) {
+                            if (v.forma === 'azione') tutte = tutte.concat([{ id: v.id, etichetta: v.et, valore: v.id, chiude: v.chiude !== false }]);
                         });
                     });
                     var az = tutte.filter(function (a) { return a.id === id; })[0];

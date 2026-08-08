@@ -31,7 +31,17 @@ html.manifesto {
        e su uno schermo largo restano fasce bianche ai lati — scelta di Giacomo,
        4/8: meglio una colonna riconoscibile che una riga lunga il monitor. */
     --mnc-max: 1240px;
-    --mnc-testata: 78px;
+    /* La testata della console È la topbar: stessa altezza della banda della
+       landing, per costruzione. Era un 78 scritto a mano — un secondo numero per
+       la stessa cosa, che si scollava appena si toccava l'altro (8/8: la barra è
+       scesa a 65 e questo era rimasto a 78). */
+    --mnc-testata: var(--mn-topbar-h, 76px);
+    /* IL FILETTO sotto la topbar: un colore solo per tutte le superfici. Era
+       `var(--mnc-hairline, #ebebeb)` con la variabile MAI dichiarata da nessuna
+       parte — quindi valeva sempre il ripiego, e la testata della console usava
+       comunque `--mm-bordo` (#e2e8f0) sul secondo bordo: due linee di due colori
+       diversi. */
+    --mnc-hairline: #ebebeb;
 }
 
 /* BANCO (officina-console): qui il rail è già stato tolto, quindi niente spazio
@@ -64,7 +74,17 @@ html.mn-bento-app #header-utils .mm-ctx { display: none !important; }
    transform → top/left restano gli stessi a schermo. Sopra il contenuto (z-index). */
 html.mn-bento-app #header-utils {
     position: fixed;
-    top: 22px;
+    /* ⚠️ CENTRATO PER COSTRUZIONE, non per taratura: la barra la si occupa
+       tutta (`top:0` + altezza pari al token) e a centrare il contenuto pensa
+       `align-items:center`, che questa riga ha già. Prima c'era un `top`
+       calcolato col rapporto 22/76 — un numero misurato a mano sulla barra
+       vecchia: reggeva solo a 76px, e la testata delle console ne usava un
+       ALTRO (11/76). Due tarature indipendenti per la stessa cosa: appena la
+       barra è scesa a 65 si sono scollate (landing 18,8 · console 15,2, ed
+       entrambe sotto il centro). Così invece il margine sopra e sotto è lo
+       stesso numero in tutte e tre le sezioni, per qualunque altezza futura. */
+    top: 0;
+    height: var(--mn-topbar-h, 76px);
     left: 28px;
     z-index: 60;
     margin: 0;
@@ -89,11 +109,20 @@ html.mn-bento-app #header-utils .mn-briciole { order: 1; }
 html.manifesto.mn-bento-app .mm-box--piena.mm-box--console > .mm-head {
     padding-left: 28px !important;
     /* stessa ALTEZZA e stesso FILETTO della barra di CREA/ELABORA (la banda
-       `#landing-view::before`, 76px · 1px #ebebeb): la testata a 78px col bordo
-       #e2e8f0 sembrava più alta e con un filetto più marcato (Giacomo).
-       padding-top 11 (non 9) tiene il pallino a y=22 con la testata a 76. */
-    padding-top: 11px;
-    height: 76px;
+       `#landing-view::before`).
+       ⚠️ NESSUN `padding-top` calcolato: c'era, col rapporto 11/76 misurato a
+       mano sulla barra vecchia, e centrava il contenuto in un riquadro reso
+       ASIMMETRICO (imballaggio in cima sì, in fondo no) — da lì lo scarto con la
+       landing. Ora l'imballaggio verticale resta 0 su entrambi i lati (dalla
+       regola base qui sotto) e a centrare pensa `align-items:center`: la stessa
+       costruzione della landing, quindi lo stesso risultato senza tarature.
+       ⚠️ L'unico px di scarto che restava: il filetto sta DENTRO il riquadro
+       (box-sizing border-box), quindi si mangia 1px in fondo e il contenuto
+       finiva mezzo pixel più in alto della landing, che il bordo non ce l'ha.
+       Si restituisce quel pixel in cima — non è una taratura a occhio, è
+       esattamente lo spessore del bordo. */
+    padding-top: 1px;
+    height: var(--mn-topbar-h, 76px);
     border-bottom-color: var(--mnc-hairline, #ebebeb);
 }
 /* UNA SOLA toolbar (bug 3): `#header-utils` — la stessa barra di CREA/ELABORA —
@@ -130,8 +159,21 @@ html.manifesto .mm-box--piena.mm-box--console > .mm-head {
     margin: 0;
     padding: 0 22px;
     align-items: center;
-    border-bottom: 1px solid var(--mm-bordo);
+    /* UNICO filetto della topbar, e sta QUI: dentro i 65px della testata
+       (box-sizing border-box), quindi cade esattamente dove cade quello della
+       landing — la banda `#landing-view::before`, alta 65 col suo bordo dentro.
+       Stesso colore, stesso spessore, stessa quota. */
+    border-bottom: 1px solid var(--mnc-hairline, #ebebeb);
     flex: 0 0 auto;
+}
+/* ⚠️ IL SECONDO FILETTO, che faceva sembrare la linea di INSEGNA più spessa:
+   `.mm-body--console` porta un `border-top` suo (mappai-modal-tokens.css), e i
+   due elementi sono fratelli senza spazio in mezzo — due righe da 1px adiacenti,
+   per giunta di colori diversi (#ebebeb sulla testata, #e2e8f0 sul corpo). Il
+   confine fra testata e corpo è UNO: lo disegna la testata, qui si spegne il
+   doppione. Scoped alla veste manifesto: fuori di lì il motore resta com'era. */
+html.manifesto .mm-box--piena.mm-box--console > .mm-body--console {
+    border-top: 0;
 }
 
 /* Il PALLINO è il comando di uscita. Giacomo, 4/8: «si esce con ESC oppure
@@ -583,6 +625,14 @@ html.manifesto .mn-bento-area .mn-materiali {
     width: 100%;
 }
 html.manifesto .mn-materiali .mm-tabg { margin: 0; }
+/* materiali non ancora arrivati (o nessuno): un rigo di testo dentro il box,
+   non un buco. Occupa entrambe le colonne della griglia. */
+html.manifesto .mn-materiali .mn-materiali-vuoto {
+    grid-column: 1 / -1;
+    padding: 18px 4px;
+    color: #6b7280;
+    font-size: 13px;
+}
 /* cap a cinque righe + scorrimento: l'anteprima di un genere non deve diventare
    un muro. Misurato nel banco: intestazione ~33px + righe ~57px l'una (la riga
    porta il bottone-cestino da 34px, non è alta come una riga di solo testo) →

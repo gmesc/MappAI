@@ -86,6 +86,15 @@ html.manifesto, .manifesto {
        Graph) e i tre avvii in fondo alla pagina. Un token solo perché sono la
        stessa cosa — un comando breve, non un riquadro di opzioni. */
     --mn-h-scelta: 66px;
+    /* L'ALTEZZA DELLA TOPBAR — un token solo, perché la barra è la STESSA cosa
+       in due posti che vivono in fogli diversi: la banda della landing
+       (`#landing-view::before`, qui sotto) e la testata delle console a schermo
+       pieno (`mappai-console-manifesto.css`). Erano due numeri uguali scritti a
+       mano, e allineati a occhio. Chi lo cambia le muove insieme — e con esse
+       la CENTRATURA del blocco di COSTRUISCI, perché `margineCrea()` in
+       mappai-vista-ridotta.js legge QUESTO token invece di un 76 scritto nel
+       codice. 8/8: 76 → 65 (meno un settimo, richiesta di Giacomo). */
+    --mn-topbar-h: 65px;
     /* Il nome della sezione nella barra: un corpo e un colore soli, per la landing
        e per la testata delle console (che sta in un altro foglio — vedi il
        commento là: con due numeri, quello caricato dopo vinceva in silenzio). */
@@ -104,7 +113,7 @@ html.manifesto #landing-view::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 76px;
+    height: var(--mn-topbar-h, 76px);
     background: #fff;
     border-bottom: 1px solid #ebebeb;
     z-index: 55;
@@ -218,6 +227,64 @@ html.manifesto.manifesto-vuota #landing-hero-row { margin-top: calc(40vh - 99px)
 html.manifesto #landing-brand img { width: 150px; height: 150px; padding-top: 0; }
 html.manifesto:not(.manifesto-vuota) #landing-brand { display: none; }
 html.manifesto:not(.manifesto-vuota) .glass-card { margin-top: 60px; }
+/* CREA centrato verticalmente (Giacomo, 8/8) — CSS puro, niente misure in JS.
+   `#landing-view` è un flex ROW: il suo asse trasversale è verticale, quindi
+   `align-items` centra la glass-card in altezza. `safe center` = centra quando
+   il blocco CI STA nella finestra, e si àncora in ALTO (fallback a `start`)
+   quando è più alto (MacBook 13" + vista estesa) → scorre, niente taglio in
+   cima. Reagisce da solo al ridimensionamento e ai cambi d'altezza, senza timing.
+   `padding-top` libera la testata fissa (~65px) nel caso «ancorato in alto»;
+   la glass-card azzera il suo `margin-top` (60px qui sopra e la regola §5/8),
+   altrimenti scompenserebbe la centratura.
+   ⚠️ Si aggancia a `mn-costruisci` — la classe che `mappai-stile-manifesto.js`
+   mette GIÀ su <html> quando la modalità è COSTRUISCI (e la toglie in
+   ELABORA/INSEGNA e dentro le console). Riusarla evita un secondo osservatore
+   di modalità in vista-ridotta.js. */
+/* NON si tocca `#landing-view`: resta il flex ROW originale (`justify-content:
+   center` = centratura ORIZZONTALE, `min-height:100vh`). Cambiare la direzione
+   in colonna rompeva la centratura orizzontale (margini laterali asimmetrici) e
+   aggiungere padding faceva comparire lo scroll anche quando il blocco ci sta.
+   Basta `margin:auto` sulla glass-card: in un flex, margin auto centra
+   l'elemento su ENTRAMBI gli assi (orizzontale e verticale) e, quando
+   l'elemento è più alto del contenitore, il margine verticale collassa a 0 →
+   si àncora in alto e la pagina scorre, MAI tagliato in cima. Nessun padding
+   aggiunto → nessuno scroll finché il blocco entra nella finestra.
+   Batte la regola §5/8 `#landing-view .glass-card{margin-top:0}` per
+   specificità (`.mn-costruisci` in più) + !important. */
+html.manifesto.mn-costruisci:not(.manifesto-vuota) #landing-view .glass-card {
+    /* niente centratura verticale automatica: il bordo superiore lo detta
+       `--crea-top` (qui sotto), calcolato sulla vista RIDOTTA. Restano i
+       margini laterali auto per la centratura orizzontale. */
+    margin: 0 auto !important;
+}
+/* ⚠️ Lo scorrimento compariva ANCHE col blocco tutto dentro la finestra: la
+   landing porta `pb-28` in fondo, che con lo zoom vale **172,8px** — quindi
+   `24 (sopra) + blocco + 173 (sotto)` supera la finestra pur col blocco che ci
+   sta. In COSTRUISCI il fondo torna pari alla cima: si scorre solo quando è il
+   BLOCCO a non entrare (vista estesa), che è la regola voluta. */
+html.manifesto.mn-costruisci:not(.manifesto-vuota) #landing-view {
+    /* `--crea-top` = il bordo superiore del blocco, calcolato da
+       mappai-vista-ridotta.js CENTRANDO LA VISTA RIDOTTA nella zona utile
+       (sotto la testata fissa da 76px). La vista ESTESA riceve lo STESSO
+       valore: parte da lì e cresce verso il basso, quindi espandendo il blocco
+       non «salta» su (richiesta di Giacomo).
+       Ripiego 76px = subito sotto la testata, che è anche il valore che il
+       calcolo produce quando il blocco non ci sta (13"): là centrare è
+       impossibile e si àncora in alto.
+       Il padding sta DENTRO `min-height:100vh` (border-box) → non aggiunge
+       altezza e non crea scroll da solo. */
+    padding-top: var(--crea-top, var(--mn-topbar-h, 76px)) !important;
+    padding-bottom: 24px !important;
+}
+/* ⚠️ Margini laterali asimmetrici: la lastra tiene `padding-left:110px` contro
+   `padding-right:40px` — lo spazio che occupava il RAIL delle tre forme. Con la
+   veste bento il rail non esiste più (`--mnc-rail:0`, `#manifesto-rail` spento),
+   quindi quel margine non lascia posto a niente: i due lati tornano uguali e il
+   blocco è davvero centrato in orizzontale. */
+html.mn-bento-app.manifesto #landing-view .glass-card {
+    padding-left: 40px !important;
+    padding-right: 40px !important;
+}
 
 /* nelle modalità il selettore centrale sparisce comunque: c'è il rail.
    #teach-class-filter resta governato dal suo JS (serve col kill-switch

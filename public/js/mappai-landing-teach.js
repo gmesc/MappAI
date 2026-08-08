@@ -2050,6 +2050,41 @@
     }).filter(Boolean);
   }
 
+  /* La vista «mappa scelta» a BENTO (flag mappai_console_bento_app): il D1
+     dell'officina in produzione. Riga 1 = 4 comandi (forma `azione`), riga 2 =
+     box `materiali` (le stesse `tabelle` del motore, a due colonne). Il motore
+     disegna da `s.bento`; il CONTENUTO dei materiali resta `s.tabelle`. */
+  function _consBentoMappa(s, p) {
+    var soloKg = p.type === 'kg';
+    var gen = soloKg ? 'network' : 'git-merge';   /* icona del genere, come la sidebar */
+    var az = [
+      { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') }
+    ];
+    /* ELABORA solo sulle MindMap (come nel ramo storico): su un KG il suo
+       empty-state finisce nella landing nascosta dietro la mappa. */
+    if (!soloKg) az.push({ id: 'elabora', et: _t('lt_cons_elabora', 'Elabora'), forma: 'azione', icona: 'hexagon', aiuto: _t('lt_cons_tip_elab', 'Apre ELABORA sulla fonte e sui documenti di questa mappa.') });
+    az.push({ id: 'qr', et: 'QR', forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Condivide un materiale di questa mappa con la classe via codice QR.') });
+    az.push({ id: 'cartella', et: _t('lt_cons_cartella', 'Cartella'), forma: 'azione', icona: 'folder', chiude: false, aiuto: _t('lt_cons_tip_folder', 'Apre la cartella del vault nel Finder.') });
+    var vuoto = _cons.materiali === null
+      ? _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…')
+      : _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.');
+    s.bento = [
+      {
+        id: 'mappa-azioni', nuda: true, span: 4, altezza: 145,
+        stile: { bg: 'transparent', testo: '#404040', bordoPx: 0 },
+        bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#0b0b0b' },
+        layout: { colonneVoci: az.length },
+        voci: az
+      },
+      {
+        id: 'mappa-materiali', nuda: true, span: 4,
+        stile: { bg: 'transparent', testo: '#404040', bordoPx: 0 },
+        voci: [{ id: 'mat', et: _t('lt_cons_materiali_gr', 'Materiali'), forma: 'materiali', vuoto: vuoto }]
+      }
+    ];
+    if (_cons.materiali && _cons.materiali.length) s.tabelle = _consTabelleMateriali();
+  }
+
   function _consSchema() {
     var cls = _consClasse(), mat = _consMateria();
     var progetti = _consFiltrate();
@@ -2120,6 +2155,10 @@
        stavano in fondo alla landing senza sapere di quale mappa parlassero. */
     if (p) {
       s.sottotitolo = p.nome + (cls ? ' · ' + cls.name : '');
+      /* Col cablaggio bento la vista «mappa scelta» diventa il D1 dell'officina:
+         una riga di 4 comandi (Mappa · Elabora · QR · Cartella) al posto del
+         banner, e i materiali a due colonne. Il ramo storico resta sotto. */
+      if (_bentoApp()) { _consBentoMappa(s, p); return s; }
       /* UNA riga di comandi, senza riquadro: aprire la mappa, la sua cartella,
          elaborarla e lanciarci sopra un'attività sono la stessa famiglia di
          gesti (spezzarli in due riquadri grigi li faceva sembrare due decisioni
@@ -2164,15 +2203,31 @@
       return s;
     }
 
-    /* ④ nessuna voce scelta: si dice che cosa fare. */
+    /* ④ nessuna voce scelta: si dice che cosa fare. Col cablaggio bento l'area
+       resta vuota (il sottotitolo dice già di scegliere una mappa): il paragrafo
+       «Da dove si comincia» era testo di corollario che Giacomo ha chiesto di
+       togliere. Il ramo storico lo mantiene. */
     s.sottotitolo = cls
       ? cls.name + (mat ? ' · ' + mat : '') + ' · ' + progetti.length + ' ' + _t('lt_cons_mappe_min', 'mappe')
       : _t('lt_cons_scegli_classe', 'Scegli una classe per restringere le mappe');
-    s.sezioni.push({
-      id: 'intro', titolo: _t('lt_cons_dainiziare', 'Da dove si comincia'),
-      testo: _t('lt_cons_intro', 'Scegli una mappa nella colonna: sotto compaiono i materiali del suo vault — sintesi, quiz, fogli, fonte originale — e ognuno si apre qui dentro, pronto da stampare o da condividere via QR.')
-    });
+    if (!_bentoApp()) {
+      s.sezioni.push({
+        id: 'intro', titolo: _t('lt_cons_dainiziare', 'Da dove si comincia'),
+        testo: _t('lt_cons_intro', 'Scegli una mappa nella colonna: sotto compaiono i materiali del suo vault — sintesi, quiz, fogli, fonte originale — e ognuno si apre qui dentro, pronto da stampare o da condividere via QR.')
+      });
+    }
     return s;
+  }
+
+  /* Tutte le tabelle dell'area console partono COLLASSATE (Giacomo, 8/8): il
+     docente apre il genere che gli serve invece di scorrere sei elenchi già
+     aperti. Vale per OGNI vista (materiali, Live, Lavagna, Stampabili) perché
+     filtra lo schema quando lo si apre/ridisegna, non dentro ogni produttore.
+     Solo le tabelle con titolo si collassano (senza, non c'è su cosa cliccare). */
+  function _consChiuse() {
+    var sc = _consSchema();
+    (sc.tabelle || []).forEach(function (t) { if (t && t.titolo) t.chiusa = true; });
+    return sc;
   }
 
   /* ── Le tre viste della colonna «Materiali» ──────────────────────────────
@@ -2355,7 +2410,7 @@
     _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
     var ridisegnaCons = null;
 
-    function rifai() { if (ridisegnaCons) { var box = ridisegnaCons(_consSchema()); _consDipingiTela(); montaCascata(box); } }
+    function rifai() { if (ridisegnaCons) { var box = ridisegnaCons(_consChiuse()); _consDipingiTela(); montaCascata(box); } }
     /* La cascata del percorso al posto del chip (Cosa · A chi? · Materia · mappa),
        dietro il flag `mappai_console_bento_app`. Si rimonta a ogni rifai (le tendine
        si ricostruiscono con lo stato aggiornato). Riusa la logica del chip: classe,
@@ -2494,7 +2549,7 @@
         });
       }
     }
-    var s = _consSchema();
+    var s = _consChiuse();
     /* Le mappe arrivano dal disco: la console si apre subito e la colonna si
        riempie quando la scansione risponde — senza che l'utente tocchi niente. */
     s.suApertura = function (box, ridisegna) {
@@ -2714,8 +2769,10 @@
     try { f.contentWindow.focus(); f.contentWindow.print(); }
     catch (e) { toast(_t('lt_cons_stampa_ko', 'La stampa non è disponibile per questo materiale.'), 'warning'); }
   }
-  function _consQr() {
-    var m = _cons.mat; if (!m) return;
+  /* Condivide UN materiale via QR: pubblica su MappAI Live e apre i Materiali.
+     Archivio → shareDoc; disco → deve essere HTML (un PDF non si serve inline). */
+  function _consShareMat(m) {
+    if (!m) return;
     if (m.archivio) return shareDoc(m.docId);
     var loc = _diskCache[m.id];
     if (!loc || !window.MappAILive || !window.MappAILive.publishHtml || !window.electronAPI || !window.electronAPI.readVaultFile) {
@@ -2729,6 +2786,24 @@
       Promise.resolve(window.MappAILive.publishHtml(nome, html)).then(function () {
         if (window.MappAILive.openMaterials) window.MappAILive.openMaterials();
       });
+    });
+  }
+  /* QR: col materiale aperto (barra) lo condivide; dalla riga comandi della
+     mappa non c'è un materiale «corrente» → si sceglie quale condividere. */
+  function _consQr() {
+    if (_cons.mat) return _consShareMat(_cons.mat);
+    var lista = _cons.materiali || [];
+    if (!lista.length) {
+      toast(_t('lt_cons_qr_vuoto', 'Nessun materiale da condividere: genera prima una Sintesi, un Foglio nodi o una Timeline.'), 'warning');
+      return;
+    }
+    MM().open({
+      titolo: _t('lt_cons_qr_pick', 'Condividi un materiale via QR'), icona: 'qr-code', taglia: 's', invio: false,
+      sezioni: [{ voci: lista.map(function (m) { return { id: 'q:' + m.id, etichetta: m.titolo, seconda: m.mappa || '', icona: 'file-text' }; }) }]
+    }).then(function (r) {
+      if (!r || !r.azione || r.azione.indexOf('q:') !== 0) return;
+      var m = lista.filter(function (x) { return x.id === r.azione.slice(2); })[0];
+      if (m) _consShareMat(m);
     });
   }
   /* Aprire la mappa segue la stessa strada delle righe di INSEGNA: il progetto

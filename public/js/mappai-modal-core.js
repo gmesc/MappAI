@@ -382,6 +382,28 @@
                 n.chiusa = n.collassabile && !!t.chiusa;
                 return n;
             }).filter(Boolean),
+            /* AREA A BENTO (cablaggio console INSEGNA, flag mappai_console_bento_app):
+               moduli con voci `azione`/`materiali`, impaginati come il D1 dell'officina.
+               Passa quasi grezzo — la presentazione dei riquadri (colori, disposizione
+               delle voci) la calcola MappAIBento in fase di render, e il renderer del
+               motore legge questi campi. Un campo sconosciuto verrebbe scartato da qui:
+               senza questa riga il bento non arriverebbe mai a schermo. */
+            bento: (s.bento || []).map(function (m) {
+                return {
+                    id: m.id || '', span: m.span || 4, altezza: m.altezza || 0,
+                    nuda: m.nuda !== false, layout: m.layout || null,
+                    stile: m.stile || null, bottoni: m.bottoni || null,
+                    voci: (m.voci || []).map(function (v) {
+                        return {
+                            id: v.id || '', et: String(v.et || ''), forma: v.forma || '',
+                            icona: v.icona || '', aiuto: v.aiuto ? String(v.aiuto) : '',
+                            /* chiude non forzato: il default (conclusivo) lo decide il
+                               dispatch, come per le azioni delle sezioni */
+                            chiude: v.chiude, vuoto: v.vuoto ? String(v.vuoto) : ''
+                        };
+                    })
+                };
+            }),
             sezioni: sezioni,
             azioni: azioni,
             /* azioni in TESTATA: servono alle console a tutto schermo, dove un
@@ -408,7 +430,8 @@
         /* «vuoto» significa senza CONTENUTO: una console porta il suo nella
            navigazione e nella tabella, non necessariamente in sezioni o azioni */
         var haCorpo = n.sezioni.length || n.azioni.length || n.azioniTestata.length || n.nav.length ||
-            (n.tabella && n.tabella.colonne.length) || n.contesto.length || n.tela;
+            (n.tabella && n.tabella.colonne.length) || n.contesto.length || n.tela ||
+            (n.bento && n.bento.length);
         var vociTot = n.sezioni.reduce(function (a, s2) {
             return a + s2.voci.filter(function (v) { return v.tipo !== 'gruppo'; }).length;
         }, 0);
