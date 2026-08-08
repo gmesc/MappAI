@@ -577,6 +577,15 @@
     function backToList() {
         if (_dirty && !confirm(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'))) return;
         _view = 'list'; _doc = null; _syn = null; _sheet = null; _cc = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
+        /* ⚠️ Uscire da un documento ANNUNCIA l'uscita (8/8 notte). Nel workspace
+           classico la lista dei documenti È la superficie giusta e `render()`
+           qui sotto la disegna come sempre. Nella console di ELABORA no: là
+           l'elenco vive nella COLONNA e la tela deve tornare al segnaposto —
+           senza l'annuncio ricompariva la vecchia superficie di selezione dentro
+           l'area, cioè due elenchi degli stessi documenti nella stessa
+           schermata. L'evento è sincrono e arriva PRIMA del render: chi lo
+           ascolta rimuove l'host, e `render()` non trova dove disegnare. */
+        try { document.dispatchEvent(new CustomEvent('mappai-doc-uscito')); } catch (e) { }
         render();
     }
 
@@ -1180,6 +1189,15 @@
         return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' + sheet + '</div></div>';
     }
 
+    /* Chi ospita l'editor in questo momento: la console di ELABORA o il
+       workspace classico. Cambia quali comandi hanno senso nella barra. */
+    function _inConsole() {
+        try {
+            const C = window.MappAIElaboraConsole;
+            return !!(C && C.aperta && C.aperta());
+        } catch (e) { return false; }
+    }
+
     function _docBar() {
         const isSyn = _kind === 'synthesis';
         const isNs = _kind === 'nodesheet';
@@ -1189,7 +1207,17 @@
             : isCc ? t('cc_doc_title', 'Catena dei perché')
             : (_doc.title || t('de_quiz', 'Quiz'));
         return '<div class="de-bar">' +
-            '<button type="button" class="de-btn de-ghost" onclick="MappAIDocEditor.backToList()">‹ ' + esc(t('de_back', 'Documenti')) + '</button>' +
+            /* «‹ Documenti» solo FUORI dalla console (Giacomo, 8/8 notte): là
+               l'elenco dei documenti è la COLONNA — sempre a schermo, con la voce
+               aperta marcata — quindi un bottone che dice «Documenti» dentro la
+               barra del documento è un secondo comando per una cosa che non è
+               nascosta. Nel workspace classico invece è l'UNICA uscita dal
+               documento e resta: la sua lista occupa lo stesso posto del foglio.
+               ⚠️ La condizione la dichiara la console (`aperta()`), non un flag
+               letto qui: il flag dice che il cablaggio è acceso, non che in questo
+               momento sia lei a ospitare l'editor. */
+            (_inConsole() ? '' :
+                '<button type="button" class="de-btn de-ghost" onclick="MappAIDocEditor.backToList()">‹ ' + esc(t('de_back', 'Documenti')) + '</button>') +
             '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>' +
             (isSyn ? _styleBar() : '') +
             '<div class="de-spacer"></div>' +

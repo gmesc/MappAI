@@ -203,6 +203,35 @@
   // ELABORA «Progetti esistenti» — stessa fonte di verità = disco (22/7), come
   // Insegna: filtro classe + chip coerenti col contenitore di classe reale.
   var _elabVaults = [];
+
+  /* ── IL GENERE DELLE MAPPE, LETTO DAL DISCO (Giacomo, 8/8 notte) ───────────
+     `index.yaml` dice se una mappa è una MindMap o un Knowledge Graph, e
+     `get-all-vaults` lo restituisce in `extractionMode`. Ma i picker che
+     elencano i PROGETTI di localStorage hanno in mano solo `p.type`, che le
+     mappe generate senza progetto non hanno: da lì l'icona delle MindMap su un
+     KG. Qui si tiene una cache nome→genere, riempita ogni volta che qualcuno
+     legge i vault (INSEGNA, ELABORA, la console): i picker la interrogano e
+     ripiegano su `p.type` solo se non c'è ancora passato nessuno.
+     ⚠️ La chiave è il nome della CARTELLA del vault quando il progetto la
+     dichiara, e il nome della mappa altrimenti: due mappe omonime in classi
+     diverse condividono la seconda chiave, e in quel caso vince l'ultima
+     letta. È il compromesso di un picker che elenca progetti, non cartelle. */
+  var _generi = {};
+  function _gk(x) { return String(x == null ? '' : x).trim().toLowerCase(); }
+  function _segnaGeneri(vaults) {
+    (vaults || []).forEach(function (v) {
+      if (!v) return;
+      var g = v.extractionMode === 'kg' ? 'kg' : (v.extractionMode === 'mindmap' ? 'mindmap' : '');
+      if (!g) return;
+      if (v.folderName) _generi[_gk(v.folderName)] = g;
+      if (v.rootNodeLabel) _generi[_gk(v.rootNodeLabel)] = g;
+    });
+  }
+  /* il genere di un progetto: prima il disco, poi quello che il progetto dice */
+  function _tipoDi(p) {
+    if (!p) return 'mindmap';
+    return _generi[_gk(p.vault)] || _generi[_gk(p.name)] || (p.type === 'kg' ? 'kg' : 'mindmap');
+  }
   var _elabContainer = 'elab-projects';
   function renderElaboraProjects(containerId) {
     _elabContainer = containerId || 'elab-projects';
@@ -210,6 +239,7 @@
     if (!body) return;
     if (!window.electronAPI || !window.electronAPI.getAllVaults) { renderElaboraProjectsLocal(body); return; }
     window.electronAPI.getAllVaults().then(function (vaults) {
+      _segnaGeneri(vaults);
       renderElaboraProjectsDisk(body, vaults || []);
     }).catch(function () { renderElaboraProjectsLocal(body); });
   }
@@ -873,6 +903,7 @@
     if (!body) return;
     if (!window.electronAPI || !window.electronAPI.getAllVaults) { renderProjectsLocal(body); return; }
     window.electronAPI.getAllVaults().then(function (vaults) {
+      _segnaGeneri(vaults);
       renderProjectsDisk(body, vaults || []);
     }).catch(function () { renderProjectsLocal(body); });
   }
@@ -1639,7 +1670,7 @@
     function voce(p) {
       return {
         id: 'map-' + p.id, etichetta: p.name, badge: p.grade || '',
-        icona: p.type === 'kg' ? 'network' : 'git-merge'
+        icona: _tipoDi(p) === 'kg' ? 'network' : 'git-merge'
       };
     }
     function fascia(chiave, ripiego, arr) {
@@ -1907,12 +1938,24 @@
       }));
     }
     return api.getAllVaults().then(function (all) {
+      _segnaGeneri(all);
       return (all || []).map(function (v) {
         var p = matchProjectToVault(projects, v);
         return {
           id: p ? 'p:' + p.id : 'v:' + v.fullPath,
           nome: (p && p.name) || v.rootNodeLabel || v.folderName,
-          type: (p && p.type) || 'mindmap',
+          /* IL GENERE LO DICE IL DISCO (Giacomo, 8/8 notte: un KG mostrava
+             l'icona delle MindMap). `index.yaml` porta `extractionMode` e
+             `get-all-vaults` lo restituisce già: prima si ripiegava su
+             'mindmap' e una mappa senza progetto in localStorage — la
+             maggioranza, in Electron — veniva dichiarata MindMap per
+             difetto. Il disco vince sul campo del progetto per la stessa
+             regola che vale per classe e materia: la cartella è la fonte di
+             verità, il campo del progetto è il ripiego di chi non ha Electron.
+             Il genere non è solo l'icona: da lì dipende «Elabora», che sulle
+             MindMap c'è e sui KG no. */
+          type: (v.extractionMode === 'kg' ? 'kg' : (v.extractionMode === 'mindmap' ? 'mindmap' : null))
+            || (p && p.type) || 'mindmap',
           p: p, v: v,
           cls: (p && p.cls) || prettyClass(v.classDir || ''),
           disc: (p && p.disc) || prettyClass(v.discDir || '')
@@ -2473,7 +2516,10 @@
         onMateria: function (m) { reset(function () { CL.setActiveDiscipline(m); }); },
         onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
       });
-      if (p) livelli.push({ statico: p.nome });
+      /* `qui: true` = la briciola del posto in cui si è (corsivo). Qui è statica e
+         lo prenderebbe comunque, ma dichiararlo è ciò che la tiene in corsivo se un
+         giorno anche INSEGNA le darà una tendina — come ha ELABORA. */
+      if (p) livelli.push({ statico: p.nome, qui: true });
       /* ⚠️ `node` = il BOX: montaPercorso marca il box `mn-percorso` (la veste
          allora NON gli rimette il chip) e ne toglie l'eventuale chip. Nessun
          `testiEl`: le briciole vanno in `.mm-head__testi` della testata, come
@@ -2905,11 +2951,43 @@
     if (back !== '' && consoleAttiva() && window.MappAIModal) { setMode('teach', back); return; }
     /* Si riparte SEMPRE dalla landing vuota, non dall'ultimo tab aperto: la
        schermata d'ingresso è una domanda («che cosa vieni a fare?»), non la
-       ripresa di ieri. Il contesto di lavoro, quello sì, si ricorda — vive nel
-       chip. Unica eccezione: il segnalibro qui sopra, che riporta alla console
-       da cui si era usciti per aprire una mappa. */
+       ripresa di ieri. Unica eccezione: il segnalibro qui sopra, che riporta alla
+       console da cui si era usciti per aprire una mappa. */
     try { localStorage.setItem(LS_MODE, ''); } catch (e) { }
+    _contestoVuotoAlLancio();
     applyMode();
+  }
+
+  /* ── IL CONTESTO NON SI EREDITA DAL LANCIO PRECEDENTE (Giacomo, 8/8 notte) ──
+     Rovescia la decisione del 3/8 («i chip restano in localStorage e sopravvivono
+     alla chiusura»): riaprendo l'app le briciole mostravano «4R › Geografia», la
+     classe di ieri, e si lavorava dentro un contesto che nessuno aveva scelto in
+     questa sessione. Ora al lancio la topbar dice «Elabora › A chi?» e la materia
+     compare solo dopo aver scelto il destinatario.
+     ⚠️ Si azzera al LANCIO, non a ogni `init()`: `backToLanding` fa
+     `location.reload()`, e il reload ripassa da qui — senza la guardia, tornare
+     alla landing da una mappa butterebbe via la classe appena scelta. Il
+     marcatore sta in `sessionStorage`, che sopravvive al reload e muore col
+     processo: in Electron ogni lancio è una sessione nuova, che è esattamente il
+     confine chiesto.
+     ⚠️ Va azzerato ANCHE il flag sticky del percorso: dice «A chi? l'ho già
+     scelto» e senza toglierlo la briciola mostrerebbe «Generico» e rivelerebbe
+     «Materia» — cioè un contesto scelto, che è ciò che si vuole evitare.
+     ⚠️ L'allievo attivo non è una chiave sua: è `appState.userProfile.nickname`.
+     Si usa il gesto che esiste già (`setActiveStudent(null)`, lo stesso del
+     bottone «Generico»), che azzera il profilo ATTIVO e non tocca le schede
+     salvate in `allProfiles`. Cancellarle sarebbe perdere dati. */
+  var LS_BOOT = 'mappai_contesto_azzerato';
+  function _contestoVuotoAlLancio() {
+    try {
+      if (sessionStorage.getItem(LS_BOOT) === '1') return;   /* già fatto: è un reload */
+      sessionStorage.setItem(LS_BOOT, '1');
+    } catch (e) { return; }                                   /* senza sessionStorage non si azzera a ogni render */
+    var CL = window.MappAIClasses;
+    try { if (CL && CL.setActiveDiscipline) CL.setActiveDiscipline(''); } catch (e) { }
+    try { if (CL && CL.setActive) CL.setActive(''); } catch (e) { }
+    try { if (CL && CL.setActiveStudent) CL.setActiveStudent(null); } catch (e) { }
+    try { localStorage.removeItem('mappai_bento_achi'); } catch (e) { }
   }
 
   window.MappAITeach = {

@@ -424,7 +424,7 @@
                    `montaPercorso` vuole `{livelli: …}`: passarglielo nudo non
                    dava errore, semplicemente non montava niente e il chip
                    restava — un difetto muto. */
-                CB.montaPercorso(box, { livelli: CB.specContesto({
+                var liv = CB.specContesto({
                     /* «Cosa» porta fuori da qui: si chiude la console e la
                        landing resta sulla sezione scelta (stessa strada di INSEGNA) */
                     onCosa: function (m) {
@@ -432,12 +432,52 @@
                         var x = box.querySelector('[data-azione="__chiudi"]');
                         if (x) x.click();
                     },
-                    onGenerico: function () { dopo(function () { if (CL.setActive) CL.setActive(''); if (CL.setActiveStudent) CL.setActiveStudent(''); }); },
-                    onClasse: function (id) { dopo(function () { if (CL.setActive) CL.setActive(id); }); },
-                    onAllievo: function (n) { dopo(function () { if (CL.setActiveStudent) CL.setActiveStudent(n); }); },
+                    onGenerico: function () {
+                        dopo(function () {
+                            if (CL.setActive) CL.setActive('');
+                            /* ⚠️ `setActiveStudent('')` non azzera: il modulo si
+                               aspetta `null` (con una stringa vuota costruirebbe
+                               un profilo da `''`). */
+                            if (CL.setActiveStudent) CL.setActiveStudent(null);
+                            if (CL.setActiveDiscipline) CL.setActiveDiscipline('');
+                        });
+                    },
+                    /* ⚠️ `specContesto` consegna l'OGGETTO classe, non il suo id:
+                       `setActive(oggetto)` scriveva «[object Object]» in
+                       localStorage, `getActive()` tornava null e la briciola
+                       diceva «Generico» — cioè scegliere una classe da qui non
+                       funzionava. Scegliere una classe azzera anche materia e
+                       allievo, come nella landing (l'esclusione mutua e la
+                       materia che non appartiene alla classe nuova). */
+                    onClasse: function (c) {
+                        dopo(function () {
+                            if (CL.setActive) CL.setActive(c && c.id != null ? c.id : c);
+                            if (CL.setActiveStudent) CL.setActiveStudent(null);
+                            if (CL.setActiveDiscipline) CL.setActiveDiscipline('');
+                        });
+                    },
+                    onAllievo: function (p) {
+                        dopo(function () {
+                            if (CL.setActiveStudent) CL.setActiveStudent(p);
+                            if (CL.setActiveDiscipline) CL.setActiveDiscipline('');
+                        });
+                    },
                     onMateria: function (mm) { dopo(function () { if (CL.setActiveDiscipline) CL.setActiveDiscipline(mm); }); },
                     onNuovaMateria: function () { }
-                }, 'materia').concat(_livelloProgetto()) });
+                }, 'materia');
+                /* Il progetto sta DIETRO la rivelazione progressiva, come gli
+                   altri livelli: senza destinatario la briciola diceva «Nessun
+                   progetto» accanto a «A chi?» — una risposta a una domanda non
+                   ancora fatta. Due condizioni, entrambe necessarie:
+                   `specContesto` ha rivelato tutti e tre i livelli (quindi «A
+                   chi?» è stato scelto) E la materia è scelta davvero — con la
+                   classe scelta e la materia no il terzo livello esiste, ma porta
+                   il prompt «Materia», e l'elenco dei progetti di «tutte le
+                   materie» non è quello che si sta chiedendo. */
+                var mat = '';
+                try { mat = (CL.activeDiscipline && CL.activeDiscipline()) || ''; } catch (e) { }
+                var pronto = liv.length >= 3 && !!mat;
+                CB.montaPercorso(box, { livelli: liv.concat(pronto ? _livelloProgetto() : []) });
             } catch (e) { /* senza percorso resta il chip: non è un motivo per fermarsi */ }
         }
 
@@ -461,16 +501,21 @@
             var corrente = (_mappe && T && T.mappaCorrente) ? T.mappaCorrente(_mappe) : null;
             var nome = (_inCorso && _inCorso.nome) || (corrente && corrente.nome) || (s && s.rootNodeLabel) || '';
             if (_inCorso) return [{ statico: nome + ' ' + t('ec_bric_carico', '· apro…') }];
-            if (!_mappe) return nome ? [{ statico: nome }] : [];
+            if (!_mappe) return nome ? [{ statico: nome, qui: true }] : [];
             if (!_mappe.length) {
                 /* nessuna mappa per questa classe e materia: si dice, invece di
                    aprire una tendina vuota */
-                return [{ et: nome || t('ec_bric_nessun', 'Nessun progetto'), menu: { tipo: 'lista', voci: [
+                return [{ et: nome || t('ec_bric_nessun', 'Nessun progetto'), qui: true, menu: { tipo: 'lista', voci: [
                     { et: t('ec_bric_vuoto', '— nessun progetto per questa classe e materia —'), on: false, onPick: function () { } }
                 ] } }];
             }
             return [{
                 et: nome || t('ec_bric_progetto', 'Progetto'),
+                /* ⚠️ `qui: true`: è la briciola del posto in cui si è, e resta in
+                   corsivo anche da cliccabile — senza, il corsivo del primo
+                   disegno (statico, elenco non ancora arrivato) diventava
+                   grassetto appena il disco rispondeva. */
+                qui: true,
                 menu: {
                     tipo: 'lista',
                     voci: _mappe.map(function (m) {
@@ -534,6 +579,25 @@
             var host = _montaHost(box);
             if (host && DEd().render) { try { DEd().render(); } catch (e) { } }
         }
+
+        /* ── Uscire da un documento svuota l'AREA (Giacomo, 8/8 notte) ────────
+           L'editor, chiudendo un documento, torna alla SUA lista e la disegna
+           nell'host — che qui è la tela. Ma l'elenco dei documenti in questa
+           console vive nella COLONNA: la lista dell'editor nell'area era un
+           secondo elenco delle stesse cose nella stessa schermata. Ora l'editor
+           annuncia l'uscita e la console torna al segnaposto, deselezionando
+           anche la voce nella colonna (è `_voce = ''` a farlo: la voce attiva è
+           un dato dello schema, non una classe appiccicata al DOM).
+           ⚠️ L'ascolto si toglie alla chiusura: la console si apre e si chiude
+           più volte in una sessione, e un ascoltatore per ogni apertura
+           ridisegnerebbe N volte una finestra che non c'è più. */
+        function _suUscitaDoc() {
+            if (!_aperta) return;
+            if (!_voce || _eFonte()) return;      /* la fonte non ha un «indietro» */
+            _voce = '';
+            rifai();
+        }
+        document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
 
         var s = _schema();
         /* il PRIMO disegno: `open()` non restituisce il box, lo consegna qui */
@@ -606,6 +670,7 @@
                lo tiene per buono ogni suo `render()` (l'hook sul salvataggio di
                un nodo, per esempio) crederebbe di dover disegnare lì. */
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+            document.removeEventListener('mappai-doc-uscito', _suUscitaDoc);
             _voce = '';
             _aperta = false;
         });

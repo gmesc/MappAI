@@ -896,6 +896,24 @@
                che non emette il token, usa il fallback 0.6 (= invariata). */
             var fs = i === 0 ? 'var(--mn-tit-fs, 30px)' : 'calc(var(--mn-tit-fs, 30px) * var(--mn-bric-scale, 0.6))';
             var ultima = (i === livelli.length - 1);
+            /* «SONO QUI» NON È «SONO STATICO» (Giacomo, 8/8 notte).
+               Il corsivo (con `is-qui`, che tronca invece di sfondare) lo prendeva solo
+               l'ultimo livello STATICO. La briciola del progetto in ELABORA e INSEGNA è
+               l'ultima E si apre: quindi ricadeva nel grassetto degli altri — e si
+               vedeva come un lampeggìo, perché al primo disegno l'elenco dal disco non
+               c'è ancora e la briciola nasce statica (corsivo), poi arriva l'elenco e
+               diventa una tendina (grassetto).
+               Ora il livello può DICHIARARSI `qui: true` e resta corsivo anche da
+               cliccabile. Non si deduce dalla posizione: l'ultima briciola di CREA è la
+               materia, e nessuno ha chiesto di metterla in corsivo.
+               Le voci della TENDINA restano in grassetto: là sono un elenco di scelte,
+               non il posto in cui si è. */
+            var qui = (lv.qui === true) || (ultima && !lv.menu);
+            function _qui(elem) {
+                elem.classList.add('is-qui');
+                elem.style.fontStyle = 'italic';
+                elem.style.fontWeight = '400';
+            }
             if (lv.menu) {
                 var b = document.createElement('button');
                 b.type = 'button';
@@ -904,15 +922,16 @@
                 b.setAttribute('aria-expanded', 'false');
                 b.innerHTML = '<span>' + _escP(lv.et) + '</span>';   /* niente triangolino ▾ (Giacomo) */
                 b.style.fontSize = fs;
+                if (qui) _qui(b);
                 (function (btn, ms, f) { btn.addEventListener('click', function (ev) { ev.stopPropagation(); _apriPercorsoMenu(node, btn, ms, f); }); })(b, lv.menu, fs);
                 br.appendChild(b);
             } else {
                 var el = document.createElement(ultima ? 'span' : 'button');
-                el.className = 'mn-briciole__l' + (ultima ? ' is-qui' : '');
+                el.className = 'mn-briciole__l';
                 if (el.tagName === 'BUTTON') el.type = 'button';
                 el.textContent = lv.statico || lv.et || '';
                 el.style.fontSize = fs;
-                if (ultima) { el.style.fontStyle = 'italic'; el.style.fontWeight = '400'; }
+                if (qui) _qui(el);
                 br.appendChild(el);
             }
         });

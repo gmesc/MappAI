@@ -134,7 +134,18 @@
 
         // Tier 3 — struttura (deterministica)
         let structure = null;
-        try { if (window.MappAIStructureAnalyzer) structure = window.MappAIStructureAnalyzer.analyzeStructure(nodes, links, {}); } catch (e) {}
+        /* ⚠️ Il genere si PASSA quando lo si ha (8/8 notte): senza `mode`,
+           `analyzeStructure` ripiega su `detectMode`, che lo indovina dal formato
+           degli id (`L1_…`) — un'euristica giusta solo per chi non ha il dato. Il
+           vault caricato porta `extractionMode` letto da `index.yaml`, cioè la
+           verità: le analisi gerarchiche girano solo sulle MindMap, quindi
+           sbagliare genere qui vuol dire suggerimenti sbagliati. */
+        try {
+            if (window.MappAIStructureAnalyzer) {
+                var _opzSA = vaultData.extractionMode ? { mode: vaultData.extractionMode } : {};
+                structure = window.MappAIStructureAnalyzer.analyzeStructure(nodes, links, _opzSA);
+            }
+        } catch (e) {}
 
         // Tier 2 — chat
         let chat = null;
