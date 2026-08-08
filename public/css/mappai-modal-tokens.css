@@ -1439,6 +1439,55 @@ button.mm-ctx__p:focus-visible {
     padding-top: 4px;
 }
 
+/* ── gruppi RICHIUDIBILI ──────────────────────────────────────────────────────
+   Il titolo È il comando (come per le tabelle): un secondo bottone accanto
+   sarebbe un comando in più per la stessa cosa. Il CONTATORE sta sulla riga del
+   titolo — a gruppo chiuso è l'unica cosa che ne dice il contenuto, e rende
+   inutile una riga «Nessuno» che fingerebbe una voce cliccabile. */
+.mm-nav__g--tog {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--mm-testo-3);
+    padding: 14px 11px 5px;
+}
+.mm-nav__g--tog:hover { color: var(--mm-testo-2); }
+.mm-nav__gt { flex: 1; min-width: 0; }
+/* il contatore: stesso pezzo del contatore di voce, in tono minore */
+.mm-nav__gn {
+    flex: 0 0 auto;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--mm-fondo-2, #f1f5f9);
+    color: var(--mm-testo-3);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-align: center;
+}
+.mm-nav__gc-i {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+    transition: transform .15s;
+}
+.mm-nav__g--tog[aria-expanded="false"] .mm-nav__gc-i { transform: rotate(-90deg); }
+/* le voci del gruppo vivono in un contenitore proprio: è quello che si chiude
+   (nell'elenco piatto non sono figlie del titolo, quindi non ci sarebbe nulla
+   da nascondere) */
+.mm-nav__gc.is-chiusa { display: none; }
+
 .mm-console__side-sez {
     margin-top: 12px;
 }

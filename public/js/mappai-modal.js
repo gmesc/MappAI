@@ -388,18 +388,40 @@
         box.addEventListener('scroll', tipVia, true);
     }
 
+    /* La colonna: intestazioni di gruppo e voci. Un gruppo può portare il suo
+       CONTATORE (sulla riga del titolo, non su ogni voce) ed essere
+       RICHIUDIBILE — e allora le sue voci vivono in un contenitore proprio, che
+       è ciò che si nasconde. Senza contenitore l'elenco è piatto e non c'è
+       niente da piegare: le voci di un gruppo non sono suoi figli nel markup. */
     function navHtml(voci) {
-        return '<nav class="mm-nav" aria-label="' + esc(tt('mm_nav_aria', 'Sezioni')) + '">' + voci.map(function (v) {
+        var out = '', aperto = false;   /* `aperto` = c'è un contenitore di gruppo da chiudere */
+        voci.forEach(function (v) {
             if (v.tipo === 'gruppo') {
-                return '<span class="mm-nav__g" role="presentation">' + esc(v.etichetta) + '</span>';
+                if (aperto) { out += '</div>'; aperto = false; }
+                var cont = (v.contatore !== null && v.contatore !== undefined)
+                    ? '<span class="mm-nav__gn">' + esc(v.contatore) + '</span>' : '';
+                if (v.collassabile) {
+                    out += '<button type="button" class="mm-nav__g mm-nav__g--tog" data-piega-nav="' + esc(v.id) + '"' +
+                        ' aria-expanded="' + (v.chiuso ? 'false' : 'true') + '">' +
+                        icona('chevron-down', 'mm-nav__gc-i') +
+                        '<span class="mm-nav__gt">' + esc(v.etichetta) + '</span>' + cont + '</button>';
+                } else {
+                    out += '<span class="mm-nav__g" role="presentation">' +
+                        '<span class="mm-nav__gt">' + esc(v.etichetta) + '</span>' + cont + '</span>';
+                }
+                out += '<div class="mm-nav__gc' + (v.chiuso ? ' is-chiusa' : '') + '" data-navgruppo="' + esc(v.id) + '">';
+                aperto = true;
+                return;
             }
-            return '<button type="button" class="mm-nav__v' + (v.attiva ? ' is-attiva' : '') + '"' +
+            out += '<button type="button" class="mm-nav__v' + (v.attiva ? ' is-attiva' : '') + '"' +
                 ' data-nav="' + esc(v.id) + '"' + (v.attiva ? ' aria-current="page"' : '') + '>' +
                 (v.icona ? icona(v.icona) : '') +
                 '<span class="mm-nav__t">' + esc(v.etichetta) + '</span>' +
                 (v.contatore !== null ? '<span class="mm-nav__n">' + esc(v.contatore) + '</span>' : '') +
                 '</button>';
-        }).join('') + '</nav>';
+        });
+        if (aperto) out += '</div>';
+        return '<nav class="mm-nav" aria-label="' + esc(tt('mm_nav_aria', 'Sezioni')) + '">' + out + '</nav>';
     }
 
     function schedeHtml(schede) {
@@ -661,6 +683,31 @@
             b.setAttribute('aria-expanded', chiusa ? 'false' : 'true');
         });
 
+        /* Gruppi della COLONNA: stessa cosa, e per la stessa ragione — piegare è
+           comportamento del motore. In più si AVVISA il chiamante (`__gruppo`):
+           chi ridisegna la console (ELABORA lo fa a ogni documento scelto) deve
+           poter rimandare lo stato nello schema, altrimenti i gruppi si
+           riaprirebbero da soli al primo clic su una voce. */
+        box.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('[data-piega-nav]');
+            if (!b) return;
+            e.stopPropagation();
+            var id = b.getAttribute('data-piega-nav');
+            var g = box.querySelector('[data-navgruppo="' + id.replace(/(["\\])/g, '\\$1') + '"]');
+            if (!g) return;
+            var chiusa = g.classList.toggle('is-chiusa');
+            b.setAttribute('aria-expanded', chiusa ? 'false' : 'true');
+            /* ⚠️ `manda` vive in `open()`, non qui: questo gestore sta in
+               `render()`, che disegna anche i riquadri del banco (dove nessuno ha
+               aperto niente). Chiamarla direttamente lanciava
+               «manda is not defined» a OGNI clic su un titolo di gruppo: il
+               gruppo si piegava (la classe è già stata scambiata sopra) ma
+               l'avviso non arrivava mai — quindi la console lo riapriva al primo
+               ridisegno e la memoria dei gruppi non poteva funzionare.
+               `open()` lascia il suo dispacciatore sul BOX: se c'è, si avvisa. */
+            if (typeof box._mmManda === 'function') box._mmManda({ azione: '__gruppo', voce: id, chiuso: chiusa }, b);
+        });
+
         /* il toggle della navigazione è comportamento della console, non del
            chiamante: vive qui, non in ogni schermata che la usa */
         if (s.navChiudibile) {
@@ -803,6 +850,12 @@
                 if (!ev.valori) ev.valori = raccogli(box);
                 return gestore ? gestore(ev, box, ridisegna, sorgente) : undefined;
             }
+            /* i gestori che il motore attacca in `render()` (i gruppi della
+               colonna) devono poter avvisare chi ha aperto la finestra, e da lì
+               `manda` non è raggiungibile: si lascia sul box. Un ridisegno
+               costruisce un box NUOVO, quindi va ri-appeso ogni volta (lo fa
+               `ridisegna`, che ripassa da qui). */
+            function segnaManda(el) { if (el) el._mmManda = manda; }
 
             function legaBox() {
                 box.addEventListener('click', function (e) {
@@ -876,6 +929,7 @@
                 var vecchio = box;
                 box = render(s);
                 legaBox();
+                segnaManda(box);          /* i gruppi della colonna avvisano da qui */
                 if (vecchio) velo.replaceChild(box, vecchio); else velo.appendChild(box);
             }
             function ridisegna(nuovo) {

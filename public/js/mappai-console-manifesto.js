@@ -33,6 +33,10 @@
     function vesteAccesa() {
         return document.documentElement.classList.contains('manifesto');
     }
+    /* il cablaggio bento: è lui che porta il percorso al posto del chip */
+    function bentoApp() {
+        try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; }
+    }
 
     /* Tracciati Lucide, copiati: `panel-left-close` e `panel-left-open`. */
     function svg(d) {
@@ -76,7 +80,13 @@
     }
 
     function vestiTestata(box) {
-        var ico = box.querySelector('.mm-head__ico');
+        /* ⚠️ FIGLIO DIRETTO della testata, non «il primo .mm-head__ico del box»:
+           con la barra unica portata dentro la testata, il pallino della LANDING
+           finisce anch'esso lì dentro — e un selettore largo lo scambiava per il
+           pallino della console, lo sostituiva, e la sostituzione rigenerava DOM
+           facendo ripartire l'osservatore: la pagina si piantava. Il pallino
+           della testata è suo figlio diretto; quello della barra non lo è. */
+        var ico = box.querySelector('.mm-head > .mm-head__ico');
         if (!ico || ico.dataset.manVestito === '1') return;
         var chiudi = box.querySelector('.mm-head .mm-close');
         var nomeChiudi = (chiudi && chiudi.getAttribute('aria-label')) || 'Chiudi';
@@ -132,7 +142,13 @@
            chip qui — il contesto vive nel percorso «A chi? · Materia». Si toglie
            anche l'eventuale chip già montato da un giro precedente della veste. */
         var boxP = dopo.closest && dopo.closest('.mm-box--console');
-        if (boxP && boxP.classList.contains('mn-percorso')) {
+        /* Niente chip anche in CABINA (Giacomo, 8/8): là il contesto non è un
+           filtro né una scelta di lavoro — le viste «Allievi» e «Classi» lo
+           mostrano riga per riga col bollino e lo cambiano con un clic, quindi
+           in testata era la stessa informazione una seconda volta, in sola
+           lettura. La barra unica non ci entra (il pallino lì è l'uscita), ma il
+           chip se ne va lo stesso. */
+        if (boxP && (boxP.classList.contains('mn-percorso') || (bentoApp() && sezioneDi(boxP) === 'cabina'))) {
             var c = head.querySelector('.mm-ctx'); if (c) c.remove();
             return;
         }
@@ -255,6 +271,16 @@
         var z = parseInt(ov ? getComputedStyle(ov).zIndex : '', 10);
         rail.style.zIndex = (isFinite(z) ? z + 1 : 12001);
     }
+
+    /* ⚠️ NON si sposta `#header-utils` dentro le console (provato l'8/8, e la
+       pagina si piantava): quel nodo è CONDIVISO con la landing, e la veste
+       reagisce a ogni mutazione del DOM — spostarlo qui mentre la landing lo
+       rivuole indietro è un rimpallo che blocca il renderer. INSEGNA lo fa da sé
+       perché governa il proprio ciclo di ridisegno; le altre console prendono le
+       briciole dove non c'è niente da spostare: `MappAIConsoleBento.montaPercorso`
+       le costruisce DENTRO la testata della console (ed è quella chiamata a
+       marcare il box `mn-percorso`, cioè a togliere il chip). Vedi
+       `mappai-elabora-console.js`. */
 
     function aggiorna() {
         if (!vesteAccesa()) return;

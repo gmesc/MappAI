@@ -1922,14 +1922,15 @@
   }
   /* Il chip NON è un filtro cosmetico: è il contesto della console, e la colonna
      mostra solo ciò che gli appartiene. */
-  function _consFiltrate() {
+  function _filtraContesto(list) {
     var cls = _consClasse(), mat = _consMateria();
-    return _consMappe().filter(function (m) {
+    return (list || []).filter(function (m) {
       if (cls && normName(m.cls) !== normName(cls.name)) return false;
       if (mat && normName(m.disc) !== normName(mat)) return false;
       return true;
     });
   }
+  function _consFiltrate() { return _filtraContesto(_consMappe()); }
   function _consMappaScelta() {
     if (!_cons.voce) return null;
     return _consMappe().find(function (m) { return m.id === _cons.voce; }) || null;
@@ -2415,53 +2416,27 @@
        dietro il flag `mappai_console_bento_app`. Si rimonta a ogni rifai (le tendine
        si ricostruiscono con lo stato aggiornato). Riusa la logica del chip: classe,
        materia e allievo attivi filtrano le mappe come `__ctx-classe`. */
-    /* ── UNA SOLA toolbar per tutte le sezioni (Giacomo, bug 3) ─────────────
-       CREA/ELABORA usano già `#header-utils` (una barra sola, riusata). INSEGNA
-       è una console a schermo pieno che copre quella barra, quindi finora ne
-       disegnava una SUA nella testata — due implementazioni, la causa della
-       deriva di posizione (bug 1). Ora si porta LO STESSO `#header-utils` dentro
-       la testata della console: una barra sola, un solo stile, nessuna deriva.
-       La testata nasconde la sua copia (pallino + briciole); la barra torna
-       statica e la posiziona il flex della testata (padding 28/9 = stesso 28,22
-       della landing). Alla chiusura si rimette dov'era e la landing la ricostruisce.
-       ⚠️ Alla chiusura il motore rimuove il velo (e con esso la barra spostata),
-       quindi `_huNode` tiene un riferimento DIRETTO: dopo `velo.remove()` la barra
-       è staccata dal documento e `getElementById` non la troverebbe più. */
-    var _huHome = null, _huNode = null;
-    function _huEmbed(box) {
-      var hu = document.getElementById('header-utils') || _huNode;
-      var head = box && box.querySelector('.mm-head');
-      if (!hu || !head) return null;
-      /* ⚠️ La casa CORRETTA della barra in modalità manifesto è DENTRO
-         `#landing-view` (ce la mette `sganciaHeader` in stile-manifesto: solo lì
-         il suo `position:absolute; top:22; left:28` cade rispetto alla finestra).
-         Se la console si RIAPRE dal segnalibro (uscita da una mappa → reload) la
-         barra è ancora nel suo posto di markup — dentro la `.glass-card`
-         (`position:relative`) — quando `_huEmbed` gira, e `_huHome` finirebbe lì:
-         al ripristino l'absolute cadrebbe rispetto alla glass-card e la barra
-         atterrerebbe a (52,46) invece che (28,22). Ancoriamo a `#landing-view`
-         PRIMA di ricordare la casa (idempotente: se già lì, non fa niente). */
-      var _lv = document.getElementById('landing-view');
-      if (_lv && hu.parentNode !== _lv && hu.parentNode !== head) _lv.appendChild(hu);
-      if (!_huHome) _huHome = { parent: hu.parentNode, next: hu.nextSibling };
-      _huNode = hu;
-      head.classList.add('mn-head-hu');            // CSS: nasconde pallino+briciole propri
-      hu.classList.add('hu-in-console');           // CSS: position:static → la piazza il flex
-      if (hu.parentNode !== head) head.insertBefore(hu, head.firstChild);
-      return hu;
-    }
+    /* ── UNA SOLA toolbar per tutte le sezioni — UN SOLO MECCANISMO (8/8 sera) ──
+       Prima c'erano due strade per la stessa barra: INSEGNA SPOSTAVA il nodo
+       `#header-utils` dentro la testata della console (`_huEmbed`, con
+       `_huRestore` alla chiusura), mentre ELABORA e la Cabina ricostruiscono le
+       briciole sul posto con `montaPercorso(box, spec)`. Stesso risultato a
+       schermo, due implementazioni da tenere allineate — e la strada «sposta il
+       nodo» è quella che si era già rotta: `#header-utils` è condiviso con la
+       landing e `mappai-console-manifesto.js` reagisce a ogni mutazione del DOM
+       → rimpallo, renderer bloccato.
+       Ora INSEGNA fa come le altre: **niente nodi spostati**. Le briciole
+       nascono in `.mm-head__testi` e il pallino della testata è già il bottone
+       Cabina. L'allineamento con la landing non è più una taratura: la regola
+       `padding-left:28px` + `align-items:center` in console-manifesto.css vale
+       per la testata di OGNI console → INSEGNA coincide per costruzione.
+       ⚠️ Se serve rimettere mano qui: la via giusta è aggiungere alla testata
+       della console, non trasferirle un nodo della landing. */
     function _huRestore() {
-      var hu = _huNode || document.getElementById('header-utils');
-      if (hu) {
-        hu.classList.remove('hu-in-console');
-        if (_huHome && _huHome.parent) {
-          if (_huHome.next && _huHome.next.parentNode === _huHome.parent) _huHome.parent.insertBefore(hu, _huHome.next);
-          else _huHome.parent.appendChild(hu);
-        }
-      }
-      _huHome = null; _huNode = null;
       /* la landing riprende la barra: l'evento forza `montaCascataLanding`
-         (stile-manifesto) a ricostruirla con le SUE callback azzerando la firma */
+         (stile-manifesto) a ricostruirla con le SUE callback azzerando la firma.
+         Resta anche senza spostamenti: chiudendo la console la landing torna
+         visibile e le sue briciole vanno ridipinte sullo stato aggiornato. */
       try { document.dispatchEvent(new CustomEvent('mappai-active-class-changed')); } catch (e) { }
     }
     function montaCascata(node) {
@@ -2472,7 +2447,6 @@
          console sono impilate */
       if (!node || !CB || !CB.montaPercorso || !CB.specContesto) return;
       var CL = window.MappAIClasses; if (!CL) return;
-      var hu = _huEmbed(node);                      // la barra unica entra nella testata
       var p = _consMappaScelta();
       function reset(fn) { try { fn(); } catch (e) { } _cons.voce = ''; _cons.mat = null; _cons.materiali = null; rifai(); }
       /* la rivelazione progressiva e le etichette-valore le calcola specContesto
@@ -2500,10 +2474,11 @@
         onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
       });
       if (p) livelli.push({ statico: p.nome });
-      /* ⚠️ `node` = il BOX (non hu): montaPercorso marca il box `mn-percorso` (la
-         veste allora NON gli rimette il chip) e ne toglie l'eventuale chip; le
-         briciole vanno su `hu` (la barra unica embeddata) via testiEl. */
-      CB.montaPercorso(node, { livelli: livelli }, hu || null);
+      /* ⚠️ `node` = il BOX: montaPercorso marca il box `mn-percorso` (la veste
+         allora NON gli rimette il chip) e ne toglie l'eventuale chip. Nessun
+         `testiEl`: le briciole vanno in `.mm-head__testi` della testata, come
+         in ELABORA e nella Cabina — un solo meccanismo. */
+      CB.montaPercorso(node, { livelli: livelli });
     }
     function scegliMappa(id) {
       _cons.voce = id; _cons.mat = null; _cons.materiali = null;
@@ -2940,6 +2915,29 @@
   window.MappAITeach = {
     init: init,
     contestoDelleMappe: contestoDelleMappe,
+    /* ── Le MAPPE del contesto, per chi le vuole fuori da INSEGNA (8/8 notte) ──
+       La briciola «progetto» di ELABORA ha bisogno delle stesse tre cose che la
+       console INSEGNA ha già: l'elenco delle mappe (dal DISCO, coi progetti
+       agganciati), il filtro per classe+materia attive e il caricamento che
+       ASPETTA l'identità giusta. Sono esposte, non ricopiate: un secondo elenco
+       delle stesse mappe divergerebbe al primo ritocco — ed è esattamente
+       l'errore che aveva fatto comparire i materiali di una classe sola.
+         mappeDelContesto()      → Promise<[{id,nome,type,p,v,cls,disc}]> filtrate
+         mappaCorrente(list)     → la voce di list che è caricata ADESSO, o null
+         apriMappa(m, poi)       → carica e chiama `poi` quando c'è davvero */
+    mappeDelContesto: function () {
+      return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });
+    },
+    mappaCorrente: function (list) {
+      return (list || []).filter(function (m) { return _consEccoLa(m); })[0] || null;
+    },
+    apriMappa: function (m, poi) {
+      if (!m) return false;
+      if (_consEccoLa(m)) { if (poi) poi(); return true; }   /* già quella: niente da caricare */
+      if (!_consCarica(m)) return false;
+      _consQuandoPronta(m, function () { if (poi) poi(); });
+      return true;
+    },
     setMode: setMode,
     /* readMode e applyMode sono esposte perché la VESTE della landing (il rail
        delle tre forme, mappai-stile-manifesto.js) deve sapere in che modalità

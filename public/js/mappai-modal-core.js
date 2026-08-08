@@ -201,7 +201,17 @@
         if (v.gruppo || v.tipo === 'gruppo') {
             return {
                 tipo: 'gruppo', id: v.id || ('gr-' + (i + 1)),
-                etichetta: String(v.gruppo || v.etichetta || '').trim(), attiva: false
+                etichetta: String(v.gruppo || v.etichetta || '').trim(), attiva: false,
+                /* Quante voci ci sono dentro: sta sulla RIGA DEL TITOLO, non su
+                   ognuna. Con il gruppo chiuso è l'unica cosa che ne dice il
+                   contenuto — ed è anche ciò che rende inutile una riga
+                   «Nessuno»: `SINTESI 0` lo dice già, senza fingere una voce. */
+                contatore: (v.contatore === 0 || v.contatore) ? v.contatore : null,
+                /* Un gruppo si può richiudere: il titolo È il comando (un secondo
+                   bottone accanto sarebbe un comando in più per la stessa cosa —
+                   stessa scelta già fatta per le tabelle). */
+                collassabile: !!v.collassabile,
+                chiuso: !!v.collassabile && !!v.chiuso
             };
         }
         return {

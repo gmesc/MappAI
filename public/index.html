@@ -45,10 +45,10 @@
          foglio non cambia NULLA. La mette mappai-stile-manifesto.js, che si
          spegne con localStorage mappai_stile_manifesto='0'.
          Va DOPO i token e fuori dai @layer: le regole in layer perdono. -->
-    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=topbar2">
+    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=bric2">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
-    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=topbar2">
+    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=bric2">
 
     <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
          Le classi `manifesto` e `mappai-ridotta` le mettevano i due moduli a
@@ -3610,7 +3610,7 @@
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
     <script src="js/mappai-modal-core.js"></script>
-    <script src="js/mappai-modal.js"></script>
+    <script src="js/mappai-modal.js?v=bric2"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
@@ -3691,7 +3691,7 @@
     <script src="js/mappai-live-classes.js"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
-    <script src="js/mappai-vista-ridotta.js?v=topbar2"></script>
+    <script src="js/mappai-vista-ridotta.js?v=bric2"></script>
     <script src="js/mappai-live-teacher.js"></script>
     <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
     <script src="js/mappai-timeline-teacher.js"></script>
@@ -3706,7 +3706,7 @@
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
     <script src="js/mappai-pipeline-core.js"></script>
-    <script src="js/mappai-landing-teach.js"></script>
+    <script src="js/mappai-landing-teach.js?v=bric2"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js"></script>
@@ -3716,9 +3716,14 @@
     <!-- COSTRUISCI in stile manifesto: tabella dei file + bento delle opzioni
          (usa gli stessi id `mp-*` del modale della pipeline, che con la veste
          accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
-    <script src="js/mappai-elabora.js"></script>
+    <script src="js/mappai-elabora.js?v=bric2"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
     <script src="js/mappai-doc-editor.js"></script>
+    <!-- ELABORA come CONSOLE (colonna dei documenti + area full-bleed con
+         l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
+         ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
+         funzioni di apertura. -->
+    <script src="js/mappai-elabora-console.js?v=bric2"></script>
     <script src="js/mappai-material-pipeline.js"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
     <script src="js/mappai-bento-composizione.js"></script>

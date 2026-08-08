@@ -79,6 +79,18 @@
 
     // ── entrata nel tab ─────────────────────────────────────────────────────
     function open() {
+        // ── Cablaggio bento (8/8): ELABORA diventa una CONSOLE ────────────────
+        // Colonna dei documenti + area a tutta larghezza con l'editor vero.
+        // ⚠️ La console apre il workspace classico per la FONTE (è un ponte
+        // dichiarato): quella chiamata passa `_daConsole` per non rimbalzare
+        // qui dentro all'infinito. Col flag spento non cambia nulla.
+        try {
+            if (!open._daConsole && window.MappAIElaboraConsole &&
+                window.MappAIElaboraConsole.attiva && window.MappAIElaboraConsole.attiva()) {
+                window.MappAIElaboraConsole.open();
+                return;
+            }
+        } catch (e) { /* console assente: si prosegue col workspace storico */ }
         // Ogni ENTRATA in ELABORA riparte dai Documenti (il segmento resta lì per
         // passare alla fonte). Solo qui, non in render(): dentro la sessione il
         // tab scelto dal docente non deve saltare via da solo.
@@ -94,7 +106,99 @@
         _injectStyles(); render();
     }
 
+    /* L'analisi che serve a disegnare la fonte: struttura + copertura + marcatori
+       + i PDF raccolti, con lo stato di vista normalizzato. Stava dentro
+       `render()`; ora la chiamano render() e `renderSource()` (la console), così
+       la fonte non può essere analizzata in due modi diversi. */
+    function _analisi() {
+        const EC = window.MappAIEnrichCore;
+        if (!EC) return null;
+        const s = _appState();
+        let structural = [];
+        try {
+            if (window.MappAIStructureAnalyzer) {
+                structural = window.MappAIStructureAnalyzer.analyzeStructure(s.db.nodes, s.db.links, { mode: s.extractionMode }).suggestions || [];
+            }
+        } catch (e) { /* soft */ }
+        _R = EC.analyzeEnrichment(s, { structuralSuggestions: structural });
+        _buildMarks(_R, s);
+        const pdfs = _collectPdfs();
+        if (_srcView === 'pdf' && !pdfs.length) _srcView = 'text';
+        if (_pdfIdx >= pdfs.length) _pdfIdx = 0;
+        return { s: s, R: _R, pdfs: pdfs };
+    }
+
+    /* ── LA FONTE DENTRO LA CONSOLE ───────────────────────────────────────────
+       `mountSource(el)` dice: da ora la fonte si disegna LÌ. Il guard in testa a
+       `render()` è il pezzo che fa funzionare tutto il resto senza riscriverlo:
+       i comandi della fonte (segmenti testo/PDF, Card/Albero, «Ignora
+       intestazioni», ignora/aggiungi citazione…) chiamano `render()` da sempre —
+       con l'host acceso, quella chiamata ridisegna nella console invece di
+       riaprire il workspace a tutto schermo. Zero gestori duplicati.
+       ⚠️ `isConnected`: la console si ridisegna sostituendo il riquadro, quindi
+       l'host di un giro prima è staccato dal documento — e disegnarci dentro
+       vorrebbe dire scrivere in un nodo che nessuno vede. */
+    let _srcHost = null;
+    /* opts = { view:'text'|'pdf', pdfIdx:n } — la vista si passa QUI e non con i
+       setter: `setSrcView`/`setPdfIdx` chiamano `render()`, e chiamati prima del
+       montaggio (con l'host del giro precedente già staccato dal documento)
+       riaprirebbero il workspace a tutto schermo. Un disegno solo, alla fine. */
+    function mountSource(el, opts) {
+        if (!el) return false;
+        _srcHost = el;
+        _mode = 'source';
+        if (opts) {
+            if (opts.view) _srcView = (opts.view === 'pdf') ? 'pdf' : 'text';
+            if (opts.pdfIdx != null) _pdfIdx = opts.pdfIdx | 0;
+        }
+        _injectStyles();
+        return renderSource();
+    }
+    function unmountSource() { _srcHost = null; _pdfToken++; }
+    function renderSource() {
+        if (!_srcHost || !_srcHost.isConnected) return false;
+        if (!hasMap()) { _srcHost.innerHTML = '<div class="elab-empty">' + t('el_no_map', 'Nessuna mappa aperta.') + '</div>'; return false; }
+        const a = _analisi();
+        if (!a) { _srcHost.innerHTML = '<div class="elab-empty">' + t('el_no_engine', 'Motore di analisi non disponibile.') + '</div>'; return false; }
+        _srcHost.innerHTML = _sourceBodyHTML(a.s, a.R, a.pdfs);
+        if (window.safeCreateIcons) window.safeCreateIcons({ root: _srcHost });
+        if (_srcView === 'pdf' && a.pdfs.length) _mountPdf(a.pdfs);
+        return true;
+    }
+    /* i comandi della fonte per la console: gli stessi gesti della barra del
+       workspace, dichiarati come DATI perché lì la barra è della console. */
+    function sourceActions() {
+        return [
+            { id: 'src-questions', etichetta: t('el_questions', 'Domande scheda'), icona: 'help-circle' },
+            { id: 'src-hl', etichetta: t('el_export_hl', 'Esporta evidenziata'), icona: 'file-output' },
+            { id: 'src-areas', etichetta: t('el_export_areas', 'Esporta per aree'), icona: 'files' },
+            { id: 'src-text', etichetta: t('el_add_text', 'Incolla testo'), icona: 'clipboard-paste' },
+            { id: 'src-pdf', etichetta: t('el_add_pdf', 'Aggiungi PDF'), icona: 'plus', ruolo: 'primario' }
+        ];
+    }
+    function runSourceAction(id) {
+        if (id === 'src-questions') return openQuestions();
+        if (id === 'src-hl') return exportHighlightedPdf();
+        if (id === 'src-areas') return exportAreas();
+        if (id === 'src-text') return addTextPrompt();
+        if (id === 'src-pdf') return pickPdf();
+    }
+
     function render() {
+        /* la fonte è montata nella console: si ridisegna lì, e il workspace a
+           tutto schermo non si apre nemmeno */
+        if (_srcHost && _srcHost.isConnected) { if (renderSource()) return; }
+        /* 🐛 preesistente, trovato l'8/8 notte: la landing chiama `render()` per
+           suo conto — la ri-sincronizzazione dei vault dopo l'ingresso in ELABORA
+           (`_ensureFreshAndRerender`) e il filtro classe — e con la console aperta
+           quel render costruiva il WORKSPACE a tutto schermo dietro di lei
+           (misurato: `#elab-overlay` presente con la console aperta). Con la
+           console in piedi la superficie di ELABORA è la console: qui non c'è
+           niente da disegnare, e chi ridisegna è lei. */
+        try {
+            var C = window.MappAIElaboraConsole;
+            if (C && C.aperta && C.aperta()) { _teardownOverlay(); return; }
+        } catch (e) { /* console assente: si prosegue col workspace storico */ }
         const host = document.getElementById('elabora-content');
         if (!host) return;
         _injectStyles();
@@ -108,25 +212,12 @@
             if (window.safeCreateIcons) window.safeCreateIcons();
             return;
         }
-        const EC = window.MappAIEnrichCore;
         const overlay = _ensureOverlay();
-        if (!EC) { overlay.innerHTML = '<div class="elab-empty">' + t('el_no_engine', 'Motore di analisi non disponibile.') + '</div>'; return; }
-
-        const s = _appState();
-        let structural = [];
-        try {
-            if (window.MappAIStructureAnalyzer) {
-                structural = window.MappAIStructureAnalyzer.analyzeStructure(s.db.nodes, s.db.links, { mode: s.extractionMode }).suggestions || [];
-            }
-        } catch (e) { /* soft */ }
-
-        _R = EC.analyzeEnrichment(s, { structuralSuggestions: structural });
-        _buildMarks(_R, s);
-        const pdfs = _collectPdfs();
-        if (_srcView === 'pdf' && !pdfs.length) _srcView = 'text';
-        if (_pdfIdx >= pdfs.length) _pdfIdx = 0;
+        const a = _analisi();
+        if (!a) { overlay.innerHTML = '<div class="elab-empty">' + t('el_no_engine', 'Motore di analisi non disponibile.') + '</div>'; return; }
+        const pdfs = a.pdfs;
         host.innerHTML = '';
-        overlay.innerHTML = _shell(s, _R, pdfs);
+        overlay.innerHTML = _shell(a.s, _R, pdfs);
         document.body.classList.add('elab-fullscreen');
         if (window.safeCreateIcons) window.safeCreateIcons({ root: overlay });
         if (_mode === 'docs') {
@@ -254,7 +345,35 @@
             '<button type="button" class="elab-btn elab-primary" onclick="MappAIElabora.pickPdf()">' + emo('add') + ' ' + t('el_add_pdf', 'Aggiungi PDF') + '</button>' +
             '<input type="file" id="elab-pdf-input" accept="application/pdf,.pdf" class="hidden" onchange="MappAIElabora.onPdf(this)">';
 
-        const sourceBody =
+        const sourceBody = _sourceBodyHTML(s, R, pdfs);
+
+        return '' +
+        '<div class="elab-ws">' +
+          '<div class="elab-bar">' +
+            '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
+            '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
+            modeSeg +
+            '<div class="elab-spacer"></div>' +
+            (_mode === 'source' ? srcActions : '') +
+            '<button type="button" class="elab-close" onclick="MappAIElabora.exitWorkspace()" title="' + t('el_exit', 'Chiudi ed esci dal fullscreen') + '">✕</button>' +
+          '</div>' +
+          (_mode === 'docs' ? '<div id="elab-doc-host"></div>' : sourceBody) +
+        '</div>';
+    }
+
+    /* ── il CORPO della fonte, staccato dalla pagina che lo conteneva ──────────
+       Era scritto dentro `_shell`, cioè dentro il workspace a tutto schermo: la
+       console poteva solo APRIRE quel workspace (il «ponte» dell'8/8). Ora è una
+       funzione sua e le due superfici la chiamano entrambe — una scrittura, due
+       posti, nessuna copia da tenere allineata. Quello che resta in `_shell` è
+       la CORNICE (barra, segmenti, uscita): nella console quei comandi ce li ha
+       la console. */
+    function _sourceBodyHTML(s, R, pdfs) {
+        const corpus = _corpus();
+        const nCards = (R.coverage.cards || []).filter(c => !_ignored.has('cov:' + c.nodeId)).length +
+            (R.text.signals || []).filter(x => !_ignored.has('sig:' + x.key)).length +
+            (R.structural || []).filter((x, i) => !_ignored.has('str:' + i)).length;
+        return '' +
           _triageStrip(s, R) +
           '<div class="elab-split">' +
             _srcPaneHTML(corpus, pdfs) +
@@ -275,19 +394,6 @@
             '</section>' +
           '</div>' +
           _legend();
-
-        return '' +
-        '<div class="elab-ws">' +
-          '<div class="elab-bar">' +
-            '<button type="button" class="elab-btn elab-ghost" onclick="MappAIElabora.backToMap()">‹ ' + t('el_back_to_map', 'Mappa') + '</button>' +
-            '<div class="elab-title">' + emo('search') + ' ' + mapName + ' <span class="elab-crumb">· ' + t('el_crumb', 'elaborazione') + '</span></div>' +
-            modeSeg +
-            '<div class="elab-spacer"></div>' +
-            (_mode === 'source' ? srcActions : '') +
-            '<button type="button" class="elab-close" onclick="MappAIElabora.exitWorkspace()" title="' + t('el_exit', 'Chiudi ed esci dal fullscreen') + '">✕</button>' +
-          '</div>' +
-          (_mode === 'docs' ? '<div id="elab-doc-host"></div>' : sourceBody) +
-        '</div>';
     }
 
     function _triageStrip(s, R) {
@@ -1514,9 +1620,19 @@
     function _injectStyles() {
         if (_stylesInjected) return; _stylesInjected = true;
         const css = `
-        #elabora-content .elab-emo,#elab-overlay .elab-emo{font-family:var(--emoji-font);font-style:normal;line-height:1}
-        #elabora-content,#elab-overlay,#elab-pdfexp-modal,#elab-q-modal{--eink:#1e293b;--eink2:#475569;--esoft:#64748b;--efaint:#94a3b8;--eline:#e8ecf4;--eline2:#dde4f0;--epanel:#fff;--epanel2:#f6f8fc;--epanel3:#eef2f9;--eacc:#4f46e5;--eacc2:#6366f1;--eaccs:#eef2ff;--eaccr:#c7d2fe;--enotice:#b45309;--enotices:#fffbeb;--enoticel:#fce4a6;--egood:#047857;--egoods:#ecfdf5;--egoodl:#a7f3d0;--egap:#6d28d9;--egaps:#f5f3ff;--egapl:#ddd6fe}
-        #elabora-content,#elab-overlay{font-size:clamp(13.5px,.28vw + 12.4px,16px);color:var(--eink)}
+        /* ATTENZIONE: #ec-src = la fonte montata DENTRO l'area della console di
+           ELABORA (mountSource). Va in TUTTI e tre gli elenchi qui sotto: le
+           variabili di colore e il corpo del testo sono scoped agli antenati, e
+           dentro la console nessuno di quelli esiste — senza, ogni var(--eink)
+           resterebbe irrisolta e la fonte prenderebbe i colori del browser.
+           (Niente apici inversi nei commenti: questo CSS è un template literal
+           e un apice inverso chiude la stringa — trappola già vista in build.js.) */
+        #elabora-content .elab-emo,#elab-overlay .elab-emo,#ec-src .elab-emo{font-family:var(--emoji-font);font-style:normal;line-height:1}
+        #elabora-content,#elab-overlay,#ec-src,#elab-pdfexp-modal,#elab-q-modal{--eink:#1e293b;--eink2:#475569;--esoft:#64748b;--efaint:#94a3b8;--eline:#e8ecf4;--eline2:#dde4f0;--epanel:#fff;--epanel2:#f6f8fc;--epanel3:#eef2f9;--eacc:#4f46e5;--eacc2:#6366f1;--eaccs:#eef2ff;--eaccr:#c7d2fe;--enotice:#b45309;--enotices:#fffbeb;--enoticel:#fce4a6;--egood:#047857;--egoods:#ecfdf5;--egoodl:#a7f3d0;--egap:#6d28d9;--egaps:#f5f3ff;--egapl:#ddd6fe}
+        #elabora-content,#elab-overlay,#ec-src{font-size:clamp(13.5px,.28vw + 12.4px,16px);color:var(--eink)}
+        /* la fonte nella console riempie la tela: la colonna e la topbar sono
+           della console, qui dentro c'è solo il documento */
+        #ec-src{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--epanel)}
         /* Portal fullscreen a livello di body (sfugge al transform di .glass-card).
            z 950: sotto il modale edit nodo (z 1000) così «Aggiungi citazione» resta sopra. */
         #elab-overlay{position:fixed;inset:0;z-index:950;background:var(--epanel)}
@@ -1667,6 +1783,7 @@
     window.MappAIElabora = {
         open, render, addCitation, ignore, pickPdf, onPdf, addTextPrompt, hasMap,
         openFromMap, backToMap, openProject, exitWorkspace, setSrcView, setPdfIdx,
+        mountSource, unmountSource, renderSource, sourceActions, runSourceAction,
         teardown, revealCard, revealInSource,
         setRightView, setMode, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,

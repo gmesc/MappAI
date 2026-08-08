@@ -125,30 +125,25 @@ html.manifesto.mn-bento-app .mm-box--piena.mm-box--console > .mm-head {
     height: var(--mn-topbar-h, 76px);
     border-bottom-color: var(--mnc-hairline, #ebebeb);
 }
-/* UNA SOLA toolbar (bug 3): `#header-utils` — la stessa barra di CREA/ELABORA —
-   viene portata dentro la testata della console. Torna statica (la piazza il flex
-   della testata, il cui padding 28/9 la mette a 28,22 come sulla landing) e la
-   testata nasconde la SUA copia (pallino Cabina + briciole). La × resta (nascosta)
-   per l'uscita programmatica di `__chiudi`. */
-html.mn-bento-app #header-utils.hu-in-console {
-    position: static !important;
-    top: auto; left: auto; z-index: auto;
-}
-html.mn-bento-app .mm-box--console .mm-head.mn-head-hu > .mm-head__ico,
-html.mn-bento-app .mm-box--console .mm-head.mn-head-hu > .mm-head__testi { display: none !important; }
-/* la barra unica dentro la testata rende IDENTICA a CREA/ELABORA: si spengono
-   gli stili PROPRI della console sulle briciole (opacità piena = testo nero,
-   layout inline-flex con gap diverso) → governano le regole della landing
-   (livelli al 55%, hover a 1, caret senza gap). */
-html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu {
+/* UNA SOLA veste per il percorso, in TUTTE le sezioni (8/8 sera).
+   Prima queste regole erano agganciate a `.mn-head-hu`, la classe che INSEGNA
+   metteva quando SPOSTAVA `#header-utils` dentro la testata: quindi la parità
+   con la landing valeva per una console sola, e le altre due tenevano gli stili
+   propri della console (livelli a opacità piena, hover viola, gap diverso).
+   Ora nessuno sposta nodi — le briciole nascono in `.mm-head__testi` — e la
+   veste della landing (livelli al 55%, «Cosa» piena, hover al colore del
+   titolo) vale per la testata di OGNI console: un solo meccanismo, un solo
+   aspetto. Il selettore batte quello di §«il percorso nella barra» più sotto
+   perché porta `.mn-bento-app` in più (una classe di scarto). */
+html.mn-bento-app .mm-box--console .mm-head .mn-briciole button.mn-briciole__l--menu {
     opacity: var(--mnc-bric-op, .55);
     display: inline-block;
     gap: 0;
 }
-/* «Cosa» (la prima briciola) sempre piena, anche embeddata (Giacomo) */
-html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:first-child { opacity: 1; }
-html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:hover,
-html.mn-bento-app .mm-head.mn-head-hu .mn-briciole button.mn-briciole__l--menu:focus-visible {
+/* «Cosa» (la prima briciola) sempre piena (Giacomo) */
+html.mn-bento-app .mm-box--console .mm-head .mn-briciole button.mn-briciole__l--menu:first-child { opacity: 1; }
+html.mn-bento-app .mm-box--console .mm-head .mn-briciole button.mn-briciole__l--menu:hover,
+html.mn-bento-app .mm-box--console .mm-head .mn-briciole button.mn-briciole__l--menu:focus-visible {
     opacity: 1;
     color: var(--mn-tit-col);
 }
@@ -380,6 +375,26 @@ html.manifesto .mm-box--console.is-nav-chiusa > .mm-body--console { padding-left
    esteso a tutta la console area, come chiesto. */
 html.manifesto .mm-box--console.mm-box--piena:has(.mm-tela) .mm-console__area { padding: 0; }
 html.manifesto .mm-box--console .mm-tela { border-radius: 0; }
+/* ── ELABORA: l'area È il documento ───────────────────────────────────────────
+   `#elab-doc-host` è l'host che mappai-doc-editor.js cerca per disegnare: la
+   console glielo mette DENTRO la tela, così a schermo c'è l'editor vero e non
+   una copia. Riempie la tela e si porta il proprio scorrimento — la tela resta
+   ferma, com'è giusto per una console-EDITOR (il foglio scorre, la cornice no). */
+html.manifesto .mm-box--console .mm-tela > #elab-doc-host {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+}
+/* la tela che ospita l'editor non è un riquadro vuoto da centrare: è un
+   contenitore verticale che gli lascia tutto lo spazio */
+html.manifesto .mm-box--console .mm-tela:has(> #elab-doc-host) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+}
 
 /* ── i comandi nella colonna: NIENTE box, bottoni in colonna, grigi ──────────
    Regola di Giacomo (5/8): la sezione dei comandi del documento non è un
@@ -480,6 +495,27 @@ html.manifesto .mm-box--console .mm-nav__v svg {
 html.manifesto .mm-box--console .mm-nav__g {
     margin: 10px var(--mnc-col-pad) 2px;
 }
+/* ⚠️ Il gruppo RICHIUDIBILE è un bottone, e va tenuto su UNA riga: chevron ·
+   titolo · contatore. Senza questa regola vinceva quella qui sopra (più
+   specifica del `.mm-nav__g--tog` dei token) e l'impaginazione a flex saltava:
+   il chevron finiva su una riga sua e il contatore incollato al titolo
+   («FONTE1»). Stesso margine dell'intestazione non pieghevole, così i gruppi
+   restano allineati fra loro. */
+html.manifesto .mm-box--console .mm-nav__g--tog {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    margin: 10px var(--mnc-col-pad) 2px;
+    padding: 0;
+}
+html.manifesto .mm-box--console .mm-nav__g--tog .mm-nav__gt { flex: 1; min-width: 0; }
+html.manifesto .mm-box--console .mm-nav__g--tog svg {
+    /* il chevron NON è un'icona di voce: le icone della colonna sono 18px e qui
+       farebbero pesare il titolo più delle voci che raccoglie */
+    width: 13px;
+    height: 13px;
+}
 
 /* ── l'area: dove sta il bento, e quanto respira ─────────────────────────── */
 html.manifesto .mm-box--console .mm-console__area {
@@ -535,7 +571,20 @@ html.manifesto .mn-bric-menu {
     flex-direction: column;
     gap: 2px;
     min-width: max-content;
+    /* Il menu SCORRE (8/8 notte). Finché le tendine erano «Cosa» (3 voci) e
+       «Materia» (una manciata) nessun tetto serviva; la tendina dei PROGETTI ne
+       ha decine, e senza tetto cresceva sotto il bordo della finestra — le voci
+       in fondo restavano irraggiungibili. Il tetto è in `vh` perché il menu è
+       ancorato alla topbar e ha davanti tutta l'altezza della pagina. */
+    max-height: 62vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;   /* arrivato in fondo, non trascina la pagina */
 }
+/* col menu a COLONNE («A chi?») lo scorrimento va nella colonna, non nel
+   contenitore: tre colonne che scorrono insieme perdono l'allineamento delle
+   intestazioni, che è la ragione per cui esistono le colonne */
+html.manifesto .mn-bric-menu--cols { overflow: visible; max-height: none; }
+html.manifesto .mn-bric-menu--cols .mn-bric-col { max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
 html.manifesto .mn-bric-menu__it {
     display: block;
     width: 100%;
