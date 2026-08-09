@@ -100,7 +100,20 @@ window.directLoadVault = async function (folderPath) {
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
-            appState.rootNodeLabel = folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
+            /* la mappa PORTA la sua classe e la sua materia (9/8): si tengono da
+               parte così un salvataggio successivo non le riscrive col contesto di
+               chi la sta guardando — un vault ricevuto da un collega non cambia
+               materia solo perché lo apre un altro docente. */
+            appState.vaultClasse = loadRes.data.classe || '';
+            appState.vaultMateria = loadRes.data.materia || '';
+            /* 🐛 Il TITOLO viene dal vault, non dal nome della cartella (9/8).
+               Prima si prendeva sempre il basename: per un vault ricevuto da un
+               collega — che può stare in una cartella chiamata come gli pare —
+               la mappa perdeva il suo nome («Dal collega - Vulcani» invece di
+               «Vulcani del Ticino»). Il nome della cartella resta il ripiego per
+               i vault che non dichiarano nulla. */
+            appState.rootNodeLabel = loadRes.data.rootNodeLabel
+                || folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
 
             let nodesList = loadRes.data.nodes || [];
             let linksList = loadRes.data.links || [];
@@ -186,6 +199,17 @@ window.directLoadVault = async function (folderPath) {
 
             if (loadRes.data.customColors) {
                 appState.db.customColors = loadRes.data.customColors;
+            }
+
+            /* LE FONTI TORNANO DAL VAULT (9/8) — questa è la strada delle mappe
+               aperte da INSEGNA e dalla briciola dei progetti (`directLoadVault`),
+               cioè la più battuta: senza il ripristino, ELABORA su una mappa
+               riaperta era un guscio. Non si attende (IPC asincrono, il disegno
+               della mappa non deve aspettare). */
+            if (window.MappAIElabora && window.MappAIElabora.ripristinaFontiDalVault) {
+                window.MappAIElabora.ripristinaFontiDalVault(folderPath).then(function (n) {
+                    if (n) console.log('[Vault] fonti ripristinate dal disco: ' + n);
+                }).catch(function () { });
             }
 
             window.switchToMapLayout();

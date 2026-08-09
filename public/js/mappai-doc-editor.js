@@ -984,7 +984,7 @@
                 const out0 = await window.electronAPI.saveVaultFile({
                     vaultPath: vaultPath, relPath: 'Materiale Studio/' + res.fileName, base64: res.base64
                 });
-                if (out0 && out0.ok) toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success');
+                if (out0 && out0.ok) { try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath }); } catch (e) { } toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success'); }
                 else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out0 && out0.error ? ': ' + out0.error : ''), 'error');
                 return;
             }
@@ -1020,7 +1020,7 @@
                 }
             }
             const out = await window.electronAPI.saveVaultFile(payload);
-            if (out && out.ok) toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success');
+            if (out && out.ok) { try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath }); } catch (e) { } toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success'); }
             else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out && out.error ? ': ' + out.error : ''), 'error');
         } catch (e) {
             toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + ': ' + e.message, 'error');
@@ -1068,6 +1068,16 @@
         const host = _host();
         if (!host) return;
         _injectStyles();
+        /* ⚠️ NELLA CONSOLE LA LISTA NON SI DISEGNA MAI (9/8). L'elenco dei
+           documenti è la colonna: la lista dell'editor nell'area sarebbe un
+           secondo elenco delle stesse cose. Non basta gestire l'uscita dal
+           documento (`backToList` lo annuncia): ci si arriva anche quando
+           un'apertura FALLISCE — «Catena dei perché» su una mappa senza nessi
+           esce con un avviso e l'editor resta in modalità lista, e Giacomo
+           vedeva comparire nell'area la vecchia superficie di selezione.
+           Qui si chiude la strada in un punto solo, invece di rincorrere ogni
+           apertura che può rinunciare. */
+        if (_view !== 'doc' && _inConsole()) { host.innerHTML = ''; return; }
         host.innerHTML = (_view === 'doc') ? _docHtml() : _listHtml();
         if (window.safeCreateIcons) window.safeCreateIcons({ root: host });
         _bind(host);
@@ -2279,6 +2289,9 @@
     // ── superficie pubblica ─────────────────────────────────────────────────
     window.MappAIDocEditor = {
         render: render,
+        /* l'editor ha davvero un documento aperto? La console lo chiede dopo un
+           tentativo di apertura: se ha rinunciato, torna al suo segnaposto. */
+        haDocumento: function () { return _view === 'doc'; },
         reset: function () { _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1; },
         hasUnsaved: function () { return _dirty; },
         // «Il documento aperto appartiene alla mappa che è aperta adesso?» — ELABORA

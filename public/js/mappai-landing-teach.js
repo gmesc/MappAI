@@ -447,6 +447,8 @@
           return false;
         }
         writeMeta(res.folderName, res.fullPath);
+        /* la cartella si è spostata: ogni elenco che la mostra è stantio (9/8) */
+        try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-spostata', { vaultPath: res.fullPath }); } catch (e) { }
         return true;
       })
       .catch(function () { toast(_t('lt_assign_fail', 'Impossibile spostare la cartella della mappa.'), 'error'); return false; });
@@ -578,6 +580,7 @@
       api.deleteVaultFile({ vaultPath: d.vaultPath, relPath: d.relPath }).then(function (res) {
         if (res && res.ok) {
           delete _diskCache[id];
+          try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-eliminato', { vaultPath: d.vaultPath, relPath: d.relPath }); } catch (e) { }
           toast(_t('lt_file_trashed', 'Spostato nel Cestino.'), 'success');
           refresh();
         } else {
@@ -1957,19 +1960,62 @@
           type: (v.extractionMode === 'kg' ? 'kg' : (v.extractionMode === 'mindmap' ? 'mindmap' : null))
             || (p && p.type) || 'mindmap',
           p: p, v: v,
-          cls: (p && p.cls) || prettyClass(v.classDir || ''),
-          disc: (p && p.disc) || prettyClass(v.discDir || '')
+          /* ── UN VAULT ARRIVATO DA FUORI (Giacomo, 9/8) ────────────────────
+             Ordine: la CARTELLA (fonte di verità dove c'è) → il progetto in
+             localStorage → quello che il vault DICHIARA in `index.yaml`.
+             L'ultimo gradino è la novità e serve al vault di un collega: sta in
+             `Mappe/` senza cartelle di classe, quindi le prime due strade non
+             dicono niente e la mappa risultava «senza materia».
+             ⚠️ `sconosciuta` marca ciò che questo docente non ha nel proprio
+             profilo: la classe di un collega non è una classe sua, e la mappa
+             va trattata come GENERICA invece di restare invisibile (vedi
+             `_filtraContesto`). */
+          cls: (p && p.cls) || prettyClass(v.classDir || '') || (v.classeDichiarata || ''),
+          disc: (p && p.disc) || prettyClass(v.discDir || '') || (v.materiaDichiarata || ''),
+          daFuori: !v.classDir && !!(v.classeDichiarata || v.materiaDichiarata)
         };
       });
     }).catch(function () { return []; });
   }
   /* Il chip NON è un filtro cosmetico: è il contesto della console, e la colonna
      mostra solo ciò che gli appartiene. */
+  /* Le classi e le materie che QUESTO docente ha davvero. Una mappa che parla di
+     una classe o di una materia che lui non ha — tipicamente il vault di un
+     collega — non appartiene a nessun suo contesto: è GENERICA, e come tale
+     compare quando il contesto è Generico. Prima sparivano del tutto: il filtro
+     confrontava con la classe attiva e non trovava mai una corrispondenza, e non
+     esisteva un contesto in cui la mappa potesse comparire (Giacomo, 9/8). */
+  function _classiMie() {
+    try { return ((window.MappAIClasses && MappAIClasses.list()) || []).map(function (c) { return normName(c.name); }); }
+    catch (e) { return []; }
+  }
+  function _materieMie() {
+    var out = [];
+    try {
+      var CL = window.MappAIClasses;
+      (CL && CL.list() || []).forEach(function (c) {
+        ((CL.disciplinesOf && CL.disciplinesOf(c)) || []).forEach(function (d) { out.push(normName(d)); });
+      });
+      var prof = (window.MappAITeacherProfile && MappAITeacherProfile.disciplineList()) || [];
+      prof.forEach(function (d) { out.push(normName(d)); });
+    } catch (e) { }
+    return out;
+  }
+  /* la mappa come la vede QUESTO docente: se dichiara una classe o una materia
+     che non gli appartiene, per lui è generica */
+  function _comeLaVedo(m) {
+    var mie = _classiMie(), mat = _materieMie();
+    return {
+      cls: (m.cls && mie.indexOf(normName(m.cls)) >= 0) ? m.cls : '',
+      disc: (m.disc && mat.indexOf(normName(m.disc)) >= 0) ? m.disc : ''
+    };
+  }
   function _filtraContesto(list) {
     var cls = _consClasse(), mat = _consMateria();
     return (list || []).filter(function (m) {
-      if (cls && normName(m.cls) !== normName(cls.name)) return false;
-      if (mat && normName(m.disc) !== normName(mat)) return false;
+      var v = _comeLaVedo(m);
+      if (cls && normName(v.cls) !== normName(cls.name)) return false;
+      if (mat && normName(v.disc) !== normName(mat)) return false;
       return true;
     });
   }
@@ -2449,6 +2495,11 @@
   /* `voceIniziale` = la mappa da riaprire (segnalibro). Si applica DOPO la
      scansione del disco: prima che le mappe siano arrivate quell'id non esiste
      ancora, e sceglierlo non avrebbe effetto. */
+  /* La console INSEGNA aperta si aggiorna da FUORI quando il disco cambia: il suo
+     `ridisegna` vive dentro `openConsoleInsegna`, quindi si lascia qui un appiglio
+     (impostato all'apertura, azzerato alla chiusura). Senza, una mappa generata
+     mentre la console è aperta non compariva fino a riaprirla. */
+  var _consAggiorna = null;
   function openConsoleInsegna(voceIniziale) {
     if (!MM()) { setMode('teach'); return; }
     _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
@@ -2573,6 +2624,25 @@
     var s = _consChiuse();
     /* Le mappe arrivano dal disco: la console si apre subito e la colonna si
        riempie quando la scansione risponde — senza che l'utente tocchi niente. */
+    /* rilettura dal disco, riusabile: la usa l'apertura e la usa il canale
+       «le cartelle sono cambiate» */
+    function _consRileggi(poi) {
+      return _consCaricaMappe().then(function (list) {
+        _cons.mappe = list;
+        _cons.materiali = null;         /* i materiali della mappa scelta: riletti alla bisogna */
+        _cons.stampabili = null;
+        if (poi) poi(list);
+        return list;
+      });
+    }
+    _consAggiorna = function () {
+      if (!ridisegnaCons) return;
+      _consRileggi(function () {
+        var m = _consMappaScelta();
+        if (m) { _consCaricaMateriali(m).then(function (l) { _cons.materiali = l; rifai(); }); }
+        else rifai();
+      });
+    };
     s.suApertura = function (box, ridisegna) {
       ridisegnaCons = ridisegna;
       montaCascata(box);              // il percorso c'è già all'apertura, prima che arrivino le mappe
@@ -2725,7 +2795,11 @@
             var loc = _diskCache[m.id], api = window.electronAPI;
             if (!loc || !api || !api.deleteVaultFile) { toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
             api.deleteVaultFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }).then(function (res) {
-              if (res && res.ok) { delete _diskCache[m.id]; toast(_t('lt_file_trashed', 'Spostato nel Cestino.'), 'success'); poi(); }
+              if (res && res.ok) {
+                delete _diskCache[m.id];
+                try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-eliminato', { vaultPath: loc.vaultPath, relPath: loc.relPath }); } catch (e) { }
+                toast(_t('lt_file_trashed', 'Spostato nel Cestino.'), 'success'); poi();
+              }
               else toast(_t('lt_file_del_ko', 'Non è stato possibile eliminare il file') + (res && res.error ? ': ' + res.error : ''), 'error');
             });
           }
@@ -2737,6 +2811,7 @@
          va rimessa PRIMA di leggere lo stato, e comunque prima di ogni ramo —
          la console si sta chiudendo in tutti i casi */
       _huRestore();
+      _consAggiorna = null;            /* la console si stacca dal canale del disco */
       /* la mappa scelta si legge PRIMA di azzerare lo stato: dopo il reset
          `_consMappaScelta()` non saprebbe più di quale mappa si parlava */
       var scelta = _consMappaScelta();
@@ -3003,6 +3078,10 @@
          mappeDelContesto()      → Promise<[{id,nome,type,p,v,cls,disc}]> filtrate
          mappaCorrente(list)     → la voce di list che è caricata ADESSO, o null
          apriMappa(m, poi)       → carica e chiama `poi` quando c'è davvero */
+    /* il genere di un file del vault dal suo NOME (Quiz-MC-…, Sintesi -VERDE.html…):
+       la regola vive qui da luglio e la usa INSEGNA; esposta perché la colonna di
+       ELABORA elenca gli stessi file e due classificatori divergerebbero (9/8) */
+    generePerFile: _diskKind,
     mappeDelContesto: function () {
       return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });
     },
@@ -3073,6 +3152,26 @@
   else init();
   document.addEventListener('mappai-active-class-changed', function () { if (readMode() === 'teach') refresh(); });
   document.addEventListener('mappai-sharedmat-changed', function () { if (readMode() === 'teach') renderSharedMat(); });
+  /* ── LE CARTELLE SONO CAMBIATE: si rilegge (Giacomo, 9/8) ──────────────────
+     Prima ogni elenco leggeva il disco una volta, all'apertura: una mappa appena
+     generata non compariva, una cartella spostata restava dov'era, un file
+     eliminato lasciava la riga. Ora chi scrive lo dichiara sul canale e qui si
+     ridisegna la superficie VISIBILE — le altre rileggeranno da sé quando si
+     aprono, e rileggere costa 1-7ms su 28 vault (misurato in Electron).
+     ⚠️ Si azzerano anche le cache che rappresentano il disco: i generi delle
+     mappe e la corrispondenza materiale→file, o resterebbero le vecchie mentre
+     la tabella mostra le nuove. */
+  if (window.MappAIVaults) {
+    window.MappAIVaults.quando(function () {
+      _generi = {};
+      _diskCache = {};
+      if (_consAggiorna) _consAggiorna();        /* console INSEGNA aperta */
+      var m = readMode();
+      if (m === 'teach') refresh();
+      else if (m === 'elabora') renderElaboraProjects();
+      try { if (window.StorageManager && StorageManager.syncValidVaults) StorageManager.syncValidVaults(); } catch (e) { }
+    });
+  }
 
   console.log('[MappAITeach] landing Costruisci/Insegna caricata');
 })();

@@ -510,6 +510,41 @@ html.manifesto .mm-box--console .mm-nav__g--tog {
     padding: 0;
 }
 html.manifesto .mm-box--console .mm-nav__g--tog .mm-nav__gt { flex: 1; min-width: 0; }
+
+/* ── IL TITOLO DI SEZIONE SI ACCENDE QUANDO È APERTO (Giacomo, 9/8) ──────────
+   Con tutte le sezioni estese la colonna diventava un elenco lungo dove i titoli
+   pesavano come le voci: non si vedeva più dove finiva un genere e cominciava
+   l'altro. Ora il titolo ha il fondo emerald quando la sezione è APERTA (e al
+   passaggio, e col fuoco da tastiera), e resta trasparente da chiusa — così il
+   verde marca esattamente ciò che sta occupando spazio, e una colonna di sezioni
+   chiuse resta silenziosa.
+   ⚠️ Lo stato lo dice `aria-expanded`, non una classe nostra: è l'attributo che
+   il motore già scrive sul bottone quando piega, ed è anche ciò che uno screen
+   reader legge — un secondo indicatore potrebbe divergere da quello.
+   ⚠️ Testo e contatore diventano SCURI: bianco su `#41e6aa` fa 1,6:1 (misurato
+   il 4/8), ed è la ragione per cui su questo verde il testo è sempre nero.
+   L'imballaggio orizzontale è negativo sui margini della colonna, così la banda
+   verde arriva ai bordi invece di lasciare due strisce bianche. */
+html.manifesto .mm-box--console .mm-nav__g--tog {
+    border-radius: 8px;
+    padding: 4px 8px;
+    margin-left: calc(var(--mnc-col-pad) - 8px);
+    margin-right: calc(var(--mnc-col-pad) - 8px);
+    transition: background-color .12s, color .12s;
+}
+html.manifesto .mm-box--console .mm-nav__g--tog[aria-expanded="true"],
+html.manifesto .mm-box--console .mm-nav__g--tog:hover,
+html.manifesto .mm-box--console .mm-nav__g--tog:focus-visible {
+    background: var(--man-verde);
+    color: #0b0b0b;
+}
+/* il contatore su fondo verde: la sua pillola grigia sparirebbe dentro il verde */
+html.manifesto .mm-box--console .mm-nav__g--tog[aria-expanded="true"] .mm-nav__gn,
+html.manifesto .mm-box--console .mm-nav__g--tog:hover .mm-nav__gn,
+html.manifesto .mm-box--console .mm-nav__g--tog:focus-visible .mm-nav__gn {
+    background: rgba(11, 11, 11, .12);
+    color: #0b0b0b;
+}
 html.manifesto .mm-box--console .mm-nav__g--tog svg {
     /* il chevron NON è un'icona di voce: le icone della colonna sono 18px e qui
        farebbero pesare il titolo più delle voci che raccoglie */

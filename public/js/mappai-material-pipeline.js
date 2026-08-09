@@ -71,7 +71,13 @@
   let _basi = null;
   async function _mapsBase() { _basi = await window.electronAPI.filesRootGet(); return _basi.mapsBaseDir; }
   async function _writeManifest(vaultPath, manifest) {
-    return window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text: JSON.stringify(manifest, null, 2) });
+    const r = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text: JSON.stringify(manifest, null, 2) });
+    /* Il manifest si riscrive a OGNI transizione di step: è il punto che sa
+       sempre che sul disco è comparso qualcosa di nuovo, quindi è da qui che si
+       avvisa chi mostra elenchi (9/8). Le notifiche si raggruppano nel canale,
+       quindi otto file di fila non fanno otto ridisegni. */
+    try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vaultPath }); } catch (e) { }
+    return r;
   }
   function _recordFile(manifest, step, relPath) {
     const m = JSON.parse(JSON.stringify(manifest));

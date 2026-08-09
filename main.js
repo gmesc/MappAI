@@ -1036,6 +1036,38 @@ ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
     }
 });
 
+/* vault-sources-list: elenca la cartella `Fonti/` del vault — gli ORIGINALI delle
+   fonti (i PDF) e i testi estratti che le accompagnano.
+   Perché serve (9/8): riaprendo una mappa dal disco, `appState.sources` restava
+   vuoto e ELABORA non aveva niente da mostrare — copertura, evidenziazione,
+   «Domande scheda» e i due export lavorano tutti sulla fonte. Il PDF era già lì
+   (lo scrive `flushSourcesToVault`), ma nessuno sapeva CHE COSA ci fosse dentro
+   quella cartella: `vault-materials-list` guarda «Materiale Studio», non `Fonti`.
+   Sola lettura, nessuna ricorsione: la cartella è piatta per contratto. */
+ipcMain.handle('vault-sources-list', async (event, { vaultPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const dir = path.join(vaultPath, 'Fonti');
+        const files = [];
+        if (fs.existsSync(dir)) {
+            fs.readdirSync(dir).forEach(name => {
+                if (name.charAt(0) === '.') return;               // .DS_Store & co.
+                try {
+                    const fp = path.join(dir, name);
+                    const st = fs.statSync(fp);
+                    if (st.isFile()) files.push({
+                        name: name, relPath: 'Fonti/' + name, size: st.size, mtime: st.mtimeMs,
+                        ext: (path.extname(name) || '').replace('.', '').toLowerCase()
+                    });
+                } catch (e) { /* file illeggibile: si salta, non è un errore della lista */ }
+            });
+        }
+        return { ok: true, files: files };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
 // IPC Handler to save chat transcripts
 ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
@@ -1179,6 +1211,12 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const indexData = {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
+            /* CLASSE e MATERIA dichiarate DENTRO il vault (9/8): finora vivevano
+               solo nei nomi delle cartelle e nel progetto in localStorage, cioè in
+               due posti che non viaggiano con la cartella. Un vault passato a un
+               collega deve almeno sapere di che disciplina parla. */
+            classe: mapData.classe || '',
+            materia: mapData.materia || '',
             userProfile: mapData.userProfile || null,
             customColors: mapData.customColors || {},
             generationUsage: mapData.generationUsage || null,
@@ -1469,6 +1507,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 const parsed = yaml.load(indexContent) || {};
                 if (parsed.extractionMode)  mapData.extractionMode  = parsed.extractionMode;
                 if (parsed.rootNodeLabel)   mapData.rootNodeLabel   = parsed.rootNodeLabel;
+                if (parsed.classe)          mapData.classe          = parsed.classe;
+                if (parsed.materia)         mapData.materia         = parsed.materia;
                 if (parsed.userProfile)     mapData.userProfile     = parsed.userProfile;
                 if (parsed.customColors)    mapData.customColors    = parsed.customColors;
                 if (parsed.generationUsage !== undefined) mapData.generationUsage = parsed.generationUsage;
@@ -2559,6 +2599,10 @@ ipcMain.handle('get-all-vaults', async () => {
                 const parsed = yaml.load(fs.readFileSync(indexPath, 'utf-8')) || {};
                 vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
                 vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || folderName;
+                /* dichiarate dal vault: servono ai vault arrivati da fuori, che
+                   non stanno dentro le cartelle classe/materia (9/8) */
+                vaultInfo.classeDichiarata  = parsed.classe  || '';
+                vaultInfo.materiaDichiarata = parsed.materia || '';
                 vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
                 if (parsed.userProfile) {
                     vaultInfo.nickname = parsed.userProfile.nickname;

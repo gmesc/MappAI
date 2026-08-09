@@ -10,10 +10,47 @@
 // Assembla l'oggetto mapData del vault dallo stato corrente (stessi campi del
 // salvataggio manuale). Riusato da saveMapVault (con dialog) E dalla pipeline
 // 011 (salvataggio automatico via electronAPI.saveVault, senza dialog).
+/* ── IL VAULT DICE DI CHE COSA PARLA (Giacomo, 9/8) ────────────────────────────
+   Perché: un vault si passa a un collega. Fino a oggi classe e materia vivevano
+   SOLO nei nomi delle cartelle (`Mappe/<classe>/<materia>/<mappa>`) e nel progetto
+   in localStorage — cioè in due posti che NON viaggiano con la cartella. Un collega
+   che riceve il vault non sa di che disciplina parla, e se lo mette altrove
+   l'informazione è persa del tutto.
+   Ora `index.yaml` porta `classe` e `materia` come DICHIARAZIONE della mappa: la
+   cartella resta la fonte di verità dove c'è (è la regola del progetto), ma quando
+   la cartella non dice niente — un vault arrivato da fuori — si sa comunque di che
+   materia si tratta.
+   ⚠️ Non è la classe di CHI riceve: è quella di chi l'ha fatto. Chi non ha quella
+   classe o quella materia nel proprio profilo vedrà la mappa come **Generico**. */
+function _contestoDellaMappa() {
+    var out = { classe: '', materia: '' };
+    try {
+        var CL = window.MappAIClasses;
+        var c = CL && CL.getActive && CL.getActive();
+        if (c && c.name) out.classe = c.name;
+        var d = CL && CL.activeDiscipline && CL.activeDiscipline();
+        if (d) out.materia = d;
+        /* la generazione può aver dichiarato una disciplina sua (il modale
+           classe+disciplina di `ensureGenerationContext`): quella vince, è la
+           materia con cui la mappa è stata pensata */
+        if (appState && appState.generationDiscipline) out.materia = appState.generationDiscipline;
+    } catch (e) { }
+    /* un vault RIAPERTO porta già le sue: non si sovrascrivono con il contesto di
+       chi lo sta guardando — sarebbe riscrivere la storia della mappa */
+    try {
+        if (appState && appState.vaultClasse && !out.classe) out.classe = appState.vaultClasse;
+        if (appState && appState.vaultMateria && !out.materia) out.materia = appState.vaultMateria;
+    } catch (e) { }
+    return out;
+}
+
 window.buildVaultMapData = function () {
+    var ctx = _contestoDellaMappa();
     return {
         extractionMode: appState.extractionMode,
         rootNodeLabel: appState.rootNodeLabel,
+        classe: ctx.classe,
+        materia: ctx.materia,
         nodes: appState.db.nodes,
         links: appState.db.links,
         studySets: appState.db.studySets || [],
@@ -43,6 +80,8 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
+            /* il disco è cambiato: chi mostra elenchi rilegge (9/8) */
+            try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-salvata', { vaultPath: result.folderPath }); } catch (e) { }
 
             // Fonti/: ora che il vault esiste, salva gli originali PDF delle
             // sources ancora in memoria (22/7/26 — anteprima ELABORA persistente)
@@ -154,6 +193,10 @@ window.ensureProjectVault = async function (opts) {
         appState.activeVaultPath = folderPath;
         appState.activeVaultClassDir = classDir;
         appState.activeVaultDiscDir = discDir || null;
+        /* AUTO-VAULT a fine generazione: è il caso che Giacomo vedeva più spesso —
+           la mappa appena fatta non compariva negli elenchi finché non si
+           riapriva la finestra. Ora lo dice (9/8). */
+        try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-creata', { vaultPath: folderPath }); } catch (e) { }
 
         // Fonti/: travasa gli originali PDF ancora in memoria (come saveMapVault).
         if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
@@ -262,6 +305,10 @@ window.loadMapVault = async function () {
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
+            /* la mappa PORTA la sua classe e la sua materia (9/8): un vault
+               ricevuto da un collega non cambia materia perché lo apre un altro */
+            appState.vaultClasse = loadRes.data.classe || '';
+            appState.vaultMateria = loadRes.data.materia || '';
             appState.rootNodeLabel = result.folderPath.split('/').pop().replace(/_/g, ' ') || "Mappa Esempio";
 
             let nodesList = loadRes.data.nodes || [];
@@ -324,6 +371,20 @@ window.loadMapVault = async function () {
                     }));
                 }
             });
+
+            /* LE FONTI TORNANO DAL VAULT (9/8). Senza questo, riaprendo una mappa
+               `appState.sources` restava vuoto: ELABORA non aveva né testo né PDF
+               e la sua vista della fonte diceva «Nessuna fonte nel progetto» —
+               con essa restavano vuote copertura, evidenziazione, «Domande
+               scheda» e i due export.
+               ⚠️ NON si attende: la lettura è asincrona (IPC) e il disegno della
+               mappa non deve aspettarla. Chi usa le fonti (ELABORA) apre dopo, e
+               ha la sua rete: se una fonte PDF è senza testo lo estrae al volo. */
+            if (window.MappAIElabora && window.MappAIElabora.ripristinaFontiDalVault) {
+                window.MappAIElabora.ripristinaFontiDalVault(result.folderPath).then(function (n) {
+                    if (n) console.log('[Vault] fonti ripristinate dal disco: ' + n);
+                }).catch(function () { });
+            }
 
             window.switchToMapLayout();
 

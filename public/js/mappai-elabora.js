@@ -147,6 +147,14 @@
         if (!el) return false;
         _srcHost = el;
         _mode = 'source';
+        /* Vault salvato prima dell'indice delle fonti: il PDF c'è, il testo no.
+           Lo si estrae ADESSO — che è il momento in cui serve — e il risultato
+           finisce nel vault, così la volta dopo è già pronto. Non si attende: la
+           fonte si disegna subito con quello che c'è, e il ridisegno arriva quando
+           il testo è pronto (`renderSource` è idempotente). */
+        try {
+            _completaTestiMancanti().then(function (n) { if (n) renderSource(); }).catch(function () { });
+        } catch (e) { }
         if (opts) {
             if (opts.view) _srcView = (opts.view === 'pdf') ? 'pdf' : 'text';
             if (opts.pdfIdx != null) _pdfIdx = opts.pdfIdx | 0;
@@ -1615,6 +1623,163 @@
             if (!src.name && f.name) src.name = f.name;
             await _saveOriginalToVault(src, f);
         }
+        /* e poi l'INDICE: senza, il PDF sta nel vault ma nessuno sa che era una
+           fonte, di che tipo, né dove finiva il testo che se n'era estratto */
+        await salvaIndiceFonti();
+    }
+
+    /* ══ LE FONTI SOPRAVVIVONO AL VAULT (9/8) ═══════════════════════════════════
+       Il difetto, misurato in Electron: riaprendo una mappa dal disco
+       `appState.sources` era vuoto, il corpus 0 caratteri, `sourcesDict` vuoto —
+       quindi la fonte di ELABORA diceva «Nessuna fonte nel progetto» e con essa
+       restavano vuote copertura, evidenziazione, «Domande scheda» e i due export.
+       ELABORA serviva solo subito dopo la generazione; riaperta una mappa (il caso
+       normale, arrivandoci da INSEGNA) era un guscio.
+       Che cosa c'era e cosa mancava, sul disco vero: il PDF originale ERA in
+       `Fonti/` (7 MB, lo scrive `flushSourcesToVault` dal 22/7), ma il TESTO no —
+       i markdown dei nodi non portano più la sezione «## Fonti» da quando lo
+       schema del ramo ha smesso di chiedere i `chunks` (9/6), quindi non c'era
+       più nessun posto da cui rileggere il testo della fonte.
+       LA SCELTA: si scrive un INDICE `Fonti/fonti.json` (che cosa era ogni fonte)
+       e, accanto, il testo estratto in `Fonti/<nome>.txt`. Due ragioni per il file
+       separato invece del testo dentro il JSON: il vault è leggibile in Obsidian
+       e un .txt lì si apre e si cerca; e un JSON che si porta dentro megabyte di
+       testo va riscritto per intero a ogni salvataggio.
+       ⚠️ `sanitizeVaultRelPath` ammette `Fonti/<file>` (due segmenti): nessuna
+       sottocartella, quindi i testi stanno accanto agli originali.
+       ⚠️ Il campo `file` (oggetto File del browser) NON è ricostruibile da un
+       percorso: non si ripristina. Non serve — `_collectPdfs` sa già fabbricare
+       uno pseudo-File che legge i byte da `vaultRel` via IPC, ed è quello che il
+       visore PDF usa. */
+    const FONTI_INDICE = 'Fonti/fonti.json';
+    /* ⚠️ `read-vault-file` ritorna SEMPRE base64 (è nato per i PDF): il testo va
+       decodificato qui, e con `TextDecoder` — `atob` da solo rompe gli accenti,
+       perché rende byte e non caratteri UTF-8. Provato: «Elettricità» diventava
+       «ElettricitÃ ». */
+    function _testoDaBase64(b64) {
+        try {
+            const bin = atob(b64);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(buf);
+        } catch (e) { return ''; }
+    }
+    function _safeNomeFile(s) {
+        /* via l'estensione dell'originale: il testo di «scheda.pdf» si chiama
+           «scheda.txt», non «scheda.pdf.txt» (visto sul disco vero) */
+        var base = String(s == null ? '' : s).replace(/\.(pdf|docx?|txt|md|html?)$/i, '');
+        return base.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'fonte';
+    }
+    async function salvaIndiceFonti() {
+        const s = _appState();
+        const api = window.electronAPI;
+        if (!s || !s.activeVaultPath || !api || !api.saveVaultFile) return false;
+        const voci = [];
+        let n = 0;
+        for (const src of (s.sources || [])) {
+            if (!src) continue;
+            n++;
+            const nome = _safeNomeFile(src.name || src.title || ('fonte ' + n));
+            const testo = String(src.content || '');
+            const voce = {
+                id: src.id || ('src' + n), tipo: src.type || 'text', nome: src.name || src.title || nome,
+                vaultRel: src.vaultRel || '', caratteri: testo.length, testoRel: ''
+            };
+            /* il testo si scrive solo se c'è: una fonte PDF appena caricata ha il
+               testo estratto, una riga vuota no — e un file vuoto nel vault è
+               rumore che poi si legge come «fonte senza testo» */
+            if (testo.length > 40) {
+                const rel = 'Fonti/' + nome + '.txt';
+                try {
+                    const r = await api.saveVaultFile({ vaultPath: s.activeVaultPath, relPath: rel, text: testo });
+                    if (r && r.ok) voce.testoRel = rel;
+                } catch (e) { /* il testo non si scrive: l'indice resta, con vaultRel */ }
+            }
+            voci.push(voce);
+        }
+        try {
+            const r = await api.saveVaultFile({
+                vaultPath: s.activeVaultPath, relPath: FONTI_INDICE,
+                text: JSON.stringify({ schema: 'mappai-fonti@1', mappa: s.rootNodeLabel || '', fonti: voci }, null, 2)
+            });
+            return !!(r && r.ok);
+        } catch (e) { return false; }
+    }
+
+    /* Ripristina `appState.sources` da un vault appena caricato. Tre gradini, dal
+       più informativo al più povero:
+         1. `Fonti/fonti.json` → tipo, nome, testo (dal .txt) e `vaultRel`;
+         2. nessun indice ma dei PDF in `Fonti/` → si ricostruiscono le voci senza
+            testo (i vault salvati prima di oggi sono tutti così), e il testo lo
+            estrarrà ELABORA alla prima apertura;
+         3. niente in `Fonti/` → non si tocca nulla.
+       ⚠️ Non sovrascrive fonti già in memoria: se si salva e si ricarica nella
+       stessa sessione, quelle in RAM hanno il file vero e sono migliori. */
+    async function ripristinaFontiDalVault(vaultPath) {
+        const s = _appState();
+        const api = window.electronAPI;
+        if (!s || !api || !api.readVaultFile) return 0;
+        const vp = vaultPath || s.activeVaultPath;
+        if (!vp) return 0;
+        if ((s.sources || []).length) return 0;                 // già in memoria: non si tocca
+        let indice = null;
+        try {
+            const r = await api.readVaultFile({ vaultPath: vp, relPath: FONTI_INDICE });
+            if (r && r.ok && r.base64) indice = JSON.parse(_testoDaBase64(r.base64));
+        } catch (e) { indice = null; }
+        const out = [];
+        if (indice && Array.isArray(indice.fonti)) {
+            for (const v of indice.fonti) {
+                let testo = '';
+                if (v.testoRel) {
+                    try {
+                        const t = await api.readVaultFile({ vaultPath: vp, relPath: v.testoRel });
+                        if (t && t.ok && t.base64) testo = _testoDaBase64(t.base64);
+                    } catch (e) { /* testo perso: resta la voce, ELABORA lo rifarà */ }
+                }
+                out.push({ id: v.id || ('src' + out.length), type: v.tipo || 'text', name: v.nome || '', content: testo, vaultRel: v.vaultRel || '' });
+            }
+        } else if (api.vaultSourcesList) {
+            /* gradino 2: vault salvato prima dell'indice — si guarda che c'è */
+            try {
+                const l = await api.vaultSourcesList({ vaultPath: vp });
+                (l && l.files || []).filter(f => f.ext === 'pdf').forEach(f => {
+                    out.push({ id: 'vault-' + out.length, type: 'pdf', name: f.name, content: '', vaultRel: f.relPath });
+                });
+            } catch (e) { /* niente da recuperare */ }
+        }
+        if (!out.length) return 0;
+        s.sources = out;
+        return out.length;
+    }
+
+    /* Il testo che manca, estratto dal PDF che c'è (gradino 2 → gradino 1).
+       Gira quando ELABORA si apre su un vault vecchio: `extractTextFromPDF` è la
+       STESSA funzione dell'upload (app.js), quindi il testo è identico a quello
+       che si sarebbe avuto generando; e il risultato si scrive nel vault, così la
+       volta dopo è già pronto. Silenzioso: se non riesce, la fonte resta senza
+       testo e la vista lo dice. */
+    async function _completaTestiMancanti() {
+        const s = _appState();
+        const api = window.electronAPI;
+        if (!s || !api || !api.readVaultFile || !window.extractTextFromPDF) return 0;
+        const daFare = (s.sources || []).filter(x => x && !x.content && x.vaultRel && /\.pdf$/i.test(x.vaultRel));
+        if (!daFare.length) return 0;
+        let fatti = 0;
+        for (const src of daFare) {
+            try {
+                const r = await api.readVaultFile({ vaultPath: s.activeVaultPath, relPath: src.vaultRel });
+                if (!r || !r.ok || !r.base64) continue;
+                const bin = atob(r.base64);
+                const buf = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                const finto = new File([buf], src.name || 'fonte.pdf', { type: 'application/pdf' });
+                const testo = await window.extractTextFromPDF(finto);
+                if (testo && testo.length > 40) { src.content = testo; fatti++; }
+            } catch (e) { /* un PDF illeggibile non ferma gli altri */ }
+        }
+        if (fatti) { try { await salvaIndiceFonti(); } catch (e) { } }
+        return fatti;
     }
 
     function _injectStyles() {
@@ -1787,7 +1952,10 @@
         teardown, revealCard, revealInSource,
         setRightView, setMode, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
-        flushSourcesToVault, copySourcesTo, exportAreas, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
+        flushSourcesToVault, copySourcesTo, exportAreas,
+        /* le fonti che sopravvivono al vault (9/8): le chiama `mappai-vault-io.js`
+           al caricamento, e la console/ELABORA quando apre */
+        salvaIndiceFonti, ripristinaFontiDalVault, completaTestiMancanti: _completaTestiMancanti, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
         openQuestions
     };
 })();

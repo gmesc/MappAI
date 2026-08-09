@@ -59,35 +59,90 @@
     function _kindOf(set) {
         try { return window.MappAIDocEdit.kindOfSet(set); } catch (e) { return 'quiz'; }
     }
+    /* Le sintesi DI QUESTA MAPPA.
+       🐛 Prima erano tutte quelle mai archiviate nell'app, con quelle di altre
+       mappe spostate in fondo: una scelta copiata dall'elenco dell'editor, dove
+       però il contesto è «tutti i documenti». Qui la colonna dice «i documenti di
+       questa mappa» — e la briciola accanto dichiara classe, materia e progetto.
+       Effetto visibile (Giacomo, 9/8): in archivio c'era UNA sintesi, quella di
+       «Riproduzione Sessuata», e compariva sotto OGNI progetto di OGNI classe.
+       ⚠️ Il confronto è normalizzato (spazi e maiuscole): i nomi arrivano da due
+       strade — `mapName` scritto all'archiviazione e `rootNodeLabel` della mappa
+       caricata — e un nome che differisce per uno spazio farebbe sparire una
+       sintesi che invece è di questa mappa. */
+    function _nomeMappa(x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase(); }
+    /* C'è una mappa aperta? Senza, la colonna non ha documenti da elencare: sono
+       documenti DI una mappa. Il conto dei nodi è il segno più onesto — il nome
+       da solo può restare da un caricamento precedente. */
+    function _mappaAperta() {
+        var s = _appState();
+        return !!(s && s.db && (s.db.nodes || []).length);
+    }
     function _sintesi() {
         var out = [];
+        /* 🐛 Senza mappa aperta `rootNodeLabel` è vuoto, e la regola «se non so di
+           che mappa sono, le mostro» faceva ricomparire TUTTE le sintesi
+           dell'archivio — è quello che Giacomo vedeva su «Elabora › A chi?».
+           Nessuna mappa aperta = nessun documento da elencare. */
+        if (!_mappaAperta()) return out;
+        var mapNow = _nomeMappa((_appState() && _appState().rootNodeLabel) || '');
         try {
             var BS = window.MappAIBranchSynthesis;
             var cur = BS && BS.getData && BS.getData();
-            if (cur) out.push({ id: 'current', titolo: cur.branchLabel || t('de_synth', 'Sintesi'), nota: t('de_current', 'in memoria') });
+            /* anche la sintesi «in memoria» è di UNA mappa (`mapName`): generata
+               su un'altra e poi cambiata mappa, restava in elenco */
+            if (cur && (!mapNow || !cur.mapName || _nomeMappa(cur.mapName) === mapNow)) {
+                out.push({ id: 'current', titolo: cur.branchLabel || t('de_synth', 'Sintesi'), nota: t('de_current', 'in memoria') });
+            }
         } catch (e) { }
         try {
-            var mapNow = (_appState() && _appState().rootNodeLabel) || '';
             var docs = (window.MappAIStudyDocs && window.MappAIStudyDocs.list && window.MappAIStudyDocs.list()) || [];
-            docs.filter(function (d) { return d.kind === 'synthesis' && d.hasHtml !== false; })
-                .forEach(function (d) {
-                    var altra = !!(mapNow && d.mapName && d.mapName !== mapNow);
-                    out.push({ id: d.id, titolo: d.title, nota: altra ? d.mapName : '', altra: altra });
-                });
+            docs.filter(function (d) {
+                if (d.kind !== 'synthesis' || d.hasHtml === false) return false;
+                /* una sintesi senza mappa dichiarata (archivi vecchi) resta: non
+                   si può dire che NON sia di questa, e nasconderla la perderebbe */
+                if (!mapNow || !d.mapName) return true;
+                return _nomeMappa(d.mapName) === mapNow;
+            }).forEach(function (d) {
+                out.push({ id: d.id, titolo: d.title, nota: d.mapName && _nomeMappa(d.mapName) !== mapNow ? d.mapName : '' });
+            });
         } catch (e) { }
-        /* le sintesi di ALTRE mappe restano, ma in fondo: toglierle sarebbe un
-           elenco vuoto senza spiegazione (stessa scelta dell'editor) */
-        out.sort(function (a, b) { return (a.altra ? 1 : 0) - (b.altra ? 1 : 0); });
         return out;
     }
     function _nodi() {
         var s = _appState();
         return ((s && s.db && s.db.nodes) || []).length;
     }
+    /* Quanti nessi causa-effetto ha questa mappa: il documento già salvato se
+       c'è, altrimenti quelli ricavabili dai verbi dei link e dai connettivi delle
+       descrizioni. È la stessa domanda che si fa `openCausal` prima di aprire —
+       porla PRIMA evita di offrire una voce che poi rifiuta di aprirsi. */
+    function _nessiCausali() {
+        var s = _appState();
+        try {
+            var salvato = s && s.db && s.db.causalDoc;
+            if (salvato && window.MappAICausalCore && window.MappAICausalCore.countRows) {
+                var n = window.MappAICausalCore.countRows(salvato);
+                if (n) return n;
+            }
+        } catch (e) { }
+        try {
+            var ch = window.MappAICausal && window.MappAICausal.buildForCurrentMap && window.MappAICausal.buildForCurrentMap();
+            return (ch && ch.total) || 0;
+        } catch (e) { return 0; }
+    }
+    /* Le fonti PDF della colonna. ⚠️ NON si guarda solo `x.file` (l'oggetto File
+       del browser): una mappa riaperta dal vault non ce l'ha — quel campo non è
+       ricostruibile da un percorso — e la voce del PDF non compariva, quindi il
+       visore era irraggiungibile proprio sulle mappe riaperte, che sono il caso
+       normale. Vale anche `vaultRel`, che è come `_collectPdfs` legge i byte dal
+       disco (9/8). */
     function _pdf() {
         var s = _appState();
         return ((s && s.sources) || []).filter(function (x) {
-            return x && x.file && /\.pdf$/i.test(x.file.name || '');
+            if (!x) return false;
+            if (x.file && /\.pdf$/i.test(x.file.name || '')) return true;
+            return !!(x.vaultRel && /\.pdf$/i.test(x.vaultRel));
         });
     }
 
@@ -109,7 +164,7 @@
             id: 'causal', da: 'mappa', icona: 'git-branch',
             et: function () { return t('de_cc', 'Catena dei perché'); },
             desc: function () { return t('ec_cc_d', 'I nessi causali della mappa messi in fila. Come il foglio dei nodi, si ricava dalla mappa al volo.'); },
-            puo: function () { return !!(DEd() && DEd().openCausal && window.MappAICausalCore); },
+            puo: function () { return _mappaAperta() && !!(DEd() && DEd().openCausal && window.MappAICausalCore) && _nessiCausali() > 0; },
             perche: function () { return t('ec_cc_no', 'Questa mappa non dichiara nessi causali.'); },
             apri: function () { DEd().openCausal(); }
         },
@@ -135,6 +190,73 @@
     function _vaiAlGeneratore() {
         if (window.openStudyMaterialsModal) { window.openStudyMaterialsModal(); return; }
         toast(t('ec_gen_ko', 'Il generatore dei materiali non è disponibile qui.'), 'warning');
+    }
+
+    /* ══ I DOCUMENTI CHE STANNO SUL DISCO (9/8) ═══════════════════════════════
+       🐛 Il difetto, dai dati di Giacomo: il vault di «I Cromosomi» contiene sette
+       documenti — `Sintesi -VERDE.html`, i due quiz, le flashcard, i tre fogli
+       dei nodi — e la colonna diceva «Sintesi 0». Elencava solo i set EDITABILI
+       (`appState.db.studySets`, che il vault ricarica) e l'archivio in
+       localStorage: il disco non lo guardava nessuno. Sono i due mondi che non si
+       parlano, gli stessi della cecità sulla fonte — e in INSEGNA convivono già
+       nello stesso elenco.
+       Che cosa se ne fa qui: un file su disco è un documento FINITO (HTML o PDF),
+       non un set da correggere; si apre in sola lettura nella tela, come fa
+       INSEGNA. Chi vuole modificarlo passa dal set, che resta la voce editabile.
+       ⚠️ I `.json` restano fuori: sono i set stessi, già in elenco come voci
+       apribili — comparirebbero due volte, una editabile e una no.
+       ⚠️ Il genere lo dice `MappAITeach.generePerFile` (la regola di INSEGNA,
+       esposta): due classificatori dello stesso nome-file divergerebbero. */
+    var _disco = null;          /* null = non ancora letto · [] = letto, niente */
+    var _discoVault = '';       /* per quale vault: cambiando mappa si rilegge */
+    function _generePerFile(nome) {
+        try {
+            if (window.MappAITeach && window.MappAITeach.generePerFile) return window.MappAITeach.generePerFile(nome);
+        } catch (e) { }
+        return { icon: 'file', label: 'File' };
+    }
+    function _gruppoDelFile(nome) {
+        var lab = (_generePerFile(nome) || {}).label || 'File';
+        if (/^Quiz/i.test(lab)) return 'quiz';
+        if (/^Flashcard/i.test(lab)) return 'flash';
+        if (/^Foglio/i.test(lab)) return 'ns';
+        if (/^Sintesi/i.test(lab)) return 'syn';
+        return 'altri';
+    }
+    function _caricaDisco() {
+        var s = _appState();
+        var api = window.electronAPI;
+        var vp = (s && s.activeVaultPath) || '';
+        if (!api || !api.vaultMaterialsList || !vp) { _disco = []; _discoVault = vp; return; }
+        _discoVault = vp;
+        api.vaultMaterialsList({ vaultPath: vp }).then(function (r) {
+            if (_discoVault !== vp) return;          /* mappa cambiata nel frattempo */
+            _disco = ((r && r.files) || []).filter(function (f) {
+                return f && f.name && !/\.json$/i.test(f.name);
+            });
+            rifaiEsterno();
+        }).catch(function () { _disco = []; });
+    }
+    /* la console si ridisegna dall'esterno di `open()`: l'appiglio lo lascia lei */
+    var rifaiEsterno = function () { };
+    function _fileDelGruppo(g) {
+        return (_disco || []).filter(function (f) { return _gruppoDelFile(f.name) === g; });
+    }
+    function _vociDisco(g) {
+        return _fileDelGruppo(g).map(function (f) {
+            return {
+                id: 'disk:' + f.relPath, attiva: _voce === 'disk:' + f.relPath,
+                /* LA STAMPANTE, sempre, sui documenti del vault (Giacomo, 9/8).
+                   Prima ognuno portava l'icona del suo GENERE — la stessa delle
+                   voci editabili — e in un elenco misto le due nature si
+                   distinguevano solo leggendo il nome del file. L'icona dice
+                   invece che cosa si può FARE: un set si corregge, un file
+                   pre-generato si guarda o si stampa. Il genere lo dice già il
+                   gruppo che lo contiene. */
+                icona: 'printer',
+                etichetta: f.name, sotto: t('ec_dal_vault', 'nel vault'), chiude: false
+            };
+        });
     }
 
     /* ── Lo SCHEMA della console ─────────────────────────────────────────────── */
@@ -176,9 +298,60 @@
         voci.forEach(function (v) { nav.push(v); });
     }
 
+    /* ══ IL PROGETTO DI QUESTO CONTESTO (Giacomo, 9/8) ═══════════════════════════
+       🐛 Due difetti con la stessa radice: la colonna leggeva `appState`, che resta
+       caricato con la mappa di PRIMA. Al boot mostrava «Fonte › Testo» senza che
+       nessun progetto fosse scelto; e cambiando classe o materia la briciola si
+       aggiornava mentre la colonna teneva nomi e contatori dell'ultimo progetto —
+       cioè elencava i documenti di una mappa che non appartiene più al contesto.
+       Qui si risponde a una domanda sola: c'è un progetto scelto DENTRO questo
+       contesto? Se no, la colonna non elenca niente.
+       ⚠️ `_mappe` è `null` finché l'elenco non arriva dal disco (pochi ms). In
+       quell'istante non si sa, e la risposta dipende da COME ci si è arrivati:
+       aprendo la console la mappa aperta è per definizione quella su cui si sta
+       lavorando (ci si è arrivati da lì); dopo un cambio di contesto no — e
+       mostrare i vecchi contenuti per un istante è esattamente il difetto. Da qui
+       il flag `_contestoCambiato`, che vive solo per quell'attesa. */
+    var _contestoCambiato = false;
+    /* ⚠️ `_mappe` e `_inCorso` vivono nel MODULO, non dentro `open()`: le legge
+       anche `_progettoDelContesto`, che `_nav` chiama — e `_nav` sta qui. Erano
+       locali a `open()` e la colonna moriva con «_mappe is not defined» al primo
+       ridisegno (nessun errore a schermo: la console semplicemente non si
+       aggiornava più).
+       `null` = elenco non ancora letto dal disco · `[]` = letto e vuoto. */
+    var _mappe = null;
+    /* la mappa che si sta CARICANDO: il caricamento da vault passa dal disco e
+       dura, e senza questo la briciola mostrava ancora il nome vecchio mentre la
+       console era già tornata al segnaposto (misurato: ~400ms). */
+    var _inCorso = null;
+    function _progettoDelContesto() {
+        if (!_mappaAperta()) return false;
+        if (_mappe) {
+            try {
+                var T = window.MappAITeach;
+                return !!(T && T.mappaCorrente && T.mappaCorrente(_mappe));
+            } catch (e) { return true; }
+        }
+        return !_contestoCambiato;
+    }
+
     function _nav() {
         var nav = [];
         var s = _appState();
+
+        /* Nessun progetto scelto in questo contesto: i gruppi restano, coi loro
+           contatori a zero — dicono che generi di documento esistono, e che qui
+           non ce n'è ancora nessuno. Le VOCI no: apparterrebbero a un'altra
+           mappa. */
+        if (!_progettoDelContesto()) {
+            _gruppo(nav, 'fonte', t('ec_g_fonte', 'Fonte'), []);
+            _gruppo(nav, 'quiz', t('de_g_quiz', 'Quiz e verifiche'), []);
+            _gruppo(nav, 'flash', t('de_g_flash', 'Flashcard'), []);
+            _gruppo(nav, 'ns', t('de_g_ns', 'Foglio dei nodi'), []);
+            _gruppo(nav, 'syn', t('ec_g_sintesi', 'Sintesi'), []);
+            _gruppo(nav, 'cc', t('ec_g_catene', 'Catene'), []);
+            return nav;
+        }
 
         /* LA FONTE, in cima: è da lì che tutto il resto è stato ricavato, e
            rivedere un documento senza poter tornare alla fonte è metà lavoro. */
@@ -187,19 +360,26 @@
         pdf.forEach(function (p, i) {
             fonte.push({
                 id: 'src:pdf:' + i, icona: 'file-type', attiva: _voce === 'src:pdf:' + i,
-                etichetta: (p.file && p.file.name) || (t('el_view_pdf', 'PDF') + ' ' + (i + 1))
+                /* il nome viene dal file se c'è, altrimenti da `name`/`vaultRel`:
+                   sulle mappe riaperte la voce diceva «PDF 1» pur avendo il nome */
+                etichetta: (p.file && p.file.name) || p.name
+                    || (p.vaultRel ? String(p.vaultRel).split('/').pop() : '')
+                    || (t('el_view_pdf', 'PDF') + ' ' + (i + 1))
             });
         });
         _gruppo(nav, 'fonte', t('ec_g_fonte', 'Fonte'), fonte);
 
         var sets = _sets();
+        /* set EDITABILI + documenti FINITI del vault, nello stesso gruppo: sono
+           la stessa cosa vista in due stadi, e tenerli in elenchi diversi
+           obbligava a cercare in due posti (9/8) */
         _gruppo(nav, 'quiz', t('de_g_quiz', 'Quiz e verifiche'),
             sets.filter(function (x) { return _kindOf(x) === 'quiz'; }).map(function (x) {
                 return {
                     id: 'set:' + x.id, icona: 'file-question', attiva: _voce === 'set:' + x.id,
                     etichetta: x.title || t('de_quiz', 'Quiz'), contatore: x.items.length
                 };
-            }));
+            }).concat(_vociDisco('quiz')));
 
         _gruppo(nav, 'flash', t('de_g_flash', 'Flashcard'),
             sets.filter(function (x) { return _kindOf(x) === 'flashcards'; }).map(function (x) {
@@ -207,7 +387,7 @@
                     id: 'set:' + x.id, icona: 'layers', attiva: _voce === 'set:' + x.id,
                     etichetta: x.title || 'Flashcard', contatore: x.items.length
                 };
-            }));
+            }).concat(_vociDisco('flash')));
 
         var fogli = [];
         if (_nodi()) {
@@ -218,7 +398,7 @@
                 sotto: salvato ? t('de_ns_revised', 'rivisto') : ''
             });
         }
-        _gruppo(nav, 'ns', t('de_g_ns', 'Foglio dei nodi'), fogli);
+        _gruppo(nav, 'ns', t('de_g_ns', 'Foglio dei nodi'), fogli.concat(_vociDisco('ns')));
 
         /* SINTESI e CATENE separate (Giacomo, 8/8): sono due documenti diversi —
            una la scrive l'AI su un ramo, l'altra si ricava dai nessi della mappa
@@ -229,13 +409,25 @@
                 id: 'syn:' + d.id, icona: 'file-text', attiva: _voce === 'syn:' + d.id,
                 etichetta: d.titolo, sotto: d.nota || ''
             };
-        }));
+        }).concat(_vociDisco('syn')));
 
+        /* 🐛 «Catena dei perché» compariva SEMPRE, anche senza mappa: la
+           condizione guardava se il MODULO era caricato, non se la mappa avesse
+           dei nessi. E cliccandola `openCausal` uscìva con un avviso lasciando la
+           tela all'editor, che disegnava la sua vecchia lista. Ora la voce c'è
+           solo se un documento esiste davvero — un doc già salvato nella mappa,
+           oppure dei nessi che si possono ricavare adesso (conto deterministico,
+           nessuna AI). */
         var catene = [];
-        if (window.MappAICausalCore && DEd() && DEd().openCausal) {
+        if (_mappaAperta() && window.MappAICausalCore && DEd() && DEd().openCausal && _nessiCausali() > 0) {
             catene.push({ id: 'cc', icona: 'git-branch', attiva: _voce === 'cc', etichetta: t('de_cc', 'Catena dei perché') });
         }
         _gruppo(nav, 'cc', t('ec_g_catene', 'Catene'), catene);
+
+        /* i documenti del vault che non ricadono nei generi noti (un PDF messo lì
+           a mano, un audio della sintesi): si dicono, invece di sparire */
+        var altri = _vociDisco('altri');
+        if (altri.length) _gruppo(nav, 'altri', t('ec_g_altri', 'Altri documenti'), altri);
 
         return nav;
     }
@@ -274,7 +466,14 @@
            sono una fila di azioni sopra il documento (la barra è della console). */
         var aperto = _voce && _voce.indexOf('vuoto:') !== 0;
         if (aperto) s.tela = { id: 'elab' };
-        else s.sezioni.push({ id: 'vuoto', nuda: true, testo: t('ec_scegli', 'Scegli un documento nella colonna, o creane uno nuovo.') });
+        else s.sezioni.push({
+            id: 'vuoto', nuda: true,
+            /* senza progetto la colonna è vuota: invitare a «scegliere un
+               documento nella colonna» sarebbe un invito a un elenco che non c'è */
+            testo: _progettoDelContesto()
+                ? t('ec_scegli', 'Scegli un documento nella colonna, o creane uno nuovo.')
+                : t('ec_scegli_progetto', 'Scegli un progetto nella barra in alto: qui compariranno i suoi documenti.')
+        });
         if (_eFonte() && EL() && EL().sourceActions) {
             s.sezioni.push({
                 id: 'src-cmd', nuda: true,
@@ -300,12 +499,82 @@
             /* il segnaposto se ne va appena c'è un documento da mostrare */
             var vuota = tela.querySelector('.mm-tela__vuota');
             if (vuota) vuota.remove();
+            var vfile = tela.querySelector('#ec-file');
+            if (vfile) vfile.remove();            /* un contenitore per volta */
             host = document.createElement('div');
             host.id = 'elab-doc-host';
             host.className = 'ec-host';
             tela.appendChild(host);
         }
         return host;
+    }
+
+    /* Un documento del VAULT nella tela: sola lettura. È un file finito (HTML o
+       PDF), non un set da correggere — si mostra con la stessa tecnica di INSEGNA
+       (byte via IPC → data-URI in un iframe), che è anche l'unica che funziona per
+       un PDF. Sopra, una riga con «Stampa» e «Apri nel Finder»: sono le due cose
+       che si fanno con un documento finito. */
+    function _montaFile(box, relPath) {
+        var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
+        if (!tela) return;
+        var vecchio = tela.querySelector('#elab-doc-host'); if (vecchio) vecchio.remove();
+        var vs = tela.querySelector('#ec-src'); if (vs) vs.remove();
+        var vuota = tela.querySelector('.mm-tela__vuota'); if (vuota) vuota.remove();
+        var host = tela.querySelector('#ec-file');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'ec-file';
+            host.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;min-height:0';
+            tela.appendChild(host);
+        }
+        var s = _appState();
+        var api = window.electronAPI;
+        if (!api || !api.readVaultFile || !s || !s.activeVaultPath) {
+            host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('fx_desktop', 'Disponibile solo nell\'app desktop.') + '</p>';
+            return;
+        }
+        host.innerHTML = '<p style="font-family:monospace;padding:24px;color:#64748b">' + t('ec_apro', 'Apro…') + '</p>';
+        api.readVaultFile({ vaultPath: s.activeVaultPath, relPath: relPath }).then(function (r) {
+            if (_voce !== 'disk:' + relPath) return;          /* nel frattempo ha scelto altro */
+            if (!r || !r.ok) {
+                host.innerHTML = '<p style="font-family:monospace;padding:24px">' +
+                    t('ec_file_ko', 'Non riesco ad aprire questo file') + (r && r.error ? ': ' + r.error : '') + '</p>';
+                return;
+            }
+            var mime = /\.pdf$/i.test(relPath) ? 'application/pdf'
+                : /\.html?$/i.test(relPath) ? 'text/html'
+                    : /\.(mp3|m4a|wav)$/i.test(relPath) ? 'audio/mpeg' : 'application/octet-stream';
+            var uri = 'data:' + mime + ';base64,' + r.base64;
+            host.innerHTML = '';
+            var barra = document.createElement('div');
+            barra.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid #e8ecf4;background:#f6f8fc;flex:0 0 auto';
+            var nome = document.createElement('span');
+            nome.style.cssText = 'font:700 12px/1 ui-monospace,monospace;color:#475569;margin-right:auto';
+            nome.textContent = String(relPath).split('/').pop();
+            barra.appendChild(nome);
+            var bStampa = document.createElement('button');
+            bStampa.type = 'button'; bStampa.className = 'mm-btn';
+            bStampa.textContent = t('de_print', 'Stampa');
+            bStampa.addEventListener('click', function () {
+                var f = host.querySelector('iframe');
+                try { if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } } catch (e) { }
+            });
+            var bFinder = document.createElement('button');
+            bFinder.type = 'button'; bFinder.className = 'mm-btn';
+            bFinder.textContent = t('lt_open_finder', 'Apri nel Finder');
+            bFinder.addEventListener('click', function () {
+                try { if (api.pipelineOpenFile) api.pipelineOpenFile({ filePath: s.activeVaultPath + '/' + relPath }); } catch (e) { }
+            });
+            barra.appendChild(bStampa); barra.appendChild(bFinder);
+            host.appendChild(barra);
+            var fr = document.createElement('iframe');
+            fr.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:#fff';
+            fr.setAttribute('title', nome.textContent);
+            fr.src = uri;
+            host.appendChild(fr);
+        }).catch(function () {
+            host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('ec_file_ko', 'Non riesco ad aprire questo file') + '</p>';
+        });
     }
 
     /* Il posto della FONTE nella tela. Id `ec-src`: lo cita il foglio di
@@ -320,6 +589,8 @@
             if (vuota) vuota.remove();
             var vecchio = tela.querySelector('#elab-doc-host');
             if (vecchio) vecchio.remove();        /* un contenitore per volta */
+            var vfile = tela.querySelector('#ec-file');
+            if (vfile) vfile.remove();
             host = document.createElement('div');
             host.id = 'ec-src';
             tela.appendChild(host);
@@ -382,14 +653,8 @@
         _voce = '';
         _aperta = true;
         var ridisegna = null;
-        /* le mappe della classe+materia attive: `null` = non ancora lette dal
-           disco (la briciola mostra il solo nome), `[]` = lette e nessuna. */
-        var _mappe = null;
-        /* la mappa che si sta CARICANDO: il caricamento da vault passa dal disco
-           e dura, e senza questo la briciola mostrava ancora il nome vecchio
-           mentre la console era già tornata al segnaposto — cioè diceva una cosa
-           mentre ne stava facendo un'altra (misurato: ~400ms). */
-        var _inCorso = null;
+        _mappe = null;
+        _inCorso = null;
 
         function rifai() {
             if (!ridisegna) return;
@@ -418,7 +683,29 @@
             var CL = window.MappAIClasses || {};
             /* cambiato il contesto cambiano le mappe: l'elenco si rilegge (il
                filtro classe+materia vive in landing-teach, fonte unica) */
-            function dopo(f) { try { f(); } catch (e) { } _mappe = null; rifai(); _caricaMappe(); }
+            /* CAMBIARE CONTESTO RIPORTA INDIETRO I LIVELLI SEGUENTI (Giacomo,
+               9/8): scegliere una classe rimette «Materia» e nasconde il
+               progetto; scegliere un'altra materia rimette «Progetto». Non è solo
+               grafica — il documento aperto nella tela appartiene alla mappa di
+               PRIMA, che nel contesto nuovo non c'è: si azzera la voce, si smonta
+               la fonte e si lascia andare l'editor, come al cambio di mappa. */
+            function dopo(f) {
+                try { f(); } catch (e) { }
+                _contestoCambiato = true;      /* finché non si sa, la colonna tace */
+                /* ⚠️ Anche il caricamento IN CORSO va dimenticato: cambiando
+                   contesto mentre una mappa si stava aprendo, la briciola restava
+                   bloccata su «… · apro…» — un'attesa di qualcosa che non
+                   interessa più. */
+                _inCorso = null;
+                _voce = '';
+                try { if (DEd().reset) DEd().reset(); } catch (e) { }
+                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+                _mappe = null;
+                _disco = null;
+                rifai();
+                _caricaMappe();
+                _caricaDisco();
+            }
             try {
                 /* ⚠️ `specContesto` restituisce l'ARRAY dei livelli, mentre
                    `montaPercorso` vuole `{livelli: …}`: passarglielo nudo non
@@ -474,9 +761,17 @@
                    classe scelta e la materia no il terzo livello esiste, ma porta
                    il prompt «Materia», e l'elenco dei progetti di «tutte le
                    materie» non è quello che si sta chiedendo. */
-                var mat = '';
+                var mat = '', clsAttiva = null;
                 try { mat = (CL.activeDiscipline && CL.activeDiscipline()) || ''; } catch (e) { }
-                var pronto = liv.length >= 3 && !!mat;
+                try { clsAttiva = (CL.getActive && CL.getActive()) || null; } catch (e) { }
+                /* La MATERIA è richiesta solo quando c'è una CLASSE attiva: là
+                   serve davvero a restringere le mappe di quella classe. In
+                   contesto GENERICO — che è come un docente vede il vault di un
+                   collega, o le proprie mappe senza classe — pretenderla vorrebbe
+                   dire non poter mai scegliere un progetto: le materie generiche
+                   sono quelle del profilo, e una mappa arrivata da fuori non ne ha
+                   nessuna (Giacomo, 9/8). */
+                var pronto = liv.length >= 3 && (clsAttiva ? !!mat : true);
                 CB.montaPercorso(box, { livelli: liv.concat(pronto ? _livelloProgetto() : []) });
             } catch (e) { /* senza percorso resta il chip: non è un motivo per fermarsi */ }
         }
@@ -499,7 +794,15 @@
             var T = window.MappAITeach;
             var s = _appState();
             var corrente = (_mappe && T && T.mappaCorrente) ? T.mappaCorrente(_mappe) : null;
-            var nome = (_inCorso && _inCorso.nome) || (corrente && corrente.nome) || (s && s.rootNodeLabel) || '';
+            /* ⚠️ Il nome della mappa CARICATA (`rootNodeLabel`) vale solo finché
+               l'elenco del contesto non è arrivato: era il ripiego che rendeva la
+               briciola «persistente» — cambiando classe o materia continuava a
+               dire «Elettricità» anche quando quella mappa non appartiene più al
+               contesto scelto. Con l'elenco in mano il nome si mostra SOLO se la
+               mappa aperta è una di quelle del contesto (`mappaCorrente` la cerca
+               dentro l'elenco filtrato); altrimenti la briciola torna neutra. */
+            var nome = (_inCorso && _inCorso.nome) || (corrente && corrente.nome)
+                || ((!_mappe && s && s.rootNodeLabel) || '');
             if (_inCorso) return [{ statico: nome + ' ' + t('ec_bric_carico', '· apro…') }];
             if (!_mappe) return nome ? [{ statico: nome, qui: true }] : [];
             if (!_mappe.length) {
@@ -541,7 +844,15 @@
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
             _inCorso = m;
             rifai();                                   /* segnaposto + «apro…» sulla briciola */
-            var ok = T.apriMappa(m, function () { _inCorso = null; _caricaMappe(); rifai(); });
+            /* ⚠️ Se nel frattempo il contesto è cambiato (`_inCorso` azzerato da
+               `dopo`), questa risposta è di una richiesta abbandonata: si lascia
+               cadere, o riporterebbe in colonna i documenti di una mappa che non
+               appartiene più al contesto scelto. */
+            var atteso = m;
+            var ok = T.apriMappa(m, function () {
+                if (_inCorso !== atteso) return;
+                _inCorso = null; _caricaMappe(); _disco = null; _caricaDisco(); rifai();
+            });
             if (!ok) { _inCorso = null; rifai(); toast(t('ec_map_ko', 'Non riesco a cambiare progetto da qui.'), 'warning'); }
         }
 
@@ -552,12 +863,20 @@
             if (!T || !T.mappeDelContesto) { _mappe = []; return; }
             T.mappeDelContesto().then(function (list) {
                 _mappe = list || [];
+                _contestoCambiato = false;     /* ora si sa: decide `mappaCorrente` */
                 rifai();
-            }).catch(function () { _mappe = []; });
+            }).catch(function () { _mappe = []; _contestoCambiato = false; });
         }
 
         function _dipingi(box) {
             if (!_voce) return;
+            /* un documento del VAULT: sola lettura, host suo */
+            if (_voce.indexOf('disk:') === 0) {
+                try { if (DEd().reset) DEd().reset(); } catch (e) { }
+                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+                _montaFile(box, _voce.slice(5));
+                return;
+            }
             /* LA FONTE nella tela: host suo (`#ec-src`), non quello dell'editor —
                due disegni nello stesso contenitore si sovrascriverebbero, e
                `#elab-doc-host` è l'id che l'editor cerca. */
@@ -599,6 +918,23 @@
         }
         document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
 
+        /* ── LE CARTELLE SONO CAMBIATE (Giacomo, 9/8) ─────────────────────────
+           La colonna elenca documenti che stanno anche su DISCO (le sintesi
+           archiviate, i file scritti da «Nel vault», i materiali della pipeline)
+           e la briciola elenca le mappe della classe: se qualcosa cambia là fuori
+           mentre la console è aperta, qui si rilegge. Il canale raggruppa le
+           notifiche, quindi una pipeline che scrive otto file fa un ridisegno. */
+        var _staccaCanale = (window.MappAIVaults && window.MappAIVaults.quando)
+            ? window.MappAIVaults.quando(function () {
+                if (!_aperta) return;
+                _mappe = null;
+                _disco = null;
+                rifai();
+                _caricaMappe();
+                _caricaDisco();
+            })
+            : function () { };
+
         var s = _schema();
         /* il PRIMO disegno: `open()` non restituisce il box, lo consegna qui */
         s.suApertura = function (box, ridis) {
@@ -608,6 +944,8 @@
                briciola si completa quando risponde (`suApertura` esiste per
                questo — `suAzione` nasce da un gesto e qui non c'è nessun gesto) */
             _caricaMappe();
+            rifaiEsterno = rifai;      /* il disco risponde dopo: serve ridisegnare */
+            _caricaDisco();            /* i documenti già prodotti, dal vault */
         };
         s.suAzione = function (ev, box, ridis) {
             ridisegna = ridis;
@@ -645,6 +983,7 @@
                     rifai();
                     return;
                 }
+                if (v.indexOf('disk:') === 0) { _voce = v; rifai(); return; }
                 _voce = v;
                 try {
                     if (v.indexOf('set:') === 0) DEd().openSet(v.slice(4));
@@ -652,6 +991,11 @@
                     else if (v === 'ns') DEd().openNodeSheet();
                     else if (v === 'cc') DEd().openCausal();
                 } catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
+                /* Un'apertura può RINUNCIARE (l'editor avvisa e resta dov'era):
+                   allora la voce non si marca come aperta e l'area torna al suo
+                   segnaposto — altrimenti la colonna direbbe che un documento è
+                   aperto e la tela mostrerebbe uno spazio vuoto. */
+                try { if (DEd().haDocumento && !DEd().haDocumento()) _voce = ''; } catch (e) { }
                 rifai();
                 return;
             }
@@ -671,6 +1015,7 @@
                un nodo, per esempio) crederebbe di dover disegnare lì. */
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
             document.removeEventListener('mappai-doc-uscito', _suUscitaDoc);
+            try { _staccaCanale(); } catch (e) { }
             _voce = '';
             _aperta = false;
         });
