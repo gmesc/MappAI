@@ -297,7 +297,16 @@ html.manifesto .mm-box--console .mm-console__man {
     box-shadow: none;
     opacity: 1;
     color: var(--mnc-man-fg, var(--man-viola));
-    top: var(--mnc-man-top, 14px);
+    /* ANGOLO IN ALTO A SINISTRA dell'area (Giacomo, 10/8): il bordo superiore e
+       quello sinistro della maniglia coincidono con quelli dell'area, e l'unico
+       angolo arrotondato — il basso-destra — guarda dentro l'area. Prima stava
+       a cavallo del bordo e 14px più in basso (misurato: 255,79 contro l'area
+       che comincia a 272,65), cioè galleggiava accanto alla prima voce invece di
+       essere incastrata nell'angolo.
+       ⚠️ Il `translateX(-50%)` della regola base va SPENTO, non compensato: è
+       lui a portarla mezza dentro la colonna. */
+    top: var(--mnc-man-top, 0px);
+    transform: none;
     /* ⚠️ `left` di un elemento assoluto si misura dal bordo interno del
        contenitore e IGNORA il suo padding: col posto lasciato al rail la
        maniglia finiva in mezzo alla colonna, sopra la prima voce (misurato:
@@ -310,7 +319,10 @@ html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man {
        suo stato «nascondi» (che l'officina può dare diversi da «mostra»). */
     left: var(--mnc-man-x, 0px);
     border-radius: var(--mnc-man-radii, 0 0 8px 0);
-    transform: translateX(-50%);
+    /* ⚠️ Anche qui niente `translateX(-50%)`: con la colonna nascosta l'area
+       comincia a x=0, e metà maniglia finirebbe fuori dallo schermo. Resta
+       nell'angolo, che a colonna chiusa è quello della console intera. */
+    transform: none;
     background: var(--mnc-man-bg-chiusa, #fff);
     color: var(--mnc-man-fg-chiusa, var(--man-viola));
 }

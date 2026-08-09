@@ -284,12 +284,25 @@
        chiusi su ogni mappa, e legarli alla mappa vorrebbe dire richiudere gli
        stessi sei gruppi a ogni apertura. Se la lettura fallisce si riparte da
        tutti APERTI: uno stato illeggibile non deve nascondere degli elenchi. */
+    /* I gruppi della colonna nascono TUTTI PIEGATI, a ogni avvio dell'app
+       (Giacomo, 10/8). Prima un gruppo mai toccato era assente dalla memoria e
+       veniva reso APERTO: aprendo ELABORA la colonna partiva mezza estesa, e con
+       sei generi si scorreva per trovare quello che serve.
+       ⚠️ La memoria sta in `sessionStorage`, non in `localStorage`: quello che si
+       apre resta aperto finché si lavora — anche attraverso il `location.reload()`
+       che fa tornare alla landing da una mappa — ma il prossimo avvio riparte
+       piegato. Con `localStorage` la scelta di un giorno sarebbe rimasta addosso
+       a tutti quelli dopo. */
     var LS_GRUPPI = 'mappai_ec_gruppi';
     var _chiusi = (function () {
-        try { var o = JSON.parse(localStorage.getItem(LS_GRUPPI) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+        /* La chiave col MEDESIMO nome esisteva in `localStorage` e ora non la
+           legge più nessuno: si toglie, o resterebbe lì a dire una cosa che non
+           è più vera a chi la trova. */
+        try { localStorage.removeItem(LS_GRUPPI); } catch (e) { }
+        try { var o = JSON.parse(sessionStorage.getItem(LS_GRUPPI) || '{}'); return (o && typeof o === 'object') ? o : {}; }
         catch (e) { return {}; }
     })();
-    function _salvaChiusi() { try { localStorage.setItem(LS_GRUPPI, JSON.stringify(_chiusi)); } catch (e) { } }
+    function _salvaChiusi() { try { sessionStorage.setItem(LS_GRUPPI, JSON.stringify(_chiusi)); } catch (e) { } }
 
     /* Un gruppo e le sue voci in un colpo: il CONTATORE sta sulla riga del
        titolo. ⚠️ Niente riga «Nessuno» quando il gruppo è vuoto: con il
@@ -298,7 +311,9 @@
     function _gruppo(nav, id, etichetta, voci) {
         nav.push({
             gruppo: etichetta, id: 'g:' + id, contatore: voci.length,
-            collassabile: true, chiuso: !!_chiusi[id]
+            /* `!== false`: piegato salvo che l'utente l'abbia APERTO in questa
+               sessione. Assente = mai toccato = piegato. */
+            collassabile: true, chiuso: _chiusi[id] !== false
         });
         voci.forEach(function (v) { nav.push(v); });
     }
