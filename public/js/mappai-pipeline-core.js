@@ -224,22 +224,91 @@
     return { total: A + B + C + D + E, perStep: { A: A, B: B, C: C, D: D, E: E } };
   }
 
-  // ── Nomi file canonici (Materiale Studio/) ──────────────────────────────
-  // kind: quiz_mc | quiz_tf | flashcards | nodesheet | synthesis | tts
-  function buildFileName(kind, label, tuned) {
-    var green = tuned ? ' -VERDE' : '';
-    switch (kind) {
-      case 'quiz_mc': return 'Quiz-MC-' + _safeName(label, 'Mappa') + green + '.pdf';
-      case 'quiz_tf': return 'Quiz-VF-' + _safeName(label, 'Mappa') + green + '.pdf';
-      case 'flashcards': return 'Flashcard-' + _safeName(label, 'Mappa') + green + '.pdf';
-      case 'nodesheet': return 'Foglio-nodi-' + _safeName(label, 'nodi') + green + '.pdf';
-      case 'synthesis': return 'Sintesi' + green + '.html';
-      case 'tts': return 'Sintesi-audio.mp3';
-      /* nome fisso e senza accenti: il file finisce anche su chiavette e
-         cartelle condivise, dove una «é» diventa un problema di qualcun altro */
-      case 'causal': return 'Catena-dei-perche' + green + '.pdf';
-      default: return _safeName(label, 'file') + green;
+  /* ══ I NOMI DEI MATERIALI — una convenzione sola ═══════════════════════════
+     Forma:  <Tipo>-<Mappa>[-<dettaglio>][-<nome del docente>][ -VERDE].<est>
+
+     Perché il TIPO resta in testa, e non è un'abitudine: la colonna di ELABORA
+     e quella di INSEGNA riconoscono un file dal suo prefisso (`/^Quiz-MC-/`,
+     `/^Sintesi/`, `/^Foglio.?nodi/` in `_diskKind`). Spostare il tipo altrove
+     spegnerebbe in un colpo il raggruppamento per genere e il bottone
+     «Modifica», che è l'unico ingresso all'editor per un documento su disco.
+
+     Perché la MAPPA entra in tutti i nomi: `Sintesi.html`, `Sintesi-audio.mp3`,
+     `Catena-dei-perche.pdf` e `Foglio-nodi-<layout>.pdf` non la portavano.
+     Dentro un vault non serviva — un vault è una mappa sola — ma questi file
+     escono dal vault: si stampano, si mandano per posta, finiscono su una
+     chiavetta insieme a quelli di altre mappe, e lì «Sintesi.html» non dice
+     più niente.
+
+     Il DETTAGLIO è ciò che distingue due materiali dello stesso tipo della
+     stessa mappa quando lo decide il motore, non il docente: il layout del
+     foglio dei nodi, il ramo di una sintesi.
+
+     ⚠️ UNA sola grafia per la taratura: ` -VERDE`. Ne circolavano cinque
+     (` -VERDE`, `-[VERDE]`, ` [VERDE]`, e in due casi nessuna).                */
+
+  var SUFFISSO_TARATO = ' -VERDE';
+
+  /* prefisso · estensione · se il tipo accetta un dettaglio dal motore */
+  var GENERI = {
+    quiz_mc: { pre: 'Quiz-MC', est: '.pdf' },
+    quiz_tf: { pre: 'Quiz-VF', est: '.pdf' },
+    flashcards: { pre: 'Flashcard', est: '.pdf' },
+    nodesheet: { pre: 'Foglio-nodi', est: '.pdf', dettaglio: true },
+    synthesis: { pre: 'Sintesi', est: '.html', dettaglio: true },
+    /* senza accenti per scelta: il file finisce anche su chiavette e cartelle
+       condivise, dove una «é» diventa un problema di qualcun altro */
+    causal: { pre: 'Catena-dei-perche', est: '.pdf' },
+    tts: { pre: 'Sintesi-audio', est: '.mp3' }
+  };
+
+  /* opts = { mappa, dettaglio, nome }
+     `label` conserva il significato storico per non cambiare sotto i piedi ai
+     chiamanti che non sono ancora passati a `opts`: per quiz e flashcard era il
+     nome della mappa, per il foglio dei nodi il layout. Chi passa `opts.mappa`
+     ottiene la forma nuova; chi non lo passa ottiene quella di prima. */
+  function buildFileName(kind, label, tuned, opts) {
+    opts = opts || {};
+    var g = GENERI[kind];
+    var green = tuned ? SUFFISSO_TARATO : '';
+    if (!g) return _safeName(opts.nome || label, 'file') + green;
+
+    var mappa = _safeName(opts.mappa, '');
+    var dettaglio = _safeName(opts.dettaglio, '');
+    /* Retrocompatibilità: senza `opts.mappa` il vecchio `label` torna dov'era. */
+    if (!mappa && !dettaglio && label != null && label !== '') {
+      if (g.dettaglio) dettaglio = _safeName(label, '');
+      else mappa = _safeName(label, '');
     }
+    var pezzi = [g.pre];
+    if (mappa) pezzi.push(mappa);
+    if (dettaglio && g.dettaglio) pezzi.push(dettaglio);
+    var nome = _safeName(opts.nome, '');
+    if (nome) pezzi.push(nome);
+    /* ⚠️ Il trattino separa i pezzi, quindi un pezzo che ne contiene uno non
+       rompe niente ma rende il nome ambiguo a rileggerlo: si accetta, perché
+       ripulirlo cambierebbe i titoli scelti dal docente senza dirglielo. */
+    return pezzi.join('-') + green + g.est;
+  }
+
+  /* ══ COLLISIONI — `Materiale Studio/` non ne aveva nessuna protezione ══════
+     Un nome già presente veniva sovrascritto in silenzio: nessun avviso,
+     nessun suffisso, nessun errore — il docente se ne accorgeva aprendo la
+     cartella. `Fonti/` invece disambigua da sempre con « · 02», e questa è la
+     stessa forma, perché due grafie per lo stesso mestiere sono due cose da
+     tenere allineate.
+     Puro: riceve l'elenco dei nomi già presenti, non guarda il disco.          */
+  function nomeLibero(nome, esistenti) {
+    var lista = (esistenti || []).map(function (x) { return String(x || '').toLowerCase(); });
+    if (lista.indexOf(String(nome || '').toLowerCase()) < 0) return nome;
+    var m = /^(.*?)(\.[A-Za-z0-9]+)?$/.exec(String(nome || ''));
+    var base = (m && m[1]) || String(nome || '');
+    var est = (m && m[2]) || '';
+    for (var n = 2; n <= 99; n++) {
+      var cand = base + ' · ' + (n < 10 ? '0' + n : String(n)) + est;
+      if (lista.indexOf(cand.toLowerCase()) < 0) return cand;
+    }
+    return null;   /* 98 varianti dello stesso nome: chi chiama deve dirlo, non insistere */
   }
 
   // ── Preset riusabili (US3) — SOLO output, mai la classe ─────────────────
@@ -324,6 +393,9 @@
     validateSynthesis: validateSynthesis,
     estimateCalls: estimateCalls,
     buildFileName: buildFileName,
+    nomeLibero: nomeLibero,
+    GENERI: GENERI,
+    SUFFISSO_TARATO: SUFFISSO_TARATO,
     hasOutput: hasOutput
   };
 

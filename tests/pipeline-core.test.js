@@ -253,9 +253,81 @@ test('buildFileName: nomi canonici + marcatore VERDE', () => {
   assert.strictEqual(PC.buildFileName('nodesheet', 'keywords', true), 'Foglio-nodi-keywords -VERDE.pdf');
   assert.strictEqual(PC.buildFileName('synthesis', null, false), 'Sintesi.html');
   assert.strictEqual(PC.buildFileName('synthesis', null, true), 'Sintesi -VERDE.html');
-  assert.strictEqual(PC.buildFileName('tts', null, true), 'Sintesi-audio.mp3');
   // segmenti con caratteri illegali sanitizzati
   assert.strictEqual(PC.buildFileName('quiz_mc', 'A/B:C', false), 'Quiz-MC-A B C.pdf');
+});
+
+/* ⚠️ CAMBIO DI COMPORTAMENTO (9/8): l'MP3 prende il marcatore di taratura.
+   Prima era `Sintesi-audio.mp3` fisso, e il test lo fissava. Ma un vault può
+   contenere `Sintesi.html` e `Sintesi -VERDE.html` insieme, mentre l'audio era
+   uno solo: il secondo passaggio della pipeline lo sovrascriveva e restava
+   accoppiato al testo sbagliato — cioè una voce che legge parole che non ci
+   sono. Il marcatore lo rende univoco quanto il testo che pronuncia. */
+test('buildFileName: l\'audio segue la taratura del testo che pronuncia', () => {
+  assert.strictEqual(PC.buildFileName('tts', null, false), 'Sintesi-audio.mp3');
+  assert.strictEqual(PC.buildFileName('tts', null, true), 'Sintesi-audio -VERDE.mp3');
+});
+
+/* La forma nuova: <Tipo>-<Mappa>[-<dettaglio>][-<nome del docente>][ -VERDE] */
+test('buildFileName: mappa, dettaglio e nome scelto dal docente', () => {
+  assert.strictEqual(
+    PC.buildFileName('quiz_mc', null, true, { mappa: 'Il Clima', nome: 'ripasso finale' }),
+    'Quiz-MC-Il Clima-ripasso finale -VERDE.pdf');
+  assert.strictEqual(
+    PC.buildFileName('synthesis', null, false, { mappa: 'Il Clima' }),
+    'Sintesi-Il Clima.html');
+  assert.strictEqual(
+    PC.buildFileName('synthesis', null, false, { mappa: 'Il Clima', dettaglio: 'Venti', nome: 'per Anna' }),
+    'Sintesi-Il Clima-Venti-per Anna.html');
+  assert.strictEqual(
+    PC.buildFileName('nodesheet', null, true, { mappa: 'Il Clima', dettaglio: 'card' }),
+    'Foglio-nodi-Il Clima-card -VERDE.pdf');
+  assert.strictEqual(
+    PC.buildFileName('causal', null, false, { mappa: 'Il Clima' }),
+    'Catena-dei-perche-Il Clima.pdf');
+  assert.strictEqual(
+    PC.buildFileName('tts', null, false, { mappa: 'Il Clima' }),
+    'Sintesi-audio-Il Clima.mp3');
+  // il nome del docente passa dalla stessa sanitizzazione dei nomi di file
+  assert.strictEqual(
+    PC.buildFileName('flashcards', null, false, { mappa: 'A', nome: 'B/C' }),
+    'Flashcard-A-B C.pdf');
+});
+
+/* Il TIPO deve restare in testa: è così che `_diskKind` riconosce un file, e da
+   quel riconoscimento dipendono il raggruppamento della colonna e il bottone
+   «Modifica». Se questo test cade, la colonna smette di sapere che cos'ha in
+   mano — e lo fa in silenzio, mostrando tutto come «File». */
+test('buildFileName: i nomi nuovi restano riconoscibili dal classificatore', () => {
+  const RX = [
+    [/\.mp3$|\.m4a$|\.wav$/i, 'Audio'],
+    [/^Quiz-MC-/i, 'Quiz MC'], [/^Quiz-VF-/i, 'Quiz V/F'],
+    [/^Flashcard-/i, 'Flashcard'], [/^Foglio.?nodi/i, 'Foglio nodi'],
+    [/^Sintesi/i, 'Sintesi'], [/^Catena.dei.perche/i, 'Catena dei perché']
+  ];
+  const atteso = {
+    quiz_mc: 'Quiz MC', quiz_tf: 'Quiz V/F', flashcards: 'Flashcard',
+    nodesheet: 'Foglio nodi', synthesis: 'Sintesi', causal: 'Catena dei perché', tts: 'Audio'
+  };
+  Object.keys(atteso).forEach((kind) => {
+    const nome = PC.buildFileName(kind, null, true, { mappa: 'Il Clima', dettaglio: 'card', nome: 'per Anna' });
+    const trovato = RX.find((r) => r[0].test(nome));
+    assert.ok(trovato, 'non classificato: ' + nome);
+    assert.strictEqual(trovato[1], atteso[kind], nome);
+  });
+});
+
+test('nomeLibero: disambigua con « · 02» come già fa Fonti/', () => {
+  assert.strictEqual(PC.nomeLibero('Sintesi-A.html', []), 'Sintesi-A.html');
+  assert.strictEqual(PC.nomeLibero('Sintesi-A.html', ['altro.pdf']), 'Sintesi-A.html');
+  assert.strictEqual(PC.nomeLibero('Sintesi-A.html', ['Sintesi-A.html']), 'Sintesi-A · 02.html');
+  assert.strictEqual(
+    PC.nomeLibero('Sintesi-A.html', ['Sintesi-A.html', 'Sintesi-A · 02.html']),
+    'Sintesi-A · 03.html');
+  // il confronto ignora maiuscole e minuscole: su macOS il filesystem fa lo stesso
+  assert.strictEqual(PC.nomeLibero('Sintesi-A.html', ['sintesi-a.html']), 'Sintesi-A · 02.html');
+  // un nome senza estensione resta trattabile
+  assert.strictEqual(PC.nomeLibero('appunti', ['appunti']), 'appunti · 02');
 });
 
 /* ═══ STEP E — «Catena dei perché» come materiale INDIPENDENTE (5/8) ══════════
