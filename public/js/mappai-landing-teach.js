@@ -2754,7 +2754,13 @@
 
       /* ESC a strati: prima si chiude il documento, poi la console. Chiudere
          tutto al primo ESC farebbe perdere il posto in cui si stava lavorando. */
-      if (id === '__esc') { if (_cons.mat) { _cons.mat = null; rifai(); return false; } return; }
+      /* ESC chiude il MATERIALE aperto nella tela, e basta: senza materiale non
+         fa niente (decisione di Giacomo, 10/8). Prima usciva dalla console, e
+         siccome entrando in INSEGNA la landing sotto viene messa su COSTRUISCI
+         — un dettaglio interno, «è dove si atterra chiudendola» — un ESC
+         distratto sbatteva in CREA. Dalla sezione si esce dal percorso in alto,
+         che è un gesto deliberato. */
+      if (id === '__esc') { if (_cons.mat) { _cons.mat = null; rifai(); } return false; }
 
       if (id === '__nav') {
         var v = ev.voce;

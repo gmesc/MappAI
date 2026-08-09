@@ -1675,6 +1675,16 @@
     async function saveToVault() {
         return _salvaConNome();
     }
+    /* «Salva» quando la domanda arriva da FUORI (la console, uscendo da un
+       documento con modifiche in sospeso). Passa dalla stessa strada di
+       «Stampa» e di «Salva ed Esci»: chiede il nome, avvisa se esiste già, e
+       scrive il file — non `save()`, che per quattro generi su cinque tocca
+       solo memoria e localStorage e non lascerebbe nessun file.
+       → Promise: il nome scritto (stringa) · `false` (documento salvato ma
+         file no, ed è già stato detto) · `null` (ha rinunciato: non si esce). */
+    async function salvaConNome() {
+        return _salvaConNome();
+    }
 
     // ── modale generico (stile .pm-* dell'app) ──────────────────────────────
     function _modal(title, sub, bodyHtml, onOk) {
@@ -3036,6 +3046,7 @@
         zoomStep: zoomStep, zoomReset: zoomReset,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
+        salvaConNome: salvaConNome,
         openAnswersModal: openAnswersModal, openFlashModal: openFlashModal
     };
 

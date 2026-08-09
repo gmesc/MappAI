@@ -1115,14 +1115,24 @@
             if (!_sporco() || !MM().chiediSalvataggio) { poi(); return; }
             MM().chiediSalvataggio({ nome: _etichettaVoce(_voce) }).then(function (a) {
                 if (a === 'annulla') return;
-                if (a === 'salva') {
-                    try { DEd().save(); } catch (e) { }
-                    /* `save()` può RINUNCIARE (validazione rifiutata, set sparito
-                       dalla mappa): se il documento è ancora sporco non si esce,
-                       o si perderebbe proprio ciò che si era chiesto di salvare. */
-                    if (_sporco()) return;
-                }
-                poi();
+                if (a !== 'salva') { poi(); return; }         /* «esci senza salvare» */
+                /* ⚠️ Si passa da `salvaConNome`, non da `save()`: chi risponde
+                   «salva» si aspetta il materiale, e `save()` per quattro generi
+                   su cinque scrive solo in memoria e in localStorage — nessun
+                   file nella cartella della mappa. Questa strada chiede il nome
+                   e avvisa se esiste già, come «Stampa» e «Salva ed Esci».
+                   ⚠️ E si ASPETTA: prima la chiamata non era attesa e `_sporco()`
+                   veniva letto mentre la scrittura era ancora in volo — per una
+                   sintesi-da-vault il documento non cambiava mai. */
+                var D = DEd();
+                var p = (D && D.salvaConNome) ? D.salvaConNome() : Promise.resolve(D && D.save && D.save());
+                Promise.resolve(p).then(function (esito) {
+                    /* `null` = ha rinunciato (nome annullato, collisione
+                       annullata, validazione rifiutata): NON si esce, o si
+                       perderebbe proprio ciò che si era chiesto di salvare. */
+                    if (esito === null || _sporco()) return;
+                    poi();
+                }).catch(function () { /* l'errore l'ha già detto chi salva */ });
             });
         }
         /* Torna al segnaposto: l'area si svuota e la colonna resta.
@@ -1229,7 +1239,16 @@
                salvataggio, che è asincrona: rispondere dopo vorrebbe dire che la
                console si chiude mentre la domanda è ancora a schermo. */
             if (id === '__esc') {
-                if (!_voce) return;                  /* area già vuota: esce la console */
+                /* ⚠️ Senza documento aperto ESC NON fa niente, e si resta qui
+                   (decisione di Giacomo, 10/8). Prima chiudeva la console: in
+                   ELABORA questo spazzava via l'intera schermata della sezione
+                   e sotto restava una landing vuota, da cui per rientrare
+                   bisognava riscegliere dal percorso la sezione in cui si era
+                   già — un vicolo cieco apparente. Questa console NON è una
+                   finestra sopra ELABORA: è ELABORA. Dalla sezione si esce dal
+                   percorso in alto, che è un gesto deliberato; ESC chiude uno
+                   strato, e qui l'unico strato è il documento. */
+                if (!_voce) return false;
                 _conSalvataggio(_chiudiDocumento);
                 return false;
             }
