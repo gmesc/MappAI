@@ -2116,6 +2116,16 @@
     { id: 'altro', chiave: 'lt_g_altro', testo: 'Altri materiali', tipi: null },
     { id: 'dati', chiave: 'lt_g_dati', testo: 'File di lavoro', tipi: ['Dati'], chiusa: true }
   ];
+  /* Che cosa si ha in mano, in una parola. Due domande in una colonna sola:
+     il FORMATO per i file del vault (è un PDF che si stampa? una pagina HTML
+     che si condivide?) e la NATURA per le voci dell'archivio, che un'estensione
+     non ce l'hanno perché non sono ancora un file: si aprono nell'editor. */
+  function _formatoMateriale(m) {
+    if (!m) return '—';
+    if (m.archivio) return _t('lt_tipo_edit', 'Modificabile');
+    var e = /\.([A-Za-z0-9]+)$/.exec(String(m.titolo || ''));
+    return e ? e[1].toUpperCase() : _t('lt_tipo_file', 'File');
+  }
   function _consTabelleMateriali(lista, conMappa) {
     lista = lista || _cons.materiali || [];
     var noti = {};
@@ -2125,12 +2135,16 @@
         return g.tipi ? g.tipi.indexOf(m.tipo) >= 0 : !noti[m.tipo];
       });
       if (!righe.length) return null;
-      /* La colonna «Tipo» compare solo dove distingue davvero: dentro un elenco
-         intitolato SINTESI, una colonna che ripete «Sintesi» a ogni riga è
-         spazio tolto al nome del file. */
-      var misto = righe.some(function (m) { return m.tipo !== righe[0].tipo; });
+      /* La colonna «Tipo» NON ripete il genere: quello lo dice già il titolo
+         dell'elenco, e scriverlo a ogni riga sarebbe spazio tolto al nome.
+         Dice invece che COSA si ha in mano — un PDF, una pagina HTML, o un set
+         ancora modificabile — che è l'unica cosa che le colonne non dicevano.
+         Serve perché nello stesso elenco convivono due nature: il file finito
+         nel vault («Quiz-MC-….pdf») e la voce dell'archivio che si può ancora
+         correggere («Sistema Terra — Scelta Multipla»), e a occhio erano
+         indistinguibili. */
       var colonne = [{ etichetta: _t('lt_col_nome', 'Nome'), larghezza: '' }];
-      if (misto) colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '150px' });
+      colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '132px' });
       /* nella vista di classe la mappa di provenienza è l'informazione che
          manca di più: senza, due «Sintesi -VERDE.html» sono indistinguibili */
       if (conMappa) colonne.push({ etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '190px' });
@@ -2145,8 +2159,7 @@
         id: 'g:' + g.id, titolo: _t(g.chiave, g.testo), chiusa: !!g.chiusa,
         colonne: colonne,
         righe: righe.map(function (m) {
-          var celle = [m.titolo];
-          if (misto) celle.push(m.tipo);
+          var celle = [m.titolo, _formatoMateriale(m)];
           if (conMappa) celle.push(m.mappa || '—');
           celle.push(m.cls || '—');
           celle.push(m.disc || '—');

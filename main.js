@@ -1023,6 +1023,7 @@ ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
         const files = [];
         if (fs.existsSync(dir)) {
             fs.readdirSync(dir).forEach(name => {
+                if (name.charAt(0) === '.') return;   // .DS_Store & co.: non sono materiali
                 try {
                     const fp = path.join(dir, name);
                     const st = fs.statSync(fp);

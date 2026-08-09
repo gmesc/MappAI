@@ -2527,6 +2527,10 @@ const en_translations = {
     lt_g_dati: "Working files",
     lt_col_nome: "Name",
     lt_col_tipo: "Type",
+    /* La colonna «Tipo» non ripete il genere (lo dice il titolo dell'elenco):
+       dice il formato del file, o che la voce è ancora modificabile. */
+    lt_tipo_edit: "Editable",
+    lt_tipo_file: "File",
     lt_col_data: "Date",
     lt_cons_cerco: "Looking for the maps…",
     lt_cons_lamappa: "The map",
