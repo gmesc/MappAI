@@ -81,9 +81,25 @@
   }
   function _recordFile(manifest, step, relPath) {
     const m = JSON.parse(JSON.stringify(manifest));
-    m.steps[step].files = (m.steps[step].files || []).concat([relPath]);
+    const gia = m.steps[step].files || [];
+    /* Lo STESSO percorso non si annota due volte. `stepTransition` azzera la
+       lista a ogni tentativo, quindi fra un tentativo e l'altro non ci sono
+       doppioni; ma dentro un solo passo un file può essere riscritto — la
+       sintesi lo è, per agganciare la voce — e senza questa guardia il
+       riepilogo conterebbe un materiale che sul disco non esiste. */
+    m.steps[step].files = (gia.indexOf(relPath) >= 0) ? gia : gia.concat([relPath]);
     m.updatedAt = _now();
     return m;
+  }
+  /* ⚠️ `buildFileName('tts', …)` promette `.mp3`, ma la voce torna in WAV
+     quando l'encoder lamejs non è caricato (`_encodeAudio` in
+     mappai-branch-synthesis.js sceglie MP3 «se possibile»): un WAV scritto
+     dentro un file `.mp3` è una bugia che paga chi apre il documento. Comanda
+     l'estensione dichiarata dal blob, non la tabella dei generi. */
+  function _conEstensione(nome, ext) {
+    const e = String(ext || '').replace(/^\./, '');
+    if (!e) return nome;
+    return String(nome).replace(/\.[A-Za-z0-9]+$/, '.' + e);
   }
   function _blobToB64(blob) {
     return new Promise((res, rej) => {
@@ -246,7 +262,13 @@
         if (!pdf || !pdf.ok) throw new Error('PDF quiz non generato: ' + ((pdf && pdf.error) || '?'));
         const v = PC().validatePdfB64(pdf.base64);
         if (!v.ok) throw new Error('Quiz ' + spec.typeLabel + ': ' + v.error);
-        const fileName = PC().buildFileName(spec.kind, mapName, config.tuned);
+        /* La mappa entra nel nome per la stessa ragione degli altri materiali:
+           questi file escono dal vault (si stampano, si mandano, finiscono su
+           una chiavetta) e lì il solo tipo non basta più a riconoscerli.
+           Forma esplicita `opts.mappa` invece del vecchio `label`: qui il
+           risultato è identico, ma i cinque nomi della pipeline si leggono ora
+           tutti allo stesso modo. */
+        const fileName = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName });
         const rel = 'Materiale Studio/' + fileName;
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
         if (!w || !w.ok) throw new Error('Scrittura quiz fallita: ' + ((w && w.error) || '?'));
@@ -272,6 +294,7 @@
     await _writeManifest(vaultPath, manifest);
     try {
       const ns = config.nodesheet;
+      const mapName = _mapName();
       let modes = (ns.modes || []).slice();
       if (ns.fmt === '3x4') modes = ['title'];   // vincolo motore: 3x4 = solo titolo
       modes = modes.filter((m, i) => modes.indexOf(m) === i);
@@ -297,7 +320,11 @@
         if (!res || !res.ok) throw new Error('Foglio nodi (' + layout + ') non generato');
         const v = PC().validatePdfB64(res.base64);
         if (!v.ok) throw new Error('Foglio nodi (' + layout + '): ' + v.error);
-        const fileName = PC().buildFileName('nodesheet', layout, config.tuned);
+        /* Il layout scende da `label` a `opts.dettaglio`: resta ciò che
+           distingue due fogli della STESSA mappa, ma smette di occupare il
+           posto del nome della mappa — che prima non compariva affatto
+           («Foglio-nodi-card.pdf» non dice di che cosa sono le card). */
+        const fileName = PC().buildFileName('nodesheet', null, config.tuned, { mappa: mapName, dettaglio: layout });
         const rel = 'Materiale Studio/' + fileName;
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: res.base64 });
         if (!w || !w.ok) throw new Error('Scrittura foglio nodi fallita: ' + ((w && w.error) || '?'));
@@ -321,14 +348,31 @@
     try {
       _setContext('synthesis');
       _overlay(_t('mp_step_d', 'Scrivo la sintesi…'));
+      const mapName = _mapName();
       const data = await window.MappAISynthesis.runWholeMap({ apiKey, tuned: !!config.tuned, silent: true });
       const v = PC().validateSynthesis(data);
       if (!v.ok) throw new Error('Sintesi: ' + v.error);
-      const html = window.MappAISynthesis.buildHtml(data);
-      const htmlName = PC().buildFileName('synthesis', null, config.tuned);
+      const htmlName = PC().buildFileName('synthesis', null, config.tuned, { mappa: mapName });
       const relHtml = 'Materiale Studio/' + htmlName;
-      const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relHtml, text: html });
-      if (!w || !w.ok) throw new Error('Scrittura sintesi fallita: ' + ((w && w.error) || '?'));
+      /* Il documento si scrive DUE volte, ed è la scelta voluta.
+         L'HTML e l'MP3 sono file fratelli e finora non si conoscevano: chi
+         apriva la sintesi non sapeva che accanto c'era la voce naturale — cioè
+         il materiale pagato in token restava invisibile a chi lo riceve.
+         Per agganciarli serve scrivere nell'HTML il nome dell'audio, ma quel
+         nome si può scrivere con onestà solo DOPO che l'MP3 è davvero sul
+         disco: la voce è degradabile (FR-006, fallisce senza fermare il passo),
+         quindi calcolarne il nome prima significherebbe consegnare agli allievi
+         un documento che punta a un file che non c'è.
+         Ordine: HTML nudo → audio → riscrittura dell'HTML col riferimento.
+         Costa una scrittura di una stringa che è già in memoria, non una
+         seconda generazione; e se la riscrittura fallisce resta valido il
+         documento di prima, che semplicemente non richiama la voce. */
+      const scriviHtml = async function (opts) {
+        const html = window.MappAISynthesis.buildHtml(data, opts);
+        const r = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relHtml, text: html });
+        if (!r || !r.ok) throw new Error('Scrittura sintesi fallita: ' + ((r && r.error) || '?'));
+      };
+      await scriviHtml();
       manifest = _recordFile(manifest, 'D', relHtml);
       await _writeManifest(vaultPath, manifest);
       // Voce: degradabile (FR-006) → fallimento = nota, NON step failed.
@@ -338,10 +382,38 @@
           _overlay(_t('mp_step_d_audio', 'Genero la voce naturale…'));
           const audio = await window.MappAISynthesis.generateAudio(data);
           const b64 = await _blobToB64(audio.blob);
-          const relAudio = 'Materiale Studio/' + PC().buildFileName('tts', null, false);
+          /* L'audio prende il marcatore ` -VERDE` del testo che pronuncia: un
+             vault può contenere «Sintesi …» e «Sintesi … -VERDE» insieme, e con
+             un solo nome d'audio la seconda passata sovrascriveva la prima
+             lasciando la voce accoppiata al testo sbagliato. */
+          const audioName = _conEstensione(PC().buildFileName('tts', null, config.tuned, { mappa: mapName }), audio.ext);
+          const relAudio = 'Materiale Studio/' + audioName;
           const wa = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relAudio, base64: b64 });
-          if (wa && wa.ok) { manifest = _recordFile(manifest, 'D', relAudio); await _writeManifest(vaultPath, manifest); }
-          else throw new Error((wa && wa.error) || 'scrittura audio');
+          if (!wa || !wa.ok) throw new Error((wa && wa.error) || 'scrittura audio');
+          manifest = _recordFile(manifest, 'D', relAudio);
+          await _writeManifest(vaultPath, manifest);
+          /* Ora l'MP3 esiste: l'HTML può dirlo. `audioSrc` è un percorso
+             RELATIVO — i due file stanno nella stessa cartella, quindi è il
+             solo nome — codificato come segmento d'URL perché spazi, «·» e
+             accenti nel nome della mappa non spezzino né l'indirizzo né
+             l'attributo che lo contiene.
+             Passano anche i `cues`: sono i tempi di inizio di ogni blocco, cioè
+             ciò che tiene il karaoke allineato alla voce. La pipeline finora li
+             buttava via, e la copia nel vault leggeva peggio di quella scaricata
+             a mano dallo stesso motore.
+             ⚠️ Riscrittura degradabile come la voce: tutti i materiali sono già
+             al loro posto, qui si perderebbe solo il collegamento. */
+          try {
+            /* ⚠️ Il nome viaggia GREZZO: a codificarlo è chi costruisce l'URL
+               (`_relUrl` nel generatore del documento). Codificarlo anche qui
+               produceva `%2520` al posto di `%20` — un file che non esiste — e
+               il guasto sarebbe stato MUTO, perché il documento ripiega da solo
+               sulla voce di sistema quando l'audio non carica. Un codificatore
+               solo, nel punto in cui l'indirizzo si scrive. */
+            await scriviHtml({ audioSrc: audioName, audioMime: audio.mime, cues: audio.cues });
+          } catch (he) {
+            manifest.steps.D.audioNote = _t('mp_audio_unlinked', 'voce salvata, ma il documento non la richiama: ') + (he.message || he);
+          }
         } catch (ae) {
           manifest.steps.D.audioNote = 'voce non generata: ' + (ae.message || ae);
           _toast(_t('mp_audio_degraded', 'Sintesi salvata; voce non generata (' + (ae.message || ae) + ')'), 'warning');
@@ -401,7 +473,11 @@
       if (!pdf || !pdf.ok || !pdf.base64) throw new Error((pdf && pdf.error) || 'PDF non prodotto');
       const v = PC().validatePdfB64(pdf.base64);
       if (!v.ok) throw new Error(v.error);
-      const rel = 'Materiale Studio/' + PC().buildFileName('causal', null, config.tuned);
+      /* Il nome della mappa lo dà `_mapName()`, non `CC.mapName()` che intitola
+         il documento: i nomi dei file della pipeline hanno una fonte sola,
+         altrimenti due materiali della stessa mappa si chiamerebbero in due modi
+         e nella cartella non risulterebbero più fratelli. */
+      const rel = 'Materiale Studio/' + PC().buildFileName('causal', null, config.tuned, { mappa: _mapName() });
       const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
       if (!w || !w.ok) throw new Error('Scrittura catena fallita: ' + ((w && w.error) || '?'));
       manifest = _recordFile(manifest, 'E', rel);
@@ -417,6 +493,30 @@
   // ══════════════════════════════════════════════════════════════════════
   // Orchestratore
   // ══════════════════════════════════════════════════════════════════════
+  /* Esegue un passo e confronta i file che ha scritto con quelli che risultavano
+     scritti PRIMA (il manifest li elenca, e `stepTransition` azzera la lista a
+     ogni nuovo tentativo). Quello che c'era e non c'è più è un ORFANO: sta
+     ancora nella cartella ma nessuno lo produce più.
+     Serve perché i nomi dei materiali sono cambiati — la mappa entra nel nome —
+     e una pipeline ripresa da un manifest scritto prima riscrive gli stessi
+     materiali con nomi nuovi, lasciando accanto quelli vecchi. Non li cancello:
+     un foglio può essere già stato stampato o corretto a mano, e cancellare in
+     silenzio i file di qualcun altro è peggio del disordine. Ma non li lascio
+     nemmeno sparire dal racconto: finiscono nel manifest e nel riepilogo.
+     Vale per qualunque cambio di nome futuro, non solo per quello di oggi: il
+     confronto è fra due elenchi, non fra due convenzioni scritte a mano. */
+  async function _passo(vaultPath, manifest, step, esegui) {
+    const prima = ((manifest.steps[step] || {}).files || []).slice();
+    const m = await esegui();
+    const dopo = ((m.steps[step] || {}).files || []);
+    const orfani = prima.filter(p => dopo.indexOf(p) < 0);
+    if (!orfani.length) return m;
+    m.steps[step].orfani = orfani;
+    console.warn('[Pipeline] ' + step + ': file della versione precedente rimasti nella cartella →', orfani);
+    await _writeManifest(vaultPath, m);
+    return m;
+  }
+
   // opts: { only?: ['B','C','D','E'] per Riprova; vaultPath?, manifest? per ripresa }
   Pipeline.run = async function (config, opts) {
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
@@ -488,10 +588,10 @@
 
       const wants = function (s) { return !opts.only || opts.only.indexOf(s) >= 0; };
       // Un tentativo su uno step failed → resettalo a running via failed→running dentro _stepX.
-      if (config.quiz && wants('B') && manifest.steps.B.status !== 'done') manifest = await _stepB(vaultPath, manifest, config, apiKey, counter);
-      if (config.nodesheet && wants('C') && manifest.steps.C.status !== 'done') manifest = await _stepC(vaultPath, manifest, config);
-      if (config.synthesis && wants('D') && manifest.steps.D.status !== 'done') manifest = await _stepD(vaultPath, manifest, config, apiKey);
-      if (config.causal && wants('E') && manifest.steps.E && manifest.steps.E.status !== 'done') manifest = await _stepE(vaultPath, manifest, config);
+      if (config.quiz && wants('B') && manifest.steps.B.status !== 'done') manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter));
+      if (config.nodesheet && wants('C') && manifest.steps.C.status !== 'done') manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config));
+      if (config.synthesis && wants('D') && manifest.steps.D.status !== 'done') manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey));
+      if (config.causal && wants('E') && manifest.steps.E && manifest.steps.E.status !== 'done') manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
 
       // Rendi i set quiz/flashcard accessibili SUBITO dalla pagina Insegna
       // (indice mappai_studysets_index + progetto) senza attendere un autosave:
@@ -844,9 +944,18 @@
         : '';
       const err = rec.status === 'failed' && rec.error ? '<div class="pm-option-desc" style="color:#dc2626;margin-top:2px">' + _esc(rec.error) + '</div>' : '';
       const note = rec.audioNote ? '<div class="pm-option-desc" style="color:#b45309;margin-top:2px">' + _esc(rec.audioNote) + '</div>' : '';
+      /* I file della versione precedente restano nella cartella (vedi `_passo`):
+         detto qui, perché è l'unico momento in cui il docente sta guardando che
+         cosa è stato prodotto — e senza, li troverebbe da solo settimane dopo
+         senza sapere quale dei due sia quello buono. */
+      const orf = (rec.orfani && rec.orfani.length)
+        ? '<div class="pm-option-desc" style="color:#b45309;margin-top:2px">' +
+            _esc(_t('mp_orfani', 'Col nome vecchio, ancora nella cartella: ') +
+                 rec.orfani.map(p => String(p).split('/').pop()).join(', ')) + '</div>'
+        : '';
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">' +
         '<div><div style="font-weight:800;color:#334155;font-size:13px">' + _esc(_stepLabel(s)) + '</div>' +
-        '<div class="pm-option-desc">' + (nfiles ? (nfiles + ' ' + _esc(_t('mp_files', 'file'))) : '') + '</div>' + err + note + '</div>' +
+        '<div class="pm-option-desc">' + (nfiles ? (nfiles + ' ' + _esc(_t('mp_files', 'file'))) : '') + '</div>' + err + note + orf + '</div>' +
         '<div style="display:flex;align-items:center;gap:10px">' + _statusChip(rec.status) + retry + '</div></div>';
     }).join('');
 
@@ -907,7 +1016,12 @@
     document.body.appendChild(modal);
     _icons();
     modal.querySelector('#mpr-no').onclick = () => modal.remove();
-    modal.querySelector('#mpr-yes').onclick = () => { modal.remove(); Pipeline.run(manifest.config || {}, { only: ['B', 'C', 'D'], vaultPath, manifest }); };
+    /* Tutti i passi tranne A (la mappa c'è già: è il vault che stiamo aprendo).
+       La lista si ricava da `PC().STEPS` e non si scrive a mano: era ferma a
+       B·C·D e la «Catena dei perché», nata dopo, non veniva MAI ripresa — una
+       pipeline interrotta lì restava incompleta a ogni riapertura del vault,
+       senza che il bottone «Riprendi» potesse chiuderla. */
+    modal.querySelector('#mpr-yes').onclick = () => { modal.remove(); Pipeline.run(manifest.config || {}, { only: PC().STEPS.filter(s => s !== 'A'), vaultPath, manifest }); };
   }
 
   window.MappAIPipeline = Pipeline;

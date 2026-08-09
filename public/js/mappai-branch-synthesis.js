@@ -39,6 +39,27 @@
         return window.currentLanguage === 'en' || window.currentLanguage === 'en-US';
     }
 
+    // Percorso RELATIVO → stringa utilizzabile in un attributo `src`. I nomi dei
+    // file del vault portano spazi, parentesi e accenti: senza codifica il
+    // riferimento si rompe in silenzio (un `#` nel nome tronca l'URL, e da lì in
+    // poi il documento è muto senza dirlo). Si codifica segmento per segmento,
+    // così le sottocartelle restano tali. Chi passa già un URL con schema
+    // (`data:`, `file:`, `http:`, `//…`) lo vede transitare intatto.
+    function _relUrl(p) {
+        const s = String(p == null ? '' : p);
+        if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.indexOf('//') === 0) return s;
+        return s.split('/').map(function (seg) {
+            try { return encodeURIComponent(seg); } catch (e) { return seg; }
+        }).join('/');
+    }
+    function _mimeFromExt(p) {
+        const ext = String(p == null ? '' : p).toLowerCase().split('.').pop();
+        if (ext === 'wav') return 'audio/wav';
+        if (ext === 'm4a' || ext === 'mp4' || ext === 'aac') return 'audio/mp4';
+        if (ext === 'ogg' || ext === 'oga' || ext === 'opus') return 'audio/ogg';
+        return 'audio/mpeg';   // mp3 e sconosciuti: è il formato che produciamo
+    }
+
     // ── Raccolta nodi del ramo ────────────────────────────────────────────
     // Raccolta ramo → base condivisa col Dossier (mappai-study-export-core.js).
     function _collectBranchNodes(rootId) {
@@ -575,9 +596,28 @@
         data = data || _lastSynthesis;
         opts = opts || {};
         if (!data) return '';
-        // Voce naturale (Gemini) incorporata come data-URI: viaggia col file HTML.
-        const audioTag = opts.audioDataUri
-            ? '<audio id="ap-audio" preload="auto" style="display:none"><source src="' + opts.audioDataUri + '" type="' + (opts.audioMime || 'audio/wav') + '"></audio>'
+        // Voce naturale (Gemini). Due strade, decise dal chiamante:
+        //  · `audioDataUri` — l'audio INCORPORATO nel file. Un file solo, che si
+        //    ascolta anche offline e si inoltra per posta, ma pesa: un MP3 vero
+        //    da 6,16 MB porta l'HTML da 63 KB a 8,28 MB (137×). È la copia da
+        //    CONSEGNARE.
+        //  · `audioSrc` — percorso RELATIVO all'audio che sta nella STESSA
+        //    cartella (es. `Sintesi-audio-Il Clima -VERDE.mp3`). Il documento
+        //    resta leggero e punta al fratello: è la copia che vive nel VAULT,
+        //    accanto al suo audio.
+        // Se arrivano entrambi vince `audioDataUri`: chi incorpora ha già deciso
+        // che quel file deve bastare a sé stesso.
+        const audioUrl = opts.audioDataUri || (opts.audioSrc ? _relUrl(opts.audioSrc) : '');
+        // UNA regola per il tipo — incorporato ⇔ il `src` comincia per `data:` —
+        // e `data-ap-src` la dichiara nel markup: chi ospita il documento in un
+        // iframe deve poter distinguere i due casi senza annusare una stringa
+        // che, incorporata, è lunga megabyte.
+        const audioEmbedded = /^data:/i.test(audioUrl);
+        const audioTag = audioUrl
+            ? '<audio id="ap-audio" preload="auto" data-ap-src="' + (audioEmbedded ? 'embedded' : 'file') + '" style="display:none">'
+                + '<source src="' + (audioEmbedded ? audioUrl : _escBS(audioUrl)) + '"'
+                + ' type="' + _escBS(opts.audioMime || (audioEmbedded ? 'audio/wav' : _mimeFromExt(opts.audioSrc))) + '">'
+              + '</audio>'
             : '';
         // Cue map: tempo reale di inizio di ogni blocco → karaoke sincronizzato con la voce.
         const cuesTag = (opts.cues && opts.cues.length)
@@ -607,6 +647,29 @@
         const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';
+
+        // Etichette del comando Aa, una per stato del ciclo: il bottone DEVE dire
+        // dove si è, altrimenti a schermo lo stato non è visibile in nessun modo.
+        // Il documento è autoconsistente → le stringhe si cuociono qui.
+        const dysLabels = [
+            window.t('bs_doc_dys', 'Aa Dislessia'),
+            window.t('bs_doc_dys_x15', 'Aa 1,5×'),
+            window.t('bs_doc_dys_x2', 'Aa 2×')
+        ];
+        const dysTip = window.t('bs_doc_dys_tip', 'Veste ad alta leggibilità: un clic per il testo a 1,5×, un altro per 2×, un terzo per tornare al normale');
+        // Evidenziazione della lettura (karaoke): due stati, e l'ETICHETTA li
+        // nomina. La sola classe accesa sarebbe colore, cioè un canale solo —
+        // la stessa ragione per cui il comando Aa dice dove si è.
+        // Indice 0 = spento, 1 = acceso: il documento parte acceso.
+        const hlLabels = [
+            window.t('bs_doc_hl_off', 'Evidenzia: no'),
+            window.t('bs_doc_hl_on', 'Evidenzia: sì')
+        ];
+        const hlTip = window.t('bs_doc_hl_tip', 'Accende o spegne l\'evidenziazione della frase che si sta ascoltando — e con essa lo scorrimento che la segue');
+        // Le etichette finiscono dentro uno <script> del documento: un `<` letterale
+        // chiuderebbe il tag e la pagina si aprirebbe muta, senza errori in console.
+        const dysLabelsJson = JSON.stringify(dysLabels).replace(/</g, '\\u003c');
+        const hlLabelsJson = JSON.stringify(hlLabels).replace(/</g, '\\u003c');
 
         return `<!DOCTYPE html>
 <html lang="it">
@@ -648,24 +711,76 @@
         .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 11px 'Space Mono',monospace; line-height:1; }
         .bs-body-block { background:rgba(253,230,138,.35); border-radius:5px; box-shadow:0 0 0 3px rgba(253,230,138,.35); }
         ::highlight(ap-read) { background-color:#fde68a; color:#0f172a; }
-        /* Modalità dislessia (attivabile nel documento) */
-        body.ap-dys { background:#f6efdd; }
+        /* Modalità dislessia (attivabile nel documento). Il comando Aa è un ciclo
+           a tre stati — spento → 1,5× → 2× → spento — e i due fattori sono le
+           STESSE scale dell'accessibilità già in vigore nell'app
+           (body.a11y-zoom-x15 / body.a11y-zoom-x2, public/css/style.css:134-140):
+           una terza convenzione qui vorrebbe dire due tarature da tenere allineate.
+           Il fattore vive in --ap-scala, così un numero solo governa tutti i corpi
+           invece di doverli riscrivere uno per uno. */
+        body.ap-dys { --ap-scala:1; background:#f6efdd; }
+        body.ap-dys.ap-x15 { --ap-scala:1.5; }
+        body.ap-dys.ap-x2 { --ap-scala:2; }
         body.ap-dys .bs-body { background:#fffdf6; max-width:none; }
-        body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-family:Verdana,'Trebuchet MS',sans-serif; font-size:15px; line-height:2.05; letter-spacing:.03em; word-spacing:.14em; color:#33312e; text-align:left; margin-bottom:14px; }
-        body.ap-dys .bs-body h3 { font-family:Verdana,sans-serif; font-size:19px; }
-        body.ap-dys .bs-body h4 { font-family:Verdana,sans-serif; font-size:15px; }
+        body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-family:Verdana,'Trebuchet MS',sans-serif; font-size:calc(15px * var(--ap-scala)); line-height:2.05; letter-spacing:.03em; word-spacing:.14em; color:#33312e; text-align:left; margin-bottom:calc(14px * var(--ap-scala)); }
+        body.ap-dys .bs-body h3 { font-family:Verdana,sans-serif; font-size:calc(19px * var(--ap-scala)); }
+        body.ap-dys .bs-body h4 { font-family:Verdana,sans-serif; font-size:calc(15px * var(--ap-scala)); }
+        /* Il ▶ «ascolta da qui» cresce col testo: a 2× un bersaglio fermo a 20px
+           resterebbe sotto i 24 di WCAG proprio per chi ha ingrandito. */
+        body.ap-dys .bs-body .ap-sec { width:calc(20px * var(--ap-scala)); height:calc(20px * var(--ap-scala)); font-size:calc(11px * var(--ap-scala)); }
+        /* Comandi della testata (Aa · Evidenzia). Lo stile sta QUI e non in un
+           attributo style=: lo stile inline batte qualunque regola del foglio
+           che non porti !important, quindi lo stato acceso non si vedeva — la
+           classe .on la metteva il JS e il fondo restava bianco. Misurato:
+           #ap-dys-btn.on → rgb(255,255,255). Spostandolo in una classe, la
+           regola con l'id vince per cascata, senza !important. */
+        .ap-hdr-btn { background:#fff; color:${accentColor}; border:1px solid #e2e8f0; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:11px; font-weight:bold; }
+        /* Stato acceso: una regola sola per i due, o il secondo comando direbbe
+           «acceso» in un modo diverso dal primo. */
+        #ap-dys-btn.on, #ap-hl-btn.on { background:${accentColor}; color:#fff; border-color:${accentColor}; }
         .no-print { display:block; }
-        @media print { .no-print { display:none !important; } body { background:white; padding:10px; } }
+        /* La testata regge un comando in più solo se qualcosa cede sotto una
+           certa larghezza: a 768px il terzo bottone spingeva barra di
+           avanzamento e tempo FUORI da #ap-bar, sotto i bottoni (misurato:
+           #ap-bar 213..414, .ap-time 469..501). Cede per ORDINE DI IMPORTANZA —
+           prima il marchio (il titolo è ripetuto due centimetri più sotto),
+           poi la barra e il tempo. I comandi non cedono mai: chip, Aa,
+           Evidenzia e Stampa sono ciò per cui il documento è stato consegnato.
+           Le due soglie sono le larghezze MISURATE dei pezzi, non numeri tondi:
+           senza marchio la testata chiede 682px, con marchio 855. */
+        @media (max-width: 880px) { #ap-doc-brand { display:none; } }
+        @media (max-width: 700px) { .ap-prog, .ap-time { display:none; } }
+        @media print {
+            /* Margini di pagina: stessa convenzione del dossier
+               (mappai-print-dossier.js:1960) — 18mm sopra, 15 ai lati, 22 sotto.
+               Senza @page, dalla pagina 2 in poi il testo cominciava e finiva sul
+               bordo del foglio: il padding di .bs-body vale per il BOX, non per
+               ogni pagina. Il PDF nasce da window.print(), quindi chi sceglie
+               «margini minimi» nella finestra di stampa può ancora scavalcarlo —
+               qui l'app dichiara i SUOI margini, come fanno dossier e flashcard. */
+            @page { size: A4 portrait; margin: 18mm 15mm 22mm 15mm; }
+            .no-print { display:none !important; }
+            /* Il padding del body va a ZERO: a schermo stacca il foglio dallo
+               sfondo, in stampa si sommerebbe al margine di @page restringendo la
+               colonna (i 10px di prima valevano 2,65mm — MENO aria dello schermo). */
+            body { background:white; padding:0; }
+            /* Un titolo non resta solo in fondo a una pagina, e un paragrafo non
+               lascia una riga orfana di là dalla piega. */
+            .bs-body h3, .bs-body h4 { break-after:avoid; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid; }
+            .bs-body p, .bs-body li { orphans:3; widows:3; }
+            .bs-cite-row { break-inside:avoid; page-break-inside:avoid; }
+            .bs-citations-title { break-after:avoid; page-break-after:avoid; }
+        }
     </style>
 </head>
 <body>
     <div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;">
-        <span style="font-weight:bold;color:${accentColor};white-space:nowrap;">MappAI · ${_escBS(kindLabel)}</span>
+        <span id="ap-doc-brand" style="font-weight:bold;color:${accentColor};white-space:nowrap;">MappAI · ${_escBS(kindLabel)}</span>
         <div id="ap-bar"></div>
         <div style="display:flex;gap:8px;flex:0 0 auto;">
-            <button id="ap-dys-btn" type="button" style="background:#fff;color:${accentColor};border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:bold;">Aa Dislessia</button>
+            <button id="ap-dys-btn" type="button" class="ap-hdr-btn" title="${_escBS(dysTip)}">${_escBS(dysLabels[0])}</button>
+            <button id="ap-hl-btn" type="button" class="ap-hdr-btn on" aria-pressed="true" title="${_escBS(hlTip)}">${_escBS(hlLabels[1])}</button>
             <button onclick="window.print()" style="background:${accentColor};color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">🖶 Stampa / PDF</button>
-            <button onclick="window.close()" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">✕ Chiudi</button>
         </div>
     </div>
     <div style="height:52px;" class="no-print"></div>
@@ -683,10 +798,27 @@
       var body=document.querySelector('.bs-body');
       var bar=document.getElementById('ap-bar');
       var dysBtn=document.getElementById('ap-dys-btn');
-      if(dysBtn){ dysBtn.addEventListener('click',function(){ document.body.classList.toggle('ap-dys'); dysBtn.classList.toggle('on'); }); }
-      if(!sup||!body||!bar){ if(bar) bar.style.display='none'; return; }
+      var hlBtn=document.getElementById('ap-hl-btn');
+      // Aa: ciclo a tre stati — spento → dislessia 1,5× → dislessia 2× → spento.
+      // Le due scale sono quelle dell'accessibilità dell'app (vedi il foglio sopra).
+      var DYS=${dysLabelsJson}, dysStep=0;
+      var HLB=${hlLabelsJson};
+      if(dysBtn){ dysBtn.addEventListener('click',function(){
+        dysStep=(dysStep+1)%3; var cl=document.body.classList;
+        cl.toggle('ap-dys',dysStep>0); cl.toggle('ap-x15',dysStep===1); cl.toggle('ap-x2',dysStep===2);
+        dysBtn.classList.toggle('on',dysStep>0); dysBtn.textContent=DYS[dysStep];
+      }); }
+      // Il chip serve anche SENZA speechSynthesis quando il file porta la voce
+      // naturale incorporata: su un tablet senza Web Speech l'MP3 c'è ed è proprio
+      // il motivo per cui quel file è stato consegnato. Prima bastava l'assenza di
+      // speechSynthesis a farlo sparire, audio o no.
+      var hasAudio=!!document.getElementById('ap-audio');
+      // Niente lettura possibile → via anche il comando dell'evidenziazione:
+      // accenderebbe qualcosa che non può accadere. Aa resta, che di lettura
+      // non ha bisogno.
+      if((!sup&&!hasAudio)||!body||!bar){ if(bar) bar.style.display='none'; if(hlBtn) hlBtn.style.display='none'; return; }
       var lang=((document.documentElement.lang||'it').toLowerCase().indexOf('en')===0)?'en-US':'it-IT';
-      var hlOK=false, HL=null;
+      var hlOK=false, HL=null, hlOn=true;   // karaoke acceso all'apertura (comportamento storico)
       try{ if(window.CSS&&CSS.highlights&&typeof Highlight!=='undefined'){ HL=new Highlight(); CSS.highlights.set('ap-read',HL); hlOK=true; } }catch(e){}
       function clean(s){ return String(s||'').replace(/\\[\\d+\\]/g,' ').replace(/[*_#]+/g,' ').replace(/\\s+/g,' ').replace(/\\s+([.,;:!?\\u2026\\u00bb)\\]])/g,'$1').trim(); }
       function pieces(block){
@@ -735,13 +867,60 @@
       function curBlockAt(t){ if(!cuesData) return 0; var lo=0; for(var i=0;i<cuesData.length;i++){ if(t>=cuesData[i]-0.001) lo=i; else break; } return lo; }
       function hlByCues(t){ var B=curBlockAt(t); var bStart=cuesData[B]||0, bEnd=(B+1<cuesData.length)?cuesData[B+1]:TOT(); var first=-1,last=-1; for(var i=0;i<chunks.length;i++){ if(chunks[i].bi===B){ if(first<0)first=i; last=i; } } if(first<0){ return; } var sum=0; for(var j=first;j<=last;j++) sum+=dur[j]||0; if(sum<=0||bEnd<=bStart){ hl(first); return; } var acc=bStart,target=first; for(var j2=first;j2<=last;j2++){ var w=(dur[j2]/sum)*(bEnd-bStart); if(t<acc+w){ target=j2; break; } acc+=w; target=j2; } hl(target); } // blocco esatto dai cue + sotto-sync frase nella finestra reale
       function clearHL(){ try{ if(HL) HL.clear(); }catch(e){} if(blockEl){ try{blockEl.classList.remove('bs-body-block');}catch(e){} blockEl=null; } }
-      function hl(i){ clearHL(); var c=chunks[i]; if(!c) return; if(c.src&&c.src.classList){ c.src.classList.add('bs-body-block'); blockEl=c.src; } if(hlOK&&c.r){ try{ var r=document.createRange(); r.setStart(c.r.sN,c.r.sO); r.setEnd(c.r.eN,c.r.eO); HL.add(r); }catch(e){} } try{ if(c.src&&c.src.scrollIntoView) c.src.scrollIntoView({block:'nearest'}); }catch(e){} }
+      // Con l'evidenziazione spenta si spegne anche lo SCORRIMENTO che la segue:
+      // è la stessa funzione — «seguire la lettura» — e una pagina che si muove
+      // da sola senza che si veda perché è peggio di una pagina ferma.
+      function hl(i){ clearHL(); if(!hlOn) return; var c=chunks[i]; if(!c) return; if(c.src&&c.src.classList){ c.src.classList.add('bs-body-block'); blockEl=c.src; } if(hlOK&&c.r){ try{ var r=document.createRange(); r.setStart(c.r.sN,c.r.sO); r.setEnd(c.r.eN,c.r.eO); HL.add(r); }catch(e){} } try{ if(c.src&&c.src.scrollIntoView) c.src.scrollIntoView({block:'nearest'}); }catch(e){} }
+      function reading(){ return audioMode?(audioEl&&!audioEl.paused):playing; }
+      // Girare l'interruttore mentre il documento legge deve avere effetto SUBITO:
+      // accendendo si riprende dalla frase in corso, spegnendo si pulisce. Fermi,
+      // non si evidenzia niente: non c'è nessuna «frase in corso» da marcare.
+      function refreshHL(){
+        if(!hlOn||!reading()){ clearHL(); return; }
+        if(audioMode){ if(cuesData&&cuesData.length) hlByCues(CUR()); else hl(idxAtReal(CUR())); return; }
+        hl(idx);
+      }
       var bBack,bPlay,bFwd,bRate,fill,thumb,time,prog;
       function paint(p){ if(bPlay){ bPlay.textContent=p?'\\u23F8':'\\u25B6'; bPlay.classList.toggle('on',!!p); } }
       function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60),x=s%60; return m+':'+(x<10?'0':'')+x; }
       function render(rt){ rt=Math.max(0,Math.min(1,rt||0)); if(fill) fill.style.width=(rt*100)+'%'; if(thumb) thumb.style.left=(rt*100)+'%'; if(time) time.textContent=fmt(rt*TOT()); }
       function startTick(){ stopTick(); ticker=setInterval(function(){ if(!drag) render(total?gtimeSpeech()/total:0); },100); }
       function stopTick(){ if(ticker){ clearInterval(ticker); ticker=null; } }
+      // ── Ripiego alla voce di sistema ────────────────────────────────────
+      // Con l'audio FRATELLO (src relativo) il riferimento può non risolversi:
+      // in un iframe srcdoc non esiste un URL su cui risolvere il relativo, e
+      // un file inoltrato da solo (posta, WhatsApp) arriva senza l'audio
+      // accanto. Restare con un chip che non suona è peggio del silenzio →
+      // si torna alla voce del browser e si ricostruisce lo stato del lettore.
+      var fellBack=false;
+      function fallbackToSpeech(){
+        if(fellBack||!audioMode) return;
+        fellBack=true; audioMode=false;
+        try{ audioEl.pause(); }catch(e){}
+        if(gap) clearTimeout(gap); stopTick(); clearHL();
+        playing=false; idx=0; subChar=0;
+        // Senza speechSynthesis non resta niente da comandare: il chip sparisce
+        // invece di restare lì a fingere.
+        if(!sup){ if(bar) bar.style.display='none'; if(hlBtn) hlBtn.style.display='none'; return; }
+        // In audioMode la velocità cambiava solo playbackRate: i tempi della
+        // voce di sistema vanno ricalcolati sul gradino scelto, o la barra di
+        // avanzamento ripartirebbe con la durata sbagliata.
+        ensure(); timing(); paint(false); render(0);
+      }
+      // L'errore può essere già scattato prima che lo script arrivi qui:
+      // preload="auto" comincia a scaricare col parse del tag.
+      function audioBroken(){ try{ return !!audioEl.error||audioEl.networkState===3; }catch(e){ return false; } }
+      function playAudio(retry){
+        var f=function(err){
+          // Un rifiuto per POLITICA di riproduzione (NotAllowedError) non dice
+          // che l'audio manca, solo che il browser non l'ha fatto partire ora:
+          // ripiegare lì spegnerebbe la voce naturale per un motivo che non
+          // c'entra. Si ripiega quando la sorgente è davvero rotta.
+          if(err&&err.name==='NotAllowedError'&&!audioBroken()){ paint(false); return; }
+          var was=audioMode; fallbackToSpeech(); if(was&&sup&&retry) retry();
+        };
+        try{ var pr=audioEl.play(); if(pr&&pr['catch']) pr['catch'](f); }catch(e){ f(e); }
+      }
       function speakCur(){
         if(idx>=chunks.length){ finish(); return; }
         var c=chunks[idx];
@@ -755,15 +934,19 @@
       }
       function finish(){ if(gap) clearTimeout(gap); stopTick(); clearHL(); playing=false; idx=0; subChar=0; paint(false); render(1); }
       function playFrom(i,sc){ if(gap) clearTimeout(gap); idx=Math.max(0,Math.min(i,chunks.length-1)); subChar=sc||0; playing=true; paint(true); startTick(); speakCur(); }
-      function pause(){ if(gap) clearTimeout(gap); stopTick(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; subChar=0; paint(false); }
+      // clearHL mancava: in pausa l'evidenziazione restava accesa e congelata
+      // sull'ultima frase, come se il documento stesse ancora leggendo lì.
+      function pause(){ if(gap) clearTimeout(gap); stopTick(); try{ speechSynthesis.cancel(); }catch(e){} playing=false; subChar=0; clearHL(); paint(false); }
       function ensure(){ if(!chunks.length){ build(); timing(); } }
       function seekTspeech(t){ ensure(); t=Math.max(0,Math.min(t,Math.max(0,total-0.05))); var i=idxAt(t); var f=(dur[i]>0)?(t-(starts[i]||0))/dur[i]:0; playFrom(i,Math.floor(f*(chunks[i]?chunks[i].text.length:0))); }
       // ── Transport unificato: audio incorporato o Web Speech ──
-      function doToggle(){ if(audioMode){ if(audioEl.paused) audioEl.play(); else audioEl.pause(); return; } ensure(); if(playing){ pause(); return; } if(idx>=chunks.length) idx=0; playFrom(idx,subChar); }
+      // Il riascolto passa da playAudio: se l'audio fratello non c'è, il ripiego
+      // scatta E la lettura parte lo stesso (il clic non deve andare a vuoto).
+      function doToggle(){ if(audioMode){ if(audioEl.paused) playAudio(doToggle); else audioEl.pause(); return; } ensure(); if(playing){ pause(); return; } if(idx>=chunks.length) idx=0; playFrom(idx,subChar); }
       function doSeekRel(d){ if(audioMode){ audioEl.currentTime=Math.max(0,Math.min((audioEl.currentTime||0)+d,Math.max(0,TOT()-0.1))); return; } ensure(); seekTspeech(gtimeSpeech()+d); }
       function doSeekRatio(rt){ if(audioMode){ audioEl.currentTime=Math.max(0,Math.min(rt*TOT(),Math.max(0,TOT()-0.05))); return; } ensure(); seekTspeech(rt*total); }
       function doRate(){ ri=(ri+1)%SPEEDS.length; bRate.textContent='\\u00d7'+SPEEDS[ri]; if(audioMode){ audioEl.playbackRate=rate(); return; } if(chunks.length){ var t=gtimeSpeech(); timing(); if(playing) seekTspeech(t); else render(total?t/total:0); } }
-      function doPlayNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } i=Math.max(0,i); if(audioMode){ var bi=(chunks[i]&&typeof chunks[i].bi==='number')?chunks[i].bi:0; audioEl.currentTime=(cuesData&&cuesData[bi]!=null)?cuesData[bi]:((total?(starts[i]/total):0)*TOT()); audioEl.play(); hl(i); return; } playFrom(i,0); }
+      function doPlayNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } i=Math.max(0,i); if(audioMode){ var bi=(chunks[i]&&typeof chunks[i].bi==='number')?chunks[i].bi:0; try{ audioEl.currentTime=(cuesData&&cuesData[bi]!=null)?cuesData[bi]:((total?(starts[i]/total):0)*TOT()); }catch(e){} hl(i); playAudio(function(){ doPlayNode(node); }); return; } playFrom(i,0); }
       function seg(txt,title){ var b=document.createElement('button'); b.type='button'; b.className='ap-seg'; b.textContent=txt; b.title=title; return b; }
       bBack=seg('\\u21BA10','Indietro 10 secondi'); bPlay=seg('\\u25B6','Ascolta / Pausa'); bPlay.className+=' ap-play'; bFwd=seg('5\\u21BB','Avanti 5 secondi'); bRate=seg('\\u00d71','Velocità di lettura');
       var chip=document.createElement('span'); chip.className='ap-chip'; chip.appendChild(bBack); chip.appendChild(bPlay); chip.appendChild(bFwd); chip.appendChild(bRate);
@@ -782,12 +965,25 @@
       build(); timing();
       if(cuesData && cuesData.length!==nBlocks) cuesData=null; // disallineamento → torna alla stima proporzionale
       if(audioMode){ audioEl.playbackRate=rate();
-        audioEl.addEventListener('play',function(){ paint(true); });
-        audioEl.addEventListener('pause',function(){ paint(false); });
-        audioEl.addEventListener('ended',function(){ paint(false); render(1); });
-        audioEl.addEventListener('timeupdate',function(){ if(drag) return; var tot=TOT(); render(tot?CUR()/tot:0); if(cuesData&&cuesData.length) hlByCues(CUR()); else hl(idxAtReal(CUR())); });
+        // Il fallimento arriva sul <source> (candidato scartato) o sull'elemento
+        // (candidati esauriti), secondo il browser: si ascoltano entrambi.
+        audioEl.addEventListener('error',fallbackToSpeech);
+        var srcEl=audioEl.querySelector('source'); if(srcEl) srcEl.addEventListener('error',fallbackToSpeech);
+        audioEl.addEventListener('play',function(){ paint(true); refreshHL(); });
+        // Anche qui mancava clearHL: in pausa l'evidenziazione restava accesa.
+        audioEl.addEventListener('pause',function(){ paint(false); clearHL(); });
+        audioEl.addEventListener('ended',function(){ paint(false); clearHL(); render(1); });
+        audioEl.addEventListener('timeupdate',function(){ if(drag) return; var tot=TOT(); render(tot?CUR()/tot:0); if(!hlOn) return; if(cuesData&&cuesData.length) hlByCues(CUR()); else hl(idxAtReal(CUR())); });
         audioEl.addEventListener('loadedmetadata',function(){ render(0); });
+        if(audioBroken()) fallbackToSpeech();   // errore già scattato prima di noi
       }
+      if(hlBtn){ hlBtn.addEventListener('click',function(){
+        hlOn=!hlOn;
+        hlBtn.classList.toggle('on',hlOn);
+        hlBtn.textContent=HLB[hlOn?1:0];
+        hlBtn.setAttribute('aria-pressed',hlOn?'true':'false');
+        refreshHL();
+      }); }
       (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.textContent='\\u25B6'; b.addEventListener('click',function(e){ e.stopPropagation(); doPlayNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
       try{ document.addEventListener('visibilitychange',function(){ if(document.hidden && !audioMode) pause(); }); }catch(e){}
     })();

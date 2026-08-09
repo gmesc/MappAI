@@ -155,6 +155,47 @@
         render();
     }
 
+    // Dal foglio completo di una sintesi si recupera il solo CORPO (.bs-body):
+    // header, citazioni e lettore audio restano quelli del builder, che li
+    // ricostruisce al salvataggio. Una regex sola per l'archivio e per il file
+    // del vault: sono lo stesso documento, scritto dallo stesso builder — due
+    // copie divergerebbero al primo ritocco alla struttura del foglio.
+    function _synthesisBody(html) {
+        const src = String(html || '');
+        const m = /<div class="bs-body">([\s\S]*?)<\/div>\s*(?:<div class="bs-footer|<script|<\/body)/i.exec(src);
+        return m ? m[1] : src;
+    }
+
+    /* Voce naturale già incorporata nel file (data-URI) + cue map del karaoke.
+       ⚠️ Vanno raccolte e ridate al builder al salvataggio: `blocksFromHtml`
+       conosce solo h3/h4/p/li/blockquote e i `<div>`, quindi un `<audio>` non
+       diventa un blocco — riscrivere il file senza recuperarlo qui vorrebbe dire
+       cancellare la voce naturale a chi ha solo corretto un refuso.
+       (Il file della pipeline non ne ha: `buildHtml(data)` è chiamato senza opts
+       e l'MP3 sta accanto come file separato. Questo copre gli altri.) */
+    function _embeddedAudio(html) {
+        const src = String(html || '');
+        const a = /<audio[^>]*id="ap-audio"[^>]*>[\s\S]*?<source[^>]*src="([^"]*)"[^>]*type="([^"]*)"/i.exec(src);
+        if (!a) return null;
+        let cues = null;
+        const c = /<script[^>]*id="ap-cues"[^>]*>([\s\S]*?)<\/script>/i.exec(src);
+        if (c) { try { cues = JSON.parse(c[1]); } catch (e) { cues = null; } }
+        return { audioDataUri: a[1], audioMime: a[2] || 'audio/wav', cues: cues };
+    }
+
+    // ⚠️ `read-vault-file` ritorna SEMPRE base64 (è nato per i PDF): il testo va
+    // decodificato con `TextDecoder`, perché `atob` da solo rende BYTE e non
+    // caratteri UTF-8 — «Elettricità» diventerebbe «ElettricitÃ ». Stessa cura
+    // già presa in mappai-elabora.js (_testoDaBase64).
+    function _textFromBase64(b64) {
+        try {
+            const bin = atob(String(b64 || ''));
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(buf);
+        } catch (e) { return ''; }
+    }
+
     function openSynthesis(id) {
         const BS = window.MappAIBranchSynthesis;
         let data = null, html = '', archiveId = null, archiveTitle = null;
@@ -165,10 +206,7 @@
             const rec = window.MappAIStudyDocs.get(id);
             if (rec && rec.html) {
                 archiveId = rec.id; archiveTitle = rec.title;
-                // Dal documento archiviato si recupera il solo CORPO (.bs-body):
-                // header, citazioni e lettore audio restano quelli del builder.
-                const m = /<div class="bs-body">([\s\S]*?)<\/div>\s*(?:<div class="bs-footer|<script|<\/body)/i.exec(rec.html);
-                html = m ? m[1] : rec.html;
+                html = _synthesisBody(rec.html);
                 data = { branchLabel: rec.title, mapName: rec.mapName, rawText: '', archived: true };
             }
         }
@@ -186,6 +224,68 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+    }
+
+    /* Sintesi aperta dal FILE che sta nel vault — non dalla memoria di sessione.
+       È il caso normale, non un ripiego: il nome «Sintesi -VERDE.html» lo scrive
+       solo la pipeline dei materiali, che gira in silenzio (`runWholeMap({silent:
+       true})`) e quindi non passa mai dal modale dove la sintesi verrebbe
+       archiviata. Nessun record in MappAIStudyDocs, e `_lastSynthesis` è memoria
+       di sessione che nessuno persiste: riaperto il progetto è `null`. Il file su
+       disco, invece, c'è sempre — ed è la fonte di verità (decisione del 9/8).
+
+       opts = { vaultPath, relPath, title, mapName }
+       → Promise<boolean>: true = documento caricato (chi chiama può ridisegnare);
+         false = ha rinunciato, e l'utente è GIÀ stato avvisato. Non lancia mai. */
+    async function openSynthesisFromVault(opts) {
+        const o = opts || {};
+        const vaultPath = o.vaultPath, relPath = o.relPath;
+        if (!vaultPath || !relPath) {
+            toast(t('de_vault_doc_ko', 'Non riesco a leggere questo documento dalla cartella della mappa.'), 'warning');
+            return false;
+        }
+        const api = window.electronAPI;
+        if (!api || !api.readVaultFile) { toast(t('de_need_app', 'Richiede l\'app desktop.'), 'warning'); return false; }
+
+        let html = '';
+        try {
+            const res = await api.readVaultFile({ vaultPath: vaultPath, relPath: relPath });
+            if (!res || !res.ok || !res.base64) {
+                toast(t('de_vault_doc_ko', 'Non riesco a leggere questo documento dalla cartella della mappa.') +
+                    (res && res.error ? ' (' + res.error + ')' : ''), 'error');
+                return false;
+            }
+            html = _textFromBase64(res.base64);
+        } catch (e) {
+            toast(t('de_vault_doc_ko', 'Non riesco a leggere questo documento dalla cartella della mappa.') + ' (' + e.message + ')', 'error');
+            return false;
+        }
+
+        const blocks = html ? DE().blocksFromHtml(_synthesisBody(html)) : [];
+        if (!blocks.length) { toast(t('de_synth_empty', 'La sintesi non contiene testo editabile.'), 'warning'); return false; }
+
+        const data = {
+            branchLabel: o.title || relPath.split('/').pop().replace(/\.html?$/i, ''),
+            mapName: o.mapName || '',
+            rawText: '',
+            /* Il perno del salvataggio: da QUALE file viene questo documento.
+               Senza, «Salva» dovrebbe inventarsi un nome — ed è così che nascono
+               le seconde copie divergenti nella stessa cartella. */
+            fromVault: { vaultPath: vaultPath, relPath: relPath }
+        };
+        _syn = {
+            data: data, blocks: blocks, base: JSON.parse(JSON.stringify(blocks)),
+            archiveId: null, archiveTitle: null, id: relPath,
+            vaultAudio: _embeddedAudio(html)
+        };
+        _kind = 'synthesis'; _doc = null; _srcSet = null;
+        _bMenu = -1;
+        _hist = DE().createHistory(20);
+        _dirty = false;
+        _mapKey = _currentMapKey();
+        _view = 'doc';
+        render();
+        return true;
     }
 
     // ── FOGLIO DEI NODI ─────────────────────────────────────────────────────
@@ -564,14 +664,14 @@
             tuned: false
         }, extra || {});
     }
-    async function _printNodeSheet() {
+    async function _printNodeSheet(nome) {
         if (typeof window.printAllNodeLabels !== 'function') { toast(t('de_ns_no_engine', 'Motore di stampa non disponibile.'), 'error'); return; }
         const over = NS().overCards(_sheet.cards, _sheet.fmt);
         if (over.length && !confirm(
             t('de_ns_over_confirm', '{n} card hanno più testo di quanto entra nella card stampata: uscirebbero tagliate.').replace('{n}', over.length) +
             '\n\n' + t('de_ns_over_which', 'Card:') + ' ' + over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ') +
             (over.length > 12 ? '…' : '') + '\n\n' + t('de_ns_print_anyway', 'Stampare comunque?'))) return;
-        await window.printAllNodeLabels(_nsPrintOpts());
+        await window.printAllNodeLabels(_nsPrintOpts(nome ? { fileName: nome } : null));
     }
 
     function backToList() {
@@ -587,6 +687,49 @@
            ascolta rimuove l'host, e `render()` non trova dove disegnare. */
         try { document.dispatchEvent(new CustomEvent('mappai-doc-uscito')); } catch (e) { }
         render();
+    }
+
+    /* ── L'USCITA: un bottone solo, che dice se salva ─────────────────────────
+       Decisione di Giacomo (9/8), valida per tutti e cinque gli editor: il
+       bottone conclusivo è un'USCITA e cambia parola secondo lo stato del
+       documento — «Esci» quando non c'è niente da salvare, «Salva ed Esci»
+       appena si tocca qualcosa. Due bottoni separati («Salva» e «‹ Documenti»)
+       lasciavano scegliere fra due cose che si fanno quasi sempre insieme, e
+       rendevano comodo proprio il caso che non deve esserlo: uscire buttando
+       via il lavoro.
+       ⚠️ Se il salvataggio RINUNCIA — validazione rifiutata, set sparito dalla
+       mappa, scrittura non riuscita — NON si esce: si perderebbe esattamente
+       ciò che si era chiesto di salvare. È la stessa regola di `_conSalvataggio`
+       nella console di ELABORA. Il segnale è `_dirty`: chi salva lo abbassa solo
+       quando ha davvero scritto. */
+    async function esci() {
+        if (_dirty) {
+            /* «Salva ed Esci» passa dalla STESSA strada di «Stampa»: chiede il
+               nome e scrive il file in `Materiale Studio/`.
+               Prima chiamava `save()`, che per quattro generi su cinque scrive
+               solo in memoria e in localStorage — quindi si «salvava» un
+               materiale e nella cartella della mappa non compariva niente. Un
+               documento che il docente ha corretto è un materiale, e un
+               materiale è un file.
+               ⚠️ Le due deroghe le gestisce già `_salvaConNome`: una sintesi
+               aperta DAL vault riscrive il suo file senza chiedere il nome (ce
+               l'ha già), e senza cartella o fuori dall'app desktop il documento
+               si salva lo stesso e lo si dice. */
+            let esito;
+            try { esito = await _salvaConNome(); }
+            catch (e) {
+                toast(t('de_exit_ko', 'Salvataggio non riuscito: resto nel documento.') +
+                    (e && e.message ? ' (' + e.message + ')' : ''), 'error');
+                return;
+            }
+            /* `null` = ha rinunciato (nome annullato, collisione annullata,
+               validazione rifiutata): resta nel documento. `false` = il file non
+               si è potuto scrivere ma il documento sì, ed è già stato detto. */
+            if (esito === null) return;
+            if (_dirty) return;   // il salvataggio ha rinunciato, e l'ha già detto
+        }
+        // Qui `_dirty` è falso per costruzione: `backToList()` non chiede conferma.
+        backToList();
     }
 
     // ── cronologia ──────────────────────────────────────────────────────────
@@ -829,6 +972,11 @@
     function _saveSynthesis() {
         const BS = window.MappAIBranchSynthesis;
         if (!BS) return;
+        // Documento che viene da un file del vault: si riscrive QUEL file.
+        // ⚠️ Qui la guardia `_sameMap()` non si applica ed è giusto così: la
+        // destinazione è scritta nel documento (`fromVault`), non dedotta dalla
+        // mappa aperta — cambiare progetto in ELABORA non può farla sbagliare.
+        if (_syn && _syn.data && _syn.data.fromVault) return _saveSynthesisFile();
         if (!_sameMap()) {
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
@@ -865,6 +1013,425 @@
         toast(t('de_saved_synth', '✓ Sintesi salvata — il testo rivisto vale per stampa, PDF e condivisione'), 'success');
     }
 
+    /* Riscrive il file da cui il documento è stato aperto — stesso percorso,
+       stesso nome. Nessun suffisso «(rivista)»: quel nome era il ripiego di
+       quando l'editor non sapeva da dove veniva il documento, e lasciava due
+       sintesi divergenti nella stessa cartella. Il file che si è aperto è il
+       file che si salva; i nomi dei materiali sono un lavoro a sé. */
+    /* Il foglio della sintesi pronto per il disco, con la voce naturale se il
+       testo non è cambiato. Uno solo, per «Salva» e per «Stampa»: due copie di
+       questa logica divergerebbero al primo ritocco, e a divergere sarebbe
+       proprio la sorte dell'audio.
+       ⚠️ La voce naturale è agganciata ai BLOCCHI: se il testo letto cambia, i
+       cue non corrispondono più → si lascia cadere e lo si dice, invece di
+       riscrivere un karaoke fuori sincrono.
+       → { data, text, audioPerso } */
+    function _synFoglio() {
+        const BS = window.MappAIBranchSynthesis;
+        const data = Object.assign({}, _syn.data, { editedBlocks: JSON.parse(JSON.stringify(_syn.blocks)) });
+        const stale = DE().audioStale(_syn.base, _syn.blocks);
+        if (stale) { data._audioBlob = null; data._audioUrl = null; data._cues = null; }
+        const audio = (!stale && _syn.vaultAudio) ? _syn.vaultAudio : null;
+        return {
+            data: data,
+            text: BS.buildPrintHtml(data, audio || {}),
+            audioPerso: !!(_syn.vaultAudio && !audio)
+        };
+    }
+
+    /** Il documento aperto ha ancora del testo? (svuotarlo e salvare farebbe
+        ricomparire in stampa il testo originale dell'AI, senza dirlo) */
+    function _synHaTesto() {
+        if (_syn.blocks.filter(b => b.tag !== 'raw').length) return true;
+        toast(t('de_synth_no_blocks', 'La sintesi non ha più testo: aggiungi almeno un paragrafo prima di salvare.'), 'warning');
+        return false;
+    }
+
+    async function _saveSynthesisFile() {
+        const BS = window.MappAIBranchSynthesis;
+        const fv = _syn && _syn.data && _syn.data.fromVault;
+        if (!BS || !fv) return;
+        if (!window.electronAPI || !window.electronAPI.saveVaultFile) {
+            toast(t('de_need_app', 'Richiede l\'app desktop.'), 'warning'); return;
+        }
+        if (!_synHaTesto()) return;
+        const foglio = _synFoglio();
+        const data = foglio.data;
+        try {
+            const out = await window.electronAPI.saveVaultFile({
+                vaultPath: fv.vaultPath, relPath: fv.relPath, text: foglio.text
+            });
+            if (!out || !out.ok) {
+                toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out && out.error ? ': ' + out.error : ''), 'error');
+                return;
+            }
+            // La voce c'era ma il testo è cambiato: è caduta, e va detto — non è
+            // un dettaglio interno, è un file in meno da dare agli allievi.
+            const audioPerso = foglio.audioPerso;
+            _syn.data = data;
+            _syn.base = JSON.parse(JSON.stringify(_syn.blocks));
+            if (audioPerso) _syn.vaultAudio = null;   // caduta una volta, non riappare al salvataggio dopo
+            // Chi scrive su disco lo DICE: senza questo annuncio gli elenchi già
+            // aperti continuerebbero a mostrare la data di scrittura vecchia.
+            try {
+                if (window.MappAIVaults) window.MappAIVaults.segnala('doc-salvato', { vaultPath: fv.vaultPath, relPath: fv.relPath });
+            } catch (e) { /* canale assente: il salvataggio è comunque avvenuto */ }
+            _dirty = false; _paintDirty();
+            toast(audioPerso
+                ? t('de_saved_synth_file_audio', '✓ Sintesi salvata — il testo è cambiato: la voce naturale va rigenerata')
+                : t('de_saved_synth_file', '✓ Sintesi salvata nella cartella della mappa'), 'success');
+        } catch (e) {
+            toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + ': ' + e.message, 'error');
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // IL NOME DEL FILE — si chiede, non si indovina
+    // ══════════════════════════════════════════════════════════════════════
+    // Fino a ieri «Stampa» apriva il foglio e basta, e «Nel vault» scriveva un
+    // file con un nome deciso dal codice, sovrascrivendo in silenzio quello che
+    // c'era. Da oggi il gesto è uno solo: si dà un nome, si scrive, si stampa.
+    // La parte fissa (tipo di materiale, mappa, marcatore della taratura) la
+    // mette `buildFileName`, unica fonte della convenzione — comporre nomi a
+    // mano qui spegnerebbe il riconoscimento per prefisso su cui si reggono il
+    // raggruppamento per genere e il bottone «Modifica» delle colonne.
+
+    function PC() { return window.MappAIPipelineCore; }
+
+    /** Nome della mappa a cui appartiene il documento aperto. */
+    function _mapName() {
+        if (_kind === 'synthesis' && _syn && _syn.data && _syn.data.mapName) return _syn.data.mapName;
+        if (_kind === 'causal' && CCU()) { try { return CCU().mapName(); } catch (e) { /* ripiego sotto */ } }
+        const s = _appState();
+        return (s && s.rootNodeLabel) || '';
+    }
+
+    /** Il file da cui il documento è stato aperto (solo la sintesi ce l'ha). */
+    function _origine() {
+        return (_kind === 'synthesis' && _syn && _syn.data && _syn.data.fromVault) ? _syn.data.fromVault : null;
+    }
+    /* La taratura la DICHIARA il nome del file di partenza, non un'ipotesi: se
+       si riapre «Sintesi-Il Clima -VERDE.html», il marcatore resta dov'era. Per
+       i documenti che nascono qui non c'è taratura da dichiarare. */
+    function _tarato() {
+        const o = _origine();
+        return !!(o && / -VERDE\.[A-Za-z0-9]+$/.test(o.relPath));
+    }
+
+    /** Genere del materiale e suo dettaglio, nella lingua di `buildFileName`. */
+    function _genereFile() {
+        if (_kind === 'nodesheet') {
+            // Ogni card ha il SUO tipo di contenuto: se sono tutte uguali il
+            // dettaglio è quello, altrimenti è un foglio misto e lo dice.
+            const lay = (_sheet.cards || []).map(c => c.layout);
+            const uno = lay.length && lay.every(x => x === lay[0]);
+            return { kind: 'nodesheet', dettaglio: uno ? lay[0] : 'misto' };
+        }
+        if (_kind === 'causal') return { kind: 'causal', dettaglio: '' };
+        if (_kind === 'synthesis') {
+            // Il ramo distingue due sintesi della stessa mappa. Per un documento
+            // che viene da un file il ramo è già nel nome del file: ripeterlo
+            // qui lo scriverebbe due volte.
+            const lab = (!_origine() && !_syn.data.whole) ? String(_syn.data.branchLabel || '') : '';
+            return { kind: 'synthesis', dettaglio: lab };
+        }
+        if (_kind === 'flashcards') return { kind: 'flashcards', dettaglio: '' };
+        return { kind: (_doc && _doc.quizType === 'tf') ? 'quiz_tf' : 'quiz_mc', dettaglio: '' };
+    }
+
+    /* La parte fissa del nome (fino a dove entra quella scelta dal docente) e la
+       coda (marcatore della taratura + estensione).
+       ⚠️ Per un documento che viene da un file la parte fissa È quella del file:
+       si riapre «Sintesi-Il Clima -VERDE.html» e si continua a scrivere lì.
+       Ricostruire il nome da capo produrrebbe una seconda copia quasi uguale
+       accanto alla prima — ed è così che nascono le cartelle in cui non si
+       capisce più quale sia la sintesi buona. */
+    function _pezziNome() {
+        const o = _origine();
+        let pieno;
+        if (o) pieno = o.relPath.split('/').pop();
+        else {
+            const g = _genereFile();
+            // Senza il modulo della convenzione si ripiega su un nome onesto ma
+            // muto: meglio di un errore, e non capita nell'app (pipeline-core è
+            // caricato prima di questo file).
+            pieno = PC()
+                ? PC().buildFileName(g.kind, null, _tarato(), { mappa: _mapName(), dettaglio: g.dettaglio })
+                : (g.kind + '-' + (_mapName() || 'mappa') + (g.kind === 'synthesis' ? '.html' : '.pdf'));
+        }
+        const m = /^(.*?)( -VERDE)?(\.[A-Za-z0-9]+)$/.exec(pieno);
+        return m
+            ? { base: m[1], coda: (m[2] || '') + m[3] }
+            : { base: pieno, coda: '' };
+    }
+
+    /* Stessa ripulitura di `buildFileName` (che passa da `FilesCore.safeName`):
+       la parte scritta dal docente finisce in un nome di file, quindi i
+       caratteri che il filesystem rifiuta vanno tolti anche qui. */
+    function _safeParte(s) {
+        return String(s == null ? '' : s)
+            .replace(/[\/\\:*?"<>|\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim()
+            .replace(/[. ]+$/, '');
+    }
+    function _componiNome(nome) {
+        const p = _pezziNome();
+        const n = _safeParte(nome);
+        return p.base + (n ? '-' + n : '') + p.coda;
+    }
+
+    /* Un nome che coincide con il file da cui il documento viene NON è una
+       collisione: è lo stesso documento salvato dov'era. Chiederlo ogni volta
+       sarebbe una domanda a cui la risposta è sempre la stessa. */
+    function _eOrigine(fileName) {
+        const o = _origine();
+        return !!(o && String(o.relPath).split('/').pop().toLowerCase() === String(fileName).toLowerCase());
+    }
+    function _collide(fileName, esistenti) {
+        if (_eOrigine(fileName)) return false;
+        const n = String(fileName).toLowerCase();
+        return (esistenti || []).some(x => String(x).toLowerCase() === n);
+    }
+
+    /** I file già presenti in `Materiale Studio/`. Elenco vuoto = non lo sappiamo. */
+    async function _materialiEsistenti(vaultPath) {
+        try {
+            const api = window.electronAPI;
+            if (!api || !api.vaultMaterialsList) return [];
+            const res = await api.vaultMaterialsList({ vaultPath: vaultPath });
+            return (res && res.ok && Array.isArray(res.files)) ? res.files.map(f => f.name) : [];
+        } catch (e) { return []; }
+    }
+
+    /* Chiede la parte di nome scelta dal docente. Il nome che ne risulta si vede
+       mentre si scrive — un campo che dice solo «aggiungi un nome» costringe a
+       immaginarsi il file che ne esce.
+       → Promise<string|null> (null = ha annullato: non si scrive e non si stampa) */
+    function _chiediNomeFile(esistenti) {
+        const MM = window.MappAIModal;
+        const ph = t('de_nome_ph', 'ripasso finale, verifica 2B, …');
+        if (!MM || !MM.open) {
+            const v = window.prompt(t('de_nome_titolo', 'Che nome dai a questo materiale?') +
+                '\n' + _componiNome(''), '');
+            return Promise.resolve(v === null ? null : v);
+        }
+        return MM.open({
+            titolo: t('de_nome_titolo', 'Che nome dai a questo materiale?'),
+            icona: 'file-pen',
+            taglia: 's',
+            sezioni: [{
+                testo: t('de_nome_testo', 'La prima parte del nome la mette MappAI: dice che materiale è e di quale mappa. Tu aggiungi come lo riconoscerai — puoi anche lasciare vuoto.'),
+                campi: [{ id: 'nome', tipo: 'testo', etichetta: ph, valore: '' }]
+            }],
+            azioni: [
+                { id: 'no', etichetta: t('de_cancel', 'Annulla') },
+                { id: 'si', etichetta: t('de_nome_ok', 'Salva e stampa'), ruolo: 'primario' }
+            ],
+            /* Il nome finale si aggiorna sotto le dita. `suApertura` e non
+               `__campo`: quell'evento nasce da `change`, che su un campo di testo
+               scatta al BLUR — e il blur lo produce il clic sul bottone, che
+               ridisegnerebbe il modale sotto il dito prima che il clic arrivi. */
+            suApertura: function (box) {
+                const inp = box.querySelector('#mmf-nome');
+                if (!inp) return;
+                const out = document.createElement('span');
+                out.className = 'mm-hint de-nome-out';
+                const dipingi = function () {
+                    const n = _componiNome(inp.value);
+                    const gia = _collide(n, esistenti);
+                    out.textContent = n + (gia ? '  · ' + t('de_nome_gia', 'un file con questo nome c\'è già') : '');
+                    out.style.color = gia ? '#b45309' : '';
+                };
+                inp.addEventListener('input', dipingi);
+                dipingi();
+                (inp.closest('.mm-campo-riga') || inp.parentNode).appendChild(out);
+            }
+        }).then(function (r) { return (r && r.azione === 'si') ? String(r.valori.nome || '') : null; });
+    }
+
+    /* Il nome c'è già. Si DICE e si lascia scegliere — decidere al posto suo
+       vorrebbe dire o cancellare un file che non si sapeva ci fosse, o
+       riempire la cartella di « · 02» che nessuno ha chiesto.
+       → Promise<string|null>: il nome con cui scrivere, oppure null (rinuncia). */
+    async function _risolviCollisione(fileName, esistenti) {
+        const alt = PC() ? PC().nomeLibero(fileName, esistenti) : null;
+        const MM = window.MappAIModal;
+        if (!MM || !MM.open) {
+            if (confirm(t('de_coll_confirm', 'Un file con questo nome c\'è già. Vuoi sovrascriverlo?') + '\n\n' + fileName)) return fileName;
+            return alt || null;
+        }
+        const azioni = [{ id: 'no', etichetta: t('de_cancel', 'Annulla') }];
+        if (alt) azioni.push({ id: 'accanto', etichetta: t('de_coll_accanto', 'Salva accanto'), ruolo: 'primario' });
+        azioni.push({ id: 'sovra', etichetta: t('de_coll_sovra', 'Sovrascrivi'), ruolo: 'distruttivo' });
+        const r = await MM.open({
+            titolo: t('de_coll_titolo', 'Un file con questo nome c\'è già'),
+            icona: 'alert-triangle',
+            taglia: 's',
+            /* Senza l'alternativa l'unica azione affermativa è quella che
+               cancella un file: Invio non deve poterla scegliere per inerzia.
+               Con l'alternativa il primario è «Salva accanto», ed è giusto che
+               Invio prenda la strada che non perde niente. */
+            invio: !!alt,
+            sezioni: [{
+                testo: alt
+                    ? t('de_coll_testo', '«{n}» è già nella cartella della mappa. Posso sovrascriverlo — quello che c\'è ora si perde — oppure salvare accanto come «{a}».')
+                        .replace('{n}', fileName).replace('{a}', alt)
+                    : t('de_coll_testo_pieno', '«{n}» è già nella cartella della mappa, e ci sono già troppe varianti dello stesso nome per aggiungerne un\'altra. Posso solo sovrascriverlo, oppure lasciar perdere e dargli un altro nome.')
+                        .replace('{n}', fileName)
+            }],
+            azioni: azioni
+        });
+        const a = r && r.azione;
+        if (a === 'sovra') return fileName;
+        if (a === 'accanto') return alt;
+        return null;
+    }
+
+    /* Che cosa finisce su disco per il documento aperto, dato il nome del file.
+       → { vaultPath, relPath, text|base64 } oppure null (con l'avviso già dato).
+       ⚠️ Il quiz esce in PDF, ma se il motore headless non c'è si ripiega
+       sull'HTML: l'estensione cambia QUI, quindi la collisione va controllata
+       dopo — sul nome che finisce davvero sul disco. */
+    async function _payloadFile(vaultPath, fileName) {
+        const rel = 'Materiale Studio/' + fileName;
+        if (_kind === 'nodesheet') {
+            const res = await window.printAllNodeLabels(_nsPrintOpts({ toDisk: { vaultPath: vaultPath } }));
+            if (!res || !res.ok || !res.base64) { toast(t('de_ns_pdf_ko', 'PDF del foglio nodi non generato.'), 'error'); return null; }
+            return { vaultPath: vaultPath, relPath: rel, base64: res.base64 };
+        }
+        if (_kind === 'causal') {
+            /* La convenzione dice `.pdf` per la catena, e il file deve essere
+               quello che l'estensione promette: PDF dallo STESSO html del
+               documento stampabile, con la stessa impaginazione della pipeline
+               (A4 verticale — è una colonna di righe «causa → effetto», non una
+               tabella larga). Senza il motore headless si ripiega sull'HTML,
+               cambiando anche l'estensione. */
+            const html = _ccHtml();
+            if (window.electronAPI.htmlToPdf) {
+                const res = await window.electronAPI.htmlToPdf({ html: html, options: { pageSize: 'A4', landscape: false } });
+                if (res && res.ok && res.base64) return { vaultPath: vaultPath, relPath: rel, base64: res.base64 };
+            }
+            return { vaultPath: vaultPath, relPath: rel.replace(/\.pdf$/i, '.html'), text: html };
+        }
+        if (_kind === 'synthesis') {
+            if (!_synHaTesto()) return null;
+            // `foglio` viaggia a parte e NON entra nella richiesta IPC: serve
+            // dopo la scrittura, per la contabilità della voce naturale.
+            const foglio = _synFoglio();
+            return { vaultPath: vaultPath, relPath: rel, text: foglio.text, foglio: foglio };
+        }
+        // Quiz e flashcard: la copia per gli allievi, senza soluzioni — quelle
+        // restano nell'app e nella copia del docente, che si stampa da qui.
+        const html = _quizHtml(false, false);
+        if (window.electronAPI.htmlToPdf) {
+            // Il foglio flashcard è orizzontale: senza questo flag printToPDF lo
+            // impagina in verticale e le carte escono tagliate.
+            const res = await window.electronAPI.htmlToPdf({ html: html, options: { landscape: _flashLandscape() } });
+            if (res && res.ok && res.base64) return { vaultPath: vaultPath, relPath: rel, base64: res.base64 };
+        }
+        return { vaultPath: vaultPath, relPath: rel.replace(/\.pdf$/i, '.html'), text: html };
+    }
+
+    /* Il documento si salva DOVE VIVE: quiz e flashcard nei set di studio del
+       progetto, il foglio dei nodi e la catena nel progetto, la sintesi in
+       memoria nell'archivio. Il file in «Materiale Studio» è un'altra cosa —
+       è la copia che si stampa e si consegna — e scrivere solo quello lascerebbe
+       il lavoro fuori dal progetto: riaprendo la mappa le correzioni non ci
+       sarebbero più.
+       ⚠️ Unica eccezione: la sintesi aperta DA un file. Lì il posto in cui vive
+       è il file stesso, e chiamare anche `save()` lo scriverebbe due volte — la
+       seconda con un altro nome.
+       → false = il salvataggio ha rinunciato, e l'ha già detto. */
+    async function _salvaDoveVive() {
+        if (_origine()) return true;
+        try { await save(); }
+        catch (e) {
+            toast(t('de_exit_ko', 'Salvataggio non riuscito: resto nel documento.') +
+                (e && e.message ? ' (' + e.message + ')' : ''), 'error');
+            return false;
+        }
+        return !_dirty;
+    }
+
+    /* Chiede il nome, salva il documento, scrive il file e lo annuncia.
+       → Promise<boolean|null>: true = scritto · false = non si è potuto
+       scrivere il file (l'utente lo sa, e si stampa lo stesso) · null = si è
+       rinunciato, quindi non si stampa nemmeno. */
+    async function _salvaConNome() {
+        const s = _appState();
+        const vaultPath = (_origine() && _origine().vaultPath) || (s && s.activeVaultPath);
+        const puoScrivere = !!(window.electronAPI && window.electronAPI.saveVaultFile && vaultPath);
+        if (!puoScrivere) {
+            // Senza cartella (o fuori dall'app desktop) il file non si può
+            // scrivere, ma il documento sì: quello va salvato comunque.
+            toast(window.electronAPI && window.electronAPI.saveVaultFile
+                ? t('de_print_no_vault', 'Questa mappa non ha ancora una cartella: stampo senza salvare il file.')
+                : t('de_print_no_app', 'Fuori dall\'app desktop non posso salvare il file: stampo e basta.'), 'info');
+            return (await _salvaDoveVive()) ? false : null;
+        }
+        const esistenti = await _materialiEsistenti(vaultPath);
+        // Il nome si chiede PRIMA di scrivere qualunque cosa: annullarlo deve
+        // poter voler dire «lascia tutto com'era».
+        const scelto = await _chiediNomeFile(esistenti);
+        if (scelto === null) return null;                    // annullato: niente stampa
+        if (!await _salvaDoveVive()) return null;            // ha rinunciato: niente stampa
+
+        const payload = await _payloadFile(vaultPath, _componiNome(scelto));
+        if (!payload) return false;
+
+        // La collisione si controlla sul nome VERO (l'estensione può essere
+        // cambiata costruendo il payload).
+        let nomeVero = payload.relPath.split('/').pop();
+        if (_collide(nomeVero, esistenti)) {
+            const deciso = await _risolviCollisione(nomeVero, esistenti);
+            if (!deciso) return null;                        // rinuncia: niente stampa
+            nomeVero = deciso;
+            payload.relPath = 'Materiale Studio/' + deciso;
+        }
+
+        try {
+            const out = await window.electronAPI.saveVaultFile({
+                vaultPath: payload.vaultPath, relPath: payload.relPath,
+                text: payload.text, base64: payload.base64
+            });
+            if (!out || !out.ok) {
+                toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out && out.error ? ': ' + out.error : ''), 'error');
+                return false;
+            }
+        } catch (e) {
+            toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + ': ' + e.message, 'error');
+            return false;
+        }
+
+        // Contabilità della sintesi: da qui in poi il documento vive in QUESTO
+        // file (un salvataggio successivo non deve tornare su quello di prima),
+        // e se la voce naturale è caduta si dice — è un file in meno da dare
+        // agli allievi, non un dettaglio interno.
+        let audioPerso = false;
+        if (payload.foglio) {
+            audioPerso = payload.foglio.audioPerso;
+            _syn.data = Object.assign({}, payload.foglio.data, {
+                fromVault: { vaultPath: vaultPath, relPath: payload.relPath }
+            });
+            _syn.base = JSON.parse(JSON.stringify(_syn.blocks));
+            if (audioPerso) _syn.vaultAudio = null;
+        }
+        // Chi scrive su disco lo DICE, o gli elenchi già aperti continuerebbero
+        // a mostrare quello che c'era prima.
+        try {
+            if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath, relPath: payload.relPath });
+        } catch (e) { /* canale assente: la scrittura è comunque avvenuta */ }
+        _dirty = false; _paintDirty();
+        toast(t('de_print_saved', '✓ {n} salvato in Materiale Studio').replace('{n}', nomeVero) +
+            (audioPerso ? ' — ' + t('de_print_audio', 'il testo è cambiato: la voce naturale va rigenerata') : ''), 'success');
+        /* Ritorna il NOME con cui il file è stato scritto, non `true`: chi
+           stampa deve poterlo riusare. Foglio dei nodi e flashcard escono da
+           jsPDF, che apre il dialogo di salvataggio del sistema con un nome
+           SUO — e il docente si vedeva proposta una cosa diversa da quella che
+           aveva appena scelto. È una stringa, quindi resta vera per i due
+           chiamanti che guardano solo `=== null`. */
+        return nomeVero;
+    }
+
     // ── uscite: stampa / esporta ────────────────────────────────────────────
     // includeBar:false = niente barra «Stampa/Chiudi» in cima: serve per il PDF
     // (la barra è no-print a schermo, ma nel PDF via printToPDF resterebbe).
@@ -876,8 +1443,31 @@
             : window.buildQuizSetHtml(set, opts);
     }
 
-    function print() {
-        if (_kind === 'nodesheet') return _printNodeSheet();
+    /* «Stampa» chiede il nome, salva e POI stampa (Giacomo, 9/8). Prima erano
+       due gesti — «Nel vault» e «Stampa» — e nessuno dei due diceva che il file
+       stava per prendere un nome deciso dal codice e sovrascrivere quello che
+       c'era. Su un documento non modificato non si chiede niente: il file
+       esiste già o la stampa è quella effimera di sempre. */
+    async function print() {
+        let nome = null;
+        if (_dirty) {
+            const esito = await _salvaConNome();
+            if (esito === null) return;   // ha annullato: non si stampa nemmeno
+            /* `false` = il documento è salvato ma il file no (niente cartella,
+               fuori dall'app): non c'è nessun nome da proporre. */
+            if (typeof esito === 'string') nome = esito;
+        }
+        return _stampaOra(nome);
+    }
+
+    /* `nome` = come si chiama il file appena scritto in `Materiale Studio/`.
+       Serve solo ai due generi che escono da jsPDF (foglio dei nodi e
+       flashcard): lì «stampare» apre il dialogo di salvataggio del sistema, e
+       senza questo si proponeva un nome inventato dal motore di stampa invece
+       di quello scelto dal docente. Quiz, sintesi e catena aprono una finestra:
+       non c'è nessun nome file di mezzo. */
+    function _stampaOra(nome) {
+        if (_kind === 'nodesheet') return _printNodeSheet(nome);
         // La catena ha una resa sola: il documento vero, con modalità esercizio
         // e stampa dentro. Aprirlo archivia anche la versione mostrata.
         if (_kind === 'causal') return CCU().openDoc(_ccChains());
@@ -886,7 +1476,7 @@
             const html = window.MappAIBranchSynthesis.buildPrintHtml(data);
             return _openPrintable(html);
         }
-        if (_kind === 'flashcards') return openFlashModal();
+        if (_kind === 'flashcards') return openFlashModal(nome);
         openAnswersModal();
     }
 
@@ -913,7 +1503,7 @@
     }
 
     // Modale foglio flashcard: formato + fronte/retro.
-    function openFlashModal() {
+    function openFlashModal(nome) {
         // Un solo formato: 2×2 verticale (4 carte da 95×133 mm su A4 in piedi).
         // Niente scelta da fare — il foglio è quello, e le soglie di caratteri
         // mostrate nell'editor valgono per quel formato.
@@ -929,13 +1519,104 @@
                     title: _doc.title || (_srcSet && _srcSet.title) || 'Flashcard',
                     mapName: (s && s.rootNodeLabel) || '',
                     fmt: _flashFmt,
-                    backside: _flashBack
+                    backside: _flashBack,
+                    fileName: nome || null
                 });
             });
     }
 
+    // ── LA VOCE NATURALE NELL'HTML ──────────────────────────────────────────
+    // È il file che si consegna all'allievo con DSA, e la voce è il motivo per
+    // cui esiste. Finora `exportHtml` chiamava `buildPrintHtml(data)` senza
+    // opzioni: l'audio veniva perso in silenzio.
+
+    function _blobToDataUri(blob) {
+        return new Promise(function (ok) {
+            try {
+                const r = new FileReader();
+                r.onload = function () { ok(String(r.result || '') || null); };
+                r.onerror = function () { ok(null); };
+                r.readAsDataURL(blob);
+            } catch (e) { ok(null); }
+        });
+    }
+    function _mimeAudio(nome) {
+        const e = (/\.([A-Za-z0-9]+)$/.exec(String(nome || '')) || [])[1];
+        return ({ mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg' })[String(e).toLowerCase()] || 'audio/mpeg';
+    }
+
+    /* La voce naturale del documento aperto, pronta da incorporare.
+       → { audioDataUri, audioMime, cues } | null
+       ⚠️ L'MP3 scritto dalla pipeline sta ACCANTO al file, e da solo non porta i
+       cue del karaoke (li scrive solo chi incorpora l'audio nell'HTML): senza
+       cue il lettore ripiega sulla stima proporzionale, che è quello che fa già
+       per gli audio più vecchi. Meglio una sincronia approssimata che il
+       silenzio. */
+    /** Legge un file audio della cartella e lo trasforma in data-URI. */
+    async function _audioDalVault(vaultPath, nome, cues) {
+        try {
+            const res = await window.electronAPI.readVaultFile({ vaultPath: vaultPath, relPath: 'Materiale Studio/' + nome });
+            if (!res || !res.ok || !res.base64) return null;
+            const mime = _mimeAudio(nome);
+            return { audioDataUri: 'data:' + mime + ';base64,' + res.base64, audioMime: mime, cues: cues || null };
+        } catch (e) { return null; }
+    }
+
+    async function _voceNaturale() {
+        const va = _syn && _syn.vaultAudio;
+        const fv = _origine();
+        const api = window.electronAPI;
+        // 1. Audio già INCORPORATO nel file che si è aperto: è già tutto qui.
+        if (va && /^data:/i.test(String(va.audioDataUri || ''))) return va;
+        /* 2. Il file del vault non incorpora l'audio: lo RICHIAMA per nome,
+              perché sta nella cartella accanto (è la forma leggera scelta dalla
+              pipeline). Quel percorso relativo, dentro un HTML scaricato in
+              «Download», non punta più a niente: qui si va a prendere il file
+              vero e lo si incorpora. I cue del karaoke invece ci sono già nel
+              documento — ed è la sincronia buona, non la stima. */
+        if (va && va.audioDataUri && fv && api && api.readVaultFile) {
+            let nome = String(va.audioDataUri);
+            try { nome = decodeURIComponent(nome); } catch (e) { /* già in chiaro */ }
+            nome = nome.split('/').pop();
+            const daFile = await _audioDalVault(fv.vaultPath, nome, va.cues);
+            if (daFile) return daFile;
+        }
+        // 3. Generato in questa sessione (sintesi «in memoria»): sta come blob.
+        if (_syn && _syn.data && _syn.data._audioBlob) {
+            const uri = await _blobToDataUri(_syn.data._audioBlob);
+            if (uri) return { audioDataUri: uri, audioMime: _syn.data._audioBlob.type || 'audio/wav', cues: _syn.data._cues || null };
+        }
+        // 4. Il documento non dichiara nessun audio: si cerca l'MP3 fratello.
+        if (!fv || !api || !api.readVaultFile) return null;
+        const files = await _materialiEsistenti(fv.vaultPath);
+        if (!files.length) return null;
+        const mappa = _mapName();
+        /* I nomi attesi, dal più preciso al più vecchio: la convenzione ha
+           cambiato forma (l'MP3 non portava né la mappa né il marcatore della
+           taratura) e sul disco di chi usa MappAI da mesi ci sono entrambe. */
+        const attesi = (PC() ? [
+            PC().buildFileName('tts', null, _tarato(), { mappa: mappa }),
+            PC().buildFileName('tts', null, !_tarato(), { mappa: mappa })
+        ] : []).concat(['Sintesi-audio.mp3']);
+        let nome = null;
+        for (let i = 0; i < attesi.length && !nome; i++) {
+            nome = files.filter(f => f.toLowerCase() === String(attesi[i]).toLowerCase())[0] || null;
+        }
+        if (!nome) {
+            // Nessuno dei nomi attesi: se nella cartella c'è UNA sola voce, è
+            // quella. Se ce ne sono due non si tira a indovinare quale.
+            const soli = files.filter(f => /^Sintesi-audio/i.test(f));
+            if (soli.length === 1) nome = soli[0];
+        }
+        if (!nome) return null;
+        // Senza cue il lettore ripiega sulla stima proporzionale: è ciò che fa
+        // già per gli audio più vecchi, e una sincronia approssimata è meglio
+        // del silenzio.
+        return _audioDalVault(fv.vaultPath, nome, null);
+    }
+
     // Sintesi: export .html (conserva il lettore TTS e la voce naturale).
-    function exportHtml() {
+    async function exportHtml() {
         if (_kind === 'causal') {
             const name = 'Catena-dei-perche-' + String(CCU().mapName()).replace(/[\\/:*?"<>|]/g, '-') + '.html';
             const blobCc = new Blob([_ccHtml()], { type: 'text/html;charset=utf-8' });
@@ -947,14 +1628,27 @@
             return;
         }
         const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
-        const html = window.MappAIBranchSynthesis.buildPrintHtml(data);
-        const name = 'Sintesi-' + String(data.branchLabel || 'mappa').replace(/[\\/:*?"<>|]/g, '-') + '.html';
+        /* Se il testo è cambiato rispetto alla registrazione, l'audio NON si
+           allega: un karaoke fuori sincrono è peggio del silenzio, e non se ne
+           accorgerebbe l'insegnante ma l'allievo, da solo, a casa. */
+        const stale = DE().audioStale(_syn.base, _syn.blocks);
+        const audio = stale ? null : await _voceNaturale();
+        if (stale && (_syn.vaultAudio || _syn.data._audioBlob)) {
+            toast(t('de_html_stale', 'HTML senza voce naturale: il testo è cambiato dopo la registrazione, va rigenerata.'), 'warning');
+        }
+        const html = window.MappAIBranchSynthesis.buildPrintHtml(data, audio || {});
+        /* Il nome del file è quello della convenzione (`_componiNome`), non
+           «Sintesi-» + l'etichetta del ramo: per un documento aperto dal vault
+           quell'etichetta È già il nome del file, e ne usciva «Sintesi-Sintesi-…». */
+        const name = _componiNome('').replace(/\.[A-Za-z0-9]+$/, '') + '.html';
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = name;
         document.body.appendChild(a); a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-        toast(t('de_html_done', '✓ HTML scaricato — il lettore audio resta funzionante'), 'success');
+        toast(audio
+            ? t('de_html_done_audio', '✓ HTML scaricato — con la voce naturale incorporata')
+            : t('de_html_done', '✓ HTML scaricato — il lettore audio resta funzionante'), 'success');
     }
 
     // Orientamento del foglio da mandare a printToPDF: lo decide la geometria
@@ -967,64 +1661,19 @@
         } catch (e) { return false; }
     }
 
-    // Salva il foglio nel vault della mappa (Materiale Studio/), dove INSEGNA lo trova.
+    /* Scrive il foglio in «Materiale Studio». Dalla barra non ci si arriva più —
+       il bottone «Nel vault» è stato tolto il 9/8 perché faceva la stessa cosa
+       di «Stampa» senza dirlo — ma la funzione resta esposta.
+       ⚠️ Non ha più un'implementazione sua: ne aveva una che componeva i nomi
+       per conto proprio («Sintesi — <ramo> (rivista).html», «Catena dei perche
+       (rivista).html», il quiz col titolo al posto della mappa). Erano nomi nati
+       prima che la convenzione fosse una sola, e tenerli in vita voleva dire due
+       grafie per lo stesso mestiere: la prossima volta che `buildFileName`
+       cambia, una delle due resta indietro — e a restare indietro sarebbe quella
+       che nessuno guarda. Ora passa dalla stessa strada di «Stampa»: il nome si
+       chiede, la collisione si dichiara, la scrittura si annuncia. */
     async function saveToVault() {
-        const s = _appState();
-        const vaultPath = s && s.activeVaultPath;
-        if (!window.electronAPI || !window.electronAPI.saveVaultFile) { toast(t('de_need_app', 'Richiede l\'app desktop.'), 'warning'); return; }
-        if (!vaultPath) { toast(t('de_no_vault', 'Questa mappa non ha ancora una cartella vault: salvala nel vault dalla mappa.'), 'warning'); return; }
-        try {
-            let relPath, payload;
-            if (_kind === 'nodesheet') {
-                // Il foglio nodi è un PDF: lo produce il motore di stampa in modalità
-                // headless (stesse card, stesso formato) e lo scriviamo dov'è il resto
-                // del materiale della mappa.
-                const res = await window.printAllNodeLabels(_nsPrintOpts({ toDisk: { vaultPath: vaultPath } }));
-                if (!res || !res.ok || !res.base64) { toast(t('de_ns_pdf_ko', 'PDF del foglio nodi non generato.'), 'error'); return; }
-                const out0 = await window.electronAPI.saveVaultFile({
-                    vaultPath: vaultPath, relPath: 'Materiale Studio/' + res.fileName, base64: res.base64
-                });
-                if (out0 && out0.ok) { try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath }); } catch (e) { } toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success'); }
-                else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out0 && out0.error ? ': ' + out0.error : ''), 'error');
-                return;
-            }
-            if (_kind === 'causal') {
-                relPath = 'Materiale Studio/Catena dei perche (rivista).html';
-                payload = { vaultPath: vaultPath, relPath: relPath, text: _ccHtml() };
-            } else if (_kind === 'synthesis') {
-                const data = Object.assign({}, _syn.data, { editedBlocks: _syn.blocks });
-                // Nome per RAMO: «Sintesi.html» secco è il file della pipeline
-                // materiali (con l'MP3 della voce naturale accanto) — sovrascriverlo
-                // disallineerebbe testo e audio e cancellerebbe la sintesi di un
-                // altro ramo. La sintesi di tutta la mappa mantiene il nome storico.
-                const label = String(_syn.data.branchLabel || '').replace(/[\\/:*?"<>|]/g, '-').trim();
-                relPath = 'Materiale Studio/' + (_syn.data.whole || !label ? 'Sintesi' : 'Sintesi — ' + label) + ' (rivista).html';
-                payload = { vaultPath: vaultPath, relPath: relPath, text: window.MappAIBranchSynthesis.buildPrintHtml(data) };
-            } else {
-                const base = (window.MappAIPipelineCore && window.MappAIPipelineCore.buildFileName)
-                    ? window.MappAIPipelineCore.buildFileName(_kind === 'flashcards' ? 'flashcards' : (_doc.quizType === 'tf' ? 'quiz_tf' : 'quiz_mc'), _doc.title || 'Mappa', false)
-                    : ('Quiz-' + (_doc.title || 'Mappa') + '.pdf');
-                // Copia per gli allievi: le soluzioni restano nell'app (e nella copia
-                // del docente, che si stampa da qui o da INSEGNA → Quiz cartacei).
-                const html = _quizHtml(false, false);
-                if (window.electronAPI.htmlToPdf) {
-                    // Il foglio flashcard è orizzontale come il foglio dei nodi:
-                    // senza questo flag printToPDF lo impagina in verticale e le
-                    // carte escono tagliate.
-                    const res = await window.electronAPI.htmlToPdf({ html: html, options: { landscape: _flashLandscape() } });
-                    if (res && res.ok && res.base64) { payload = { vaultPath: vaultPath, relPath: 'Materiale Studio/' + base, base64: res.base64 }; }
-                }
-                if (!payload) {   // niente PDF → salva l'HTML (stesso nome, altra estensione)
-                    relPath = 'Materiale Studio/' + base.replace(/\.pdf$/i, '.html');
-                    payload = { vaultPath: vaultPath, relPath: relPath, text: html };
-                }
-            }
-            const out = await window.electronAPI.saveVaultFile(payload);
-            if (out && out.ok) { try { if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath }); } catch (e) { } toast(t('de_vault_ok', '✓ Salvato in Materiale Studio'), 'success'); }
-            else toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + (out && out.error ? ': ' + out.error : ''), 'error');
-        } catch (e) {
-            toast(t('de_vault_ko', 'Salvataggio nel vault non riuscito') + ': ' + e.message, 'error');
-        }
+        return _salvaConNome();
     }
 
     // ── modale generico (stile .pm-* dell'app) ──────────────────────────────
@@ -1033,6 +1682,22 @@
         const m = document.createElement('div');
         m.id = 'de-modal';
         m.className = 'fixed inset-0 z-[1200] flex items-center justify-center';
+        /* 🐛 «Stampa» non faceva NIENTE su quiz e flashcard, e solo dentro la
+           console di ELABORA. Non era la stampa: il file veniva scritto e i
+           toast comparivano. Era questo pannello, che nasce a z-index 1200
+           mentre la console è un modale del motore a 12100 con un riquadro
+           opaco a tutto schermo — il foglio si apriva SOTTO, invisibile, e
+           prendeva anche il fuoco. La sintesi funzionava perché esce da
+           `window.open`: una finestra nuova allo z-index non deve niente.
+           Il piano non si calcola: si CHIEDE al motore, che lo fa salire a ogni
+           finestra aperta (stesso gesto di `mappai-cabina.js:114`). Un numero
+           fisso più alto tornerebbe a sbagliare appena si impila un modale in
+           più. Fuori dalla console `prossimoZ` non c'è o vale la base, e il
+           comportamento storico non cambia. */
+        try {
+            const MM = window.MappAIModal;
+            if (MM && MM.prossimoZ) m.style.zIndex = String(MM.prossimoZ());
+        } catch (e) { /* senza motore resta la classe di prima */ }
         // Struttura canonica dei modali dell'app (index.html §11): card bianca +
         // header con pm-icon-wrap/pm-title + pm-section + footer a due bottoni.
         m.innerHTML =
@@ -1239,9 +1904,22 @@
                            : t('de_html_tip', 'Scarica la pagina HTML: conserva il lettore audio')) +
                   '"><i data-lucide="file-code-2" class="w-4 h-4"></i> HTML</button>'
                 : '') +
-            '<button type="button" class="de-btn" onclick="MappAIDocEditor.saveToVault()" title="' + esc(t('de_vault_tip', 'Scrive il foglio in Materiale Studio, dentro la cartella della mappa')) + '"><i data-lucide="folder-down" class="w-4 h-4"></i> ' + esc(t('de_vault', 'Nel vault')) + '</button>' +
-            '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
-            '<button type="button" class="de-btn de-primary" onclick="MappAIDocEditor.save()"><i data-lucide="save" class="w-4 h-4"></i> ' + esc(t('de_save', 'Salva')) + '</button>' +
+            /* «Nel vault» NON c'è più (Giacomo, 9/8): faceva la stessa cosa di
+               «Stampa» senza dirlo — due bottoni per un gesto solo, e il docente
+               doveva indovinare quale dei due lasciava il file nella cartella.
+               Ora è «Stampa» che chiede il nome, scrive e poi stampa; la
+               funzione `saveToVault` resta esportata per chi la chiamasse da
+               fuori. */
+            '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()" title="' +
+            esc(t('de_print_tip', 'Chiede il nome, salva il file nella cartella della mappa e poi apre la stampa')) +
+            '"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
+            /* Il bottone conclusivo è l'uscita (vedi `esci()`): tutte e due le
+               facce nel markup, `_paintDirty()` accende quella giusta senza
+               ridisegnare la barra. */
+            '<button type="button" class="de-btn de-primary" id="de-exit" onclick="MappAIDocEditor.esci()">' +
+            '<span class="de-exit-clean"><i data-lucide="log-out" class="w-4 h-4"></i> ' + esc(t('de_exit', 'Esci')) + '</span>' +
+            '<span class="de-exit-dirty"><i data-lucide="save" class="w-4 h-4"></i> ' + esc(t('de_exit_save', 'Salva ed Esci')) + '</span>' +
+            '</button>' +
             '</div>';
     }
 
@@ -1284,9 +1962,29 @@
         box.innerHTML = arr.map((c, i) => '<button type="button" class="de-slot" data-c="' + esc(c) + '" style="background:' + esc(c) + '" title="' + esc(t('de_slot', 'Colore salvato') + ' ' + (i + 1)) + '"></button>').join('');
     }
 
+    /* Il pallino «da salvare» E la parola del bottone di uscita, insieme e qui.
+       ⚠️ Non basta scrivere l'etichetta in `_docBar()`: dei ventisette punti che
+       sporcano il documento, otto NON ridisegnano la barra — e sono proprio
+       quelli della digitazione (`_commitBlock`, `_commitField`, `_commitNs`,
+       `_commitCc`, `setCorrect`, il titolo del quiz, più `fmt()`/`applyColor()`
+       via `_syncFocusedBlock`), che chiamano solo di qui perché un re-render
+       sposterebbe il cursore mentre si scrive. Scrivendo, il bottone sarebbe
+       rimasto «Esci» su un documento appena riscritto.
+       Le due facce stanno GIÀ nel markup, una accesa e una spenta: cambiare
+       l'icona vorrebbe dire richiamare `safeCreateIcons`, che è l'hub globale e
+       ridisegna le icone di tutta la pagina — a ogni tasto premuto. */
     function _paintDirty() {
         const d = document.getElementById('de-dirty');
         if (d) d.style.visibility = _dirty ? 'visible' : 'hidden';
+        const ex = document.getElementById('de-exit');
+        if (!ex) return;
+        const pulita = ex.querySelector('.de-exit-clean');
+        const sporca = ex.querySelector('.de-exit-dirty');
+        if (pulita) pulita.style.display = _dirty ? 'none' : 'inline-flex';
+        if (sporca) sporca.style.display = _dirty ? 'inline-flex' : 'none';
+        ex.setAttribute('title', _dirty
+            ? t('de_exit_save_tip', 'Salva le modifiche e torna indietro')
+            : t('de_exit_tip', 'Torna indietro: non c\'è niente da salvare'));
     }
 
     // ── SOGLIA DI CARATTERI DELLE CARTE ──────────────────────────────────────
@@ -1913,8 +2611,12 @@
     }
 
     // ── stili ───────────────────────────────────────────────────────────────
+    // Idempotente, e per due vie: il flag di modulo e la presenza del foglio nel
+    // documento. Serve la seconda perché ora la chiama anche chi NON apre un
+    // editor (la console, per disegnare una barra in stile `.de-bar`), e quel
+    // chiamante non sa se un editor sia mai stato montato.
     function _injectStyles() {
-        if (_stylesInjected) return;
+        if (_stylesInjected || document.getElementById('de-styles')) { _stylesInjected = true; return; }
         _stylesInjected = true;
         const css = `
 #elab-doc-host { height:100%; overflow:auto; background:#f8fafc; }
@@ -1942,6 +2644,13 @@
 .de-btn.de-primary { background:#4f46e5; border-color:#4f46e5; color:#fff; }
 .de-btn.de-primary:hover { background:#4338ca; color:#fff; }
 .de-btn.de-ghost { background:#fff; }
+/* Le due facce del bottone di uscita: convivono nel markup ed è _paintDirty()
+   ad accendere quella giusta (vedi il commento lì). La faccia «sporca» parte
+   spenta, così fra la scrittura dell'HTML e il primo ridisegno non lampeggiano
+   tutte e due.
+   ⚠️ Niente apici inversi qui dentro: questo CSS vive in un template literal. */
+.de-btn .de-exit-clean, .de-btn .de-exit-dirty { display:inline-flex; align-items:center; gap:6px; }
+.de-btn .de-exit-dirty { display:none; }
 .de-style { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:9px; }
 .de-sbtn { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; color:#475569; border-radius:6px; cursor:pointer; font:700 13px 'Space Mono',monospace; }
 .de-sbtn:hover { background:#e0e7ff; color:#4f46e5; }
@@ -2302,6 +3011,16 @@
         // modifiche come la lettura a voce di sistema).
         kind: function () { return (_view === 'doc') ? _kind : null; },
         openSet: openSet, openSynthesis: openSynthesis, backToList: backToList,
+        /* L'uscita a due stati (vedi `esci()`). `save()` resta esposta perché la
+           console di ELABORA la chiama per conto suo quando si cambia documento
+           con del lavoro in sospeso (`_conSalvataggio`). */
+        esci: esci,
+        // Sintesi dal FILE nel vault (Promise<boolean>: false = ha già avvisato).
+        openSynthesisFromVault: openSynthesisFromVault,
+        /* Il foglio `.de-bar`/`.de-btn`/`.de-spacer` senza aprire un editor: la
+           console disegna la sua barra con le stesse classi, e senza questo lo
+           stile arriverebbe solo dopo il primo documento aperto. */
+        assicuraStili: _injectStyles,
         // foglio dei nodi
         openNodeSheet: openNodeSheet, nsSetFmt: nsSetFmt, nsSetBg: nsSetBg, nsSetDepth: nsSetDepth,
         nsMenu: nsMenu, nsSetLayout: nsSetLayout, nsSetAll: nsSetAll, nsAddKeyword: nsAddKeyword,

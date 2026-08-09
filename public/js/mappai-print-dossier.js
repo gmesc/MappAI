@@ -636,9 +636,13 @@ window.printAllNodeLabels = async function (opts) {
         return { ok: true, base64: doc.output('datauristring'), fileName: pipeName };
     }
 
-    const domFileName = editedCards
+    /* Come per le flashcard: se il docente ha appena scelto un nome salvando in
+       `Materiale Studio/`, il dialogo di salvataggio propone QUELLO. Senza,
+       usciva `Label-<mappa>.pdf` — un nome di famiglia diversa da tutti gli
+       altri materiali, e per giunta non quello scelto. */
+    const domFileName = opts.fileName ? String(opts.fileName) : (editedCards
         ? `Foglio-nodi-${projectTitle} (rivisto)${verde}.pdf`
-        : `Label-${projectTitle}${verde}.pdf`;
+        : `Label-${projectTitle}${verde}.pdf`);
     doc.save(domFileName);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
 
@@ -945,7 +949,11 @@ window.printFlashcardSheet = async function (opts) {
     }
 
     const title = String(opts.title || 'Flashcard').replace(/[\\/:*?"<>|]/g, '-');
-    const fileName = 'Flashcard-' + title + '-' + fmt + '.pdf';
+    /* `opts.fileName` = il nome che il docente ha appena scelto salvando in
+       `Materiale Studio/`. Senza, il dialogo di salvataggio del sistema
+       proponeva un nome inventato qui e la parte aggiunta a mano spariva: due
+       nomi per lo stesso foglio, e quello che si vede è il peggiore. */
+    const fileName = String(opts.fileName || ('Flashcard-' + title + '-' + fmt + '.pdf'));
     if (opts.toDisk) return { ok: true, base64: doc.output('datauristring'), fileName: fileName };
 
     doc.save(fileName);

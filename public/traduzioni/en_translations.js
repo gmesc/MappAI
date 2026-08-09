@@ -1159,6 +1159,20 @@ const en_translations = {
     bs_audio_btn: "Natural voice audio",
     bs_audio_tip: "Download natural-voice audio (Google) — great for dyslexic students",
     bs_audio_need: "Generate a synthesis first",
+    /* Il comando «Aa» dentro il documento stampabile: un ciclo a tre stati.
+       Le etichette si risolvono nel BUILDER, non nel documento — quel file è
+       autoconsistente e non carica `window.t`. ⚠️ `x15` è una chiave e non una
+       stringa fissa proprio per il separatore decimale, che cambia lingua. */
+    bs_doc_dys: "Aa Dyslexia",
+    bs_doc_dys_x15: "Aa 1.5×",
+    bs_doc_dys_x2: "Aa 2×",
+    bs_doc_dys_tip: "High-readability mode: one click for 1.5× text, another for 2×, a third to go back to normal",
+    /* L'evidenziazione della frase che si sta ascoltando: finora era sempre
+       accesa e non c'era modo di spegnerla. Con essa si spegne anche lo
+       scorrimento che la segue — è la stessa cosa, «seguire la lettura». */
+    bs_doc_hl_on: "Highlight: on",
+    bs_doc_hl_off: "Highlight: off",
+    bs_doc_hl_tip: "Turns the highlighting of the sentence being read on or off — and with it the scrolling that follows",
     bs_audio_desktop: "Natural voice needs the desktop app",
     bs_audio_key: "A Google (Gemini) API key is required for natural voice",
     bs_audio_empty: "No text to read",
@@ -1732,6 +1746,10 @@ const en_translations = {
     lt_type_quiz: "Quiz",
     lt_type_flashcards: "Flashcards",
     lt_doc_missing: "Document not available.",
+    /* «Catena dei perché»: il genere esisteva, ma nessuna regola lo riconosceva
+       dal nome del file e nessun gruppo lo accoglieva — finiva in «Altri». */
+    lt_g_catena: "Why-chains",
+    lt_kind_causal: "Why-chain",
     lt_no_classes: "You have no classes yet. Create one to tune activities, or continue without a class.",
     lt_create_class: "Create a class",
     lt_without_class: "Continue without a class",
@@ -1956,6 +1974,11 @@ const en_translations = {
     mp_step_c: "Preparing node sheets…",
     mp_step_d: "Writing the summary…",
     mp_step_d_audio: "Generating the natural voice…",
+    /* I nomi dei materiali sono cambiati (ora portano anche la mappa): quelli
+       scritti prima restano nella cartella e non vengono cancellati — un foglio
+       può essere già stato stampato o corretto a mano. Il riepilogo li dice. */
+    mp_orfani: "Still in the folder, under the old name: ",
+    mp_audio_unlinked: "voice saved, but the document doesn't reference it: ",
     mp_audio_degraded: "Summary saved; voice not generated",
     mp_map_fail: "Invalid map: ",
     mp_vault_fail: "Vault save failed",
@@ -2000,6 +2023,12 @@ const en_translations = {
     ec_apro: "Opening…",
     ec_scegli_progetto: "Pick a project in the top bar: its documents will show up here.",
     ec_file_ko: "I cannot open this file",
+    /* La barra dell'anteprima di un documento del vault: «Modifica» apre la
+       sintesi nell'editor; gli altri due dicono un guasto che prima era muto. */
+    ec_modifica: "Edit",
+    ec_modifica_tip: "Open this summary in the editor to revise it.",
+    ec_stampa_ko: "I can't print this document from here — open it from the folder.",
+    ec_finder_ko: "I can't open this file from the folder.",
     ec_bric_carico: "· opening…",
     ec_bric_nessun: "No project",
     ec_bric_vuoto: "— no project for this class and subject —",
@@ -2040,6 +2069,11 @@ const en_translations = {
     de_quiz: "Quiz",
     de_flash: "Flashcards",
     de_synth: "Summary",
+    /* Editing di una sintesi che sta SUL DISCO: si riapre e si riscrive lo
+       stesso file, senza inventare un nome nuovo. */
+    de_vault_doc_ko: "Can't read this document from the map folder.",
+    de_saved_synth_file: "✓ Summary saved in the map folder",
+    de_saved_synth_file_audio: "✓ Summary saved — the text changed: the natural voice must be regenerated",
     de_questions: "questions",
     de_questions_c: "Questions",
     de_cards: "cards",
@@ -2050,7 +2084,15 @@ const en_translations = {
     de_back: "Documents",
     de_back_side: "Back",
     de_expl: "Explanation",
-    de_save: "Save",
+    /* ⚠️ Il bottone primario degli editor non dice più «Salva»: è un'USCITA a
+       due stati — «Esci» finché non si tocca niente, «Salva ed Esci» alla prima
+       modifica. Il salvataggio non è più un gesto a sé che si può dimenticare.
+       (`de_save` è stata rimossa: non la usava più nessuno.) */
+    de_exit: "Exit",
+    de_exit_save: "Save and Exit",
+    de_exit_tip: "Go back: there's nothing to save",
+    de_exit_save_tip: "Save your changes and go back",
+    de_exit_ko: "Couldn't save: staying in the document.",
     de_saved: "✓ Document saved",
     de_saved_synth: "✓ Summary saved — the revised text applies to print, PDF and sharing",
     de_print: "Print",
@@ -2058,11 +2100,29 @@ const en_translations = {
     de_undo_tip: "Undo the last change",
     de_undone: "Undone",
     de_no_undo: "Nothing to undo",
-    de_vault: "To vault",
-    de_vault_tip: "Writes the sheet into Study Material, inside the map folder",
-    de_vault_ok: "✓ Saved to Study Material",
     de_vault_ko: "Could not save to the vault",
-    de_no_vault: "This map has no vault folder yet: save it to the vault from the map.",
+    /* «Stampa» chiede il nome, scrive il file in Materiale Studio e poi apre la
+       stampa: ciò che si stampa esiste anche come file, che è quello che prima
+       mancava. Il bottone «Nel vault» è sparito — faceva la stessa cosa senza
+       dirlo (`de_vault`, `de_vault_tip`, `de_vault_ok`, `de_no_vault` rimosse). */
+    de_print_tip: "Asks for a name, saves the file in the map's folder, then opens the print view",
+    de_nome_titolo: "What do you want to call this material?",
+    de_nome_testo: "MappAI writes the first part of the name: it says what kind of material this is and which map it comes from. You add how you'll recognise it — you can leave this empty.",
+    de_nome_ph: "final revision, test 2B, …",
+    de_nome_ok: "Save and print",
+    de_nome_gia: "a file with this name already exists",
+    de_coll_titolo: "A file with this name already exists",
+    de_coll_testo: "\"{n}\" is already in the map's folder. I can overwrite it — what's there now will be lost — or save alongside it as \"{a}\".",
+    de_coll_testo_pieno: "\"{n}\" is already in the map's folder, and there are already too many variants of that name to add another. I can only overwrite it, or you can go back and choose a different name.",
+    de_coll_accanto: "Save alongside",
+    de_coll_sovra: "Overwrite",
+    de_coll_confirm: "A file with this name already exists. Overwrite it?",
+    de_print_saved: "✓ {n} saved in Materiale Studio",
+    de_print_audio: "the text has changed: the natural voice needs regenerating",
+    de_print_no_vault: "This map doesn't have a folder yet: printing without saving the file.",
+    de_print_no_app: "Outside the desktop app I can't save the file: just printing.",
+    de_html_done_audio: "✓ HTML downloaded — with the natural voice embedded",
+    de_html_stale: "HTML without the natural voice: the text changed after the recording, so it needs regenerating.",
     de_need_app: "Requires the desktop app.",
     de_html_tip: "Download the HTML page: keeps the audio reader working",
     de_html_done: "✓ HTML downloaded — the audio reader still works",

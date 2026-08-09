@@ -244,8 +244,13 @@
     }
     function _vociDisco(g) {
         return _fileDelGruppo(g).map(function (f) {
+            /* La voce resta MARCATA anche quando quel file è passato all'EDITOR
+               (`synfile:`): è lo stesso documento, prima in sola lettura e poi
+               aperto per essere corretto. Senza, premendo «Modifica» la colonna
+               si spegneva e diceva che non si sta lavorando su niente. */
             return {
-                id: 'disk:' + f.relPath, attiva: _voce === 'disk:' + f.relPath,
+                id: 'disk:' + f.relPath,
+                attiva: _voce === 'disk:' + f.relPath || _voce === 'synfile:' + f.relPath,
                 /* LA STAMPANTE, sempre, sui documenti del vault (Giacomo, 9/8).
                    Prima ognuno portava l'icona del suo GENERE — la stessa delle
                    voci editabili — e in un elenco misto le due nature si
@@ -500,7 +505,7 @@
             var vuota = tela.querySelector('.mm-tela__vuota');
             if (vuota) vuota.remove();
             var vfile = tela.querySelector('#ec-file');
-            if (vfile) vfile.remove();            /* un contenitore per volta */
+            if (vfile) { _fermaLettura(); vfile.remove(); }   /* un contenitore per volta */
             host = document.createElement('div');
             host.id = 'elab-doc-host';
             host.className = 'ec-host';
@@ -509,14 +514,88 @@
         return host;
     }
 
+    /* ⚠️ `read-vault-file` ritorna SEMPRE base64 (è nato per i PDF) e il testo va
+       decodificato con `TextDecoder`, MAI con `atob` da solo: `atob` rende byte,
+       non caratteri UTF-8, e «Elettricità» diventa «ElettricitÃ ». Stessa
+       trappola già risolta in `mappai-elabora.js` (`_testoDaBase64`). */
+    function _testoDaBase64(b64) {
+        try {
+            var bin = atob(b64);
+            var buf = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(buf);
+        } catch (e) { return ''; }
+    }
+
+    /* Le regole `.de-bar` (la barra dei quattro editor) sono dichiarate in
+       `mappai-doc-editor.js` e iniettate dentro il suo `render()`: aprendo un
+       file del vault senza aver mai aperto un editor non ci sarebbero, e la
+       barra uscirebbe nuda. `assicuraStili` esiste per questo; la guardia perché
+       arriva da un filone parallelo. */
+    function _stiliEditor() {
+        try { if (DEd() && DEd().assicuraStili) DEd().assicuraStili(); } catch (e) { }
+    }
+
+    /* Il lettore del documento ospitato è IL CHIP dell'app (`MappAITTS.mountChip`),
+       non una seconda implementazione: è il comando che gli studenti con DSA
+       usano su questi fogli, e il documento ne porta uno suo solo perché lo si
+       apre anche fuori di qui.
+       ⚠️ Il corpo da leggere sta DENTRO l'iframe: `.bs-body` è il corpo delle
+       sintesi, il `body` del documento è il ripiego per tutto il resto.
+       ⚠️ Il chip segue il toggle degli strumenti compensativi come ovunque
+       nell'app: con `mappai_tts_tool_enabled` spento nasce nascosto. */
+    /* La voce naturale è DENTRO il documento (base64) o è solo un riferimento a
+       un file che gli sta accanto? Il generatore lo dichiara con
+       `data-ap-src="embedded"`; il ripiego sul `src` serve ai documenti scritti
+       prima che l'attributo esistesse.
+       ⚠️ Si legge l'ATTRIBUTO, non la proprietà `.src`: la proprietà risolve da
+       sé il percorso relativo e restituisce sempre un URL assoluto — non direbbe
+       mai «non è `data:`», e il controllo non distinguerebbe niente. */
+    function _audioIncorporato(doc) {
+        try {
+            var a = doc.getElementById('ap-audio');
+            if (!a) return false;
+            var dichiarato = a.getAttribute('data-ap-src');
+            if (dichiarato) return dichiarato === 'embedded';
+            var s = a.getAttribute('src') || '';
+            if (!s) { var so = a.querySelector('source'); s = (so && so.getAttribute('src')) || ''; }
+            return /^data:/i.test(s.trim());
+        } catch (e) { return false; }
+    }
+    function _montaChip(host, doc) {
+        if (!host || !doc || !window.MappAITTS || !window.MappAITTS.mountChip) return;
+        try {
+            var chip = window.MappAITTS.mountChip(host, function () {
+                return doc.querySelector('.bs-body') || doc.body;
+            });
+            /* ⚠️ `mountChip` nasce SPENTO: si allinea a `isEnabled()`, che legge
+               `mappai_tts_tool_enabled` e vale FALSO finché il docente non accende
+               gli strumenti compensativi. Qui quel cancello non vale, ed è la
+               differenza fra un lettore e nessun lettore: la barra del documento
+               — che il chip sta sostituendo — il suo player ce l'aveva sempre.
+               Nasconderla e non mettere niente al suo posto sarebbe una perdita
+               secca proprio sul documento che si consegna a chi ha un DSA. */
+            if (chip) chip.style.display = '';
+        } catch (e) { }
+    }
+    /* Lasciando il documento la lettura si ferma: l'iframe se ne va, ma la voce
+       del browser non è appesa al DOM e continuerebbe a parlare di una pagina
+       che non c'è più. */
+    function _fermaLettura() {
+        try { if (window.MappAITTS && window.MappAITTS.stop) window.MappAITTS.stop(); } catch (e) { }
+    }
+
     /* Un documento del VAULT nella tela: sola lettura. È un file finito (HTML o
        PDF), non un set da correggere — si mostra con la stessa tecnica di INSEGNA
-       (byte via IPC → data-URI in un iframe), che è anche l'unica che funziona per
-       un PDF. Sopra, una riga con «Stampa» e «Apri nel Finder»: sono le due cose
-       che si fanno con un documento finito. */
+       (byte via IPC → iframe). Sopra, UNA barra sola, con la veste `.de-bar` dei
+       quattro editor: prima ce n'erano due impilate, quella disegnata qui a mano
+       e quella che il documento si porta dentro. */
     function _montaFile(box, relPath) {
         var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
         if (!tela) return;
+        /* l'iframe si ricostruisce da capo a ogni disegno: una lettura in corso
+           riguarderebbe un documento che sta per sparire */
+        _fermaLettura();
         var vecchio = tela.querySelector('#elab-doc-host'); if (vecchio) vecchio.remove();
         var vs = tela.querySelector('#ec-src'); if (vs) vs.remove();
         var vuota = tela.querySelector('.mm-tela__vuota'); if (vuota) vuota.remove();
@@ -533,44 +612,141 @@
             host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('fx_desktop', 'Disponibile solo nell\'app desktop.') + '</p>';
             return;
         }
+        var vaultPath = s.activeVaultPath;
         host.innerHTML = '<p style="font-family:monospace;padding:24px;color:#64748b">' + t('ec_apro', 'Apro…') + '</p>';
-        api.readVaultFile({ vaultPath: s.activeVaultPath, relPath: relPath }).then(function (r) {
+        api.readVaultFile({ vaultPath: vaultPath, relPath: relPath }).then(function (r) {
             if (_voce !== 'disk:' + relPath) return;          /* nel frattempo ha scelto altro */
             if (!r || !r.ok) {
                 host.innerHTML = '<p style="font-family:monospace;padding:24px">' +
                     t('ec_file_ko', 'Non riesco ad aprire questo file') + (r && r.error ? ': ' + r.error : '') + '</p>';
                 return;
             }
+            var eHtml = /\.html?$/i.test(relPath);
             var mime = /\.pdf$/i.test(relPath) ? 'application/pdf'
-                : /\.html?$/i.test(relPath) ? 'text/html'
+                : eHtml ? 'text/html'
                     : /\.(mp3|m4a|wav)$/i.test(relPath) ? 'audio/mpeg' : 'application/octet-stream';
-            var uri = 'data:' + mime + ';base64,' + r.base64;
+            var nomeFile = String(relPath).split('/').pop();
+            _stiliEditor();
             host.innerHTML = '';
+
+            /* ── LA BARRA, una sola, nella veste dei quattro editor ──────────── */
             var barra = document.createElement('div');
-            barra.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid #e8ecf4;background:#f6f8fc;flex:0 0 auto';
-            var nome = document.createElement('span');
-            nome.style.cssText = 'font:700 12px/1 ui-monospace,monospace;color:#475569;margin-right:auto';
-            nome.textContent = String(relPath).split('/').pop();
-            barra.appendChild(nome);
-            var bStampa = document.createElement('button');
-            bStampa.type = 'button'; bStampa.className = 'mm-btn';
-            bStampa.textContent = t('de_print', 'Stampa');
-            bStampa.addEventListener('click', function () {
-                var f = host.querySelector('iframe');
-                try { if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } } catch (e) { }
-            });
-            var bFinder = document.createElement('button');
-            bFinder.type = 'button'; bFinder.className = 'mm-btn';
-            bFinder.textContent = t('lt_open_finder', 'Apri nel Finder');
-            bFinder.addEventListener('click', function () {
-                try { if (api.pipelineOpenFile) api.pipelineOpenFile({ filePath: s.activeVaultPath + '/' + relPath }); } catch (e) { }
-            });
-            barra.appendChild(bStampa); barra.appendChild(bFinder);
-            host.appendChild(barra);
+            barra.className = 'de-bar';
+            var tit = document.createElement('div');
+            tit.className = 'de-bar-t';
+            tit.textContent = nomeFile;
+            barra.appendChild(tit);
+            var sp = document.createElement('div');
+            sp.className = 'de-spacer';
+            barra.appendChild(sp);
+            /* Il posto del chip: si riempie al `load`, quando il documento c'è.
+               `flex:0 1 auto` + `min-width:0` perché la barra va a capo: il
+               lettore si stringe fin dove la sua barra di avanzamento regge
+               (120px, il suo minimo) invece di spingere i bottoni fuori. */
+            var chipHost = document.createElement('div');
+            chipHost.style.cssText = 'display:inline-flex;align-items:center;flex:0 1 auto;min-width:0';
+            barra.appendChild(chipHost);
+
+            function bottone(etichetta, titolo, primario) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'de-btn' + (primario ? ' de-primary' : '');
+                b.textContent = etichetta;
+                if (titolo) b.title = titolo;
+                barra.appendChild(b);
+                return b;
+            }
+
+            /* «Modifica» solo sulle SINTESI: sono le uniche di cui l'editor sa
+               ricostruire il documento leggendone il file. Il genere lo dice la
+               regola di INSEGNA (`generePerFile`), non un secondo classificatore.
+               ⚠️ Se `openSynthesisFromVault` non c'è, il bottone nemmeno: un
+               comando che non fa niente è peggio di un comando che manca. */
+            if (_gruppoDelFile(nomeFile) === 'syn' && DEd() && DEd().openSynthesisFromVault) {
+                bottone(t('ec_modifica', 'Modifica'),
+                    t('ec_modifica_tip', 'Apri questa sintesi nell\'editor per rivederla.'), true)
+                    .addEventListener('click', function () {
+                        _fermaLettura();
+                        var titolo = nomeFile.replace(/\.[^.]+$/, '');
+                        var mappa = (_appState() && _appState().rootNodeLabel) || '';
+                        Promise.resolve(DEd().openSynthesisFromVault({
+                            vaultPath: vaultPath, relPath: relPath, title: titolo, mapName: mappa
+                        })).then(function (ok) {
+                            /* `false` = ha rinunciato E ha già avvisato: la voce
+                               non cambia, o la colonna direbbe che il documento è
+                               nell'editor mentre non ci è mai arrivato. */
+                            if (!ok) return;
+                            _voce = 'synfile:' + relPath;
+                            rifaiEsterno();
+                        }).catch(function () { });
+                    });
+            }
+
             var fr = document.createElement('iframe');
+
+            bottone(t('de_print', 'Stampa')).addEventListener('click', function () {
+                /* 🐛 Prima era `f.contentWindow.print()` dentro un catch muto: con
+                   l'iframe a origine opaca lancia SecurityError e il bottone non
+                   faceva nulla senza dirlo. */
+                var ok = window.MappAIDocBar && window.MappAIDocBar.stampaIframe
+                    ? window.MappAIDocBar.stampaIframe(fr) : false;
+                if (!ok) toast(t('ec_stampa_ko', 'Non riesco a stampare questo documento da qui: aprilo dalla cartella.'), 'warning');
+            });
+
+            bottone(t('lt_open_finder', 'Apri nel Finder')).addEventListener('click', function () {
+                /* 🐛 Prima si mandava `{filePath}`, ma l'handler `pipeline-open-file`
+                   pretende `{vaultPath, relPath}` e senza quelli tornava un errore
+                   che nessuno leggeva: il bottone non ha mai aperto niente. */
+                if (!api.pipelineOpenFile) { toast(t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
+                Promise.resolve(api.pipelineOpenFile({ vaultPath: vaultPath, relPath: relPath }))
+                    .then(function (res) {
+                        if (res && res.ok === false) toast(t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning');
+                    })
+                    .catch(function () { toast(t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning'); });
+            });
+
+            host.appendChild(barra);
+
+            /* ── IL DOCUMENTO ────────────────────────────────────────────────
+               ⚠️ Gli HTML entrano con `srcdoc`, non con `src="data:…"`: un
+               data-URI è un'ORIGINE OPACA, e da fuori non si potrebbe né
+               spegnere la barra interna né stampare (le due funzioni di
+               `MappAIDocBar` tornano `false` proprio lì). I PDF restano al
+               data-URI: quelli vanno al visore di Chromium, dove `srcdoc` non
+               c'entra niente. */
             fr.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:#fff';
-            fr.setAttribute('title', nome.textContent);
-            fr.src = uri;
+            fr.setAttribute('title', nomeFile);
+            var sistemato = false;
+            fr.addEventListener('load', function () {
+                if (!eHtml || sistemato) return;
+                var d = null;
+                try { d = fr.contentDocument; } catch (e) { d = null; }
+                if (!d || !d.body) return;
+                /* ⚠️ Un iframe appena inserito fa un `load` per `about:blank`
+                   PRIMA di quello del documento vero: senza questa guardia si
+                   spegneva una barra che non c'era e si montava un lettore
+                   puntato a una pagina bianca — poi un SECONDO al load vero. */
+                var url = '';
+                try { url = String((d.location && d.location.href) || ''); } catch (e) { url = ''; }
+                if (url === 'about:blank') return;
+                sistemato = true;
+                /* ⚠️ ECCEZIONE, e vale SOLO per l'audio INCORPORATO: un
+                   documento condiviso può portarsi dentro la voce naturale in
+                   base64, e quella il chip dell'app non sa suonarla — legge il
+                   testo con la voce di sistema. Lì la barra del documento resta
+                   com'è: meglio una barra sola giusta che un lettore che tace.
+                   ⚠️ Non basta CHE ci sia un `<audio>`: dal 9/8 la sintesi nel
+                   vault ne porta uno che punta all'MP3 fratello con un percorso
+                   relativo — che in `srcdoc` non si risolve e resta muto
+                   comunque. Con la condizione sulla sola presenza, l'eccezione
+                   sarebbe diventata la regola e la barra doppia sarebbe tornata
+                   su quasi tutte le sintesi. */
+                if (_audioIncorporato(d)) return;
+                if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe(fr)) return;
+                _montaChip(chipHost, d);
+            });
+            if (eHtml) fr.srcdoc = _testoDaBase64(r.base64);
+            else fr.src = 'data:' + mime + ';base64,' + r.base64;
             host.appendChild(fr);
         }).catch(function () {
             host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('ec_file_ko', 'Non riesco ad aprire questo file') + '</p>';
@@ -590,7 +766,7 @@
             var vecchio = tela.querySelector('#elab-doc-host');
             if (vecchio) vecchio.remove();        /* un contenitore per volta */
             var vfile = tela.querySelector('#ec-file');
-            if (vfile) vfile.remove();
+            if (vfile) { _fermaLettura(); vfile.remove(); }
             host = document.createElement('div');
             host.id = 'ec-src';
             tela.appendChild(host);
@@ -714,10 +890,21 @@
                 var liv = CB.specContesto({
                     /* «Cosa» porta fuori da qui: si chiude la console e la
                        landing resta sulla sezione scelta (stessa strada di INSEGNA) */
+                    /* Cambiare sezione dal percorso esce dalla console, e la × è
+                       la stessa strada del pallino della testata: chiede prima,
+                       come ESC. Senza, si perdeva il documento aperto in quel
+                       gesto e non nell'altro — cioè il lavoro sopravviveva a
+                       seconda di come si usciva.
+                       ⚠️ `setMode` DOPO la risposta: prima cambiava la landing
+                       sotto anche quando l'utente rispondeva «torna indietro»,
+                       e la console restava aperta su una sezione che non era
+                       più quella dichiarata. */
                     onCosa: function (m) {
-                        try { if (window.MappAITeach && MappAITeach.setMode) MappAITeach.setMode(m); } catch (e) { }
-                        var x = box.querySelector('[data-azione="__chiudi"]');
-                        if (x) x.click();
+                        _conSalvataggio(function () {
+                            try { if (window.MappAITeach && MappAITeach.setMode) MappAITeach.setMode(m); } catch (e) { }
+                            var x = box.querySelector('[data-azione="__chiudi"]');
+                            if (x) x.click();
+                        });
                     },
                     onGenerico: function () {
                         dopo(function () {
@@ -899,6 +1086,88 @@
             if (host && DEd().render) { try { DEd().render(); } catch (e) { } }
         }
 
+        /* ── LASCIARE UN DOCUMENTO: prima si CHIEDE (Giacomo, 9/8) ───────────
+           L'editor tiene le modifiche in memoria e le dichiara (`hasUnsaved`),
+           il motore sa già fare la domanda a tre vie (`chiediSalvataggio`:
+           salva · esci · torna indietro): non erano legati a niente, e uscire
+           buttava via il lavoro in silenzio. La domanda è la stessa comunque si
+           esca — con ESC o scegliendo un'altra voce nella colonna — perché il
+           gesto è lo stesso: chiederla in un caso solo vorrebbe dire che il
+           lavoro si perde a seconda di come si esce. */
+        function _etichettaVoce(v) {
+            /* un file passato all'editor porta l'id `synfile:`, ma nella colonna
+               la sua riga resta quella `disk:`: senza questa riga la domanda
+               direbbe «questo documento» proprio dove il nome del file c'è */
+            var cerca = String(v || '').replace(/^synfile:/, 'disk:');
+            var nome = '';
+            try { _nav().forEach(function (x) { if (x && x.id === cerca && x.etichetta) nome = x.etichetta; }); }
+            catch (e) { }
+            return nome;
+        }
+        function _sporco() {
+            try { return !!(DEd().haDocumento && DEd().haDocumento() && DEd().hasUnsaved && DEd().hasUnsaved()); }
+            catch (e) { return false; }
+        }
+        /* ⚠️ `poi` non è mai sincrono quando c'è da chiedere: chi chiama deve
+           aver già risposto al motore (vedi `__esc`), o la console si chiude
+           sotto la domanda. */
+        function _conSalvataggio(poi) {
+            if (!_sporco() || !MM().chiediSalvataggio) { poi(); return; }
+            MM().chiediSalvataggio({ nome: _etichettaVoce(_voce) }).then(function (a) {
+                if (a === 'annulla') return;
+                if (a === 'salva') {
+                    try { DEd().save(); } catch (e) { }
+                    /* `save()` può RINUNCIARE (validazione rifiutata, set sparito
+                       dalla mappa): se il documento è ancora sporco non si esce,
+                       o si perderebbe proprio ciò che si era chiesto di salvare. */
+                    if (_sporco()) return;
+                }
+                poi();
+            });
+        }
+        /* Torna al segnaposto: l'area si svuota e la colonna resta.
+           ⚠️ Nessun codice per riaprire la colonna: lo stato «chiusa» vive SOLO
+           nella classe `is-nav-chiusa` che il motore appiccica al box
+           (mappai-modal.js:716), e `rifai()` costruisce un box NUOVO che la
+           prende solo da `schema.navChiusa` — che qui non si emette mai. Quindi
+           la colonna riappare da sé; aggiungere una riga per farlo sarebbe
+           codice che non fa niente. */
+        function _chiudiDocumento() {
+            _voce = '';
+            _fermaLettura();
+            try { if (DEd().reset) DEd().reset(); } catch (e) { }
+            try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+            rifai();
+        }
+
+        /* Aprire la voce scelta. Sta qui e non dentro `suAzione` perché ci si
+           arriva anche DOPO la domanda sul salvataggio, cioè da una `then`. */
+        function _apriVoce(v) {
+            if (v.indexOf('src:') === 0) {
+                /* la fonte si apre NELLA tela come ogni altro documento:
+                   `src:pdf:<i>` porta l'indice del PDF scelto (senza, si
+                   aprirebbe sempre il primo e la voce cliccata non
+                   corrisponderebbe a ciò che compare). */
+                _voce = v;
+                rifai();
+                return;
+            }
+            if (v.indexOf('disk:') === 0) { _voce = v; rifai(); return; }
+            _voce = v;
+            try {
+                if (v.indexOf('set:') === 0) DEd().openSet(v.slice(4));
+                else if (v.indexOf('syn:') === 0) DEd().openSynthesis(v.slice(4));
+                else if (v === 'ns') DEd().openNodeSheet();
+                else if (v === 'cc') DEd().openCausal();
+            } catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
+            /* Un'apertura può RINUNCIARE (l'editor avvisa e resta dov'era):
+               allora la voce non si marca come aperta e l'area torna al suo
+               segnaposto — altrimenti la colonna direbbe che un documento è
+               aperto e la tela mostrerebbe uno spazio vuoto. */
+            try { if (DEd().haDocumento && !DEd().haDocumento()) _voce = ''; } catch (e) { }
+            rifai();
+        }
+
         /* ── Uscire da un documento svuota l'AREA (Giacomo, 8/8 notte) ────────
            L'editor, chiudendo un documento, torna alla SUA lista e la disegna
            nell'host — che qui è la tela. Ma l'elenco dei documenti in questa
@@ -951,6 +1220,20 @@
             ridisegna = ridis;
             var id = ev.azione;
 
+            /* ── ESC CHIUDE IL DOCUMENTO, non la console ─────────────────────
+               🐛 Non c'era nessun ramo `__esc`: il motore lo manda e chiude tutto
+               se non riceve ESATTAMENTE `false`, poi la `then` di chiusura chiama
+               `reset()` sull'editor — che azzera `_dirty`. Cioè un ESC distratto
+               buttava via il lavoro non salvato senza una domanda.
+               ⚠️ La risposta `false` deve partire SUBITO, prima della domanda sul
+               salvataggio, che è asincrona: rispondere dopo vorrebbe dire che la
+               console si chiude mentre la domanda è ancora a schermo. */
+            if (id === '__esc') {
+                if (!_voce) return;                  /* area già vuota: esce la console */
+                _conSalvataggio(_chiudiDocumento);
+                return false;
+            }
+
             if (id === 'crea') return _popupCrea(rifai);
 
             /* Un gruppo piegato: il motore l'ha già chiuso a schermo, qui si
@@ -974,29 +1257,11 @@
             if (id === '__nav') {
                 var v = ev.voce || '';
                 if (v.indexOf('vuoto:') === 0) return;        /* riga informativa */
-                if (v.indexOf('src:') === 0) {
-                    /* la fonte si apre NELLA tela come ogni altro documento:
-                       `src:pdf:<i>` porta l'indice del PDF scelto (senza, si
-                       aprirebbe sempre il primo e la voce cliccata non
-                       corrisponderebbe a ciò che compare). */
-                    _voce = v;
-                    rifai();
-                    return;
-                }
-                if (v.indexOf('disk:') === 0) { _voce = v; rifai(); return; }
-                _voce = v;
-                try {
-                    if (v.indexOf('set:') === 0) DEd().openSet(v.slice(4));
-                    else if (v.indexOf('syn:') === 0) DEd().openSynthesis(v.slice(4));
-                    else if (v === 'ns') DEd().openNodeSheet();
-                    else if (v === 'cc') DEd().openCausal();
-                } catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
-                /* Un'apertura può RINUNCIARE (l'editor avvisa e resta dov'era):
-                   allora la voce non si marca come aperta e l'area torna al suo
-                   segnaposto — altrimenti la colonna direbbe che un documento è
-                   aperto e la tela mostrerebbe uno spazio vuoto. */
-                try { if (DEd().haDocumento && !DEd().haDocumento()) _voce = ''; } catch (e) { }
-                rifai();
+                if (v === _voce) return;                      /* è già quella aperta */
+                /* Scegliere un'altra voce È uscire dal documento aperto: stessa
+                   domanda dell'ESC, altrimenti il lavoro si perde a seconda di
+                   come si esce. */
+                _conSalvataggio(function () { _apriVoce(v); });
                 return;
             }
         };

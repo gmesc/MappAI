@@ -54,6 +54,12 @@
     let _pdfToken = 0;             // annulla render PDF concorrenti/obsoleti
     let _pdfSeq = 0;               // contatore MONOTONO di sessione (id univoci cross-progetto)
     const _pdfFiles = new Map();   // sourceId → File (PDF aggiunti in ELABORA, sessione)
+    /* A QUALE vault appartengono le fonti che stanno in `appState.sources`.
+       Serve a distinguere «ci sono già fonti» da «ci sono le fonti GIUSTE»:
+       senza, aprendo una seconda mappa si tenevano quelle della prima. `null`
+       = non lo sappiamo (mappa nuova, fonti caricate da CREA prima che il vault
+       esistesse): in quel caso la prima apertura di un vault le sostituisce. */
+    let _fontiDiVault = null;
 
     function hasMap() {
         const s = _appState();
@@ -1530,6 +1536,10 @@
         const id = 'elab_' + type + '_' + (++_pdfSeq);
         const src = { id: id, type: type, content: content, file: null, name: name, origin: 'elabora' };
         s.sources.push(src);
+        /* Una fonte aggiunta a mano appartiene alla mappa aperta ADESSO: senza
+           questa riga il ripristino la scambierebbe per roba di un'altra mappa
+           e la butterebbe via alla prima riapertura. */
+        if (s.activeVaultPath) _fontiDiVault = s.activeVaultPath;
         if (file) {
             _pdfFiles.set(id, file);
             _srcView = 'pdf';                                  // mostra subito il PDF appena aggiunto
@@ -1674,6 +1684,16 @@
         const s = _appState();
         const api = window.electronAPI;
         if (!s || !s.activeVaultPath || !api || !api.saveVaultFile) return false;
+        /* ⚠️ Questo indice si riscrive INTERO, e con `fonti: []` cancella quello
+           che c'era. Da quando le fonti si azzerano al cambio mappa esiste una
+           finestra — il ripristino è asincrono e non viene atteso — in cui la
+           memoria è vuota mentre il vault nuovo è già quello attivo: un
+           salvataggio che capitasse lì dentro svuoterebbe l'indice di un vault
+           appena aperto. Non si scrive un elenco vuoto per fonti che non
+           risultano ancora di questo vault; svuotarlo davvero (l'utente ha
+           tolto tutte le fonti) passa comunque, perché lì `_fontiDiVault` è già
+           quello giusto. */
+        if (!(s.sources || []).length && _fontiDiVault !== s.activeVaultPath) return false;
         const voci = [];
         let n = 0;
         for (const src of (s.sources || [])) {
@@ -1713,15 +1733,29 @@
             testo (i vault salvati prima di oggi sono tutti così), e il testo lo
             estrarrà ELABORA alla prima apertura;
          3. niente in `Fonti/` → non si tocca nulla.
-       ⚠️ Non sovrascrive fonti già in memoria: se si salva e si ricarica nella
-       stessa sessione, quelle in RAM hanno il file vero e sono migliori. */
+       ⚠️ Non sovrascrive le fonti dello STESSO vault già in memoria: quelle in
+       RAM hanno il file vero e sono migliori di quanto si rilegga dal disco.
+       🐛 Ma «già in memoria» da solo era sbagliato, ed era il difetto che
+       Giacomo vedeva: nessun caricatore azzera `appState.sources`, quindi
+       aprendo la mappa B con le fonti di A in RAM questa funzione usciva subito
+       e la colonna continuava a elencare i file di A — congelati sul primo
+       progetto della sessione. La domanda giusta non è «ci sono fonti?» ma
+       «sono di QUESTO vault?». */
     async function ripristinaFontiDalVault(vaultPath) {
         const s = _appState();
         const api = window.electronAPI;
         if (!s || !api || !api.readVaultFile) return 0;
         const vp = vaultPath || s.activeVaultPath;
         if (!vp) return 0;
-        if ((s.sources || []).length) return 0;                 // già in memoria: non si tocca
+        if ((s.sources || []).length && _fontiDiVault === vp) return 0;   // stesso vault: le sue sono migliori
+        if ((s.sources || []).length) {
+            /* Sono di un'altra mappa: se ne vanno con i loro File di sessione,
+               o il visore mostrerebbe il PDF del progetto precedente. */
+            s.sources = [];
+            try { _pdfFiles.clear(); } catch (e) { /* noop */ }
+            _srcView = 'text'; _pdfIdx = 0;
+        }
+        _fontiDiVault = vp;   /* da qui in poi le fonti in RAM sono di questo vault */
         let indice = null;
         try {
             const r = await api.readVaultFile({ vaultPath: vp, relPath: FONTI_INDICE });

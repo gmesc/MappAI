@@ -539,6 +539,14 @@
        tipo di foglio, quindi non si può pretendere il trattino */
     if (/^Foglio.?nodi/i.test(n)) return { icon: 'scissors', label: 'Foglio nodi' };
     if (/^Sintesi/i.test(n)) return { icon: 'sparkles', label: 'Sintesi' };
+    /* «Catena-dei-perche-<Mappa> -VERDE.pdf» dalla pipeline, «Catena dei perché
+       (rivista).html» dall'editor: stesso materiale, due produttori, due
+       separatori — quindi `.?` come per il foglio dei nodi, mai un trattino
+       preteso. E ci si ferma a «perch»: l'accento finale c'è o non c'è a
+       seconda di chi ha scritto il nome, e non è quello a distinguere il
+       genere. Senza questa riga i tre nomi cadevano in «File» e il docente li
+       cercava fra i suoi materiali senza trovarli. */
+    if (/^Catena.?dei.?perch/i.test(n)) return { icon: 'git-branch', label: 'Catena dei perché' };
     /* i .json sono i SET salvati (quiz, flashcard): materiale di lavoro
        dell'app, non un documento da portare in classe — si dicono per quello
        che sono e la console li mette in fondo */
@@ -1245,7 +1253,13 @@
     nodesheet: { icon: 'scissors', label: 'Foglio nodi' },
     timeline: { icon: 'gantt-chart', label: 'Timeline' },
     quizpaper: { icon: 'list-checks', label: 'Quiz' },
-    flashsheet: { icon: 'copy', label: 'Flashcard' }
+    flashsheet: { icon: 'copy', label: 'Flashcard' },
+    /* `causal` è un genere d'archivio ammesso da sempre (DOC_KINDS in
+       mappai-study-export-core.js) ma qui non c'era: cadeva sul ripiego
+       `dossier` e la riga diceva «Dossier» con l'icona sbagliata. Stessa
+       parola e stessa icona del file su disco (`_diskKind`), altrimenti lo
+       stesso materiale si chiama in due modi a seconda di dove è archiviato. */
+    causal: { icon: 'git-branch', label: 'Catena dei perché' }
   };
   // I fogli cartacei hanno una sezione propria: si stampano (con o senza
   // soluzioni) e si condividono via QR, non si "aprono" come un dossier.
@@ -1362,6 +1376,12 @@
     var m = document.createElement('div');
     m.id = 'qp-print-modal';
     m.className = 'fixed inset-0 z-[1200] flex items-center justify-center';
+    /* Il piano si CHIEDE al motore. Un modale a `z-[1200]` aperto da dentro una
+       console — che è un modale del motore a 12100 con riquadro opaco a tutto
+       schermo — nasce SOTTO e non si vede mai: è il difetto che rendeva muto
+       «Stampa» sui quiz in ELABORA, e questa è la stessa forma, raggiungibile
+       da «Quiz cartacei» nella console INSEGNA. */
+    try { if (window.MappAIModal && MappAIModal.prossimoZ) m.style.zIndex = String(MappAIModal.prossimoZ()); } catch (e) { }
     m.innerHTML = '<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>' +
       '<div class="relative bg-white rounded-2xl shadow-2xl w-[92vw] max-w-[520px] p-6 space-y-5">' +
       '<div class="flex items-center gap-3">' +
@@ -2086,6 +2106,9 @@
   var GRUPPI_MAT = [
     { id: 'sintesi', chiave: 'lt_g_sintesi', testo: 'Sintesi', tipi: ['Sintesi'] },
     { id: 'fogli', chiave: 'lt_g_fogli', testo: 'Fogli dei nodi', tipi: ['Foglio nodi'] },
+    /* elenco suo: finché non c'era, i file della catena finivano in «Altri
+       materiali» insieme a tutto ciò che il classificatore non sa nominare */
+    { id: 'catena', chiave: 'lt_g_catena', testo: 'Catena dei perché', tipi: ['Catena dei perché'] },
     { id: 'quiz_mc', chiave: 'lt_g_quiz_mc', testo: 'Quiz a scelta multipla', tipi: ['Quiz MC'] },
     { id: 'quiz_vf', chiave: 'lt_g_quiz_vf', testo: 'Quiz vero / falso', tipi: ['Quiz V/F'] },
     { id: 'quiz', chiave: 'lt_g_quiz', testo: 'Altri quiz', tipi: ['Quiz'] },
@@ -2452,11 +2475,63 @@
   }
   /* Il documento entra in un iframe: è l'unico modo di mostrare un foglio di
      stampa (col SUO CSS) senza che le sue regole colino nella console. */
+  /* ⚠️ Il foglio si porta dentro la SUA barra di comandi: giusta quando lo si
+     apre da solo (è il file che finisce sul computer dello studente), di troppo
+     qui, dove sopra c'è già quella della console — due barre impilate. La
+     spegne `MappAIDocBar.nascondiInIframe` al `load`: si agisce da FUORI e non
+     si evita di emetterla perché i file sono già scritti sul disco e nessuno li
+     riscriverà. Vale per `srcdoc` (stessa origine); con un `src` `data:`
+     l'origine è opaca, la funzione risponde `false` e la barra doppia resta —
+     meno grave che non mostrare il documento.
+     ECCEZIONE `#ap-audio`, e vale SOLO per l'audio INCORPORATO: la voce
+     naturale dei materiali condivisi con la classe viaggia dentro il documento
+     come `data:` URI, si suona da quella barra e la barra della console non sa
+     suonarla — meglio due barre che un audio irraggiungibile.
+     La sintesi scritta nel VAULT è un altro caso: il suo `<source>` punta
+     all'MP3 fratello con un percorso RELATIVO (vault leggero, l'audio è un file
+     a sé). Dentro `srcdoc` un percorso relativo non ha un URL su cui
+     risolversi, quindi quel player resta muto comunque: tenerne la barra
+     rimetterebbe la barra doppia su quasi tutte le sintesi, cioè il difetto che
+     questo blocco esiste per togliere. Quindi si guarda il `src`, non la
+     presenza dell'elemento. */
+  /* `read-vault-file` ritorna SOLO base64 (è nato per i PDF). Il testo va
+     decodificato come UTF-8: `atob` da solo rompe gli accenti («Elettricità» →
+     «ElettricitÃ»), e il vecchio `decodeURIComponent(escape(atob(…)))` lancia su
+     certe sequenze di byte invece di degradare. */
+  function _testoDaBase64(b64) {
+    try {
+      var bin = atob(b64);
+      var buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(buf);
+    } catch (e) { return ''; }
+  }
+  /* `true` solo quando l'audio della voce naturale sta DENTRO il documento
+     (`data:`), cioè quando la barra che se lo porta dietro ha davvero qualcosa
+     da suonare. Un `<source src="Sintesi-audio-….mp3">` è il riferimento al
+     file fratello nel vault: in `srcdoc` non si risolve e resta muto.
+     ⚠️ Si legge l'ATTRIBUTO, non la proprietà `.src`: la proprietà risolve da
+     sé il percorso relativo e restituirebbe sempre un URL assoluto — non
+     direbbe mai «non è `data:`», e il controllo non distinguerebbe niente. */
+  function _audioIncorporato(doc) {
+    var a = doc.getElementById('ap-audio');
+    if (!a) return false;
+    var s = a.getAttribute('src') || '';
+    if (!s) { var so = a.querySelector('source'); s = (so && so.getAttribute('src')) || ''; }
+    return /^data:/i.test(s.trim());
+  }
   function _consMostra(html, src) {
     var tela = _consTela(); if (!tela) return;
     tela.innerHTML = '';
     var f = document.createElement('iframe');
     f.style.cssText = 'width:100%;height:100%;border:0;background:#fff';
+    f.addEventListener('load', function () {
+      if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe) return;
+      var d = null;
+      try { d = f.contentDocument; } catch (e) { return; }   /* origine opaca */
+      if (d && _audioIncorporato(d)) return;
+      window.MappAIDocBar.nascondiInIframe(f);
+    });
     if (src) f.src = src; else f.srcdoc = html || '';
     tela.appendChild(f);
   }
@@ -2480,9 +2555,15 @@
         return _consMostra('<p style="font-family:monospace;padding:24px">' +
           esc(_t('lt_cons_ko', 'Non riesco ad aprire questo file') + (res && res.error ? ': ' + res.error : '')) + '</p>');
       }
+      /* ⚠️ Un HTML entra come TESTO (`srcdoc`), non come `data:` URI: un
+         `data:` ha origine OPACA e da fuori non si tocca — lì
+         `nascondiInIframe` risponde `false` e la barra doppia resta. Ed è il
+         caso normale di questa console, dove i materiali vengono dal disco.
+         PDF e audio restano `data:`: vanno al visualizzatore di Chromium, che
+         `srcdoc` non sa costruire. */
+      if (/\.html?$/i.test(loc.relPath)) return _consMostra(_testoDaBase64(res.base64));
       var mime = /\.pdf$/i.test(loc.relPath) ? 'application/pdf'
-        : /\.html?$/i.test(loc.relPath) ? 'text/html'
-          : /\.mp3$/i.test(loc.relPath) ? 'audio/mpeg' : 'application/octet-stream';
+        : /\.mp3$/i.test(loc.relPath) ? 'audio/mpeg' : 'application/octet-stream';
       _consMostra(null, 'data:' + mime + ';base64,' + res.base64);
     });
   }
@@ -2877,7 +2958,7 @@
     if (!/\.html?$/i.test(loc.relPath)) { toast(_t('lt_cons_qr_ko', 'Solo i materiali in HTML si condividono via QR.'), 'warning'); return; }
     window.electronAPI.readVaultFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }).then(function (res) {
       if (!res || !res.ok) return;
-      var html = decodeURIComponent(escape(atob(res.base64)));
+      var html = _testoDaBase64(res.base64);
       var nome = m.titolo.replace(/[^\w\-.]+/g, '_');
       Promise.resolve(window.MappAILive.publishHtml(nome, html)).then(function () {
         if (window.MappAILive.openMaterials) window.MappAILive.openMaterials();

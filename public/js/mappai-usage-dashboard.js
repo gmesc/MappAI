@@ -349,6 +349,11 @@
         const overlay = document.createElement('div');
         overlay.id = 'usage-dash-overlay';
         overlay.className = 'fixed inset-0 z-[1200] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
+        /* Il piano si CHIEDE al motore: aperto da dentro una console — che è un
+           modale a 12100 con riquadro opaco a tutto schermo — un `z-[1200]`
+           nasce SOTTO e non si vede. Stessa forma del difetto che rendeva muto
+           «Stampa» sui quiz in ELABORA. */
+        try { if (window.MappAIModal && MappAIModal.prossimoZ) overlay.style.zIndex = String(MappAIModal.prossimoZ()); } catch (e) { }
         overlay.innerHTML =
             `<div class="bg-white rounded-2xl shadow-2xl w-full max-w-[1160px] h-[88vh] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="${t('ud_title', 'Consumi AI')}">` +
             `<div class="px-6 py-4 border-b border-slate-200 flex items-center gap-3 flex-wrap">` +

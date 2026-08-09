@@ -119,5 +119,62 @@
             (opts.spazio === false ? '' : '<div class="mm-doc-spazio no-print"></div>');
     }
 
-    return { stile: stile, html: html, icona: icona, AZIONI: AZIONI, GLIFI: GLIFI };
+    /* ── IL DOCUMENTO OSPITATO DALL'APP ───────────────────────────────────────
+       Un documento stampabile porta la SUA barra perché lo si apre anche fuori
+       di qui: è il file che riceve lo studente con DSA sul suo computer, e lì il
+       chip del lettore e «Stampa» sono l'unico modo di usarlo. Dentro l'app,
+       invece, quella barra è la seconda — sopra c'è già quella della console.
+
+       Perché si spegne da FUORI e non si evita di emetterla: i file sono già
+       scritti sul disco e nessuno li riscriverà. Una regola iniettata vale
+       anche per loro, mentre un `if` nel generatore varrebbe solo per i
+       prossimi. `.no-print` è la classe che TUTTI i documenti dell'app usano
+       per la loro barra e per il suo distanziatore (sintesi, quiz, catena dei
+       perché, glossario, report), quindi la regola è una sola.
+
+       ⚠️ Serve un iframe di STESSA ORIGINE (`srcdoc`, non `src="data:…"`): un
+       documento a origine opaca non si lascia toccare e il tentativo lancia un
+       SecurityError. Le due funzioni ritornano `false` quando non ci riescono,
+       invece di ingoiare l'errore: chi chiama deve poterlo dire.               */
+
+    function _docDi(iframe) {
+        try {
+            var d = iframe && (iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document));
+            return (d && d.body) ? d : null;
+        } catch (e) { return null; }   /* origine opaca */
+    }
+
+    /* Spegne la barra interna del documento. Idempotente: si può richiamare a
+       ogni `load` senza accumulare fogli di stile. */
+    function nascondiInIframe(iframe) {
+        var d = _docDi(iframe);
+        if (!d) return false;
+        try {
+            if (d.getElementById('mm-doc-in-casa')) return true;
+            var st = d.createElement('style');
+            st.id = 'mm-doc-in-casa';
+            st.textContent = '.no-print,.mm-doc-bar,.mm-doc-spazio{display:none !important}';
+            (d.head || d.documentElement).appendChild(st);
+            return true;
+        } catch (e) { return false; }
+    }
+
+    /* Stampa il documento dentro l'iframe. Sostituisce il
+       `iframe.contentWindow.print()` avvolto in un catch muto: con un iframe a
+       origine opaca quello lancia SecurityError e il bottone non fa nulla senza
+       dirlo. */
+    function stampaIframe(iframe) {
+        var d = _docDi(iframe);
+        if (!d) return false;
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            return true;
+        } catch (e) { return false; }
+    }
+
+    return {
+        stile: stile, html: html, icona: icona, AZIONI: AZIONI, GLIFI: GLIFI,
+        nascondiInIframe: nascondiInIframe, stampaIframe: stampaIframe
+    };
 }));
