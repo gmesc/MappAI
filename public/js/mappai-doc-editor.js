@@ -2921,7 +2921,23 @@
 /* blocchi generati (citazioni, catena dei perché): visibili, non editabili */
 .de-b-locked { flex:1 1 auto; font-size:10px; line-height:1.6; color:#64748b; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px; padding:8px 10px; max-height:140px; overflow:auto; }
 .de-b-locked * { font-size:10px !important; color:#64748b !important; }
-.de-b-tools { position:absolute; right:-2px; top:0; display:inline-flex; gap:2px; opacity:0; background:#fff; border-radius:7px; padding:1px; transition:opacity .12s; }
+/* I quattro comandi del blocco erano in fila in alto a destra, SOPRA il testo:
+   156px stesi sulla prima riga (misurato: sconfinavano di 153px dentro il
+   riquadro). Ora stanno 2×2 in un CORRIDOIO riservato dentro il riquadro, che
+   il testo non usa: non coprono mai una parola.
+   Perché non fuori a destra: restano 72px e i comandi ne vogliono 156 — e a
+   zoom alto lo spazio si riduce ancora, perché il foglio si allarga fino al
+   bordo. Perché non nella colonna dell'etichetta a sinistra: quella resta
+   costante a schermo mentre i bottoni crescono con lo zoom, quindi prima o poi
+   non ci starebbero (provato: 220px contro 88 di colonna).
+   Il corridoio invece è espresso nelle stesse unità dei bottoni: cresce con
+   loro, e la misura non può divergere.
+   ⚠️ Niente apici inversi in questo commento: sta dentro un template literal e
+   lo chiuderebbero (quarta volta in questo progetto). */
+.de-b-txt { padding-right:58px; }
+.de-b-tools { position:absolute; right:2px; top:2px; width:52px;
+    display:grid; grid-template-columns:repeat(2,24px); gap:2px;
+    opacity:0; transition:opacity .12s; }
 .de-warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:10px; padding:9px 13px; font-size:11px; line-height:1.5; margin-bottom:14px; }
 .de-note { font-size:10px; color:#64748b; font-style:italic; margin-top:14px; text-align:center; }
 
