@@ -2039,7 +2039,6 @@ const en_translations = {
     ec_nessuno: "None",
     ec_crea: "New document",
     ec_crea_t: "Create a document",
-    ec_scegli: "Pick a document in the column, or create a new one.",
     ec_da_ai: "with AI",
     ec_da_mappa: "from the map",
     ec_ns_d: "The node cards, ready to cut out. Built from the map: no need to generate it first.",

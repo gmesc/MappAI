@@ -486,13 +486,15 @@
            sono una fila di azioni sopra il documento (la barra è della console). */
         var aperto = _voce && _voce.indexOf('vuoto:') !== 0;
         if (aperto) s.tela = { id: 'elab' };
-        else s.sezioni.push({
+        /* Col progetto scelto l'area resta VUOTA (Giacomo, 10/8): la colonna
+           accanto elenca già i documenti, e una riga che dice di sceglierne uno
+           ripete a parole ciò che si ha davanti agli occhi.
+           Resta invece l'invito quando il progetto NON c'è: lì la colonna è
+           vuota per davvero, e senza una riga che lo dica la schermata
+           sembrerebbe rotta invece che in attesa. */
+        else if (!_progettoDelContesto()) s.sezioni.push({
             id: 'vuoto', nuda: true,
-            /* senza progetto la colonna è vuota: invitare a «scegliere un
-               documento nella colonna» sarebbe un invito a un elenco che non c'è */
-            testo: _progettoDelContesto()
-                ? t('ec_scegli', 'Scegli un documento nella colonna, o creane uno nuovo.')
-                : t('ec_scegli_progetto', 'Scegli un progetto nella barra in alto: qui compariranno i suoi documenti.')
+            testo: t('ec_scegli_progetto', 'Scegli un progetto nella barra in alto: qui compariranno i suoi documenti.')
         });
         if (_eFonte() && EL() && EL().sourceActions) {
             s.sezioni.push({
