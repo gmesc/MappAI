@@ -48,7 +48,7 @@
     <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=oq11">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
-    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh8">
+    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh9">
 
     <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
          Le classi `manifesto` e `mappai-ridotta` le mettevano i due moduli a
@@ -3640,8 +3640,8 @@
     <script src="js/mappai-disciplines.js"></script>
     <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
     <script src="js/mappai-timeline-core.js"></script>
-    <script src="js/mappai-timeline.js?v=dh8"></script>
-    <script src="js/mappai-glossary.js?v=dh8"></script>
+    <script src="js/mappai-timeline.js?v=dh9"></script>
+    <script src="js/mappai-glossary.js?v=dh9"></script>
     <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
     <script src="js/mappai-docedit-core.js?v=oq6"></script>
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
@@ -3650,22 +3650,22 @@
     <!-- La barra dei documenti stampabili: UNA sola, coi token --mm-doc-* (2/8).
          Era copiata in sei file con tre glifi stampante diversi e le emoji nei
          bottoni. La usano i fogli in finestra e la console dei materiali. -->
-    <script src="js/mappai-doc-bar.js?v=dh8"></script>
+    <script src="js/mappai-doc-bar.js?v=dh9"></script>
     <!-- La CORNICE dei documenti stampabili: testata (titolo · classe · materia)
          e piè coi numeri di pagina, in un posto solo (11/8). Era scritta nove
          volte con nove misure diverse. Va PRIMA di tutti i builder che la usano
          (quiz-print, branch-synthesis, timeline, causal-chains, glossary,
          study-doc, print-dossier). Fuori ambito: il materiale da ritagliare
          (foglio dei nodi, flashcard) e i report, che sono un'altra famiglia. -->
-    <script src="js/mappai-doc-head.js?v=dh8"></script>
+    <script src="js/mappai-doc-head.js?v=dh9"></script>
     <!-- CLONA: le regole del nome di una copia (etichetta nell'elenco + nome del
          file nel vault). Puro e testato in Node; va PRIMA della console di
          ELABORA e della pipeline, che lo interrogano. -->
-    <script src="js/mappai-clona-core.js?v=dh8"></script>
+    <script src="js/mappai-clona-core.js?v=dh9"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js"></script>
-    <script src="js/mappai-quiz-print.js?v=dh8"></script>
+    <script src="js/mappai-quiz-print.js?v=dh9"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
@@ -3677,8 +3677,8 @@
     <script src="js/mappai-study-doc.js"></script>
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
-    <script src="js/mappai-causal-chains.js?v=dh8"></script>
-    <script src="js/mappai-branch-synthesis.js?v=dh8"></script>
+    <script src="js/mappai-causal-chains.js?v=dh9"></script>
+    <script src="js/mappai-branch-synthesis.js?v=dh9"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
@@ -3733,8 +3733,8 @@
     <script src="js/mappai-files-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=dh8"></script>
-    <script src="js/mappai-landing-teach.js?v=dh8"></script>
+    <script src="js/mappai-pipeline-core.js?v=dh9"></script>
+    <script src="js/mappai-landing-teach.js?v=dh9"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -3746,12 +3746,12 @@
          accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
     <script src="js/mappai-elabora.js?v=man2"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
-    <script src="js/mappai-doc-editor.js?v=dh8"></script>
+    <script src="js/mappai-doc-editor.js?v=dh9"></script>
     <!-- ELABORA come CONSOLE (colonna dei documenti + area full-bleed con
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=dh8"></script>
+    <script src="js/mappai-elabora-console.js?v=dh9"></script>
     <script src="js/mappai-material-pipeline.js?v=oq7"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
     <script src="js/mappai-bento-composizione.js?v=oq6"></script>
@@ -3786,7 +3786,7 @@
     <script src="js/mappai-mm-extraction.js"></script>
     <script src="js/mappai-vault-io.js"></script>
     <script src="js/mappai-merge-validate.js"></script>
-    <script src="js/mappai-print-dossier.js?v=dh8"></script>
+    <script src="js/mappai-print-dossier.js?v=dh9"></script>
     <script src="js/mappai-context-menu.js"></script>
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js"></script>

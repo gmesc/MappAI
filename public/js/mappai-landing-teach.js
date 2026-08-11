@@ -2255,7 +2255,17 @@
     var GRUPPI = (dove === 'elabora') ? GRUPPI_MAT
         : [{ id: 'stampabili', chiave: 'lt_g_stampabili', testo: 'Stampabili', tipi: null }];
     return GRUPPI.map(function (g) {
-      var righe = (g.id === 'stampabili') ? lista.slice() : lista.filter(function (m) {
+      /* ⚠️ I `.json` NON entrano in «Stampabili» (11/8/26). Sono i set di studio
+         come li salva l'app — stato interno, non un documento da portare in
+         classe — e in un elenco che risponde a «che cosa stampo adesso» sono
+         righe che non si stampano. Prima stavano in un elenco loro, chiuso
+         («File di lavoro»); con un elenco solo quel riparo non c'è più, e
+         mescolarli in fondo li avrebbe solo resi rumore.
+         Restano raggiungibili dalla cartella: il file non si tocca, sparisce
+         dall'elenco. */
+      var righe = (g.id === 'stampabili')
+        ? lista.filter(function (m) { return !m.dati; })
+        : lista.filter(function (m) {
         return g.tipi ? g.tipi.indexOf(m.tipo) >= 0 : !noti[m.tipo];
       });
       if (!righe.length) return null;
