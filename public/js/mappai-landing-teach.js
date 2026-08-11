@@ -2231,6 +2231,29 @@
     });
   }
 
+  /* La larghezza della colonna dei comandi, misurata sul CONTENUTO e uguale per
+     tutte le tabelle della vista (12/8/26).
+     Il conto è quello vero del layout: bottone 34 (`.mm-cella-az
+     .mm-btn--icona`), gap 4, imbottitura della cella 12+12 (`.mm-tab td`).
+       1 comando → 58 · 2 → 96 · 3 → 134 · 4 → 172
+     Erano 88px fissi, tarati su due bottoni: col terzo (scarica · cartella ·
+     cestino) il bottone c'era, si poteva perfino cliccare a metà, ma non si
+     vedeva — ed è il modo peggiore in cui un comando può mancare, perché non
+     sembra un difetto, sembra che la funzione non ci sia.
+     ⚠️ Si misura su TUTTE le righe della vista e non su quelle del singolo
+     gruppo: gli elenchi stanno impilati, e se ognuno prendesse la sua misura le
+     colonne non si allineerebbero da una tabella all'altra. */
+  function _larghezzaComandi(lista, dove) {
+    var n = (lista || []).reduce(function (max, m) {
+      var q = 0;
+      if (m.clonabile && dove === 'elabora') q++;
+      if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') q += 3;   /* stampa + scarica + cartella */
+      if (m.clone) q++;                                                    /* cestino */
+      return Math.max(max, q);
+    }, 1);
+    return (n * 34 + (n - 1) * 4 + 24) + 'px';
+  }
+
   /* `dove` = quale console sta chiedendo gli elenchi ('insegna' | 'elabora').
      Serve solo a scegliere quale delle due sintesi mostrare (vedi
      `filtraSintesi`): tutto il resto — i gruppi per genere, le colonne che si
@@ -2243,18 +2266,20 @@
     lista = filtraSintesi(lista, dove || 'insegna');
     var noti = {};
     GRUPPI_MAT.forEach(function (g) { (g.tipi || []).forEach(function (t) { noti[t] = 1; }); });
-    /* ── IN INSEGNA UN ELENCO SOLO: «STAMPABILI» (11/8/26, scelta di Giacomo) ─
-       I generi restano in ELABORA, dove si sceglie che cosa correggere. Qui la
-       domanda è un'altra e una sola — «che cosa posso stampare adesso?» — e i
-       sei elenchi per genere la facevano scorrere: per un progetto normale
-       ognuno portava una o due righe, e la stessa domanda si ripeteva sei
-       volte. Un elenco solo, ordinabile per nome, tipo o data.
-       ⚠️ Non è un elenco IN PIÙ: sostituisce i generi. Aggiungerlo sopra
-       avrebbe fatto comparire ogni PDF due volte nella stessa schermata, che è
-       il doppione appena tolto alle voci d'archivio. */
-    var GRUPPI = (dove === 'elabora') ? GRUPPI_MAT
-        : [{ id: 'stampabili', chiave: 'lt_g_stampabili', testo: 'Stampabili', tipi: null }];
-    return GRUPPI.map(function (g) {
+    /* ⚠️ I `.json` non si mostrano in INSEGNA (12/8/26). Sono i set di studio
+       come li salva l'app — stato interno, non un documento da portare in
+       classe. Il gruppo «File di lavoro» resta dichiarato in `GRUPPI_MAT` ma
+       qui non riceve righe, e un gruppo senza righe non si disegna. Il file non
+       si tocca: sparisce dall'elenco e resta raggiungibile dalla cartella. */
+    if (dove !== 'elabora') lista = lista.filter(function (m) { return !m.dati; });
+    /* ── LA COLONNA DEI COMANDI È LA STESSA IN TUTTE LE TABELLE (12/8/26) ────
+       Gli elenchi per genere stanno IMPILATI uno sotto l'altro, e finché ognuno
+       si misurava la sua ultima colonna le colonne non si allineavano fra loro:
+       «Tipo» e «Data» cadevano a x diverse in ogni tabella, e una pila di
+       tabelle disallineate si legge come un difetto. Il conto si fa UNA volta,
+       sul massimo di TUTTE le righe della vista. */
+    var azTutte = _larghezzaComandi(lista, dove);
+    return GRUPPI_MAT.map(function (g) {
       /* ⚠️ I `.json` NON entrano in «Stampabili» (11/8/26). Sono i set di studio
          come li salva l'app — stato interno, non un documento da portare in
          classe — e in un elenco che risponde a «che cosa stampo adesso» sono
@@ -2263,9 +2288,7 @@
          mescolarli in fondo li avrebbe solo resi rumore.
          Restano raggiungibili dalla cartella: il file non si tocca, sparisce
          dall'elenco. */
-      var righe = (g.id === 'stampabili')
-        ? lista.filter(function (m) { return !m.dati; })
-        : lista.filter(function (m) {
+      var righe = lista.filter(function (m) {
         return g.tipi ? g.tipi.indexOf(m.tipo) >= 0 : !noti[m.tipo];
       });
       if (!righe.length) return null;
@@ -2330,17 +2353,7 @@
          ⚠️ Si misura sul MASSIMO delle righe, non sulla prima: in un elenco
          convivono voci d'archivio (un comando) e file (tre), e dimensionare
          sulla prima riga taglierebbe tutte le altre. */
-      var azMax = righe.reduce(function (n, m) {
-        var q = 0;
-        if (m.clonabile && dove === 'elabora') q++;
-        if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') q += 3;   /* stampa + scarica + cartella */
-        if (m.clone) q++;                                                    /* cestino */
-        return Math.max(n, q);
-      }, 1);
-      colonne.push({
-        etichetta: '', ordinabile: false,
-        larghezza: (azMax * 34 + (azMax - 1) * 4 + 24) + 'px'
-      });
+      colonne.push({ etichetta: '', ordinabile: false, larghezza: azTutte });
       return {
         id: 'g:' + g.id, titolo: _t(g.chiave, g.testo), chiusa: !!g.chiusa,
         colonne: colonne,

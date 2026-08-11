@@ -2080,8 +2080,9 @@ const en_translations = {
     lt_print: "Print",
     lt_print_ko: "I cannot print this file.",
     lt_print_aperto: "I opened it in the system app: print it from there.",
-    /* In INSEGNA i generi lasciano il posto a un elenco solo: là la domanda è
-       una sola — che cosa posso stampare adesso? */
+    /* Restata dal giro in cui INSEGNA aveva un elenco solo (11/8, poi
+       rientrato il 12/8): i generi sono tornati. La chiave non si usa più —
+       si tiene finché non è certo che nessun elenco salvato la chieda. */
     lt_g_stampabili: "Printables",
     lt_dl_ok: "✓ Copy downloaded",
     lt_dl_ko: "I cannot download this file.",
