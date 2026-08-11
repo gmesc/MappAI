@@ -2077,6 +2077,12 @@ const en_translations = {
     ec_del_fatto: "Copy deleted.",
     lt_sm_clone: "Make a copy",
     lt_dl: "Download a copy",
+    lt_print: "Print",
+    lt_print_ko: "I cannot print this file.",
+    lt_print_aperto: "I opened it in the system app: print it from there.",
+    /* In INSEGNA i generi lasciano il posto a un elenco solo: là la domanda è
+       una sola — che cosa posso stampare adesso? */
+    lt_g_stampabili: "Printables",
     lt_dl_ok: "✓ Copy downloaded",
     lt_dl_ko: "I cannot download this file.",
     ec_n_mc: "Multiple choice",

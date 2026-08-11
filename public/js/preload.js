@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /* Scarica una copia di un materiale chiedendo nome e posizione (dialogo di
        sistema). Torna { ok, path } · { ok, annullato:true } se l'utente rinuncia. */
     vaultFileDownload: (data) => ipcRenderer.invoke('vault-file-download', data),
+    /* Apre il dialogo di stampa di sistema su un materiale del vault. Torna
+       { ok } · { ok, aperto:true } se la stampa non è partita e il file è stato
+       aperto nell'applicazione di sistema come ripiego. */
+    vaultFilePrint: (data) => ipcRenderer.invoke('vault-file-print', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
     // elenca `Fonti/`: gli originali delle fonti e i testi estratti (9/8)
     vaultSourcesList: (data) => ipcRenderer.invoke('vault-sources-list', data),

@@ -960,6 +960,59 @@ ipcMain.handle('vault-file-download', async (event, { vaultPath, relPath } = {})
     }
 });
 
+/* vault-file-print: apre il DIALOGO DI STAMPA di sistema su un materiale del
+   vault (11/8/26).
+   ⚠️ Perché serve un IPC e non basta `iframe.print()`: dentro l'app un PDF vive
+   in un iframe a origine opaca, `contentWindow.print()` lancia SecurityError e
+   il bottone non fa niente senza dirlo — è il difetto già annotato in
+   `stampaIframe`, che infatti su un PDF torna `false`. Qui il file si apre in
+   una finestra vera (nascosta) e si stampa di là.
+   Il RIPIEGO è dichiarato e non silenzioso: se la stampa non parte si apre il
+   file nell'applicazione di sistema, dove il docente stampa a mano — e chi
+   chiama lo sa (`aperto: true`), così può dirlo invece di far finta.
+   Guardie identiche a `delete-vault-file`: percorso risolto e verificato sotto
+   `Mappe`, mai una loro variante. */
+ipcMain.handle('vault-file-print', async (event, { vaultPath, relPath } = {}) => {
+    let win = null;
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const base = path.resolve(mapsBaseDir());
+        const vault = path.resolve(vaultPath);
+        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        const file = path.join(vault, safe);
+        if (!fs.existsSync(file)) return { ok: false, error: 'file-non-trovato', missing: true };
+        if (fs.statSync(file).isDirectory()) return { ok: false, error: 'è una cartella, non un file' };
+
+        const padre = BrowserWindow.fromWebContents(event.sender);
+        win = new BrowserWindow({
+            show: false, parent: padre || undefined,
+            webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, plugins: true }
+        });
+        await win.loadFile(file);
+        /* i font e il visore PDF arrivano dopo il primo disegno: senza questa
+           attesa si stampa una pagina bianca */
+        await new Promise(r => setTimeout(r, 400));
+        const stampato = await new Promise((risolvi) => {
+            try {
+                win.webContents.print({ silent: false, printBackground: true }, (ok) => risolvi(!!ok));
+            } catch (e) { risolvi(false); }
+        });
+        if (stampato) return { ok: true };
+        await shell.openPath(file);
+        return { ok: true, aperto: true };
+    } catch (err) {
+        try { if (relPath && vaultPath) await shell.openPath(path.join(vaultPath, relPath)); } catch (e) { /* noop */ }
+        return { ok: false, error: err.message };
+    } finally {
+        /* ⚠️ la finestra si chiude DOPO: distruggerla subito annullerebbe la
+           stampa che l'utente ha appena confermato. `print` ha già richiamato
+           il suo callback, quindi qui il lavoro è finito. */
+        if (win) { try { win.destroy(); } catch (e) { /* noop */ } }
+    }
+});
+
 // delete-vault: sposta nel Cestino una cartella vault DENTRO mapsBaseDir (Elimina
 // dalla sezione Insegna). shell.trashItem = recuperabile (mai cancellazione dura);
 // validazione sotto Mappe + rifiuto della radice stessa.

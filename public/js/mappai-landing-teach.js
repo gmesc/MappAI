@@ -2243,8 +2243,19 @@
     lista = filtraSintesi(lista, dove || 'insegna');
     var noti = {};
     GRUPPI_MAT.forEach(function (g) { (g.tipi || []).forEach(function (t) { noti[t] = 1; }); });
-    return GRUPPI_MAT.map(function (g) {
-      var righe = lista.filter(function (m) {
+    /* ── IN INSEGNA UN ELENCO SOLO: «STAMPABILI» (11/8/26, scelta di Giacomo) ─
+       I generi restano in ELABORA, dove si sceglie che cosa correggere. Qui la
+       domanda è un'altra e una sola — «che cosa posso stampare adesso?» — e i
+       sei elenchi per genere la facevano scorrere: per un progetto normale
+       ognuno portava una o due righe, e la stessa domanda si ripeteva sei
+       volte. Un elenco solo, ordinabile per nome, tipo o data.
+       ⚠️ Non è un elenco IN PIÙ: sostituisce i generi. Aggiungerlo sopra
+       avrebbe fatto comparire ogni PDF due volte nella stessa schermata, che è
+       il doppione appena tolto alle voci d'archivio. */
+    var GRUPPI = (dove === 'elabora') ? GRUPPI_MAT
+        : [{ id: 'stampabili', chiave: 'lt_g_stampabili', testo: 'Stampabili', tipi: null }];
+    return GRUPPI.map(function (g) {
+      var righe = (g.id === 'stampabili') ? lista.slice() : lista.filter(function (m) {
         return g.tipi ? g.tipi.indexOf(m.tipo) >= 0 : !noti[m.tipo];
       });
       if (!righe.length) return null;
@@ -2280,14 +2291,23 @@
          e la parola più lunga è «Modificabile», «Data» una data in cifre. I 132
          e i 120 di prima erano tarati su una tabella a tutta larghezza; dentro
          una colonna del bento sfondavano il riquadro. */
+      /* ── LE LARGHEZZE, MISURATE SUL CONTENUTO ────────────────────────────
+         Space Mono a 12px è monospaziato: un carattere vale ~7,2px. Alla
+         parola più lunga si sommano l'imbottitura della cella (12+12) e la
+         freccia dell'ordinamento (~16), che occupa il suo posto anche da
+         spenta — se non lo si conta, l'intestazione balla al primo clic.
+           TIPO  «Modificabile» = 12 char → 87 + 24 + 16 ≈ 130
+           DATA  «11/08/2026»   = 10 char → 72 + 24 + 16 ≈ 116
+         I 118 e 104 di prima erano tarati su parole più corte e stringevano
+         entrambe le colonne. */
       var colonne = [{ etichetta: _t('lt_col_nome', 'Nome'), larghezza: '' }];
-      colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '118px' });
+      colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '130px' });
       /* nella vista di classe la mappa di provenienza è l'informazione che
          manca di più: senza, due «Sintesi -VERDE.html» sono indistinguibili */
       if (conMappa) colonne.push({ etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '190px' });
       if (conClasse) colonne.push({ etichetta: _t('rp_class', 'Classe'), larghezza: '96px' });
       if (conMateria) colonne.push({ etichetta: _t('rp_disc', 'Materia'), larghezza: '130px' });
-      colonne.push({ etichetta: _t('lt_col_data', 'Data'), larghezza: '104px' });
+      colonne.push({ etichetta: _t('lt_col_data', 'Data'), larghezza: '116px' });
       /* Due comandi per riga, non uno: la cella cresce di conseguenza. */
       /* ── LA COLONNA DEI COMANDI SI MISURA, NON SI INDOVINA (11/8/26) ──────
          Erano 88px fissi, tarati su DUE comandi. Oggi una riga può averne tre
@@ -2303,7 +2323,7 @@
       var azMax = righe.reduce(function (n, m) {
         var q = 0;
         if (m.clonabile && dove === 'elabora') q++;
-        if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') q += 2;   /* scarica + cartella */
+        if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') q += 3;   /* stampa + scarica + cartella */
         if (m.clone) q++;                                                    /* cestino */
         return Math.max(n, q);
       }, 1);
@@ -2335,6 +2355,11 @@
              comparire due icone su alcune righe di ELABORA e nessuna sulle
              altre, che a occhio si legge come un difetto. */
           if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') {
+            /* La STAMPA per prima: è il gesto per cui questo elenco esiste. */
+            az.push({
+              id: 'st:' + m.id, icona: 'printer', ruolo: 'quieto', soloIcona: true,
+              etichetta: _t('lt_print', 'Stampa')
+            });
             az.push({
               id: 'dl:' + m.id, icona: 'download', ruolo: 'quieto', soloIcona: true,
               etichetta: _t('lt_dl', 'Scarica una copia')
@@ -3117,6 +3142,27 @@
             if (res && res.ok === false) toast(_t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning');
           })
           .catch(function () { toast(_t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning'); });
+        return;
+      }
+      /* «Stampa»: il dialogo di stampa di sistema sul file vero.
+         ⚠️ NON si passa da `iframe.print()`: un PDF vive in un iframe a origine
+         opaca e quella chiamata lancia SecurityError senza dire niente (è il
+         difetto già annotato in `stampaIframe`, che su un PDF torna `false`).
+         Il main apre il file in una finestra e stampa di là; se non ci riesce
+         lo apre nell'applicazione di sistema E LO DICE, invece di lasciare il
+         docente davanti a un bottone che sembra rotto. */
+      if (id.indexOf('st:') === 0) {
+        var pid = id.slice(3);
+        var loc1 = _diskCache[pid], api1 = window.electronAPI;
+        if (!loc1 || !api1 || !api1.vaultFilePrint) {
+          toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return;
+        }
+        api1.vaultFilePrint({ vaultPath: loc1.vaultPath, relPath: loc1.relPath })
+          .then(function (res) {
+            if (!res || res.ok === false) { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); return; }
+            if (res.aperto) toast(_t('lt_print_aperto', 'L\'ho aperto nell\'applicazione di sistema: stampalo da lì.'), 'info');
+          })
+          .catch(function () { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); });
         return;
       }
       /* «Scarica una copia»: il dialogo di sistema chiede nome e posizione, e
