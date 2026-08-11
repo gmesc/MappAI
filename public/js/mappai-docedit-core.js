@@ -177,6 +177,10 @@
     /** Nuovo item coerente col documento (V/F → opzioni Vero/Falso, MC → tante opzioni quanto le altre). */
     function blankItemFor(doc) {
         var kind = (doc && doc.kind) || 'quiz';
+        /* una domanda aperta nuova NON è un quiz vuoto: ha traccia, righe e
+           aree, e senza questa riga «aggiungi domanda» ne creerebbe una con
+           tre opzioni da riempire */
+        if (kind === 'openq') return blankOpenItem();
         if (kind === 'flashcards') return blankItem('flashcards');
         if (doc && doc.quizType === 'tf') {
             return { question: '', options: ['Vero', 'Falso'], correctIndex: 0, answer: 'Vero', explanation: '' };
@@ -600,7 +604,83 @@
         return out;
     }
 
+    /* ══ DOMANDE APERTE — un modello a sé (11/8/26) ═══════════════════════════
+       Non sono un quiz senza opzioni: sono un'altra cosa. Un item aperto ha la
+       DOMANDA, la TRACCIA di correzione (che cosa deve contenere una risposta
+       giusta — vive solo nel foglio del docente), le RIGHE su cui lo studente
+       scrive, e le AREE della mappa che la domanda richiede: una, o due quando
+       le collega.
+       ⚠️ Perché funzioni PROPRIE e non `normItem`/`setField`: quelle normalizzano
+       verso la forma del quiz (options, correctIndex, answer) e SCARTEREBBERO
+       traccia, righe e aree in silenzio — un salvataggio e il documento tornerebbe
+       un quiz vuoto. Il primo che riusa quelle qui perde tre campi senza un
+       errore. */
+    var OPEN_LINES_MIN = 3, OPEN_LINES_MAX = 12, OPEN_AREAS_MAX = 2;
+    function _lines(v) {
+        var n = parseInt(v, 10);
+        if (isNaN(n)) return null;                 /* null = «decidi tu»: il foglio userà il suo default */
+        return Math.max(OPEN_LINES_MIN, Math.min(OPEN_LINES_MAX, n));
+    }
+    function normOpenItem(x) {
+        x = x || {};
+        var aree = Array.isArray(x.areas) ? x.areas : (x.l1 ? [x.l1] : []);
+        aree = aree.map(_s).filter(function (a) { return !!a; });
+        /* doppioni via: «Clima + Clima» non è una domanda che collega due aree */
+        var viste = {}, pulite = [];
+        aree.forEach(function (a) {
+            var k = a.toLowerCase();
+            if (viste[k]) return;
+            viste[k] = 1; pulite.push(a);
+        });
+        return {
+            question: _s(x.question || x.domanda),
+            guide: _s(x.guide || x.traccia || x.answer),
+            lines: _lines(x.lines != null ? x.lines : x.righe),
+            areas: pulite.slice(0, OPEN_AREAS_MAX)
+        };
+    }
+    function normOpenItems(items) { return (items || []).map(normOpenItem); }
+    function blankOpenItem() { return { question: '', guide: '', lines: null, areas: [] }; }
+    /* path: question | guide | lines | area:<nome> (aggiunge o toglie l'area) */
+    function setOpenField(items, index, path, value) {
+        var arr = normOpenItems(items);
+        if (index < 0 || index >= arr.length) return arr;
+        var it = arr[index];
+        var m = /^area:([\s\S]+)$/.exec(_s(path));
+        if (m) {
+            var nome = _s(m[1]);
+            var k = nome.toLowerCase();
+            var i = -1;
+            it.areas.forEach(function (a, ai) { if (a.toLowerCase() === k) i = ai; });
+            if (i >= 0) it.areas.splice(i, 1);
+            else if (it.areas.length < OPEN_AREAS_MAX) it.areas.push(nome);
+            /* oltre il tetto NON si sostituisce a sorpresa: chi ne vuole una
+               terza deve togliere prima, e vedere che cosa sta togliendo */
+        } else if (path === 'lines') {
+            it.lines = _lines(value);
+        } else if (path === 'question' || path === 'guide') {
+            it[path] = _s(value);
+        }
+        arr[index] = it;
+        return arr;
+    }
+    function validateOpenDoc(doc) {
+        var out = [];
+        var items = normOpenItems(doc && doc.items);
+        if (!items.length) out.push({ i: -1, msg: 'Il documento non ha domande.' });
+        items.forEach(function (it, i) {
+            if (!it.question) out.push({ i: i, msg: 'Domanda ' + (i + 1) + ': manca il testo della domanda.' });
+            if (!it.guide) out.push({ i: i, msg: 'Domanda ' + (i + 1) + ': manca la traccia di correzione.' });
+            if (!it.areas.length) out.push({ i: i, msg: 'Domanda ' + (i + 1) + ': nessuna macro-area indicata.' });
+        });
+        return out;
+    }
+
     return {
+        // domande aperte
+        normOpenItem: normOpenItem, normOpenItems: normOpenItems, blankOpenItem: blankOpenItem,
+        setOpenField: setOpenField, validateOpenDoc: validateOpenDoc,
+        OPEN_LINES_MIN: OPEN_LINES_MIN, OPEN_LINES_MAX: OPEN_LINES_MAX, OPEN_AREAS_MAX: OPEN_AREAS_MAX,
         // item
         normItem: normItem, normItems: normItems, correctIndexOf: correctIndexOf, shapeOfItems: shapeOfItems,
         kindOfSet: kindOfSet, isTrueFalse: isTrueFalse, docFromSet: docFromSet,

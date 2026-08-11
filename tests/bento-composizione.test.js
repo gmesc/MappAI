@@ -174,7 +174,11 @@ test('un master si deriva dai figli montati, e non conta come voce dimenticata',
     const ids = d.map(x => x.id).sort();
     assert.deepStrictEqual(ids, ['mp-ns-on', 'mp-quiz-on']);
     const quiz = d.find(x => x.id === 'mp-quiz-on');
-    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-tf']);
+    /* «Domande aperte» (11/8) è il quarto figlio: sta nel box Quiz perché per il
+       docente è la stessa scelta, e quindi deve accendere lo stesso master —
+       senza, spuntarla da sola lascerebbe `mp-quiz-on` spento e la pipeline non
+       genererebbe niente. */
+    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-open', 'mp-qt-tf']);
     const v = B.valida(B.MODULI);
     assert.ok(!v.fuori.includes('mp-quiz-on'), 'un master derivato è montato, nascosto');
     assert.ok(!v.fuori.includes('mp-ns-on'));
@@ -295,7 +299,10 @@ test('nella composizione la catena c\'è, e i fogli nodi restano derivati dai lo
    userebbe (2,27:1) — lì il segno resta bianco, e non passa da questi moduli. */
 test('il testo scuro dei moduli è #404040, e resta leggibile su ogni fondo', () => {
     const scuri = B.MODULI.filter(m => (B.stileDi(m).testo || '').toLowerCase() === '#404040');
-    assert.ok(scuri.length >= 3, 'i riquadri chiari, il giallo e l\'azione verde');
+    /* erano sei coi quattro riquadri chiari delle opzioni; dall'11/8 quelli
+       stanno nella vista estesa (fondo scuro, testo bianco) e restano il box
+       giallo del contesto e l'azione verde */
+    assert.ok(scuri.length >= 2, 'il box giallo e l\'azione verde');
     scuri.forEach(m => {
         const st = B.stileDi(m);
         const k = B.contrasto(st.bg, st.testo);
@@ -367,11 +374,16 @@ test('un modulo col fondo scuro è nascondibile, uno chiaro no', () => {
 test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', () => {
     const stabili = B.MODULI.filter(m => !B.nascondibile(m)).map(m => m.id);
     const extra = B.MODULI.filter(B.nascondibile).map(m => m.id);
-    /* i quattro pezzi della prima sezione (5/8) + le sei card: preset, quiz,
-       fogli nodi, fonte&sintesi, il box giallo del contesto, l'azione che conclude */
+    /* ⚠️ Dall'11/8 la schermata d'ingresso è SEI box (Giacomo: «meno box, meno
+       attrito»): i quattro pezzi della prima sezione + il box giallo del
+       contesto + l'azione che conclude. Le opzioni della generazione — preset,
+       quiz, fogli nodi, fonte&sintesi — sono passate alla vista estesa, e la
+       configurazione di partenza la dice ora il preset «Default».
+       Restano MONTATE nel DOM: `_readConfig()` legge i loro campi. */
     assert.deepStrictEqual(stabili,
-        ['upload', 'elenco', 'genere', 'genere-opz', 'preset', 'quiz', 'ns', 'src', 'ctx', 'azioni']);
-    assert.deepStrictEqual(extra, ['modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
+        ['upload', 'elenco', 'genere', 'genere-opz', 'ctx', 'azioni']);
+    assert.deepStrictEqual(extra,
+        ['preset', 'quiz', 'ns', 'src', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
 });
 
 test('i box extra stanno DOPO il mega-bento, e quello che cresce è l\'ultimo', () => {

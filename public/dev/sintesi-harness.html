@@ -1,0 +1,30 @@
+<meta charset="utf-8">
+<title>Banco sintesi — misure</title>
+<style>body{font:13px monospace;margin:0}#out{border:0;width:100%;height:100vh;display:block}</style>
+<!-- Banco del SOLO generatore del documento di sintesi: carica il modulo vero
+     (mappai-branch-synthesis.js) con gli stub minimi, chiama buildPrintHtml con
+     dati finti e mette il risultato in un iframe di stessa origine, così le
+     misure si leggono dal DOM del documento prodotto e non da una copia. -->
+<iframe id="out"></iframe>
+<script>
+window.t = function (k, f) { return f || k; };
+window.showToast = function () {};
+</script>
+<script src="../js/mappai-branch-synthesis.js"></script>
+<script>
+window.DATI = {
+  branchLabel: 'Il Clima',
+  mapName: 'Scienze della Terra',
+  whole: false,
+  rawText: '## Il bilancio energetico\n\nIl pianeta riceve energia dal Sole e ne restituisce altrettanta sotto forma di radiazione infrarossa. Quando i gas serra trattengono parte di quella radiazione, il bilancio si sbilancia e la temperatura media cresce fino a un nuovo equilibrio.[1]\n\n### I gas serra\n\nL anidride carbonica non e il gas piu potente, ma e quello che resta piu a lungo in atmosfera: una parte delle emissioni di oggi sara ancora la fra mille anni.\n\n- Vapore acqueo: il piu abbondante, ma segue la temperatura invece di guidarla.\n- Anidride carbonica: la leva su cui agiscono le attivita umane.\n- Metano: molto piu potente a parita di massa, ma si degrada in un decennio.\n\n## Che cosa misura una anomalia\n\nLe temperature non si leggono in valore assoluto ma come scarto da una media di riferimento, perche cosi si confrontano stazioni poste ad altitudini e latitudini diverse senza che il confronto dipenda dal luogo.',
+  sourcesArr: [{ title: 'Rapporto IPCC AR6', source: 'Capitolo 2', text: 'Il forzante radiativo netto dal 1750 e stimato in 2,72 W per metro quadro.' }],
+  causalTriples: []
+};
+function genera(opts) {
+  const html = window.MappAIBranchSynthesis.buildPrintHtml(window.DATI, opts || {});
+  const f = document.getElementById('out');
+  f.srcdoc = html;
+  return html.length;
+}
+genera();
+</script>

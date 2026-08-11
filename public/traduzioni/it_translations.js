@@ -32,6 +32,7 @@ const it_translations = {
 
     // Setup Steps
     step1: "Carica le tue Fonti",
+    admin_prompt_desc_openq: "Generazione Domande Aperte (verifica scritta)",
     admin_prompt_desc_l1: "Generazione Nodi di Livello 1 (Macro-Categorie)",
     admin_prompt_desc_mm_full: "Generazione Mappa Mentale (Single-Pass)",
     admin_prompt_desc_kg_full: "Generazione Knowledge Graph (Single-Pass)",

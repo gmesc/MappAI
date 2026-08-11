@@ -251,6 +251,37 @@ html.manifesto:not(.manifesto-vuota) .glass-card { margin-top: 60px; }
    aggiunto → nessuno scroll finché il blocco entra nella finestra.
    Batte la regola §5/8 `#landing-view .glass-card{margin-top:0}` per
    specificità (`.mn-costruisci` in più) + !important. */
+/* ══ IN CREA IL CONTESTO SI DICHIARA IN UN POSTO SOLO (11/8) ═══════════════
+   Domanda di Giacomo: «ha senso mostrare le briciole nella sezione Crea?». No —
+   e misurando è saltato fuori che il contesto lì era dichiarato in DUE punti,
+   con la stessa parola usata per due cose diverse:
+     · le briciole in alto:  «Cosa» = la SEZIONE  · «A chi?» · «Materia»
+     · il box giallo del bento: «Chi:» · «Cosa:» = la MATERIA
+   In più il primo livello delle briciole (la sezione) è già il RAIL delle tre
+   forme: tre comandi per due informazioni.
+   In CREA restano il rail (dove sono) e il box giallo (per chi genero) — uno
+   per cosa. Le briciole restano dove SERVONO: nella landing vuota, dove il box
+   giallo non è ancora a schermo, e nelle console ELABORA/INSEGNA, dove sono
+   l'unico modo di cambiare contesto.
+   ⚠️ Si nasconde anche il CHIP: togliendo le briciole `renderChip`
+   (mappai-live-classes.js) rimonta il chip nell'header, e sarebbe di nuovo lo
+   stesso contesto detto due volte. Il nodo resta nel DOM — nessuno si rompe —
+   ma `display:none` lo toglie anche dal percorso di tabulazione.
+   ⚠️ È una regola CSS e non un ramo nel JS perché i due nodi li montano DUE
+   moduli diversi (stile-manifesto e live-classes), su eventi diversi: una
+   guardia nel primo non impedirebbe al secondo di rimontare il suo. */
+/* ⚠️ Le BRICIOLE in CREA restano (Giacomo, 11/8): col cablaggio bento il rail
+   delle tre forme non si monta affatto, quindi «Cosa» è l'unica uscita verso
+   Elabora e Insegna. A restare fuori sono gli altri livelli — li taglia il JS
+   (`livelli.slice(0,1)`), non questo foglio: un livello nascosto col CSS
+   resterebbe nel percorso di tabulazione e nella lettura dello schermo.
+   Qui si toglie il solo CHIP: senza le briciole complete, `renderChip`
+   (mappai-live-classes.js) lo rimonta, e sarebbe di nuovo il contesto detto due
+   volte — una in alto e una nel box giallo. */
+html.manifesto.mn-costruisci #header-utils #active-class-chip {
+    display: none !important;
+}
+
 html.manifesto.mn-costruisci:not(.manifesto-vuota) #landing-view .glass-card {
     /* niente centratura verticale automatica: il bordo superiore lo detta
        `--crea-top` (qui sotto), calcolato sulla vista RIDOTTA. Restano i

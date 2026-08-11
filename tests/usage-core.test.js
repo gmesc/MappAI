@@ -151,3 +151,38 @@ test('fmtChf/fmtTok', () => {
     assert.strictEqual(U.fmtChf(1.5), '1.50 CHF');
     assert.strictEqual(U.fmtTok(1234567), "1'234'567");
 });
+
+/* ═══ IL LIMITE DEL PROVIDER (11/8/26) ════════════════════════════════════════
+   Nato da un errore vero: generando la voce naturale di una sintesi, Google ha
+   risposto 429 alla decima chiamata («limit: 10, model: gemini-2.5-flash-tts»)
+   e i clip già generati — già pagati — andavano persi. */
+test('retryDelayMs: legge l\'attesa che l\'API dichiara, e prende la più lunga', () => {
+  const vero = 'Error invoking remote method \'generate-gemini\': {"error":{"code":429,' +
+    '"message":"You exceeded your current quota. Please retry in 59.724003872s.",' +
+    '"status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo",' +
+    '"retryDelay":"59s"}]}}';
+  // 59.724s dal messaggio batte i 59s di retryDelay: ritentare troppo presto è
+  // un secondo 429 e un altro giro perso
+  assert.strictEqual(U.retryDelayMs(vero), 59724);
+  assert.strictEqual(U.retryDelayMs(new Error(vero)), 59724);
+  // un 429 che non dichiara l'attesa: si aspetta la finestra intera
+  assert.strictEqual(U.retryDelayMs('429 Too Many Requests'), 60000);
+  // NON è un rate limit: chi chiama deve poter distinguere e non ritentare
+  assert.strictEqual(U.retryDelayMs('Error: network unreachable'), 0);
+  assert.strictEqual(U.retryDelayMs(null), 0);
+});
+
+test('nextSlotMs: finestra scorrevole — le prime passano subito, poi si aspetta', () => {
+  const now = 1000000;
+  // sotto il limite: nessuna attesa (una sintesi corta non deve rallentare)
+  assert.strictEqual(U.nextSlotMs([now - 1000, now - 2000], now, 10), 0);
+  assert.strictEqual(U.nextSlotMs([], now, 10), 0);
+  // dieci nell'ultimo minuto: si aspetta che la più vecchia esca dalla finestra
+  const dieci = Array.from({ length: 10 }, (_, i) => now - (i * 1000));
+  assert.strictEqual(U.nextSlotMs(dieci, now, 10), 60000 - 9000 + 250);
+  // le chiamate USCITE dalla finestra non contano più
+  const vecchie = Array.from({ length: 10 }, (_, i) => now - 61000 - i);
+  assert.strictEqual(U.nextSlotMs(vecchie, now, 10), 0);
+  // limite diverso (un piano a pagamento ne ammette di più)
+  assert.strictEqual(U.nextSlotMs(dieci, now, 20), 0);
+});

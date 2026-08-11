@@ -76,6 +76,7 @@
                 map: 'Mappa',
                 quiz_mc: 'Quiz a scelta multipla',
                 quiz_tf: 'Quiz Vero/Falso',
+                quiz_open: 'Domande aperte',
                 flashcards: 'Flashcard',
                 nodesheet: 'Foglio nodi',
                 synthesis: 'Sintesi',
@@ -214,7 +215,56 @@
         return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, "'");
     }
 
+    /* ══ IL LIMITE DEL PROVIDER (11/8/26) ═════════════════════════════════════
+       Trovato generando una sintesi vera: la voce naturale fa UNA chiamata per
+       blocco, in fila e senza pause, e il piano gratuito di Google ne ammette
+       **10 al minuto** sul modello TTS. Alla decima arriva un 429 e — prima di
+       questo — tutto il lavoro si perdeva: i clip già generati (e già pagati)
+       venivano buttati insieme all'errore.
+       Due funzioni pure, perché sono la parte che si può sbagliare in silenzio:
+       il conto della finestra e la lettura dell'attesa dichiarata dall'API. */
+
+    /* Quanto aspettare prima di ritentare, secondo l'errore stesso. Google lo
+       dice in due modi nella stessa risposta (`retryDelay: "59s"` e «Please
+       retry in 59.7s»): si leggono entrambi, e vince il più lungo — ritentare
+       troppo presto vuol dire un secondo 429 e un altro giro perso.
+       0 = l'errore non parla di attese: non è un rate limit. */
+    function retryDelayMs(err) {
+        var s = '';
+        if (err == null) return 0;
+        if (typeof err === 'string') s = err;
+        else s = String(err.message || err.error || JSON.stringify(err) || '');
+        if (!/429|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(s)) return 0;
+        var ms = 0;
+        var m1 = /"?retryDelay"?\s*[:=]\s*"?(\d+(?:\.\d+)?)s/i.exec(s);
+        if (m1) ms = Math.max(ms, Math.round(parseFloat(m1[1]) * 1000));
+        var m2 = /retry in\s+(\d+(?:\.\d+)?)\s*s/i.exec(s);
+        if (m2) ms = Math.max(ms, Math.round(parseFloat(m2[1]) * 1000));
+        /* un 429 che non dichiara l'attesa esiste: si aspetta un minuto, che è
+           la finestra di questi limiti */
+        return ms || 60000;
+    }
+
+    /* Fra quanti ms si può fare la prossima chiamata senza sfondare il limite.
+       Finestra SCORREVOLE, non una pausa fissa: le prime `limite` chiamate
+       partono subito (una sintesi corta non rallenta di un secondo) e solo dopo
+       si aspetta il tempo che serve alla più vecchia per uscire dal minuto.
+       `timestamps` = quando sono partite le chiamate precedenti (ms). */
+    function nextSlotMs(timestamps, now, limite, finestraMs) {
+        var lim = parseInt(limite, 10); if (!(lim > 0)) lim = 10;
+        var win = parseInt(finestraMs, 10); if (!(win > 0)) win = 60000;
+        var t = (timestamps || []).filter(function (x) { return (now - x) < win; })
+            .sort(function (a, b) { return a - b; });
+        if (t.length < lim) return 0;
+        /* la più vecchia DENTRO la finestra decide: quando esce, si libera un
+           posto. +250ms di margine perché l'orologio del server non è il nostro */
+        var attesa = win - (now - t[t.length - lim]) + 250;
+        return attesa > 0 ? attesa : 0;
+    }
+
     return {
+        retryDelayMs: retryDelayMs,
+        nextSlotMs: nextSlotMs,
         CATS: CATS,
         catLabel: catLabel,
         subLabel: subLabel,

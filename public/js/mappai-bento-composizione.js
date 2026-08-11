@@ -113,11 +113,17 @@
            configurazione: derivare qui e non lì significa zero modifiche alla
            pipeline, e il modale storico (veste spenta) continua a funzionare. */
         { id: 'mp-quiz-on', aiuto: 'Genera quiz e flashcard dai rami della mappa. Si accende da sé quando spunti un genere qui sotto.', et: 'Quiz e flashcard', tipo: 'spunta', chiave: 'quiz', master: true,
-          derivato: ['mp-qt-mc', 'mp-qt-tf', 'mp-qt-fc'],
+          derivato: ['mp-qt-mc', 'mp-qt-tf', 'mp-qt-fc', 'mp-qt-open'],
           seFuori: 'nessuna perdita: si accende da sé se almeno un genere di quiz è spuntato' },
         { id: 'mp-qt-mc', aiuto: 'Domande a scelta multipla con distrattori e spiegazione della risposta.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun quiz a scelta multipla' },
         { id: 'mp-qt-tf', aiuto: 'Affermazioni da giudicare vere o false: veloci da correggere in classe.', et: 'Vero/Falso', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun quiz vero/falso' },
         { id: 'mp-qt-fc', aiuto: 'Carte domanda/risposta da studiare o da stampare e ritagliare.', et: 'Flashcard', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessuna flashcard' },
+        /* Le domande aperte NON producono un set giocabile: sono un foglio da
+           stampare, con le righe per scrivere e le tracce di correzione in coda
+           (vedi `_QT.open` nella pipeline). Stanno qui perché per il docente la
+           scelta è la stessa — «che verifica preparo?» — non perché siano un
+           quiz. */
+        { id: 'mp-qt-open', aiuto: 'Domande a cui si risponde scrivendo: il foglio porta le righe per la risposta e, in coda, le tracce di correzione per te.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun foglio di domande aperte' },
         { id: 'mp-perbranch', aiuto: 'Quante domande generare per ogni ramo della mappa. Più domande = più chiamate AI.', et: 'Per ramo', tipo: 'numero', chiave: 'quiz.perBranch', figlioDi: 'mp-quiz-on', seFuori: 'restano 3 domande per ramo (default)' },
         { id: 'mp-angle', aiuto: 'Il taglio delle domande: definizioni, cause ed effetti, confronti… «Automatico» lo sceglie l\u0027AI dal contenuto.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'angolo «auto» (default)' },
 
@@ -455,20 +461,6 @@
            Composizione di Giacomo (5/8). Le prime due righe sono la vista compatta
            e NON cambiano quando si apre quella estesa: è la condizione perché la
            combo non spacchi il layout. */
-        { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
-          stile: CHIARO, voci: [{ id: 'mp-preset', w: 190 }] },
-        { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
-          stile: CHIARO,
-          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-tf',
-              { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-angle', w: 130 }] },
-        { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
-          stile: CHIARO,
-          voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
-              { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
-        { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
-          stile: CHIARO,
-          voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-syn-on', et: 'Sintesi mappa' },
-              { id: 'mp-syn-audio', et: 'Voce naturale' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
         /* Il box GIALLO è il contesto: in COSTRUISCI è l'unico posto dove si
            dichiara, perché il chip dell'header lì è nascosto.
            ⚠️ La voce è `mp-chi`, NON `mp-class`: «Chi» elenca classi **e allievi**,
@@ -509,6 +501,35 @@
            («Generazione Multi-Pass», «KG (A/B)»): due nomi per la stessa cosa sono
            peggio di uno, e quello del markup è anche ciò che si ritrova fuori dal
            bento. Il titolo resta dove il pezzo mostra un VALORE e non un nome. */
+        /* ⚠️ Stanno QUI, in coda, e non dove erano: gli extra devono venire
+           TUTTI dopo il mega-bento stabile. Un box nascosto in mezzo spezza la
+           griglia nel momento in cui la combo lo rivela — il test
+           «i box extra stanno DOPO il mega-bento» esiste per questo, e l'ha
+           colto appena li ho resi nascondibili senza spostarli. */
+        /* ══ I QUATTRO BOX DELLE OPZIONI STANNO NELLA VISTA ESTESA (11/8) ══════
+           Decisione di Giacomo: «meno box, meno attrito». Preset · Quiz · Fogli
+           nodi · Fonte & Sintesi non sono più nella schermata d'ingresso: si
+           rivelano con la combo SHIFT+CTRL+L,K,J,H, come gli altri strumenti.
+           ⚠️ Il marcatore è il FONDO SCURO, non un flag: `nascondibile()` legge
+           lo stile, e un riquadro scuro in mezzo a quelli chiari è già la sua
+           etichetta nell'officina. Togliere `stile: CHIARO` è quindi il gesto
+           che li sposta — non c'è una seconda lista da tenere allineata.
+           ⚠️ RESTANO MONTATI nel DOM (solo nascosti): `_readConfig()` legge i
+           loro campi, ed è ciò che permette al preset «Default» di governare la
+           generazione senza che nessuno apra la vista estesa. Se un giorno li si
+           smontasse davvero, la configurazione tornerebbe ai default del markup
+           e le domande aperte sparirebbero in silenzio. */
+        { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
+          voci: [{ id: 'mp-preset', w: 190 }] },
+        { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
+          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-tf', 'mp-qt-open',
+              { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-angle', w: 130 }] },
+        { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
+          voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
+              { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
+        { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
+          voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-syn-on', et: 'Sintesi mappa' },
+              { id: 'mp-syn-audio', et: 'Voce naturale' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
         { id: 'modalita', titolo: 'Modalità', icona: 'book-open', span: 1, altezza: 260,
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           layout: { colonneVoci: 'colonna' },

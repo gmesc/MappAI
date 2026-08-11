@@ -441,3 +441,70 @@ test('nearestZoom: valori sporchi o vecchi → il gradino più vicino', () => {
     assert.strictEqual(D.nearestZoom('boh'), 1);
     assert.strictEqual(D.nearestZoom(null), 1);
 });
+
+/* ═══ DOMANDE APERTE (11/8/26) ════════════════════════════════════════════════
+   Un modello a sé, e non un quiz senza opzioni: la ragione per cui esiste è che
+   `normItem`/`setField` normalizzano verso la forma del quiz e scarterebbero
+   traccia, righe e aree IN SILENZIO — un salvataggio, e il documento tornerebbe
+   un quiz vuoto. Questi test sono il recinto attorno a quei tre campi. */
+test('normOpenItem: accetta la forma dell\'AI e quella del foglio', () => {
+  // forma italiana del modello
+  const a = D.normOpenItem({ domanda: 'Spiega X', traccia: 'Deve citare Y', righe: 5, areas: ['Clima'] });
+  assert.strictEqual(a.question, 'Spiega X');
+  assert.strictEqual(a.guide, 'Deve citare Y');
+  assert.strictEqual(a.lines, 5);
+  assert.deepStrictEqual(a.areas, ['Clima']);
+  // forma del foglio già salvato
+  const b = D.normOpenItem({ question: 'Q', guide: 'G', lines: 8, areas: ['A', 'B'] });
+  assert.deepStrictEqual(b.areas, ['A', 'B']);
+  // i fogli scritti prima delle due aree portano `l1`: non si perde
+  assert.deepStrictEqual(D.normOpenItem({ question: 'Q', l1: 'Clima' }).areas, ['Clima']);
+});
+
+test('normOpenItem: righe nei limiti, aree senza doppioni e al massimo due', () => {
+  assert.strictEqual(D.normOpenItem({ lines: 1 }).lines, 3);     // sotto il minimo
+  assert.strictEqual(D.normOpenItem({ lines: 99 }).lines, 12);   // sopra il massimo
+  assert.strictEqual(D.normOpenItem({}).lines, null);            // non dichiarato: decide il foglio
+  // «Clima + Clima» non è una domanda che collega due aree
+  assert.deepStrictEqual(D.normOpenItem({ areas: ['Clima', 'clima'] }).areas, ['Clima']);
+  assert.deepStrictEqual(D.normOpenItem({ areas: ['A', 'B', 'C'] }).areas, ['A', 'B']);
+});
+
+test('setOpenField: i tre campi si scrivono, e le aree sono un interruttore', () => {
+  let items = [D.blankOpenItem()];
+  items = D.setOpenField(items, 0, 'question', 'Confronta A e B');
+  items = D.setOpenField(items, 0, 'guide', 'Deve dire che…');
+  items = D.setOpenField(items, 0, 'lines', '6');
+  assert.strictEqual(items[0].question, 'Confronta A e B');
+  assert.strictEqual(items[0].guide, 'Deve dire che…');
+  assert.strictEqual(items[0].lines, 6);
+  // area: si accende, si spegne, e la seconda si aggiunge
+  items = D.setOpenField(items, 0, 'area:Clima');
+  assert.deepStrictEqual(items[0].areas, ['Clima']);
+  items = D.setOpenField(items, 0, 'area:Suolo');
+  assert.deepStrictEqual(items[0].areas, ['Clima', 'Suolo']);
+  // la terza NON entra e NON sostituisce a sorpresa: si toglie prima
+  items = D.setOpenField(items, 0, 'area:Acqua');
+  assert.deepStrictEqual(items[0].areas, ['Clima', 'Suolo']);
+  items = D.setOpenField(items, 0, 'area:Clima');
+  assert.deepStrictEqual(items[0].areas, ['Suolo']);
+  // indice fuori range: nessun danno
+  assert.strictEqual(D.setOpenField(items, 9, 'question', 'x').length, 1);
+});
+
+/* Il difetto che questo previene: usare `setField` (quella del quiz) su un item
+   aperto. Non lancia, non avvisa — restituisce un item senza i tre campi. */
+test('setField del quiz NON conserva i campi delle domande aperte', () => {
+  const dopo = D.setField([{ question: 'Q', guide: 'G', lines: 5, areas: ['A'] }], 0, 'question', 'Q2');
+  assert.strictEqual(dopo[0].guide, undefined, 'se un giorno li conservasse, questo test va tolto');
+  assert.strictEqual(dopo[0].lines, undefined);
+});
+
+test('validateOpenDoc: dice che cosa manca, domanda per domanda', () => {
+  const p = D.validateOpenDoc({ items: [{ question: 'Q', guide: '', areas: [] }] });
+  assert.ok(p.some(x => /traccia/i.test(x.msg)));
+  assert.ok(p.some(x => /macro-area/i.test(x.msg)));
+  assert.strictEqual(D.validateOpenDoc({ items: [] })[0].i, -1);
+  assert.deepStrictEqual(
+    D.validateOpenDoc({ items: [{ question: 'Q', guide: 'G', areas: ['A'] }] }), []);
+});

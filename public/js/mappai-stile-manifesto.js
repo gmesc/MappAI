@@ -205,6 +205,15 @@
     var _sigCascata = '';
     function montaCascataLanding() {
         if (!_bentoApp() || consoleInCima()) return;
+        /* ⚠️ IN CREA RESTA LA PRIMA BRICIOLA, ED È L'USCITA (Giacomo, 11/8).
+           Avevo tolto tutta la cascata dando per scontato che la sezione la
+           dicesse il RAIL delle tre forme — ma `montaRail()` esce subito quando
+           il cablaggio bento è acceso («niente rail, «Cosa» del percorso lo
+           sostituisce»): col bento il rail NON ESISTE. Senza briciole, entrando
+           in CREA non si poteva più uscire.
+           Quindi in CREA si monta il SOLO livello «Cosa» — quello che porta a
+           Elabora/Insegna — e il contesto (a chi, materia) resta al box giallo:
+           il doppione sparisce, l'uscita no. */
         var CB = window.MappAIConsoleBento;
         var hu = document.getElementById('header-utils');
         if (!hu || !CB || !CB.montaPercorso || !CB.specContesto) return;
@@ -240,7 +249,11 @@
                 if (v && String(v).trim()) dopo(function () { CL.setActiveDiscipline(String(v).trim()); });
             }
         });
-        CB.montaPercorso(hu, { livelli: livelli }, hu);
+        /* In CREA solo il PRIMO livello: «Cosa» è l'uscita verso Elabora e
+           Insegna (col bento il rail non esiste), mentre «A chi?» e «Materia»
+           sarebbero il doppione del box giallo — che in CREA è il posto dove il
+           destinatario si dichiara, ed è quello che la pipeline legge. */
+        CB.montaPercorso(hu, { livelli: modo() === 'build' ? livelli.slice(0, 1) : livelli }, hu);
     }
 
     /* Marca la forma attiva e lo stato «prima pagina». Chiamata DOPO ogni

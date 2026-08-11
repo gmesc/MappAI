@@ -205,6 +205,31 @@ test('estimateCalls: senza keyword C=0; senza audio D senza blocchi', () => {
   assert.strictEqual(e.perStep.D, 4);      // 3+1, no audio
 });
 
+/* ── DOMANDE APERTE (11/8) ──────────────────────────────────────────────
+   Sono un tipo di quiz per la CONFIGURAZIONE (stessa spunta, stesso box del
+   bento, stesso conto delle chiamate) ma un DOCUMENTO per la pipeline: non
+   entrano in `studySets`. Qui si fissa la parte che vive nel core — il conto e
+   il nome — perché è quella su cui poggiano le altre due. */
+test('estimateCalls: le domande aperte contano come ogni altro tipo di quiz', () => {
+  const cfg = { quiz: { types: ['mc', 'open'] } };
+  const e = PC.estimateCalls(cfg, { branches: 5, nodes: 0, willGenerateMap: false });
+  assert.strictEqual(e.perStep.B, 10);     // 5 rami × 2 tipi
+  assert.strictEqual(e.total, 10);
+});
+
+/* ⚠️ Il prefisso è SENZA accenti e con i trattini, come `Catena-dei-perche`:
+   questi file finiscono su chiavette e cartelle condivise. E sta in TESTA
+   perché è da lì che `_diskKind` riconosce il genere — se cambia, il foglio
+   torna a comparire fra i «File» e il docente non lo trova più. */
+test('buildFileName: il foglio delle domande aperte', () => {
+  assert.strictEqual(
+    PC.buildFileName('open_questions', null, false, { mappa: 'Il Clima' }),
+    'Domande-aperte-Il Clima.pdf');
+  assert.strictEqual(
+    PC.buildFileName('open_questions', null, false, { mappa: 'Il Clima', nome: 'verifica di maggio' }),
+    'Domande-aperte-Il Clima-verifica di maggio.pdf');
+});
+
 // ── preset (US3) ────────────────────────────────────────────────────────
 test('presetFromConfig: strippa classId/className/sede, tiene solo output', () => {
   const o = PC.presetFromConfig({ classId: 'cls_x', className: '2ª A', sede: 'Bellinzona', tuned: true, levelTuned: false, quiz: { types: ['mc', 'tf'], perBranch: 4, angle: 'causa' }, synthesis: { audio: true } });
@@ -246,33 +271,62 @@ test('presetListPush: cap FIFO 50 scarta i più vecchi', () => {
 });
 
 // ── buildFileName ───────────────────────────────────────────────────────
-test('buildFileName: nomi canonici + marcatore VERDE', () => {
+/* ⚠️ CAMBIO DI COMPORTAMENTO (10/8): il suffisso ` -VERDE` NON si scrive più.
+   Distingueva la versione tarata per una classe inclusiva da quella standard;
+   da quando la taratura si applica da sé leggendo il contesto attivo, di
+   generazioni ce n'è una sola e non c'è più niente da distinguere. `tuned`
+   resta nella firma — i chiamanti non cambiano — ma non produce nulla. */
+test('buildFileName: nomi canonici, e `tuned` non aggiunge più il marcatore', () => {
   assert.strictEqual(PC.buildFileName('quiz_mc', 'Fotosintesi', false), 'Quiz-MC-Fotosintesi.pdf');
-  assert.strictEqual(PC.buildFileName('quiz_tf', 'Fotosintesi', true), 'Quiz-VF-Fotosintesi -VERDE.pdf');
+  assert.strictEqual(PC.buildFileName('quiz_tf', 'Fotosintesi', true), 'Quiz-VF-Fotosintesi.pdf');
   assert.strictEqual(PC.buildFileName('flashcards', 'Ramo X', false), 'Flashcard-Ramo X.pdf');
-  assert.strictEqual(PC.buildFileName('nodesheet', 'keywords', true), 'Foglio-nodi-keywords -VERDE.pdf');
+  assert.strictEqual(PC.buildFileName('nodesheet', 'keywords', true), 'Foglio-nodi-keywords.pdf');
   assert.strictEqual(PC.buildFileName('synthesis', null, false), 'Sintesi.html');
-  assert.strictEqual(PC.buildFileName('synthesis', null, true), 'Sintesi -VERDE.html');
+  // stesso nome con e senza taratura: è la conseguenza dichiarata del cambio
+  assert.strictEqual(PC.buildFileName('synthesis', null, true), 'Sintesi.html');
   // segmenti con caratteri illegali sanitizzati
   assert.strictEqual(PC.buildFileName('quiz_mc', 'A/B:C', false), 'Quiz-MC-A B C.pdf');
 });
 
-/* ⚠️ CAMBIO DI COMPORTAMENTO (9/8): l'MP3 prende il marcatore di taratura.
-   Prima era `Sintesi-audio.mp3` fisso, e il test lo fissava. Ma un vault può
-   contenere `Sintesi.html` e `Sintesi -VERDE.html` insieme, mentre l'audio era
-   uno solo: il secondo passaggio della pipeline lo sovrascriveva e restava
-   accoppiato al testo sbagliato — cioè una voce che legge parole che non ci
-   sono. Il marcatore lo rende univoco quanto il testo che pronuncia. */
-test('buildFileName: l\'audio segue la taratura del testo che pronuncia', () => {
-  assert.strictEqual(PC.buildFileName('tts', null, false), 'Sintesi-audio.mp3');
-  assert.strictEqual(PC.buildFileName('tts', null, true), 'Sintesi-audio -VERDE.mp3');
+/* I DUE file della sintesi (10/8). Non sono due stati dello stesso documento:
+   l'editabile vive in ELABORA, quello con la voce si consegna e si vede solo in
+   INSEGNA. Il marcatore «voce» sta IN TESTA, attaccato al tipo, perché è da lì
+   che `_diskKind` riconosce il genere — come `Quiz-MC` e `Quiz-VF`, che sono
+   due prefissi e non un `Quiz` con un suffisso.
+   Se questo test cade, i due file tornano nello stesso elenco e la separazione
+   fra le due console sparisce senza un errore. */
+test('buildFileName: la sintesi editabile e quella con la voce hanno nomi distinti', () => {
+  assert.strictEqual(
+    PC.buildFileName('synthesis', null, false, { mappa: 'Il Clima' }),
+    'Sintesi-Il Clima.html');
+  assert.strictEqual(
+    PC.buildFileName('synthesis_voice', null, false, { mappa: 'Il Clima' }),
+    'Sintesi-voce-Il Clima.html');
+  // il nome scelto dal docente si accoda, e non sposta il marcatore dalla testa
+  assert.strictEqual(
+    PC.buildFileName('synthesis_voice', null, false, { mappa: 'Il Clima', nome: 'ripasso di maggio' }),
+    'Sintesi-voce-Il Clima-ripasso di maggio.html');
+  // la regola specifica deve poter vincere su quella generica: `^Sintesi-voce-`
+  // combacia, e `^Sintesi` combacia comunque — l'ordine è tutto
+  const conVoce = PC.buildFileName('synthesis_voice', null, false, { mappa: 'X' });
+  assert.ok(/^Sintesi-voce-/.test(conVoce));
+  assert.ok(/^Sintesi/.test(conVoce), 'la regola generica cattura anche questo: va messa DOPO');
 });
 
-/* La forma nuova: <Tipo>-<Mappa>[-<dettaglio>][-<nome del docente>][ -VERDE] */
+/* Il nome dell'MP3 resta definito, ma dal 10/8 la pipeline non scrive più
+   l'audio come file separato: vive dentro l'HTML con la voce. Il genere resta
+   qui perché i vault esistenti quei file ce li hanno, e chi li elenca deve
+   continuare a saperli nominare. */
+test('buildFileName: il nome dell\'MP3 (file dei vault storici)', () => {
+  assert.strictEqual(PC.buildFileName('tts', null, false), 'Sintesi-audio.mp3');
+  assert.strictEqual(PC.buildFileName('tts', null, true), 'Sintesi-audio.mp3');
+});
+
+/* La forma nuova: <Tipo>-<Mappa>[-<dettaglio>][-<nome del docente>] */
 test('buildFileName: mappa, dettaglio e nome scelto dal docente', () => {
   assert.strictEqual(
     PC.buildFileName('quiz_mc', null, true, { mappa: 'Il Clima', nome: 'ripasso finale' }),
-    'Quiz-MC-Il Clima-ripasso finale -VERDE.pdf');
+    'Quiz-MC-Il Clima-ripasso finale.pdf');
   assert.strictEqual(
     PC.buildFileName('synthesis', null, false, { mappa: 'Il Clima' }),
     'Sintesi-Il Clima.html');
@@ -281,7 +335,7 @@ test('buildFileName: mappa, dettaglio e nome scelto dal docente', () => {
     'Sintesi-Il Clima-Venti-per Anna.html');
   assert.strictEqual(
     PC.buildFileName('nodesheet', null, true, { mappa: 'Il Clima', dettaglio: 'card' }),
-    'Foglio-nodi-Il Clima-card -VERDE.pdf');
+    'Foglio-nodi-Il Clima-card.pdf');
   assert.strictEqual(
     PC.buildFileName('causal', null, false, { mappa: 'Il Clima' }),
     'Catena-dei-perche-Il Clima.pdf');
@@ -303,11 +357,22 @@ test('buildFileName: i nomi nuovi restano riconoscibili dal classificatore', () 
     [/\.mp3$|\.m4a$|\.wav$/i, 'Audio'],
     [/^Quiz-MC-/i, 'Quiz MC'], [/^Quiz-VF-/i, 'Quiz V/F'],
     [/^Flashcard-/i, 'Flashcard'], [/^Foglio.?nodi/i, 'Foglio nodi'],
-    [/^Sintesi/i, 'Sintesi'], [/^Catena.dei.perche/i, 'Catena dei perché']
+    /* ⚠️ L'ORDINE È LA REGOLA: `^Sintesi-voce` PRIMA di `^Sintesi`, che
+       combacia anche con quella. Invertirli fa sparire la distinzione fra il
+       file editabile e la copia con la voce — cioè la separazione fra ELABORA e
+       INSEGNA — e lo fa in silenzio, perché un nome viene comunque classificato.
+       Questa lista è lo specchio di `_diskKind` (mappai-landing-teach.js): se
+       cambia una, deve cambiare l'altra. */
+    [/^Sintesi-voce\b/i, 'Sintesi con voce'],
+    [/^Sintesi/i, 'Sintesi'], [/^Catena.dei.perche/i, 'Catena dei perché'],
+    [/^Domande.?aperte/i, 'Domande aperte']
   ];
   const atteso = {
     quiz_mc: 'Quiz MC', quiz_tf: 'Quiz V/F', flashcards: 'Flashcard',
-    nodesheet: 'Foglio nodi', synthesis: 'Sintesi', causal: 'Catena dei perché', tts: 'Audio'
+    nodesheet: 'Foglio nodi', synthesis: 'Sintesi',
+    synthesis_voice: 'Sintesi con voce',
+    causal: 'Catena dei perché', tts: 'Audio',
+    open_questions: 'Domande aperte'
   };
   Object.keys(atteso).forEach((kind) => {
     const nome = PC.buildFileName(kind, null, true, { mappa: 'Il Clima', dettaglio: 'card', nome: 'per Anna' });
@@ -315,6 +380,13 @@ test('buildFileName: i nomi nuovi restano riconoscibili dal classificatore', () 
     assert.ok(trovato, 'non classificato: ' + nome);
     assert.strictEqual(trovato[1], atteso[kind], nome);
   });
+  /* La prova che l'ordine conta: con la regola generica per prima, la copia con
+     la voce si classifica come una sintesi normale — nessun errore, solo la
+     distinzione persa. */
+  const alContrario = [[/^Sintesi/i, 'Sintesi'], [/^Sintesi-voce\b/i, 'Sintesi con voce']];
+  const conVoce = PC.buildFileName('synthesis_voice', null, false, { mappa: 'Il Clima' });
+  assert.strictEqual(alContrario.find((r) => r[0].test(conVoce))[1], 'Sintesi',
+    'se questo cambia, la regola generica ha smesso di catturare: rivedere il commento sopra');
 });
 
 test('nomeLibero: disambigua con « · 02» come già fa Fonti/', () => {
@@ -371,9 +443,12 @@ test('la catena non costa chiamate AI: E vale 0 e non gonfia il totale', () => {
     assert.strictEqual(con.total, senza.total, 'i nessi si ricavano dal grafo, non dall\'AI');
 });
 
-test('il file della catena ha un nome senza accenti, col marcatore VERDE', () => {
+test('il file della catena ha un nome senza accenti', () => {
     assert.strictEqual(PC.buildFileName('causal', null, false), 'Catena-dei-perche.pdf');
-    assert.strictEqual(PC.buildFileName('causal', null, true), 'Catena-dei-perche -VERDE.pdf');
+    /* senza accenti per scelta: il file finisce anche su chiavette e cartelle
+       condivise, dove una «é» diventa un problema di qualcun altro.
+       `tuned` non aggiunge più nulla (vedi il cambio del 10/8). */
+    assert.strictEqual(PC.buildFileName('causal', null, true), 'Catena-dei-perche.pdf');
 });
 
 test('un preset porta la catena, e la legge anche dai preset vecchi', () => {
@@ -400,4 +475,51 @@ test('senza materiali hasOutput è falso: è lo stato «solo la mappa»', () => 
     assert.strictEqual(PC.hasOutput({}), false);
     assert.strictEqual(PC.hasOutput({ classId: 'c1', tuned: true, sourcePdf: true }), false);
     assert.strictEqual(PC.hasOutput(null), false);
+});
+
+/* ═══ IL PRESET «Default» (11/8) ══════════════════════════════════════════════
+   Dall'11/8 i box delle opzioni stanno nella vista estesa: la configurazione di
+   partenza non viene più dalle spunte del markup — nessuno le vede — ma da un
+   preset. Queste sono le due proprietà da cui dipende che funzioni. */
+test('preset: «open» è un tipo valido, o le domande aperte si perdono al salvataggio', () => {
+  const n = PC.presetNormalize({ options: { quiz: { types: ['mc', 'open', 'inesistente'] } } });
+  assert.deepStrictEqual(n.options.quiz.types, ['mc', 'open'],
+    'se «open» cade, il preset si salva con la spunta accesa e si riapre senza');
+});
+
+test('preset: il giro config → preset → config conserva Default per intero', () => {
+  const cfg = {
+    quiz: { types: ['mc', 'open'], perBranch: 3, angle: 'auto' },
+    nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
+    synthesis: { audio: true },      // la voce naturale
+    causal: true,                    // deterministica: zero chiamate AI
+    tuned: true, levelTuned: true,   // ⚠️ da qui `_applyPreset` deriva «Adatta alla classe»
+    classId: 'c1', className: '2A'   // la classe NON deve entrare nel preset
+  };
+  const o = PC.presetFromConfig(cfg);
+  assert.deepStrictEqual(o.quiz.types, ['mc', 'open']);
+  assert.strictEqual(o.synthesis.audio, true);
+  assert.strictEqual(o.causal, true);
+  assert.strictEqual(o.tuned, true);
+  assert.strictEqual(o.levelTuned, true);
+  assert.strictEqual(o.classId, undefined, 'un preset non porta la classe');
+  // e sopravvive alla normalizzazione con cui viene riletto da localStorage
+  const r = PC.presetNormalize({ name: 'Default', options: o }).options;
+  assert.deepStrictEqual(r.quiz.types, ['mc', 'open']);
+  assert.strictEqual(r.synthesis.audio, true);
+  assert.strictEqual(r.causal, true);
+});
+
+/* Il DOSSIER entra nella convenzione dei nomi (11/8/26).
+   Prima se lo scriveva da sé, ricavandolo da un campo che non esiste
+   (`appState.db.title`): il ripiego scattava sempre e ogni dossier si chiamava
+   «Dossier Progetto MappAI MM» — un nome che non dice né quale mappa né quale
+   documento, e che il dialogo di salvataggio proponeva tale e quale. */
+test('buildFileName: il dossier segue la convenzione, col nodo come dettaglio', () => {
+    assert.strictEqual(
+        PC.buildFileName('dossier', null, false, { mappa: 'La Politica Svizzera' }),
+        'Dossier-La Politica Svizzera.pdf');
+    assert.strictEqual(
+        PC.buildFileName('dossier', null, false, { mappa: 'La Politica Svizzera', dettaglio: 'Consiglio federale' }),
+        'Dossier-La Politica Svizzera-Consiglio federale.pdf');
 });

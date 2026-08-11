@@ -91,16 +91,13 @@
     m.updatedAt = _now();
     return m;
   }
-  /* ⚠️ `buildFileName('tts', …)` promette `.mp3`, ma la voce torna in WAV
-     quando l'encoder lamejs non è caricato (`_encodeAudio` in
-     mappai-branch-synthesis.js sceglie MP3 «se possibile»): un WAV scritto
-     dentro un file `.mp3` è una bugia che paga chi apre il documento. Comanda
-     l'estensione dichiarata dal blob, non la tabella dei generi. */
-  function _conEstensione(nome, ext) {
-    const e = String(ext || '').replace(/^\./, '');
-    if (!e) return nome;
-    return String(nome).replace(/\.[A-Za-z0-9]+$/, '.' + e);
-  }
+  /* Qui stava `_conEstensione`, che allineava l'estensione del file audio a
+     quella del blob: `buildFileName('tts', …)` promette `.mp3`, ma la voce torna
+     in WAV quando l'encoder lamejs non è caricato, e un WAV dentro un file
+     `.mp3` è una bugia che paga chi apre il documento.
+     Dal 10/8 non serve più: l'audio non si scrive come file a sé — vive dentro
+     l'HTML con la voce, dove il tipo viaggia nel `data:` URI e lo dichiara
+     `audio.mime`, che è la fonte giusta per la stessa ragione di prima. */
   function _blobToB64(blob) {
     return new Promise((res, rej) => {
       const fr = new FileReader();
@@ -179,10 +176,151 @@
     return Array.isArray(arr) ? arr : [];
   }
 
+  /* Le DOMANDE APERTE (11/8/26). Stesso schema di `_genFlashcards`: prompt dal
+     pannello admin (`OPEN_QUESTIONS_GENERATOR`, categoria STUDY) e ripiego
+     inline se il template manca — un vault vecchio o un `prompts_config.json`
+     personalizzato non devono far fallire uno step.
+     ⚠️ La MACRO-AREA non si chiede all'AI e non passa da un resolver: qui il
+     ramo lo sappiamo già, è quello per cui stiamo generando (`_branchNodes`).
+     Chiederlo al modello vorrebbe dire poter ricevere un nome che nella mappa
+     non esiste. */
+  /* ── IL RAMO COMPAGNO ─────────────────────────────────────────────────────
+     Le domande aperte possono coinvolgere DUE macro-aree (Giacomo, 11/8): è ciò
+     che le rende domande di ragionamento invece che di richiamo — «confronta»,
+     «spiega come X influisce su Y» pretendono che due pezzi della mappa si
+     tocchino.
+     Il secondo ramo NON si chiede all'AI e non si prende a caso: si prende
+     quello che nella MAPPA è davvero collegato al primo — si contano i link fra
+     i due sottoalberi (i cross-link di un KG, i rimandi di una MindMap) e vince
+     il più connesso. A pari merito, e quando nessun collegamento esiste, il
+     ramo successivo: due aree vicine nell'ordine della mappa sono quasi sempre
+     due aree che si parlano, ed è meglio di un accostamento casuale.
+     ⚠️ Deterministico: la stessa mappa dà sempre le stesse coppie. */
+  function _ramoCompagno(branch, branches) {
+    if (!branches || branches.length < 2) return null;
+    const idx = branches.findIndex(b => b.id === branch.id);
+    const succ = branches[(idx + 1) % branches.length];
+    try {
+      const db = _state().db || {};
+      const links = db.links || [];
+      const setOf = (b) => {
+        const kids = (window.getDescendants ? window.getDescendants(b.id) : []) || [];
+        const s = new Set([b.id]);
+        kids.forEach(n => s.add(n.id));
+        return s;
+      };
+      const mio = setOf(branch);
+      const idOf = (x) => (x && typeof x === 'object') ? x.id : x;
+      let best = null, bestN = 0;
+      branches.forEach(alt => {
+        if (alt.id === branch.id) return;
+        const suo = setOf(alt);
+        let n = 0;
+        links.forEach(l => {
+          const a = idOf(l.source), b2 = idOf(l.target);
+          if ((mio.has(a) && suo.has(b2)) || (suo.has(a) && mio.has(b2))) n++;
+        });
+        if (n > bestN) { bestN = n; best = alt; }
+      });
+      if (best) return best;
+    } catch (e) { /* la mappa non si lascia interrogare: resta il successivo */ }
+    return succ && succ.id !== branch.id ? succ : null;
+  }
+
+  async function _genOpenQuestions(material, nodeLabel, quantity, apiKey, opts) {
+    opts = opts || {};
+    const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
+    /* Il secondo tema e il suo materiale entrano nel prompt SOLO se ci sono: su
+       una mappa a un ramo solo la domanda «collega le due aree» non avrebbe
+       senso, e chiederlo lo stesso produrrebbe accostamenti inventati. */
+    const areaB = opts.areaB || '';
+    let prompt = '';
+    try {
+      prompt = window.fillPromptTemplate('OPEN_QUESTIONS_GENERATOR', {
+        quantity, nodeLabel, nonce,
+        areaB: areaB,
+        /* il blocco delle DUE AREE è un pezzo di prompt, non un flag: senza
+           secondo ramo sparisce del tutto invece di restare come istruzione a
+           vuoto */
+        dueAree: areaB
+          ? ('\n\nDUE MACRO-AREE. Il materiale qui sotto viene da due aree della mappa: ' +
+            '«' + nodeLabel + '» e «' + areaB + '». La maggior parte delle domande resta su ' +
+            '«' + nodeLabel + '»; ALMENO UNA deve COLLEGARE le due aree (confronto, influenza ' +
+            'reciproca, causa in una ed effetto nell\'altra) e si può rispondere solo tenendole ' +
+            'insieme. Mai più di due aree per domanda.\n' +
+            'In «aree» elenca le macro-aree che quella domanda richiede davvero: una sola, ' +
+            'oppure entrambe. Usa ESATTAMENTE questi nomi: «' + nodeLabel + '», «' + areaB + '».')
+          : ''
+      }) || '';
+    }
+    catch (e) { prompt = ''; }
+    if (!prompt.trim()) {
+      prompt = 'Genera ' + quantity + ' DOMANDE APERTE di verifica basate ESCLUSIVAMENTE su questo materiale.\n' +
+        'Codice di variazione: ' + nonce + '.\n' +
+        'Una domanda aperta non ha opzioni: lo studente scrive con parole sue. Chiedi di SPIEGARE, ' +
+        'CONFRONTARE, GIUSTIFICARE o RICOSTRUIRE, mai una parola singola da ricordare. Frasi brevi, ' +
+        'una sola cosa chiesta per domanda (studenti BES/DSA).\n' +
+        'Per ognuna scrivi anche «traccia» (che cosa deve contenere una risposta corretta, 1-2 frasi) ' +
+        'e «righe» (quante righe servono per rispondere: 3 breve, 5 spiegazione, 8 confronto).\n' +
+        'e «aree» (le macro-aree che la domanda richiede: una, o al massimo due).\n' +
+        'Restituisci SOLO un JSON: [{"domanda":"…","traccia":"…","righe":5,"aree":["…"]}]\n' +
+        'Usa l\'italiano. Il tema del ramo è: \'' + nodeLabel + '\'.' +
+        (areaB ? ('\nLa seconda area è \'' + areaB + '\': almeno una domanda deve collegarle.') : '');
+    }
+    const schema = {
+      type: 'ARRAY', items: {
+        type: 'OBJECT',
+        properties: {
+          domanda: { type: 'STRING' }, traccia: { type: 'STRING' }, righe: { type: 'INTEGER' },
+          aree: { type: 'ARRAY', items: { type: 'STRING' } }
+        },
+        required: ['domanda', 'traccia']
+      }
+    };
+    let payload = {
+      contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }],
+      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
+    };
+    if (window.injectClassTuning) payload = window.injectClassTuning(payload);
+    const resp = await window.fetchModelAPI(payload, apiKey);
+    const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
+    const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
+    if (!Array.isArray(arr)) return [];
+    /* Alla forma del foglio si passa QUI e non nel builder: il builder è puro e
+       riceve già `{question, guide, lines, areas}` da chiunque lo chiami.
+       ⚠️ Le AREE dichiarate dal modello si FILTRANO contro i due nomi veri: se
+       ne inventa una terza — o storpia un titolo — sul foglio comparirebbe un
+       kicker che nella mappa non esiste. Quel che resta dopo il filtro è la
+       verità; se non resta niente, l'area è quella per cui stiamo generando. */
+    const ammesse = [nodeLabel].concat(areaB ? [areaB] : []);
+    const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
+    return arr.filter(x => x && x.domanda).map(x => {
+      let aree = Array.isArray(x.aree) ? x.aree : [];
+      aree = aree.map(a => ammesse.find(v => norm(v) === norm(a))).filter(Boolean);
+      /* mai più di due, ed è la regola dichiarata nel prompt: se il modello ne
+         manda tre, si tengono le prime due nell'ordine in cui le ha messe */
+      aree = aree.slice(0, 2);
+      if (!aree.length) aree = [nodeLabel];
+      return {
+        question: String(x.domanda),
+        guide: String(x.traccia || ''),
+        lines: x.righe,
+        areas: aree
+      };
+    });
+  }
+
   const _QT = {
     mc: { quizType: 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta', kind: 'quiz_mc', sub: 'quiz_mc', mode: 'quiz', typeLabel: 'Scelta Multipla' },
     tf: { quizType: 'Vero o Falso — ogni domanda è un\'AFFERMAZIONE da valutare; il campo "correct" vale "Vero" oppure "Falso"', kind: 'quiz_tf', sub: 'quiz_tf', mode: 'quiz', typeLabel: 'Vero o Falso' },
-    flashcards: { kind: 'flashcards', sub: 'flashcards', mode: 'flashcard', typeLabel: 'Flashcard' }
+    flashcards: { kind: 'flashcards', sub: 'flashcards', mode: 'flashcard', typeLabel: 'Flashcard' },
+    /* `documento: true` = NON è un set giocabile, è un foglio e basta. Il player
+       di studio e l'editor dei documenti si aspettano delle opzioni e un indice
+       della risposta esatta: un item senza opzioni li romperebbe in silenzio —
+       quindi le domande aperte non entrano in `studySets`. Restano un PDF nel
+       vault (e una voce d'archivio per INSEGNA), che è esattamente il loro uso:
+       si stampano e si distribuiscono. */
+    open: { kind: 'open_questions', sub: 'quiz_open', typeLabel: 'Domande aperte', documento: true }
   };
 
   async function _stepB(vaultPath, manifest, config, apiKey, counter) {
@@ -205,7 +343,21 @@
           const material = _branchMaterial(b);
           if (!material.trim()) continue;
           counter.calls++;
-          if (t === 'flashcards') {
+          if (t === 'open') {
+            /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
+               domande che collegano due macro-aree (Giacomo, 11/8) */
+            const comp = _ramoCompagno(b, branches);
+            const materialeB = comp ? _branchMaterial(comp) : '';
+            const insieme = materialeB
+              ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
+              : material;
+            const items = await _genOpenQuestions(insieme, _clean(b.label), perBranch, apiKey,
+              { areaB: comp ? _clean(comp.label) : '' });
+            /* le AREE le porta già l'item (filtrate contro i nomi veri in
+               `_genOpenQuestions`): qui si tiene `l1` come area principale, che
+               è quella per cui stiamo generando */
+            items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label) }, it)));
+          } else if (t === 'flashcards') {
             const items = await _genFlashcards(material, _clean(b.label), perBranch, apiKey);
             items.forEach(it => raw.push(it));
           } else {
@@ -214,9 +366,45 @@
           }
         }
         if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
-        // Set in-app (forma q/correct o front/back) + persistenza vault
         const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
         const setTitle = mapName + ' — ' + spec.typeLabel;
+
+        /* ── I materiali-DOCUMENTO escono qui: PDF e basta ────────────────────
+           Le domande aperte non sono un set giocabile (vedi `_QT.open`), quindi
+           saltano `studySets` e tutto ciò che ne dipende — il player, l'editor,
+           il ri-salvataggio del vault. Producono il foglio, lo archiviano per
+           INSEGNA e passano al tipo successivo. */
+        if (spec.documento) {
+          const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: setTitle, type: spec.typeLabel, items: raw },
+            { mapName, includeBar: false });
+          const pdfOq = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
+          if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
+          const vOq = PC().validatePdfB64(pdfOq.base64);
+          if (!vOq.ok) throw new Error(spec.typeLabel + ': ' + vOq.error);
+          const nomeOq = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName });
+          const relOq = 'Materiale Studio/' + nomeOq;
+          const wOq = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relOq, base64: pdfOq.base64 });
+          if (!wOq || !wOq.ok) throw new Error('Scrittura domande aperte fallita: ' + ((wOq && wOq.error) || '?'));
+          manifest = _recordFile(manifest, 'B', relOq);
+          await _writeManifest(vaultPath, manifest);
+          /* In ARCHIVIO va l'HTML, non il PDF: da lì INSEGNA sa ristampare la
+             versione SENZA tracce di correzione (il foglio porta la sua
+             sorgente incorporata) — da un PDF non si ricava più niente.
+             ⚠️ `kind: 'quizpaper'` è ciò che lo fa comparire in «Quiz
+             cartacei»: un genere nuovo lì dentro non sarebbe elencato da
+             nessuna delle viste esistenti. */
+          try {
+            if (window.MappAIStudyDocs) {
+              window.MappAIStudyDocs.save({
+                kind: 'quizpaper', title: setTitle, html: htmlOq,
+                mapName: mapName, cls: config.className || '', disc: config.disc || ''
+              });
+            }
+          } catch (e) { /* l'archivio è un di più: il file nel vault c'è già */ }
+          continue;
+        }
+
+        // Set in-app (forma q/correct o front/back) + persistenza vault
         const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle, quantity: perBranch, date: _now(), _pipeline: true };
         _state().db.studySets = _state().db.studySets || [];
         _state().db.studySets.push(set);
@@ -354,25 +542,32 @@
       if (!v.ok) throw new Error('Sintesi: ' + v.error);
       const htmlName = PC().buildFileName('synthesis', null, config.tuned, { mappa: mapName });
       const relHtml = 'Materiale Studio/' + htmlName;
-      /* Il documento si scrive DUE volte, ed è la scelta voluta.
-         L'HTML e l'MP3 sono file fratelli e finora non si conoscevano: chi
-         apriva la sintesi non sapeva che accanto c'era la voce naturale — cioè
-         il materiale pagato in token restava invisibile a chi lo riceve.
-         Per agganciarli serve scrivere nell'HTML il nome dell'audio, ma quel
-         nome si può scrivere con onestà solo DOPO che l'MP3 è davvero sul
-         disco: la voce è degradabile (FR-006, fallisce senza fermare il passo),
-         quindi calcolarne il nome prima significherebbe consegnare agli allievi
-         un documento che punta a un file che non c'è.
-         Ordine: HTML nudo → audio → riscrittura dell'HTML col riferimento.
-         Costa una scrittura di una stringa che è già in memoria, non una
-         seconda generazione; e se la riscrittura fallisce resta valido il
-         documento di prima, che semplicemente non richiama la voce. */
-      const scriviHtml = async function (opts) {
+      /* ══ DUE FILE, NON DUE STATI DELLO STESSO (10/8/26) ═══════════════════
+         La sintesi esce in due esemplari, con due mestieri diversi:
+           · `Sintesi-<Mappa>.html`      senza audio — è quello EDITABILE, lo
+                                         apre l'editor di ELABORA, ed è l'unico
+                                         che il docente corregge;
+           · `Sintesi-voce-<Mappa>.html` con l'MP3 dentro in base64 — si
+                                         consegna, si vede solo in INSEGNA, e
+                                         NON si modifica.
+         Prima era un file solo, riscritto due volte per agganciargli l'audio.
+         Non reggeva: correggere il testo voleva dire o perdere la voce o
+         portarsela dietro dentro un documento da 8 MB che si riapre a ogni
+         ritocco. Separandoli, l'editabile resta leggero (~60 KB) e la copia con
+         la voce è un prodotto finito, che si rigenera quando serve.
+         ⚠️ L'MP3 NON si scrive più come file a sé: vive dentro l'HTML con la
+         voce. Un file audio accanto serviva a tenere leggero il documento, e
+         quel motivo è caduto insieme al file unico.
+         L'ordine resta lo stesso, e per la stessa ragione: prima l'editabile,
+         poi l'audio, poi la copia con la voce. La voce è degradabile (FR-006,
+         fallisce senza fermare il passo), quindi se salta resta comunque il
+         documento buono — semplicemente senza la copia parlante. */
+      const scriviHtml = async function (rel, opts) {
         const html = window.MappAISynthesis.buildHtml(data, opts);
-        const r = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relHtml, text: html });
+        const r = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, text: html });
         if (!r || !r.ok) throw new Error('Scrittura sintesi fallita: ' + ((r && r.error) || '?'));
       };
-      await scriviHtml();
+      await scriviHtml(relHtml);
       manifest = _recordFile(manifest, 'D', relHtml);
       await _writeManifest(vaultPath, manifest);
       // Voce: degradabile (FR-006) → fallimento = nota, NON step failed.
@@ -382,37 +577,40 @@
           _overlay(_t('mp_step_d_audio', 'Genero la voce naturale…'));
           const audio = await window.MappAISynthesis.generateAudio(data);
           const b64 = await _blobToB64(audio.blob);
-          /* L'audio prende il marcatore ` -VERDE` del testo che pronuncia: un
-             vault può contenere «Sintesi …» e «Sintesi … -VERDE» insieme, e con
-             un solo nome d'audio la seconda passata sovrascriveva la prima
-             lasciando la voce accoppiata al testo sbagliato. */
-          const audioName = _conEstensione(PC().buildFileName('tts', null, config.tuned, { mappa: mapName }), audio.ext);
-          const relAudio = 'Materiale Studio/' + audioName;
-          const wa = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relAudio, base64: b64 });
-          if (!wa || !wa.ok) throw new Error((wa && wa.error) || 'scrittura audio');
-          manifest = _recordFile(manifest, 'D', relAudio);
-          await _writeManifest(vaultPath, manifest);
-          /* Ora l'MP3 esiste: l'HTML può dirlo. `audioSrc` è un percorso
-             RELATIVO — i due file stanno nella stessa cartella, quindi è il
-             solo nome — codificato come segmento d'URL perché spazi, «·» e
-             accenti nel nome della mappa non spezzino né l'indirizzo né
-             l'attributo che lo contiene.
+          /* La COPIA CON LA VOCE: un secondo file, non una riscrittura del
+             primo. L'editabile scritto poco fa resta com'è — leggero e senza
+             audio — e questo gli si affianca col suo nome.
              Passano anche i `cues`: sono i tempi di inizio di ogni blocco, cioè
              ciò che tiene il karaoke allineato alla voce. La pipeline finora li
              buttava via, e la copia nel vault leggeva peggio di quella scaricata
              a mano dallo stesso motore.
-             ⚠️ Riscrittura degradabile come la voce: tutti i materiali sono già
-             al loro posto, qui si perderebbe solo il collegamento. */
+             ⚠️ Degradabile come la voce: se questa scrittura fallisce, tutti i
+             materiali sono già al loro posto e si perde solo la copia parlante,
+             che si rigenera dall'editor quando serve. */
           try {
-            /* ⚠️ Il nome viaggia GREZZO: a codificarlo è chi costruisce l'URL
-               (`_relUrl` nel generatore del documento). Codificarlo anche qui
-               produceva `%2520` al posto di `%20` — un file che non esiste — e
-               il guasto sarebbe stato MUTO, perché il documento ripiega da solo
-               sulla voce di sistema quando l'audio non carica. Un codificatore
-               solo, nel punto in cui l'indirizzo si scrive. */
-            await scriviHtml({ audioSrc: audioName, audioMime: audio.mime, cues: audio.cues });
+            /* ⚠️ L'AUDIO VA DENTRO IL DOCUMENTO (decisione di Giacomo, 10/8/26),
+               non in un file accanto. Un HTML che PUNTA all'MP3 fratello
+               funziona solo finché i due file restano nella stessa cartella, e
+               in tutti gli altri casi la voce sparisce senza dirlo — perché il
+               documento ripiega da solo sulla voce di sistema quando l'audio non
+               carica. Casi che contano:
+                 · condivisione via QR — si pubblica il solo HTML, e il
+                   riferimento relativo sul server non risolve;
+                 · il file mandato per posta o con AirDrop, da solo;
+                 · l'anteprima nell'app, dove il documento entra come `srcdoc` e
+                   un percorso relativo non ha da dove risolversi.
+               Il prezzo è il peso: un MP3 da 6 MB porta l'HTML da 60 KB a 8,3 MB
+               (in base64 cresce di un terzo). È il motivo per cui questo file è
+               SEPARATO dall'editabile: chi corregge il testo non deve riaprire
+               8 MB a ogni ritocco, e chi consegna vuole un file che basti a sé. */
+            const audioDataUri = 'data:' + (audio.mime || 'audio/mpeg') + ';base64,' + b64;
+            const voceName = PC().buildFileName('synthesis_voice', null, config.tuned, { mappa: mapName });
+            const relVoce = 'Materiale Studio/' + voceName;
+            await scriviHtml(relVoce, { audioDataUri: audioDataUri, audioMime: audio.mime, cues: audio.cues });
+            manifest = _recordFile(manifest, 'D', relVoce);
+            await _writeManifest(vaultPath, manifest);
           } catch (he) {
-            manifest.steps.D.audioNote = _t('mp_audio_unlinked', 'voce salvata, ma il documento non la richiama: ') + (he.message || he);
+            manifest.steps.D.audioNote = _t('mp_audio_unlinked', 'voce generata, ma la copia parlante non è stata scritta: ') + (he.message || he);
           }
         } catch (ae) {
           manifest.steps.D.audioNote = 'voce non generata: ' + (ae.message || ae);
@@ -646,7 +844,100 @@
   }
   function _refreshPresetSelect() { const s = document.getElementById('mp-preset'); if (s) s.innerHTML = _presetOptions(); }
 
-  Pipeline._applyPreset = function () {
+  /* ══ IL PRESET «Default» (11/8/26) ════════════════════════════════════════
+     Dall'11/8 i quattro box delle opzioni (Preset · Quiz · Fogli nodi · Fonte &
+     Sintesi) stanno nella vista ESTESA: la schermata d'ingresso non li mostra
+     più. Quindi la configurazione di partenza non può più venire dalle spunte
+     del markup — nessuno le vede — e diventa un PRESET, che è la forma in cui
+     una configurazione si dice, si salva e si cambia.
+     Contenuto (scelto con Giacomo): quello che c'era di default, **più le
+     domande aperte e la voce naturale**. La catena dei perché entra perché è
+     deterministica — zero chiamate AI — quindi è un materiale in più che non
+     costa niente.
+     ⚠️ `tuned`/`levelTuned` a true NON è un dettaglio: `_applyPreset` deriva da
+     lì la spunta «Adatta alla classe», che il modulo del bento monta NASCOSTA e
+     accesa. Un preset che li lasciasse falsi la spegnerebbe, e la taratura del
+     contesto attivo sparirebbe dai prompt senza che niente lo dica. */
+  var PRESET_DEFAULT_NOME = 'Default';
+  /* l'ultimo preset scelto dal docente: è quello che governa la sessione dopo */
+  var CHIAVE_PRESET_ATTIVO = 'mappai_preset_attivo';
+  /* marcatore della sola MIGRAZIONE di un «Default» preesistente (domande aperte
+     + voce naturale): separato dal precedente, che dice «l'ho già applicato» */
+  var CHIAVE_PRESET_OQ = 'mappai_preset_default_oq_v1';
+  function _opzioniDefault() {
+    return {
+      quiz: { types: ['mc', 'open'], perBranch: 3, angle: 'auto' },
+      nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
+      synthesis: { audio: true },      /* la voce naturale, chiesta da Giacomo */
+      causal: true,                    /* deterministica: non costa una chiamata */
+      tuned: true, levelTuned: true
+    };
+  }
+  /* Crea il preset se manca, lo mette in cima alla tendina e — la PRIMA volta —
+     lo applica ai campi. Idempotente: si può chiamare a ogni montaggio del
+     bento senza sovrascrivere le scelte di chi lo ha poi modificato. */
+  Pipeline.assicuraPresetDefault = function () {
+    let list = _loadPresets();
+    const suo = (x) => String(x.name || '').toLowerCase() === PRESET_DEFAULT_NOME.toLowerCase();
+    let p = list.filter(suo)[0];
+    if (!p) {
+      list = PC().presetListPush(list, {
+        name: PRESET_DEFAULT_NOME, createdAt: _now(), options: _opzioniDefault()
+      }, 50);
+      _savePresets(list);
+      p = _loadPresets().filter(suo)[0];
+    } else {
+      /* ⚠️ UN «Default» PUÒ ESISTERE GIÀ, scritto dal docente prima di oggi —
+         è il caso vero trovato provando: mc+tf+flashcard, 6 domande per ramo.
+         Le sue scelte non si toccano: si AGGIUNGE soltanto ciò che Giacomo ha
+         chiesto che il Default comprenda — le domande aperte e la voce
+         naturale — e una volta sola, con un marcatore suo. Senza il marcatore,
+         chi togliesse di proposito le domande aperte se le ritroverebbe al
+         riavvio successivo: sarebbe una preferenza che non si può esprimere. */
+      let migrato = false;
+      try { migrato = localStorage.getItem(CHIAVE_PRESET_OQ) != null; } catch (e) { }
+      if (!migrato) {
+        const o = p.options || {};
+        const tipi = (o.quiz && Array.isArray(o.quiz.types)) ? o.quiz.types.slice() : [];
+        let cambiato = false;
+        if (tipi.indexOf('open') < 0) { tipi.push('open'); cambiato = true; }
+        const opts = Object.assign({}, o, {
+          quiz: Object.assign({ perBranch: 3, angle: 'auto' }, o.quiz || {}, { types: tipi }),
+          synthesis: Object.assign({}, o.synthesis || {}, { audio: true })
+        });
+        if (!(o.synthesis && o.synthesis.audio)) cambiato = true;
+        if (cambiato) {
+          list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: opts }) : x);
+          _savePresets(list);
+          p = _loadPresets().filter(suo)[0];
+        }
+        try { localStorage.setItem(CHIAVE_PRESET_OQ, '1'); } catch (e) { }
+      }
+    }
+    _refreshPresetSelect();
+    /* Quale preset governa questa sessione: l'ULTIMO scelto, o «Default».
+       ⚠️ Si applica a OGNI montaggio del bento, e non una volta sola — perché
+       le spunte NON persistono: sono campi del DOM, ricostruiti dal markup a
+       ogni avvio. Con un marcatore «già fatto» il preset avrebbe governato solo
+       la primissima sessione e da lì in poi la generazione sarebbe ripartita
+       dai default del markup (solo scelta multipla, niente voce, niente domande
+       aperte) — cioè esattamente ciò che il preset doveva evitare.
+       È il difetto trovato al primo riavvio dopo aver spostato i box: a schermo
+       non si vede nulla, perché quei campi non sono più a vista.
+       `montaBento` gira una volta per sessione, quindi questo NON cancella le
+       scelte fatte nella vista estesa mentre si lavora. */
+    let scelto = null;
+    try { scelto = localStorage.getItem(CHIAVE_PRESET_ATTIVO); } catch (e) { }
+    const list2 = _loadPresets();
+    let attivo = scelto ? list2.filter(x => x.id === scelto)[0] : null;
+    if (!attivo) attivo = p;
+    const sel = document.getElementById('mp-preset');
+    if (sel && attivo) sel.value = attivo.id;
+    if (attivo) Pipeline._applyPreset({ silenzioso: true });
+    return attivo || null;
+  };
+
+  Pipeline._applyPreset = function (opts) {
     const s = document.getElementById('mp-preset');
     if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
     const p = _loadPresets().filter(x => x.id === s.value)[0]; if (!p) return;
@@ -654,7 +945,7 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
     const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
-    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle); }
+    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle); }
     set('mp-ns-on', !!o.nodesheet);
     if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); }
     /* la catena è fuori da `nodesheet` dal 5/8; `presetNormalize` la legge anche
@@ -671,7 +962,14 @@
     const r = document.querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
     if (r) r.checked = true;
     _syncSections(); Pipeline._reestimate();
-    _toast(_t('mp_applied', 'Preset applicato: ') + p.name, 'success');
+    /* Applicato al BOOT (il preset «Default») non si annuncia: un toast a ogni
+       avvio per una cosa che l'utente non ha chiesto è rumore. Applicato col
+       bottone sì: lì è la risposta al suo gesto. */
+    if (!(opts && opts.silenzioso)) {
+      /* scelto A MANO: da qui in poi è questo che governa gli avvii successivi */
+      try { localStorage.setItem(CHIAVE_PRESET_ATTIVO, p.id); } catch (e) { }
+      _toast(_t('mp_applied', 'Preset applicato: ') + p.name, 'success');
+    }
   };
 
   Pipeline._savePreset = function () {
@@ -750,7 +1048,7 @@
           // Quiz
           '<div class="' + SECT + '">' + secHeader('mp-quiz-on', _t('mp_quiz', 'Quiz e flashcard')) +
             '<div id="mp-quiz-body" class="mt-3 space-y-3">' +
-              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-tf', _t('mp_qt_tf', 'Vero/Falso'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + '</div>' +
+              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-tf', _t('mp_qt_tf', 'Vero/Falso'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + chk('mp-qt-open', _t('mp_qt_open', 'Domande aperte'), false) + '</div>' +
               '<div class="flex gap-5 items-center flex-wrap">' +
                 fld(_t('mp_perbranch', 'Per ramo'), '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="w-[56px] ' + SEL + '">') +
                 fld(_t('mp_angle', 'Angolo'), '<select id="mp-angle" class="' + SEL + '">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>') +
@@ -852,6 +1150,7 @@
       if (on('mp-qt-mc')) types.push('mc');
       if (on('mp-qt-tf')) types.push('tf');
       if (on('mp-qt-fc')) types.push('flashcards');
+      if (on('mp-qt-open')) types.push('open');
       if (types.length) cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 3)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
     }
     if (on('mp-ns-on')) {

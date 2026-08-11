@@ -256,9 +256,39 @@
     flashcards: { pre: 'Flashcard', est: '.pdf' },
     nodesheet: { pre: 'Foglio-nodi', est: '.pdf', dettaglio: true },
     synthesis: { pre: 'Sintesi', est: '.html', dettaglio: true },
+    /* La sintesi con la VOCE dentro (10/8/26). Sono due file distinti, non due
+       stati dello stesso file:
+         · `Sintesi-<Mappa>.html`        — senza audio, EDITABILE, vive in ELABORA
+         · `Sintesi-voce-<Mappa>.html`   — con l'MP3 in base64 (~8 MB), si
+                                           consegna, e si vede solo in INSEGNA
+       ⚠️ Il marcatore sta IN TESTA, attaccato al tipo, e non dopo il nome della
+       mappa: è la classificazione a chiederlo. Il genere di un file si deduce
+       dal suo nome con espressioni ancorate all'inizio (`_diskKind`), e una
+       regola che dovesse scavalcare un nome di mappa di lunghezza ignota per
+       trovare «voce» sarebbe fragile. È lo stesso precedente di `Quiz-MC` e
+       `Quiz-VF`, che sono due prefissi e non un `Quiz` con un suffisso.
+       ⚠️ Chi classifica deve mettere `^Sintesi-voce-` PRIMA di `^Sintesi`, o la
+       regola generica cattura anche questi e i due file tornano nello stesso
+       elenco — cioè la separazione ELABORA/INSEGNA sparisce. */
+    synthesis_voice: { pre: 'Sintesi-voce', est: '.html', dettaglio: true },
+    /* Le DOMANDE APERTE (11/8/26). Sono il genere che gli altri quiz non
+       coprono: nessuna opzione da scegliere, lo studente SCRIVE — e la carta
+       gli lascia le righe per farlo. Vive nel box «Quiz» del bento perché per
+       il docente è la stessa scelta («che verifica preparo?»), ma NON è un set
+       giocabile: non entra in `studySets` (il player e l'editor si aspettano
+       delle opzioni, e un item senza opzioni li romperebbe in silenzio).
+       ⚠️ Prefisso senza accenti come `Catena-dei-perche`, per la stessa
+       ragione: questi file finiscono su chiavette e cartelle condivise. */
+    open_questions: { pre: 'Domande-aperte', est: '.pdf' },
     /* senza accenti per scelta: il file finisce anche su chiavette e cartelle
        condivise, dove una «é» diventa un problema di qualcun altro */
     causal: { pre: 'Catena-dei-perche', est: '.pdf' },
+    /* Il DOSSIER non era nella convenzione (11/8/26): il suo nome se lo scriveva
+       da sé, e siccome lo ricavava da un campo che non esiste
+       (`appState.db.title`) usciva sempre il ripiego — «Dossier Progetto MappAI
+       MM», che non nomina né la mappa né il documento. `dettaglio` perché un
+       dossier può essere di un NODO o di un RAMO: «Dossier-<Mappa>-<Nodo>». */
+    dossier: { pre: 'Dossier', est: '.pdf', dettaglio: true },
     tts: { pre: 'Sintesi-audio', est: '.mp3' }
   };
 
@@ -267,10 +297,23 @@
      chiamanti che non sono ancora passati a `opts`: per quiz e flashcard era il
      nome della mappa, per il foglio dei nodi il layout. Chi passa `opts.mappa`
      ottiene la forma nuova; chi non lo passa ottiene quella di prima. */
+  /* ⚠️ `tuned` NON PRODUCE PIÙ IL SUFFISSO ` -VERDE` (10/8/26, decisione di
+     Giacomo). Il marcatore aveva un mestiere preciso: far convivere nello stesso
+     vault la versione standard e quella tarata per una classe inclusiva. Quel
+     mestiere è finito quando la taratura ha smesso di essere una scelta e ha
+     cominciato ad applicarsi DA SÉ leggendo il contesto attivo (5/8): di
+     generazioni ce n'è una sola, quindi non c'è più niente da distinguere.
+     ⚠️ La conseguenza da conoscere: due generazioni della stessa mappa producono
+     ora lo stesso nome, e la seconda sovrascriverebbe la prima. È sicuro solo
+     finché vale la premessa di sopra — chi reintroducesse due varianti della
+     stessa mappa deve reintrodurre anche un modo di distinguerle.
+     Il parametro resta nella firma, e `SUFFISSO_TARATO` resta esportato: i file
+     GIÀ SU DISCO il marcatore ce l'hanno, e chi li rilegge — `_tarato()`
+     nell'editor documenti — deve continuare a riconoscerlo e a conservarlo. */
   function buildFileName(kind, label, tuned, opts) {
     opts = opts || {};
     var g = GENERI[kind];
-    var green = tuned ? SUFFISSO_TARATO : '';
+    var green = '';
     if (!g) return _safeName(opts.nome || label, 'file') + green;
 
     var mappa = _safeName(opts.mappa, '');
@@ -312,7 +355,10 @@
   }
 
   // ── Preset riusabili (US3) — SOLO output, mai la classe ─────────────────
-  var _VALID_TYPES = ['mc', 'tf', 'flashcards'];
+  /* ⚠️ `open` (domande aperte) è dei tipi VALIDI dall'11/8: questa lista filtra
+     i preset, e un tipo che non c'è viene scartato IN SILENZIO — il preset si
+     salverebbe con la spunta accesa e si riaprirebbe senza. */
+  var _VALID_TYPES = ['mc', 'tf', 'flashcards', 'open'];
   var _VALID_FMT = ['3x4', '2x2', '2x1'];
   var _VALID_MODES = ['title', 'keywords', 'summary', 'card'];
 

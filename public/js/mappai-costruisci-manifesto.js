@@ -988,6 +988,34 @@
         } catch (e) { }
     }
 
+    /* ── IL BOX GIALLO SEGUE IL CONTESTO, ANCHE SE CAMBIA ALTROVE (11/8) ──────
+       Le opzioni di «Chi» le scrive `opzioniChi()` al MONTAGGIO, con la scelta
+       corrente già selezionata: se il contesto cambia dopo — dalla console
+       ELABORA o INSEGNA, dalla Cabina, da «Assegna classe e disciplina» — il
+       box giallo resta indietro e la generazione userebbe un destinatario
+       diverso da quello che il docente crede.
+       Il difetto è preesistente ma era MASCHERATO dal chip in alto, che quel
+       cambio lo mostrava; togliendo chip e briciole da CREA (11/8) sarebbe
+       diventato invisibile — cioè peggiore. Qui il box si riallinea sullo
+       stesso evento che tutti gli altri ascoltano.
+       ⚠️ Guardia anti-rientro: scegliendo NEL box giallo si chiama `setActive`,
+       che emette lo stesso evento — senza la guardia si ricostruirebbe il
+       select mentre l'utente ci sta dentro. */
+    var _riallineo = false;
+    function riallineaContesto() {
+        if (_riallineo) return;
+        var chi = document.getElementById('mp-chi');
+        if (!chi) return;                     /* box giallo non montato: niente da fare */
+        _riallineo = true;
+        try {
+            /* si ricostruiscono anche le OPZIONI: nel frattempo può essere nata
+               una classe nuova (o esserne sparita una) */
+            chi.innerHTML = opzioniChi();
+            sincronizzaBento();
+        } catch (e) { }
+        _riallineo = false;
+    }
+
     /* Le materie dipendono da «Chi»: senza un destinatario non c'è nulla da
        proporre, e un campo grigio senza spiegazione lascia indovinare. */
     function sincronizzaContesto() {
@@ -1163,6 +1191,21 @@
            chiamata la colonna unica non verrebbe mai segnalata all'avvio. */
         disegnaTabella();
         montaBento();
+        /* il box giallo si riallinea quando il contesto cambia da un'altra
+           superficie (console, Cabina, «Assegna classe e disciplina»).
+           ⚠️ DUE eventi, non uno: `setActive` annuncia `…-class-changed` e
+           `setActiveDiscipline` annuncia `…-discipline-changed`. Ascoltandone
+           uno solo, «Chi» seguiva e la materia restava indietro — misurato
+           cambiando classe e materia dalla console. */
+        document.addEventListener('mappai-active-class-changed', riallineaContesto);
+        document.addEventListener('mappai-active-discipline-changed', riallineaContesto);
+        /* ⚠️ DOPO `montaBento`: il preset scrive nei campi della pipeline, e
+           quei campi esistono solo quando il bento li ha montati.
+           Dall'11/8 i quattro box delle opzioni stanno nella vista estesa, e la
+           configurazione di partenza non può più venire dalle spunte del markup
+           — nessuno le vede. La dice il preset «Default», che si crea da sé, si
+           applica una volta e resta modificabile da chi apre la vista estesa. */
+        try { if (window.MappAIPipeline && MappAIPipeline.assicuraPresetDefault) MappAIPipeline.assicuraPresetDefault(); } catch (e) { }
         /* la landing può comparire: il mega-bento c'è. Prima di questo punto si
            vedrebbe il form storico — è il lampo che Giacomo ha segnalato (5/8).
            Le due reti nello script di boot restano: se questa riga non si
