@@ -174,3 +174,39 @@ test('matchesSelectedProject: match per projectId poi mapName', () => {
   assert.strictEqual(TC.matchesSelectedProject({}, sel), false);   // legacy senza metadato → escluso con selezione
   assert.strictEqual(TC.matchesSelectedProject(null, sel), false);
 });
+
+/* ── UN DOCUMENTO, UNA RIGA (11/8/26) ────────────────────────────────────────
+   In INSEGNA l'archivio e la cartella si mostrano insieme — è lo scopo della
+   console. Ma lo STESSO documento può stare in tutti e due (il foglio dei nodi
+   rivisto viene archiviato come PDF *e* scritto nel vault), e uscivano due
+   righe: una col nome del file e i suoi comandi, l'altra col titolo
+   dell'archivio e NESSUN comando. La chiave qui sotto è ciò che le riconosce
+   come la stessa cosa: due grafie, un documento. */
+const _teachSrc = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'public/js/mappai-landing-teach.js'), 'utf8');
+const _chiaveDoc = new Function(
+    _teachSrc.slice(_teachSrc.indexOf('function _chiaveDoc'),
+        _teachSrc.indexOf('/* I materiali di UNA mappa')) + '; return _chiaveDoc;')();
+
+test('_chiaveDoc: archivio e disco collassano sullo stesso documento', () => {
+    assert.strictEqual(
+        _chiaveDoc('Foglio nodi — La Politica Svizzera (rivisto)', 'Foglio nodi'),
+        _chiaveDoc('Foglio-nodi-La Politica Svizzera (rivisto).pdf', 'Foglio nodi'),
+        'lineetta lunga, trattini ed estensione non fanno due documenti');
+    assert.strictEqual(
+        _chiaveDoc('Sintesi — Il Clima', 'Sintesi'),
+        _chiaveDoc('Sintesi-Il Clima.html', 'Sintesi'));
+});
+
+test('_chiaveDoc: il GENERE è la rete contro i falsi positivi', () => {
+    /* Senza il genere nella chiave, due documenti con un titolo simile si
+       nasconderebbero a vicenda — e in INSEGNA sparire è peggio che comparire
+       due volte. */
+    assert.notStrictEqual(
+        _chiaveDoc('Il Clima', 'Quiz MC'),
+        _chiaveDoc('Il Clima', 'Sintesi'));
+    // e due rese diverse dello stesso genere restano documenti diversi
+    assert.notStrictEqual(
+        _chiaveDoc('Foglio nodi — Mappa (rivisto)', 'Foglio nodi'),
+        _chiaveDoc('Foglio-nodi-Mappa-card.pdf', 'Foglio nodi'));
+});

@@ -538,6 +538,16 @@
     /* «Foglio-nodi-card», «Foglio nodi (rivisto)»: il separatore cambia col
        tipo di foglio, quindi non si può pretendere il trattino */
     if (/^Foglio.?nodi/i.test(n)) return { icon: 'scissors', label: 'Foglio nodi' };
+    /* ⚠️ LA SINTESI CON LA VOCE PRIMA DI QUELLA NUDA, e non è un dettaglio:
+       `^Sintesi` combacia anche con «Sintesi-voce-…», quindi messa per prima si
+       mangerebbe l'altra e i due file tornerebbero nello stesso elenco — cioè
+       la separazione fra ELABORA (dove si corregge) e INSEGNA (dove si
+       consegna) sparirebbe, in silenzio. È lo stesso ordine che vale sopra per
+       `Quiz-MC` e `Quiz-VF` rispetto a `Quiz`.
+       `voce: true` è ciò che i due elenchi interrogano per sapere quale delle
+       due nature hanno in mano: leggerlo dal nome ogni volta vorrebbe dire
+       riscrivere la stessa espressione in tre posti. */
+    if (/^Sintesi-voce\b/i.test(n)) return { icon: 'volume-2', label: 'Sintesi con voce', voce: true };
     if (/^Sintesi/i.test(n)) return { icon: 'sparkles', label: 'Sintesi' };
     /* «Catena-dei-perche-<Mappa> -VERDE.pdf» dalla pipeline, «Catena dei perché
        (rivista).html» dall'editor: stesso materiale, due produttori, due
@@ -547,6 +557,10 @@
        genere. Senza questa riga i tre nomi cadevano in «File» e il docente li
        cercava fra i suoi materiali senza trovarli. */
     if (/^Catena.?dei.?perch/i.test(n)) return { icon: 'git-branch', label: 'Catena dei perché' };
+    /* «Domande-aperte-<Mappa>.pdf» (11/8): il foglio su cui lo studente SCRIVE.
+       Senza questa riga cadrebbe in «File» e il docente lo cercherebbe fra i
+       suoi materiali senza trovarlo — è successo alla catena dei perché. */
+    if (/^Domande.?aperte/i.test(n)) return { icon: 'pen-line', label: 'Domande aperte' };
     /* i .json sono i SET salvati (quiz, flashcard): materiale di lavoro
        dell'app, non un documento da portare in classe — si dicono per quello
        che sono e la console li mette in fondo */
@@ -2045,6 +2059,18 @@
     return _consMappe().find(function (m) { return m.id === _cons.voce; }) || null;
   }
 
+  /* La chiave con cui si riconosce lo STESSO documento scritto in due grafie:
+     via l'estensione, i separatori (trattini, lineette, spazi) diventano uno
+     spazio solo, tutto in minuscolo. «Foglio nodi — Mappa (rivisto)» e
+     «Foglio-nodi-Mappa (rivisto).pdf» collassano sulla stessa stringa. Il
+     GENERE entra nella chiave: due documenti diversi con un titolo simile non
+     devono nascondersi a vicenda. */
+  function _chiaveDoc(nome, genere) {
+    var n = String(nome || '').replace(/\.[A-Za-z0-9]+$/, '')
+      .replace(/[\u2010-\u2015\-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    return String(genere || '').toLowerCase() + '|' + n;
+  }
+
   /* I materiali di UNA mappa: quelli archiviati (localStorage) e quelli che
      stanno nella cartella. Due mondi che non si parlano — qui si vedono
      insieme, che è il punto della console. */
@@ -2065,6 +2091,12 @@
            quelle della mappa da cui viene — è la stessa coppia, letta da due
            posti diversi a seconda di chi l'ha scritta */
         cls: d.cls || m.cls || '', disc: d.disc || m.disc || '',
+        /* ⚠️ «Modificabile» NON è un sinonimo di «viene dall'archivio». Questa
+           voce può portare un PDF già finito (il foglio dei nodi rivisto lo
+           archivia come data-URI): dire «Modificabile» su una riga che non si
+           può correggere è una bugia, e in INSEGNA — dove si va a PRENDERE un
+           documento — è pure inutile. Si dice che cosa si ha in mano. */
+        formato: d.hasPdf ? 'PDF' : (d.hasHtml ? 'HTML' : ''),
         qr: d.kind !== 'nodesheet' && d.hasHtml
       };
     });
@@ -2083,11 +2115,33 @@
       }).catch(function () { return []; })
       : Promise.resolve([]);
     return suDisco.then(function (disk) {
+      /* ── UN DOCUMENTO, UNA RIGA (11/8/26) ────────────────────────────────
+         L'archivio e la cartella sono due mondi che non si parlano, e questa
+         console li mostra insieme — è il suo scopo. Ma quando lo STESSO
+         documento sta in tutti e due (il foglio dei nodi rivisto viene
+         archiviato come PDF *e* scritto nel vault) uscivano due righe: una col
+         nome del file e i suoi comandi, l'altra col titolo dell'archivio e
+         NESSUN comando, perché una voce d'archivio non ha un percorso da aprire.
+         Una riga che non offre niente è peggio di una riga che manca.
+         Vince il FILE: in INSEGNA si va a prendere un documento, e il file è la
+         forma in cui lo si prende. La voce d'archivio resta dov'è l'unico modo
+         di raggiungere quel documento (vault di un collega, file cancellato).
+         ⚠️ Il confronto è sul nome NORMALIZZATO più il genere: l'archivio
+         scrive «Foglio nodi — <Mappa> (rivisto)» e il disco
+         «Foglio-nodi-<Mappa> (rivisto).pdf» — stessa cosa, due grafie. Il
+         genere è la rete: senza, due documenti diversi con un titolo simile si
+         nasconderebbero a vicenda. */
+      var sulDisco = {};
+      disk.forEach(function (f) {
+        sulDisco[_chiaveDoc(f.name, (_diskKind(f.name) || {}).label)] = 1;
+      });
+      arch = arch.filter(function (a) { return !sulDisco[_chiaveDoc(a.titolo, a.tipo)]; });
       var tutti = arch.concat(disk.map(function (f) {
         var dk = _diskKind(f.name);
         return {
           id: f.id, archivio: false, titolo: f.name, icona: dk.icon,
-          data: f.date, tipo: dk.label, dati: !!dk.dati, qr: /\.html?$/i.test(f.name),
+          data: f.date, tipo: dk.label, dati: !!dk.dati, voce: !!dk.voce,
+          qr: /\.html?$/i.test(f.name),
           // un file sul disco eredita classe e materia dalla mappa che lo contiene
           cls: m.cls || '', disc: m.disc || ''
         };
@@ -2104,14 +2158,29 @@
      colonne che si ordinano e si allargano come nel resto della console, e i
      file di lavoro (.json) chiusi in fondo. */
   var GRUPPI_MAT = [
-    { id: 'sintesi', chiave: 'lt_g_sintesi', testo: 'Sintesi', tipi: ['Sintesi'] },
+    /* Un gruppo solo per le due nature della sintesi — l'editabile e la copia
+       con la voce — perché per chi guarda sono lo stesso materiale. A separarle
+       è la CONSOLE, non l'elenco: INSEGNA mostra solo quella con la voce,
+       ELABORA solo l'editabile (vedi `_natura`). */
+    { id: 'sintesi', chiave: 'lt_g_sintesi', testo: 'Sintesi', tipi: ['Sintesi', 'Sintesi con voce'] },
     { id: 'fogli', chiave: 'lt_g_fogli', testo: 'Fogli dei nodi', tipi: ['Foglio nodi'] },
     /* elenco suo: finché non c'era, i file della catena finivano in «Altri
        materiali» insieme a tutto ciò che il classificatore non sa nominare */
     { id: 'catena', chiave: 'lt_g_catena', testo: 'Catena dei perché', tipi: ['Catena dei perché'] },
-    { id: 'quiz_mc', chiave: 'lt_g_quiz_mc', testo: 'Quiz a scelta multipla', tipi: ['Quiz MC'] },
-    { id: 'quiz_vf', chiave: 'lt_g_quiz_vf', testo: 'Quiz vero / falso', tipi: ['Quiz V/F'] },
-    { id: 'quiz', chiave: 'lt_g_quiz', testo: 'Altri quiz', tipi: ['Quiz'] },
+    /* ── UN ELENCO SOLO PER I QUIZ (11/8/26, richiesta di Giacomo) ───────────
+       Erano quattro (scelta multipla · vero/falso · altri quiz · domande
+       aperte): quattro intestazioni da scorrere per una domanda sola — «che
+       verifica ho per questa mappa?» — e su un progetto normale ognuna portava
+       una o due righe. Ora sono un elenco, e a distinguere i generi è il NOME
+       della riga, che è esattamente la parola che li nomina («Scelta Multipla»,
+       «Vero o Falso», «Domande Aperte»).
+       ⚠️ Le domande aperte stavano fuori per una ragione vera — si
+       somministrano e si correggono in un altro modo — ma quella distinzione la
+       fa il foglio, non l'elenco. */
+    {
+        id: 'quiz', chiave: 'lt_g_quiz_tutti', testo: 'Quiz',
+        tipi: ['Quiz MC', 'Quiz V/F', 'Quiz', 'Domande aperte']
+    },
     { id: 'flash', chiave: 'lt_g_flash', testo: 'Flashcard', tipi: ['Flashcard'] },
     { id: 'altro', chiave: 'lt_g_altro', testo: 'Altri materiali', tipi: null },
     { id: 'dati', chiave: 'lt_g_dati', testo: 'File di lavoro', tipi: ['Dati'], chiusa: true }
@@ -2122,12 +2191,56 @@
      non ce l'hanno perché non sono ancora un file: si aprono nell'editor. */
   function _formatoMateriale(m) {
     if (!m) return '—';
-    if (m.archivio) return _t('lt_tipo_edit', 'Modificabile');
+    /* ⚠️ «Modificabile» si legge da `modificabile`, non da `archivio` (11/8/26).
+       `archivio` dice DA DOVE viene la riga (una voce dell'archivio dei set);
+       la domanda che questa colonna pone è un'altra — «lo posso correggere?» —
+       e la risposta è sì anche per la sintesi (un file HTML del vault), le
+       domande aperte (una voce d'archivio di un altro genere) e il foglio dei
+       nodi (la mappa stessa). Confondere le due cose faceva scrivere «PDF» su
+       righe che il bottone «Modifica» ce l'avevano eccome. */
+    if (m.modificabile) return _t('lt_tipo_edit', 'Modificabile');
+    /* Una voce d'archivio dichiara da sé che cosa porta (PDF o HTML): non si
+       deduce dal titolo, che un'estensione non ce l'ha. */
+    if (m.formato) return m.formato;
     var e = /\.([A-Za-z0-9]+)$/.exec(String(m.titolo || ''));
     return e ? e[1].toUpperCase() : _t('lt_tipo_file', 'File');
   }
-  function _consTabelleMateriali(lista, conMappa) {
+  /* ══ QUALE DELLE DUE SINTESI SI VEDE QUI ══════════════════════════════════
+     Dal 10/8 la sintesi esce in due file: `Sintesi-<Mappa>.html` (editabile) e
+     `Sintesi-voce-<Mappa>.html` (con l'MP3 dentro, ~8 MB, da consegnare).
+     Mostrarli entrambi ovunque significherebbe due righe che si somigliano e
+     nessun modo di sapere dal nome quale serve. Quindi ognuna delle due console
+     mostra la natura che le compete:
+       · INSEGNA  → solo quella CON LA VOCE: lì si consegna e si stampa;
+       · ELABORA  → solo l'EDITABILE: lì si corregge, e il file da 8 MB non si
+                    apre nell'editor.
+     ⚠️ Il filtro vale SOLO sulle sintesi. Ogni altro materiale (quiz, fogli,
+     catena, flashcard) esiste in un esemplare solo e passa da entrambe: un
+     filtro scritto come «tieni ciò che è di questa console» avrebbe fatto
+     sparire tutto il resto.
+     La regola sta QUI e non nei due chiamanti perché è una sola decisione: se
+     domani cambia, cambia in un posto. */
+  function filtraSintesi(lista, dove) {
+    return (lista || []).filter(function (m) {
+      var eSintesi = m.tipo === 'Sintesi' || m.tipo === 'Sintesi con voce';
+      if (!eSintesi) return true;
+      /* Le voci d'ARCHIVIO non sono file e non hanno una natura: sono la
+         sorgente che si corregge, quindi appartengono a ELABORA. */
+      if (m.archivio) return dove === 'elabora';
+      return dove === 'insegna' ? !!m.voce : !m.voce;
+    });
+  }
+
+  /* `dove` = quale console sta chiedendo gli elenchi ('insegna' | 'elabora').
+     Serve solo a scegliere quale delle due sintesi mostrare (vedi
+     `filtraSintesi`): tutto il resto — i gruppi per genere, le colonne che si
+     spengono quando non variano, i comandi di riga — è identico, ed è il motivo
+     per cui questa funzione è UNA. ELABORA la chiama attraverso
+     `MappAITeach.tabelleMateriali`; ricopiarla avrebbe voluto dire due elenchi
+     da tenere allineati a ogni ritocco di una colonna. */
+  function _consTabelleMateriali(lista, conMappa, dove) {
     lista = lista || _cons.materiali || [];
+    lista = filtraSintesi(lista, dove || 'insegna');
     var noti = {};
     GRUPPI_MAT.forEach(function (g) { (g.tipi || []).forEach(function (t) { noti[t] = 1; }); });
     return GRUPPI_MAT.map(function (g) {
@@ -2143,33 +2256,132 @@
          nel vault («Quiz-MC-….pdf») e la voce dell'archivio che si può ancora
          correggere («Sistema Terra — Scelta Multipla»), e a occhio erano
          indistinguibili. */
+      /* ⚠️ CLASSE E MATERIA SI MOSTRANO SOLO SE VARIANO. Erano incondizionate
+         (richiesta del 2/8: «sono le due coordinate con cui il docente ritrova
+         le cose»), ma dentro UNA mappa quelle coordinate sono il contesto in cui
+         si è già — la briciola dice «Insegna › A chi? › Il Clima» — e le due
+         colonne ripetevano «4R» e «Geografia» su ogni riga di ogni elenco,
+         portandosi via 270px per non dire niente. La regola non è «toglierle in
+         questa vista» ma quella generale: una colonna che ha lo stesso valore in
+         tutte le righe non è informazione. Così restano dove servono davvero —
+         gli Stampabili di una classe, che uniscono più mappe — senza che nessuno
+         debba ricordarsi di accenderle. */
+      var distinti = function (campo) {
+        var visti = {}, n = 0;
+        righe.forEach(function (m) {
+          var v = m[campo] || '—';
+          if (!visti[v]) { visti[v] = 1; n++; }
+        });
+        return n;
+      };
+      var conClasse = distinti('cls') > 1;
+      var conMateria = distinti('disc') > 1;
+      /* Larghezze rimisurate col contenuto vero: «Tipo» porta PDF · HTML · JSON
+         e la parola più lunga è «Modificabile», «Data» una data in cifre. I 132
+         e i 120 di prima erano tarati su una tabella a tutta larghezza; dentro
+         una colonna del bento sfondavano il riquadro. */
       var colonne = [{ etichetta: _t('lt_col_nome', 'Nome'), larghezza: '' }];
-      colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '132px' });
+      colonne.push({ etichetta: _t('lt_col_tipo', 'Tipo'), larghezza: '118px' });
       /* nella vista di classe la mappa di provenienza è l'informazione che
          manca di più: senza, due «Sintesi -VERDE.html» sono indistinguibili */
       if (conMappa) colonne.push({ etichetta: _t('lt_col_mappa', 'Mappa'), larghezza: '190px' });
-      /* Classe e materia stanno in OGNI tabella (richiesta di Giacomo, 2/8):
-         sono le due coordinate con cui il docente ritrova le cose, e un elenco
-         che non le porta costringe a ricordare da dove si era arrivati. */
-      colonne.push({ etichetta: _t('rp_class', 'Classe'), larghezza: '120px' });
-      colonne.push({ etichetta: _t('rp_disc', 'Materia'), larghezza: '150px' });
-      colonne.push({ etichetta: _t('lt_col_data', 'Data'), larghezza: '120px' });
-      colonne.push({ etichetta: '', larghezza: '58px', ordinabile: false });
+      if (conClasse) colonne.push({ etichetta: _t('rp_class', 'Classe'), larghezza: '96px' });
+      if (conMateria) colonne.push({ etichetta: _t('rp_disc', 'Materia'), larghezza: '130px' });
+      colonne.push({ etichetta: _t('lt_col_data', 'Data'), larghezza: '104px' });
+      /* Due comandi per riga, non uno: la cella cresce di conseguenza. */
+      /* ── LA COLONNA DEI COMANDI SI MISURA, NON SI INDOVINA (11/8/26) ──────
+         Erano 88px fissi, tarati su DUE comandi. Oggi una riga può averne tre
+         (scarica · cartella · cestino) e il terzo finiva TAGLIATO: il bottone
+         c'era, si poteva perfino cliccare a metà, ma non si vedeva — ed è il
+         modo peggiore in cui un comando può mancare, perché non sembra un
+         difetto, sembra che la funzione non ci sia.
+         Il conto è quello vero del layout: bottone 34 (`.mm-cella-az
+         .mm-btn--icona`), gap 4, imbottitura della cella 12+12 (`.mm-tab td`).
+         ⚠️ Si misura sul MASSIMO delle righe, non sulla prima: in un elenco
+         convivono voci d'archivio (un comando) e file (tre), e dimensionare
+         sulla prima riga taglierebbe tutte le altre. */
+      var azMax = righe.reduce(function (n, m) {
+        var q = 0;
+        if (m.clonabile && dove === 'elabora') q++;
+        if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') q += 2;   /* scarica + cartella */
+        if (m.clone) q++;                                                    /* cestino */
+        return Math.max(n, q);
+      }, 1);
+      colonne.push({
+        etichetta: '', ordinabile: false,
+        larghezza: (azMax * 34 + (azMax - 1) * 4 + 24) + 'px'
+      });
       return {
         id: 'g:' + g.id, titolo: _t(g.chiave, g.testo), chiusa: !!g.chiusa,
         colonne: colonne,
         righe: righe.map(function (m) {
           var celle = [m.titolo, _formatoMateriale(m)];
           if (conMappa) celle.push(m.mappa || '—');
-          celle.push(m.cls || '—');
-          celle.push(m.disc || '—');
+          if (conClasse) celle.push(m.cls || '—');
+          if (conMateria) celle.push(m.disc || '—');
           celle.push(m.data ? fmtDate(m.data) : '—');
-          celle.push({
-            azioni: [{
+          /* «Nel Finder» prima del cestino: si arriva al file vero senza passare
+             dall'anteprima, ed è il gesto che serve per allegarlo a una mail o
+             passarlo con AirDrop.
+             ⚠️ Solo per i materiali che un file ce l'hanno: le voci d'archivio
+             vivono in localStorage e non hanno niente da mostrare in una
+             cartella — un comando che non può riuscire è peggio di un comando
+             che manca. */
+          var az = [];
+          /* ⚠️ I comandi del FILE (scarica, cartella) stanno in INSEGNA e non in
+             ELABORA. Là la riga È il file — è la cosa che si prende in mano per
+             stamparla o allegarla a una mail; qui la riga è la SORGENTE, e i
+             suoi gesti sono aprirla, copiarla, correggerla. Mescolarli faceva
+             comparire due icone su alcune righe di ELABORA e nessuna sulle
+             altre, che a occhio si legge come un difetto. */
+          if (!m.archivio && _diskCache[m.id] && dove !== 'elabora') {
+            az.push({
+              id: 'dl:' + m.id, icona: 'download', ruolo: 'quieto', soloIcona: true,
+              etichetta: _t('lt_dl', 'Scarica una copia')
+            });
+            az.push({
+              id: 'fnd:' + m.id, icona: 'folder-open', ruolo: 'quieto', soloIcona: true,
+              etichetta: _t('lt_open_finder', 'Apri nel Finder')
+            });
+          }
+          /* ⚠️ NIENTE CESTINO SULL'ORIGINALE (decisione di Giacomo, 11/8/26).
+             Una sorgente originale è il documento della mappa: eliminarla da un
+             elenco vorrebbe dire buttare il lavoro da cui nascono tutte le
+             copie, e con un gesto che sta accanto a «Apri». Si eliminano i
+             CLONI — che si creano apposta e si buttano apposta — e i FILE, che
+             si rifanno rigenerando.
+             `dallaMappa` = si ricostruisce dalla mappa ogni volta (foglio dei
+             nodi, catena): lì il cestino non avrebbe nemmeno un oggetto da
+             togliere. */
+          /* «Clona»: una seconda copia editabile, per scelta esplicita invece
+             che per accumulo. Solo su ciò che una sorgente ce l'ha — clonare un
+             file non vuol dire niente — e solo in ELABORA, che è dove si
+             corregge: in INSEGNA la riga è il documento da portare in classe.
+             La regola del nome vive in `mappai-clona-core.js`.
+             ⚠️ `clonabile` lo dichiara la CONSOLE, genere per genere, e non si
+             deduce da `modificabile`: clonare un set è copiare un oggetto in
+             memoria, clonare una sintesi è copiare un FILE del vault, clonare
+             le domande aperte è copiare una voce d'archivio. Dove la copia non
+             è ancora implementata il bottone non c'è — un comando che non può
+             riuscire è peggio di un comando che manca. */
+          if (m.clonabile && dove === 'elabora') {
+            az.push({
+              id: 'clona:' + m.id, icona: 'copy', ruolo: 'quieto', soloIcona: true,
+              etichetta: _t('lt_sm_clone', 'Fai una copia')
+            });
+          }
+          /* 🐛 `dallaMappa` vale ANCHE per le copie (dice il genere, non il ruolo):
+             usarlo qui lasciava senza cestino le copie del foglio dei nodi e
+             della catena, che sono proprio quelle che si buttano. Un documento
+             è l'ORIGINALE quando non ha un nome di copia. */
+          var originale = !m.clone;
+          if (!originale) {
+            az.push({
               id: 'del:' + m.id, icona: 'trash-2', ruolo: 'quieto', soloIcona: true,
               etichetta: _t('lt_sm_delete', 'Elimina')
-            }]
-          });
+            });
+          }
+          celle.push({ azioni: az });
           return { id: 'm:' + m.id, chiude: false, celle: celle };
         })
       };
@@ -2542,7 +2754,18 @@
       if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe) return;
       var d = null;
       try { d = f.contentDocument; } catch (e) { return; }   /* origine opaca */
-      if (d && _audioIncorporato(d)) return;
+      /* La taglia del testo PRIMA dell'eccezione qui sotto, e prima di ogni
+         ritorno: le sintesi scritte prima del 10/8 portano i corpi vecchi, e
+         qui si vedrebbero più piccole che in ELABORA — due superfici che
+         mostrano LO STESSO file in due taglie. Non fa nulla sui documenti già
+         nuovi, e nulla su ciò che non è una sintesi. */
+      if (window.MappAIDocBar.scalaTesto) window.MappAIDocBar.scalaTesto(f);
+      if (d && _audioIncorporato(d)) {
+        /* Barra del documento snellita, non tolta: è l'unica che suona l'MP3
+           incorporato, ma marchio e «Stampa» li ha già la barra di sopra. */
+        if (window.MappAIDocBar.snellisciInIframe) window.MappAIDocBar.snellisciInIframe(f);
+        return;
+      }
       window.MappAIDocBar.nascondiInIframe(f);
     });
     if (src) f.src = src; else f.srcdoc = html || '';
@@ -2879,6 +3102,43 @@
         rifai();
         return;
       }
+      /* «Apri nel Finder» su una riga: si va al FILE, non all'anteprima. È un
+         comando di riga, quindi NON conclude — si apre la cartella e la console
+         resta dov'era. */
+      if (id.indexOf('fnd:') === 0) {
+        var fid = id.slice(4);
+        var loc = _diskCache[fid], api = window.electronAPI;
+        if (!loc || !api || !api.pipelineOpenFile) {
+          toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
+          return;
+        }
+        Promise.resolve(api.pipelineOpenFile({ vaultPath: loc.vaultPath, relPath: loc.relPath }))
+          .then(function (res) {
+            if (res && res.ok === false) toast(_t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning');
+          })
+          .catch(function () { toast(_t('ec_finder_ko', 'Non riesco ad aprire questo file dalla cartella.'), 'warning'); });
+        return;
+      }
+      /* «Scarica una copia»: il dialogo di sistema chiede nome e posizione, e
+         il main copia. ⚠️ Non si indovina ~/Downloads: su una macchina
+         configurata diversamente è il posto sbagliato, e non si potrebbe
+         rinominare il file mentre lo si salva — che è proprio ciò che serve
+         quando lo si sta per allegare a una mail. Annullare NON è un errore. */
+      if (id.indexOf('dl:') === 0) {
+        var lid = id.slice(3);
+        var loc0 = _diskCache[lid], api0 = window.electronAPI;
+        if (!loc0 || !api0 || !api0.vaultFileDownload) {
+          toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return;
+        }
+        api0.vaultFileDownload({ vaultPath: loc0.vaultPath, relPath: loc0.relPath })
+          .then(function (res) {
+            if (!res || res.ok === false) { toast(_t('lt_dl_ko', 'Non riesco a scaricare questo file.'), 'warning'); return; }
+            if (res.annullato) return;              /* ha cambiato idea: nessun avviso */
+            toast(_t('lt_dl_ok', '✓ Copia scaricata'), 'success');
+          })
+          .catch(function () { toast(_t('lt_dl_ko', 'Non riesco a scaricare questo file.'), 'warning'); });
+        return;
+      }
       if (id.indexOf('del:') === 0) {
         var did = id.slice(4);
         var m = (_cons.materiali || []).find(function (x) { return x.id === did; });
@@ -3182,6 +3442,23 @@
        la regola vive qui da luglio e la usa INSEGNA; esposta perché la colonna di
        ELABORA elenca gli stessi file e due classificatori divergerebbero (9/8) */
     generePerFile: _diskKind,
+    /* Gli elenchi dei materiali, per chi non è INSEGNA. ELABORA disegna le
+       STESSE tabelle — stessi gruppi, stesse colonne, stessi comandi di riga —
+       e cambia solo quale delle due sintesi vede (`dove`). Esportata perché
+       l'alternativa era ricopiarla: due elenchi che si somigliano oggi e
+       divergono al primo ritocco di una colonna.
+         tabelleMateriali(lista, conMappa, dove) → [{id, titolo, colonne, righe}]
+       `lista` = materiali nella forma di `_diskMaterialsFor`
+                 ({id, titolo, tipo, data, archivio, voce, cls, disc, mappa}). */
+    tabelleMateriali: _consTabelleMateriali,
+    /* Quale delle due sintesi compete a una console. Esportata insieme alla
+       precedente: chi costruisce una lista per conto suo deve poter applicare
+       la stessa regola senza riscriverla. */
+    filtraSintesi: filtraSintesi,
+    /* La conferma a DIGITAZIONE del nome esatto (regola §10.15): ogni
+       eliminazione della landing passa da qui, e ora anche il cestino delle
+       tabelle in ELABORA v2 — la regola è una, il posto è uno. */
+    confirmDeleteText: confirmDeleteText,
     mappeDelContesto: function () {
       return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });
     },

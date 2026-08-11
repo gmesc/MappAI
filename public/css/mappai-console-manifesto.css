@@ -707,16 +707,20 @@ html.manifesto .mn-tela-doc {
     font-size: var(--bn-fs-voce); font-weight: var(--bn-fw-voce);
 }
 
-/* ── la forma «materiali»: le tabelle dei documenti per genere, su due colonne
-   (6/8) ────────────────────────────────────────────────────────────────────
+/* ── la forma «materiali»: le tabelle dei documenti per genere ──────────────
    Il «nuovo tipo di box» dell'INSEGNA a bento. Riusa `.mm-tabg`/`.mm-tab` del
    motore → stessa veste delle tabelle dell'app (intestazione collassabile col
-   contatore, colonne NOME·CLASSE·MATERIA·DATA + cestino). L'unica aggiunta è la
-   griglia a due colonne e il cap di anteprima: cinque righe, poi scorre. */
+   contatore, colonne NOME·CLASSE·MATERIA·DATA + cestino). L'aggiunta è il cap
+   di anteprima: cinque righe, poi scorre.
+   ⚠️ UNA COLONNA, IMPILATE A SANDWICH (11/8/26, richiesta di Giacomo). Erano
+   affiancate su due colonne (6/8): metà larghezza per ogni elenco, quindi il
+   NOME del file — che in INSEGNA è l'informazione principale, perché è la cosa
+   che si prende in mano — veniva troncato molto prima del necessario. Impilate,
+   ogni elenco prende la larghezza intera del bento. */
 html.manifesto .mn-bento-area .mn-materiali {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 24px;
+    grid-template-columns: 1fr;
+    gap: 10px;
     align-content: start;
     width: 100%;
 }

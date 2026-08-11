@@ -922,6 +922,44 @@ ipcMain.handle('delete-vault-file', async (event, { vaultPath, relPath } = {}) =
     }
 });
 
+/* vault-file-download: SCARICA una copia di un materiale del vault, chiedendo
+   all'utente nome e posizione (11/8/26).
+   ⚠️ Chiede, non indovina. La prima idea era «copia in ~/Downloads»: un percorso
+   scelto da noi, che su una macchina configurata diversamente è il posto
+   sbagliato, e che non permette di rinominare il file mentre lo si salva — cioè
+   proprio ciò che serve quando lo si sta per allegare a una mail. Il dialogo di
+   sistema fa entrambe le cose ed è l'unico posto in cui l'utente può dire di no.
+   Le guardie sono le STESSE di `delete-vault-file`, non una loro variante: il
+   percorso va risolto e verificato sotto `Mappe`, o da qui si leggerebbe un file
+   qualunque del disco passando un `relPath` costruito ad arte. */
+ipcMain.handle('vault-file-download', async (event, { vaultPath, relPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        const base = path.resolve(mapsBaseDir());
+        const vault = path.resolve(vaultPath);
+        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        const safe = FilesCore.sanitizeVaultRelPath(relPath);
+        if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
+        const sorgente = path.join(vault, safe);
+        if (!fs.existsSync(sorgente)) return { ok: false, error: 'file-non-trovato', missing: true };
+        if (fs.statSync(sorgente).isDirectory()) return { ok: false, error: 'è una cartella, non un file' };
+
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const r = await dialog.showSaveDialog(win, {
+            title: 'Scarica una copia',
+            defaultPath: path.join(app.getPath('downloads'), path.basename(safe)),
+            buttonLabel: 'Scarica'
+        });
+        /* Annullare non è un errore: è una risposta. Chi chiama non deve
+           mostrare un avviso rosso perché l'utente ha cambiato idea. */
+        if (r.canceled || !r.filePath) return { ok: true, annullato: true };
+        fs.copyFileSync(sorgente, r.filePath);
+        return { ok: true, path: r.filePath };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
+
 // delete-vault: sposta nel Cestino una cartella vault DENTRO mapsBaseDir (Elimina
 // dalla sezione Insegna). shell.trashItem = recuperabile (mai cancellazione dura);
 // validazione sotto Mappe + rifiuto della radice stessa.

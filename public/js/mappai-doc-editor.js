@@ -155,6 +155,65 @@
         render();
     }
 
+    /* ══ DOMANDE APERTE — l'editor (11/8/26) ══════════════════════════════════
+       La sorgente non è un set di studio (le domande aperte non ci entrano: il
+       player pretende opzioni) ma la VOCE D'ARCHIVIO, cioè il foglio HTML che
+       la pipeline salva con la sua sorgente incorporata. Da lì `setFromHtml`
+       ricostruisce gli item — la stessa strada dei quiz cartacei di INSEGNA, e
+       il motivo per cui in archivio va l'HTML e non il PDF.
+       `docId` = id della voce in `MappAIStudyDocs`. */
+    function openOpenQuestions(docId) {
+        const store = window.MappAIStudyDocs;
+        const doc = store && store.get ? store.get(docId) : null;
+        if (!doc || !doc.html) { toast(t('de_oq_no_src', 'Non trovo la sorgente di questo documento.'), 'warning'); return false; }
+        const QP = window.MappAIQuizPrint;
+        const set = QP && QP.setFromHtml ? QP.setFromHtml(doc.html) : null;
+        if (!set || !Array.isArray(set.items) || !set.items.length) {
+            /* un foglio senza sorgente incorporata è un documento che si può
+               guardare e stampare, non correggere: dirlo è meglio che aprire un
+               editor vuoto */
+            toast(t('de_oq_no_items', 'Questo foglio non porta con sé le domande: si può stampare, ma non correggere qui.'), 'warning');
+            return false;
+        }
+        _srcSet = null;
+        _openDocId = docId;
+        _doc = {
+            id: set.id || docId,
+            title: set.title || doc.title || t('de_oq', 'Domande aperte'),
+            kind: 'openq',
+            items: DE().normOpenItems(set.items)
+        };
+        _kind = 'openq';
+        _syn = null; _sheet = null; _cc = null;
+        _hist = DE().createHistory(20);
+        _dirty = false;
+        _mapKey = _currentMapKey();
+        _view = 'doc';
+        render();
+        return true;
+    }
+    /* La voce d'archivio da cui il documento aperto viene, e su cui torna a
+       scriversi: senza, un salvataggio creerebbe una seconda voce a ogni giro. */
+    let _openDocId = null;
+
+    /* Le macro-aree della mappa, per i chip delle domande aperte. Sono i rami
+       veri (L1), non una lista scritta a mano: la domanda dichiara quali aree
+       richiede, e quelle devono esistere nella mappa. */
+    function _macroAree() {
+        const s = _appState();
+        const nodes = (s && s.db && s.db.nodes) || [];
+        const isMM = s && s.extractionMode === 'mindmap';
+        let rami = isMM ? nodes.filter(n => (n.level || 0) === 1) : nodes.filter(n => (n.level || 0) <= 1);
+        const nomi = rami.map(n => String((window.cleanLabel ? window.cleanLabel(n.label) : n.label) || '').trim()).filter(Boolean);
+        /* le aree già scritte nel documento restano scegliibili anche se la
+           mappa nel frattempo è cambiata: toglierle dall'elenco farebbe sparire
+           un chip che il foglio mostra */
+        (_doc && _doc.items || []).forEach(it => (it.areas || []).forEach(a => {
+            if (a && !nomi.some(n => n.toLowerCase() === String(a).toLowerCase())) nomi.push(a);
+        }));
+        return nomi;
+    }
+
     // Dal foglio completo di una sintesi si recupera il solo CORPO (.bs-body):
     // header, citazioni e lettore audio restano quelli del builder, che li
     // ricostruisce al salvataggio. Una regex sola per l'archivio e per il file
@@ -244,6 +303,18 @@
             toast(t('de_vault_doc_ko', 'Non riesco a leggere questo documento dalla cartella della mappa.'), 'warning');
             return false;
         }
+        /* ⚠️ LA COPIA CON LA VOCE NON SI APRE QUI (10/8/26). È un prodotto
+           finito: porta l'MP3 dentro (~8 MB) e serve a essere consegnata, non
+           corretta. Aprendola, `_saveSynthesisFile` la riscriverebbe sopra sé
+           stessa e la renderebbe editabile di fatto — con l'audio conservato o
+           lasciato cadere a seconda di quanto è stato toccato il testo.
+           La guardia sta QUI e non solo in chi apre: la console di ELABORA già
+           non la elenca, ma questa funzione è esportata e chiunque può
+           chiamarla. La difesa va dove accade il danno. */
+        if (/(^|\/)Sintesi-voce\b/i.test(String(relPath))) {
+            toast(t('de_voce_non_editabile', 'Questa è la copia con la voce, da consegnare: si corregge la sintesi normale e poi si rigenera la voce.'), 'warning');
+            return false;
+        }
         const api = window.electronAPI;
         if (!api || !api.readVaultFile) { toast(t('de_need_app', 'Richiede l\'app desktop.'), 'warning'); return false; }
 
@@ -319,11 +390,29 @@
         return ((s && s.db && s.db.nodes) || []).find(n => n.id === id) || null;
     }
 
-    function openNodeSheet() {
+    /* ── QUALE COPIA SI STA CORREGGENDO (11/8/26) ────────────────────────────
+       Foglio dei nodi e catena vivono DENTRO il progetto, e finora ce n'era uno
+       solo per mappa. Col clone ce ne può essere più d'uno: `_clone` dice quale
+       — '' è l'originale, dov'era. Dove leggere e dove riscrivere lo sa
+       `mappai-clona-core.js`, una regola sola per tutti e due i generi. */
+    let _clone = '';
+    function _CLN() { return (typeof window !== 'undefined' && window.MappAIClona) || null; }
+    function _leggiDoc(db, campo) {
+        const C = _CLN();
+        return C ? C.leggiDoc(db, campo, _clone) : (db && db[campo]) || null;
+    }
+    function _scriviDoc(db, campo, valore) {
+        const C = _CLN();
+        if (C) { C.scriviDoc(db, campo, _clone, valore); return; }
+        db[campo] = valore;                     /* senza il core: comportamento storico */
+    }
+
+    function openNodeSheet(clone) {
+        _clone = (_CLN() ? _CLN().pulisci(clone) : (clone || ''));
         if (!NS()) { toast(t('de_ns_no_core', 'Modulo del foglio nodi non caricato.'), 'error'); return; }
         const s = _appState();
         if (!((s && s.db && s.db.nodes) || []).length) { toast(t('de_ns_no_nodes', 'Questa mappa non ha nodi.'), 'warning'); return; }
-        const saved = (s.db && s.db.nodeSheet) || null;
+        const saved = _leggiDoc(s.db, 'nodeSheet');
         let doc;
         if (saved && Array.isArray(saved.cards) && saved.cards.length) {
             doc = NS().normDoc(saved);
@@ -367,10 +456,11 @@
     function CC() { return window.MappAICausalCore; }
     function CCU() { return window.MappAICausal; }
 
-    function openCausal() {
+    function openCausal(clone) {
+        _clone = (_CLN() ? _CLN().pulisci(clone) : (clone || ''));
         if (!CC() || !CCU()) { toast(t('de_cc_no_core', 'Modulo della catena dei perché non caricato.'), 'error'); return; }
         const s = _appState();
-        const saved = (s && s.db && s.db.causalDoc) || null;
+        const saved = _leggiDoc(s && s.db, 'causalDoc');
         let doc = null;
         if (saved && CC().countRows(saved)) {
             doc = CC().normDoc(saved);
@@ -438,17 +528,18 @@
     function _ccChains() { return CC().chainsFromDoc(_cc); }
     function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName()); }
 
-    function _saveCausal() {
+    async function _saveCausal() {
         const s = _appState();
         if (!_sameMap()) {
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
         }
         const problems = CC().validateDoc(_cc);
-        if (problems.length && !confirm(
+        if (problems.length && !await _chiedi(
             t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
             problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
+            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
+            t('de_save_anyway_ok', 'Salva comunque'))) return;
         const out = CC().normDoc(_cc);
         if (!CC().countRows(out)) {
             // Documento svuotato: senza questa guardia il salvataggio lascerebbe
@@ -458,7 +549,7 @@
             return;
         }
         _cc = out;
-        s.db.causalDoc = out;
+        _scriviDoc(s.db, 'causalDoc', out);
         try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
         // L'archivio tiene la versione RESA: INSEGNA e «Documenti salvati» la
         // riaprono senza passare dall'editor.
@@ -575,9 +666,10 @@
         _dirty = true; _nsMenu = -1; render();
     }
     /** Toglie la card dal FOGLIO (il nodo resta nella mappa). */
-    function nsDelCard(i) {
+    async function nsDelCard(i) {
         const c = _sheet.cards[i]; if (!c) return;
-        if (!confirm(t('de_ns_del', 'Togliere questa card dal foglio? Il nodo resta nella mappa.') + '\n\n' + c.label)) return;
+        if (!await _chiedi(t('de_ns_del', 'Togliere questa card dal foglio? Il nodo resta nella mappa.') + '\n\n' + c.label,
+            t('de_ns_del_ok', 'Togli la card'))) return;
         _nsSnapshot(t('de_ns_op_del', 'togli card'));
         _sheet.excluded = (_sheet.excluded || []).concat([c.id]);
         _sheet.cards = NS().removeAt(_sheet.cards, i);
@@ -634,21 +726,21 @@
         }
     }
 
-    function _saveNodeSheet() {
+    async function _saveNodeSheet() {
         const s = _appState();
         if (!_sameMap()) {
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
         }
         const problems = NS().validateDoc(_sheet);
-        if (problems.length && !confirm(
+        if (problems.length && !await _chiedi(
             t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
             problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
             (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
         const out = NS().normDoc(_sheet);
         out.excluded = (_sheet.excluded || []).slice();
         out.editedAt = Date.now();
-        s.db.nodeSheet = out;
+        _scriviDoc(s.db, 'nodeSheet', out);
         try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
         _dirty = false; _paintDirty();
         toast(t('de_ns_saved', '✓ Foglio nodi salvato — {n} card').replace('{n}', out.cards.length), 'success');
@@ -667,15 +759,23 @@
     async function _printNodeSheet(nome) {
         if (typeof window.printAllNodeLabels !== 'function') { toast(t('de_ns_no_engine', 'Motore di stampa non disponibile.'), 'error'); return; }
         const over = NS().overCards(_sheet.cards, _sheet.fmt);
-        if (over.length && !confirm(
+        if (over.length && !await _chiedi(
             t('de_ns_over_confirm', '{n} card hanno più testo di quanto entra nella card stampata: uscirebbero tagliate.').replace('{n}', over.length) +
             '\n\n' + t('de_ns_over_which', 'Card:') + ' ' + over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ') +
-            (over.length > 12 ? '…' : '') + '\n\n' + t('de_ns_print_anyway', 'Stampare comunque?'))) return;
+            (over.length > 12 ? '…' : '') + '\n\n' + t('de_ns_print_anyway', 'Stampare comunque?'),
+            t('de_ns_print_anyway_ok', 'Stampa comunque'))) return;
         await window.printAllNodeLabels(_nsPrintOpts(nome ? { fileName: nome } : null));
     }
 
-    function backToList() {
-        if (_dirty && !confirm(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'))) return;
+    /* ⚠️ Async come le altre domande (vedi `_chiedi`), ma con una proprietà che
+       qui conta: senza modifiche in sospeso NESSUN `await` viene eseguito,
+       quindi il corpo resta SINCRONO — e con esso l'annuncio
+       `mappai-doc-uscito`, su cui la console conta per togliere l'host PRIMA
+       che `render()` cerchi dove disegnare. È il percorso di `esci()`, dove
+       `_dirty` è già falso per costruzione. */
+    async function backToList() {
+        if (_dirty && !await _chiedi(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'),
+            t('de_leave_ok', 'Esci senza salvare'))) return;
         _view = 'list'; _doc = null; _syn = null; _sheet = null; _cc = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
         /* ⚠️ Uscire da un documento ANNUNCIA l'uscita (8/8 notte). Nel workspace
            classico la lista dei documenti È la superficie giusta e `render()`
@@ -728,8 +828,10 @@
             if (esito === null) return;
             if (_dirty) return;   // il salvataggio ha rinunciato, e l'ha già detto
         }
-        // Qui `_dirty` è falso per costruzione: `backToList()` non chiede conferma.
-        backToList();
+        // Qui `_dirty` è falso per costruzione: `backToList()` non chiede
+        // conferma, quindi non esegue nessun `await` e resta sincrona (con
+        // essa l'annuncio dell'uscita, su cui la console conta).
+        return backToList();
     }
 
     // ── cronologia ──────────────────────────────────────────────────────────
@@ -759,9 +861,20 @@
 
     // ── modifiche quiz ──────────────────────────────────────────────────────
     function _commitField(i, path, value) {
-        _doc.items = DE().setField(_doc.items, i, path, value);
+        /* ⚠️ Le domande aperte hanno le LORO funzioni: `setField` normalizza
+           verso la forma del quiz e butterebbe traccia, righe e aree senza
+           dire niente (c'è un test che lo fissa). */
+        _doc.items = (_kind === 'openq')
+            ? DE().setOpenField(_doc.items, i, path, value)
+            : DE().setField(_doc.items, i, path, value);
         _dirty = true;
         _paintDirty();
+    }
+    /* Un'area si accende o si spegne (il core tiene il tetto di due). */
+    function oqArea(i, nome) {
+        _snapshot(t('de_oq_op_area', 'aree della domanda'));
+        _doc.items = DE().setOpenField(_doc.items, i, 'area:' + nome);
+        _dirty = true; render();
     }
     function addQuestion(after) {
         _snapshot(t('de_op_add_q', 'aggiungi domanda'));
@@ -773,9 +886,10 @@
             if (el) el.focus();
         }, 30);
     }
-    function delQuestion(i) {
+    async function delQuestion(i) {
         const label = DE().plainText(_doc.items[i] && _doc.items[i].question) || ('#' + (i + 1));
-        if (!confirm(t('de_del_q', 'Eliminare la domanda') + ' ' + (i + 1) + '?\n\n' + label.slice(0, 120))) return;
+        if (!await _chiedi(t('de_del_q', 'Eliminare la domanda') + ' ' + (i + 1) + '?\n\n' + label.slice(0, 120),
+            t('de_del_ok', 'Elimina'))) return;
         _snapshot(t('de_op_del_q', 'elimina domanda'));
         _doc.items = DE().removeAt(_doc.items, i);
         _dirty = true; render();
@@ -841,8 +955,8 @@
             if (el) el.focus();
         }, 30);
     }
-    function delBlock(i) {
-        if (!confirm(t('de_del_b', 'Eliminare questo blocco di testo?'))) return;
+    async function delBlock(i) {
+        if (!await _chiedi(t('de_del_b', 'Eliminare questo blocco di testo?'), t('de_del_ok', 'Elimina'))) return;
         _snapshot(t('de_op_del_b', 'elimina blocco'));
         _syn.blocks = DE().removeBlock(_syn.blocks, i);
         _dirty = true; render();
@@ -901,10 +1015,73 @@
         if (_kind === 'synthesis') return _saveSynthesis();
         if (_kind === 'nodesheet') return _saveNodeSheet();
         if (_kind === 'causal') return _saveCausal();
+        if (_kind === 'openq') return _saveOpenq();
         return _saveQuiz();
     }
 
-    function _saveQuiz() {
+    /* Le domande aperte vivono NELL'ARCHIVIO (non in `studySets`): salvare
+       vuol dire riscrivere quella voce, con dentro il foglio rigenerato dal
+       builder — che è ciò che porta la sorgente aggiornata per la volta dopo.
+       Il PDF nella cartella della mappa lo riscrive «Stampa», come per gli
+       altri generi: qui non si tocca il disco. */
+    async function _saveOpenq() {
+        const problems = DE().validateOpenDoc(_doc);
+        if (problems.length && !await _chiedi(
+            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
+            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
+            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
+            t('de_save_anyway_ok', 'Salva comunque'))) return;
+        const store = window.MappAIStudyDocs;
+        if (!store || !store.save) { toast(t('de_oq_no_store', 'Archivio dei documenti non disponibile.'), 'error'); return; }
+        const s = _appState();
+        const html = _openqHtml();
+        try {
+            /* ⚠️ NON si passa `id`. `saveDoc` deduplica per (kind|title|mapName) e
+               in quel caso riusa da sé l'id della voce che sostituisce; passarlo
+               a mano quando il TITOLO è cambiato produrrebbe invece due record
+               con lo STESSO id — la chiave nuova non combacia, quindi la voce si
+               aggiunge invece di sostituire, e `get(id)` diventa ambiguo.
+               Il titolo cambiato si gestisce qui: si toglie la voce di prima,
+               altrimenti resterebbe accanto alla nuova col nome vecchio. */
+            const vecchia = _openDocId ? (store.get ? store.get(_openDocId) : null) : null;
+            if (vecchia && String(vecchia.title || '') !== String(_doc.title || '') && store.remove) {
+                store.remove(_openDocId);
+            }
+            _openDocId = store.save({
+                kind: 'quizpaper', title: _doc.title, html: html,
+                mapName: (s && s.rootNodeLabel) || ''
+            }) || _openDocId;
+        } catch (e) {
+            toast(t('de_oq_save_ko', 'Salvataggio non riuscito') + ': ' + (e.message || e), 'error');
+            return;
+        }
+        _dirty = false; _paintDirty();
+        toast(t('de_saved', '✓ Documento salvato') + ' — ' + _doc.items.length + ' ' + t('de_questions', 'domande'), 'success');
+    }
+    function _openqHtml(includeAnswers) {
+        const s = _appState();
+        return window.buildOpenQuestionsHtml(
+            { id: _doc.id, title: _doc.title, type: 'Domande aperte', items: _doc.items },
+            { mapName: (s && s.rootNodeLabel) || '', includeBar: false, includeAnswers: includeAnswers !== false });
+    }
+
+    /* ⚠️ In ELECTRON `confirm()` è un dialog NATIVO del main process e BLOCCA
+       il renderer: l'app resta immobile finché non si risponde, e da CDP il
+       dominio Page non lo vede nemmeno («No dialog is showing») — sembra un
+       crash. Erano gli ultimi due pezzi fuori dal motore dei modali, ed erano
+       proprio sulla strada di «Stampa» (che dall'9/8 passa dal salvataggio):
+       in ELABORA v2, dove «Modifica» è a un clic, si incontravano subito.
+       Ora la domanda è un modale del motore → `_saveQuiz` diventa ASINCRONA, e
+       con essa `save()`. I due chiamanti la attendono già (`_salvaDoveVive` con
+       `await`, la console con `Promise.resolve`); chi non l'aspetta ottiene una
+       Promise ignorata, che è ciò che otteneva prima da una funzione void. */
+    async function _chiedi(testo, conferma) {
+        const M = window.MappAIModal;
+        if (M && M.conferma) return await M.conferma({ testo: testo, conferma: conferma });
+        return confirm(testo);   /* ripiego dove il motore non c'è (banchi, harness) */
+    }
+
+    async function _saveQuiz() {
         const s = _appState();
         // La mappa è cambiata sotto i piedi (cambio progetto in ELABORA): salvare
         // qui inietterebbe il quiz in un progetto che non è il suo.
@@ -913,10 +1090,11 @@
             return;
         }
         const problems = DE().validateDoc(_doc);
-        if (problems.length && !confirm(
+        if (problems.length && !await _chiedi(
             t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
             problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
+            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
+            t('de_save_anyway_ok', 'Salva comunque'))) return;
 
         const sets = (s.db.studySets = s.db.studySets || []);
         const idx = sets.findIndex(x => x.id === _srcSet.id);
@@ -925,7 +1103,8 @@
         // Set sparito dalla mappa (eliminato altrove, o progetto ricaricato): meglio
         // dirlo che ricrearlo in silenzio dove non era.
         if (idx < 0) {
-            if (!confirm(t('de_set_gone', 'Questo set non è più nella mappa (eliminato o mappa ricaricata). Vuoi aggiungerlo di nuovo?'))) return;
+            if (!await _chiedi(t('de_set_gone', 'Questo set non è più nella mappa (eliminato o mappa ricaricata). Vuoi aggiungerlo di nuovo?'),
+                t('de_set_gone_ok', 'Aggiungilo'))) return;
             sets.push(updated);
         } else {
             sets[idx] = updated;
@@ -1118,6 +1297,33 @@
         return !!(o && / -VERDE\.[A-Za-z0-9]+$/.test(o.relPath));
     }
 
+    /* ── 🐛 IL NOME DELLA COPIA DEVE ENTRARE NEL NOME DEL FILE (11/8/26) ─────
+       La copia LEGGEVA il suo file ma ne SCRIVEVA un altro: il nome si componeva
+       da genere + mappa e basta, quindi stampando «Scelta Multipla - verifica
+       ottobre» usciva «Quiz-MC-<Mappa>.pdf» — cioè SOPRA il file
+       dell'originale, in silenzio e senza modo di accorgersene se non aprendo
+       la cartella. È il guasto che i test di `mappai-clona-core.js` dichiarano
+       («un clone senza nome scriverebbe sopra il file dell'originale»): la
+       regola c'era, questo lato non la usava.
+
+       Dove sta il nome della copia dipende dal genere, come tutto il resto del
+       clone: nel SET per i quiz, nella variabile del documento per il foglio dei
+       nodi e la catena, nel TITOLO per le domande aperte (che vengono
+       dall'archivio). La sintesi non compare: quella riapre il suo file e
+       continua a scrivere lì (`_origine()`), quindi il nome ce l'ha già. */
+    function _cloneCorrente() {
+        try {
+            if (_kind === 'nodesheet' || _kind === 'causal') return _clone || '';
+            if (_kind === 'openq') {
+                var C = _CLN();
+                var base = C ? C.etichetta('Domande aperte', '') : 'Domande Aperte';
+                var tt = String((_doc && _doc.title) || '').trim();
+                return tt.indexOf(base + ' - ') === 0 ? tt.slice(base.length + 3).trim() : '';
+            }
+            return (_srcSet && _srcSet.clone) || '';
+        } catch (e) { return ''; }
+    }
+
     /** Genere del materiale e suo dettaglio, nella lingua di `buildFileName`. */
     function _genereFile() {
         if (_kind === 'nodesheet') {
@@ -1136,6 +1342,7 @@
             return { kind: 'synthesis', dettaglio: lab };
         }
         if (_kind === 'flashcards') return { kind: 'flashcards', dettaglio: '' };
+        if (_kind === 'openq') return { kind: 'open_questions', dettaglio: '' };
         return { kind: (_doc && _doc.quizType === 'tf') ? 'quiz_tf' : 'quiz_mc', dettaglio: '' };
     }
 
@@ -1156,7 +1363,8 @@
             // muto: meglio di un errore, e non capita nell'app (pipeline-core è
             // caricato prima di questo file).
             pieno = PC()
-                ? PC().buildFileName(g.kind, null, _tarato(), { mappa: _mapName(), dettaglio: g.dettaglio })
+                ? PC().buildFileName(g.kind, null, _tarato(),
+                    { mappa: _mapName(), dettaglio: g.dettaglio, nome: _cloneCorrente() })
                 : (g.kind + '-' + (_mapName() || 'mappa') + (g.kind === 'synthesis' ? '.html' : '.pdf'));
         }
         const m = /^(.*?)( -VERDE)?(\.[A-Za-z0-9]+)$/.exec(pieno);
@@ -1319,9 +1527,30 @@
             const foglio = _synFoglio();
             return { vaultPath: vaultPath, relPath: rel, text: foglio.text, foglio: foglio };
         }
-        // Quiz e flashcard: la copia per gli allievi, senza soluzioni — quelle
-        // restano nell'app e nella copia del docente, che si stampa da qui.
-        const html = _quizHtml(false, false);
+        if (_kind === 'openq') {
+            /* Come i quiz: il file che resta nella cartella è la copia del
+               DOCENTE, con le tracce. La copia per gli allievi si ottiene da
+               «Stampa → Senza tracce». */
+            const htmlOq = _openqHtml(true);
+            if (window.electronAPI.htmlToPdf) {
+                const r = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
+                if (r && r.ok && r.base64) return { vaultPath: vaultPath, relPath: rel, base64: r.base64 };
+            }
+            return { vaultPath: vaultPath, relPath: rel.replace(/\.pdf$/i, '.html'), text: htmlOq };
+        }
+        /* Quiz e flashcard: il PDF esce CON le soluzioni (Giacomo, 11/8).
+           Prima usciva senza — «la copia per gli allievi» — e c'erano due
+           produttori in disaccordo sullo stesso file: la pipeline lo scrive col
+           foglio soluzioni da sempre (`buildQuizSetHtml` senza `includeAnswers`
+           vale `true`), l'editor senza. Stesso nome, stessa cartella, contenuto
+           diverso a seconda di chi l'aveva scritto.
+           ⚠️ Il costo, dichiarato: un PDF non si ricostruisce, quindi dal file
+           del vault non si ricava più la copia per gli allievi — in INSEGNA
+           `printQuizPaper` su un PDF lo apre e basta. Quella copia resta
+           raggiungibile dalle due strade che partono dal SET, che è la sorgente
+           vera: «Stampa» qui nell'editor (modale «senza soluzioni») e la
+           condivisione QR, che agli allievi manda sempre la versione muta. */
+        const html = _quizHtml(true, false);
         if (window.electronAPI.htmlToPdf) {
             // Il foglio flashcard è orizzontale: senza questo flag printToPDF lo
             // impagina in verticale e le carte escono tagliate.
@@ -1468,6 +1697,7 @@
        non c'è nessun nome file di mezzo. */
     function _stampaOra(nome) {
         if (_kind === 'nodesheet') return _printNodeSheet(nome);
+        if (_kind === 'openq') return openOpenqModal();
         // La catena ha una resa sola: il documento vero, con modalità esercizio
         // e stampa dentro. Aprirlo archivia anche la versione mostrata.
         if (_kind === 'causal') return CCU().openDoc(_ccChains());
@@ -1478,6 +1708,29 @@
         }
         if (_kind === 'flashcards') return openFlashModal(nome);
         openAnswersModal();
+    }
+
+    /* ── LA CORNICE CONDIVISA nell'ANTEPRIMA (mappai-doc-head.js, 11/8/26) ──
+       L'anteprima dell'editor è un'imitazione del foglio stampato: se la testata
+       cambia di là e non di qua, l'editor mostra un documento che non esiste.
+       Qui si prendono le REGOLE (così i chip sono gli stessi pixel) e i due chip
+       di CONTESTO. Il titolo resta scritto dall'editor: è modificabile, e
+       `testata()` produce markup fermo.
+       Fuori: il foglio dei NODI e le FLASHCARD, che restano com'erano. */
+    function _deDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+    function _deCornice() {
+        const DH = _deDH();
+        return DH ? DH.stile({ accento: '#4f46e5', pagina: false }) : '';
+    }
+    function _deChip() {
+        const DH = _deDH();
+        if (!DH) return '';
+        const c = DH.contestoAttivo();
+        if (!c.classe && !c.materia) return '';
+        return '<div class="mm-dh__r">' +
+            (c.classe ? '<span class="mm-dh__c mm-dh__c--cls">' + DH.esc(c.classe) + '</span>' : '') +
+            (c.materia ? '<span class="mm-dh__c mm-dh__c--mat">' + DH.esc(c.materia) + '</span>' : '') +
+            '</div>';
     }
 
     function _openPrintable(html) {
@@ -1499,6 +1752,21 @@
             function (root) {
                 const withAns = root.querySelector('input[name="de-ans"]:checked').value === '1';
                 _openPrintable(_quizHtml(withAns));
+            });
+    }
+
+    /* Le due copie del foglio di domande aperte: quella del docente porta le
+       TRACCE di correzione in coda, quella per gli allievi no — ed è la stessa
+       scelta del quiz, con le stesse parole. */
+    function openOpenqModal() {
+        _modal(t('de_print_oq', 'Stampa le domande aperte'), t('de_print_oq_sub', 'Le tracce di correzione vanno in una pagina a parte, in coda.'),
+            '<label class="de-radio"><input type="radio" name="de-oq" value="1" checked><span><b>' +
+            esc(t('de_with_guides', 'Con le tracce')) + '</b><small>' + esc(t('de_with_guides_d', 'Copia del docente: domande + tracce di correzione.')) + '</small></span></label>' +
+            '<label class="de-radio"><input type="radio" name="de-oq" value="0"><span><b>' +
+            esc(t('de_no_guides', 'Senza tracce')) + '</b><small>' + esc(t('de_no_guides_d', 'Copia per gli allievi: solo le domande e le righe per scrivere.')) + '</small></span></label>',
+            function (root) {
+                const withG = root.querySelector('input[name="de-oq"]:checked').value === '1';
+                _openPrintable(_openqHtml(withG));
             });
     }
 
@@ -1870,7 +2138,8 @@
     function _docHtml() {
         const sheet = (_kind === 'synthesis') ? _synthSheet()
             : (_kind === 'nodesheet') ? _nodeSheet()
-            : (_kind === 'causal') ? _causalSheet() : _quizSheet();
+            : (_kind === 'causal') ? _causalSheet()
+            : (_kind === 'openq') ? _openqSheet() : _quizSheet();
         return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' + sheet + '</div></div>';
     }
 
@@ -1890,7 +2159,7 @@
         const title = isSyn ? (_syn.data.branchLabel || t('de_synth', 'Sintesi'))
             : isNs ? t('de_ns', 'Foglio dei nodi')
             : isCc ? t('cc_doc_title', 'Catena dei perché')
-            : (_doc.title || t('de_quiz', 'Quiz'));
+            : (_doc.title || (_kind === 'openq' ? t('de_oq', 'Domande aperte') : t('de_quiz', 'Quiz')));
         return '<div class="de-bar">' +
             /* «‹ Documenti» solo FUORI dalla console (Giacomo, 8/8 notte): là
                l'elenco dei documenti è la COLONNA — sempre a schermo, con la voce
@@ -2054,6 +2323,68 @@
     }
 
     // Il foglio: stessa gerarchia del PDF (header card, domanda, opzioni A/B/C).
+    /* ══ IL FOGLIO DELLE DOMANDE APERTE ═══════════════════════════════════════
+       Gemello del foglio quiz — stessa cornice, stessi comandi di riga — con al
+       posto delle opzioni i tre campi che questo genere ha: la TRACCIA di
+       correzione, le RIGHE su cui lo studente scriverà, e le AREE della mappa.
+       Le aree sono chip che si accendono: le sceglie l'AI, e il docente le
+       corregge cliccando. Al massimo due, ed è il core a farlo rispettare
+       (`setOpenField`) — qui i chip oltre il tetto si spengono da soli, così la
+       regola si VEDE prima di essere contestata. */
+    function _openqSheet() {
+        const s = _appState();
+        const aree = _macroAree();
+        const items = _doc.items.map(function (it, i) {
+            const scelte = (it.areas || []);
+            const attiva = (a) => scelte.some(x => String(x).toLowerCase() === a.toLowerCase());
+            const pieno = scelte.length >= DE().OPEN_AREAS_MAX;
+            const chips = aree.map(function (a) {
+                const on = attiva(a);
+                return '<button type="button" class="de-area' + (on ? ' on' : '') + '"' +
+                    (!on && pieno ? ' disabled title="' + esc(t('de_oq_max_aree', 'Al massimo due aree per domanda: togline una.')) + '"' : '') +
+                    ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
+                    ' onclick="MappAIDocEditor.oqArea(' + i + ',\'' + _q(a) + '\')">' + esc(a) + '</button>';
+            }).join('');
+            return '<div class="de-item">' +
+                '<div class="de-item-h">' +
+                '<span class="de-qn">' + esc(t('de_q_n', 'Domanda')) + ' ' + (i + 1) + '</span>' +
+                '<span class="de-item-tools">' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.addQuestion(' + i + ')" title="' + esc(t('de_add_after', 'Aggiungi qui sotto')) + '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t de-del" onclick="MappAIDocEditor.delQuestion(' + i + ')" title="' + esc(t('de_del', 'Elimina')) + '"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+                '</span></div>' +
+                '<div class="de-q" contenteditable="true" role="textbox" aria-label="' +
+                esc(t('de_q_n', 'Domanda') + ' ' + (i + 1)) + '"' +
+                ' data-i="' + i + '" data-f="question" data-ph="' + esc(t('de_ph_q', 'Scrivi qui la domanda…')) + '">' + esc(it.question) + '</div>' +
+                '<div class="de-oq-meta">' +
+                '<span class="de-lbl">' + esc(t('de_oq_aree', 'Aree')) + '</span>' +
+                '<span class="de-areas">' + (chips || '<span class="de-oq-noaree">' + esc(t('de_oq_noaree', 'La mappa non dichiara macro-aree.')) + '</span>') + '</span>' +
+                '<span class="de-lbl de-oq-lbl-righe">' + esc(t('de_oq_righe', 'Righe')) + '</span>' +
+                '<input type="number" class="de-lines" min="' + DE().OPEN_LINES_MIN + '" max="' + DE().OPEN_LINES_MAX + '"' +
+                ' value="' + (it.lines || 4) + '" data-i="' + i + '" data-oq="lines"' +
+                ' aria-label="' + esc(t('de_oq_righe_a11y', 'Righe per la risposta') + ' — ' + (i + 1)) + '"' +
+                ' title="' + esc(t('de_oq_righe_tip', 'Quante righe lo studente ha per rispondere: 3 breve, 5 spiegazione, 8 confronto.')) + '">' +
+                '</div>' +
+                '<div class="de-expl-row"><span class="de-lbl">' + esc(t('de_oq_traccia', 'Traccia')) + '</span>' +
+                '<div class="de-expl" contenteditable="true" role="textbox" aria-label="' + esc(t('de_oq_traccia', 'Traccia') + ' — ' + (i + 1)) + '"' +
+                ' data-i="' + i + '" data-f="guide" data-ph="' + esc(t('de_ph_guide', 'Che cosa deve contenere una risposta corretta (compare solo nella tua copia)…')) + '">' + esc(it.guide) + '</div></div>' +
+                '</div>';
+        }).join('');
+
+        return '<div class="de-sheet quiz">' +
+            '<div class="de-sheet-head">' +
+            '<div class="de-sheet-title" contenteditable="true" data-f="title" data-ph="' + esc(t('de_ph_title', 'Titolo del documento')) + '">' + esc(_doc.title) + '</div>' +
+            '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' + esc(t('de_oq', 'Domande aperte')) + '</div>' +
+            _deChip() +
+            '<div class="de-badge">' + _doc.items.length + ' ' + esc(t('de_questions', 'domande')) + '</div>' +
+            '</div>' +
+            '<div class="de-limit">' + esc(t('de_oq_note', 'Le tracce di correzione non compaiono nella copia degli allievi: le stampi solo tu, in coda al foglio. Le righe sono lo spazio vero che lo studente avrà per rispondere.')) + '</div>' +
+            items +
+            '<button type="button" class="de-addq" onclick="MappAIDocEditor.addQuestion()">+ ' + esc(t('de_add_q', 'domanda')) + '</button>' +
+            '</div>';
+    }
+
     function _quizSheet() {
         const s = _appState();
         const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -2112,6 +2443,7 @@
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title" contenteditable="true" data-f="title" data-ph="' + esc(t('de_ph_title', 'Titolo del documento')) + '">' + esc(_doc.title) + '</div>' +
             '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' + esc(isFlash ? t('de_flash', 'Flashcard') : t('de_quiz', 'Quiz')) + '</div>' +
+            (isFlash ? '' : _deChip()) +
             '<div class="de-badge">' + _doc.items.length + ' ' + esc(isFlash ? t('de_cards', 'carte') : t('de_questions', 'domande')) + '</div>' +
             '</div>' +
             // La regola, scritta: quanto testo entra in una carta e cosa succede
@@ -2496,6 +2828,7 @@
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title">' + esc(_syn.data.branchLabel || t('de_synth', 'Sintesi')) + '</div>' +
             '<div class="de-sheet-sub">' + esc(_syn.data.mapName || '') + ' · ' + esc(t('de_synth', 'Sintesi')) + '</div>' +
+            _deChip() +
             // Lettura ad alta voce del testo IN EDITING: il chip legge i blocchi
             // qui sotto, non una copia. L'evidenziazione usa la CSS Custom
             // Highlight API (Range, nessun tag iniettato) → si può leggere un
@@ -2549,6 +2882,13 @@
                 // stava leggendo la frase che si sta riscrivendo). Al prossimo
                 // ▶ il lettore ricostruisce dal testo di adesso.
                 try { if (window.MappAITTS && window.MappAITTS.invalidate) window.MappAITTS.invalidate(); } catch (er) {}
+                return;
+            }
+            if (el.hasAttribute('data-oq')) {
+                /* le RIGHE sono un <input number>: l'evento è lo stesso, ma il
+                   valore sta in `.value` e non in `.innerText` */
+                const io_ = parseInt(el.getAttribute('data-i'), 10);
+                if (!isNaN(io_)) _commitField(io_, el.getAttribute('data-oq'), el.value);
                 return;
             }
             if (el.hasAttribute('data-ns')) { _commitNs(el); return; }
@@ -2629,6 +2969,7 @@
         if (_stylesInjected || document.getElementById('de-styles')) { _stylesInjected = true; return; }
         _stylesInjected = true;
         const css = `
+${_deCornice()}
 #elab-doc-host { height:100%; overflow:auto; background:#f8fafc; }
 .de-list { max-width:900px; margin:0 auto; padding:26px 22px 60px; }
 .de-list-head { margin-bottom:22px; }
@@ -2704,7 +3045,9 @@
             zoom:calc(var(--de-zoom) * var(--de-user));
             width:100%; max-width:min(var(--de-max), 100%); margin:0 auto;
             font-family:'Space Mono',var(--emoji-font),monospace; color:#1e293b; }
-.de-sheet-head { text-align:center; padding:26px 16px 18px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid #4f46e5; }
+/* Stesse misure della cornice condivisa (mappai-doc-head.js): l'anteprima
+   non può essere impaginata diversamente dal foglio che descrive. */
+.de-sheet-head { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid #4f46e5; }
 .de-sheet.flash .de-sheet-head { border-bottom-color:#059669; }
 .de-sheet-title { font-size:20px; font-weight:900; color:#1e293b; outline:none; }
 .de-sheet-sub { font-size:10px; color:#64748b; margin-top:4px; }
@@ -2755,6 +3098,21 @@
 .de-addopt:hover { border-color:#4f46e5; color:#4f46e5; }
 .de-answer, .de-expl-row { margin-top:12px; }
 .de-lbl { display:block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin-bottom:4px; }
+/* DOMANDE APERTE: le aree (chip che si accendono, max due) e le righe. */
+.de-oq-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.de-oq-meta .de-lbl { margin-bottom:0; }
+.de-oq-lbl-righe { margin-left:8px; }
+.de-areas { display:inline-flex; gap:6px; flex-wrap:wrap; }
+.de-area { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;
+  border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; }
+.de-area:hover:not(:disabled) { border-color:#99f6e4; background:#f0fdfa; }
+.de-area.on { background:#0f766e; border-color:#0f766e; color:#fff; }
+/* spenta e non scegliibile: due aree ci sono già. Non si sostituisce a sorpresa. */
+.de-area:disabled { opacity:.4; cursor:not-allowed; }
+.de-area:focus-visible { outline:2px solid #0f766e; outline-offset:2px; }
+.de-lines { width:56px; font-size:12px; padding:3px 6px; border:1px solid #e2e8f0;
+  border-radius:8px; font-family:inherit; color:#1e293b; }
+.de-oq-noaree { font-size:11px; color:#94a3b8; }
 .de-a { font-size:13px; color:#065f46; background:#f0fdf4; border-radius:8px; padding:8px 12px; outline:none; line-height:1.5; }
 .de-expl { font-size:11px; color:#475569; font-style:italic; line-height:1.5; background:#f8fafc; border-radius:8px; padding:7px 11px; outline:none; }
 [contenteditable]:hover { box-shadow:inset 0 0 0 1px #e2e8f0; }
@@ -3037,6 +3395,9 @@
         // modifiche come la lettura a voce di sistema).
         kind: function () { return (_view === 'doc') ? _kind : null; },
         openSet: openSet, openSynthesis: openSynthesis, backToList: backToList,
+        /* Domande aperte: si aprono dalla voce d'ARCHIVIO (il foglio HTML porta
+           la sua sorgente incorporata) — non da `studySets`, dove non entrano. */
+        openOpenQuestions: openOpenQuestions, oqArea: oqArea,
         /* L'uscita a due stati (vedi `esci()`). `save()` resta esposta perché la
            console di ELABORA la chiama per conto suo quando si cambia documento
            con del lavoro in sospeso (`_conSalvataggio`). */

@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readVaultFile: (data) => ipcRenderer.invoke('read-vault-file', data),
     // sposta nel Cestino un file dentro un vault (materiali di INSEGNA)
     deleteVaultFile: (data) => ipcRenderer.invoke('delete-vault-file', data),
+    /* Scarica una copia di un materiale chiedendo nome e posizione (dialogo di
+       sistema). Torna { ok, path } · { ok, annullato:true } se l'utente rinuncia. */
+    vaultFileDownload: (data) => ipcRenderer.invoke('vault-file-download', data),
     vaultMaterialsList: (data) => ipcRenderer.invoke('vault-materials-list', data),
     // elenca `Fonti/`: gli originali delle fonti e i testi estratti (9/8)
     vaultSourcesList: (data) => ipcRenderer.invoke('vault-sources-list', data),
