@@ -5,6 +5,25 @@
  */
 
 // ── GLOSSARY VIEW ─────────────────────────────────────────────────────────────
+// ── La CORNICE condivisa (mappai-doc-head.js, 11/8/26) ───────────────────────
+function _glDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+function _glCornice(mapName) {
+    var DH = _glDH();
+    return DH ? DH.stile({ accento: '#4f46e5', mappa: mapName }) : '';
+}
+function _glTestata(mapName, now, nTermini) {
+    var DH = _glDH();
+    if (!DH) return '';
+    return DH.testata(DH.conContesto({
+        titolo: 'Glossario · ' + mapName, tipo: 'Termini disciplinari',
+        data: now, badge: nTermini + ' termini'
+    }));
+}
+function _glPie(mapName) {
+    var DH = _glDH();
+    return DH ? DH.pieSchermo({ mappa: mapName }) : '';
+}
+
 window.openGlossaryView = function () {
     const nodes = appState.db.nodes || [];
     if (nodes.length === 0) {
@@ -85,7 +104,9 @@ window.openGlossaryView = function () {
     // 4. Metadati documento
     const rootNode = nodes.find(function (n) { return n.level === 0; });
     const mapName = rootNode ? (rootNode.label || 'MappAI') : 'MappAI';
-    const now = new Date().toLocaleString('it-IT');
+    /* Data del documento: GG/MM/AAAA senza ora — la scrive la cornice
+       (mappai-doc-head.js), una regola per tutti i fogli. */
+    const now = _glDH() ? _glDH().data(new Date()) : new Date().toLocaleDateString('it-IT');
 
     // Indice lettere
     let letterIndex = '';
@@ -115,10 +136,10 @@ window.openGlossaryView = function () {
     const glStyles = [
         '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
         'body { font-family: "Space Mono", monospace; font-size: 11px; color: #1e293b; margin: 0 auto; padding: 24px 32px; max-width: 800px; }',
-        '.gl-header { text-align: center; padding: 28px 16px 20px; border-bottom: 2px solid #4f46e5; margin-bottom: 24px; page-break-after: avoid; }',
-        '.gl-title { font-size: 20px; font-weight: 900; color: #1e293b; }',
-        '.gl-subtitle { font-size: 10px; color: #64748b; margin-top: 4px; }',
-        '.gl-count { display: inline-block; margin-top: 8px; background: #ede9fe; color: #4f46e5; border-radius: 999px; padding: 2px 12px; font-size: 10px; font-weight: bold; }',
+        // Testata e piè: cornice condivisa (mappai-doc-head.js). Erano quattro
+        // regole copiate dal foglio quiz — e senza fondo bianco, unica delle
+        // nove testate a non averlo: una divergenza che nessuno aveva deciso.
+        _glCornice(mapName),
         '.gl-index { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; padding: 12px; background: #f8fafc; border-radius: 10px; page-break-after: avoid; }',
         '.gl-idx-letter { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: bold; font-size: 11px; color: #4f46e5; text-decoration: none; }',
         '.gl-section { margin-bottom: 20px; page-break-inside: avoid; }',
@@ -129,7 +150,7 @@ window.openGlossaryView = function () {
         '.gl-term { font-weight: bold; font-size: 12px; color: #1e293b; }',
         '.gl-macro { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.8; margin-left: auto; }',
         '.gl-def { font-size: 10px; color: #475569; line-height: 1.6; padding-left: 16px; }',
-        '.gl-footer { text-align: center; margin-top: 32px; font-size: 9px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 12px; }',
+        // (il piè a schermo lo disegna .mm-dh-pie della cornice)
         '@media print { body { padding: 10px; } .gl-index a { color: #4f46e5 !important; } .no-print { display: none !important; } }'
     ].join('\n');
 
@@ -147,10 +168,10 @@ window.openGlossaryView = function () {
         '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">' +
         '<style>' + glStyles + '</style></head><body>' +
         printBarHtml +
-        '<div class="gl-header"><div class="gl-title">Glossario &middot; ' + escHtml(mapName) + '</div><div class="gl-subtitle">Termini disciplinari &middot; ' + escHtml(now) + '</div><div class="gl-count">' + sortedTerms.length + ' termini</div></div>' +
+        _glTestata(mapName, now, sortedTerms.length) +
         '<div class="gl-index">' + letterIndex + '</div>' +
         glossHtml +
-        '<div class="gl-footer">MappAI by insegnai.ch</div>' +
+        _glPie(mapName) +
         '</body></html>';
 
     // 8. Apri finestra

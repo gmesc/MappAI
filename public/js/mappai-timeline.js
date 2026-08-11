@@ -916,7 +916,9 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride, opts) {
 window._renderTimeline = function (uniqueEvents, mapName, opts) {
     opts = opts || {};
     var showContext = opts.showContext !== false; // default: mostra il contesto
-    var now = new Date().toLocaleString('it-IT');
+    /* Data del documento: GG/MM/AAAA senza ora — la scrive la cornice
+       (mappai-doc-head.js), una regola per tutti i fogli. */
+    var now = _tlDH() ? _tlDH().data(new Date()) : new Date().toLocaleDateString('it-IT');
 
     // Helper esc locale (per titolo/header del documento).
     var esc = window.MappAITimeline._esc;
@@ -935,6 +937,29 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
 
     // ── 5. CSS stile dossier + layout timeline ───────────────────────────────
 
+    /* La CORNICE condivisa (mappai-doc-head.js): testata coi chip classe e
+       materia, piè coi numeri di pagina. Le quattro regole che stavano qui erano
+       una copia del foglio quiz, coi corpi convertiti in pt.
+       ⚠️ Il badge del conteggio è VIVO: la modalità esercizio lo riscrive
+       cercandolo per id (`tl-count`), quindi l'id va passato alla cornice. */
+    function _tlDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+    function _tlCornice(mapName) {
+        var DH = _tlDH();
+        return DH ? DH.stile({ accento: '#4f46e5', mappa: mapName }) : '';
+    }
+    function _tlTestata(mapName, now, eventCount) {
+        var DH = _tlDH();
+        if (!DH) return '';
+        return DH.testata(DH.conContesto({
+            titolo: mapName, tipo: 'Timeline cronologica', data: now,
+            badge: eventCount + ' date', badgeId: 'tl-count'
+        }));
+    }
+    function _tlPieSchermo(mapName) {
+        var DH = _tlDH();
+        return DH ? DH.pieSchermo({ mappa: mapName }) : '';
+    }
+
     var tlStyles = [
         '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }',
         ':root {',
@@ -947,10 +972,9 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         // stessa header card, stesso badge pillola, stesso piè di pagina. Cambia
         // solo il corpo, che è proprio di ogni tipo di documento.
         'body { font-family: "Space Mono", monospace; font-size: 11pt; color: var(--pdf-text-primary); margin: 0; padding: 24px 32px; background: #f8fafc; }',
-        '.tl-header { text-align: center; padding: 28px 16px 20px; background: white; border-radius: 16px; margin-bottom: 28px; border-bottom: 2px solid var(--pdf-accent-color); page-break-after: avoid; }',
-        '.tl-title { font-size: 20pt; font-weight: 900; color: var(--pdf-text-primary); margin-bottom: 4px; }',
-        '.tl-subtitle { font-size: 10pt; color: #64748b; }',
-        '.tl-count { display: inline-block; margin-top: 8px; background: #ede9fe; color: var(--pdf-accent-color); border-radius: 999px; padding: 2px 12px; font-size: 10pt; font-weight: 700; }',
+        // Testata e piè: cornice condivisa (mappai-doc-head.js). Erano quattro
+        // regole copiate dal foglio quiz, con i corpi in pt invece che in px.
+        _tlCornice(mapName),
         '.tl-container { position: relative; max-width: 960px; margin: 0 auto; padding: 0 16px; }',
         '.tl-container::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--pdf-border); transform: translateX(-50%); }',
         '.tl-event { display: flex; margin-bottom: 40px; position: relative; page-break-inside: avoid; }',
@@ -970,7 +994,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '.dossier-section-label { display: block; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--pdf-text-muted); margin-bottom: 8pt; }',
         '.tl-chunk-source { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8pt; border-left: 3pt solid currentColor; padding-left: 8pt; }',
         '.dossier-desc { font-size: 11pt; line-height: 1.7; color: var(--pdf-text-secondary); margin: 0; font-style: italic; }',
-        '.tl-footer { text-align: center; margin-top: 32px; font-size: 9pt; color: var(--pdf-text-muted); border-top: 1px solid #f1f5f9; padding-top: 12px; }',
+        // (il piè a schermo lo disegna .mm-dh-pie della cornice)
         '.tl-card-manual { box-shadow: 0 2px 12px rgba(79,70,229,0.20); }',
         '.tl-gap { border: 2px dashed #cbd5e1 !important; }',
         '.tl-toolbtn { display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:bold; font-family:inherit; }',
@@ -1066,13 +1090,9 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '<style>' + tlStyles + '</style>' +
         '</head><body>' +
         printBar +
-        '<div class="tl-header">' +
-            '<div class="tl-title">' + esc(mapName) + '</div>' +
-            '<div class="tl-subtitle">Timeline cronologica \u00b7 ' + esc(now) + '</div>' +
-            '<div class="tl-count" id="tl-count">' + eventCount + ' date</div>' +
-        '</div>' +
+        _tlTestata(mapName, now, eventCount) +
         '<div class="tl-container" id="tl-container">' + timelineHtml + '</div>' +
-        '<div class="tl-footer">MappAI by insegnai.ch</div>' +
+        _tlPieSchermo(mapName) +
         tlScript +
         '</body></html>';
 

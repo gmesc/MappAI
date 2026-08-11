@@ -1315,6 +1315,51 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
     return lines.length * lineH;
 }
 
+/* ── LA CORNICE CONDIVISA (mappai-doc-head.js, 11/8/26) ──────────────────────
+   Il dossier è entrato nel riordino delle testate per decisione di Giacomo, ed
+   è quello che ci ha guadagnato di più: la sua intestazione era `no-print`,
+   quindi la pagina 1 di un dossier non diceva di quale mappa fosse; e il suo
+   piè, un elemento `position:fixed` nell'area di margine, SALTAVA LA PRIMA
+   PAGINA (riprodotto con Electron su un documento di tre pagine).
+   `pagina: false` perché il @page del dossier è suo — margini 18/15/22 tarati
+   sulle card — e la cornice gli passa solo il piè da incastrarci. */
+/* Il NOME del dossier, dalla convenzione unica (11/8/26). È il `<title>` del
+   documento, ed è ciò che il dialogo di salvataggio propone: se non segue la
+   convenzione, il file finisce nella cartella con un nome che non somiglia a
+   nessuno degli altri. `dettaglio` = il nodo o il ramo, quando il dossier è di
+   uno solo: «Dossier-<Mappa>-<Nodo>». Senza il core (contesti headless) resta
+   una forma coerente scritta a mano. */
+function _dsNomeFile(mappa, dettaglio, isMM) {
+    var PC = (typeof window !== 'undefined') ? window.MappAIPipelineCore : null;
+    /* Il sottotitolo della mappa intera è il GENERE («Mappa Mentale» /
+       «Knowledge Graph»), non un nodo: come dettaglio ripeterebbe una cosa che
+       il nome del file non deve portarsi dietro. */
+    var d = (dettaglio && !/^(mappa mentale|knowledge graph)$/i.test(String(dettaglio))) ? dettaglio : '';
+    if (PC && PC.buildFileName) {
+        return String(PC.buildFileName('dossier', null, false, { mappa: mappa, dettaglio: d }))
+            .replace(/\.pdf$/i, '');           /* il `<title>` non porta l'estensione */
+    }
+    return 'Dossier-' + mappa + (d ? '-' + d : '');
+}
+function _dsDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+function _dsCornice() {
+    const DH = _dsDH();
+    return DH ? DH.stile({ accento: '#4f46e5', pagina: false }) : '';
+}
+function _dsTestata(titolo, sottotitolo, mapName) {
+    const DH = _dsDH();
+    if (!DH) return '';
+    return DH.testata(DH.conContesto({ titolo: titolo, tipo: sottotitolo, mappa: mapName }));
+}
+function _dsPie(mapName, logo) {
+    const DH = _dsDH();
+    return DH ? DH.pieDichiarazioni({ mappa: mapName, logo: logo }) : '';
+}
+function _dsPieSchermo(mapName) {
+    const DH = _dsDH();
+    return DH ? DH.pieSchermo({ mappa: mapName }) : '';
+}
+
 window.printAllNodeDossiers = function () {
     window.openDossierPrintModal();
 };
@@ -1475,7 +1520,13 @@ window.generateDossierPDFFromOptions = async function () {
             return;
         }
 
-        const projectTitle = appState.db.title || "Progetto MappAI";
+        /* 🐛 `appState.db.title` NON ESISTE (11/8/26): il nome della mappa vive
+           in `rootNodeLabel`. Il ripiego scattava sempre, quindi ogni dossier si
+           chiamava «Dossier Progetto MappAI MM» — un nome che non dice né quale
+           mappa né quale documento, e che il dialogo di salvataggio proponeva
+           tale e quale. Stessa catena di ripieghi che questo file usa già alla
+           riga 323 per il foglio dei nodi: quella era giusta, questa no. */
+        const projectTitle = appState.db?.rootNodeLabel || appState.rootNodeLabel || "Progetto MappAI";
 
         // Leggi il fattore di scala dal selettore nel modal
         const fontScaleEl = document.querySelector('input[name="print-font-scale"]:checked');
@@ -1926,18 +1977,25 @@ window.generateDossierPDFFromOptions = async function () {
             || appState.db?.rootLabel
             || 'MappAI'
         );
-        const footerLogoHtml = mappaiIconBase64
-            ? '<img src="' + mappaiIconBase64 + '" alt="MappAI">'
+        /* Il logo per il PIÈ va ridotto: un margin-box rende url() alla taglia
+           INTRINSECA dell'immagine, e il PNG dell'app è 1024×1024 — nella prova
+           copriva mezza pagina e spingeva fuori il numero. 24px, una volta sola
+           (il risultato è in cache nel modulo). */
+        const mappaiIconPie = window.MappAIDocHead
+            ? await window.MappAIDocHead.logoPiccolo(mappaiIconBase64 || 'MappAI_icon.png', 24)
             : '';
-        const footerHtml = '<div class="dossier-footer"><div class="dossier-footer-left">' + footerLogoHtml + '<span>MappAI by insegnai.ch</span></div><div class="dossier-footer-right">' + rootMapName + '</div></div>';
+        /* Il piè STAMPATO è nei margin-box di @page (vedi la nota lì): questo
+           blocco resta per lo SCHERMO, dove i margin-box non esistono. */
+        const footerHtml = _dsPieSchermo(rootMapName);
 
         const dossierHtml = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Dossier ${projectTitle} ${isMM ? 'MM' : 'KG'}</title>
+            <title>${_dsNomeFile(projectTitle, dossierSubtitle, isMM)}</title>
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
+                ${_dsCornice()}
                 :root {
                     /* --- MODIFICHE GLOBALI DI LAYOUT (Variabili CSS) --- */
                     /* Puoi modificare questi valori per cambiare rapidamente l'aspetto di tutto il dossier */
@@ -1967,8 +2025,17 @@ window.generateDossierPDFFromOptions = async function () {
                     /* --- REGOLE DI STAMPA A4 --- */
                     @page {
                         size: A4 portrait;
-                        /* margin-bottom = altezza footer: l'area contenuto finisce esattamente dove inizia il footer */
+                        /* margin-bottom = altezza della banda del piè */
                         margin: 18mm 15mm 22mm 15mm;
+                        /* Il PIÈ vive QUI (11/8/26). Prima era un elemento
+                           position:fixed dentro l'area di margine, e la prova
+                           con Electron su un dossier di tre pagine ha mostrato
+                           che quella tecnica SALTA LA PRIMA PAGINA: il piè si
+                           vedeva dalla seconda in poi. Nei margin-box c'è su
+                           tutte, e in più si può contare le pagine — cosa che un
+                           elemento del documento non sa fare (il contatore fuori
+                           da @page vale 0). */
+${_dsPie(rootMapName, mappaiIconPie)}
                     }
                     body {
                         margin: 0;
@@ -2426,57 +2493,29 @@ window.generateDossierPDFFromOptions = async function () {
                     color: #0f172a;
                 }
 
-                /* ── Footer PDF: fisso in fondo a ogni pagina stampata ─────── */
-                .dossier-footer {
-                    position: fixed;
-                    /* bottom: -22mm sposta il footer nell'area margine (@page margin-bottom: 22mm)
-                       portando il bordo inferiore esattamente al bordo fisico del foglio */
-                    bottom: -22mm;
-                    /* left/right negativi: estende il footer al bordo fisico del foglio
-                       compensando i margini laterali @page di 15mm */
-                    left: -15mm;
-                    right: -15mm;
-                    box-sizing: border-box;
-                    height: 22mm;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-end;
-                    /* padding laterale 15mm = allineato ai margini del contenuto;
-                       padding-bottom 13mm = testi a 13mm dal bordo fisico del foglio */
-                    padding: 0 15mm 13mm;
-                    font-size: 11px;
-                    font-family: 'Space Mono', monospace;
-                    background-color: white;
-                }
-                .dossier-footer-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    color: #a9b2c0ff;
-                }
-                .dossier-footer-left img {
-                    width: 22px;
-                    height: 22px;
-                    object-fit: contain;
-                    opacity: 1;
-                }
-                .dossier-footer-right {
-                    color: #334155;
-                    font-weight: bold;
-                }
+                /* ── Il piè: NON è più qui ──────────────────────────────────
+                   Era un elemento .dossier-footer in position:fixed dentro
+                   l'area di margine di @page. Tecnica ingegnosa e sbagliata: la
+                   prova con Electron su un dossier di tre pagine ha mostrato che
+                   la PRIMA pagina resta senza piè. Ora il piè stampato lo fanno
+                   i margin-box di @page (che ci sono su tutte le pagine e sanno
+                   contarle); a schermo lo disegna .mm-dh-pie della cornice.
+                   (Niente apici inversi: siamo in un template literal.) */
             </style>
         </head>
         <body>
+            <!-- Barra dei comandi (solo schermo): marchio e Stampa. Titolo e
+                 sottotitolo sono usciti da qui e sono passati alla TESTATA qui
+                 sotto, che a differenza di questa barra finisce sulla CARTA —
+                 prima la pagina 1 di un dossier non diceva né di quale mappa
+                 fosse né per quale classe. -->
             <div class="header no-print">
                 <div style="display:flex;align-items:center;gap:14px;">
                     ${mappaiIconBase64 ? '<img src="' + mappaiIconBase64 + '" style="width:48px;height:48px;object-fit:contain;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.15);" alt="MappAI">' : '<span style="font-weight:900;font-size:18px;color:#4F46E5;">MappAI</span>'}
-                    <div>
-                        <h1 class="dossier-main-title" style="margin:0;font-size:1.4rem;">${dossierTitle}</h1>
-                        <p class="dossier-main-subtitle" style="margin:0;color:#64748b;font-size:0.95rem;">${dossierSubtitle}</p>
-                    </div>
                 </div>
                 <button class="btn-print" onclick="window.print()">Stampa Dossier</button>
             </div>
+            ${_dsTestata(dossierTitle, dossierSubtitle, rootMapName)}
             <div class="dossier-container">
                 ${asciiSectionHtml}
                 ${dossierCardsHtml}

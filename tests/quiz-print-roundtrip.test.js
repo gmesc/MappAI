@@ -212,7 +212,15 @@ test('buildFlashcardSetHtml: pagina verticale, griglia senza gutter, margini rid
     assert.ok(/\.fc-front \{[^}]*padding:1\.5mm 4mm 2\.5mm/.test(html));
     assert.ok(/\.fc-back  \{[^}]*padding:1\.3mm 4mm 2\.5mm/.test(html));
     // intestazione e istruzioni restano a schermo: il foglio stampato è solo carte
-    assert.ok(/<div class="no-print">\s*<div class="qp-header">/.test(html));
+    assert.ok(/<div class="no-print">\s*<div class="fc-screen-head">/.test(html));
+    /* Lo CHROME di questo foglio è SUO (scorporato l'11/8/26): il materiale da
+       ritagliare resta com'è mentre le testate degli altri documenti vengono
+       riordinate. Se una regola .qp-* tornasse qui dentro, quel riordino
+       ricomincerebbe a cambiare anche il foglio delle flashcard — che è
+       esattamente ciò che lo scorporo impedisce. */
+    assert.ok(!/class="qp-/.test(html), 'nessun uso di classi .qp-* nel markup');
+    assert.ok(!/\.qp-(header|title|subtitle|badge|footer) *\{/.test(html),
+        'nessuna regola .qp-* inclusa nel foglio flashcard');
     // e il verticale resta a un parametro di distanza
     assert.ok(/@page \{ size: A4 portrait/.test(W.buildFlashcardSetHtml(FC, { sheet: '2x4' })));
 });

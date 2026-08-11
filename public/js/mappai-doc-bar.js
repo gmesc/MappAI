@@ -159,22 +159,169 @@
         } catch (e) { return false; }
     }
 
+    /* Porta un documento di SINTESI già scritto sul disco alla taglia di testo
+       corrente (+60%, 10/8/26). I file salvati prima di quella data portano nel
+       loro `<style>` i corpi vecchi — 11px per il testo — e nessuno li riscrive:
+       aperti nell'anteprima si leggevano piccoli mentre quelli nuovi no, cioè lo
+       stesso documento aveva due taglie a seconda di quando era stato generato.
+       Il foglio si appende in coda al `<head>`, quindi vince per ordine a parità
+       di specificità con le regole originali.
+       ⚠️ È IDEMPOTENTE per costruzione: dichiara gli stessi `calc()` del
+       generatore, e il fattore lo legge da `--ap-txt-k` col valore corrente come
+       ripiego. Su un documento NUOVO — che quella variabile ce l'ha — produce
+       esattamente i valori che ha già; su uno VECCHIO — che non ce l'ha — usa il
+       ripiego e lo porta alla stessa taglia. Un foglio con i pixel finiti avrebbe
+       dovuto essere tenuto allineato al generatore a mano, e sarebbe divergito
+       al primo ritocco.
+       ⚠️ Non tocca la modalità dislessia: quelle scale sono assolute e
+       deliberate, e il documento vecchio le ha già uguali a quelle nuove.
+       Se il documento non è una sintesi (niente `.bs-body`) non fa nulla. */
+    var SCALA_TESTO = [
+        'body{font-size:calc(11px * var(--ap-txt-k,1.6));max-width:72ch}',
+        '.bs-title{font-size:calc(20px * var(--ap-txt-k,1.6))}',
+        '.bs-subtitle{font-size:calc(10px * var(--ap-txt-k,1.6))}',
+        '.bs-body h3{font-size:calc(14px * var(--ap-txt-k,1.6))}',
+        '.bs-body h4{font-size:calc(12px * var(--ap-txt-k,1.6))}',
+        '.bs-body p,.bs-body li{font-size:calc(11px * var(--ap-txt-k,1.6))}',
+        '.bs-citations-title{font-size:calc(9px * var(--ap-txt-k,1.6))}',
+        '.bs-cite-num,.bs-cite-text{font-size:calc(10px * var(--ap-txt-k,1.6))}',
+        '.bs-footer{font-size:calc(9px * var(--ap-txt-k,1.6))}',
+        '.ap-sec{width:calc(20px * var(--ap-txt-k,1.6));height:calc(20px * var(--ap-txt-k,1.6));font-size:calc(11px * var(--ap-txt-k,1.6))}',
+        /* Via anche il fondo crema dei documenti vecchi: dal 10/8 la veste ad
+           alta leggibilità cambia il testo e non il colore della carta. */
+        'body.ap-dys{background:#f8fafc}',
+        'body.ap-dys .bs-body{background:#fff}',
+        /* ⚠️ E IN STAMPA, che è il caso che morde. Il PDF nasce da questo stesso
+           documento: senza queste righe il foglio dei file vecchi usciva col
+           testo piccolo (i loro 11px), e a 1,5× e 2× con OGNI PAGINA campita di
+           crema — "body.ap-dys" porta una classe e batteva il "background:white"
+           del loro blocco di stampa, che è una regola di elemento.
+           Il "max-width" torna libero: in stampa la colonna la decide @page. */
+        '@media print{',
+        /* ⚠️ `padding:0` sul BODY, e non solo sul riquadro: i documenti più
+           vecchi dichiarano `body{padding:10px}` nel loro blocco di stampa —
+           2,65mm che si sommano al margine di @page. Misurato su un file del
+           2A: 22,6mm a sinistra dove ne erano stati chiesti 20. Il riquadro lo
+           azzeravamo già; il body no, ed era l'ultimo residuo. */
+        /* ⚠️ LE DUE FAMIGLIE DI SELETTORI CONVIVONO, e non è provvisorio.
+           Dall'11/8/26 la testata della sintesi è quella condivisa (.mm-dh*),
+           ma i documenti GIÀ SCRITTI nei vault portano ancora .bs-header /
+           .bs-title / .bs-subtitle: quel file sul disco ha il suo CSS dentro e
+           non lo si può riscrivere. Chi apre in anteprima una sintesi di
+           settimana scorsa deve vederla impaginata come una di oggi, quindi qui
+           si nominano ENTRAMBE. Togliere le vecchie vuol dire rompere in
+           silenzio i documenti già consegnati. */
+        '  body,body.ap-dys{background:#fff !important;max-width:none;padding:0}',
+        '  body.ap-dys .bs-body,body.ap-dys .bs-header,body.ap-dys .mm-dh{background:#fff !important}',
+        /* Gli stessi punti e gli stessi margini del generatore (10/8): un
+           documento vecchio stampato dall'anteprima deve dare lo stesso foglio
+           di uno nuovo, o la stessa sintesi esce in due misure a seconda di
+           quando è stata prodotta. Le regole @page si cascadano: dichiarate qui,
+           che è in coda al foglio, vincono su quelle del documento.
+           ⚠️ Se cambiano di là, cambiano qui: sono due copie degli stessi
+           numeri e non c'è modo di legarle — il documento sul disco porta il suo
+           CSS e non può leggere il nostro. */
+        '  @page{size:A4 portrait;margin:20mm 20mm 25mm 20mm}',
+        '  :root{--ap-pt:13pt}',
+        /* i riquadri perdono l'imbottitura, o si somma al margine di @page:
+           misurato 27,5mm dove ne erano stati chiesti 20 */
+        '  .bs-body{padding:0;border-radius:0}',
+        '  .bs-header,.mm-dh{padding:0 0 10px;border-radius:0;margin-bottom:18px}',
+        '  body{font-size:var(--ap-pt)}',
+        '  .bs-body p,.bs-body li{font-size:var(--ap-pt)}',
+        '  .bs-body h3{font-size:calc(var(--ap-pt) * 1.273)}',
+        '  .bs-body h4{font-size:calc(var(--ap-pt) * 1.091)}',
+        '  .bs-title,.mm-dh__t{font-size:calc(var(--ap-pt) * 1.818)}',
+        '  .bs-subtitle,.mm-dh__s,.mm-dh__c,.mm-dh__b{font-size:calc(var(--ap-pt) * 0.909)}',
+        '  .bs-cite-num,.bs-cite-text{font-size:calc(var(--ap-pt) * 0.909)}',
+        '  .bs-citations-title,.bs-footer,.mm-dh-pie{font-size:calc(var(--ap-pt) * 0.818)}',
+        '  body.ap-dys .bs-body p,body.ap-dys .bs-body li{font-size:calc(var(--ap-pt) * 1.364 * var(--ap-scala))}',
+        '  body.ap-dys .bs-body h3{font-size:calc(var(--ap-pt) * 1.727 * var(--ap-scala))}',
+        '  body.ap-dys .bs-body h4{font-size:calc(var(--ap-pt) * 1.364 * var(--ap-scala))}',
+        '}'
+    ].join('\n');
+
+    /* Il documento che porta la voce naturale DENTRO di sé non può cedere la
+       sua barra: il lettore dell'app legge il testo con la voce di sistema e
+       quell'MP3 non sa suonarlo. Ma tenerla intera vuol dire due barre impilate
+       — quella di chi ospita e quella del documento — con «Stampa» scritto due
+       volte. Qui si toglie solo ciò che è DOPPIO: il marchio (il titolo è già
+       nella barra di sopra) e il bottone di stampa (idem). Restano il lettore
+       con la voce vera, «Aa» e «Evidenzia», che di sopra non ci sono.
+       ⚠️ Il selettore del bottone di stampa non può essere la sola classe
+       `.ap-print-btn`: i documenti scritti prima del 10/8 hanno quel bottone con
+       lo stile inline e nessuna classe, e resterebbero col doppione. */
+    function snellisciInIframe(iframe) {
+        var d = _docDi(iframe);
+        if (!d) return false;
+        try {
+            if (d.getElementById('mm-doc-snella')) return true;
+            var st = d.createElement('style');
+            st.id = 'mm-doc-snella';
+            st.textContent = '#ap-doc-brand,.ap-print-btn,'
+                + '.no-print button[onclick*="print"]{display:none !important}';
+            (d.head || d.documentElement).appendChild(st);
+            return true;
+        } catch (e) { return false; }
+    }
+
+    /* Le stesse regole, per chi non ha un iframe ma una STRINGA: il documento
+       che si scarica per consegnarlo. Senza, un file vecchio scaricato dal
+       bottone «HTML» arriverebbe all'allievo con i corpi di prima — cioè
+       l'anteprima nell'app e il file consegnato direbbero due cose diverse. */
+    function scalaTestoInHtml(html) {
+        var s = String(html || '');
+        if (!/bs-body/.test(s) || /id="mm-doc-scala"/.test(s)) return s;
+        var foglio = '<style id="mm-doc-scala">' + SCALA_TESTO + '</style>';
+        /* In coda al "<head>", che è dove vince per ordine sulle regole
+           originali a parità di specificità. Senza "</head>" (documento
+           malformato) si ripiega in fondo: meglio in fondo che non applicato. */
+        return /<\/head>/i.test(s) ? s.replace(/<\/head>/i, foglio + '</head>') : s + foglio;
+    }
+
+    function scalaTesto(iframe) {
+        var d = _docDi(iframe);
+        if (!d) return false;
+        try {
+            if (!d.querySelector('.bs-body')) return false;   // non è una sintesi
+            if (d.getElementById('mm-doc-scala')) return true;
+            var st = d.createElement('style');
+            st.id = 'mm-doc-scala';
+            st.textContent = SCALA_TESTO;
+            (d.head || d.documentElement).appendChild(st);
+            return true;
+        } catch (e) { return false; }
+    }
+
     /* Stampa il documento dentro l'iframe. Sostituisce il
        `iframe.contentWindow.print()` avvolto in un catch muto: con un iframe a
        origine opaca quello lancia SecurityError e il bottone non fa nulla senza
        dirlo. */
-    function stampaIframe(iframe) {
+    function stampaIframe(iframe, titolo) {
         var d = _docDi(iframe);
         if (!d) return false;
         try {
+            /* ⚠️ IL NOME DEL PDF LO DECIDE IL "<title>" del documento stampato,
+               non il file da cui viene: un documento generato si intitola
+               «Sintesi — <ramo>», quindi il salvataggio proponeva quello anche
+               quando il file sul disco si chiamava in un altro modo — ed è il
+               nome che il docente ha scelto. Qui il titolo si presta per il
+               tempo della stampa e si rimette subito com'era: riscriverlo e
+               basta cambierebbe anche ciò che si legge nella scheda del
+               documento, che è un'altra cosa. */
+            var prima = null;
+            if (titolo) { prima = d.title; d.title = String(titolo).replace(/\.[^.]+$/, ''); }
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
+            if (prima !== null) d.title = prima;
             return true;
         } catch (e) { return false; }
     }
 
     return {
         stile: stile, html: html, icona: icona, AZIONI: AZIONI, GLIFI: GLIFI,
-        nascondiInIframe: nascondiInIframe, stampaIframe: stampaIframe
+        nascondiInIframe: nascondiInIframe, stampaIframe: stampaIframe,
+        scalaTesto: scalaTesto, scalaTestoInHtml: scalaTestoInHtml,
+        snellisciInIframe: snellisciInIframe
     };
 }));

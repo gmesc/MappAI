@@ -18,8 +18,22 @@ function escHtmlQP(s) {
 }
 
 // ── CSS comuni quiz e flashcard ──────────────────────────
+//
+// Il blocco è SPEZZATO IN DUE (11/8/26) perché i tre fogli che escono da questo
+// file non appartengono più allo stesso mondo:
+//  · QP_PAGE_STYLES — la pagina (corpo, colori di stampa, no-print). Serve a
+//    tutti e tre.
+//  · QP_HEAD_STYLES — la TESTATA a card (.qp-*). Serve solo a quiz e domande
+//    aperte, che stanno nel riordino delle testate; il foglio FLASHCARD, che è
+//    materiale da ritagliare e resta com'è, ha la sua copia congelata
+//    (`.fc-screen-*`) dentro il proprio builder.
+// Finché era un blocco solo, ritoccare la testata del quiz cambiava anche il
+// foglio da ritagliare: è il motivo per cui le domande aperte hanno dovuto
+// sovrascrivere il colore invece di correggerlo alla fonte.
+// ⚠️ QP_HEAD_STYLES è destinato a MORIRE quando quiz e domande aperte passano
+// alla testata condivisa: da quel momento nessuno lo includerà più.
 
-const QP_BASE_STYLES = `
+const QP_PAGE_STYLES = `
 * { -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important; }
 body {
@@ -31,6 +45,14 @@ body {
     max-width: 800px;
     background: #f8fafc;
 }
+.no-print { display:block; }
+@media print {
+    .no-print { display:none !important; }
+    body { background:white; padding:10px; }
+}
+`;
+
+const QP_HEAD_STYLES = `
 .qp-header {
     text-align: center;
     padding: 28px 16px 20px;
@@ -53,13 +75,56 @@ body {
     font-size:9px; color:#94a3b8;
     border-top:1px solid #f1f5f9; padding-top:12px;
 }
-.no-print { display:block; }
 @media print {
-    .no-print { display:none !important; }
-    body { background:white; padding:10px; }
     .qp-header { box-shadow:none; }
 }
 `;
+
+// Compatibilità: il blocco intero, come era prima dello scorporo. Resta
+// esportato (MappAIQuizPrint.STYLES) ma NON è più incluso in nessun foglio:
+// quiz e domande aperte sono passati alla cornice condivisa.
+const QP_BASE_STYLES = QP_PAGE_STYLES + QP_HEAD_STYLES;
+
+/* La CORNICE condivisa (testata + piè coi numeri di pagina). Il ripiego serve
+   ai consumatori headless che caricano questo file da solo: senza il modulo il
+   foglio esce senza testata, ma esce — un quiz senza intestazione si legge,
+   un'eccezione no. */
+function _DH() {
+    return (typeof window !== 'undefined' && window.MappAIDocHead) ||
+        (typeof MappAIDocHead !== 'undefined' ? MappAIDocHead : null);
+}
+/* opts → dati della testata. Classe e materia dichiarate dal chiamante (la
+   pipeline le sa: `config.className` / `config.disc`) vincono sul contesto
+   attivo; il resto è ciò che i fogli già mostravano. */
+function _qpTestata(o) {
+    const DH = _DH();
+    if (!DH) return '';
+    return DH.testata(DH.conContesto(o));
+}
+/* La data del foglio: GG/MM/AAAA, SENZA ora (decisione di Giacomo, 11/8/26).
+   I nove fogli ne usavano tre formati; `toLocaleString('it-IT')` scriveva
+   «11/8/2026, 09:04» — giorno e mese senza lo zero, una virgola, e un minuto
+   che su un foglio di studio non dice niente a nessuno. Il foglio FLASHCARD
+   resta com'era: è fuori ambito. */
+function _qpData() {
+    const DH = _DH();
+    return DH ? DH.data(new Date()) : new Date().toLocaleDateString('it-IT');
+}
+/* Il piè che si vede a SCHERMO: in stampa il suo mestiere lo fa il margin-box
+   di @page (che a schermo non esiste). */
+function _qpPie(o) {
+    const DH = _DH();
+    return DH ? DH.pieSchermo(o || {}) : '';
+}
+function _qpStileCornice(accento, o) {
+    const DH = _DH();
+    if (!DH) return '';
+    o = o || {};
+    return DH.stile({
+        accento: accento, mappa: o.mappa || '', logo: o.logo || '',
+        pagina: o.pagina
+    });
+}
 
 /* La barra è UNA SOLA per tutti i documenti stampabili: `mappai-doc-bar.js`
    (token `--mm-doc-*`, icone SVG, niente emoji). Qui resta solo l'accento, che
@@ -182,7 +247,7 @@ function _qpPrintItems(set) {
 window.buildQuizSetHtml = function (set, opts) {
     opts = opts || {};
     const mapName = opts.mapName || _qpMapName();
-    const now = opts.now || new Date().toLocaleString('it-IT');
+    const now = opts.now || _qpData();
     const accentColor = '#4f46e5';
     const includeBar = opts.includeBar !== false;
     const includeAnswers = opts.includeAnswers !== false;
@@ -258,7 +323,8 @@ window.buildQuizSetHtml = function (set, opts) {
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
           rel="stylesheet">
     <style>
-        ${QP_BASE_STYLES}
+        ${QP_PAGE_STYLES}
+        ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
         body { font-size: 13px; }
         .quiz-section-title {
             font-size:15px; font-weight:900;
@@ -273,15 +339,11 @@ window.buildQuizSetHtml = function (set, opts) {
 <body>
     ${includeBar ? QP_PRINT_BAR(accentColor, 'Quiz') : ''}
 
-    <div class="qp-header">
-        <div class="qp-title">${escHtmlQP(set.title)}</div>
-        <div class="qp-subtitle">
-            ${escHtmlQP(mapName)} · Quiz · ${now}
-        </div>
-        <div class="qp-badge">
-            ${set.items.length} domande
-        </div>
-    </div>
+    ${_qpTestata({
+        titolo: set.title, tipo: 'Quiz', mappa: mapName,
+        classe: opts.classe, materia: opts.materia, data: now,
+        badge: set.items.length + ' domande'
+    })}
 
     <div class="quiz-section-title">Domande</div>
     ${questionsHtml}
@@ -301,14 +363,156 @@ window.buildQuizSetHtml = function (set, opts) {
         items: set.items
     }).replace(/<\//g, '<\\/')}<\/script>` : ''}
 
-    <div class="qp-footer">
-        MappAI by insegnai.ch ·
-        Generato il ${now}
-    </div>
+    ${_qpPie({ mappa: mapName, data: now })}
 </body>
 </html>`;
 
     return fullHtml;
+};
+
+// ── DOMANDE APERTE (11/8/26) ─────────────────────────────
+// Il genere che gli altri due non coprono: nessuna opzione da scegliere, lo
+// studente SCRIVE — quindi la carta gli deve lasciare le righe per farlo, ed è
+// il pezzo che questo foglio ha in più rispetto al quiz.
+//
+// Tre scelte, e i loro perché:
+//  · le RIGHE sono vere righe (un bordo inferiore per riga), tante quante ne
+//    dichiara la domanda: uno spazio bianco senza righe fa scrivere storto e
+//    non dice quanto ci si aspetta;
+//  · il KICKER dice la MACRO-AREA della domanda (il ramo da cui è stata
+//    generata): su un foglio di 12 domande è ciò che permette allo studente di
+//    ritrovare dove ripassare, ed è l'informazione che il quiz a scelta
+//    multipla si può permettere di non dare perché lì le opzioni orientano;
+//  · la TRACCIA di correzione vive SOLO nel foglio soluzioni, in coda e su
+//    pagina nuova — stessa regola del quiz: la copia degli allievi non deve
+//    portarsela dietro nemmeno nel sorgente HTML.
+//
+// Forma degli item: { question, guide?, lines?, l1? }.
+// opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true) }.
+window.buildOpenQuestionsHtml = function (set, opts) {
+    opts = opts || {};
+    const mapName = opts.mapName || _qpMapName();
+    const now = opts.now || _qpData();
+    const accentColor = '#0f766e';   // teal: si distingue a colpo d'occhio dal quiz (indigo)
+    const includeBar = opts.includeBar !== false;
+    const includeAnswers = opts.includeAnswers !== false;
+    const items = (set && set.items) || [];
+
+    // Le righe su cui scrivere: 3 minimo (una risposta di una frase), 12 massimo
+    // (oltre, la domanda non sta più in una pagina insieme alle altre).
+    const _righe = (n) => {
+        const v = parseInt(n, 10);
+        return Math.max(3, Math.min(12, isNaN(v) ? 4 : v));
+    };
+    const rigaVuota = '<div style="border-bottom:1px solid #cbd5e1; height:26px;"></div>';
+
+    /* Le AREE della domanda: una, o due quando la domanda le collega (11/8).
+       `areas` è la forma nuova; `l1` resta letta per i fogli scritti prima —
+       un documento già sul disco non si riscrive. */
+    const areeDi = (item) => {
+        const a = Array.isArray(item.areas) ? item.areas.filter(Boolean) : [];
+        if (a.length) return a.slice(0, 2);
+        return item.l1 ? [item.l1] : [];
+    };
+
+    let questionsHtml = '';
+    items.forEach((item, idx) => {
+        const aree = areeDi(item);
+        questionsHtml += `
+        <div class="oq-item" style="
+            background:white; border-radius:12px;
+            padding:18px 22px; margin-bottom:16px;
+            border-left:4px solid ${accentColor};
+            page-break-inside:avoid;">
+            <div style="
+                display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+                font-size:11px; font-weight:700;
+                text-transform:uppercase; letter-spacing:0.06em;
+                color:${accentColor}; margin-bottom:8px;">
+                <span style="margin-right:2px">Domanda ${idx + 1}</span>
+                ${aree.map((a, ai) => `${ai ? '<span style="color:#94a3b8">+</span>' : ''}<span style="
+                    font-weight:700; letter-spacing:0.04em;
+                    color:#475569; background:#f1f5f9;
+                    border-radius:999px; padding:2px 9px;
+                    text-transform:none;">${escHtmlQP(a)}</span>`).join('')}
+            </div>
+            <div style="
+                font-size:15px; font-weight:bold;
+                color:#1e293b; margin-bottom:14px;
+                line-height:1.55;">
+                ${escHtmlQP(item.question)}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0;">
+                ${new Array(_righe(item.lines)).fill(rigaVuota).join('')}
+            </div>
+        </div>`;
+    });
+
+    // FOGLIO SOLUZIONI: qui la «traccia» non è la risposta da copiare, è che
+    // cosa deve contenere — quindi va per esteso, in UNA colonna (le due
+    // colonne del quiz reggono una riga di risposta, non un paragrafo).
+    let answerKeyHtml = '';
+    items.forEach((item, idx) => {
+        const g = item.guide || item.answer || '—';
+        answerKeyHtml += `
+        <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
+            <div style="font-weight:900; color:${accentColor}; font-size:12px;">${idx + 1}. ${escHtmlQP(item.question)}</div>
+            <div style="color:#1e293b; font-size:13px; margin-top:3px;">${escHtmlQP(g)}</div>
+        </div>`;
+    });
+
+    return `<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Domande aperte — ${escHtmlQP(set.title)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
+          rel="stylesheet">
+    <style>
+        ${QP_PAGE_STYLES}
+        ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
+        body { font-size: 13px; }
+        /* Il badge di QUESTO foglio è teal come il resto. La testata prende
+           l'accento da sola (è un parametro della cornice): la deroga che c'era
+           qui — «gli stili condivisi fissano la testata in indigo, si allinea
+           SOLO questo foglio perché toccare il blocco comune cambierebbe due
+           documenti in produzione» — non serve più, ed era il sintomo del
+           problema che la cornice condivisa risolve. */
+        .mm-dh__b { background:#ccfbf1; color:${accentColor}; }
+        .oq-section-title {
+            font-size:15px; font-weight:900;
+            color:${accentColor}; margin:20px 0 14px;
+            padding-bottom:5px;
+            border-bottom:2px solid #e2e8f0;
+            page-break-after:avoid;
+        }
+    </style>
+</head>
+<body>
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Domande aperte') : ''}
+
+    ${_qpTestata({
+        titolo: set.title, tipo: 'Domande aperte', mappa: mapName,
+        classe: opts.classe, materia: opts.materia, data: now,
+        badge: items.length + ' domande'
+    })}
+
+    <div class="oq-section-title">Domande</div>
+    ${questionsHtml}
+
+    ${includeAnswers ? `<div class="answer-key" style="page-break-before:always;">
+        <div class="oq-section-title">Tracce di correzione</div>
+        ${answerKeyHtml}
+    </div>` : ''}
+
+    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify({
+        id: set.id || '', title: set.title || '', type: set.type || 'Domande aperte', mode: 'open',
+        items: items
+    }).replace(/<\//g, '<\\/')}<\/script>` : ''}
+
+    ${_qpPie({ mappa: mapName, data: now })}
+</body>
+</html>`;
 };
 
 // Consumer: risolve il set e apre la finestra di stampa.
@@ -428,7 +632,31 @@ window.buildFlashcardSetHtml = function (set, opts) {
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
           rel="stylesheet">
     <style>
-        ${QP_BASE_STYLES}
+        ${QP_PAGE_STYLES}
+        /* ── CHROME DI SCHERMO DEL FOGLIO FLASHCARD (scorporato l'11/8/26) ──
+           Testata, badge e piè di questo foglio vivono SOLO a schermo (stanno
+           dentro no-print): il foglio che esce in stampa è la sola griglia di
+           carte, come il foglio dei nodi. Le regole qui sotto sono una copia
+           CONGELATA di quelle .qp-* che erano in QP_BASE_STYLES.
+
+           ⚠️ Perché scorporate: il materiale da RITAGLIARE (flashcard, foglio
+           dei nodi) resta com'è per decisione di Giacomo, fuori dal riordino
+           delle testate. Finché condivideva .qp-header con quiz e domande
+           aperte, ogni ritocco alla testata di quei due cambiava anche questo
+           foglio — è già successo alle domande aperte, che hanno dovuto
+           sovrascrivere il colore invece di correggere il blocco comune (vedi
+           il commento in buildOpenQuestionsHtml). Ora i due mondi non si
+           toccano più.
+           (Niente apici inversi in questo commento: sta dentro un template
+           literal e uno solo chiuderebbe la stringa. Sesta volta.) */
+        .fc-screen-head { text-align:center; padding:28px 16px 20px; background:white;
+                    border-radius:16px; margin-bottom:28px; border-bottom:2px solid ${accentColor}; }
+        .fc-screen-title { font-size:20px; font-weight:900; color:#1e293b; }
+        .fc-screen-sub { font-size:10px; color:#64748b; margin-top:4px; }
+        .fc-screen-badge { display:inline-block; margin-top:8px; background:#dcfce7; color:${accentColor};
+                    border-radius:999px; padding:2px 12px; font-size:10px; font-weight:bold; }
+        .fc-screen-foot { text-align:center; margin-top:32px; font-size:9px; color:#94a3b8;
+                    border-top:1px solid #f1f5f9; padding-top:12px; }
         /* Pagina: stesse misure del foglio dei nodi (A4, margini 15/10 mm). */
         @page { size: A4 ${G.landscape ? 'landscape' : 'portrait'}; margin: ${G.marginY}mm ${G.marginX}mm; }
         body { max-width:none; margin:0; padding:0; background:#eef2f7; }
@@ -480,7 +708,7 @@ window.buildFlashcardSetHtml = function (set, opts) {
                         padding:${G.marginY}mm ${G.marginX}mm;
                         background:#fff; box-shadow:0 2px 18px rgba(15,23,42,.14); margin:16px auto 32px; }
             .fc-sheet .fc-grid { margin:0 auto; }
-            .qp-header, .fc-instructions { margin-left:auto; margin-right:auto; max-width:${G.pageW}mm; }
+            .fc-screen-head, .fc-instructions { margin-left:auto; margin-right:auto; max-width:${G.pageW}mm; }
         }
         @media print {
             body { background:#fff; padding:0; }
@@ -494,12 +722,12 @@ window.buildFlashcardSetHtml = function (set, opts) {
     <!-- Intestazione e istruzioni: SOLO a schermo. Il foglio che esce in stampa
          è la sola griglia di carte, come il foglio dei nodi. -->
     <div class="no-print">
-        <div class="qp-header">
-            <div class="qp-title">${escHtmlQP(set.title)}</div>
-            <div class="qp-subtitle">
+        <div class="fc-screen-head">
+            <div class="fc-screen-title">${escHtmlQP(set.title)}</div>
+            <div class="fc-screen-sub">
                 ${escHtmlQP(mapName)} · Flashcard · ${now}
             </div>
-            <div class="qp-badge" style="background:#dcfce7;color:#059669;">
+            <div class="fc-screen-badge">
                 ${set.items.length} carte · ${G.cols}×${G.rows} ${G.landscape ? 'orizzontale' : 'verticale'}
             </div>
         </div>
@@ -513,7 +741,7 @@ window.buildFlashcardSetHtml = function (set, opts) {
         </div>
     </div>
 
-    <div class="qp-footer no-print">MappAI by insegnai.ch · ${now}</div>
+    <div class="fc-screen-foot no-print">MappAI by insegnai.ch · ${now}</div>
 
     <div class="fc-sheet">
         <div class="fc-grid">
@@ -592,6 +820,7 @@ window.MappAIQuizPrint = {
     },
     buildQuizSetHtml: function (set, opts) { return window.buildQuizSetHtml(set, opts); },
     buildFlashcardSetHtml: function (set, opts) { return window.buildFlashcardSetHtml(set, opts); },
+    buildOpenQuestionsHtml: function (set, opts) { return window.buildOpenQuestionsHtml(set, opts); },
     mapName: _qpMapName
 };
 

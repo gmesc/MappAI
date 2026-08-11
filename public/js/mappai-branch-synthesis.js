@@ -39,6 +39,41 @@
         return window.currentLanguage === 'en' || window.currentLanguage === 'en-US';
     }
 
+    /* ── LA CORNICE CONDIVISA (mappai-doc-head.js, 11/8/26) ──────────────────
+       La sintesi prende dalla cornice il MARKUP della testata (e con esso i chip
+       classe e materia, che prima nessun foglio stampato portava) e le
+       dichiarazioni del PIÈ, che si incastrano nel suo @page.
+       ⚠️ NON prende le regole di taglia: questo documento ha due scale sue —
+       `--ap-txt-k` a schermo (le leve di leggibilità) e `--ap-pt` in stampa (i
+       corpi in PUNTI, decisi da Giacomo il 10/8) — e le regole `.mm-dh__*`
+       fissano dei px. Le tre righe qui sotto ridichiarano titolo e sottotitolo
+       nelle DUE scale, come faceva `.bs-title`: senza, ingrandire il testo non
+       ingrandirebbe più la testata. */
+    function _DH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+    function _bsTestata(data, kindLabel, now) {
+        const DH = _DH();
+        if (!DH) {
+            // ripiego: la testata di prima, così un documento esce comunque
+            return '<div class="mm-dh"><div class="mm-dh__t">' + _escBS(data.branchLabel) +
+                '</div><div class="mm-dh__s">' + _escBS(data.mapName) + ' · ' +
+                _escBS(kindLabel) + ' · ' + _escBS(now) + '</div></div>';
+        }
+        return DH.testata(DH.conContesto({
+            titolo: data.branchLabel, tipo: kindLabel, mappa: data.mapName,
+            classe: data.classe, materia: data.materia, data: now
+        }));
+    }
+    function _bsStileTestata(accento) {
+        const DH = _DH();
+        // `pagina:false`: il @page di questo documento è suo, e vive nel blocco
+        // @media print più sotto insieme a tutta la taratura della stampa.
+        return DH ? DH.stile({ accento: accento, pagina: false }) : '';
+    }
+    function _bsPie(mappa) {
+        const DH = _DH();
+        return DH ? DH.pieDichiarazioni({ mappa: mappa }) : '';
+    }
+
     // Percorso RELATIVO → stringa utilizzabile in un attributo `src`. I nomi dei
     // file del vault portano spazi, parentesi e accenti: senza codifica il
     // riferimento si rompe in silenzio (un `#` nel nome tronca l'URL, e da lì in
@@ -624,7 +659,9 @@
             ? '<script id="ap-cues" type="application/json">' + JSON.stringify(opts.cues) + '<\/script>'
             : '';
 
-        const now = new Date().toLocaleString('it-IT');
+    /* Data del documento: GG/MM/AAAA senza ora — la scrive la cornice
+       (mappai-doc-head.js), una regola per tutti i fogli. */
+        const now = _DH() ? _DH().data(new Date()) : new Date().toLocaleDateString('it-IT');
         const accentColor = '#4f46e5';
         // `editedBlocks` = testo rivisto dal docente nell'editor documenti (ELABORA).
         // Sono gli STESSI tag di blocco (h3/h4/p/li) prodotti da _mdToHtml: il lettore
@@ -666,6 +703,18 @@
             window.t('bs_doc_hl_on', 'Evidenzia: sì')
         ];
         const hlTip = window.t('bs_doc_hl_tip', 'Accende o spegne l\'evidenziazione della frase che si sta ascoltando — e con essa lo scorrimento che la segue');
+        /* Riga di lettura: un ciclo, come «Aa». L'altezza si sceglie passando da
+           uno stato al successivo invece che con un cursore — un cursore in una
+           testata che deve reggere anche un telefono sarebbe il pezzo più
+           difficile da usare proprio per chi la riga di lettura la accende. */
+        const rigaLabels = [
+            window.t('bs_doc_riga_off', 'Riga: no'),
+            window.t('bs_doc_riga_1', 'Riga: stretta'),
+            window.t('bs_doc_riga_2', 'Riga: media'),
+            window.t('bs_doc_riga_3', 'Riga: larga')
+        ];
+        const rigaTip = window.t('bs_doc_riga_tip', 'Oscura la pagina tranne una finestra che segue il puntatore, per non perdere il rigo: un clic per stringerla o allargarla, l\'ultimo la spegne');
+        const rigaLabelsJson = JSON.stringify(rigaLabels).replace(/</g, '\\u003c');
         // Le etichette finiscono dentro uno <script> del documento: un `<` letterale
         // chiuderebbe il tag e la pagina si aprirebbe muta, senza errori in console.
         const dysLabelsJson = JSON.stringify(dysLabels).replace(/</g, '\\u003c');
@@ -675,40 +724,74 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <!-- Senza questa riga un tablet dichiara una finestra finta di 980px e poi
+         RIMPICCIOLISCE tutta la pagina per farcela stare: il testo arriva a metà
+         della sua dimensione proprio sul dispositivo di chi ha bisogno che sia
+         grande. Con essa la pagina si REIMPAGINA sulla larghezza vera. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sintesi — ${_escBS(data.branchLabel)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
     <style>
+        /* Le due leve della taglia del testo. Sono FATTORI e non valori finiti,
+           così ogni regola qui sotto continua a dichiarare la sua misura di
+           partenza — calc(11px * var(--ap-txt-k)) dice «gli 11 di sempre,
+           scalati»: un 17.6px scritto a mano non direbbe da dove viene, e al
+           prossimo ritocco ci sarebbero due numeri da tenere allineati.
+           ⚠️ Nessun apice inverso in questi commenti: sono dentro un template
+           literal e lo chiuderebbero, facendo morire il file al parse.
+           Sono DUE perché sono due decisioni separate — la testata e il corpo
+           possono divergere — e oggi valgono entrambe 1.6 (+60%, 10/8/26). */
+        :root { --ap-txt-k: 1.6; --ap-ui-k: 1.6; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        body { font-family:'Space Mono', monospace; font-size:11px; color:#1e293b; margin:0 auto; padding:24px 32px; max-width:800px; background:#f8fafc; }
-        .bs-header { text-align:center; padding:28px 16px 20px; background:white; border-radius:16px; margin-bottom:28px; border-bottom:2px solid ${accentColor}; }
-        .bs-title { font-size:20px; font-weight:900; color:#1e293b; }
-        .bs-subtitle { font-size:10px; color:#64748b; margin-top:4px; }
+        /* La colonna si misura in CARATTERI, non in pixel: 72ch resta la misura
+           tipografica giusta (45-75 caratteri per riga) qualunque taglia prenda
+           il testo. Coi vecchi 800px fissi, ingrandendo del 60% la riga sarebbe
+           passata da 111 a 70 caratteri per caso, non per scelta.
+           ⚠️ "ch" si risolve nel font dell'elemento che lo SCRIVE: qui il body,
+           che è Space Mono — la stessa unità sui comandi misurerebbe altro. */
+        body { font-family:'Space Mono', monospace; font-size:calc(11px * var(--ap-txt-k)); color:#1e293b; margin:0 auto; padding:24px 32px; max-width:72ch; background:#f8fafc; }
+        /* Su un telefono i 32px di fianco valgono il 16% della larghezza: si
+           restringono, o la colonna scende sotto i 35 caratteri per riga. */
+        @media (max-width: 640px) { body { padding:16px 14px; } }
+        ${_bsStileTestata(accentColor)}
+        /* Le DUE righe che la cornice non può dare: qui titolo e sottotitolo
+           seguono la leva di leggibilità dello schermo (--ap-txt-k), come
+           facevano .bs-title e .bs-subtitle. La cornice fissa dei px perché gli
+           altri otto documenti una leva non ce l'hanno. */
+        .mm-dh__t { font-size:calc(20px * var(--ap-txt-k)); }
+        .mm-dh__s { font-size:calc(10px * var(--ap-txt-k)); }
+        .mm-dh__c, .mm-dh__b { font-size:calc(10px * var(--ap-txt-k)); }
         .bs-body { background:white; border-radius:16px; padding:24px 28px; }
-        .bs-body h3 { font-size:14px; font-weight:900; color:${accentColor}; margin:18px 0 8px; }
-        .bs-body h4 { font-size:12px; font-weight:700; color:#1e293b; margin:14px 0 6px; }
-        .bs-body p { font-size:11px; line-height:1.7; color:#334155; margin:0 0 10px; }
+        .bs-body h3 { font-size:calc(14px * var(--ap-txt-k)); font-weight:900; color:${accentColor}; margin:18px 0 8px; }
+        .bs-body h4 { font-size:calc(12px * var(--ap-txt-k)); font-weight:700; color:#1e293b; margin:14px 0 6px; }
+        .bs-body p { font-size:calc(11px * var(--ap-txt-k)); line-height:1.7; color:#334155; margin:0 0 10px; }
         .bs-body ul { margin:0 0 10px 18px; padding:0; }
-        .bs-body li { font-size:11px; line-height:1.7; color:#334155; margin-bottom:4px; }
+        .bs-body li { font-size:calc(11px * var(--ap-txt-k)); line-height:1.7; color:#334155; margin-bottom:4px; }
         .bs-body sup { color:${accentColor}; font-weight:bold; }
         .bs-citations { margin-top:20px; padding-top:14px; border-top:1px solid #e2e8f0; }
-        .bs-citations-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; margin-bottom:10px; }
+        .bs-citations-title { font-size:calc(9px * var(--ap-txt-k)); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; margin-bottom:10px; }
         .bs-cite-row { display:flex; gap:8px; padding:6px 0; border-bottom:1px solid #f1f5f9; }
-        .bs-cite-num { font-size:10px; font-weight:bold; color:${accentColor}; flex-shrink:0; }
-        .bs-cite-text { font-size:10px; color:#64748b; line-height:1.6; }
+        .bs-cite-num { font-size:calc(10px * var(--ap-txt-k)); font-weight:bold; color:${accentColor}; flex-shrink:0; }
+        .bs-cite-text { font-size:calc(10px * var(--ap-txt-k)); color:#64748b; line-height:1.6; }
         .bs-cite-text strong { color:#475569; }
-        .bs-footer { text-align:center; margin-top:24px; font-size:9px; color:#94a3b8; }
-        /* Lettore audio autonomo (TTS del browser) — accessibilità BES/DSA */
+        .bs-footer { text-align:center; margin-top:24px; font-size:calc(9px * var(--ap-txt-k)); color:#94a3b8; }
+        /* Lettore audio autonomo (TTS del browser) — accessibilità BES/DSA.
+           Tutta la testata cresce con "--ap-ui-k", GEOMETRIA COMPRESA: scalare
+           i soli corpi lascerebbe un testo da 19px dentro una pillola alta 34,
+           cioè un chip che trabocca. */
         #ap-bar { display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0; margin:0 16px; }
-        .ap-chip { display:inline-flex; height:34px; border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
-        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:40px; padding:0 11px; border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 12px 'Space Mono',monospace; border-left:1px solid #eef2ff; }
+        .ap-chip { display:inline-flex; height:calc(34px * var(--ap-ui-k)); border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
+        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:calc(40px * var(--ap-ui-k)); padding:0 calc(11px * var(--ap-ui-k)); border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 calc(12px * var(--ap-ui-k))/1 'Space Mono',monospace; border-left:1px solid #eef2ff; }
         .ap-seg:first-child { border-left:0; }
         .ap-seg:hover { background:#eef2ff; }
         .ap-play.on { background:${accentColor}; color:#fff; }
-        .ap-prog { position:relative; flex:1 1 120px; min-width:70px; height:7px; border-radius:9999px; background:#e2e8f0; cursor:pointer; touch-action:none; }
+        .ap-prog { position:relative; flex:1 1 120px; min-width:70px; height:calc(7px * var(--ap-ui-k)); border-radius:9999px; background:#e2e8f0; cursor:pointer; touch-action:none; }
         .ap-fill { position:absolute; left:0; top:0; height:100%; width:0; border-radius:9999px; background:${accentColor}; pointer-events:none; }
-        .ap-thumb { position:absolute; top:50%; left:0; width:13px; height:13px; border-radius:50%; background:${accentColor}; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(15,23,42,.35); pointer-events:none; }
-        .ap-time { font:700 11px 'Space Mono',monospace; color:#64748b; min-width:32px; text-align:right; }
-        .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 11px 'Space Mono',monospace; line-height:1; }
+        .ap-thumb { position:absolute; top:50%; left:0; width:calc(13px * var(--ap-ui-k)); height:calc(13px * var(--ap-ui-k)); border-radius:50%; background:${accentColor}; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(15,23,42,.35); pointer-events:none; }
+        .ap-time { font:700 calc(11px * var(--ap-ui-k))/1 'Space Mono',monospace; color:#64748b; min-width:calc(32px * var(--ap-ui-k)); text-align:right; }
+        /* Il ▶ «ascolta da qui» vive DENTRO il testo, non nella testata: segue la
+           taglia del corpo, o resterebbe un bottone piccolo in mezzo a righe grandi. */
+        .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:calc(20px * var(--ap-txt-k)); height:calc(20px * var(--ap-txt-k)); margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 calc(11px * var(--ap-txt-k))/1 'Space Mono',monospace; }
         .bs-body-block { background:rgba(253,230,138,.35); border-radius:5px; box-shadow:0 0 0 3px rgba(253,230,138,.35); }
         ::highlight(ap-read) { background-color:#fde68a; color:#0f172a; }
         /* Modalità dislessia (attivabile nel documento). Il comando Aa è un ciclo
@@ -718,10 +801,17 @@
            una terza convenzione qui vorrebbe dire due tarature da tenere allineate.
            Il fattore vive in --ap-scala, così un numero solo governa tutti i corpi
            invece di doverli riscrivere uno per uno. */
-        body.ap-dys { --ap-scala:1; background:#f6efdd; }
+        /* ⚠️ NIENTE FONDO CREMA (decisione di Giacomo, 10/8/26). La veste ad alta
+           leggibilità cambiava anche il colore della carta — pagina #f6efdd e
+           riquadro #fffdf6 — per attenuare l'abbagliamento. Ora resta ciò che
+           riguarda il TESTO (carattere, corpo, interlinea, spaziatura fra le
+           lettere e fra le parole): il fondo non cambia mai, né a schermo né in
+           stampa. Con esso è caduta anche la regola che lo azzerava per la
+           stampa, che senza il crema non aveva più niente da azzerare. */
+        body.ap-dys { --ap-scala:1; }
         body.ap-dys.ap-x15 { --ap-scala:1.5; }
         body.ap-dys.ap-x2 { --ap-scala:2; }
-        body.ap-dys .bs-body { background:#fffdf6; max-width:none; }
+        body.ap-dys .bs-body { max-width:none; }
         body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-family:Verdana,'Trebuchet MS',sans-serif; font-size:calc(15px * var(--ap-scala)); line-height:2.05; letter-spacing:.03em; word-spacing:.14em; color:#33312e; text-align:left; margin-bottom:calc(14px * var(--ap-scala)); }
         body.ap-dys .bs-body h3 { font-family:Verdana,sans-serif; font-size:calc(19px * var(--ap-scala)); }
         body.ap-dys .bs-body h4 { font-family:Verdana,sans-serif; font-size:calc(15px * var(--ap-scala)); }
@@ -734,22 +824,105 @@
            classe .on la metteva il JS e il fondo restava bianco. Misurato:
            #ap-dys-btn.on → rgb(255,255,255). Spostandolo in una classe, la
            regola con l'id vince per cascata, senza !important. */
-        .ap-hdr-btn { background:#fff; color:${accentColor}; border:1px solid #e2e8f0; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:11px; font-weight:bold; }
+        /* RIGA DI LETTURA — lo stesso strumento compensativo dell'app
+           (#reading-ruler, public/css/style.css:940): un velo scuro su tutta la
+           pagina con una finestra trasparente che segue il puntatore, così
+           l'occhio non perde il rigo. Qui vive DENTRO il documento e non
+           nell'app, perché il caso che conta è lo studente che apre il file da
+           solo — dove l'app non c'è.
+           ⚠️ L'altezza è in EM del corpo del testo, non in pixel: con «Aa» a 2×
+           le righe sono alte il doppio, e una finestra fissa in pixel ne
+           inquadrerebbe metà. Così la finestra contiene sempre lo stesso NUMERO
+           di righe, che è ciò che serve a chi legge.
+           "pointer-events:none" perché il velo non deve intercettare i clic:
+           sotto ci sono i comandi «ascolta da qui». */
+        #ap-riga { display:none; position:fixed; inset:0; pointer-events:none; z-index:99999;
+            --ap-riga-y:50vh; --ap-riga-h:2.5em; font-size:calc(11px * var(--ap-txt-k)); line-height:1.7;
+            background:linear-gradient(
+                rgba(0,0,0,.85) 0%, rgba(0,0,0,.85) calc(var(--ap-riga-y) - var(--ap-riga-h)),
+                transparent        calc(var(--ap-riga-y) - var(--ap-riga-h)),
+                transparent        calc(var(--ap-riga-y) + var(--ap-riga-h)),
+                rgba(0,0,0,.85)    calc(var(--ap-riga-y) + var(--ap-riga-h)), rgba(0,0,0,.85) 100%); }
+        #ap-riga.on { display:block; }
+        /* Col velo acceso la testata resta LEGGIBILE e cliccabile: è da lì che
+           si spegne, e un comando sepolto sotto il velo sarebbe una trappola. */
+        body.ap-riga-on #ap-topbar { z-index:100000; }
+        .ap-hdr-btn { background:#fff; color:${accentColor}; border:1px solid #e2e8f0; border-radius:8px; padding:calc(6px * var(--ap-ui-k)) calc(12px * var(--ap-ui-k)); cursor:pointer; font-size:calc(11px * var(--ap-ui-k)); font-weight:bold; }
         /* Stato acceso: una regola sola per i due, o il secondo comando direbbe
            «acceso» in un modo diverso dal primo. */
         #ap-dys-btn.on, #ap-hl-btn.on { background:${accentColor}; color:#fff; border-color:${accentColor}; }
+        /* «Stampa / PDF»: aveva TUTTO il suo stile in un attributo style=, quindi
+           era l'unico comando che nessuna regola poteva più governare — né il
+           carattere né la taglia. Ora è una classe come gli altri due. */
+        .ap-print-btn { background:${accentColor}; color:#fff; border:none; border-radius:8px; padding:calc(6px * var(--ap-ui-k)) calc(16px * var(--ap-ui-k)); cursor:pointer; font-size:calc(11px * var(--ap-ui-k)); font-weight:bold; }
+        /* ⚠️ IL CARATTERE DELLA TESTATA. Un <button> NON eredita il font dal suo
+           contenitore: senza dichiararlo prende quello di sistema. La testata
+           mostrava quindi tre caratteri diversi — il marchio in "monospace"
+           generico (dichiarato in uno style= inline sul contenitore), i tre
+           bottoni nel font di sistema, e le sole pillole del lettore in Space
+           Mono, che è l'unica che se lo dichiarava. Una riga sola, su tutto ciò
+           che la testata contiene. */
+        #ap-topbar, #ap-topbar button, #ap-topbar input, #ap-topbar select { font-family:'Space Mono', monospace; }
+        /* La testata è fissata in cima e non occupa spazio nel flusso: sotto le
+           serve un distanziatore, o il primo riquadro le finisce dietro. La sua
+           altezza NON è un numero scritto a mano (cambiava con la taglia del
+           testo e restava indietro): il valore qui è solo il ripiego con cui la
+           pagina nasce, e allo "load" lo script lo sostituisce con l'altezza
+           MISURATA, riaggiornandola a ogni cambio di larghezza. */
+        /* ⚠️ La regola porta l'ID e non la classe, e non è pignoleria: la testata
+           è anche .no-print, e ".no-print { display:block }" qui sotto ha la
+           STESSA specificità di una classe — essendo scritta dopo vinceva, la
+           testata tornava un blocco e i suoi tre pezzi si impilavano su tre
+           righe alte 153px invece di 76 (misurato). Un id batte una classe per
+           costruzione, quindi la regola non si rompe se il foglio si riordina. */
+        #ap-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:calc(12px * var(--ap-ui-k)); gap:10px; }
+        #ap-spacer { height:var(--ap-hdr-h, calc(52px * var(--ap-ui-k))); }
+        /* I tre comandi. Lo stile stava in un attributo style= col suo
+           "flex:0 0 auto": il contenitore non si stringeva mai, quindi il wrap
+           dichiarato più sotto non poteva scattare — i bottoni restavano in fila
+           e uscivano dallo schermo. Uno stile inline batte qualunque regola del
+           foglio che non porti !important: va tolto, non aggirato. */
+        .ap-cmd { display:flex; gap:8px; flex:0 0 auto; }
         .no-print { display:block; }
-        /* La testata regge un comando in più solo se qualcosa cede sotto una
-           certa larghezza: a 768px il terzo bottone spingeva barra di
-           avanzamento e tempo FUORI da #ap-bar, sotto i bottoni (misurato:
-           #ap-bar 213..414, .ap-time 469..501). Cede per ORDINE DI IMPORTANZA —
-           prima il marchio (il titolo è ripetuto due centimetri più sotto),
-           poi la barra e il tempo. I comandi non cedono mai: chip, Aa,
-           Evidenzia e Stampa sono ciò per cui il documento è stato consegnato.
-           Le due soglie sono le larghezze MISURATE dei pezzi, non numeri tondi:
-           senza marchio la testata chiede 682px, con marchio 855. */
-        @media (max-width: 880px) { #ap-doc-brand { display:none; } }
-        @media (max-width: 700px) { .ap-prog, .ap-time { display:none; } }
+        /* ORDINE DI CEDIMENTO DELLA TESTATA — soglie RIMISURATE dopo l'aumento
+           del 60% (10/8/26), perché le vecchie (880 e 700) erano tarate sui
+           corpi piccoli e col testo grande il bottone «Stampa / PDF» finiva
+           FUORI dallo schermo: 41px oltre il bordo a 900px, 259px a 390px.
+           ⚠️ Non si vedeva controllando lo sbordo della pagina: la testata è
+           "position:fixed" e ciò che le trabocca non entra nello scrollWidth del
+           documento. Il traboccamento va cercato DENTRO di lei.
+           ⚠️ RIMISURATE UNA SECONDA VOLTA dopo l'aggiunta del comando «Riga»:
+           un bottone in più sposta tutte e due le soglie, e con quelle vecchie
+           «Stampa / PDF» tornava fuori dallo schermo a 1024, 941 e 661px. Chi
+           aggiunge un comando alla testata deve rifare questa misura — non c'è
+           modo di dedurla, perché dipende dalla lunghezza delle etichette.
+           Le larghezze necessarie, misurate una per una:
+             · con tutto ................ 1060px  (erano 926 con tre comandi)
+             · senza il marchio .........  768px  (erano 634)
+             · togliendo anche barra e tempo ... 634px — cioè NIENTE:
+               la barra di avanzamento ha "flex:1 1 120px" e si comprimeva già
+               da sola, quindi quella seconda soglia non guadagnava un pixel.
+               Era una regola che sembrava governare qualcosa e non governava.
+           Quindi si cede in due tempi, e nessun comando sparisce mai — chip, Aa,
+           Evidenzia e Stampa sono ciò per cui il documento è stato consegnato:
+             1. sotto 1080 va via il MARCHIO (il titolo è ripetuto due
+                centimetri più sotto, nella testata del documento);
+             2. sotto 790 la testata VA A CAPO. I comandi salgono, il lettore
+                scende a tutta larghezza. La barra diventa più alta, e il
+                distanziatore la segue perché è misurato e non scritto a mano. */
+        @media (max-width: 1080px) { #ap-doc-brand { display:none; } }
+        @media (max-width: 790px) {
+            #ap-topbar { flex-wrap:wrap; row-gap:8px; }
+            #ap-bar { order:3; flex:1 0 100%; margin:0; }
+            .ap-cmd { flex:1 1 auto; flex-wrap:wrap; justify-content:flex-end; }
+        }
+        /* Ultimo gradino, per il telefono. Sulla riga singola nascondere la barra
+           di avanzamento non guadagnava niente (si comprimeva da sola); sulla
+           riga tutta sua invece sì, perché lì pretende i suoi 70px di minimo e
+           insieme al chip supera la larghezza di uno schermo stretto. Restano il
+           chip — cioè play, indietro, avanti, velocità — e il tempo trascorso:
+           si ascolta e si sa a che punto si è, non si trascina. */
+        @media (max-width: 460px) { .ap-prog { display:none; } }
         @media print {
             /* Margini di pagina: stessa convenzione del dossier
                (mappai-print-dossier.js:1960) — 18mm sopra, 15 ai lati, 22 sotto.
@@ -758,12 +931,68 @@
                ogni pagina. Il PDF nasce da window.print(), quindi chi sceglie
                «margini minimi» nella finestra di stampa può ancora scavalcarlo —
                qui l'app dichiara i SUOI margini, come fanno dossier e flashcard. */
-            @page { size: A4 portrait; margin: 18mm 15mm 22mm 15mm; }
+            /* Il PIÈ (marchio a sinistra, «pagina X di Y» a destra) vive nei
+               margin-box di questo @page: è l'unico posto da cui un contatore di
+               pagine si può scrivere — counter(page) in un elemento del
+               documento vale 0 (misurato). Il margine sotto è già 25mm e la
+               banda del piè ci sta.
+               (Niente apici inversi qui dentro: siamo in un template literal.) */
+            @page { size: A4 portrait; margin: 20mm 20mm 25mm 20mm;
+${_bsPie(data.mapName)}
+            }
+            /* ⚠️ IN STAMPA I CORPI SI DICHIARANO IN PUNTI (Giacomo, 10/8/26).
+               A schermo il testo vive in px scalati da --ap-txt-k, e finiva sulla
+               carta per conversione: 11px × 1,6 = 17,6px = 13,2pt — vicino ai 13
+               chiesti, ma per caso, e destinato a spostarsi al primo ritocco
+               della leva dello schermo. Sulla carta il punto è l'unità: 13pt
+               vogliono dire 13pt su qualunque schermo li abbia composti.
+               Un token solo governa tutta la scala; i moltiplicatori sono i
+               rapporti storici fra i corpi (14/11 per h3, 12/11 per h4, 20/11
+               per il titolo…), quindi le proporzioni restano quelle di prima. */
+            :root { --ap-pt: 13pt; }
+            /* ⚠️ I RIQUADRI PERDONO IL LORO IMBOTTITURA IN STAMPA, o i margini
+               chiesti non sono quelli che si misurano sul foglio. Il margine di
+               @page stacca il RIQUADRO dal bordo; dentro, ".bs-body" aggiungeva
+               24px sopra e 28px ai lati — 6,3 e 7,4 mm — che si sommano.
+               Misurato sul PDF prima della correzione: 27,5mm a sinistra e
+               28,4 a destra dove ne erano stati chiesti 20. A schermo quel
+               respiro serve (il riquadro è una scheda bianca sullo sfondo); sulla
+               carta il riquadro non si vede, e la sua imbottitura è solo margine
+               che nessuno ha chiesto. */
+            .bs-body { padding: 0; border-radius: 0; }
+            .mm-dh { padding: 0 0 10px; border-radius: 0; margin-bottom: 18px; }
+            body { font-size: var(--ap-pt); }
+            .bs-body p, .bs-body li { font-size: var(--ap-pt); }
+            .bs-body h3 { font-size: calc(var(--ap-pt) * 1.273); }
+            .bs-body h4 { font-size: calc(var(--ap-pt) * 1.091); }
+            .mm-dh__t { font-size: calc(var(--ap-pt) * 1.818); }
+            .mm-dh__s, .mm-dh__c, .mm-dh__b { font-size: calc(var(--ap-pt) * 0.909); }
+            .bs-cite-num, .bs-cite-text { font-size: calc(var(--ap-pt) * 0.909); }
+            .bs-citations-title, .bs-footer { font-size: calc(var(--ap-pt) * 0.818); }
+            /* La veste ad alta leggibilità resta proporzionale al corpo di
+               stampa, non ai px dello schermo: 1,5× e 2× di TREDICI punti. */
+            body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-size: calc(var(--ap-pt) * 1.364 * var(--ap-scala)); }
+            body.ap-dys .bs-body h3 { font-size: calc(var(--ap-pt) * 1.727 * var(--ap-scala)); }
+            body.ap-dys .bs-body h4 { font-size: calc(var(--ap-pt) * 1.364 * var(--ap-scala)); }
             .no-print { display:none !important; }
             /* Il padding del body va a ZERO: a schermo stacca il foglio dallo
                sfondo, in stampa si sommerebbe al margine di @page restringendo la
-               colonna (i 10px di prima valevano 2,65mm — MENO aria dello schermo). */
-            body { background:white; padding:0; }
+               colonna (i 10px di prima valevano 2,65mm — MENO aria dello schermo).
+               E il "max-width" sparisce: a decidere la colonna in stampa è @page,
+               non una misura pensata per lo schermo — a 2× i 72ch valgono più
+               della pagina e il testo si stringerebbe in una colonna centrale con
+               due bande bianche ai lati. */
+            body { background:white; padding:0; max-width:none; }
+            /* ⚠️ Qui c'era una regola che riportava a bianco il fondo crema della
+               veste ad alta leggibilità: serviva perché "body.ap-dys" porta una
+               classe e batteva il "body{background:white}" qui sopra, che è una
+               regola di elemento — chi stampava con quella veste accesa si
+               portava a casa ogni pagina campita di crema. Tolto il crema del
+               tutto (vedi la sezione della modalità dislessia), la regola non
+               aveva più niente da azzerare ed è stata rimossa: una regola che
+               sembra governare qualcosa e non governa è peggio della sua assenza.
+               ⚠️ I documenti GIÀ scritti sul disco hanno ancora il crema, e da
+               questa parte non si raggiungono: si aggiornano risalvandoli. */
             /* Un titolo non resta solo in fondo a una pagina, e un paragrafo non
                lascia una riga orfana di là dalla piega. */
             .bs-body h3, .bs-body h4 { break-after:avoid; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid; }
@@ -774,26 +1003,87 @@
     </style>
 </head>
 <body>
-    <div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;">
+    <div id="ap-topbar" class="no-print">
         <span id="ap-doc-brand" style="font-weight:bold;color:${accentColor};white-space:nowrap;">MappAI · ${_escBS(kindLabel)}</span>
         <div id="ap-bar"></div>
-        <div style="display:flex;gap:8px;flex:0 0 auto;">
+        <div class="ap-cmd">
             <button id="ap-dys-btn" type="button" class="ap-hdr-btn" title="${_escBS(dysTip)}">${_escBS(dysLabels[0])}</button>
             <button id="ap-hl-btn" type="button" class="ap-hdr-btn on" aria-pressed="true" title="${_escBS(hlTip)}">${_escBS(hlLabels[1])}</button>
-            <button onclick="window.print()" style="background:${accentColor};color:white;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold;">🖶 Stampa / PDF</button>
+            <button id="ap-riga-btn" type="button" class="ap-hdr-btn" aria-pressed="false" title="${_escBS(rigaTip)}">${_escBS(rigaLabels[0])}</button>
+            <button type="button" class="ap-print-btn" onclick="window.print()">🖶 Stampa / PDF</button>
         </div>
     </div>
-    <div style="height:52px;" class="no-print"></div>
+    <div id="ap-spacer" class="no-print"></div>
+    <div id="ap-riga" class="no-print" aria-hidden="true"></div>
 
-    <div class="bs-header">
-        <div class="bs-title">${_escBS(data.branchLabel)}</div>
-        <div class="bs-subtitle">${_escBS(data.mapName)} · ${_escBS(kindLabel)} · ${now}</div>
-    </div>
+    ${_bsTestata(data, kindLabel, now)}
     <div class="bs-body">${audioTag}${cuesTag}${contentHtml}</div>
-    <div class="bs-footer">MappAI by insegnai.ch · Generato il ${now}</div>
+    <div class="bs-footer no-print">MappAI by insegnai.ch · ${now}</div>
     <script>
     (function(){
       var SPEEDS=[0.75,1,1.25,1.5], ri=1, BACK=10, FWD=5, CPS=14.5;
+      /* Il distanziatore sotto la testata prende l'altezza MISURATA della
+         testata, non un numero scritto a mano. Vale il primo dei quattro
+         difetti che la taglia più grande avrebbe scoperto: la testata è fissa
+         e non occupa spazio, quindi un 52px fermo lasciava il primo riquadro
+         dietro la barra appena i comandi andavano a capo o crescevano.
+         Sta PRIMA di ogni guardia: il documento senza lettore ha comunque una
+         testata, e comunque le sta sotto. Il ripiego CSS regge il tempo che
+         passa fra il primo disegno e questa riga. */
+      (function(){
+        var tb=document.getElementById('ap-topbar');
+        if(!tb) return;
+        var misura=function(){
+          var h=Math.ceil(tb.getBoundingClientRect().height);
+          if(h>0) document.documentElement.style.setProperty('--ap-hdr-h', h+'px');
+        };
+        misura();
+        // I caratteri web arrivano dopo il primo disegno e cambiano l'altezza.
+        if(document.fonts&&document.fonts.ready) document.fonts.ready.then(misura).catch(function(){});
+        // Ridimensionando, i comandi possono andare a capo: l'altezza cambia.
+        if(window.ResizeObserver){ try{ new ResizeObserver(misura).observe(tb); }catch(e){} }
+        window.addEventListener('resize', misura);
+        window.addEventListener('load', misura);
+      })();
+      /* RIGA DI LETTURA. Sta PRIMA delle guardie del lettore: è uno strumento
+         di lettura, non di ascolto, e un documento senza voce ne ha bisogno
+         quanto gli altri.
+         Le tre altezze sono in EM (mezza finestra): 1.25em ≈ due righe e mezza,
+         2.5em ≈ cinque, 4em ≈ otto. Crescono da sole con «Aa», perché l'unità è
+         il corpo del testo. */
+      (function(){
+        var velo=document.getElementById('ap-riga');
+        var btn=document.getElementById('ap-riga-btn');
+        if(!velo||!btn) return;
+        var ETI=${rigaLabelsJson}, ALT=['','1.25em','2.5em','4em'], passo=0;
+        function segui(y){ velo.style.setProperty('--ap-riga-y', y+'px'); }
+        function muovi(ev){
+          var y = ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY;
+          if(typeof y==='number') segui(y);
+        }
+        btn.addEventListener('click',function(){
+          passo=(passo+1)%4;
+          var acceso=passo>0;
+          velo.classList.toggle('on',acceso);
+          document.body.classList.toggle('ap-riga-on',acceso);
+          btn.classList.toggle('on',acceso);
+          btn.setAttribute('aria-pressed',acceso?'true':'false');
+          btn.textContent=ETI[passo];
+          if(acceso){
+            velo.style.setProperty('--ap-riga-h',ALT[passo]);
+            /* La posizione di partenza è METÀ SCHERMO, e la dichiara il CSS
+               ("--ap-riga-y:50vh"): calcolarla qui da window.innerHeight vuol
+               dire scrivere "0px" ogni volta che quel numero non è ancora noto —
+               e una finestra a y=0 si legge come «non si è acceso niente».
+               Il primo movimento del puntatore la sposta dove serve. */
+            document.addEventListener('mousemove',muovi);
+            document.addEventListener('touchmove',muovi,{passive:true});
+          } else {
+            document.removeEventListener('mousemove',muovi);
+            document.removeEventListener('touchmove',muovi);
+          }
+        });
+      })();
       var sup=('speechSynthesis' in window)&&('SpeechSynthesisUtterance' in window);
       var body=document.querySelector('.bs-body');
       var bar=document.getElementById('ap-bar');
@@ -1104,6 +1394,66 @@
         return out;
     }
 
+    /* ── IL LIMITE DI CHIAMATE DEL TTS ────────────────────────────────────────
+       `UC()` sono le due funzioni pure (testate): quanto manca al prossimo posto
+       libero nella finestra, e quanto aspettare quando il 429 arriva comunque.
+       Il tetto è configurabile perché NON è una proprietà del nostro codice ma
+       del piano di chi usa l'app: chi ha un piano a pagamento non deve
+       aspettare per un limite che non ha. */
+    function UC() { return window.MappAIUsageCore; }
+    function _ttsLimite() {
+        try {
+            var v = parseInt(localStorage.getItem('mappai_tts_rpm'), 10);
+            if (v > 0) return v;
+        } catch (e) { }
+        return 10;                     /* il piano gratuito di Google, oggi */
+    }
+    var _ttsChiamate = [];             /* quando sono partite: la finestra scorrevole */
+    /* ── I CLIP GIÀ PAGATI NON SI RIPAGANO ────────────────────────────────────
+       Se la generazione si ferma a metà — rate limit ostinato, rete che cade,
+       chiave scaduta — i clip fatti fino a lì restano qui: al secondo tentativo
+       si riparte da dove si era arrivati invece di ricomprare tutto.
+       La chiave è il TESTO del blocco + voce + modello: se il docente corregge
+       una frase, quel blocco si rigenera (e solo quello); gli altri no.
+       Vive quanto la sessione: è un risparmio, non un archivio. */
+    var _ttsCache = Object.create(null);
+    function _ttsChiave(testo, voice, model) { return model + '|' + voice + '|' + testo; }
+    function _attendi(ms, testo) {
+        return new Promise(function (res) {
+            var fine = Date.now() + ms;
+            (function tic() {
+                var manca = Math.max(0, Math.ceil((fine - Date.now()) / 1000));
+                /* l'attesa si DICE, secondo per secondo: un minuto di silenzio
+                   su un overlay fermo si legge come un blocco dell'app */
+                if (window.showLoadingOverlay) window.showLoadingOverlay(true, testo.replace('{s}', manca));
+                if (manca <= 0) return res();
+                setTimeout(tic, 1000);
+            })();
+        });
+    }
+    async function _ttsChiamata(payload, key, model, n, tot) {
+        var prog = window.t('bs_audio_prog', 'Genero audio') + ' ' + n + '/' + tot;
+        for (var tentativo = 0; tentativo < 3; tentativo++) {
+            /* PRIMA di chiamare: c'è posto nella finestra? */
+            var attesa = UC() ? UC().nextSlotMs(_ttsChiamate, Date.now(), _ttsLimite()) : 0;
+            if (attesa > 0) {
+                await _attendi(attesa, prog + ' — ' + window.t('bs_audio_wait', 'attendo {s}s (limite del provider)'));
+            }
+            if (window.showLoadingOverlay) window.showLoadingOverlay(true, prog + '…');
+            _ttsChiamate.push(Date.now());
+            try {
+                return await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
+            } catch (err) {
+                var ritenta = UC() ? UC().retryDelayMs(err) : 0;
+                /* non è un limite di frequenza: è un errore vero, e ritentarlo
+                   tre volte non lo fa diventare buono */
+                if (!ritenta || tentativo === 2) throw err;
+                await _attendi(ritenta, prog + ' — ' + window.t('bs_audio_retry', 'limite raggiunto, riprendo fra {s}s'));
+            }
+        }
+        throw new Error(window.t('bs_audio_rate', 'Il provider continua a rifiutare le richieste: riprova fra qualche minuto.'));
+    }
+
     // Genera l'audio (voce naturale Gemini) UN CLIP PER BLOCCO → { blob WAV, cues }.
     // cues[i] = tempo REALE di inizio del blocco i (dalla lunghezza PCM del clip) →
     // karaoke sincronizzato con la voce, non stimato.
@@ -1117,22 +1467,38 @@
         const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
         const pcmParts = []; let rate = 24000; const cues = []; let cum = 0;
         for (let i = 0; i < blocks.length; i++) {
-            window.showLoadingOverlay && window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
             const payload = {
                 contents: [{ parts: [{ text: blocks[i] }] }],
                 generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
             };
-            const resp = await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
-            // Registro consumi: il TTS bypassa fetchModelAPI → record manuale
-            try {
-                const um = resp && resp.usageMetadata;
-                if (um && window.MappAIUsage) window.MappAIUsage.record({ provider: 'google', model: model, inTok: um.promptTokenCount || 0, outTok: um.candidatesTokenCount || 0, ctx: { cat: 'materials', sub: 'tts' } });
-            } catch (uerr) { /* non bloccante */ }
-            const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
-            const inline = part && part.inlineData;
-            if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
-            const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
-            const bytes = _b64ToBytes(inline.data);
+            /* ⚠️ UNA CHIAMATA PER BLOCCO, E IL PROVIDER HA UN LIMITE (11/8/26).
+               Il piano gratuito di Google ammette 10 richieste al minuto sul
+               modello TTS: una sintesi di venti blocchi le sfondava alla decima,
+               e l'errore buttava via TUTTI i clip già generati — già pagati.
+               Qui si aspetta PRIMA di sfondare (finestra scorrevole: le prime
+               dieci partono subito) e, se il 429 arriva lo stesso, si ritenta
+               dopo l'attesa che l'API stessa dichiara. */
+            const chiave = _ttsChiave(blocks[i], voice, model);
+            let bytes = _ttsCache[chiave] && _ttsCache[chiave].bytes;
+            if (bytes) {
+                /* già generato in un tentativo precedente: non si ripaga, e non
+                   consuma un posto nella finestra del limite */
+                rate = _ttsCache[chiave].rate || rate;
+                if (window.showLoadingOverlay) window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
+            } else {
+                const resp = await _ttsChiamata(payload, key, model, i + 1, blocks.length);
+                // Registro consumi: il TTS bypassa fetchModelAPI → record manuale
+                try {
+                    const um = resp && resp.usageMetadata;
+                    if (um && window.MappAIUsage) window.MappAIUsage.record({ provider: 'google', model: model, inTok: um.promptTokenCount || 0, outTok: um.candidatesTokenCount || 0, ctx: { cat: 'materials', sub: 'tts' } });
+                } catch (uerr) { /* non bloccante */ }
+                const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
+                const inline = part && part.inlineData;
+                if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
+                const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
+                bytes = _b64ToBytes(inline.data);
+                _ttsCache[chiave] = { bytes: bytes, rate: rate };
+            }
             pcmParts.push(bytes);
             cues.push(Math.round(cum * 1000) / 1000);
             cum += (bytes.length / 2) / rate; // durata reale del clip (PCM 16-bit mono)

@@ -40,6 +40,32 @@
         const R = window.MappAIRelations;
         return (R && R.REL_FAMILY_MAP) || null;
     }
+    /* La CORNICE condivisa (mappai-doc-head.js, 11/8/26): testata coi chip
+       classe e materia, piè coi numeri di pagina nei margin-box di @page. */
+    function _ccDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
+    function _ccCornice(mapName) {
+        var DH = _ccDH();
+        return DH ? DH.stile({ accento: '#4f46e5', mappa: mapName }) : '';
+    }
+    function _ccTestata(mapName, now) {
+        var DH = _ccDH();
+        if (!DH) return '';
+        return DH.testata(DH.conContesto({
+            titolo: t('cc_doc_title', 'Catena dei perché'), mappa: mapName, data: now
+        }));
+    }
+    function _ccPie(mapName) {
+        var DH = _ccDH();
+        if (!DH) return '';
+        /* Il piè di QUESTO foglio dice anche come sono nati i nessi: sono
+           estratti dalla mappa, senza AI, ed è un'informazione sul metodo che
+           il documento deve portarsi dietro. */
+        return DH.pieSchermo({
+            mappa: mapName,
+            brand: 'MappAI · ' + t('cc_footer', 'nessi estratti dalla mappa e dalle descrizioni — nessuna AI')
+        });
+    }
+
     function _esc(s) {
         return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -138,15 +164,18 @@
                 (chains.crossTruncated ? '<div class="cc-trunc">+' + chains.crossTruncated + ' ' + _esc(t('cc_truncated', 'altri nessi non mostrati')) + '</div>' : '') +
                 '</div>';
         }
-        const now = new Date().toLocaleDateString('it-IT');
+    /* Data del documento: GG/MM/AAAA senza ora — la scrive la cornice
+       (mappai-doc-head.js), una regola per tutti i fogli. */
+        const now = _ccDH() ? _ccDH().data(new Date()) : new Date().toLocaleDateString('it-IT');
         return '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">' +
             '<title>' + _esc(t('cc_doc_title', 'Catena dei perché')) + ' — ' + _esc(mapName) + '</title>' +
             '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">' +
             '<style>' +
             '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
             "body{font-family:'Space Mono',monospace;font-size:12px;color:#1e293b;margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
-            '.cc-header{text-align:center;padding:26px 16px 18px;background:#fff;border-radius:16px;margin-bottom:18px;border-bottom:2px solid #4f46e5}' +
-            '.cc-title{font-size:20px;font-weight:900}.cc-sub{font-size:10px;color:#64748b;margin-top:4px}' +
+            /* Testata e piè: cornice condivisa (mappai-doc-head.js). Erano due
+               regole copiate dal foglio quiz, con misure loro. */
+            _ccCornice(mapName) +
             '.cc-legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:14px 0 20px;font-size:10px;color:#475569}' +
             '.cc-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}' +
             '.cc-sec{background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;page-break-inside:avoid}' +
@@ -169,10 +198,9 @@
             '<span><button onclick="document.body.classList.toggle(\'cc-ex\')" style="font-family:inherit;margin-right:8px;padding:6px 14px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer">' + _esc(t('cc_exercise', 'Modalità esercizio')) + '</button>' +
             '<button onclick="window.print()" style="font-family:inherit;padding:6px 14px;border:0;background:#4f46e5;color:#fff;border-radius:8px;cursor:pointer;font-weight:700">' + _esc(t('cc_print', 'Stampa')) + '</button></span></div>' +
             '<div style="height:44px" class="no-print"></div>' +
-            '<div class="cc-header"><div class="cc-title">' + _esc(t('cc_doc_title', 'Catena dei perché')) + '</div>' +
-            '<div class="cc-sub">' + _esc(mapName) + ' · ' + now + '</div></div>' +
+            _ccTestata(mapName, now) +
             '<div class="cc-legend">' + legend + '</div>' + body +
-            '<div style="text-align:center;margin-top:20px;font-size:9px;color:#94a3b8">MappAI · ' + _esc(t('cc_footer', 'nessi estratti dalla mappa e dalle descrizioni — nessuna AI')) + '</div>' +
+            _ccPie(mapName) +
             '</body></html>';
     }
 
