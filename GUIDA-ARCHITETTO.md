@@ -36,9 +36,11 @@ Le proprietà che lo definiscono più di ogni funzione:
   non nella toolchain.
 
 Che cosa questo progetto NON fa: non manda dati di allievi all'AI se non nelle attività che lo
-dichiarano (Tutor QR) e col provider scelto dal docente; il **misuratore** (`MappAI -
-misuratore/`) è un'app separata *per principio* — chi misura l'accessibilità non deve essere
-chi produce il materiale — e non importa nulla da MappAI a runtime; il ramo iPadOS è in standby
+dichiarano (Tutor QR) e col provider scelto dal docente; il **misuratore**
+(repo a sé, cartella sorella `~/Claude/MappAI - misuratore`) è un'app separata *per
+principio* — chi misura l'accessibilità non deve essere chi produce il materiale — e non
+importa nulla da MappAI a runtime: le porzioni riusate sono COPIE dichiarate, sorvegliate
+dal suo test di divergenza; il ramo iPadOS è in standby
 su branch propri; il sistema di licensing e la cartella `ios/` non si toccano.
 
 ---
@@ -168,7 +170,6 @@ tools/
   atlante-ui/ officina/     generatori delle pagine di public/dev/
 docs/                       HANDOFF.md (stato) + diari + guide tecniche
 specs/                      spec-kit delle feature grandi (spec → plan → tasks)
-MappAI - misuratore/        APP SEPARATA per principio: suo package, suoi test, suo handoff
 ```
 
 *(server LAN: `live-server.js`, `collab-server.js`, `tutor-server.js`, `garden-server.js` nella
@@ -207,8 +208,8 @@ npx electron . --remote-debugging-port=9222    # debug remoto: misurare NELL'app
 
 Condizioni al contorno che falsano le misure:
 
-- ⚠️ **il totale della suite oscilla**: `npm test` scopre anche i test del misuratore,
-  condizionati ai dati su disco. Il numero che conta è **0 fail**;
+- ⚠️ il numero che conta della suite è **0 fail**, non il totale (nei diari i totali
+  oscillano: fino al 12/8 `npm test` scopriva anche i test del misuratore);
 - il pannello browser mente in modi catalogati (trappole 1-4 in §8): cache, viewport a zero,
   transizioni congelate, rAF sospeso. Per le misure vere: CDP sull'app, o banchi Node;
 - ogni banco dichiara in `tools/smoke/LEGGIMI.md` che cosa NON può provare — leggerlo prima di
@@ -335,7 +336,7 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
 | `docs/HANDOFF-console-bento.md` · `-manifesto.md` · `-console.md` | i diari dei tre filoni | il perché delle decisioni; le loro sezioni «UNCOMMITTED» e «da fare» sono fotografie datate |
 | `public/dev/atlante-ui.html` | il vocabolario della UI e il cantiere delle migrazioni | si rigenera con `node tools/atlante-ui/build.js`, mai a mano |
 | `tools/smoke/LEGGIMI.md` | che cosa i banchi possono e NON possono provare | leggere prima di fidarsi di un banco |
-| `MappAI - misuratore/HANDOFF.md` | lo stato dell'app misuratore | progetto separato: non mescolare i piani |
+| `~/Claude/MappAI - misuratore/HANDOFF.md` | lo stato dell'app misuratore | REPO separato (sorella): non mescolare i piani |
 | memoria agente (`~/.claude/projects/...-MappAI-re/memory/`) | lezioni trasversali alle sessioni | può citare file rinominati: verificare prima di agire |
 
 Non esiste un README: `CLAUDE.md` ne fa le veci per l'orientamento iniziale, con il limite

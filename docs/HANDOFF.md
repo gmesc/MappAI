@@ -16,11 +16,10 @@
    ```bash
    git push origin main
    ```
-2. **Il numero che conta della suite è `0 fail`, non il totale.** `npm test` è
-   `node --test` dalla radice e scopre anche `MappAI - misuratore/tests/`, alcuni dei
-   quali sono condizionati ai dati su disco: il totale oscilla fra 1000 e 1120 a seconda
-   di che cosa c'è nel Documents di chi esegue. Citare «998» o «1120» come costante è
-   fuorviante. Oggi, su questa macchina: **1063 pass · 0 fail · 2 skip**.
+2. **Il numero che conta della suite è `0 fail`, non il totale.** Dal 12/8 il
+   misuratore è un repo A SÉ (cartella sorella `~/Claude/MappAI - misuratore`), quindi
+   `npm test` non scopre più i suoi test e il totale ha smesso di oscillare. Se nei diari
+   leggi totali fra 1000 e 1120, era quello il motivo.
 3. **Il marcatore di cache si bumpa DOPO l'ultima modifica al file, non prima.** Ogni
    `<script src="js/…?v=…">` in `index.html` esiste solo per questo. Due volte Giacomo ha
    provato l'app e non ha visto il codice nuovo. Il sintomo sembra «la funzione non c'è»,
@@ -44,8 +43,8 @@ I banchi in `tools/smoke/` non sono test della suite e non lo diventano: carican
 moduli VERI con un finto `window`, un finto `appState` e finti IPC. `tools/smoke/LEGGIMI.md`
 dice, per ciascuno, **che cosa NON può provare** — leggerlo prima di fidarsi di un «ok».
 
-Nel working tree restano, e vanno lasciati lì: lo stream **misuratore** (app separata,
-`MappAI - misuratore/`), `Inkscape/`, `MappAI_logo.svg`.
+Il working tree a fine sessione è VUOTO. Il **misuratore** è un repo a sé dal 12/8:
+`~/Claude/MappAI - misuratore`, col suo git e il suo handoff — i piani non si mescolano.
 
 ---
 
@@ -249,7 +248,7 @@ cambia la misura, non è la cascata — è la misura.**
 | il diario del filone **manifesto** (3-6 agosto) | [`HANDOFF-manifesto.md`](HANDOFF-manifesto.md) |
 | il diario del filone **console e motore dei modali** (fino al 3 agosto) | [`HANDOFF-console.md`](HANDOFF-console.md) |
 | il **vocabolario** dell'interfaccia e il cantiere | `public/dev/atlante-ui.html` |
-| l'app **misuratore**, che è un altro progetto | `MappAI - misuratore/HANDOFF.md` |
+| l'app **misuratore**, che è un altro REPO (sorella) | `~/Claude/MappAI - misuratore/HANDOFF.md` |
 
 ⚠️ I tre diari sono in ordine cronologico **inverso** e contengono sezioni che dicono
 «UNCOMMITTED»: lo dicevano nel momento in cui sono state scritte. **Non sono lo stato del

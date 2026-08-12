@@ -2868,8 +2868,11 @@ dalla tabella «Progetti esistenti» di ELABORA. **Solo ELABORA**: INSEGNA resta
   riassegnazione della mappa APERTA seguita da un autosave.
 
 ### 🔵 IN CORSO (28/7-4/8/26): 013-misuratore — app di misura separata + documento «basi scientifiche»
+> ⚠️ **Dal 12/8/26 il misuratore è un REPO A SÉ**: `~/Claude/MappAI - misuratore` (cartella
+> sorella, col suo git, il suo handoff e lo spec-kit trasferito). I percorsi qui sotto
+> descrivono il layout vecchio — questa sezione resta come diario.
 **Nulla committato**. Punto di ripresa completo in
-[`MappAI - misuratore/HANDOFF.md`](MappAI%20-%20misuratore/HANDOFF.md); spec-kit in `specs/013-misuratore/`
+`~/Claude/MappAI - misuratore/HANDOFF.md`; spec-kit in `specs/013-misuratore/` (là)
 (spec 62 requisiti · plan · research · data-model · contracts · quickstart · 120 task).
 **61 task su 120 · suite 118 (115 pass / 3 skip) ✅** (`cd "MappAI - misuratore" && npm test`).
 **4/8: fasi 3+4 CHIUSE = MVP.** I tre bottoni della landing caricano davvero (vault, PDF,
