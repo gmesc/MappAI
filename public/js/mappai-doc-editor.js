@@ -1696,6 +1696,18 @@
        di quello scelto dal docente. Quiz, sintesi e catena aprono una finestra:
        non c'è nessun nome file di mezzo. */
     function _stampaOra(nome) {
+        /* 🐛 12/8/26 — SENZA MODIFICHE IN SOSPESO NON SI CHIEDE NIENTE, e fin qui
+           è giusto: il file esiste già. Ma allora `nome` resta vuoto, e i due
+           generi che passano da jsPDF ripiegavano sul nome che il motore di
+           stampa si inventa — «Foglio-nodi-<Mappa> (rivisto).pdf» — che non sa
+           né della COPIA né del dettaglio, quindi propone un file diverso da
+           quello che sta nella cartella. È il gemello del difetto chiuso
+           l'11/8: là il ramo «salva», qui il ramo «stampa e basta».
+           Il nome canonico lo sa già `_componiNome`, che passa da
+           `buildFileName` con il nome della copia (`_cloneCorrente`). */
+        if (!nome && (_kind === 'nodesheet' || _kind === 'flashcards')) {
+            try { nome = _componiNome(''); } catch (e) { /* ripiego del motore */ }
+        }
         if (_kind === 'nodesheet') return _printNodeSheet(nome);
         if (_kind === 'openq') return openOpenqModal();
         // La catena ha una resa sola: il documento vero, con modalità esercizio
