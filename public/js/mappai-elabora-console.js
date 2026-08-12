@@ -1161,14 +1161,9 @@
                     ruolo: 'primario', chiude: false
                 }]
             });
-        } else {
-            /* qui il progetto si sceglie nella COLONNA (D1), non nella briciola:
-               l'invito dice il gesto giusto di questa veste */
-            s.sezioni.push({
-                id: 'vuoto', nuda: true,
-                testo: t('ec_scegli_prog_col', 'Scegli un progetto nella colonna qui accanto: i suoi documenti compariranno qui.')
-            });
         }
+        /* senza progetto: nessun invito nell'area — il gesto è nella colonna,
+           e una riga di testo in mezzo allo spazio vuoto non lo insegnava */
         return s;
     }
 

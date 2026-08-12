@@ -2100,7 +2100,6 @@ const en_translations = {
     /* ELABORA v2 (flag mappai_elabora_v2): sidebar coi progetti, area a tabelle */
     ec_g_progetti: "Projects",
     ec_prog_cerco: "Looking for projects…",
-    ec_scegli_prog_col: "Pick a project in the column on the left: its documents will show up here.",
     ec_esci: "Exit",
     ec_esci_tip: "Close the document and go back to the tables.",
     ec_modifica_set_tip: "This file was produced by a set you can still edit: open it in the editor.",
