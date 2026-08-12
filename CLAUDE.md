@@ -1,19 +1,18 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-<<<<<<< HEAD
 > Ultimo aggiornamento: 5-6 agosto 2026 (STILE «MANIFESTO»: landing e COSTRUISCI sul progetto
 > Inkscape di Giacomo — rail delle tre forme, riquadri chiari, e il **bento** delle opzioni al posto
 > del modale «Genera materiali». La composizione del bento è un DATO e si compone trascinando
 > nell'**Officina §7**. Dal 5/8 anche le CONSOLE hanno il loro bento e la loro officina
 > (`public/dev/officina-console.html`), coi parametri divisi per gerarchia: globale → vista →
 > riquadro → voce.
-> **Punto di ripresa: [`docs/HANDOFF-manifesto.md`](docs/HANDOFF-manifesto.md) §12** — per le
-> console e il motore dei modali resta valido [`docs/HANDOFF-console.md`](docs/HANDOFF-console.md).)
-=======
-> Ultimo aggiornamento: 1 agosto 2026 (VISTA STUDIO: layout deterministici nel ciclo LAYOUT — 7 motori,
-> tab sidebar, Focus, PDF; knowledge graph del repo rigenerato in `graphify-out/` → `/graphify query` attivo)
->>>>>>> 8d1f7ae (feat(vista-studio): 7 motori di layout deterministici nel ciclo LAYOUT)
+> **👉 PUNTO DI RIPRESA: [`docs/HANDOFF.md`](docs/HANDOFF.md)** — unico documento di STATO
+> (che cosa c'è in `main`, che cosa è acceso e con quale interruttore, che cosa manca, come si
+> verifica). I tre `HANDOFF-*.md` sono **diari**: si leggono per il perché di una decisione, mai
+> per sapere com'è fatto il codice adesso.
+> ⚠️ Questo file (`CLAUDE.md`) è il **diario giorno per giorno** ed è lungo 4.500 righe: le sue
+> sezioni sono in ordine di scrittura, non di verità. Dove i due si contraddicono, vale HANDOFF.md.)
 
 ---
 
@@ -692,7 +691,6 @@ persistenza nel progetto ora, vault (`Layout/<nome>.json` + IPC) in una sessione
 - Prossima fase concordata: vault `Layout/<nome>.json` + «Esporta layout» a nome obbligatorio
   (IPC in main.js), caret sul bottone LAYOUT per il salto diretto fra modalità.
 
-<<<<<<< HEAD
 **Taratura di partenza (1/8 sera, scelta da Giacomo dal vivo)**: `DEF_PROFILE` = livelli **156px**,
 card **30px** di distanza, **118×54**, testo nodi 12 / linking words 10, **ponticelli spenti**,
 frecce separate accese, bande spente, «Mostra fino al livello» = tutti. Vale per le mappe nuove:
@@ -2338,8 +2336,6 @@ console e compariva l'interfaccia di ELABORA). Suite **981/0**.
   → `+ openCollabHub()`; **Finder** non chiude la console; la × non carica niente. Censite tutte le
   altre azioni e righe della console: hanno già `chiude:false` — il difetto era isolato a queste
   quattro. Regola aggiunta all'handoff §5.
-=======
->>>>>>> 8d1f7ae (feat(vista-studio): 7 motori di layout deterministici nel ciclo LAYOUT)
 
 ### 🏗️ IN CORSO (29/7/26): sistema dei modali — motore + Officina
 Decisioni prese con Giacomo: **motore unico con schema** (i modali diventano dati) · ambito
@@ -2460,7 +2456,6 @@ modale nello stesso name (+ test regressione; suite **915/0**).
   → FASE 3 esecuzione (adozione motore sui 6 overlay landing + t() nel motore · pensionamenti ·
   token finestre/printBar unica · a11y trasversale · pulizia CSS). Nav dell'officina linka la Rotta.
 
-<<<<<<< HEAD
 **FASE 1 CHIUSA (31/7 sera) — i 22 verdetti di Giacomo + le 5 fondamentali, APPLICATE nei token.**
 Verdetti letti dal suo browser via Claude-in-Chrome e salvati in
 `tools/officina/verdetti-2026-07-31.json` (22/22 + decisioniFondamentali). Suite **935/0** (+3 test).
@@ -2712,8 +2707,6 @@ Giacomo su schermata reale, tutte misurate:
   (c) E1/E2/F2 sono `sporco` ma il clic sul velo le chiudeva, perdendo il lavoro → `veloChiude:false`.
   Ora tutte le 11 varianti passano con **0 errori e 0 avvisi**. Suite **950/0**.
 
-=======
->>>>>>> 8d1f7ae (feat(vista-studio): 7 motori di layout deterministici nel ciclo LAYOUT)
 
 ### 🎨 IN CORSO (29/7/26): campionario dei modali → 7 decisioni di design, 1 già nel codice
 Pagina rigenerabile `public/dev/campionario-modali.html` (`node tools/campionario-modali/build.js`):
@@ -2734,7 +2727,6 @@ pagina, campi) ed emette il CSS, e il **piano di migrazione** in §8.
 6. velo unico `rgba(15,23,42,.45)` + blur;
 7. **applicato al codice**: `style.css:87` non applica più `font-size:16px !important` a `button` nudo.
    Ora `button { font-size:16px }` senza `!important` (un px assoluto è già immune allo zoom testo).
-<<<<<<< HEAD
    ⚠️ **CORRETTO il 2/8, misurando in Electron**: la stima «~104 bottoni cambiano corpo» era SBAGLIATA.
    I 46 dichiarati in `index.html` (le famiglie `.pm-*`, `.btn_*`) NON cambiano: sono definiti con
    `@apply` dentro `@layer components` (index.html:79) e le **regole in layer perdono contro le
@@ -2746,10 +2738,6 @@ pagina, campi) ed emette il CSS, e il **piano di migrazione** in §8.
    stile inline batte una regola non-important. Lì il corpo è sceso a 11-13px.
    Conseguenza pratica: i modali `.pm-*` (edit nodo, config AI, profilo, hub) sono rimasti identici
    — Giacomo l'ha notato subito e aveva ragione.
-=======
-   ⚠️ **~104 bottoni cambiano corpo** — 46 con taglia dichiarata in `index.html` (15 erano già a 18px)
-   + ~73 con `font-size` inline nei moduli; i 157 senza taglia restano a 16px. **Da guardare in Electron.**
->>>>>>> 8d1f7ae (feat(vista-studio): 7 motori di layout deterministici nel ciclo LAYOUT)
    Corretto anche il segnaposto: default Tailwind `#9ca3af` (2,9:1) e `.landing-input` `#94a3b8` (2,8:1)
    → entrambi `#64748b`.
 
@@ -2879,15 +2867,9 @@ dalla tabella «Progetti esistenti» di ELABORA. **Solo ELABORA**: INSEGNA resta
   il vault), pulizia del contenitore di classe rimasto vuoto, collisione di nome nella destinazione,
   riassegnazione della mappa APERTA seguita da un autosave.
 
-<<<<<<< HEAD
 ### 🔵 IN CORSO (28/7-4/8/26): 013-misuratore — app di misura separata + documento «basi scientifiche»
 **Nulla committato**. Punto di ripresa completo in
 [`MappAI - misuratore/HANDOFF.md`](MappAI%20-%20misuratore/HANDOFF.md); spec-kit in `specs/013-misuratore/`
-=======
-### 🔵 IN CORSO (28-29/7/26): 013-misuratore — app di misura separata + documento «basi scientifiche»
-Branch `013-misuratore`, **nulla committato**. Punto di ripresa completo in
-[`MappAI - misuratore/HANDOFF.md`](../MappAI%20-%20misuratore/HANDOFF.md); spec-kit in `specs/013-misuratore/`
->>>>>>> 8d1f7ae (feat(vista-studio): 7 motori di layout deterministici nel ciclo LAYOUT)
 (spec 62 requisiti · plan · research · data-model · contracts · quickstart · 120 task).
 **61 task su 120 · suite 118 (115 pass / 3 skip) ✅** (`cd "MappAI - misuratore" && npm test`).
 **4/8: fasi 3+4 CHIUSE = MVP.** I tre bottoni della landing caricano davvero (vault, PDF,

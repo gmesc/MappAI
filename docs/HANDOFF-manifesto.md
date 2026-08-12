@@ -1,3 +1,12 @@
+> ⚠️ **DIARIO, NON STATO DEL REPO.** Filone «stile «manifesto»», 3 – 6 agosto 2026.
+> Lo stato di `main` — che cosa c'è, che cosa è acceso, che cosa manca — sta in
+> **[`HANDOFF.md`](HANDOFF.md)**, ed è l'unico posto che lo dice.
+> Questo file si legge per il **perché** di una decisione. Le sezioni che dicono
+> «UNCOMMITTED» o «da fare» lo dicevano il giorno in cui sono state scritte: molte
+> di quelle cose sono state fatte, e alcune sono state rovesciate.
+
+---
+
 # HANDOFF — stile «manifesto»: landing, COSTRUISCI, bento
 
 > Punto di ripresa per la chat successiva. Scritto il **4 agosto 2026**, a fine sessione.

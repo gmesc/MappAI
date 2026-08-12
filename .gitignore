@@ -36,7 +36,9 @@ ipad_compatibility_report.md
 xcode console.md
 Xcode report *
 *report*.md
-*console*.md
+# ⚠️ NON usare `*console*.md`: teneva fuori dal repo tre documenti veri
+# (docs/HANDOFF-console.md, HANDOFF-console-bento.md, SPEC-elabora-console.md).
+# La regola serviva agli artefatti di Xcode, che sono gia' nominati qui sopra.
 
 # IDE Antigravity — regole e workflow agente (non appartengono all'app)
 .agents/
