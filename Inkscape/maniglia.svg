@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="14.056504mm"
+   height="14.0565mm"
+   viewBox="0 0 14.056505 14.056501"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.3 (0d15f750, 2025-12-25)"
+   sodipodi:docname="maniglia.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="4.1928019"
+     inkscape:cx="72.385961"
+     inkscape:cy="43.049971"
+     inkscape:window-width="2308"
+     inkscape:window-height="1196"
+     inkscape:window-x="0"
+     inkscape:window-y="30"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="14.056505"
+       height="14.056501"
+       id="page1"
+       margin="0"
+       bleed="0" />
+    <inkscape:page
+       x="24.056505"
+       y="0"
+       width="14.056505"
+       height="14.056501"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Livello 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-78.581248,-144.19792)">
+    <path
+       id="rect73-7"
+       style="display:inline;fill:#f1f4f8;fill-opacity:1;stroke:none;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 78.581248,144.19792 v 3.175 3.1011 1.5043 3.1011 3.175 h 3.175 4.146524 3.559968 c 1.758977,0 3.175,-1.41605 3.175,-3.175 v -4.6054 -3.1011 c 0,-0.004 2.7e-5,-0.008 0,-0.0124 v -3.16259 h -3.175 -4.145994 -3.560498 z" />
+    <g
+       style="display:inline;fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+       id="g74-8"
+       transform="matrix(0.44918746,0,0,0.44918746,80.245583,145.55371)">
+      <rect
+         width="18"
+         height="18"
+         x="-21"
+         y="-21"
+         rx="2"
+         id="rect1-2-7"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1"
+         transform="scale(-1)" />
+      <path
+         d="M 15,21 V 3"
+         id="path1-36-3"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1" />
+      <path
+         d="m 8,9 3,3 -3,3"
+         id="path2-61-2"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1" />
+    </g>
+    <path
+       id="rect73-7-6"
+       style="display:inline;fill:#f1f4f8;fill-opacity:1;stroke:none;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 102.63775,144.19792 v 3.175 3.1011 1.5043 3.1011 3.175 h 3.175 4.14652 3.55997 c 1.75898,0 3.175,-1.41605 3.175,-3.175 v -4.6054 -3.1011 c 0,-0.004 3e-5,-0.008 0,-0.0124 v -3.16259 h -3.175 -4.14599 -3.5605 z" />
+    <g
+       style="display:inline;fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+       id="g74-8-5"
+       transform="matrix(-0.44918746,0,0,-0.44918746,115.08258,156.33421)">
+      <rect
+         width="18"
+         height="18"
+         x="-21"
+         y="-21"
+         rx="2"
+         id="rect1-2-7-7"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1"
+         transform="scale(-1)" />
+      <path
+         d="M 15,21 V 3"
+         id="path1-36-3-6"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1" />
+      <path
+         d="m 8,9 3,3 -3,3"
+         id="path2-61-2-2"
+         style="fill:#000000;fill-opacity:0;stroke:#ac72fe;stroke-opacity:1" />
+    </g>
+  </g>
+</svg>
