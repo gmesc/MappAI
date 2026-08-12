@@ -170,7 +170,7 @@ Verificati sul codice il 12/8: ognuno esiste ancora.
 8. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
 9. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
-   cascata non è prevedibile a tavolino (trappola 6).
+   cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
 10. **`mappai-landing-teach.js` è a 3.623 righe** e fa quattro mestieri (landing · console
     INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console,
     sono il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
@@ -206,80 +206,12 @@ rientro automatico in STUDIO col motore giusto (12/8), la veste manifesto in Ele
 
 ---
 
-## 6. Le trappole, quelle che sono costate tempo davvero
+## 6. Le trappole
 
-Unificate dai tre diari. Le prime cinque riguardano il **metodo di misura**: quasi tutte le
-volte che una regola «non vinceva», il difetto era nella misura.
-
-1. **A pannello nascosto le transizioni CSS restano CONGELATE sul frame di partenza**, e
-   `getComputedStyle` serve quel colore. **Quando nemmeno uno stile inline `!important`
-   cambia la misura, non è la cascata — è la misura.** Spegni `transition` e rimisura.
-2. **Il pannello lavora con `visibilityState: hidden`**: `requestAnimationFrame` non scatta,
-   `setTimeout` è strozzato a ~1/s, le animazioni sono sospese. Schermate bianche, contatori
-   fermi a zero e screenshot d'insieme impossibili **non sono difetti della pagina**. Si
-   misura il DOM e si dichiara che la verifica visiva non è stata fatta.
-3. **Il pannello parte con `innerWidth: 0`**: `94vw` vale 0 e un modale si misura 44×44.
-   `resize_window` prima di misurare.
-4. **La cache serve i JS e i CSS vecchi**, anche dopo un reload forzato: si misura codice di
-   due giri prima. ⚠️ Rieseguire un modulo con `eval` lascia **due istanze** attive: se i
-   numeri non tornano, ricarica la pagina invece di aggiungere un `eval`.
-5. **Un test può passare per il motivo sbagliato.** La prova che i `.json` non finissero
-   negli elenchi di INSEGNA girava sulla lista di ELABORA, che li scarta già da sé: il
-   filtro nuovo non veniva esercitato affatto. Prima di fidarsi di un «ok», chiedersi da
-   quale lista arriva il dato.
-6. **In `style.css` la cascata non è prevedibile a tavolino** (713 `!important`). Con due
-   `!important` decide la specificità, e **un id batte due o tre classi**. Le regole in
-   `@layer` **perdono** contro quelle fuori dai layer a prescindere dalla specificità — è
-   il motivo per cui i token `mm-*` stanno in un foglio non-in-layer. Dove serve certezza:
-   stile inline con priorità, e dirlo nel commento.
-7. **Il figlio ha un colore SUO** (`.source_btn_text`, `.mn-op span`, lo `<span>` di
-   `.btn_quick_action`): il contenitore obbedisce e il figlio no. La cura è sempre la
-   stessa — imporre **sull'etichetta**, con id + `!important`.
-8. **Uno stacking context annulla lo z-index dei figli**: `.glass-card` ha `relative z-10`,
-   quindi un chip con z-60 finiva sotto una banda a z-55 del contesto radice. Presente nel
-   DOM, invisibile a schermo.
-9. **Un z-index non si calcola mai da una formula.** `12000 + aperti*100` sembra sopra tutto
-   e può essere sotto: le finestre non migrate non stanno nella pila del motore. Si chiede
-   `MappAIModal.prossimoZ()`.
-10. **`safeCreateIcons()` è un hub GLOBALE**: riscrive le icone di tutta la pagina.
-    Chiamarlo dentro un ridisegno innescato da un `MutationObserver` chiude il cerchio e
-    **appende il renderer**. Dove un pezzo si ridisegna spesso, l'icona va messa come **SVG
-    in linea** (`mappai-doc-bar.js`). Corollario: quando il pannello si blocca, la via più
-    rapida è un **harness col solo modulo** — se lì non si blocca, il colpevole è
-    l'interazione con l'app.
-11. **Avvolgere una funzione ESPORTATA non intercetta le chiamate interne**:
-    `MappAITeach.setMode` chiama `applyMode` **locale**. Quando serve sapere che qualcosa è
-    cambiato, osserva il **DOM** (è il risultato) invece del codice che lo produce.
-12. **`.checked = x` da JS NON scatena `onchange`.** La pipeline accendeva la spunta della
-    taratura e il motore restava disarmato: la taratura non finiva nel prompt e nessuno se
-    ne accorgeva.
-13. **Un contenitore alto 0 consuma comunque il `gap` del suo genitore.** Quarta volta.
-    Se un pezzo è stato spostato altrove, il posto vecchio va spento (`display:none`), non
-    svuotato.
-14. **`appState` e `StorageManager` sono `const` lessicali, non su `window`.** La guardia
-    giusta è `typeof X !== 'undefined'`.
-15. **Verificare la firma prima di chiamare**: `showConfirm(title, message, onConfirm)` vuole
-    tre argomenti, e con due la callback finisce **stampata come messaggio**.
-16. **Un `</script>` dentro un dato chiude il tag della pagina.** L'Atlante si è aperto muto
-    **senza un errore in console** — non c'era più uno script che potesse fallire. Due
-    difese: togliere gli `<script>` dai blocchi estratti e scrivere i dati con
-    `JSON.stringify(...).replace(/</g,'\\u003c')`.
-17. **Un apice inverso in un COMMENTO dentro un template literal chiude la stringa.**
-    Settima volta in questo progetto.
-18. **Byte di controllo LETTERALI in una regex** rendono il file «binario» per git: niente
-    diff, niente review. Succede due volte (`0941a05`, `mappai-clona-core.js`). Si controlla
-    con `file <percorso>` prima di committare un file nuovo.
-19. **Una superficie che mostra dati scritti altrove non si aggiorna da sola**: serve un
-    annuncio (`mappai-profili-cambiati`), altrimenti l'utente ricarica la pagina per vedere
-    un'eliminazione.
-20. **Il nome di una struttura dati descrive che cosa contiene; la sua vera definizione è
-    che cosa i suoi lettori pretendono.** `studySets` sembra «i materiali di studio», è «le
-    cose che il player sa giocare» — ed è il motivo per cui le domande aperte vivono altrove.
-21. **Prima di dire «quel comando c'è già altrove», guardare se c'è.** Ho tolto le briciole
-    di CREA dando per scontato che la sezione la dicesse il rail — che col bento **non si
-    monta**. Restava una schermata senza uscita.
-
----
+Il catalogo vive nella **[GUIDA-ARCHITETTO.md](../GUIDA-ARCHITETTO.md) §8** — sono lezioni
+permanenti, non stato, e tenerne una copia qui era esattamente il guasto «due verità che
+divergono». Qui resta solo la regola d'oro: **quando nemmeno uno stile inline `!important`
+cambia la misura, non è la cascata — è la misura.**
 
 ## 7. Come lavora Giacomo
 
