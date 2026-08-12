@@ -122,6 +122,16 @@ function initD3Visualization() {
 
     window.updateDegreeStats();
     renderGraph();
+    /* Rientro nella vista studio (12/8). QUI e non nei cinque punti che
+       caricano una mappa: quelli normalizzano `layoutMode` a 'default' apposta
+       — al momento del load l'overlay non esiste e il ciclo ripartirebbe
+       desincronizzato — e il ricordo vive altrove (localStorage). Questo è
+       l'unico istante in cui il canvas è pronto, e ci passano tutte le strade:
+       progetto salvato, vault, JSON, mappa appena generata. No-op se la vista
+       era stata lasciata col bottone LAYOUT. */
+    if (window.MappAIStudioView && window.MappAIStudioView.riprendi) {
+        try { window.MappAIStudioView.riprendi(); } catch (e) { console.warn('[StudioView] rientro:', e); }
+    }
     // 006: collassa i rami di default al primo render della mappa (no-op se
     // kill-switch mappai_tree_expanded_default o già collassato per questa mappa)
     if (window.collapseAllTree) window.collapseAllTree();
@@ -1438,8 +1448,6 @@ window.changeDistance = function (dir) {
 window.toggleLayout = function () {
     if (!simulation) return;
     const isMindmap = appState.extractionMode === 'mindmap';
-    const btn = document.getElementById('card-btn-layout');
-    const span = document.getElementById('layout-label-text');
     const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
     const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
 
@@ -1481,7 +1489,9 @@ window.toggleLayout = function () {
 
     // Transizioni della vista studio: smonta uscendo, monta entrando.
     if (wasStudio && appState.layoutMode !== 'studio' && window.MappAIStudioView) {
-        window.MappAIStudioView.exit();
+        // `true` = uscita VOLONTARIA: qui il docente ha premuto LAYOUT e ha
+        // lasciato la vista studio, quindi riaprendo l'app non deve ritrovarla.
+        window.MappAIStudioView.exit(true);
     }
 
     // Applica logic layout
@@ -1518,26 +1528,7 @@ window.toggleLayout = function () {
         }
     }
 
-    if (btn) {
-        if (appState.layoutMode !== 'default') {
-            btn.classList.add('bg-indigo-100', 'text-indigo-600');
-            btn.classList.remove('bg-slate-100', 'text-slate-600');
-            if (appState.layoutMode === 'separated') span.innerText = 'SEPARATO';
-            if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
-            if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
-            if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
-            if (appState.layoutMode === 'studio') span.innerText = 'STUDIO';
-            if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
-                const layoutId = appState.layoutMode.replace('custom_', '');
-                const layout = appState.savedLayouts.find(l => l.id === layoutId);
-                span.innerText = layout ? layout.keyword : 'CUSTOM';
-            }
-        } else {
-            btn.classList.remove('bg-indigo-100', 'text-indigo-600');
-            btn.classList.add('bg-slate-100', 'text-slate-600');
-            span.innerText = 'LAYOUT';
-        }
-    }
+    window.updateLayoutButtonLabel();
 
     if (appState.layoutMode === 'studio') {
         // l'overlay disegna da sé; il force sotto resta congelato
@@ -1546,6 +1537,34 @@ window.toggleLayout = function () {
         window.applyLayoutForces();
     } else {
         simulation.alpha(0.3).restart();
+    }
+};
+
+/* L'etichetta del bottone LAYOUT, estratta da `toggleLayout` (12/8): la deve
+   scrivere anche chi RIENTRA nella vista studio da solo all'apertura di una
+   mappa, e un secondo posto che la calcola sarebbe un secondo posto da tenere
+   allineato al ciclo. */
+window.updateLayoutButtonLabel = function () {
+    const btn = document.getElementById('card-btn-layout');
+    const span = document.getElementById('layout-label-text');
+    if (!btn || !span) return;
+    if (appState.layoutMode !== 'default') {
+        btn.classList.add('bg-indigo-100', 'text-indigo-600');
+        btn.classList.remove('bg-slate-100', 'text-slate-600');
+        if (appState.layoutMode === 'separated') span.innerText = 'SEPARATO';
+        if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
+        if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
+        if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
+        if (appState.layoutMode === 'studio') span.innerText = 'STUDIO';
+        if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
+            const layoutId = appState.layoutMode.replace('custom_', '');
+            const layout = (appState.savedLayouts || []).find(l => l.id === layoutId);
+            span.innerText = layout ? layout.keyword : 'CUSTOM';
+        }
+    } else {
+        btn.classList.remove('bg-indigo-100', 'text-indigo-600');
+        btn.classList.add('bg-slate-100', 'text-slate-600');
+        span.innerText = 'LAYOUT';
     }
 };
 

@@ -15,42 +15,97 @@
     const L = () => window.MappAIStudioLayouts;
     const DRAW = () => window.MappAIStudioDraw;
 
-    // Taratura di partenza scelta da Giacomo dal vivo (1/8): corridoi larghi fra
-    // i livelli, card strette e un po' più alte, ponticelli spenti.
+    /* Taratura di partenza. Geometria: quella scelta da Giacomo dal vivo (1/8) —
+       corridoi larghi fra i livelli, card strette e un po' più alte.
+       ⚠️ 12/8: le LEVE DI RESA cambiano default. Il pannello aveva sedici
+       comandi tutti accesi su valori «da banco di prova», e un docente che apre
+       la vista per la prima volta si trova a decidere sedici cose prima di
+       vedere una mappa leggibile. I nuovi valori sono la mappa più semplice che
+       la vista sa produrre: albero, dall'alto, solo la gerarchia, niente
+       linking words, niente gerarchia visiva. Da lì si aggiunge, non si toglie. */
     const DEF_PROFILE = {
-        mode: 'dag', orient: 'td', routing: 'orto', set: 'auto', labels: 'short',
+        mode: 'td', orient: 'td', routing: 'curva', set: 'hier', labels: 'off',
         gapLayer: 156, gapNode: 30, w: 118, h: 54,
-        fsNode: 12, fsRel: 10, hier: 'foglie', depth: 999,
+        fsNode: 12, fsRel: 10, hier: 'no', depth: 999,
         bands: false, centerId: null,
-        hops: false, ports: true, hl: 'parenti'
+        hops: false, ports: true, hl: 'vicini'
     };
+    /* Le leve di resa su cui il default del 12/8 deve VINCERE anche sui profili
+       già salvati: senza, chi ha aperto la vista una volta si porta dietro per
+       sempre la taratura vecchia e il miglioramento non lo vede nessuno.
+       Si applica UNA volta sola (`defv`), poi comanda la scelta dell'utente —
+       è la stessa regola dei default del bento (§ round 21). */
+    const DEF_VER = 2;
+    const DEF_RESA = ['mode', 'orient', 'routing', 'set', 'labels', 'hier', 'hl', 'bands', 'ports', 'hops'];
     // Il Focus ha una geometria SUA: poche card, grandi, molto spazio. Vive a
     // parte per non travasare la taratura della vista d'insieme (e viceversa):
     // le stesse leve regolano cose diverse nei due contesti. Persiste col
     // progetto dentro studioProfile.focus. 'auto' = verticale sotto le 15 card,
     // orizzontale sopra (il comportamento storico del Focus).
-    const DEF_FOCUS = { orient: 'auto', gapLayer: 96, gapNode: 30, w: 210, h: 64, fsNode: 13, fsRel: 11 };
+    const DEF_FOCUS = { orient: 'td', gapLayer: 96, gapNode: 30, w: 210, h: 64, fsNode: 13, fsRel: 11 };
 
-    // Preset del banco-layout, senza le leve di testo e resa: un preset regola
-    // geometria, motore e instradamento; il resto resta come l'utente l'ha messo.
-    const PRESETS = [
-        ['preset_nastro',  'Nastro classico',   { mode: 'dag', orient: 'td', routing: 'curva', gapLayer: 56,  gapNode: 26, w: 168, h: 46 }],
-        ['preset_compatto','Compatto',          { mode: 'dag', orient: 'td', routing: 'dritto', gapLayer: 40, gapNode: 16, w: 130, h: 42 }],
-        ['preset_colonna', 'Colonna (da sx)',   { mode: 'dag', orient: 'lr', routing: 'curva', gapLayer: 70,  gapNode: 14, w: 168, h: 46 }],
-        ['preset_lim',     'Arioso da LIM',     { mode: 'dag', orient: 'td', routing: 'orto',  gapLayer: 150, gapNode: 44, w: 190, h: 56 }],
-        ['preset_bes',     'Leggibile BES/DSA', { mode: 'dag', orient: 'lr', routing: 'orto',  gapLayer: 110, gapNode: 26, w: 210, h: 60 }],
-        ['preset_albero',  'Albero puro',       { mode: 'td',  orient: 'td', routing: 'curva', gapLayer: 56,  gapNode: 26, w: 168, h: 46 }]
-    ];
+    /* ⚠️ Le leve del FOCUS sono SOLO queste: geometria e corpi del testo. Tutto
+       il resto (motore, instradamento, archi usati, linking words, gerarchia,
+       evidenzia, ponticelli, bande) lo governa il profilo della vista intera —
+       una leva sola per la stessa cosa, così il pannello resta lo stesso
+       entrando e uscendo dal focus (richiesta di Giacomo, 12/8). La geometria
+       resta separata perché le stesse misure regolano cose diverse: dieci card
+       grandi qui, cento piccole là. */
+    const CHIAVI_FOCUS = ['orient', 'gapLayer', 'gapNode', 'w', 'h', 'fsNode', 'fsRel'];
 
-    const S = { active: false, lastRes: null, lastNodes: null, focus: null };
+    /* Il profilo dell'UTENTE, non del progetto (12/8). Le leve della vista sono
+       il modo in cui QUEL docente legge le mappe: ritararle a ogni mappa nuova
+       è il lavoro che questo giro serve a togliere. Si scrive uscendo dalla
+       vista e chiudendo l'app; si legge quando un progetto non ha ancora un
+       profilo suo. Il profilo del progetto resta la fonte per quella mappa. */
+    const USER_KEY = 'mappai_studio_profile';
+    /* «Ci ero dentro quando ho chiuso» (12/8). Il MOTORE (albero, DAG…) sta nel
+       profilo e si ritrovava già; a non tornare era il PASSO DEL CICLO — si
+       riapriva l'app sul layout libero e bisognava ripremere LAYOUT quattro
+       volte. Il flag dice solo «l'utente vuole la vista studio»: si accende
+       entrando e si spegne SOLO uscendo col bottone LAYOUT.
+       ⚠️ Le uscite di servizio (cambio mappa, ritorno alla landing) chiamano
+       `exit()` senza volontarietà e NON lo spengono: quelle smontano l'overlay
+       da un canvas che sta per essere ricostruito, non dicono che il docente ha
+       cambiato idea. Confonderle rendeva il ricordo inutile — si perdeva a ogni
+       cambio di mappa, che è il momento in cui serve di più. */
+    const ATTIVO_KEY = 'mappai_studio_attivo';
+    function letto() {
+        try {
+            const raw = localStorage.getItem(USER_KEY);
+            const o = raw ? JSON.parse(raw) : null;
+            return (o && typeof o === 'object') ? o : null;
+        } catch (e) { return null; }
+    }
+    function scriviUtente() {
+        try {
+            const p = appState && appState.studioProfile;
+            if (!p) return;
+            const o = Object.assign({}, p);
+            delete o.centerId;                 // vale per UNA mappa: non è una preferenza
+            localStorage.setItem(USER_KEY, JSON.stringify(o));
+        } catch (e) { /* best-effort */ }
+    }
+    // Chiudendo l'app non passa da `exit()`: l'ultimo stato si salva qui.
+    try { window.addEventListener('beforeunload', scriviUtente); } catch (e) { /* noop */ }
+
+    const S = { active: false, lastRes: null, lastNodes: null, focus: null, avanzate: false };
 
     function profile() {
-        if (!appState.studioProfile) appState.studioProfile = Object.assign({}, DEF_PROFILE);
+        if (!appState.studioProfile) {
+            appState.studioProfile = Object.assign({}, DEF_PROFILE, letto() || {});
+        }
+        const p = appState.studioProfile;
         // profili salvati da versioni precedenti: campi nuovi ai default
         Object.keys(DEF_PROFILE).forEach(k => {
-            if (appState.studioProfile[k] === undefined) appState.studioProfile[k] = DEF_PROFILE[k];
+            if (p[k] === undefined) p[k] = DEF_PROFILE[k];
         });
-        return appState.studioProfile;
+        // le leve di resa nuove vincono una volta sola (vedi DEF_VER)
+        if (p.defv !== DEF_VER) {
+            DEF_RESA.forEach(k => { p[k] = DEF_PROFILE[k]; });
+            p.defv = DEF_VER;
+        }
+        return p;
     }
     function fprofile() {
         const p = profile();
@@ -60,8 +115,11 @@
         });
         return p.focus;
     }
-    // quale profilo governa i comandi in questo momento
-    function activeProfile() { return S.focus ? fprofile() : profile(); }
+    // Quale profilo governa QUESTA leva adesso: col focus aperto la geometria
+    // va sul profilo del focus, tutto il resto resta della vista intera.
+    function profiloDi(k) {
+        return (S.focus && CHIAVI_FOCUS.indexOf(k) >= 0) ? fprofile() : profile();
+    }
     function persist() {
         // StorageManager e' una const lessicale, NON e' su window: la guardia
         // giusta e' typeof (review 1/8 — regola nota: mai window.StorageManager)
@@ -211,10 +269,13 @@
     }
 
     /* ── comandi della sidebar ──────────────────────────────────────────── */
-    const MOTORI = [
-        ['dag', 'DAG'], ['td', 'Albero'], ['anelli', 'Anelli'],
-        ['colonne', 'Colonne'], ['percorso', 'Percorso'], ['fasci', 'Fasci'], ['matrice', 'Matrice']
-    ];
+    /* I motori si dividono in due: quelli che disegnano la mappa COME ci si
+       aspetta di vederla (albero, DAG, fasci) restano a vista; gli altri
+       quattro sono letture oblique — utili, ma non nella prima schermata di chi
+       apre la vista per la prima volta. Stessa chiave `mode` per entrambi i
+       gruppi: è una scelta sola, spezzata in due posti. */
+    const MOTORI = [['td', 'Albero'], ['dag', 'DAG'], ['fasci', 'Fasci']];
+    const MOTORI_ALT = [['anelli', 'Anelli'], ['colonne', 'Colonne'], ['percorso', 'Percorso'], ['matrice', 'Matrice']];
     function seg(k, opts, cur) {
         return '<div class="flex flex-wrap gap-1" data-sv-seg="' + k + '">' + opts.map(o =>
             '<button type="button" data-v="' + o[0] + '" class="px-2 py-1.5 rounded-lg text-[11px] font-bold border ' +
@@ -231,27 +292,31 @@
             '<input type="range" data-sv-sl="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" class="flex-1 accent-indigo-600">' +
             '<b class="text-[11px] tabular-nums w-11 text-right" data-sv-out="' + k + '">' + val + (suff || 'px') + '</b></div>';
     }
+    function chk(k, label, on, mb) {
+        return '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 ' + (mb || 'mb-1.5') + ' cursor-pointer">' +
+            '<input type="checkbox" data-sv-chk="' + k + '" ' + (on ? 'checked' : '') + ' class="accent-indigo-600">' +
+            label + '</label>';
+    }
 
-    // Col Focus aperto il pannello si riduce alle leve che NON possono
-    // corrompere il ritaglio (geometria e corpi del testo): motore, archi
-    // usati, profondità & co. tornano chiudendo il Focus.
+    /* IL PANNELLO È UNO SOLO (12/8). Prima ce n'erano due — la vista intera e
+       una versione ridotta per il Focus — e le leve sparivano proprio quando si
+       guarda un pezzo di mappa da vicino, cioè quando servono. Uguale dentro e
+       fuori: cambia solo la testata (dentro il focus dice su quale nodo si è, e
+       come uscirne) e a quale profilo va ogni leva (`profiloDi`). */
     function buildControls() {
         const panel = document.getElementById('sidebar-panel-vista');
         if (!panel) return;
-        if (S.focus) { buildFocusControls(panel); return; }
         const p = profile();
+        const g = S.focus ? fprofile() : p;                 // geometria e corpi
         const { maxD, choices } = currentData();
+        const f = S.focus;
         panel.innerHTML =
-            '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
-            '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
-            t('sv_title', 'Vista studio') + '</div>' +
-            '<div class="flex flex-wrap gap-1.5 mb-3">' + PRESETS.map((pr, i) =>
-                '<button type="button" data-sv-preset="' + i + '" class="px-2.5 py-1 rounded-full text-[10.5px] font-bold ' +
-                'border border-dashed border-slate-300 bg-white text-slate-500 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700">' +
-                t('sv_' + pr[0], pr[1]) + '</button>').join('') + '</div>' +
+            (f ? testataFocus(f) :
+                '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
+                '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
+                t('sv_title', 'Vista studio') + '</div>') +
             fld(t('sv_motore', 'Motore'), seg('mode', MOTORI, p.mode)) +
-            fld(t('sv_orient', 'Orientamento'), seg('orient', [['td', t('sv_alto', "dall'alto ↓")], ['lr', t('sv_sinistra', 'da sinistra →')]], p.orient)) +
-            fld(t('sv_routing', 'Instradamento archi'), seg('routing', [['curva', t('sv_curva', 'curva')], ['dritto', t('sv_dritto', 'dritto')], ['orto', t('sv_orto', 'ortogonale')]], p.routing)) +
+            fld(t('sv_orient', 'Orientamento'), seg('orient', [['td', t('sv_alto', "dall'alto ↓")], ['lr', t('sv_sinistra', 'da sinistra →')]], g.orient)) +
             fld(t('sv_archi_usati', 'Archi usati'), seg('set', choices.map(c => [c.v, c.label]), p.set)) +
             fld(t('sv_labels', 'Linking words'), seg('labels', [['off', t('sv_no', 'no')], ['short', t('sv_brevi', 'brevi')], ['full', t('sv_intere', 'intere')]], p.labels)) +
             fld(t('sv_hier', 'Gerarchia visiva'), seg('hier', [['no', t('sv_no', 'no')], ['foglie', t('sv_foglie', 'foglie')], ['livello', t('sv_livello', 'livello')], ['taglia', t('sv_taglia', '+ taglia')]], p.hier)) +
@@ -260,66 +325,73 @@
                 '<div class="flex items-center gap-2">' +
                 '<input type="range" id="sv-depth" data-sv-sl="depth" min="0" max="' + Math.max(1, maxD) + '" step="1" value="' + Math.min(p.depth, maxD) + '" class="flex-1 accent-indigo-600">' +
                 '<b class="text-[11px] tabular-nums w-11 text-right" id="sv-depth-out">' + ((p.depth >= maxD) ? t('sv_tutti', 'tutti') : ('0–' + p.depth)) + '</b></div>') +
-            fld(t('sv_gap_layer', 'Spazio fra livelli'), slider('gapLayer', 20, 240, 2, p.gapLayer)) +
-            fld(t('sv_gap_node', 'Spazio fra card'), slider('gapNode', 6, 90, 2, p.gapNode)) +
-            fld(t('sv_card_w', 'Larghezza card'), slider('w', 80, 240, 2, p.w)) +
-            fld(t('sv_card_h', 'Altezza card'), slider('h', 30, 90, 2, p.h)) +
-            fld(t('sv_fs_node', 'Testo dei nodi'), slider('fsNode', 8, 20, 1, p.fsNode)) +
-            fld(t('sv_fs_rel', 'Testo linking words'), slider('fsRel', 7, 16, 1, p.fsRel)) +
-            '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 mb-1.5 cursor-pointer">' +
-            '<input type="checkbox" data-sv-chk="hops" ' + (p.hops !== false ? 'checked' : '') + ' class="accent-indigo-600">' +
-            t('sv_hops', 'Ponticelli agli incroci') + '</label>' +
-            '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 mb-1.5 cursor-pointer">' +
-            '<input type="checkbox" data-sv-chk="ports" ' + (p.ports !== false ? 'checked' : '') + ' class="accent-indigo-600">' +
-            t('sv_ports', 'Frecce separate sul nodo') + '</label>' +
-            '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 mb-3 cursor-pointer">' +
-            '<input type="checkbox" data-sv-chk="bands" ' + (p.bands ? 'checked' : '') + ' class="accent-indigo-600">' +
-            t('sv_bands', 'Bande delle macro-aree') + '</label>' +
+            fld(t('sv_gap_layer', 'Spazio fra livelli'), slider('gapLayer', 20, 260, 2, g.gapLayer)) +
+            fld(t('sv_gap_node', 'Spazio fra card'), slider('gapNode', 6, 110, 2, g.gapNode)) +
+            fld(t('sv_card_w', 'Larghezza card'), slider('w', 80, 320, 2, g.w)) +
+            fld(t('sv_card_h', 'Altezza card'), slider('h', 30, 120, 2, g.h)) +
+            fld(t('sv_fs_node', 'Testo dei nodi'), slider('fsNode', 8, 22, 1, g.fsNode)) +
+            fld(t('sv_fs_rel', 'Testo linking words'), slider('fsRel', 7, 18, 1, g.fsRel)) +
+            chk('ports', t('sv_ports', 'Frecce separate sul nodo'), p.ports !== false, 'mb-1.5') +
+            chk('bands', t('sv_bands', 'Bande delle macro-aree'), !!p.bands, 'mb-3') +
             '<div id="sv-metrics" class="text-[11px] text-slate-400 font-bold mb-3"></div>' +
             '<button type="button" id="sv-pdf" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-2">' +
-            '<i data-lucide="file-down" class="w-4 h-4"></i>' + t('sv_pdf', 'Esporta PDF (A4)') + '</button>' +
+            '<i data-lucide="file-down" class="w-4 h-4"></i>' +
+            (f ? t('sv_pdf_focus', 'Esporta PDF del Focus') : t('sv_pdf', 'Esporta PDF (A4)')) + '</button>' +
+            (f ? '<button type="button" id="sv-focus-exit" class="w-full mt-2 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 flex items-center justify-center gap-2">' +
+                '<i data-lucide="corner-up-left" class="w-4 h-4"></i>' + t('sv_focus_exit', 'Chiudi il focus') + '</button>' : '') +
+            avanzate(p) +
             '<div class="text-[10px] text-slate-400 mt-2">' +
             t('sv_hint', 'Tasto destro su una card: Descrizione, Focus sui vicini o sulla parentela.') + '</div>';
         if (window.safeCreateIcons) window.safeCreateIcons();
         bindControls(panel);
     }
 
-    function buildFocusControls(panel) {
-        const fp = fprofile();
-        const f = S.focus;
+    function testataFocus(f) {
         const label = String((f.centro && f.centro.label) || f.id);
-        panel.innerHTML =
-            '<div class="text-sm font-bold text-slate-600 mb-1 flex items-center gap-2">' +
+        return '<div class="text-sm font-bold text-slate-600 mb-1 flex items-center gap-2">' +
             '<i data-lucide="scan-search" class="w-4 h-4 text-indigo-400"></i>' +
             t('sv_focus_on', 'Focus attivo') + '</div>' +
-            '<div class="text-[12px] font-bold text-slate-700 leading-snug mb-2 break-words">' +
-            esc(label) + '</div>' +
+            '<div class="text-[12px] font-bold text-slate-700 leading-snug mb-2 break-words">' + esc(label) + '</div>' +
             '<div class="flex gap-1.5 mb-3">' +
             [['vicini', t('sv_vicini', 'vicini')], ['parenti', t('sv_parenti', 'parentela')]].map(o =>
                 '<button type="button" data-sv-fmode="' + o[0] + '" class="flex-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border ' +
                 (f.mode === o[0] ? 'bg-indigo-600 text-white border-indigo-600'
                     : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50') + '">' + o[1] + '</button>').join('') +
-            '</div>' +
-            fld(t('sv_orient', 'Orientamento'), seg('orient', [
-                ['auto', t('sv_auto', 'auto')],
-                ['td', t('sv_alto', "dall'alto ↓")],
-                ['lr', t('sv_sinistra', 'da sinistra →')]], fp.orient)) +
-            fld(t('sv_gap_layer', 'Spazio fra livelli'), slider('gapLayer', 30, 260, 2, fp.gapLayer)) +
-            fld(t('sv_gap_node', 'Spazio fra card'), slider('gapNode', 8, 110, 2, fp.gapNode)) +
-            fld(t('sv_card_w', 'Larghezza card'), slider('w', 110, 320, 2, fp.w)) +
-            fld(t('sv_card_h', 'Altezza card'), slider('h', 40, 120, 2, fp.h)) +
-            fld(t('sv_fs_node', 'Testo dei nodi'), slider('fsNode', 9, 22, 1, fp.fsNode)) +
-            fld(t('sv_fs_rel', 'Testo linking words'), slider('fsRel', 8, 18, 1, fp.fsRel)) +
-            '<div id="sv-metrics" class="text-[11px] text-slate-400 font-bold mb-3"></div>' +
-            '<button type="button" id="sv-pdf" class="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-2">' +
-            '<i data-lucide="file-down" class="w-4 h-4"></i>' + t('sv_pdf_focus', 'Esporta PDF del Focus') + '</button>' +
-            '<button type="button" id="sv-focus-exit" class="w-full mt-2 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 flex items-center justify-center gap-2">' +
-            '<i data-lucide="corner-up-left" class="w-4 h-4"></i>' + t('sv_focus_exit', 'Chiudi il focus') + '</button>' +
-            '<div class="text-[10px] text-slate-400 mt-2">' +
-            t('sv_focus_locked', 'Le altre opzioni della vista sono sospese finché il focus è aperto: tornano chiudendolo.') +
             '</div>';
-        if (window.safeCreateIcons) window.safeCreateIcons();
-        bindControls(panel);
+    }
+
+    /* Quello che un docente non deve incontrare per usare la vista: quattro
+       motori di lettura obliqua, l'instradamento degli archi e i ponticelli.
+       Non spariscono — chi li cerca li trova, aperti restano aperti (S.avanzate)
+       finché non si chiude la vista. */
+    function avanzate(p) {
+        return '<div class="mt-3 border-t border-slate-100 pt-2">' +
+            '<button type="button" id="sv-adv-t" aria-expanded="' + (S.avanzate ? 'true' : 'false') +
+            '" class="w-full flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 hover:text-indigo-500 py-1">' +
+            '<i data-lucide="chevron-' + (S.avanzate ? 'down' : 'right') + '" class="w-3.5 h-3.5"></i>' +
+            t('sv_avanzate', 'Altre opzioni') + '</button>' +
+            (S.avanzate
+                ? '<div class="pt-2">' +
+                    fld(t('sv_motore_alt', 'Altri motori'), seg('mode', MOTORI_ALT, p.mode)) +
+                    fld(t('sv_routing', 'Instradamento archi'), seg('routing', [['curva', t('sv_curva', 'curva')], ['dritto', t('sv_dritto', 'dritto')], ['orto', t('sv_orto', 'ortogonale')]], p.routing)) +
+                    chk('hops', t('sv_hops', 'Ponticelli agli incroci'), p.hops !== false, 'mb-1') +
+                  '</div>'
+                : '') +
+            '</div>';
+    }
+
+    /* Che cosa va ridisegnato dopo aver mosso la leva `k`.
+       ⚠️ `set` e `depth` non sono leve di resa: cambiano QUALI nodi esistono,
+       cioè l'insieme da cui il focus è stato ritagliato. Ridisegnare il focus
+       com'è lo lascerebbe pieno di card che nella vista non ci sono più — va
+       ritagliato di nuovo dallo stesso nodo. */
+    function ridisegna(k) {
+        if (S.focus) {
+            if (k === 'set' || k === 'depth') { render(); openFocus(S.focus.id, S.focus.mode); return; }
+            renderFocus();
+            return;
+        }
+        render();
     }
 
     function bindControls(panel) {
@@ -330,20 +402,17 @@
             if (ev.target.closest('#sv-focus-exit')) { closeFocus(); return; }
             const fm = ev.target.closest('[data-sv-fmode]');
             if (fm && S.focus) { openFocus(S.focus.id, fm.getAttribute('data-sv-fmode')); return; }
-            const pr = ev.target.closest('[data-sv-preset]');
-            if (pr) {
-                Object.assign(profile(), PRESETS[+pr.getAttribute('data-sv-preset')][2]);
-                profile().centerId = null;
-                persist(); buildControls(); render();
+            if (ev.target.closest('#sv-adv-t')) {
+                S.avanzate = !S.avanzate;
+                buildControls();
                 return;
             }
             const b = ev.target.closest('[data-sv-seg] button');
             if (b) {
                 const k = b.closest('[data-sv-seg]').getAttribute('data-sv-seg');
-                activeProfile()[k] = b.getAttribute('data-v');
-                if (S.focus) { persist(); buildControls(); renderFocus(); return; }
+                profiloDi(k)[k] = b.getAttribute('data-v');
                 if (k === 'mode' && profile().mode !== 'anelli') profile().centerId = null;
-                persist(); buildControls(); render();
+                persist(); buildControls(); ridisegna(k);
                 return;
             }
         });
@@ -351,17 +420,17 @@
             const sl = ev.target.closest('[data-sv-sl]');
             if (!sl) return;
             const k = sl.getAttribute('data-sv-sl');
-            activeProfile()[k] = +sl.value;
+            profiloDi(k)[k] = +sl.value;
             const out = panel.querySelector('[data-sv-out="' + k + '"]');
             if (out) out.textContent = sl.value + 'px';
-            persist();
-            if (S.focus) renderFocus(); else render();
+            persist(); ridisegna(k);
         });
         panel.addEventListener('change', ev => {
             const c = ev.target.closest('[data-sv-chk]');
             if (!c) return;
-            profile()[c.getAttribute('data-sv-chk')] = c.checked;
-            persist(); render();
+            const k = c.getAttribute('data-sv-chk');
+            profiloDi(k)[k] = c.checked;
+            persist(); ridisegna(k);
         });
     }
 
@@ -507,20 +576,31 @@
         if (!S.focus) return;
         const svgEl = document.getElementById('sv-focus-svg');
         if (!svgEl) return;
+        /* ⚠️ 12/8 — Motore, instradamento, linking words, gerarchia visiva,
+           frecce e bande erano SCRITTI QUI: il focus disegnava sempre allo
+           stesso modo, qualunque cosa dicesse il pannello. Con la sidebar unica
+           sarebbe stato peggio di prima — leve a vista che non fanno niente.
+           Ora la resa la governa il profilo della vista, la geometria quello
+           del focus (`fp`). */
+        const p = profile();
         const fp = fprofile();
         const { nodes, links, id } = S.focus;
         const orient = (fp.orient === 'td' || fp.orient === 'lr')
             ? fp.orient : (nodes.length > 14 ? 'lr' : 'td');
-        // Niente ponticelli: pochi nodi, sarebbero solo rumore.
-        const opt = { mode: 'dag', orient, routing: 'orto', ports: true, subRows: '1',
-                      w: +fp.w, h: +fp.h, gapNode: +fp.gapNode, gapLayer: +fp.gapLayer };
+        const opt = { mode: p.mode, orient, routing: p.routing, ports: p.ports !== false, subRows: '1',
+                      w: +fp.w, h: +fp.h, gapNode: +fp.gapNode, gapLayer: +fp.gapLayer,
+                      // «Anelli» chiede un centro, e qui il centro è il nodo del focus
+                      centerId: (p.mode === 'anelli') ? id : undefined };
         const res = L().run(nodes, links, window.d3, opt);
-        const m = L().measure(res, false);
+        const m = L().measure(res, res.kind === 'td');
+        if (p.hops !== false && ['dag', 'td', 'colonne'].indexOf(res.kind) >= 0) {
+            L().addHops(res, { r: Math.max(8, Math.min(14, Math.round((+fp.gapNode) / 2.2))) });
+        }
         const handle = DRAW().draw(svgEl, res, nodes, {
             d3: window.d3, prefix: 'svf',
             custom: (appState.db && appState.db.customColors) || {},
             fsNode: +fp.fsNode, fsRel: +fp.fsRel,
-            labels: 'full', hier: 'no', evidenzia: id,
+            labels: p.labels, hier: p.hier, bands: p.bands, hover: p.hl, evidenzia: id,
             onNodeContext: openNodeMenu
         });
         handle.fit('all');
@@ -700,9 +780,10 @@
     }
 
     /* ── ingresso e uscita ──────────────────────────────────────────────── */
-    function enter() {
+    function enter(silenzioso) {
         if (!appState.db.nodes || !appState.db.nodes.length) return;
         S.active = true;
+        try { localStorage.setItem(ATTIVO_KEY, '1'); } catch (e) { /* best-effort */ }
         ensureOverlay();
         watchResize();
         const tab = document.getElementById('sidebar-tab-vista');
@@ -710,10 +791,31 @@
         buildControls();
         if (window.switchSidebarTab) window.switchSidebarTab('vista');
         render();
-        if (window.showToast) window.showToast(t('tst_studio_on', 'Vista studio: deterministica, da leggere. Il layout libero resta sotto.'), 'info');
+        // Rientrando da soli il messaggio non serve: spiega una scelta che in
+        // quel momento l'utente non ha fatto, e comparirebbe a ogni apertura.
+        if (!silenzioso && window.showToast) window.showToast(t('tst_studio_on', 'Vista studio: deterministica, da leggere. Il layout libero resta sotto.'), 'info');
     }
-    function exit() {
+    /* Rientro automatico: la chiama chi ha appena finito di disegnare il canvas
+       (initD3Visualization), che è l'unico momento in cui l'overlay può
+       montarsi senza trovare una mappa a metà. Torna true se ha ripreso. */
+    function riprendi() {
+        if (S.active) return false;
+        try { if (localStorage.getItem(ATTIVO_KEY) !== '1') return false; } catch (e) { return false; }
+        if (localStorage.getItem('mappai_studio_view') === '0') return false;   // kill-switch
+        if (!appState || !appState.db || !(appState.db.nodes || []).length) return false;
+        appState.layoutMode = 'studio';
+        enter(true);
+        if (window.updateLayoutButtonLabel) window.updateLayoutButtonLabel();
+        return true;
+    }
+    function exit(volontaria) {
         S.active = false;
+        // Solo il bottone LAYOUT dice «non voglio più la vista studio»: le
+        // uscite di servizio lasciano il ricordo dov'è (vedi ATTIVO_KEY).
+        if (volontaria) { try { localStorage.setItem(ATTIVO_KEY, '0'); } catch (e) { /* best-effort */ } }
+        // La taratura con cui si esce è quella con cui si vuole rientrare, anche
+        // su una mappa diversa: si scrive qui e alla chiusura dell'app.
+        scriviUtente();
         closeMenu(); closeFocus();
         const ov = document.getElementById('studio-overlay');
         if (ov) ov.remove();
@@ -723,7 +825,7 @@
     }
 
     window.MappAIStudioView = {
-        enter, exit, render, openFocus, closeFocus, renderFocus,
+        enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S
     };
     console.log('[MappAIStudioView] vista studio caricata (kill-switch: mappai_studio_view=0)');
