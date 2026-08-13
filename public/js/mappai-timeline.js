@@ -421,6 +421,7 @@ window.openTimelineGeneratorModal = function () {
 // ── GENERAZIONE TIMELINE CON AI ───────────────────────────────────────────────
 
 window.generateTimelineWithAI = async function () {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     var modal = document.getElementById('timeline-generator-modal');
 
     // Leggi opzioni selezionate PRIMA di rimuovere il modale

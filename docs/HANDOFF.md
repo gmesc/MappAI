@@ -35,6 +35,7 @@ node --test tests/                                # atteso: 0 fail
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
 node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
+node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
 ```
 
 I banchi in `tools/smoke/` non sono test della suite e non lo diventano: caricano i
@@ -139,6 +140,31 @@ con gli stessi id. La console li porta nella sua area e li **restituisce** al
 `<div id="config-ai-modal">` — che resta nel markup come loro CASA, non come superficie
 — quando si cambia vista o si chiude. Senza la restituzione sparirebbero col riquadro.
 
+### La PIPELINE dei materiali — lavora, e l'app resta navigabile
+`MappAIPipeline.run(config)` in `mappai-material-pipeline.js`: step A mappa → B quiz →
+C fogli nodi → D sintesi → E catena, con un manifesto su disco a ogni transizione
+(`pipeline.json`), quindi «Riprendi» sa sempre da dove ripartire.
+
+⚠️ **Il velo copre la sola area di CREA** (13/8): non se ne disegna un secondo, si
+SPOSTA `#loading-overlay` dentro `#build-content` con la classe `in-area`
+(`position:absolute`). Così restano il suo cronometro e i suoi messaggi, e quando CREA
+viene nascosta il velo sparisce **con lei** — è il contenitore a governarlo, non una
+riga di codice. Alla fine torna al `body`, anche in caso di errore.
+
+⚠️ **Finché lavora, l'app non accetta lavoro nuovo** e lo dice: «Pipeline occupata,
+riprova più tardi.» (`window.mappaiOccupato()`). Il lucchetto ha una **chiave interna**
+(`Pipeline._interno`), perché lo step A chiama `startGeneration` e senza la pipeline
+bloccherebbe sé stessa. Porte chiuse: `startGeneration` · i quattro punti che caricano
+una mappa (`loadProject`, `loadMapVault`, `directLoadVault`, `importGraph`) · Espandi
+con AI · quiz e flashcard del nodo · rigenera set · Timeline · cross-link AI · Studio
+attivo · Sintesi di ramo · Tutor del nodo.
+
+⚠️ **La sentinella d'identità** è la rete sotto: la cartella di destinazione si fissa
+all'inizio, ma i passi costruiscono i materiali **leggendo `appState`**. Prima di ogni
+passo si controlla che titolo, vault e id di progetto siano ancora quelli; se no la
+pipeline **si ferma e lo dice**, col manifesto già scritto (da lì «Riprendi»). Il numero
+dei nodi NON entra nel confronto: la pipeline stessa lo cambia.
+
 ### VISTA STUDIO — il passo «STUDIO» del ciclo LAYOUT
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
@@ -160,37 +186,34 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
-1. **La pipeline in sottofondo lavora coi dati congelati.** Cambiando progetto mentre gira,
-   scrive i materiali della mappa NUOVA nel vault VECCHIO, **in silenzio**. È l'unico
-   debito che produce file sbagliati su disco senza dirlo.
-2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+1. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-3. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-4. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+2. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+3. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-5. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+4. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-6. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+5. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-7. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+6. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-8. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+7. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-9. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+8. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-10. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+9. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**

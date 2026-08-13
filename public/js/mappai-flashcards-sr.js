@@ -9,6 +9,7 @@
 let currentQuizNode = null;
 
 window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     const apiKey = window.getSystemKey();
     if (!apiKey) {
         if (!silent) window.showToast(window.t('tst_fc_no_key', "Nessuna API Key presente per generare le flashcard."), "error"); return;
@@ -180,6 +181,7 @@ window.deleteStudySet = function (setId) {
 // di loadStudySet). Risolve la ripetizione identica dei set salvati. Richiede set.material
 // (salvato alla creazione); i set storici senza material non sono rigenerabili.
 window.regenerateStudySet = async function (setId) {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     const set = appState.db.studySets.find(s => s.id === setId);
     if (!set) return;
     if (!set.material) {

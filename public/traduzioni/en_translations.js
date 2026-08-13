@@ -1963,6 +1963,8 @@ const en_translations = {
     mp_pick_one: "Enable at least one output section.",
     mp_start: "Start",
     mp_need_source: "Load at least one source before generating materials",
+    mp_busy_lock: "Pipeline busy, try again later.",
+    mp_mappa_cambiata: "The open map changed while the pipeline was working: stopping here, so the materials do not end up in the wrong folder. Reopen that map and use «Resume».",
     mp_busy: "A pipeline is already running",
     mp_no_google: "Natural voice disabled: it needs the Google (Gemini) key. The summary will be text-only.",
     mp_step_a: "Generating the map…",

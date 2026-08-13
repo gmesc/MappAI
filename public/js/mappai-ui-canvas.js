@@ -956,6 +956,12 @@ window.openSaveFolder = async function () {
 };
 
 window.importGraph = function (event) {
+    /* ⚠️ Non si cambia mappa mentre la pipeline lavora (13/8): i suoi passi
+       leggono `appState` mentre scrivono in una cartella fissata all'inizio —
+       caricarne un'altra farebbe finire i materiali della mappa nuova nel vault
+       della vecchia, in silenzio. Il velo copre la sola area di CREA apposta,
+       per lasciar GIRARE per l'app: guardare sì, sostituire no. */
+    if (window.mappaiOccupato && window.mappaiOccupato()) return ;
     // La mappa sta per essere sostituita: chiudi un'eventuale sessione di
     // Studio attivo (ripristino snapshot) prima che lo snapshot punti a nodi morti.
     if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();

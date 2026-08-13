@@ -1166,6 +1166,12 @@ window.handleFileUpload = async function (input, type) {
 }
 
 window.startGeneration = async function () {
+    /* ⚠️ Una generazione alla volta (13/8). La pipeline dei materiali lavora
+       con l'app navigabile: se da un'altra sezione partisse una seconda
+       generazione, cambierebbe `appState` sotto i piedi della prima. Lo step A
+       della pipeline passa di qui, ed è per questo che il lucchetto ha una
+       chiave interna (`Pipeline._interno`). */
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     // Contesto di generazione (29/7): classe + disciplina. Con una classe attiva
     // che insegna 2+ discipline il docente sceglie PRIMA di spendere token; con
     // una sola (o nessuna) la funzione risolve da sé e non mostra nulla.

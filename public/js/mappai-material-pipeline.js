@@ -22,7 +22,63 @@
   function _icons() { if (window.safeCreateIcons) window.safeCreateIcons(); }
   function _clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
 
-  const Pipeline = { _running: false };
+  const Pipeline = { _running: false, _interno: false, _identita: null };
+
+  /* ══ IL LUCCHETTO (13/8) ═════════════════════════════════════════════════
+     Da quando il velo copre la sola area di CREA, il docente può girare per
+     l'app mentre la pipeline lavora — e potrebbe chiedere un'altra generazione.
+     Due chiamate all'AI in parallelo non si romperebbero a vicenda, ma la
+     seconda cambierebbe `appState` sotto i piedi della prima: è esattamente il
+     guasto che questo giro chiude. Quindi finché la pipeline gira, l'app non
+     accetta lavoro nuovo — e lo DICE, invece di non fare niente.
+     ⚠️ `_interno` esiste perché lo step A chiama `startGeneration` da dentro:
+     senza, la pipeline bloccherebbe sé stessa. Si alza e si abbassa attorno a
+     quella chiamata, che parte in modo SINCRONO — nessun gesto dell'utente può
+     infilarsi in mezzo e passare per interno. */
+  Pipeline.occupata = function () { return !!Pipeline._running && !Pipeline._interno; };
+  /* Aperta al banco (`tools/smoke/pipeline-lucchetto.js`): la regola più
+     importante di questo modulo non si può provare dall'esterno senza una via
+     d'accesso, e senza una prova torna a rompersi in silenzio. */
+  Pipeline._sentinella = { identita: function () { return _identita(); }, controlla: function () { return _controllaIdentita(); } };
+  window.mappaiOccupato = function () {
+    if (!window.MappAIPipeline || !window.MappAIPipeline.occupata()) return false;
+    _toast(_t('mp_busy_lock', 'Pipeline occupata, riprova più tardi.'), 'warning');
+    return true;
+  };
+
+  /* ══ LA SENTINELLA D'IDENTITÀ ════════════════════════════════════════════
+     IL DIFETTO CHE CHIUDE: la cartella di destinazione (`vaultPath`) si fissa
+     all'inizio, ma i materiali si costruiscono LEGGENDO `appState` passo per
+     passo — nodi, set di studio, titolo. Se nel frattempo la mappa aperta
+     cambiava, i quiz della mappa NUOVA finivano nel vault della VECCHIA, in
+     silenzio: nessun errore, file plausibili, cartella sbagliata.
+     Il blocco del cambio mappa (in `_bloccoCaricamenti`) chiude la porta
+     principale; questa è la rete sotto. Prima di ogni passo si controlla che la
+     mappa sia ancora QUELLA — e se non lo è la pipeline si ferma e lo dice, con
+     il manifesto già scritto su disco: da lì «Riprendi» ricomincia dal passo
+     giusto. Fermarsi rumorosamente è l'unico esito onesto: proseguire vorrebbe
+     dire scrivere materiali che non corrispondono a niente. */
+  function _identita() {
+    var st = _state() || {};
+    return {
+      titolo: st.rootNodeLabel || '',
+      vault: st.activeVaultPath || '',
+      nodi: ((st.db && st.db.nodes) || []).length,
+      progetto: (typeof StorageManager !== 'undefined' && StorageManager.currentProjectId) || ''
+    };
+  }
+  function _controllaIdentita() {
+    var a = Pipeline._identita, b = _identita();
+    if (!a) return;
+    /* Il NUMERO dei nodi non entra nel confronto: la pipeline stessa lo cambia
+       (i set di studio finiscono in `db.studySets`, e certi passi ritoccano il
+       grafo). Contano il titolo, la cartella e l'id del progetto — cioè
+       l'identità, non il contenuto. */
+    if (a.titolo === b.titolo && a.vault === b.vault && a.progetto === b.progetto) return;
+    throw new Error(_t('mp_mappa_cambiata',
+      'La mappa aperta è cambiata mentre la pipeline lavorava: mi fermo qui per non scrivere i materiali nella cartella sbagliata. Riapri quella mappa e usa «Riprendi».'));
+  }
+
 
   // ── Stato mappa: rami L1 (MindMap) / hub (KG) ──────────────────────────
   function _branchNodes() {
@@ -150,10 +206,41 @@
   }
 
   // ── Overlay progressivo ──────────────────────────────────────────────────
+  /* ══ IL VELO STA NELL'AREA DI CREA, NON SULLO SCHERMO (13/8) ═════════════
+     Richiesta di Giacomo: mentre la pipeline lavora — e può volerci qualche
+     minuto — il docente deve poter passare a ELABORA o INSEGNA. Con un velo
+     `position:fixed` a tutto schermo l'app era bloccata: nemmeno la topbar si
+     raggiungeva.
+     ⚠️ Non si disegna un secondo velo: si SPOSTA quello vero dentro il
+     contenitore di CREA e gli si mette `--in-area` (position:absolute). Così
+     restano il suo cronometro e i suoi messaggi che ruotano — e, soprattutto,
+     quando CREA viene nascosta il velo sparisce CON LEI, senza una riga di
+     codice che lo sappia: è il contenitore a governarlo. Alla fine torna dove
+     stava, come i comandi delle impostazioni AI nella Cabina. */
+  var _veloSegno = null;
+  function _veloNellArea() {
+    var el = document.getElementById('loading-overlay');
+    var area = document.getElementById('build-content');
+    if (!el || !area || _veloSegno) return;
+    _veloSegno = document.createComment(' velo: ora dentro CREA ');
+    el.parentNode.insertBefore(_veloSegno, el);
+    if (getComputedStyle(area).position === 'static') area.style.position = 'relative';
+    area.appendChild(el);
+    el.classList.add('in-area');
+  }
+  function _veloACasa() {
+    var el = document.getElementById('loading-overlay');
+    if (!el || !_veloSegno || !_veloSegno.parentNode) { _veloSegno = null; return; }
+    el.classList.remove('in-area');
+    _veloSegno.parentNode.insertBefore(el, _veloSegno);
+    _veloSegno.parentNode.removeChild(_veloSegno);
+    _veloSegno = null;
+  }
   function _overlay(msg) {
     if (!window.showLoadingOverlay) return;
-    if (msg === false) window.showLoadingOverlay(false);
-    else window.showLoadingOverlay(true, msg);
+    if (msg === false) { window.showLoadingOverlay(false); _veloACasa(); return; }
+    _veloNellArea();
+    window.showLoadingOverlay(true, msg);
   }
   function _setContext(sub) { if (window.MappAIUsage) window.MappAIUsage.setContext('pipeline', sub); }
 
@@ -704,6 +791,9 @@
      Vale per qualunque cambio di nome futuro, non solo per quello di oggi: il
      confronto è fra due elenchi, non fra due convenzioni scritte a mano. */
   async function _passo(vaultPath, manifest, step, esegui) {
+    /* La sentinella sta QUI, non ai quattro punti di chiamata: un passo nuovo
+       la eredita senza che nessuno debba ricordarsene. */
+    _controllaIdentita();
     const prima = ((manifest.steps[step] || {}).files || []).slice();
     const m = await esegui();
     const dopo = ((m.steps[step] || {}).files || []);
@@ -753,8 +843,10 @@
             else window.MappAITune.disarmLevel();
         }
         try {
+            Pipeline._interno = true;          // la pipeline non blocca sé stessa
             await window.startGeneration();
         } finally {
+            Pipeline._interno = false;
             /* La taratura vale per QUESTA mappa, non per il resto della sessione:
                lasciarla armata farebbe uscire semplificata anche la prossima
                generazione fatta a mano, senza che nessuno l'abbia chiesto. */
@@ -784,6 +876,10 @@
       }
       if (!vaultPath || !manifest) throw new Error('Stato pipeline incompleto');
 
+      /* Da qui in poi i passi leggono `appState`: si fotografa l'identità della
+         mappa e la si ricontrolla prima di ognuno. */
+      Pipeline._identita = _identita();
+
       const wants = function (s) { return !opts.only || opts.only.indexOf(s) >= 0; };
       // Un tentativo su uno step failed → resettalo a running via failed→running dentro _stepX.
       if (config.quiz && wants('B') && manifest.steps.B.status !== 'done') manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter));
@@ -805,6 +901,9 @@
       console.error('[MappAIPipeline]', err);
     } finally {
       Pipeline._running = false;
+      Pipeline._interno = false;
+      Pipeline._identita = null;
+      _veloACasa();      // anche su errore: un velo orfano dentro CREA resterebbe lì
     }
   };
 

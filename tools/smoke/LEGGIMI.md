@@ -4,6 +4,7 @@
 node tools/smoke/cornice-documenti.js        # testata e piè dei sei documenti
 node tools/smoke/elenchi-elabora-insegna.js  # gli elenchi di ELABORA e INSEGNA
 node tools/smoke/studio-sidebar.js           # le leve della Vista studio
+node tools/smoke/pipeline-lucchetto.js       # il lucchetto e la sentinella della pipeline
 ```
 
 Non sono test della suite (`node --test tests/`), e non lo diventano: caricano i
@@ -29,6 +30,8 @@ sandbox invece che *come* sandbox, quei file esplodono al caricamento.
   si stubba l'IPC `vaultMaterialsList` da cui il modulo lo legge, e si aspetta
   un giro di event loop.
 - La stampa vera, i PDF scritti su disco, i dialoghi di sistema.
+- Il VELO dentro l'area di CREA: `pipeline-lucchetto.js` prova il lucchetto e la
+  sentinella, non il layout — dove si posa il velo lo dice il DOM vero.
 - Il DISEGNO della Vista studio: `studio-sidebar.js` fa girare il pannello con un
   DOM finto e legge l'HTML che produce (quali leve, in che ordine, su che
   valore). Che la mappa esca leggibile con quei default si vede solo a schermo.

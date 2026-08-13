@@ -10,6 +10,7 @@ let isSpeaking = false;
 let currentQuizData = null;
 
 window.openAIModal = function (titleText) {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     window.stopTTS();
     document.getElementById('tts-button').classList.add('hidden');
     document.getElementById('ai-modal-title').innerHTML = titleText;

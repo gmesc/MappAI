@@ -242,6 +242,7 @@
 
     // ── Modale di configurazione ──────────────────────────────────────────
     window.openBranchSynthesisModal = function (nodeId) {
+        if (window.mappaiOccupato && window.mappaiOccupato()) return;
         if (!appState.db?.nodes || appState.db.nodes.length === 0) {
             window.showToast('Genera prima una mappa', 'warning');
             return;

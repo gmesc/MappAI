@@ -29,6 +29,7 @@ window.openContextualAIExtensionModal = function (nodeData) {
 };
 
 window.executeContextualAIExtension = async function () {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     let sourceContent = "";
     if (window.ctxExpansionSourceType === 'pdf') {
         if (!window.ctxExpansionPDFFile) {

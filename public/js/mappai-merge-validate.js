@@ -209,6 +209,7 @@ window.confirmMerge = function () {
 // AI CROSS-LINKING
 // ==========================================
 window.aiCrossLink = async function (existingIds, newIds) {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     const apiKey = window.getSystemKey();
     if (!apiKey) {
         window.showToast(window.t('tst_no_key_corr', "Nessuna API Key per le correlazioni AI."), "error");

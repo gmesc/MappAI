@@ -182,6 +182,7 @@ window.generateDynamicQuiz = async function (opts) {
 };
 
 window.startStudySession = async function () {
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     window.closeStudyConfigModal();
     window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;
     if (window.studyConfig.mode === 'quiz') {

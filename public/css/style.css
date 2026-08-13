@@ -1669,6 +1669,18 @@ body:not(.font-dyslexic) #ai-modal-body {
     transition: all 0.5s ease;
 }
 
+/* ── IL VELO DENTRO L'AREA DI CREA (13/8) ────────────────────────────────────
+   La pipeline dei materiali sposta questo velo dentro `#build-content` e gli
+   mette `.in-area`: da qui in poi copre la SOLA area di CREA, la topbar resta
+   raggiungibile e passando a ELABORA o INSEGNA il velo se ne va con la sezione
+   che lo contiene. Torna `fixed` appena la pipeline lo restituisce al body. */
+#loading-overlay.in-area {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    border-radius: 18px;
+}
+
 #loading-overlay.visible {
     display: flex;
 }
