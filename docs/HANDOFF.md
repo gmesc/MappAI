@@ -11,11 +11,9 @@
 
 ## 0. Le prime tre cose da sapere
 
-1. **`main` è 37 commit avanti su `origin` e il push non parte da qui**: il portachiavi
-   non ha più credenziali per github.com (token scaduto il 23/7). Lo fa Giacomo:
-   ```bash
-   git push origin main
-   ```
+1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
+   registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
+   scaduto il 23/7 non serve più, e non scade niente.
 2. **Il numero che conta della suite è `0 fail`, non il totale.** Dal 12/8 il
    misuratore è un repo A SÉ (cartella sorella `~/Claude/MappAI - misuratore`), quindi
    `npm test` non scopre più i suoi test e il totale ha smesso di oscillare. Se nei diari
@@ -56,7 +54,6 @@ tabella è la mappa per tornare indietro di un passo alla volta quando qualcosa 
 | chiave | stato | che cosa spegne |
 |---|---|---|
 | `mappai_console_bento_app` | **`'1'` nel userData di Giacomo** | il cablaggio bento delle console. ⚠️ Col bento acceso **il rail delle tre forme non si monta**: la sezione la dicono le briciole in alto, che sono anche l'unica uscita |
-| `mappai_elabora_v2` | acceso di default (`!== '0'`) | ELABORA a console (sidebar dei progetti + tabelle). `'0'` riporta alla colonna a sette gruppi, che vive ancora tutta nel modulo |
 | `mappai_stile_manifesto` | acceso | la veste «manifesto»: landing, CREA, bento. `'0'` → la landing torna esattamente com'era e il modale «Genera materiali» si riapre |
 | `mappai_bento_layout` | assente = composizione del file | la composizione scritta dall'Officina §7. Assente, comanda `mappai-bento-composizione.js` |
 | `mappai_teach_console` | acceso | la console INSEGNA. `'0'` → le tre sezioni storiche della landing |
@@ -106,9 +103,10 @@ tarato una classe l'ha già deciso una volta), e i master `mp-quiz-on`/`mp-ns-on
 sparisce e la pipeline usa il default. Ogni voce dichiara `seFuori`, cioè *quanto costa*
 non averla.
 
-### ELABORA — console (v2, default)
+### ELABORA — console
 Sidebar dei progetti → tabelle dei documenti → il documento entra nella **tela**.
-`mappai-elabora-console.js`. ELABORA elenca le **sorgenti** (ciò che si può ancora
+`mappai-elabora-console.js`. La vecchia colonna a sette gruppi è stata **potata il
+13/8**: non c'è più una seconda strada, né il flag che la accendeva. ELABORA elenca le **sorgenti** (ciò che si può ancora
 modificare), INSEGNA elenca i **file**. Il **clone** funziona su tutti i generi.
 Senza un progetto scelto l'area resta vuota: il gesto è nella colonna.
 
@@ -157,8 +155,6 @@ Verificati sul codice il 12/8: ognuno esiste ancora.
    (mappai-branch-synthesis.js:645), e due commenti dicono il contrario di ciò che il
    codice fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-4. **F6 — potatura della v1 di ELABORA**: la v2 è accesa di default dall'11/8 e ha retto
-   l'uso. La v1 vive ancora tutta nel modulo.
 5. **Impostazioni AI**: l'ultimo ponte della Cabina (uno dei cinque modali orfani).
 6. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. ⚠️ I token `--mm-doc-*`

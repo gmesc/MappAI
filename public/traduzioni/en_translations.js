@@ -2023,7 +2023,6 @@ const en_translations = {
     ec_dal_vault: "in the vault",
     ec_g_altri: "Other documents",
     ec_apro: "Opening…",
-    ec_scegli_progetto: "Pick a project in the top bar: its documents will show up here.",
     ec_file_ko: "I cannot open this file",
     /* La barra dell'anteprima di un documento del vault: «Modifica» apre la
        sintesi nell'editor; gli altri due dicono un guasto che prima era muto. */
@@ -2092,7 +2091,7 @@ const en_translations = {
     dh_brand: "MappAI · insegnai.ch",
     dh_pagina: "page",
     dh_di: "of",
-    /* ELABORA v2 (flag mappai_elabora_v2): sidebar coi progetti, area a tabelle */
+    /* ELABORA console: sidebar coi progetti, area a tabelle */
     ec_g_progetti: "Projects",
     ec_prog_cerco: "Looking for projects…",
     ec_esci: "Exit",

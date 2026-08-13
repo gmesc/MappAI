@@ -46,15 +46,6 @@
     function _bentoApp() {
         try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; }
     }
-    /* La nuova ELABORA — sidebar coi progetti, area a tre stati (S1 tabelle →
-       S2 anteprima → S3 editor) — è ora il comportamento NORMALE (Giacomo,
-       11/8). Resta il kill-switch `mappai_elabora_v2='0'`, che riporta alla
-       colonna a sette gruppi: la vecchia strada vive ancora tutta nel modulo e
-       si pota quando questa avrà retto qualche giorno d'uso vero. */
-    function _v2() {
-        try { return localStorage.getItem('mappai_elabora_v2') !== '0'; } catch (e) { return true; }
-    }
-
     /* ── Che cosa c'è da elaborare ─────────────────────────────────────────────
        Le stesse fonti dell'elenco dell'editor, lette qui per costruire la
        colonna. Restano funzioni di sola lettura: nessuna scrive niente. */
@@ -959,7 +950,13 @@
         return !_contestoCambiato;
     }
 
-    function _nav() {
+    /* ⚠️ NON è più la navigazione (13/8): la colonna la costruisce `_navV2`, che
+       elenca i PROGETTI. Questa funzione resta perché il suo elenco è l'unico
+       posto che sa come si CHIAMA un documento dato il suo id — serve alla
+       domanda «salvare prima di uscire?», che senza direbbe «questo documento»
+       proprio dove il nome c'è. Rinominata per non mentire sul suo mestiere:
+       potarla insieme alla v1 avrebbe rotto quella domanda in silenzio. */
+    function _indiceDocumenti() {
         var nav = [];
         var s = _appState();
 
@@ -1167,60 +1164,13 @@
         return s;
     }
 
+    /* Lo schema della console. La v1 (colonna a sette gruppi) è stata potata il
+       13/8/26, dopo che questa aveva retto due giorni d'uso vero: teneva in vita
+       una seconda risposta alla stessa domanda, e ogni ritocco andava fatto due
+       volte o dimenticato una. Storia in git; il kill-switch
+       `mappai_elabora_v2` non esiste più. */
     function _schema() {
-        if (_v2()) return _schemaV2();
-        var s = {
-            titolo: t('ui_landing_elabora', 'Elabora'),
-            icona: 'wand-2', taglia: 'xl', layout: 'console', piena: true,
-            invio: false, veloChiude: false,
-            /* niente chip: il contesto vive nel percorso della topbar, come nelle
-               altre sezioni del cablaggio */
-            contesto: [],
-            nav: _nav(),
-            sezioni: [{
-                /* «Crea nuovo» sta nella COLONNA, sotto l'elenco: è il gesto che
-                   aggiunge una voce a quell'elenco, non un comando del documento
-                   aperto (che ha già la sua barra). */
-                id: 'nuovo', colonna: 'lato', nuda: true,
-                azioni: [{
-                    id: 'crea', etichetta: t('ec_crea', 'Crea nuovo'), icona: 'plus',
-                    ruolo: 'primario', chiude: false
-                }]
-            }],
-        };
-        /* L'AREA È IL DOCUMENTO: una tela sola, a tutta larghezza, dentro cui va
-           `#elab-doc-host` — l'host che `mappai-doc-editor.js` cerca per
-           disegnare, cioè l'editor vero e non una copia.
-           ⚠️ La tela si emette SOLO con un documento aperto: una tela vuota è
-           una superficie che non dice che cosa si sta guardando (il validatore
-           lo contesta, e ha ragione). Senza documento l'area porta una riga che
-           dice che cosa fare. */
-        /* La FONTE ora vive nella STESSA tela (8/8 sera): non è più un ponte che
-           chiude la console e riapre il workspace. Cambia solo CHI disegna dentro
-           la tela — l'editor dei documenti o `MappAIElabora.mountSource` — e i
-           comandi della fonte, che nel workspace stavano nella sua barra, qui
-           sono una fila di azioni sopra il documento (la barra è della console). */
-        var aperto = _voce && _voce.indexOf('vuoto:') !== 0;
-        if (aperto) s.tela = { id: 'elab' };
-        /* Col progetto scelto l'area resta VUOTA (Giacomo, 10/8): la colonna
-           accanto elenca già i documenti, e una riga che dice di sceglierne uno
-           ripete a parole ciò che si ha davanti agli occhi.
-           Resta invece l'invito quando il progetto NON c'è: lì la colonna è
-           vuota per davvero, e senza una riga che lo dica la schermata
-           sembrerebbe rotta invece che in attesa. */
-        else if (!_progettoDelContesto()) s.sezioni.push({
-            id: 'vuoto', nuda: true,
-            testo: t('ec_scegli_progetto', 'Scegli un progetto nella barra in alto: qui compariranno i suoi documenti.')
-        });
-        if (_eFonte() && EL() && EL().sourceActions) {
-            s.sezioni.push({
-                id: 'src-cmd', nuda: true,
-                azioni: EL().sourceActions().map(function (a) {
-                    return { id: a.id, etichetta: a.etichetta, icona: a.icona, ruolo: a.ruolo || 'quieto', chiude: false };
-                })
-            });
-        }
-        return s;
+        return _schemaV2();
     }
     function _eFonte() { return _voce.indexOf('src:') === 0; }
 
@@ -1933,7 +1883,7 @@
                    sceglie la sidebar, dove il progetto attivo è già marcato.
                    La quarta briciola col suo menu sarebbe un secondo comando per
                    lo stesso gesto, e due comandi divergono al primo ritocco. */
-                CB.montaPercorso(box, { livelli: liv.concat(pronto && !_v2() ? _livelloProgetto() : []) });
+                CB.montaPercorso(box, { livelli: liv });
             } catch (e) { /* senza percorso resta il chip: non è un motivo per fermarsi */ }
         }
 
@@ -1951,46 +1901,6 @@
            il solo nome (dal `rootNodeLabel`) senza tendina — meglio una briciola
            che non si apre ancora di una briciola che dice «Progetto» mentre la
            mappa è lì aperta sotto. */
-        function _livelloProgetto() {
-            var T = window.MappAITeach;
-            var s = _appState();
-            var corrente = (_mappe && T && T.mappaCorrente) ? T.mappaCorrente(_mappe) : null;
-            /* ⚠️ Il nome della mappa CARICATA (`rootNodeLabel`) vale solo finché
-               l'elenco del contesto non è arrivato: era il ripiego che rendeva la
-               briciola «persistente» — cambiando classe o materia continuava a
-               dire «Elettricità» anche quando quella mappa non appartiene più al
-               contesto scelto. Con l'elenco in mano il nome si mostra SOLO se la
-               mappa aperta è una di quelle del contesto (`mappaCorrente` la cerca
-               dentro l'elenco filtrato); altrimenti la briciola torna neutra. */
-            var nome = (_inCorso && _inCorso.nome) || (corrente && corrente.nome)
-                || ((!_mappe && s && s.rootNodeLabel) || '');
-            if (_inCorso) return [{ statico: nome + ' ' + t('ec_bric_carico', '· apro…') }];
-            if (!_mappe) return nome ? [{ statico: nome, qui: true }] : [];
-            if (!_mappe.length) {
-                /* nessuna mappa per questa classe e materia: si dice, invece di
-                   aprire una tendina vuota */
-                return [{ et: nome || t('ec_bric_nessun', 'Nessun progetto'), qui: true, menu: { tipo: 'lista', voci: [
-                    { et: t('ec_bric_vuoto', '— nessun progetto per questa classe e materia —'), on: false, onPick: function () { } }
-                ] } }];
-            }
-            return [{
-                et: nome || t('ec_bric_progetto', 'Progetto'),
-                /* ⚠️ `qui: true`: è la briciola del posto in cui si è, e resta in
-                   corsivo anche da cliccabile — senza, il corsivo del primo
-                   disegno (statico, elenco non ancora arrivato) diventava
-                   grassetto appena il disco rispondeva. */
-                qui: true,
-                menu: {
-                    tipo: 'lista',
-                    voci: _mappe.map(function (m) {
-                        return {
-                            et: m.nome, on: !!(corrente && corrente.id === m.id),
-                            onPick: function () { _cambiaMappa(m); }
-                        };
-                    })
-                }
-            }];
-        }
 
         /* Cambiare mappa da qui è più che caricarla: i documenti della colonna e
            quello aperto nella tela appartengono alla mappa di PRIMA. Si azzera
@@ -2075,7 +1985,7 @@
                d'archivio: lasciando decidere al ramo qui sotto si rimonterebbe
                l'anteprima del PDF sopra l'editor appena aperto, e «Modifica»
                sembrerebbe non fare niente. */
-            if (_v2() && _doc && _doc.editing && (_doc.docId || _doc.dallaMappa)) {
+            if (_doc && _doc.editing && (_doc.docId || _doc.dallaMappa)) {
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
                 var hostOq = _montaHost(box);
                 if (hostOq && DEd().render) { try { DEd().render(); } catch (e) { } }
@@ -2085,11 +1995,11 @@
             if (_voce.indexOf('disk:') === 0) {
                 try { if (DEd().reset) DEd().reset(); } catch (e) { }
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
-                _montaFile(box, _voce.slice(5), (_v2() && _doc) ? _optsDiskV2() : null);
+                _montaFile(box, _voce.slice(5), _doc ? _optsDiskV2() : null);
                 return;
             }
             /* v2, S2 di un set d'archivio: anteprima dal builder (D3) */
-            if (_v2() && _doc && !_doc.editing && _voce.indexOf('set:') === 0) {
+            if (_doc && !_doc.editing && _voce.indexOf('set:') === 0) {
                 try { if (DEd().reset) DEd().reset(); } catch (e) { }
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
                 _montaAnteprimaSet(box, _voce.slice(4), {
@@ -2134,7 +2044,7 @@
                direbbe «questo documento» proprio dove il nome del file c'è */
             var cerca = String(v || '').replace(/^synfile:/, 'disk:');
             var nome = '';
-            try { _nav().forEach(function (x) { if (x && x.id === cerca && x.etichetta) nome = x.etichetta; }); }
+            try { _indiceDocumenti().forEach(function (x) { if (x && x.id === cerca && x.etichetta) nome = x.etichetta; }); }
             catch (e) { }
             return nome;
         }
@@ -2409,17 +2319,11 @@
            ridisegnerebbe N volte una finestra che non c'è più. */
         function _suUscitaDoc() {
             if (!_aperta) return;
-            /* v2: l'editor annuncia l'uscita (la sua «Esci»/«Salva ed Esci») →
-               si torna all'ANTEPRIMA rinfrescata, non a S1. L'evento arriva
-               PRIMA del render dell'editor: il repaint sincrono toglie l'host
-               e quel render non trova dove disegnare (stesso patto della v1). */
-            if (_v2()) {
-                if (_doc && _doc.editing) _tornaAnteprima();
-                return;
-            }
-            if (!_voce || _eFonte()) return;      /* la fonte non ha un «indietro» */
-            _voce = '';
-            rifai();
+            /* L'editor annuncia l'uscita (la sua «Esci»/«Salva ed Esci») → si
+               torna all'ANTEPRIMA rinfrescata, non all'elenco. L'evento arriva
+               PRIMA del render dell'editor: il repaint sincrono toglie l'host e
+               quel render non trova dove disegnare. */
+            if (_doc && _doc.editing) _tornaAnteprima();
         }
         document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
 
@@ -2465,34 +2369,22 @@
                salvataggio, che è asincrona: rispondere dopo vorrebbe dire che la
                console si chiude mentre la domanda è ancora a schermo. */
             if (id === '__esc') {
-                /* v2: la scala della spec (§3) — S3 → S2 → S1 → niente. La
-                   risposta `false` parte SUBITO, la domanda di salvataggio è
-                   asincrona (trappola del 9/8). */
-                if (_v2()) {
-                    if (!_doc) return false;
-                    if (_doc.editing) { _conSalvataggio(_tornaAnteprima); return false; }
-                    _conSalvataggio(_chiudiDocumento);
-                    return false;
-                }
-                /* ⚠️ Senza documento aperto ESC NON fa niente, e si resta qui
-                   (decisione di Giacomo, 10/8). Prima chiudeva la console: in
-                   ELABORA questo spazzava via l'intera schermata della sezione
-                   e sotto restava una landing vuota, da cui per rientrare
-                   bisognava riscegliere dal percorso la sezione in cui si era
-                   già — un vicolo cieco apparente. Questa console NON è una
-                   finestra sopra ELABORA: è ELABORA. Dalla sezione si esce dal
-                   percorso in alto, che è un gesto deliberato; ESC chiude uno
-                   strato, e qui l'unico strato è il documento. */
-                if (!_voce) return false;
+                /* La scala degli strati: editor → anteprima → elenco → niente.
+                   ⚠️ Senza documento aperto ESC NON chiude la console (decisione
+                   di Giacomo, 10/8): questa console non è una finestra SOPRA
+                   ELABORA, è ELABORA — chiuderla lascerebbe sotto una landing
+                   vuota, cioè un vicolo cieco apparente. Dalla sezione si esce
+                   dal percorso in alto, che è un gesto deliberato. */
+                if (!_doc) return false;
+                if (_doc.editing) { _conSalvataggio(_tornaAnteprima); return false; }
                 _conSalvataggio(_chiudiDocumento);
                 return false;
             }
 
             if (id === 'crea') {
-                if (!_v2()) return _popupCrea(rifai);
-                /* v2: un documento «dalla mappa» nasce direttamente in EDITOR
-                   (S3 senza S2: un'anteprima di ciò che non esiste ancora non
-                   c'è). `_popupCrea` scrive `_voce` PRIMA di chiamare `poi`. */
+                /* Un documento «dalla mappa» nasce direttamente in EDITOR (niente
+                   anteprima: di ciò che non esiste ancora non c'è nulla da
+                   mostrare). `_popupCrea` scrive `_voce` PRIMA di chiamare `poi`. */
                 return _popupCrea(function () {
                     _doc = { id: _voce, natura: 'crea', editing: true };
                     rifai();
@@ -2500,11 +2392,11 @@
             }
 
             /* v2: i gesti delle tabelle e della barra della fonte */
-            if (_v2() && id === 'esci-doc') { _conSalvataggio(_chiudiDocumento); return; }
-            if (_v2() && id.indexOf('m:') === 0) { _apriDocV2(id.slice(2)); return; }
-            if (_v2() && id.indexOf('clona:') === 0) { _clonaV2(id.slice(6), rifai); return; }
-            if (_v2() && id.indexOf('del:') === 0) { _delV2(id.slice(4)); return; }
-            if (_v2() && id.indexOf('fnd:') === 0) { _finderV2(id.slice(4)); return; }
+            if (id === 'esci-doc') { _conSalvataggio(_chiudiDocumento); return; }
+            if (id.indexOf('m:') === 0) { _apriDocV2(id.slice(2)); return; }
+            if (id.indexOf('clona:') === 0) { _clonaV2(id.slice(6), rifai); return; }
+            if (id.indexOf('del:') === 0) { _delV2(id.slice(4)); return; }
+            if (id.indexOf('fnd:') === 0) { _finderV2(id.slice(4)); return; }
 
             /* Un gruppo piegato: il motore l'ha già chiuso a schermo, qui si
                RICORDA — la console si ridisegna a ogni documento scelto, e senza
