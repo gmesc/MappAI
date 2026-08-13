@@ -1440,6 +1440,107 @@
        · `area` = id di una macro-area, oppure '' / 'all' per tutta la mappa
        · `nome` = la SOLA parte personalizzabile del nome del file
      → { ok, setId?, titolo?, file?, errore? }                                */
+  /* ── LE REGOLE DEL NOME, IN UN POSTO SOLO ─────────────────────────────────
+     Le usano il gesto con l'AI (`generaSet`) e il foglio scritto a mano
+     (`nuovoFoglioAperte`): il titolo di una copia È ciò da cui ELABORA la
+     riconosce, e due compositori di titoli divergerebbero al primo ritocco.
+     Senza nome resta la forma storica della pipeline («<Mappa> — <Genere>»),
+     così rigenerare l'originale AGGIORNA la sua voce invece di affiancarne
+     una seconda; con un nome vale la convenzione dei cloni. */
+  function _titoloDoc(spec, nome, mapName) {
+    const CLN = window.MappAIClona;
+    return (nome && CLN && CLN.etichetta)
+      ? CLN.etichetta(spec.typeLabel, nome)
+      : (mapName + ' — ' + spec.typeLabel);
+  }
+  /* Il nome già preso si rifiuta PRIMA di spendere token (o di aprire un
+     editor su un documento che ne rimpiazzerebbe un altro): la dedup
+     dell'archivio è per `kind|title|mapName`, quindi lo stesso titolo
+     SOSTITUISCE in silenzio una copia magari corretta a mano — e il file, che
+     porta lo stesso nome, idem. Torna il messaggio, o '' se il nome è libero. */
+  function _nomeGiaPreso(spec, nome, mapName) {
+    const CLN = window.MappAIClona;
+    if (!nome || !CLN || !CLN.chiave) return '';
+    let presi = [];
+    if (spec.documento) {
+      try {
+        const base = CLN.etichetta(spec.typeLabel, '');
+        presi = ((window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [])
+          .filter(d => d && d.kind === 'quizpaper' && d.mapName === mapName &&
+            String(d.title || '').indexOf(base + ' - ') === 0)
+          .map(d => String(d.title).slice(base.length + 3));
+      } catch (e) { presi = []; }
+    } else {
+      presi = ((_state().db && _state().db.studySets) || [])
+        .filter(x => x && x.type === spec.typeLabel && x.clone)
+        .map(x => x.clone);
+    }
+    return presi.some(x => CLN.chiave(x) === CLN.chiave(nome))
+      ? _t('cq_nome_preso', 'C\'è già una copia con questo nome: eliminala in ELABORA o scegli un altro nome.')
+      : '';
+  }
+
+  /* ══ UN FOGLIO DI DOMANDE APERTE SCRITTO A MANO (13/8 sera) ═══════════════
+     Era l'unico genere che NON si poteva creare a mano: il percorso «Le scrivo
+     io» rispondeva «per ora si scrivono partendo da un foglio generato», cioè
+     obbligava a spendere una chiamata AI per poi cancellarne il contenuto.
+     La causa è la stessa che rende speciale questo genere ovunque: le domande
+     aperte non entrano in `studySets` (il player pretende delle opzioni),
+     quindi non esisteva un «set vuoto» da creare — la loro sorgente è la VOCE
+     D'ARCHIVIO, cioè il foglio HTML con le domande incorporate.
+     Qui il foglio vuoto si scrive: una domanda in bianco, archiviata, che
+     l'editor riapre come qualunque altra. Il PDF non si scrive ora — lo fa
+     «Crea PDF» dall'editor, che è il gesto che pubblica (modello dei tre gesti
+     del 13/8: salvare non è pubblicare).
+     opts: { nome } → { ok, docId?, titolo?, errore? }                        */
+  Pipeline.nuovoFoglioAperte = function (opts) {
+    opts = opts || {};
+    const spec = _QT.open;
+    if (window.mappaiOccupato && window.mappaiOccupato()) return { ok: false, errore: 'occupata' };
+    if (!window.buildOpenQuestionsHtml || !window.MappAIStudyDocs) {
+      return { ok: false, errore: _t('cq_no_motore_gen', 'Il generatore non è disponibile.') };
+    }
+    const DE = window.MappAIDocEdit;
+    const mapName = _mapName();
+    const CLN = window.MappAIClona;
+    const nome = (CLN && CLN.pulisci) ? CLN.pulisci(opts.nome) : String(opts.nome || '').trim();
+    const preso = _nomeGiaPreso(spec, nome, mapName);
+    if (preso) return { ok: false, errore: preso };
+
+    const titolo = _titoloDoc(spec, nome, mapName);
+    /* ⚠️ Senza nome il titolo è quello della pipeline, e la dedup lo farebbe
+       RIMPIAZZARE: un foglio vuoto scritto sopra uno generato con l'AI. Se
+       quella voce esiste già, il nome diventa obbligatorio — è la stessa
+       domanda che «Fai una copia» pone da sempre. */
+    if (!nome) {
+      let gia = false;
+      try {
+        gia = ((window.MappAIStudyDocs.list && window.MappAIStudyDocs.list()) || [])
+          .some(d => d && d.kind === 'quizpaper' && d.mapName === mapName && d.title === titolo);
+      } catch (e) { gia = false; }
+      if (gia) return { ok: false, errore: _t('cq_serve_nome', 'Questa mappa ha già un foglio di domande aperte: dai un nome a questo per distinguerlo (per esempio «recupero»).') };
+    }
+
+    /* Una domanda in bianco, non zero: `setFromHtml` richiede almeno un item
+       per riconoscere la sorgente incorporata — con l'elenco vuoto il foglio
+       si riaprirebbe «senza domande» e l'editor lo direbbe non correggibile.
+       La forma dell'item la dà il core (`blankOpenItem`), che è lo stesso che
+       usa «aggiungi domanda» dentro l'editor. */
+    const vuoto = (DE && DE.blankOpenItem) ? DE.blankOpenItem() : { question: '', guide: '', lines: null, areas: [] };
+    const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const html = window.buildOpenQuestionsHtml(
+      { id: setId, title: titolo, type: spec.typeLabel, items: [vuoto] },
+      { mapName: mapName, includeBar: false });
+    let docId = null;
+    try { docId = window.MappAIStudyDocs.save({ kind: 'quizpaper', title: titolo, html: html, mapName: mapName }); }
+    catch (e) { docId = null; }
+    if (!docId) return { ok: false, errore: _t('cq_no_archivio', 'Non riesco a salvare il foglio: l\'archivio dei documenti è pieno.') };
+    /* gli elenchi già aperti (ELABORA, INSEGNA) si ridisegnano: senza, il
+       foglio nuovo comparirebbe al giro dopo */
+    try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: _state().activeVaultPath || '' }); } catch (e) { }
+    return { ok: true, docId: docId, titolo: titolo };
+  };
+
   Pipeline.generaSet = async function (opts) {
     opts = opts || {};
     const spec = _QT[opts.tipo];
@@ -1467,30 +1568,8 @@
       : tutte;
     if (!scelte.length) return { ok: false, errore: _t('cq_no_area', 'Questa mappa non ha aree da cui generare.') };
 
-    /* Un nome già preso si rifiuta PRIMA di spendere token. Il flusso «Fai una
-       copia» valida i duplicati (`CL.valida`); senza questa guardia il gesto
-       singolo li scavalcava: stesso nome → stesso titolo → la dedup
-       dell'archivio (kind|title|mapName) RIMPIAZZAVA in silenzio una copia
-       magari corretta a mano — e il file, che porta lo stesso nome, idem. */
-    if (nome && CLN && CLN.chiave) {
-      let presi = [];
-      if (spec.documento) {
-        try {
-          const base = CLN.etichetta(spec.typeLabel, '');
-          presi = ((window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [])
-            .filter(d => d && d.kind === 'quizpaper' && d.mapName === mapName &&
-              String(d.title || '').indexOf(base + ' - ') === 0)
-            .map(d => String(d.title).slice(base.length + 3));
-        } catch (e) { presi = []; }
-      } else {
-        presi = ((_state().db && _state().db.studySets) || [])
-          .filter(x => x && x.type === spec.typeLabel && x.clone)
-          .map(x => x.clone);
-      }
-      if (presi.some(x => CLN.chiave(x) === CLN.chiave(nome))) {
-        return { ok: false, errore: _t('cq_nome_preso', 'C\'è già una copia con questo nome: eliminala in ELABORA o scegli un altro nome.') };
-      }
-    }
+    const preso = _nomeGiaPreso(spec, nome, mapName);
+    if (preso) return { ok: false, errore: preso };
 
     Pipeline._running = true;                 // il lucchetto vale anche per il gesto singolo
     try {
@@ -1544,7 +1623,7 @@
            pipeline: così rigenerare l'originale AGGIORNA la voce esistente
            (la dedup dell'archivio è per kind|title|mapName) invece di
            affiancarne una seconda. */
-        const titoloDoc = (nome && CLN && CLN.etichetta) ? CLN.etichetta(spec.typeLabel, nome) : titolo;
+        const titoloDoc = _titoloDoc(spec, nome, mapName);
         const html = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw },
           { mapName, includeBar: false });
         /* La SORGENTE si salva PRIMA della RESA. L'archivio porta l'HTML con

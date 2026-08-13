@@ -222,6 +222,28 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    d'archivio del gesto singolo prende classe/materia dal contesto ATTIVO, non dalla
    mappa; (d) `MappAIStudyDocs.save` ora ritorna `null` quando la quota localStorage
    scarta il documento.
+
+   **Seguito (13/8 notte, dalla seconda prova di Giacomo): «creare a mano» ora è
+   davvero possibile, e il documento appena creato SI VEDE.** Due difetti distinti:
+   (1) le **domande aperte non si potevano scrivere a mano** — il percorso «Le scrivo
+   io» rispondeva «genera con l'AI e poi correggi», e la ragione era vera ma mal
+   risolta: non sono un set giocabile (non entrano in `studySets`, il player pretende
+   opzioni), quindi non esisteva un «set vuoto» da creare. Ora il foglio vuoto lo
+   scrive `MappAIPipeline.nuovoFoglioAperte` (una domanda in bianco, archiviata come
+   `quizpaper`: `setFromHtml` richiede almeno un item, con zero il foglio si
+   riaprirebbe «senza domande»), l'editor la riapre come qualunque altra e il PDF lo
+   fa «Crea PDF» — salvare non è pubblicare. Il titolo e il rifiuto dei nomi doppi
+   passano dagli stessi due helper di `generaSet` (`_titoloDoc`, `_nomeGiaPreso`), e
+   senza nome, se un foglio esiste già, il nome diventa obbligatorio invece di
+   rimpiazzarlo.
+   (2) **Il documento creato non compariva**: l'editor si disegna solo dentro
+   `#elab-doc-host`, che monta la console ELABORA quando è in modalità documento — e
+   nessuno gliel'aveva detto. Valeva anche per i quiz MC. Ora l'editor **annuncia**
+   (`mappai-doc-aperto`, gemello di `mappai-doc-uscito`) e la console accoglie il
+   documento nella tela; se il gesto parte da fuori, la console si apre prima
+   (`_casaDocumenti` in `mappai-crea-quiz.js`). Provato in Electron vivo cliccando il
+   DOM vero, dentro la console: MC e domande aperte, editor a 702px con la domanda in
+   bianco e i chip delle macro-aree della mappa.
 2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore

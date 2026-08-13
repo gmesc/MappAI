@@ -158,6 +158,46 @@ ok(esito === 'nessun errore', 'più nodi ma stessa mappa → continua (è la pip
     'nome già preso (pure con maiuscole diverse) → rifiuto: «' + (r4 && r4.errore) + '»');
   ok(chiamateAI === 0, 'e NESSUNA chiamata AI spesa');
 
+  /* ── 4. il foglio di domande aperte SCRITTO A MANO (13/8 sera) ─────────────
+     Era l'unico genere che non si poteva creare a mano. Qui si prova il giro
+     intero col builder VERO (`mappai-quiz-print.js`): il foglio vuoto deve
+     ri-attraversare `setFromHtml`, o l'editor lo riaprirebbe «senza domande».  */
+  console.log('\n· il foglio di domande aperte scritto a mano');
+  const vm = require('vm');
+  const fs = require('fs');
+  global.window.MappAIDocEdit = require(path.join(RADICE, 'public/js/mappai-docedit-core.js'));
+  ['mappai-print-layout.js', 'mappai-doc-head.js', 'mappai-quiz-print.js'].forEach(f => {
+    vm.runInThisContext(fs.readFileSync(path.join(RADICE, 'public/js', f), 'utf8'), { filename: f });
+  });
+  ok(typeof global.window.buildOpenQuestionsHtml === 'function', 'il builder VERO è caricato (niente stub)');
+
+  const archivio = [];
+  global.window.MappAIStudyDocs = {
+    save: (rec) => { const id = 'doc_' + (archivio.length + 1); archivio.push(Object.assign({ id: id }, rec)); return id; },
+    list: () => archivio.map(d => ({ id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, hasHtml: !!d.html })),
+    get: (id) => archivio.filter(d => d.id === id)[0] || null
+  };
+  const f1 = P.nuovoFoglioAperte({ nome: '' });
+  ok(f1 && f1.ok === true, 'il foglio vuoto si crea: ' + JSON.stringify(f1 && f1.titolo));
+  ok(f1 && f1.titolo === 'Elettricità — Domande aperte', 'senza nome, la forma della pipeline');
+  const doc1 = global.window.MappAIStudyDocs.get(f1.docId);
+  const riletto = global.window.MappAIQuizPrint.setFromHtml(doc1.html);
+  ok(!!riletto && Array.isArray(riletto.items) && riletto.items.length === 1,
+    '🔑 il foglio VUOTO sopravvive al giro archivio→editor: ' + (riletto ? riletto.items.length : 0) + ' domanda in bianco');
+  ok(riletto && riletto.items[0].question === '', 'e la domanda è davvero vuota, pronta da scrivere');
+  ok(/domande aperte/i.test(doc1.title), 'il titolo passa il filtro di ELABORA (/domande aperte/i)');
+  ok(doc1.kind === 'quizpaper' && doc1.mapName === 'Elettricità', 'kind e mappa giusti: la riga comparirà nella mappa aperta');
+
+  /* un secondo foglio SENZA nome sovrascriverebbe il primo: si chiede il nome */
+  const f2 = P.nuovoFoglioAperte({ nome: '' });
+  ok(f2 && f2.ok === false && /già un foglio/.test(f2.errore || ''),
+    'il secondo foglio senza nome NON rimpiazza il primo: «' + (f2 && f2.errore) + '»');
+  const f3 = P.nuovoFoglioAperte({ nome: 'recupero' });
+  ok(f3 && f3.ok === true && f3.titolo === 'Domande Aperte - recupero', 'con un nome è una COPIA: «' + (f3 && f3.titolo) + '»');
+  const f4 = P.nuovoFoglioAperte({ nome: 'RECUPERO' });
+  ok(f4 && f4.ok === false && /già una copia/.test(f4.errore || ''), 'e lo stesso nome si rifiuta (anche con altre maiuscole)');
+  ok(archivio.length === 2, 'in archivio ci sono i due fogli veri, nessun doppione → ' + archivio.length);
+
   console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'TUTTO OK'));
   process.exit(ko ? 1 : 0);
 })().catch(e => { console.log('  KO  eccezione fuori posto: ' + (e && e.message)); process.exit(1); });

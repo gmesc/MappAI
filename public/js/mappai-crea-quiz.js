@@ -61,6 +61,22 @@
     ];
     function _tipo(id) { return TIPI.filter(function (x) { return x.id === id; })[0]; }
 
+    /* ── DOVE SI APRE IL DOCUMENTO APPENA CREATO ─────────────────────────────
+       L'editor vive DENTRO la console di ELABORA (si disegna in
+       `#elab-doc-host`): senza quella console un documento appena creato si
+       carica in memoria e non compare da nessuna parte — è il difetto per cui
+       «creare un materiale non funzionava». Da dentro la console non cambia
+       niente (è già aperta e non si riapre, ha la sua guardia); da fuori — il
+       menu della mappa, la landing — la si apre PRIMA, perché è la casa dei
+       documenti, non una scorciatoia. */
+    function _casaDocumenti() {
+        var EC = window.MappAIElaboraConsole;
+        if (!EC || !EC.open || !EC.attiva) return false;
+        try { if (!EC.attiva()) return false; } catch (e) { return false; }
+        try { if (EC.aperta && EC.aperta()) return true; EC.open(); return true; }
+        catch (e) { return false; }
+    }
+
     /* Le aree fra cui scegliere: le macro-aree della mappa (L1), più «tutta la
        mappa». Sono le stesse che usa la pipeline (`_branchNodes`), lette qui
        dal db perché il modale deve elencarle prima di generare. */
@@ -178,7 +194,7 @@
                     : t('cq_ok_no_vault', '✓ {titolo} — si corregge in ELABORA. Senza un vault sul disco il PDF non è stato scritto.')
                         .replace('{titolo}', r.titolo), 'success');
             }
-            if (r.setId && DEd() && DEd().openSet) DEd().openSet(r.setId);
+            if (r.setId && DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(r.setId); }
         });
     }
 
@@ -207,11 +223,23 @@
             var titolo = _mappa() + ' — ' + tp.label + (nome ? ' · ' + nome : '');
 
             /* ⚠️ Le domande aperte non hanno un set: la loro sorgente è il FOGLIO
-               (l'HTML porta con sé le domande) e l'editor le riapre da lì. Un
-               foglio vuoto sarebbe un documento senza sorgente — la strada a
-               mano per questo genere arriverà con l'editor che sa crearlo. */
+               (l'HTML porta con sé le domande) e l'editor le riapre da lì.
+               Quindi il foglio vuoto lo scrive la pipeline — che è dove vivono
+               le regole del titolo e del nome — e qui si apre l'editor su
+               quello. Fino al 13/8 questa strada era CHIUSA: si rispondeva
+               «genera con l'AI e poi correggi», cioè si obbligava a spendere
+               una chiamata per poi cancellarne il contenuto. */
             if (tp.documento) {
-                toast(t('cq_open_mano_no', 'Le domande aperte per ora si scrivono partendo da un foglio generato: genera con l\'AI e poi correggile.'), 'warning');
+                if (!P() || !P().nuovoFoglioAperte) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
+                var f = P().nuovoFoglioAperte({ nome: nome });
+                if (!f || !f.ok) { toast((f && f.errore) || t('cq_ko', 'Generazione non riuscita.'), 'warning'); return; }
+                _casaDocumenti();
+                if (DEd() && DEd().openOpenQuestions) DEd().openOpenQuestions(f.docId);
+                else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
+                /* Il PDF non si scrive ora: lo fa «Crea PDF» dall'editor —
+                   salvare non è pubblicare (modello dei tre gesti). */
+                toast(t('cq_ok_mano', '✓ {titolo} — scrivi le domande, poi «Crea PDF» per stamparlo.')
+                    .replace('{titolo}', f.titolo), 'success');
                 return;
             }
             var id = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -240,7 +268,7 @@
                 } catch (e) { }
             }
             if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
-            if (DEd() && DEd().openSet) DEd().openSet(id);
+            if (DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(id); }
             else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
         });
     }

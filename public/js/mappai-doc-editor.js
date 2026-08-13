@@ -140,6 +140,21 @@
         return out;
     }
 
+    /* ── «HO UN DOCUMENTO APERTO» ────────────────────────────────────────────
+       Gemello di `mappai-doc-uscito`. L'editor si disegna SOLO dentro
+       `#elab-doc-host`, che esiste quando la console ELABORA è in modalità
+       documento: un'apertura che arriva da fuori (il percorso «Crea un
+       documento → Quiz → Le scrivo io») caricava il documento in memoria e
+       non mostrava NIENTE — l'utente vedeva l'elenco di prima e concludeva,
+       giustamente, che il gesto non aveva funzionato.
+       Annuncia l'EDITOR e non chi lo apre: è l'unico che sa di aver caricato
+       qualcosa, e così ogni ingresso — anche quelli di domani — è coperto.
+       La console ignora l'eco delle proprie aperture (è già in editing). */
+    function _annunciaAperto(dettaglio) {
+        try { document.dispatchEvent(new CustomEvent('mappai-doc-aperto', { detail: dettaglio || {} })); }
+        catch (e) { /* un annuncio mancato non deve impedire l'apertura */ }
+    }
+
     // ── apertura documenti ──────────────────────────────────────────────────
     function openSet(setId) {
         const set = _sets().find(s => s.id === setId);
@@ -153,6 +168,7 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        _annunciaAperto({ kind: _kind, setId: setId });
     }
 
     /* ══ DOMANDE APERTE — l'editor (11/8/26) ══════════════════════════════════
@@ -190,6 +206,7 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        _annunciaAperto({ kind: 'openq', docId: docId });
         return true;
     }
     /* La voce d'archivio da cui il documento aperto viene, e su cui torna a

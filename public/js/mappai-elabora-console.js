@@ -2333,6 +2333,33 @@
         }
         document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
 
+        /* ── UN DOCUMENTO APERTO DA FUORI ENTRA NELLA TELA (13/8 sera) ────────
+           «Crea un documento → Quiz → Le scrivo io» non passa da queste righe:
+           il percorso vive in `mappai-crea-quiz.js`, che crea il documento e lo
+           consegna all'editor. Ma l'editor si disegna solo dentro
+           `#elab-doc-host`, e quell'host lo monta questa console quando è in
+           modalità documento — che nessuno le aveva detto di essere. Risultato:
+           il documento c'era, a schermo restava l'elenco di prima, e il gesto
+           sembrava non aver funzionato. Ora l'editor ANNUNCIA e la console lo
+           accoglie.
+           ⚠️ Si ignora l'eco delle aperture proprie (`_doc.editing` già vero):
+           la console imposta lo stato PRIMA di chiamare l'editor, e rifarlo qui
+           azzererebbe la natura della riga (`disk`, `set`) da cui si è partiti. */
+        function _suDocAperto(ev) {
+            if (!_aperta) return;
+            if (_doc && _doc.editing) return;
+            var d = (ev && ev.detail) || {};
+            if (!d.docId && !d.setId) return;
+            _doc = d.docId
+                ? { id: 'oq:' + d.docId, natura: 'crea', editing: true, docId: d.docId }
+                : { id: 'set:' + d.setId, natura: 'crea', editing: true, setId: d.setId };
+            _voce = _doc.id;
+            _disco = null;              /* il documento nuovo può aver scritto: si rilegge */
+            rifai();
+            _caricaDisco();
+        }
+        document.addEventListener('mappai-doc-aperto', _suDocAperto);
+
         /* ── LE CARTELLE SONO CAMBIATE (Giacomo, 9/8) ─────────────────────────
            La colonna elenca documenti che stanno anche su DISCO (le sintesi
            archiviate, i file scritti da «Nel vault», i materiali della pipeline)
@@ -2465,6 +2492,7 @@
                un nodo, per esempio) crederebbe di dover disegnare lì. */
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
             document.removeEventListener('mappai-doc-uscito', _suUscitaDoc);
+            document.removeEventListener('mappai-doc-aperto', _suDocAperto);
             try { _staccaCanale(); } catch (e) { }
             _voce = '';
             _prog = null; _doc = null; _inCorsoV2 = null;
