@@ -1081,6 +1081,36 @@
         return confirm(testo);   /* ripiego dove il motore non c'è (banchi, harness) */
     }
 
+    /* ══ DOVE VIVE DAVVERO UN SET (13/8) ═════════════════════════════════════
+       🐛 Difetto trovato da Giacomo usando l'app: un quiz creato a mano spariva
+       dagli elenchi di ELABORA (e dal selettore delle live), mentre il suo PDF
+       e la voce d'archivio restavano — quindi ricompariva in INSEGNA. Sembrava
+       che si fosse spostato; in realtà non era mai stato scritto.
+       Il set sta in `appState.db.studySets` e si salvava SOLO con
+       `saveCurrentProject`. Ma una mappa aperta dal DISCO può non avere un
+       progetto in localStorage: lì quel salvataggio non ha dove scrivere, e al
+       ricaricamento il set non c'è più. Sul disco resta il file — che ELABORA
+       non elenca fra le sorgenti, perché un PDF non è modificabile.
+       La pipeline non aveva il problema perché chiude sempre con `saveVault`.
+       Questa funzione fa le DUE scritture, ed è l'unica strada per entrambe. */
+    function _persistiSet() {
+        try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        var s = _appState();
+        var vp = s && s.activeVaultPath;
+        if (!vp || !window.electronAPI || !window.electronAPI.saveVault || !window.buildVaultMapData) return;
+        try {
+            window.electronAPI.saveVault({ folderPath: vp, mapData: window.buildVaultMapData() })
+                .then(function () {
+                    /* e lo si DICE: gli elenchi già aperti (ELABORA, INSEGNA)
+                       mostrerebbero altrimenti quello che c'era prima — è il
+                       motivo per cui un materiale nuovo «ci metteva molto ad
+                       apparire»: non arrivava, arrivava al giro dopo. */
+                    try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
+                })
+                .catch(function () { /* best-effort: il set è comunque in memoria */ });
+        } catch (e) { /* idem */ }
+    }
+
     async function _saveQuiz() {
         const s = _appState();
         // La mappa è cambiata sotto i piedi (cambio progetto in ELABORA): salvare
@@ -1110,7 +1140,7 @@
             sets[idx] = updated;
         }
         _srcSet = updated;
-        try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        _persistiSet();
         try { if (typeof window.renderStudySets === 'function') window.renderStudySets(); } catch (e) { }
         _dirty = false; _paintDirty();
         toast(t('de_saved', '✓ Documento salvato') + ' — ' + _doc.items.length + ' ' +
@@ -1598,9 +1628,19 @@
             return (await _salvaDoveVive()) ? false : null;
         }
         const esistenti = await _materialiEsistenti(vaultPath);
+        /* 🐛 13/8: il nome si chiedeva SEMPRE, anche a chi lo aveva appena dato
+           creando il documento — «Salva ed Esci» lo richiedeva daccapo, e
+           lasciandolo vuoto il file perdeva il nome scelto un minuto prima.
+           Se il documento ne ha già uno, quello vale: si chiede solo a chi non
+           l'ha ancora scelto. Il nome si cambia rinominando il documento, non
+           salvandolo. */
         // Il nome si chiede PRIMA di scrivere qualunque cosa: annullarlo deve
         // poter voler dire «lascia tutto com'era».
-        const scelto = await _chiediNomeFile(esistenti);
+        /* ⚠️ Quando il nome c'è già si passa la stringa VUOTA, non il nome: la
+           parte fissa che `_pezziNome` compone lo contiene di suo (arriva da
+           `_cloneCorrente`), e ripeterlo qui darebbe
+           «Quiz-MC-Mappa-test-test.pdf». */
+        const scelto = _cloneCorrente() ? '' : await _chiediNomeFile(esistenti);
         if (scelto === null) return null;                    // annullato: niente stampa
         if (!await _salvaDoveVive()) return null;            // ha rinunciato: niente stampa
 

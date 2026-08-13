@@ -1537,6 +1537,9 @@
       }
       try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
       try { if (vaultPath) await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { }
+      /* Detto agli elenchi già aperti: senza, il materiale nuovo compare al
+         giro dopo e sembra che «ci metta molto». */
+      try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vaultPath }); } catch (e) { }
       if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
       return { ok: true, setId: setId, titolo: titolo, file: (pdf && pdf.ok && vaultPath) ? fileName : '' };
     } catch (e) {

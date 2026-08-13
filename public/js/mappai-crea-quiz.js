@@ -215,7 +215,22 @@
                 id: id, title: titolo, mode: tp.mode, type: tp.label,
                 items: vuoto, date: new Date().toISOString(), clone: nome
             });
+            /* ⚠️ DUE scritture, non una: il progetto in localStorage E il vault
+               sul disco. Una mappa aperta dal disco può non avere un progetto —
+               lì `saveCurrentProject` non ha dove scrivere e il set nuovo
+               sparirebbe al ricaricamento (è il difetto del 13/8: il materiale
+               spariva da ELABORA e restava solo il file in INSEGNA). E si
+               ANNUNCIA, o gli elenchi già aperti mostrano quello di prima. */
             try { if (typeof StorageManager !== 'undefined') StorageManager.saveCurrentProject(); } catch (e) { }
+            var vp = s.activeVaultPath;
+            if (vp && window.electronAPI && window.electronAPI.saveVault && window.buildVaultMapData) {
+                try {
+                    window.electronAPI.saveVault({ folderPath: vp, mapData: window.buildVaultMapData() })
+                        .then(function () {
+                            try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
+                        }).catch(function () { });
+                } catch (e) { }
+            }
             if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
             if (DEd() && DEd().openSet) DEd().openSet(id);
             else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
