@@ -1422,6 +1422,131 @@
     modal.querySelector('#mpr-yes').onclick = () => { modal.remove(); Pipeline.run(manifest.config || {}, { only: PC().STEPS.filter(s => s !== 'A'), vaultPath, manifest }); };
   }
 
+  /* ══ UN SET SOLO, SU RICHIESTA (13/8) ════════════════════════════════════
+     La pipeline genera i materiali di TUTTA la mappa all'inizio. Questo è il
+     gesto singolo: «Crea un documento → Quiz o flashcard → con l'AI», dove il
+     docente sceglie tipo, quante domande, su quale area e con che angolazione.
+
+     ⚠️ Vive QUI e non in un modulo suo perché è lo STESSO motore dello step B:
+     stessi generatori, stessa forma del set, stesso builder di PDF, stesso
+     `buildFileName`. Scritto altrove sarebbero due strade che divergono al
+     primo ritocco — e la prima cosa che divergerebbe è il NOME dei file, cioè
+     ciò da cui INSEGNA riconosce il genere di un materiale.
+
+     La taratura per la classe (o per l'allievo) non si passa: la mettono i
+     generatori stessi via `injectClassTuning`, che legge il contesto attivo.
+
+     opts: { tipo:'mc'|'tf'|'flashcards'|'open', nome, quantita, area, angolo }
+       · `area` = id di una macro-area, oppure '' / 'all' per tutta la mappa
+       · `nome` = la SOLA parte personalizzabile del nome del file
+     → { ok, setId?, titolo?, file?, errore? }                                */
+  Pipeline.generaSet = async function (opts) {
+    opts = opts || {};
+    const spec = _QT[opts.tipo];
+    if (!spec) return { ok: false, errore: 'tipo sconosciuto: ' + opts.tipo };
+    if (window.mappaiOccupato && window.mappaiOccupato()) return { ok: false, errore: 'occupata' };
+    const apiKey = window.getSystemKey ? window.getSystemKey() : '';
+    if (!apiKey) return { ok: false, errore: _t('tst_need_key', "Inserisci un'API Key per continuare") };
+
+    const vaultPath = _state().activeVaultPath || '';
+    const mapName = _mapName();
+    const quantita = Math.max(1, Math.min(30, parseInt(opts.quantita, 10) || 5));
+    const angle = opts.angolo || 'auto';
+    const nome = String(opts.nome || '').trim();
+
+    /* Su quale materiale: una macro-area sola, o tutte. Il materiale è quello
+       del ramo — nodo più discendenti — come nello step B e come il quiz in-app. */
+    const tutte = _branchNodes();
+    const scelte = (opts.area && opts.area !== 'all')
+      ? tutte.filter(b => b.id === opts.area)
+      : tutte;
+    if (!scelte.length) return { ok: false, errore: _t('cq_no_area', 'Questa mappa non ha aree da cui generare.') };
+
+    Pipeline._running = true;                 // il lucchetto vale anche per il gesto singolo
+    try {
+      _overlay(_t('cq_genero', 'Genero le domande…'));
+      _setContext(spec.sub);
+      const raw = [];
+      for (let i = 0; i < scelte.length; i++) {
+        const b = scelte[i];
+        const material = _branchMaterial(b);
+        if (!material.trim()) continue;
+        if (opts.tipo === 'open') {
+          const comp = _ramoCompagno(b, tutte);
+          const materialeB = comp ? _branchMaterial(comp) : '';
+          const insieme = materialeB
+            ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
+            : material;
+          const items = await _genOpenQuestions(insieme, _clean(b.label), quantita, apiKey,
+            { areaB: comp ? _clean(comp.label) : '' });
+          items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label) }, it)));
+        } else if (opts.tipo === 'flashcards') {
+          const items = await _genFlashcards(material, _clean(b.label), quantita, apiKey);
+          items.forEach(it => raw.push(it));
+        } else {
+          const items = await window.generateDynamicQuiz({
+            nodeLabel: _clean(b.label), material, quizType: spec.quizType,
+            quantity: quantita, angle, apiKey, usageCat: 'pipeline', usageSub: spec.sub
+          });
+          (items || []).forEach(it => raw.push(it));
+        }
+      }
+      if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
+
+      const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const titolo = mapName + ' — ' + spec.typeLabel + (nome ? ' · ' + nome : '');
+      /* ⚠️ Il nome scelto dal docente viaggia in `clone`, che è già il campo
+         della «parte personalizzabile» del nome file: `buildFileName` lo mette
+         in coda al nome canonico, e l'editor lo ritrova per le stampe
+         successive. Un campo nuovo avrebbe voluto dire una seconda convenzione
+         accanto a quella che tutto il resto dell'app già legge. */
+      const fileName = PC().buildFileName(spec.kind, null, false, { mappa: mapName, nome: nome });
+      const rel = 'Materiale Studio/' + fileName;
+
+      // ── le domande aperte sono un FOGLIO, non un set giocabile (vedi _QT.open)
+      if (spec.documento) {
+        const html = window.buildOpenQuestionsHtml({ id: setId, title: titolo, type: spec.typeLabel, items: raw },
+          { mapName, includeBar: false });
+        const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape: false } });
+        if (!pdf || !pdf.ok) return { ok: false, errore: 'PDF non generato' };
+        if (vaultPath) await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+        try {
+          if (window.MappAIStudyDocs) window.MappAIStudyDocs.save({ kind: 'quizpaper', title: titolo, html: html, mapName: mapName });
+        } catch (e) { /* l'archivio è un di più */ }
+        return { ok: true, titolo: titolo, file: vaultPath ? fileName : '' };
+      }
+
+      // ── set EDITABILE (è da questi che nascono i quiz live) + PDF nel vault
+      const set = {
+        id: setId, title: titolo, mode: spec.mode, type: spec.typeLabel,
+        items: raw, angle: angle, quantity: quantita, date: _now(), clone: nome
+      };
+      _state().db.studySets = _state().db.studySets || [];
+      _state().db.studySets.push(set);
+
+      const printItems = (opts.tipo === 'flashcards') ? _flashToPrintItems(raw) : _toPrintItems(raw);
+      const printSet = { title: titolo, items: printItems };
+      const html = (opts.tipo === 'flashcards')
+        ? window.buildFlashcardSetHtml(printSet, { mapName, includeBar: false })
+        : window.buildQuizSetHtml(printSet, { mapName, includeBar: false });
+      const QP = window.MappAIQuizPrint;
+      const landscape = (opts.tipo === 'flashcards') && !!(QP && QP.flashSheet && QP.flashSheet().landscape);
+      const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape } });
+      if (pdf && pdf.ok && vaultPath) {
+        await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+      }
+      try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+      try { if (vaultPath) await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { }
+      if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
+      return { ok: true, setId: setId, titolo: titolo, file: (pdf && pdf.ok && vaultPath) ? fileName : '' };
+    } catch (e) {
+      return { ok: false, errore: e.message || String(e) };
+    } finally {
+      Pipeline._running = false;
+      _overlay(false);
+    }
+  };
+
   window.MappAIPipeline = Pipeline;
   console.log('[MappAIPipeline] orchestratore pipeline materiali caricato');
 })();

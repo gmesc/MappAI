@@ -99,113 +99,73 @@
     return (root && window.cleanLabel ? window.cleanLabel(root.label) : (root && root.label)) || st.rootNodeLabel || 'Mappa';
   }
 
+  /* ══ AVVIA UNA LIVE — SOLO DA SET GIÀ PRONTI (13/8/26) ═══════════════════
+     Qui c'era il wizard che GENERAVA le domande al momento: si sceglieva tipo,
+     ambito, quantità e angolazione, e l'AI lavorava con la classe che guardava.
+     Tolto su decisione di Giacomo: i set esistono già — li produce la pipeline
+     alla creazione della mappa, o il docente in ELABORA → «Crea un documento».
+     Il senso di averli è proprio non dover generare davanti alla classe.
+
+     ⚠️ I quiz live nascono SOLO dai file editabili (`appState.db.studySets`),
+     mai dai PDF esportati: da un PDF non si ricavano più gli item, e un foglio
+     stampato non è una sorgente. Chi vuole una live da una verifica vecchia
+     riapre la mappa che la contiene.
+
+     Restano fuori di proposito: la generazione AI (era il punto), il Cloze
+     (già nascosto dal 20/7) e le «domande mie» scritte lì per lì — il posto per
+     scriverle è ELABORA → «Crea un documento» → «Le scrivo io», e da lì il set
+     compare in questo elenco. Un posto per comporre, uno per lanciare. */
+  /* ⚠️ Con il wizard sono uscite anche le funzioni che generavano: `scopedNodes`,
+     `generateCloze`, `generateQuizAI`, `generateQuizViaStudy`, `generateAndLaunch`
+     e l'editor delle domande scritte a mano (208 righe). Restano `dynItemToLive`
+     e `attachL1`, che servono a TRADURRE un set esistente in domande live — cioè
+     l'unica strada rimasta. */
+  function _setLive() {
+    var sets = (S() && S().db && S().db.studySets) || [];
+    return sets.filter(function (x) {
+      /* i set giocabili in una live sono i QUIZ: le flashcard non hanno una
+         risposta da valutare, le domande aperte non entrano in studySets */
+      return x && Array.isArray(x.items) && x.items.length && (x.mode || 'quiz') === 'quiz';
+    });
+  }
   function openLiveSetup() {
-    var classes = (window.MappAIClasses && window.MappAIClasses.list()) || [];
-    var l1nodes = (S().db.nodes || []).filter(function (n) { return n.level === 1; });
-
-    var activeId = (window.MappAIClasses && window.MappAIClasses.activeId && window.MappAIClasses.activeId()) || '';
-    var classOpts = classes.length
-      ? classes.map(function (c) { return '<option value="' + c.id + '"' + (c.id === activeId ? ' selected' : '') + '>' + esc(c.name) + (c.year ? ' (' + esc(c.year) + ')' : '') + ' · ' + (c.students || []).length + '</option>'; }).join('')
-      : '';
-    var classField = classes.length
-      ? '<select id="lv-class" class="lv-in">' + classOpts + '</select>'
-      : '<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">' +
-        t('lv_no_class', 'Nessuna classe. Creala in Profilo → Account classi.') +
-        ' <button type="button" id="lv-goclass" style="background:none;border:0;color:#4f46e5;font-weight:700;cursor:pointer;text-decoration:underline">' + t('lv_open_class', 'Apri Account classi') + '</button></div>';
-
-    var scopeField = '<select id="lv-scope" class="lv-in"><option value="all">' + t('lv_scope_all', 'Tutta la mappa') + '</option>' +
-      l1nodes.map(function (n) { return '<option value="' + esc(n.id) + '">' + t('lv_scope_branch', 'Ramo') + ': ' + esc(window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '</option>'; }).join('') + '</select>';
-
-    // Cloze NASCOSTO per ora (scelta utente 20/7): il cloze deterministico da desc
-    // dà distrattori/testi deboli → si usa la Scelta multipla (AI). Riattivabile con
-    // localStorage mappai_cloze_enabled='1'. Il codice cloze resta intatto.
-    var clozeOn = (function () { try { return localStorage.getItem('mappai_cloze_enabled') === '1'; } catch (e) { return false; } })();
-    var body = '<style>.lv-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff}' +
-      '.lv-lab{display:block;font-size:11px;font-weight:700;color:#475569;margin:12px 0 4px}' +
-      '.lv-mode{display:flex;gap:8px;flex-wrap:wrap}.lv-mode button{flex:1;min-width:120px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:12.5px;color:#334155}' +
-      '.lv-mode button.sel{border-color:#4f46e5;background:#eef2ff;color:#4f46e5}</style>' +
-      '<span class="lv-lab">' + t('lv_class', 'Classe') + '</span>' + classField +
-      '<span class="lv-lab">' + t('lv_mode', 'Tipo di attività') + '</span>' +
-      '<div class="lv-mode" id="lv-mode">' +
-      '<button type="button" data-m="tf" class="sel">' + t('lv_m_tf', 'Vero / Falso') + '</button>' +
-      '<button type="button" data-m="mc">' + t('lv_m_mc', 'Scelta multipla') + '</button>' +
-      (clozeOn ? '<button type="button" data-m="cloze">' + t('lv_m_cloze', 'Cloze') + '</button>' : '') +
-      '<button type="button" data-m="custom">' + t('lv_m_custom', 'Domande mie') + '</button></div>' +
-      '<div id="lv-prov-badge" style="margin-top:10px;font-size:11px;color:#64748b;background:#f1f5f9;border-radius:8px;padding:7px 10px">' +
-      t('lv_provider_badge', 'Domande generate con:') + ' <b>' +
-      (window.aiProviderLabel ? window.aiProviderLabel((S() && S().aiProvider) || 'google') : 'Google') + '</b></div>' +
-      (window.MappAINetMode ? window.MappAINetMode.fieldHtml('lv') : '') +
-      '<div id="lv-mapopts">' +
-      '<div id="lv-cloze-answer" style="display:none"><span class="lv-lab">' + t('lv_cloze_answer', 'Come risponde l\'allievo') + '</span>' +
-      '<div class="lv-mode" id="lv-cansw">' +
-      '<button type="button" data-c="choice" class="sel">' + t('lv_cloze_choice', '👆 Scegli fra 3 (tocca)') + '</button>' +
-      '<button type="button" data-c="type">' + t('lv_cloze_type', '⌨️ Scrivi') + '</button></div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_cloze_choice_hint', '«Scegli» toglie lo stress della tastiera (consigliato su telefono/BES-DSA).') + '</div></div>' +
-      '<div id="lv-angle-row"><span class="lv-lab">' + t('ui_quiz_angle', 'Angolo delle domande') + '</span>' +
-      '<select id="lv-angle" class="lv-in">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '') + '</select></div>' +
-      '<span class="lv-lab">' + t('lv_scope', 'Da dove') + '</span>' + scopeField +
-      '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qty', 'Numero domande') + '</span><input id="lv-qty" type="number" class="lv-in" value="8" min="1" max="' + LC.LIMITS.questionsMax + '" inputmode="numeric"></div>' +
-      '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lv-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
-      '</div>' +
-      '<div id="lv-customwrap" style="display:none"></div>' +
-      '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
-      '<input type="checkbox" id="lv-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
-      '<span>' + t('lv_reveal', 'A fine sessione mostra allo studente le soluzioni (giuste/sbagliate + spiegazione), salvabili sul suo dispositivo.') + '</span></label>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
-      '<button type="button" id="lv-back" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
-      '<button type="button" id="lv-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
-
-    var ov = modal('radio', t('lv_setup_title', 'Studio attivo live'), body, '620px');
-    if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'lv');
-    var mode = 'tf';
-    var goClass = ov.querySelector('#lv-goclass');
-    if (goClass) goClass.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
-
-    var clozeAnswer = 'choice';   // default: a scelta (meno stress tastiera)
-    ov.querySelectorAll('#lv-mode button').forEach(function (b) {
-      b.onclick = function () {
-        mode = b.getAttribute('data-m');
-        ov.querySelectorAll('#lv-mode button').forEach(function (x) { x.classList.toggle('sel', x === b); });
-        var custom = (mode === 'custom');
-        ov.querySelector('#lv-mapopts').style.display = custom ? 'none' : '';
-        ov.querySelector('#lv-customwrap').style.display = custom ? '' : 'none';
-        // il sotto-toggle «scrivi/scegli» solo per il Cloze
-        var ca = ov.querySelector('#lv-cloze-answer'); if (ca) ca.style.display = (mode === 'cloze') ? '' : 'none';
-        // l'angolo delle domande vale per quiz V/F e Scelta multipla, non per il Cloze
-        var ar = ov.querySelector('#lv-angle-row'); if (ar) ar.style.display = (mode === 'cloze') ? 'none' : '';
-        if (custom) buildCustomEditor(ov.querySelector('#lv-customwrap'));
-      };
+    var MM = window.MappAIModal;
+    var sets = _setLive();
+    if (!MM) {                       /* ripiego: senza motore si va sull'ultimo set */
+      if (!sets.length) { toast(t('lv_nessun_set', 'Nessun quiz pronto per questa mappa.'), 'warning'); return; }
+      openLiveFromSet(sets[sets.length - 1]);
+      return;
+    }
+    if (!sets.length) {
+      MM.avviso({
+        titolo: t('lv_nessun_set_t', 'Nessun quiz pronto'), icona: 'radio',
+        testo: t('lv_nessun_set_d', 'Le attività live partono da un quiz già pronto. Ne trovi fra i materiali generati con la mappa, oppure ne crei uno in ELABORA → «Crea un documento» → «Quiz o flashcard»: scritto da te o generato dall\'AI, con calma, prima della lezione.')
+      });
+      return;
+    }
+    MM.open({
+      titolo: t('lv_scegli_set_t', 'Avvia un\'attività live'), icona: 'radio', taglia: 'm', invio: false,
+      sezioni: [{
+        testo: t('lv_scegli_set_d', 'Le domande ci sono già: nessuna generazione davanti alla classe.'),
+        voci: sets.slice().reverse().map(function (x) {
+          var tipo = x.type || t('lv_m_mc', 'Scelta multipla');
+          return {
+            id: 'set:' + x.id, icona: 'list-checks',
+            etichetta: x.title || tipo,
+            sotto: tipo + ' · ' + x.items.length + ' ' + t('lv_questions', 'domande'),
+            badge: x._pipeline ? t('lv_da_pipeline', 'con la mappa') : ''
+          };
+        })
+      }]
+    }).then(function (r) {
+      if (!r || !r.azione || r.azione.indexOf('set:') !== 0) return;
+      var id = r.azione.slice(4);
+      var set = sets.filter(function (x) { return x.id === id; })[0];
+      if (set) openLiveFromSet(set);
     });
-    ov.querySelectorAll('#lv-cansw button').forEach(function (b) {
-      b.onclick = function () {
-        clozeAnswer = b.getAttribute('data-c');
-        ov.querySelectorAll('#lv-cansw button').forEach(function (x) { x.classList.toggle('sel', x === b); });
-      };
-    });
-    ov.querySelector('#lv-back').onclick = openHubMenu;
-    ov.querySelector('#lv-go').onclick = function () {
-      var cls = classes.length ? classes.find(function (c) { return c.id === ov.querySelector('#lv-class').value; }) : null;
-      if (!cls) { toast(t('lv_pick_class', 'Scegli o crea una classe.'), 'error'); return; }
-      var _rev = ov.querySelector('#lv-reveal');
-      LT._revealAnswers = !_rev || _rev.checked;   // toggle "mostra soluzioni" (default ON)
-      if (mode === 'custom') {
-        var qs = readCustomEditor(ov.querySelector('#lv-customwrap'));
-        if (!qs.length) { toast(t('lv_no_custom', 'Aggiungi almeno una domanda.'), 'error'); return; }
-        LT._scope = '';   // 010: domande personalizzate = intera mappa
-        launch(cls, 'Domande', qs, parseInt(ov.querySelector('#lv-timer2') && ov.querySelector('#lv-timer2').value || '0', 10) || 0);
-        return;
-      }
-      var scope = ov.querySelector('#lv-scope').value;
-      var qty = Math.max(1, Math.min(parseInt(ov.querySelector('#lv-qty').value, 10) || 8, LC.LIMITS.questionsMax));
-      var timer = Math.max(0, parseInt(ov.querySelector('#lv-timer').value, 10) || 0);
-      var angle = (ov.querySelector('#lv-angle') && ov.querySelector('#lv-angle').value) || 'auto';
-      generateAndLaunch(cls, mode, scope, qty, timer, { clozeAnswer: clozeAnswer, angle: angle });
-    };
   }
 
-  // ── Avvia LIVE riusando un set GIÀ generato (dal tab Studio, via QR) ────────
-  // Bypassa angolo/scope/quantità (le domande esistono già): il docente sceglie solo
-  // classe e timer. Il tipo (V/F o Scelta multipla) è preselezionato dal set. Zero AI.
+
   function openLiveFromSet(set) {
     if (!set || !Array.isArray(set.items) || !set.items.length) { toast(t('lv_set_empty', 'Questo set non ha domande.'), 'error'); return; }
     var mode = /ver|v\/f|\btf\b|true|fals/i.test(String(set.type || set.quizType || '')) ? 'tf' : 'mc';
@@ -257,17 +217,6 @@
   }
 
   // Nodi in scope con contenuto sufficiente
-  function scopedNodes(scope) {
-    var nodes = S().db.nodes || [];
-    var pool;
-    if (scope === 'all') pool = nodes.filter(function (n) { return n.level !== 0; });
-    else {
-      var ids = window.getDescendantIds ? window.getDescendantIds(scope) : [scope];
-      var set = {}; ids.forEach(function (id) { set[id] = 1; });
-      pool = nodes.filter(function (n) { return set[n.id] && n.level !== 0; });
-    }
-    return pool.filter(function (n) { return ((n.desc || n.content || '').trim()).length >= 40; });
-  }
 
   function attachL1(questions) {
     var l1 = LC.buildL1Resolver(S().db.nodes || [], S().db.links || []);
@@ -284,71 +233,8 @@
   // avviene lato SERVER (live-core, senza window/causal-core) → precalcolo QUI la
   // lista `accept` degli equivalenti e la attacco al blank; resta lato server
   // (publicQuestions non la copia), come il termine-soluzione.
-  function generateCloze(nodes, qty, choiceMode) {
-    var CC = window.MappAIClozeCore;
-    if (!CC) return [];
-    var CZC = window.MappAICausalCore; // per connEquivalents (equivalenti del gruppo)
-    var labels = (S().db.nodes || []).map(function (n) { return { id: n.id, label: window.cleanLabel ? window.cleanLabel(n.label) : n.label }; })
-      .filter(function (x) { return x.label && x.label.length >= 4; });
-    // Seed di somministrazione → buchi diversi tra sessioni (ma stabili entro la sessione)
-    var seed = (window.quizNonce ? window.quizNonce() : String(Date.now()));
-    var out = [];
-    var seenBlanks = {};   // dedup: due nodi che oscurano gli STESSI termini → 1 volta
-    nodes.forEach(function (n) {
-      if (out.length >= qty) return;
-      var desc = (n.desc || n.content || '').trim();
-      var others = labels.filter(function (x) { return x.id !== n.id; }).map(function (x) { return x.label; });
-      var cz = CC.makeCloze(desc, others, { max: 3, seed: seed + ':' + n.id, connectives: true, choices: !!choiceMode });
-      // Gate: almeno UN buco-concetto (in modalità scelta i buchi senza 2 distrattori
-      // sono già stati scartati dal core → conta i concetti rimasti).
-      if ((cz.blanks.length - (cz.connCount || 0)) < 1) return;
-      var sig = cz.blanks.map(function (b) { return CC.normalize(b); }).sort().join('|');
-      if (seenBlanks[sig]) return;   // stesso set di buchi già presente → doppione
-      seenBlanks[sig] = 1;
-      var segments = cz.segments.map(function (s) {
-        if (s.text != null) return { text: s.text };
-        var seg;
-        if (s.isConn) {
-          // in modalità scelta i sinonimi non servono (opzioni fisse) → niente accept
-          seg = choiceMode ? { blank: s.blank, conn: true } : { blank: s.blank, conn: true, accept: (CZC && CZC.connEquivalents) ? CZC.connEquivalents(s.blank) : [] };
-        } else {
-          seg = { blank: s.blank };
-        }
-        if (s.choices) seg.choices = s.choices;
-        return seg;
-      });
-      out.push({ kind: 'cloze', text: '', segments: segments, choice: !!choiceMode, nodeId: n.id, nodeLabel: window.cleanLabel ? window.cleanLabel(n.label) : n.label, source: 'map' });
-    });
-    return out;
-  }
 
   // MC / V/F: genera con MappAIGames.genQuizForNode (ancorato al contenuto)
-  function generateQuizAI(nodes, qty, asTF) {
-    if (!window.MappAIGames || !window.MappAIGames.genQuizForNode) return Promise.resolve([]);
-    var out = [];
-    var shuffled = nodes.slice();
-    // un item per nodo finché non raggiungiamo qty
-    var idx = 0;
-    function step() {
-      if (out.length >= qty || idx >= shuffled.length) return Promise.resolve();
-      var n = shuffled[idx++];
-      return window.MappAIGames.genQuizForNode(n).then(function (items) {
-        if (Array.isArray(items) && items.length) {
-          var mc = LC.mcFromItem(items[0]);
-          if (mc) {
-            mc.nodeId = n.id; mc.nodeLabel = window.cleanLabel ? window.cleanLabel(n.label) : n.label; mc.source = 'map';
-            if (asTF) {
-              var tf = LC.tfFromMc(mc, (out.length % 2) ? 0.9 : 0.1);
-              tf.nodeId = mc.nodeId; tf.nodeLabel = mc.nodeLabel; tf.source = 'map';
-              out.push(tf);
-            } else out.push(mc);
-          }
-        }
-        return step();
-      }).catch(function () { return step(); });
-    }
-    return step().then(function () { return out; });
-  }
 
   // MC / V/F con la STESSA qualità del quiz in-app (DYNAMIC_QUIZ per-nodo):
   // domande vere con opzioni + V/F nativo, ancorate al contenuto del nodo.
@@ -379,159 +265,15 @@
     return { kind: 'mc', text: q, options: sh.options, correct: sh.correct, explanation: it.explanation ? String(it.explanation) : undefined, nodeId: node.id, nodeLabel: clean(node.label), source: 'map' };
   }
 
-  function generateQuizViaStudy(nodes, qty, mode, angle) {
-    if (!window.generateDynamicQuiz) return Promise.resolve([]);
-    var apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    var qt = (mode === 'tf')
-      ? 'Vero o Falso — ogni domanda è un\'AFFERMAZIONE da valutare; il campo "correct" vale "Vero" oppure "Falso"'
-      : 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta';
-    var perNode = qty <= nodes.length ? 1 : Math.ceil(qty / nodes.length);
-    var out = [], idx = 0;
-    function step() {
-      if (out.length >= qty || idx >= nodes.length) return Promise.resolve();
-      var n = nodes[idx++];
-      var material = clean(n.label) + ': ' + (n.desc || n.content || '');
-      return window.generateDynamicQuiz({ nodeLabel: clean(n.label), material: material, quizType: qt, quantity: perNode, angle: angle || 'auto', apiKey: apiKey, usageCat: 'live', usageSub: 'quiz' })
-        .then(function (items) {
-          for (var k = 0; k < items.length && out.length < qty; k++) {
-            var lq = dynItemToLive(items[k], n, mode);
-            if (lq) out.push(lq);
-          }
-          return step();
-        }).catch(function () { return step(); });
-    }
-    return step().then(function () { return out; });
-  }
 
   // 010: etichetta leggibile del ramo coperto ('' = tutta la mappa) → session.json.
-  function scopeLabelFor(scope) {
-    if (!scope || scope === 'all') return '';
-    var n = (S().db.nodes || []).find(function (x) { return x.id === scope; });
-    if (!n) return '';
-    return (window.cleanLabel ? window.cleanLabel(n.label) : n.label) || '';
-  }
 
-  function generateAndLaunch(cls, mode, scope, qty, timer, extra) {
-    LT._scope = scopeLabelFor(scope);   // 010: coperto dal report registro
-    var nodes = scopedNodes(scope);
-    if (!nodes.length) { toast(t('lv_no_nodes', 'Nessun nodo con abbastanza testo in questa selezione.'), 'error'); return; }
-    if (mode === 'cloze') {
-      var choiceMode = !extra || extra.clozeAnswer !== 'type';   // default: a scelta
-      var cz = attachL1(generateCloze(nodes, qty, choiceMode));
-      if (!cz.length) { toast(t('lv_no_cloze', 'Nessuna descrizione con concetti collegati da oscurare.'), 'error'); return; }
-      // Avviso se lo scope (spesso un ramo piccolo) rende meno domande del richiesto:
-      // il cloze è deterministico e i doppioni vengono scartati (issue 2/5).
-      if (cz.length < qty) {
-        toast(t('lv_few_cloze', 'Solo {n} domande cloze disponibili per questa selezione (poche descrizioni o concetti ripetuti). Allarga lo scope per averne di più.')
-          .replace('{n}', cz.length), 'info');
-      }
-      launch(cls, 'Cloze', cz, timer); return;
-    }
-    // mc / tf → AI
-    var key = null; try { key = window.getSystemKey ? window.getSystemKey() : null; } catch (e) {}
-    if (!key) { toast(t('lv_need_key', 'Serve una API key per generare i quiz. Impostala in Config AI.'), 'error'); return; }
-    showBusy(t('lv_generating', 'Genero le domande dai contenuti…'));
-    // Stesso motore del quiz in-app (DYNAMIC_QUIZ); fallback al generatore
-    // "completamento" solo se il primo non produce nulla.
-    generateQuizViaStudy(nodes, qty, mode, extra && extra.angle).then(function (qs) {
-      if (qs && qs.length) return qs;
-      return generateQuizAI(nodes, qty, mode === 'tf');
-    }).then(function (qs) {
-      hideBusy();
-      qs = attachL1(qs);
-      if (!qs.length) { toast(t('lv_gen_failed', 'Non sono riuscito a generare domande. Riprova o usa il Cloze.'), 'error'); return; }
-      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer);
-    }).catch(function () { hideBusy(); toast(t('lv_gen_failed', 'Generazione fallita. Riprova o usa il Cloze.'), 'error'); });
-  }
 
-  function showBusy(msg) {
-    if (window.showLoadingOverlay) { window.showLoadingOverlay(true, msg); return; }
-    var d = document.createElement('div'); d.id = 'lv-busy';
-    d.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px';
-    d.textContent = msg; document.body.appendChild(d);
-  }
-  function hideBusy() {
-    if (window.showLoadingOverlay) { window.showLoadingOverlay(false); return; }
-    var d = document.getElementById('lv-busy'); if (d) d.remove();
-  }
 
   // ── Editor domande personalizzate ─────────────────────────────────────────
-  function buildCustomEditor(wrap) {
-    wrap.innerHTML = '<div id="lv-crows"></div>' +
-      '<button type="button" id="lv-cadd" style="background:#eef2ff;color:#4f46e5;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px;margin-top:8px">+ ' + t('lv_add_q', 'Aggiungi domanda') + '</button>' +
-      '<div style="display:flex;gap:12px;margin-top:12px"><div style="flex:1"><span style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span>' +
-      '<input id="lv-timer2" type="number" value="0" min="0" inputmode="numeric" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit"></div></div>';
-    wrap.querySelector('#lv-cadd').onclick = function () { addCustomRow(wrap.querySelector('#lv-crows')); };
-    addCustomRow(wrap.querySelector('#lv-crows'));
-  }
 
-  function addCustomRow(rows) {
-    var i = rows.children.length;
-    var div = document.createElement('div');
-    div.className = 'lv-crow';
-    div.style.cssText = 'background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:8px';
-    div.innerHTML =
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">' +
-      '<select class="lv-ctype" style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font:inherit">' +
-      '<option value="tf">' + t('lv_m_tf', 'Vero / Falso') + '</option>' +
-      '<option value="mc">' + t('lv_m_mc', 'Scelta multipla') + '</option>' +
-      '<option value="open">' + t('lv_m_open', 'Aperta') + '</option></select>' +
-      '<span style="flex:1"></span>' +
-      '<button type="button" class="lv-cdel" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700;font-size:11px">×</button></div>' +
-      '<input class="lv-ctext" placeholder="' + t('lv_q_text', 'Testo della domanda') + '" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font:inherit;margin-bottom:8px">' +
-      '<div class="lv-cbody"></div>';
-    rows.appendChild(div);
-    var typeSel = div.querySelector('.lv-ctype');
-    var bodyEl = div.querySelector('.lv-cbody');
-    function renderBody() { renderCustomBody(bodyEl, typeSel.value); }
-    typeSel.onchange = renderBody;
-    div.querySelector('.lv-cdel').onclick = function () { div.remove(); };
-    renderBody();
-  }
 
-  function renderCustomBody(bodyEl, type) {
-    if (type === 'tf') {
-      bodyEl.innerHTML = '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px">' + t('lv_tf_hint', 'La domanda è l\'affermazione. Indica se è vera o falsa:') + '</div>' +
-        '<div style="display:flex;gap:8px"><label style="flex:1;display:flex;align-items:center;gap:6px;font-weight:700;color:#166534"><input type="radio" name="tf-' + Math.random().toString(36).slice(2, 6) + '" class="lv-tfval" value="true" checked> ' + t('lv_true', 'Vera') + '</label>' +
-        '<label style="flex:1;display:flex;align-items:center;gap:6px;font-weight:700;color:#991b1b"><input type="radio" class="lv-tfval" value="false"> ' + t('lv_false', 'Falsa') + '</label></div>';
-      // radio group name coerente
-      var nm = 'tf-' + Math.random().toString(36).slice(2, 8);
-      bodyEl.querySelectorAll('.lv-tfval').forEach(function (r) { r.name = nm; });
-    } else if (type === 'mc') {
-      bodyEl.innerHTML = '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px">' + t('lv_mc_hint', 'Scrivi le opzioni; segna quella giusta:') + '</div>' +
-        [0, 1, 2, 3].map(function (k) {
-          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="radio" class="lv-mccorrect" value="' + k + '"' + (k === 0 ? ' checked' : '') + '>' +
-            '<input class="lv-mcopt" data-k="' + k + '" placeholder="' + t('lv_option', 'Opzione') + ' ' + (k + 1) + (k >= 2 ? ' (' + t('lv_optional', 'facoltativa') + ')' : '') + '" style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:7px 9px;font:inherit"></div>';
-        }).join('');
-      var nm2 = 'mc-' + Math.random().toString(36).slice(2, 8);
-      bodyEl.querySelectorAll('.lv-mccorrect').forEach(function (r) { r.name = nm2; });
-    } else {
-      bodyEl.innerHTML = '<input class="lv-openans" placeholder="' + t('lv_open_ans', 'Risposta attesa (facoltativa: se vuota, correggi a mano)') + '" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font:inherit">';
-    }
-  }
 
-  function readCustomEditor(wrap) {
-    var out = [];
-    wrap.querySelectorAll('.lv-crow').forEach(function (row) {
-      var type = row.querySelector('.lv-ctype').value;
-      var text = (row.querySelector('.lv-ctext').value || '').trim();
-      if (!text) return;
-      if (type === 'tf') {
-        var val = row.querySelector('.lv-tfval:checked');
-        out.push({ kind: 'tf', text: text, proposed: text, statementTrue: !val || val.value === 'true', nodeId: null, source: 'custom' });
-      } else if (type === 'mc') {
-        var opts = []; row.querySelectorAll('.lv-mcopt').forEach(function (inp) { var v = (inp.value || '').trim(); if (v) opts.push(v); });
-        if (opts.length < 2) return;
-        var c = row.querySelector('.lv-mccorrect:checked');
-        var correct = c ? Math.min(parseInt(c.value, 10), opts.length - 1) : 0;
-        out.push({ kind: 'mc', text: text, options: opts, correct: correct, nodeId: null, source: 'custom' });
-      } else {
-        var ans = (row.querySelector('.lv-openans').value || '').trim();
-        out.push({ kind: 'open', text: text, answerText: ans || null, nodeId: null, source: 'custom' });
-      }
-    });
-    return out;
-  }
 
   // ── Avvio sessione ────────────────────────────────────────────────────────
   function launch(cls, activity, questions, timer, extra) {

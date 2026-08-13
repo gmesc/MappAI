@@ -175,11 +175,15 @@
             apri: function () { _vaiAlGeneratore(); }
         },
         {
-            id: 'quiz', da: 'ai', icona: 'list-checks',
+            /* 13/8: non è più un ponte verso l'hub dei materiali. Il percorso
+               (tipo → a mano o con l'AI → parametri) vive in
+               `mappai-crea-quiz.js`; il motore resta quello della pipeline. */
+            id: 'quiz', da: 'misto', icona: 'list-checks',
             et: function () { return t('ec_quiz', 'Quiz o flashcard'); },
-            desc: function () { return t('ec_quiz_d', 'Domande e carte da studio. Le genera l\'AI dalla mappa; qui si correggono prima di stamparle.'); },
-            puo: function () { return true; },
-            apri: function () { _vaiAlGeneratore(); }
+            desc: function () { return t('ec_quiz_d2', 'Scelta multipla, Vero/Falso, domande aperte o flashcard: le scrivi tu o le genera l\'AI.'); },
+            puo: function () { return !!window.MappAICreaQuiz; },
+            perche: function () { return t('ec_quiz_no', 'Il percorso «crea un quiz» non è caricato.'); },
+            apri: function () { window.MappAICreaQuiz.apri(); }
         }
     ];
     /* I documenti che nascono dall'AI non si creano da qui: il loro motore vive
@@ -1694,7 +1698,9 @@
             return {
                 id: 'tipo:' + tp.id, icona: tp.icona,
                 etichetta: tp.et(), sotto: seconda,
-                badge: tp.da === 'ai' ? t('ec_da_ai', 'con l\'AI') : t('ec_da_mappa', 'dalla mappa'),
+                badge: tp.da === 'ai' ? t('ec_da_ai', 'con l\'AI')
+                    : tp.da === 'misto' ? t('ec_da_misto', 'tu o l\'AI')
+                    : t('ec_da_mappa', 'dalla mappa'),
             };
         });
         MM().open({
@@ -1706,7 +1712,7 @@
             if (!tp) return;
             var puo = true; try { puo = tp.puo(); } catch (e) { puo = false; }
             if (!puo) { toast(tp.perche ? tp.perche() : t('ec_no', 'Non disponibile.'), 'warning'); return; }
-            if (tp.da === 'ai') { tp.apri(); return; }        /* esce: il motore vive altrove */
+            if (tp.da === 'ai' || tp.da === 'misto') { tp.apri(); return; }   /* il percorso continua altrove */
             _voce = (tp.id === 'nodesheet') ? 'ns' : 'cc';
             if (poi) poi();
             try { tp.apri(); } catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
