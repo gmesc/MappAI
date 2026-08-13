@@ -335,6 +335,13 @@
         },
 
         /* ── D1 · INSEGNA · mappa scelta ──────────────────────────────────────
+           ⚠️ PUNTO FERMO (Giacomo, 13/8): questa vista resta com'è — la riga dei
+           QUATTRO comandi e le tabelle dei materiali IMPILATE. Non si torna alle
+           due colonne, non si aggiungono righe: se serve una superficie nuova
+           (per esempio i file condivisi), si trova un altro posto.
+           ⚠️ E non confondere questo `d1-mappa` col gruppo D del mockup, ritirato
+           il 13/8: quello era la console che avrebbe sostituito il menu radiale.
+           Questa è viva e cablata (`openConsoleInsegna`).
            È la schermata finale del percorso INSEGNA (il campo `console` dice
            «Mappa» perché è la mappa scelta, ma la sezione è Insegna). La sidebar
            È la lista delle MAPPE filtrate dal chip; l'area è un bento a due
@@ -385,10 +392,14 @@
                     layout: { colonneVoci: 4 }
                 },
                 /* riga 2 · i materiali della mappa per genere: tabelle
-                   collassabili su due colonne, ognuna con anteprima di cinque
-                   righe e scorrimento oltre. Lo stesso elenco che `_consSchema`
-                   già produce nell'app (`_consTabelleMateriali`), impaginato a
-                   bento. La forma `materiali` è il «nuovo tipo di box». */
+                   collassabili IMPILATE IN UNA COLONNA, ognuna con anteprima di
+                   cinque righe e scorrimento oltre. Lo stesso elenco che
+                   `_consSchema` già produce nell'app (`_consTabelleMateriali`),
+                   impaginato a bento. La forma `materiali` è il «nuovo tipo di box».
+                   ⚠️ Erano affiancate su due colonne (6/8) e il commento lo disse
+                   ancora per due giorni dopo il cambio: una colonna dall'11/8,
+                   perché a metà larghezza il NOME del file — in INSEGNA
+                   l'informazione principale — si troncava troppo presto. */
                 {
                     id: 'mappa-materiali', titolo: '', icona: '', span: 4, nuda: true,
                     voci: [

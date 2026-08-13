@@ -2437,9 +2437,13 @@
   }
 
   /* La vista «mappa scelta» a BENTO (flag mappai_console_bento_app): il D1
-     dell'officina in produzione. Riga 1 = 4 comandi (forma `azione`), riga 2 =
-     box `materiali` (le stesse `tabelle` del motore, a due colonne). Il motore
-     disegna da `s.bento`; il CONTENUTO dei materiali resta `s.tabelle`. */
+     dell'officina in produzione. Riga 1 = i comandi (forma `azione`), riga 2 =
+     box `materiali` (le stesse `tabelle` del motore, IMPILATE in una colonna:
+     a metà larghezza il nome del file si troncava). Il motore disegna da
+     `s.bento`; il CONTENUTO dei materiali resta `s.tabelle`.
+     ⚠️ PUNTO FERMO (Giacomo, 13/8): questa forma resta. I comandi sono QUATTRO
+     — Mappa · Elabora · QR · Cartella — e diventano tre sui Knowledge Graph,
+     dove «Elabora» non ha un bersaglio. Le tabelle non tornano su due colonne. */
   function _consBentoMappa(s, p) {
     var soloKg = p.type === 'kg';
     var gen = soloKg ? 'network' : 'git-merge';   /* icona del genere, come la sidebar */

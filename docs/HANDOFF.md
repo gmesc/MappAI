@@ -29,7 +29,7 @@
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # 0c22738 in testa
+git log --oneline -5                              # b1a9636 o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
 node --test tests/                                # atteso: 0 fail
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
@@ -115,6 +115,15 @@ Senza un progetto scelto l'area resta vuota: il gesto è nella colonna.
 colonna delle mappe **dal disco** (`getAllVaults`, che è la fonte di verità: una mappa
 senza progetto in localStorage compare lo stesso) → materiali in **elenchi per genere** →
 documento nella tela con la barra (stampa · scarica · cartella).
+
+⚠️ **PUNTO FERMO (Giacomo, 13/8): la vista «mappa scelta» resta com'è.** Una riga di
+**quattro comandi** — Mappa · Elabora · QR · Cartella, che diventano tre sui Knowledge
+Graph, dove «Elabora» non ha un bersaglio — e sotto le tabelle dei materiali **impilate in
+una colonna**. Le due colonne del 6/8 sono state abbandonate l'11/8 perché a metà
+larghezza il NOME del file, che qui è l'informazione principale, si troncava troppo
+presto. Se serve una superficie nuova, si trova un altro posto: non si aggiungono righe
+qui.
+
 Uscendo verso una mappa si lascia un **segnalibro** in `sessionStorage`
 (`mappai_teach_console_back`) che `init()` consuma una volta sola: HOME fa
 `location.reload()`, quindi niente sopravvive tranne lo storage.
@@ -175,8 +184,9 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
 6. **«File condivisi» è un buco funzionale, non codice morto**: condividere un file
    funziona, ma `renderSharedMat` scrive in `#teach-sharedmat-body`, che nel markup non
    esiste più. I file restano condivisi e **non si possono né vedere né togliere**. Girano
-   a vuoto ~110 righe, cinque export e un listener. Va deciso: rifare la vista in INSEGNA,
-   o pensionare la funzione.
+   a vuoto ~110 righe, cinque export e un listener. Va deciso — e la vista «mappa scelta»
+   di INSEGNA **non è il posto** (punto fermo del 13/8): o le si trova un'altra casa, o si
+   pensiona la funzione.
 7. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
 8. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
